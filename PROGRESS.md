@@ -283,7 +283,7 @@
 - [x] next build: 94 routes, all successful
 
 ## Phase 4.2: Security Fixes (HIGH Priority) ✅
-**Status:** Complete | **Commit:** (pending)
+**Status:** Complete | **Commit:** `214d2a6`
 
 ### H1: Fix IDOR — Scope portal queries by client_id
 - [x] All portal endpoints now use `client_id` FK instead of `client_company` string
