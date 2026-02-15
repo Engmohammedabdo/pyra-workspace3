@@ -54,7 +54,39 @@
 - [x] 6 placeholder pages: projects, files, quotes, notifications, profile, portal home
 - [x] Build verification: 0 TS errors, 70 routes
 
-## Phase 4: Client Portal Features ⏳
+## Phase 3.1: Security Fixes ✅
+**Status:** Complete | **Commit:** `06cc635`
+
+- [x] Removed console.log leaking reset tokens
+- [x] nanoid(4) → nanoid(32) for token generation
+- [x] Rate limiting: login (5/IP/15min), forgot-password (3/email/hr), reset-password (5/IP/15min)
+- [x] Arabic locale for formatDate() and formatRelativeDate()
+
+## Phase 4: Client Portal Features ✅
+**Status:** Complete | **Commit:** `pending`
+
+### Portal API Endpoints (11 new routes)
+- [x] GET /api/portal/dashboard — Client dashboard stats + recent data
+- [x] GET /api/portal/projects — List client's projects (filter, search)
+- [x] GET /api/portal/projects/[id] — Project detail + files + comments
+- [x] POST /api/portal/projects/[id]/comments — Create project comment
+- [x] POST /api/portal/files/[id]/approve — Approve a file
+- [x] POST /api/portal/files/[id]/revision — Request revision on file
+- [x] GET /api/portal/files/[id]/download — Download file via signed URL
+- [x] GET /api/portal/notifications — List notifications (+ PATCH mark all read)
+- [x] PATCH /api/portal/notifications/[id] — Mark single notification read
+- [x] GET /api/portal/profile — Get client profile (+ PATCH update)
+- [x] POST /api/portal/profile/password — Change password
+
+### Portal Pages (7 pages)
+- [x] /portal — Dashboard: welcome card, stats grid, recent projects, recent notifications
+- [x] /portal/projects — Project list with filter tabs (all/active/review/completed), search
+- [x] /portal/projects/[id] — Project detail with files tab + comments tab
+- [x] /portal/files — All files across projects with approval workflow (approve/revision/download)
+- [x] /portal/notifications — Notification list with read/unread filters, mark all read
+- [x] /portal/profile — Personal info editor + password change form
+- [x] /portal/quotes — Updated placeholder (Phase 6)
+- [x] Build verification: 0 TS errors, 81 routes
 ## Phase 5: Admin Dashboard Pages ⏳
 ## Phase 6: Quotes & Contracts ⏳
 ## Phase 7: Realtime & Notifications ⏳

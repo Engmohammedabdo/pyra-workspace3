@@ -1,4 +1,10 @@
-import { Card, CardContent } from '@/components/ui/card';
+'use client';
+
+import {
+  Card,
+  CardContent,
+} from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
 
 export default function PortalQuotesPage() {
@@ -11,16 +17,22 @@ export default function PortalQuotesPage() {
         </p>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-          <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
-            <FileText className="h-7 w-7 text-orange-500" />
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-5">
+            <FileText className="h-8 w-8 text-orange-500" />
           </div>
-          <h2 className="text-lg font-semibold mb-2">عروض الأسعار</h2>
-          <p className="text-muted-foreground text-sm max-w-md">
+          <h2 className="text-xl font-semibold mb-3">عروض الأسعار</h2>
+          <p className="text-muted-foreground text-sm max-w-md leading-relaxed mb-4">
             قريباً — ستتمكن من استعراض عروض الأسعار والموافقة عليها وتوقيعها
-            إلكترونياً من هنا.
+            إلكترونياً
           </p>
+          <Badge
+            variant="secondary"
+            className="text-xs px-3 py-1 bg-orange-500/10 text-orange-600 border-orange-500/20"
+          >
+            Phase 6
+          </Badge>
         </CardContent>
       </Card>
     </div>
