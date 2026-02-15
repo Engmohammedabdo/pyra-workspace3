@@ -32,6 +32,7 @@
 - **Trash** — Soft delete with restore and permanent delete
 - **Activity Log** — Filtered audit log of all system actions
 - **Settings** — System-wide configuration management
+- **Quotes** — Full quote builder with PDF generation, client auto-fill, service items, VAT calculation
 
 ### Client Portal (`/portal`)
 - **Separate Auth System** — Cookie-based sessions using `pyra_clients` table (not Supabase Auth)
@@ -40,7 +41,7 @@
 - **Dashboard** — Welcome card, stats grid, recent projects, recent notifications
 - **Projects** — View assigned projects with filter tabs, file approval workflow, comments
 - **Files** — Browse shared files with approve/revision/download actions
-- **Quotes** — View quotations *(Phase 6)*
+- **Quotes** — View quotes, electronic signature with canvas pad
 - **Notifications** — Client-specific notifications with read/unread filters
 - **Profile** — Manage client profile + password change
 
@@ -134,7 +135,7 @@ NEXT_STANDALONE=false
 
 ## API Overview
 
-**82 routes** across 15 resource groups. All responses follow a consistent format:
+**94 routes** across 17 resource groups. All responses follow a consistent format:
 
 ```json
 {
@@ -160,7 +161,9 @@ NEXT_STANDALONE=false
 | Activity | 1 | Admin (Supabase) |
 | Dashboard | 1 | Admin (Supabase) |
 | Settings | 1 | Admin (Supabase) |
+| Quotes | 4 | Admin (Supabase) |
 | Portal Auth | 5 | Client (Cookie) |
+| Portal Quotes | 3 | Client (Cookie) |
 
 ## Deployment
 
@@ -184,7 +187,7 @@ See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
 | 3. Client Portal Login | ✅ Complete |
 | 4. Client Portal Features | ✅ Complete |
 | 5. Admin Dashboard Pages | ✅ Complete |
-| 6. Quotes & Contracts | ⏳ Pending |
+| 6. Quotes & Contracts | ✅ Complete |
 | 7. Realtime & Notifications | ⏳ Pending |
 | 8. Advanced File Features | ⏳ Pending |
 | 9. Docker & Deployment | ⏳ Pending |

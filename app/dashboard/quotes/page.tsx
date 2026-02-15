@@ -1,14 +1,21 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { FileText, Search } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { FileText, Search, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 
@@ -36,22 +43,24 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 };
 
 export default function QuotesPage() {
+  const router = useRouter();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [showDelete, setShowDelete] = useState(false);
+  const [selected, setSelected] = useState<Quote | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
     try {
-      // Quotes API may not exist yet, so handle gracefully
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
       if (search) params.set('search', search);
-      const res = await fetch(`/api/shares?${params}`);
-      // fallback: try to list from pyra_quotes if API exists
-      // For now, we'll show an empty state since quotes CRUD will come in Phase 6
-      setQuotes([]);
+      const res = await fetch(`/api/quotes?${params}`);
+      const json = await res.json();
+      if (json.data) setQuotes(json.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -61,6 +70,37 @@ export default function QuotesPage() {
 
   useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
 
+  const handleDuplicate = async (id: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${id}/duplicate`, { method: 'POST' });
+      const json = await res.json();
+      if (json.error) { alert(json.error); return; }
+      fetchQuotes();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleSend = async (id: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${id}/send`, { method: 'POST' });
+      const json = await res.json();
+      if (json.error) { alert(json.error); return; }
+      fetchQuotes();
+    } catch (err) { console.error(err); }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/quotes/${selected.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (json.error) { alert(json.error); return; }
+      setShowDelete(false);
+      setSelected(null);
+      fetchQuotes();
+    } catch (err) { console.error(err); } finally { setDeleting(false); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -68,15 +108,15 @@ export default function QuotesPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" /> عروض الأسعار</h1>
           <p className="text-muted-foreground">إدارة عروض الأسعار والفواتير</p>
         </div>
-        <Button disabled>
-          إنشاء عرض سعر (المرحلة 6)
+        <Button onClick={() => router.push('/dashboard/quotes/new')} className="bg-orange-500 hover:bg-orange-600">
+          <Plus className="h-4 w-4 me-2" /> إنشاء عرض سعر
         </Button>
       </div>
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
+          <Input placeholder="بحث بالرقم أو العميل..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
@@ -104,29 +144,55 @@ export default function QuotesPage() {
                   <th className="text-start p-3 font-medium">المبلغ</th>
                   <th className="text-start p-3 font-medium">الحالة</th>
                   <th className="text-start p-3 font-medium">التاريخ</th>
+                  <th className="text-start p-3 font-medium w-[60px]" />
                 </tr>
               </thead>
               <tbody>
                 {loading ? Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 6 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
+                  <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
                 )) : quotes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-12 text-center text-muted-foreground">
+                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
                       <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                       <p>لا توجد عروض أسعار</p>
-                      <p className="text-xs mt-1">سيتم إضافة نظام عروض الأسعار الكامل في المرحلة 6</p>
+                      <p className="text-xs mt-1">أنشئ عرض سعر جديد للبدء</p>
                     </td>
                   </tr>
                 ) : quotes.map(q => {
                   const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
                   return (
-                    <tr key={q.id} className="border-b hover:bg-muted/30 transition-colors">
+                    <tr key={q.id} className="border-b hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
                       <td className="p-3 font-mono">{q.quote_number}</td>
                       <td className="p-3">{q.client_name || q.client_company || '—'}</td>
                       <td className="p-3 text-muted-foreground">{q.project_name || '—'}</td>
                       <td className="p-3 font-mono">{formatCurrency(q.total, q.currency)}</td>
                       <td className="p-3"><Badge variant={s.variant}>{s.label}</Badge></td>
                       <td className="p-3 text-muted-foreground text-xs">{formatDate(q.estimate_date)}</td>
+                      <td className="p-3" onClick={e => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
+                              <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
+                              <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
+                            </DropdownMenuItem>
+                            {q.status === 'draft' && (
+                              <DropdownMenuItem onClick={() => handleSend(q.id)}>
+                                <Send className="h-3.5 w-3.5 me-2" /> إرسال
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
+                              <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                     </tr>
                   );
                 })}
@@ -135,6 +201,21 @@ export default function QuotesPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showDelete} onOpenChange={setShowDelete}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader><DialogTitle>حذف عرض السعر</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground py-4">
+            هل أنت متأكد من حذف عرض السعر <strong>{selected?.quote_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? 'جارٍ الحذف...' : 'حذف'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -137,7 +137,52 @@
 - [x] 0 TypeScript errors (tsc --noEmit)
 - [x] next build: 82 routes, all successful
 
-## Phase 6: Quotes & Contracts ⏳
+## Phase 6: Quotes & Contracts ✅
+**Status:** Complete | **Commit:** `f75c915`
+
+### Admin Quotes API (4 route files, 8 endpoints)
+- [x] GET /api/quotes — List quotes with status filter, search, pagination
+- [x] POST /api/quotes — Create quote with items, auto-generate quote number (QT-XXXX)
+- [x] GET /api/quotes/[id] — Get quote detail with items
+- [x] PATCH /api/quotes/[id] — Update quote fields and items (recalculates totals)
+- [x] DELETE /api/quotes/[id] — Delete quote (cascade deletes items)
+- [x] POST /api/quotes/[id]/duplicate — Duplicate quote with new number, reset to draft
+- [x] POST /api/quotes/[id]/send — Mark as sent, create client notification
+
+### Portal Quotes API (3 route files, 3 endpoints)
+- [x] GET /api/portal/quotes — List client's quotes (non-draft only)
+- [x] GET /api/portal/quotes/[id] — Quote detail, auto-marks as 'viewed' on first access
+- [x] POST /api/portal/quotes/[id]/sign — Sign quote with signature canvas data
+
+### Admin Pages (3 pages)
+- [x] /dashboard/quotes — Full list with status filter, search, dropdown actions (edit, duplicate, send, delete)
+- [x] /dashboard/quotes/new — QuoteBuilder component for creating new quotes
+- [x] /dashboard/quotes/[id] — QuoteBuilder component for editing existing quotes
+
+### Portal Page (1 page, fully functional)
+- [x] /portal/quotes — Quote list + detail view + electronic signature (SignaturePad)
+
+### Components
+- [x] components/quotes/QuoteBuilder.tsx — Full quote builder with client select, service items table, auto-calculations, save/send/PDF toolbar
+- [x] components/quotes/SignaturePad.tsx — react-signature-canvas wrapper for electronic signatures
+
+### PDF Generation
+- [x] lib/pdf/generateQuotePdf.ts — jsPDF direct drawing engine (A4, branded layout, orange theme)
+
+### Business Logic
+- [x] Auto-generated quote numbers (QT-0001, QT-0002, ...) with configurable prefix from settings
+- [x] VAT rate from settings (default 5%), bank details from settings
+- [x] Client auto-fill on select (name, email, phone, company)
+- [x] Service items: dynamic rows, quantity × rate = amount, subtotal + VAT = total
+- [x] Status flow: draft → sent → viewed → signed
+- [x] Quote duplication with new number and draft status
+- [x] PDF download with branded layout (company header, services table, totals, bank details, terms, footer)
+- [x] Client portal: view quotes, auto-mark as viewed, sign with canvas signature
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 94 routes, all successful
+
 ## Phase 7: Realtime & Notifications ⏳
 ## Phase 8: Advanced File Features ⏳
 ## Phase 9: Docker & Deployment ⏳
