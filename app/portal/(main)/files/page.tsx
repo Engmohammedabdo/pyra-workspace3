@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -55,17 +55,11 @@ interface FileWithProject {
   added_at: string;
   project_id: string;
   project_name: string;
-  approval?: {
+  approval: {
     id: string;
     status: 'pending' | 'approved' | 'revision_requested';
     comment: string | null;
-  };
-}
-
-interface PortalProject {
-  id: string;
-  name: string;
-  files: FileWithProject[];
+  } | null;
 }
 
 // ---------- Helpers ----------
@@ -111,7 +105,7 @@ function getFileIcon(fileType: string) {
 // ---------- Component ----------
 
 export default function PortalFilesPage() {
-  const [projects, setProjects] = useState<PortalProject[]>([]);
+  const [files, setFiles] = useState<FileWithProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
@@ -126,55 +120,55 @@ export default function PortalFilesPage() {
   // Approve loading
   const [approveLoading, setApproveLoading] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchFiles() {
-      try {
-        const res = await fetch('/api/portal/projects');
-        const json = await res.json();
-        if (res.ok && json.data) {
-          setProjects(json.data);
-        }
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false);
+  const fetchFiles = useCallback(async () => {
+    try {
+      const res = await fetch('/api/portal/files');
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setFiles(json.data);
       }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
     }
-    fetchFiles();
   }, []);
 
-  // Flatten all files from all projects
-  const allFiles = useMemo(() => {
-    const files: FileWithProject[] = [];
-    for (const project of projects) {
-      if (project.files) {
-        for (const file of project.files) {
-          files.push({
-            ...file,
-            project_id: project.id,
-            project_name: project.name,
-          });
-        }
+  useEffect(() => {
+    fetchFiles();
+  }, [fetchFiles]);
+
+  // Unique projects for filter dropdown
+  const projects = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const f of files) {
+      if (!map.has(f.project_id)) {
+        map.set(f.project_id, f.project_name);
       }
     }
-    return files;
-  }, [projects]);
+    return Array.from(map, ([id, name]) => ({ id, name }));
+  }, [files]);
 
   // Filter files
   const filteredFiles = useMemo(() => {
-    let list = allFiles;
+    let list = files;
     if (projectFilter !== 'all') {
       list = list.filter((f) => f.project_id === projectFilter);
     }
     if (statusFilter !== 'all') {
-      list = list.filter((f) => f.approval?.status === statusFilter);
+      list = list.filter((f) => {
+        if (statusFilter === 'pending') {
+          return !f.approval || f.approval.status === 'pending';
+        }
+        return f.approval?.status === statusFilter;
+      });
     }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter((f) => f.file_name.toLowerCase().includes(q));
     }
     return list;
-  }, [allFiles, projectFilter, statusFilter, search]);
+  }, [files, projectFilter, statusFilter, search]);
 
   // ---------- Actions ----------
 
@@ -186,12 +180,7 @@ export default function PortalFilesPage() {
       });
       if (res.ok) {
         toast.success('تمت الموافقة على الملف بنجاح');
-        // Refresh data
-        const refreshRes = await fetch('/api/portal/projects');
-        const refreshJson = await refreshRes.json();
-        if (refreshRes.ok && refreshJson.data) {
-          setProjects(refreshJson.data);
-        }
+        await fetchFiles();
       } else {
         toast.error('حدث خطأ أثناء الموافقة على الملف');
       }
@@ -204,6 +193,10 @@ export default function PortalFilesPage() {
 
   async function handleRevisionSubmit() {
     if (!revisionFileId || !revisionComment.trim()) return;
+    if (revisionComment.trim().length > 5000) {
+      toast.error('التعليق طويل جداً (الحد الأقصى 5000 حرف)');
+      return;
+    }
     setRevisionLoading(true);
     try {
       const res = await fetch(`/api/portal/files/${revisionFileId}/revision`, {
@@ -216,12 +209,7 @@ export default function PortalFilesPage() {
         setRevisionDialogOpen(false);
         setRevisionComment('');
         setRevisionFileId(null);
-        // Refresh
-        const refreshRes = await fetch('/api/portal/projects');
-        const refreshJson = await refreshRes.json();
-        if (refreshRes.ok && refreshJson.data) {
-          setProjects(refreshJson.data);
-        }
+        await fetchFiles();
       } else {
         toast.error('حدث خطأ أثناء إرسال طلب التعديل');
       }
@@ -512,6 +500,7 @@ export default function PortalFilesPage() {
               value={revisionComment}
               onChange={(e) => setRevisionComment(e.target.value)}
               placeholder="اكتب ملاحظاتك هنا..."
+              maxLength={5000}
               className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               required
             />

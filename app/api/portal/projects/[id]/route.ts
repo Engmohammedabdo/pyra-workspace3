@@ -34,7 +34,7 @@ export async function GET(
     // ── Fetch the project ─────────────────────────────
     const { data: project, error: projectError } = await supabase
       .from('pyra_projects')
-      .select('*')
+      .select('id, name, description, status, client_company, team_id, updated_at, created_at')
       .eq('id', id)
       .single();
 
@@ -50,43 +50,41 @@ export async function GET(
     // ── Fetch project files ───────────────────────────
     const { data: projectFiles } = await supabase
       .from('pyra_project_files')
-      .select('*')
+      .select('id, project_id, file_name, file_type, file_size, file_path, added_at')
       .eq('project_id', id);
 
     // Get file details from pyra_file_index for each project file
     const filePaths = (projectFiles || []).map((f) => f.file_path);
-    let fileIndexData: Record<string, unknown>[] = [];
+    let fileIndexData: { file_path: string; [key: string]: unknown }[] = [];
     if (filePaths.length > 0) {
       const { data } = await supabase
         .from('pyra_file_index')
-        .select('*')
+        .select('file_path, file_name, file_type, file_size, mime_type')
         .in('file_path', filePaths);
-      fileIndexData = data || [];
+      fileIndexData = (data || []) as { file_path: string; [key: string]: unknown }[];
     }
 
     // Merge file index data into project files
     const filesWithDetails = (projectFiles || []).map((pf) => {
-      const fileInfo = fileIndexData.find(
-        (fi) => (fi as { file_path: string }).file_path === pf.file_path
-      );
+      const fileInfo = fileIndexData.find((fi) => fi.file_path === pf.file_path);
       return { ...pf, file_details: fileInfo || null };
     });
 
     // ── Fetch file approvals ──────────────────────────
     const fileIds = (projectFiles || []).map((f) => f.id);
-    let fileApprovals: Record<string, unknown>[] = [];
+    let fileApprovals: { id: string; file_id: string; status: string; comment: string | null; reviewed_by: string | null; reviewed_at: string | null }[] = [];
     if (fileIds.length > 0) {
       const { data } = await supabase
         .from('pyra_file_approvals')
-        .select('*')
+        .select('id, file_id, status, comment, reviewed_by, reviewed_at')
         .in('file_id', fileIds);
-      fileApprovals = data || [];
+      fileApprovals = (data || []) as typeof fileApprovals;
     }
 
     // ── Fetch comments ────────────────────────────────
     const { data: comments } = await supabase
       .from('pyra_client_comments')
-      .select('*')
+      .select('id, project_id, author_type, author_name, content, is_read_by_client, is_read_by_team, created_at')
       .eq('project_id', id)
       .order('created_at', { ascending: true });
 

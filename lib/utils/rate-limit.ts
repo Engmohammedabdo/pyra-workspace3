@@ -102,6 +102,12 @@ export const resetPasswordLimiter = createRateLimiter('portal-reset-password', {
   windowMs: 15 * 60 * 1000, // 15 minutes
 });
 
+/** Password change: max 5 attempts per client per 15 minutes */
+export const passwordChangeLimiter = createRateLimiter('portal-password-change', {
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.

@@ -51,6 +51,10 @@ export async function POST(
       return apiValidationError('نص التعليق مطلوب');
     }
 
+    if (text.trim().length > 5000) {
+      return apiValidationError('التعليق طويل جداً (الحد الأقصى 5000 حرف)');
+    }
+
     // ── Create the comment ────────────────────────────
     const commentId = generateId('cc');
     const { data: comment, error } = await supabase
@@ -66,7 +70,7 @@ export async function POST(
         is_read_by_client: true,
         is_read_by_team: false,
       })
-      .select()
+      .select('id, project_id, author_type, author_name, text, parent_id, is_read_by_client, is_read_by_team, created_at')
       .single();
 
     if (error) {

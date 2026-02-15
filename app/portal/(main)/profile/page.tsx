@@ -89,7 +89,6 @@ export default function PortalProfilePage() {
           name: name.trim(),
           email: email.trim(),
           phone: phone.trim() || null,
-          company: company.trim(),
         }),
       });
       if (res.ok) {
@@ -109,8 +108,12 @@ export default function PortalProfilePage() {
     e.preventDefault();
 
     // Validation
-    if (newPassword.length < 6) {
-      toast.error('كلمة المرور الجديدة يجب أن تكون 6 أحرف على الأقل');
+    if (newPassword.length < 8) {
+      toast.error('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل');
+      return;
+    }
+    if (newPassword.length > 128) {
+      toast.error('كلمة المرور الجديدة طويلة جداً (الحد الأقصى 128 حرف)');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -199,15 +202,14 @@ export default function PortalProfilePage() {
                 />
               </div>
 
-              {/* Company */}
+              {/* Company (read-only — data isolation) */}
               <div className="space-y-2">
                 <Label htmlFor="profile-company">الشركة</Label>
                 <Input
                   id="profile-company"
                   value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="اسم الشركة"
-                  required
+                  disabled
+                  className="opacity-70 cursor-not-allowed"
                 />
               </div>
             </div>
@@ -317,7 +319,7 @@ export default function PortalProfilePage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={8}
                     dir="ltr"
                     className="text-left pe-10"
                   />
@@ -347,7 +349,7 @@ export default function PortalProfilePage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={8}
                     dir="ltr"
                     className={cn(
                       'text-left pe-10',

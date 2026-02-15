@@ -9,7 +9,7 @@ const SESSION_EXPIRY_DAYS = 30;
 /**
  * Fields to select from pyra_clients -- everything EXCEPT password_hash
  */
-const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
+export const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
  * Create a portal session for a client.
@@ -60,7 +60,7 @@ export async function getPortalSession(): Promise<PyraClient | null> {
   // Verify session exists and is not expired
   const { data: session } = await supabase
     .from('pyra_sessions')
-    .select('*')
+    .select('id, username, token, expires_at, last_activity')
     .eq('username', clientId)
     .eq('token', token)
     .gt('expires_at', new Date().toISOString())

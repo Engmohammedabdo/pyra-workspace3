@@ -36,6 +36,15 @@ export async function GET(
       return apiNotFound('الملف غير موجود');
     }
 
+    // ── Path traversal check ────────────────────────
+    if (
+      projectFile.file_path.includes('..') ||
+      projectFile.file_path.includes('\0') ||
+      /[\\]/.test(projectFile.file_path)
+    ) {
+      return apiForbidden('مسار الملف غير صالح');
+    }
+
     // ── Verify project belongs to client's company ────
     const { data: project } = await supabase
       .from('pyra_projects')

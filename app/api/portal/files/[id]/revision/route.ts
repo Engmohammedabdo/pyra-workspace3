@@ -63,6 +63,10 @@ export async function POST(
       return apiValidationError('التعليق مطلوب عند طلب التعديل');
     }
 
+    if (comment.trim().length > 5000) {
+      return apiValidationError('التعليق طويل جداً (الحد الأقصى 5000 حرف)');
+    }
+
     const now = new Date().toISOString();
 
     // ── Check for existing approval record ────────────
@@ -83,7 +87,7 @@ export async function POST(
           comment: comment.trim(),
         })
         .eq('id', existingApproval.id)
-        .select()
+        .select('id, file_id, status, reviewed_by, reviewed_at, comment')
         .single();
 
       if (error) {
@@ -104,7 +108,7 @@ export async function POST(
           reviewed_at: now,
           comment: comment.trim(),
         })
-        .select()
+        .select('id, file_id, status, reviewed_by, reviewed_at, comment')
         .single();
 
       if (error) {

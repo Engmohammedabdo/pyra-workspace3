@@ -7,11 +7,9 @@ import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response'
  *
  * Returns the client's dashboard data:
  *  - client info (name, company, last_login_at)
- *  - active_projects count
- *  - pending_approvals count
- *  - unread_notifications count
- *  - recent_projects (last 5)
- *  - recent_notifications (last 5)
+ *  - stats: { activeProjects, pendingApprovals, unreadNotifications, totalFiles }
+ *  - recentProjects (last 5)
+ *  - recentNotifications (last 5)
  */
 export async function GET() {
   try {
@@ -23,12 +21,11 @@ export async function GET() {
     // ── Active projects count ─────────────────────────
     const { count: activeProjectsCount } = await supabase
       .from('pyra_projects')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('client_company', client.company)
       .in('status', ['active', 'in_progress', 'review']);
 
-    // ── Pending approvals count ───────────────────────
-    // Get project IDs for this client's company first
+    // ── Project IDs for this client ────────────────────
     const { data: clientProjects } = await supabase
       .from('pyra_projects')
       .select('id')
@@ -36,7 +33,9 @@ export async function GET() {
 
     const projectIds = (clientProjects || []).map((p) => p.id);
 
+    // ── Pending approvals count ───────────────────────
     let pendingApprovalsCount = 0;
+    let totalFilesCount = 0;
     if (projectIds.length > 0) {
       // Get file IDs belonging to this client's projects
       const { data: projectFiles } = await supabase
@@ -45,11 +44,12 @@ export async function GET() {
         .in('project_id', projectIds);
 
       const fileIds = (projectFiles || []).map((f) => f.id);
+      totalFilesCount = fileIds.length;
 
       if (fileIds.length > 0) {
         const { count } = await supabase
           .from('pyra_file_approvals')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .in('file_id', fileIds)
           .eq('status', 'pending');
 
@@ -60,14 +60,14 @@ export async function GET() {
     // ── Unread notifications count ────────────────────
     const { count: unreadNotificationsCount } = await supabase
       .from('pyra_client_notifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('client_id', client.id)
       .eq('is_read', false);
 
     // ── Recent projects (last 5) ──────────────────────
     const { data: recentProjects } = await supabase
       .from('pyra_projects')
-      .select('*')
+      .select('id, name, status, updated_at')
       .eq('client_company', client.company)
       .order('updated_at', { ascending: false })
       .limit(5);
@@ -75,7 +75,7 @@ export async function GET() {
     // ── Recent notifications (last 5) ─────────────────
     const { data: recentNotifications } = await supabase
       .from('pyra_client_notifications')
-      .select('*')
+      .select('id, type, message, is_read, created_at')
       .eq('client_id', client.id)
       .order('created_at', { ascending: false })
       .limit(5);
@@ -86,11 +86,14 @@ export async function GET() {
         company: client.company,
         last_login_at: client.last_login_at,
       },
-      active_projects: activeProjectsCount || 0,
-      pending_approvals: pendingApprovalsCount,
-      unread_notifications: unreadNotificationsCount || 0,
-      recent_projects: recentProjects || [],
-      recent_notifications: recentNotifications || [],
+      stats: {
+        activeProjects: activeProjectsCount || 0,
+        pendingApprovals: pendingApprovalsCount,
+        unreadNotifications: unreadNotificationsCount || 0,
+        totalFiles: totalFilesCount,
+      },
+      recentProjects: recentProjects || [],
+      recentNotifications: recentNotifications || [],
     });
   } catch (err) {
     console.error('GET /api/portal/dashboard error:', err);

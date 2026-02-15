@@ -87,6 +87,31 @@
 - [x] /portal/profile — Personal info editor + password change form
 - [x] /portal/quotes — Updated placeholder (Phase 6)
 - [x] Build verification: 0 TS errors, 81 routes
+
+## Phase 4.1: Security Fixes + Broken Pages ✅
+**Status:** Complete | **Commit:** `pending`
+
+### 🔴 Critical Fixes
+- [x] SECURITY: Removed `company` from PATCH /api/portal/profile (data isolation bypass)
+- [x] Dashboard API restructured to match page expectations (stats nested, camelCase)
+- [x] Created dedicated GET /api/portal/files endpoint (files page was empty)
+- [x] Password change uses throwaway Supabase client (session state leak fixed)
+
+### 🟠 Security Hardening
+- [x] Rate limiting on password change (5 attempts / 15 min per client)
+- [x] LIKE wildcard escaping on project search + file search
+- [x] Comment max length validation (5000 chars) on revision + project comments
+- [x] Password length validation: min 8, max 128 chars (was min 6)
+- [x] Session invalidation after password change (other sessions destroyed)
+- [x] Path traversal check on file download (`..`, `\0`, backslash)
+
+### 🟡 Code Quality
+- [x] Exported CLIENT_SAFE_FIELDS from lib/portal/auth.ts (shared across routes)
+- [x] Replaced all select('*') with explicit column lists across 8 API files
+- [x] Company field disabled (read-only) on portal profile page
+- [x] Files page rewritten to use dedicated /api/portal/files endpoint
+- [x] Build verification: 0 TS errors, 82 routes
+
 ## Phase 5: Admin Dashboard Pages ⏳
 ## Phase 6: Quotes & Contracts ⏳
 ## Phase 7: Realtime & Notifications ⏳

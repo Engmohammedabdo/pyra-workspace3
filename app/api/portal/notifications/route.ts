@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_client_notifications')
-      .select('*')
+      .select('id, type, message, is_read, created_at')
       .eq('client_id', client.id);
 
     if (unreadOnly) {

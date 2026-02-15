@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_projects')
-      .select('*')
+      .select('id, name, description, status, client_company, updated_at, created_at')
       .eq('client_company', client.company);
 
     if (status) {
@@ -31,7 +31,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.ilike('name', `%${search}%`);
+      // Escape LIKE wildcards to prevent SQL injection
+      const escaped = search.replace(/[%_]/g, '\\$&');
+      query = query.ilike('name', `%${escaped}%`);
     }
 
     query = query.order('updated_at', { ascending: false });

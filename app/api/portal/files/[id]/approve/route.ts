@@ -83,7 +83,7 @@ export async function POST(
           comment,
         })
         .eq('id', existingApproval.id)
-        .select()
+        .select('id, file_id, status, reviewed_by, reviewed_at, comment')
         .single();
 
       if (error) {
@@ -104,7 +104,7 @@ export async function POST(
           reviewed_at: now,
           comment,
         })
-        .select()
+        .select('id, file_id, status, reviewed_by, reviewed_at, comment')
         .single();
 
       if (error) {

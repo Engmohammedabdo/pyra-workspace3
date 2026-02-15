@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getPortalSession } from '@/lib/portal/auth';
+import { getPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import {
   apiSuccess,
@@ -7,11 +7,6 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-
-/**
- * Safe fields to return for the client (no password_hash).
- */
-const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
  * GET /api/portal/profile
@@ -47,7 +42,10 @@ export async function GET() {
  * PATCH /api/portal/profile
  *
  * Update client profile fields.
- * Body: { name?: string, email?: string, phone?: string, company?: string }
+ * Body: { name?: string, email?: string, phone?: string }
+ *
+ * NOTE: `company` is intentionally NOT editable by clients.
+ * Allowing company changes would break data isolation (projects are scoped by company).
  *
  * If email changes, also updates the Supabase Auth user email.
  */
@@ -58,7 +56,7 @@ export async function PATCH(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
     const body = await request.json();
-    const { name, email, phone, company } = body;
+    const { name, email, phone } = body;
 
     // ── Build update object ───────────────────────────
     const updates: Record<string, unknown> = {};
@@ -72,13 +70,6 @@ export async function PATCH(request: NextRequest) {
 
     if (phone !== undefined) {
       updates.phone = phone?.trim() || null;
-    }
-
-    if (company !== undefined) {
-      if (!company.trim()) {
-        return apiValidationError('اسم الشركة مطلوب');
-      }
-      updates.company = company.trim();
     }
 
     if (email !== undefined) {

@@ -47,7 +47,7 @@ export async function PATCH(
       .from('pyra_client_notifications')
       .update({ is_read: true })
       .eq('id', id)
-      .select()
+      .select('id, type, message, is_read, created_at')
       .single();
 
     if (error) {
