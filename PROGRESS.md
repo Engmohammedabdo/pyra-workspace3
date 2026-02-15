@@ -183,6 +183,44 @@
 - [x] 0 TypeScript errors (tsc --noEmit)
 - [x] next build: 94 routes, all successful
 
-## Phase 7: Realtime & Notifications ⏳
+## Phase 7: Realtime & Notifications ✅
+**Status:** Complete | **Commit:** `1d4ba8d`
+
+### Supabase Realtime Integration
+- [x] hooks/useRealtime.ts — `useRealtime()` subscribes to postgres_changes INSERT on pyra_notifications (filtered by recipient_username)
+- [x] hooks/useRealtime.ts — `useRealtimeActivity()` subscribes to INSERT on pyra_activity_log for live activity feed
+
+### Notification Hooks (Polling Fallback)
+- [x] hooks/useNotifications.ts — `useNotifications()` fetches /api/notifications, polls every 30s, returns notifications + unreadCount + markRead + markAllRead
+- [x] hooks/useNotifications.ts — `usePortalNotifications()` fetches /api/portal/notifications?unread_only=true, polls every 30s, returns unreadCount
+
+### NotificationBell Component
+- [x] components/layout/NotificationBell.tsx — Bell icon with dynamic unread count badge (9+ cap)
+- [x] Popover dropdown showing last 10 notifications with title, message, source, relative time
+- [x] Click notification → mark as read + navigate to target_path
+- [x] "Mark all as read" button in header
+- [x] "View all notifications" link to /dashboard/notifications
+- [x] Combined Realtime + polling for robust delivery
+
+### Command Palette (Ctrl+K Search)
+- [x] components/layout/CommandPalette.tsx — Global search dialog using cmdk
+- [x] Keyboard shortcut: Ctrl+K / Cmd+K to toggle
+- [x] 14 navigation items with Arabic labels + English/Arabic keywords
+- [x] Fuzzy search across page names and keywords
+- [x] SearchTrigger component with keyboard shortcut indicator (Ctrl K)
+
+### Topbar Integration
+- [x] components/layout/topbar.tsx — Replaced placeholder bell with NotificationBell (realtime + popover dropdown)
+- [x] components/layout/topbar.tsx — Replaced placeholder search with CommandPalette + SearchTrigger
+- [x] components/portal/portal-topbar.tsx — Replaced hardcoded orange dot with dynamic unread badge from usePortalNotifications()
+
+### New shadcn/ui Components
+- [x] components/ui/popover.tsx — Radix Popover (for notification dropdown)
+- [x] components/ui/command.tsx — cmdk Command components (for search palette)
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 94 routes, all successful
+
 ## Phase 8: Advanced File Features ⏳
 ## Phase 9: Docker & Deployment ⏳

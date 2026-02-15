@@ -13,9 +13,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
-import { Bell, Search, Sun, Moon, LogOut, User } from 'lucide-react';
+import { Sun, Moon, LogOut, User } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { MobileNav } from '@/components/layout/mobile-nav';
+import { NotificationBell } from '@/components/layout/NotificationBell';
+import { CommandPalette, SearchTrigger } from '@/components/layout/CommandPalette';
 
 interface TopbarProps {
   user: {
@@ -52,15 +54,13 @@ export function Topbar({ user }: TopbarProps) {
       <Breadcrumb />
 
       <div className="ms-auto flex items-center gap-2">
-        {/* Search Placeholder */}
-        <Button variant="ghost" size="icon" className="hidden sm:flex" title="بحث (Ctrl+K)">
-          <Search className="h-4 w-4" />
-        </Button>
+        {/* Command Palette (Ctrl+K) */}
+        <CommandPalette
+          trigger={<SearchTrigger onClick={() => {}} />}
+        />
 
-        {/* Notifications Placeholder */}
-        <Button variant="ghost" size="icon" className="relative" title="الإشعارات">
-          <Bell className="h-4 w-4" />
-        </Button>
+        {/* Notifications */}
+        <NotificationBell username={user.username} />
 
         {/* Theme Toggle */}
         <Button

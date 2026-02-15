@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Bell, LogOut, User } from 'lucide-react';
 import { PortalMobileNav } from '@/components/portal/portal-mobile-nav';
+import { usePortalNotifications } from '@/hooks/useNotifications';
 import type { PyraClient } from '@/types/database';
 
 interface PortalTopbarProps {
@@ -21,6 +22,7 @@ interface PortalTopbarProps {
 
 export function PortalTopbar({ client }: PortalTopbarProps) {
   const router = useRouter();
+  const { unreadCount } = usePortalNotifications();
 
   const handleLogout = async () => {
     try {
@@ -62,8 +64,12 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
           onClick={() => router.push('/portal/notifications')}
         >
           <Bell className="h-4 w-4" />
-          {/* Unread badge placeholder */}
-          <span className="absolute top-1.5 end-1.5 w-2 h-2 rounded-full bg-orange-500" />
+          {/* Dynamic unread badge */}
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
         </Button>
 
         {/* User Menu */}

@@ -9,7 +9,7 @@
 | Framework | Next.js 15 (App Router, Turbopack) |
 | Language | TypeScript (strict mode) |
 | Styling | Tailwind CSS 3.4 + shadcn/ui + Radix UI |
-| Database | Supabase (PostgreSQL + Auth + Storage) |
+| Database | Supabase (PostgreSQL + Auth + Storage + Realtime) |
 | State | TanStack React Query |
 | Forms | React Hook Form + Zod |
 | Charts | Recharts |
@@ -27,7 +27,8 @@
 - **Teams** — Create teams, manage members
 - **Approvals** — Submit files for approval, approve/reject workflow
 - **Reviews** — Create review annotations, resolve/delete
-- **Notifications** — Real-time notification system with mark read/unread
+- **Notifications** — Real-time notification system with mark read/unread, bell dropdown with live updates
+- **Command Palette** — Ctrl+K global search across all dashboard pages
 - **Share Links** — Generate public download links with expiry
 - **Trash** — Soft delete with restore and permanent delete
 - **Activity Log** — Filtered audit log of all system actions
@@ -73,8 +74,8 @@ pyra-workspace-3/
 │       ├── dashboard/          # Role-based stats
 │       └── settings/           # System config
 ├── components/
-│   ├── ui/                     # 18 shadcn/ui components
-│   ├── layout/                 # Admin sidebar, topbar, breadcrumb, mobile nav
+│   ├── ui/                     # 20 shadcn/ui components
+│   ├── layout/                 # Admin sidebar, topbar, breadcrumb, mobile nav, notification bell, command palette
 │   ├── portal/                 # Portal sidebar, topbar, mobile nav
 │   └── files/                  # File explorer components
 ├── lib/
@@ -83,7 +84,7 @@ pyra-workspace-3/
 │   ├── auth/                   # Admin auth guards + permissions
 │   ├── portal/                 # Portal session management
 │   └── utils/                  # cn, format, id, path utilities
-├── hooks/                      # React hooks (useFiles, etc.)
+├── hooks/                      # React hooks (useFiles, useNotifications, useRealtime)
 ├── types/                      # TypeScript interfaces (30 types, 22 tables)
 └── middleware.ts                # Route protection (dual auth)
 ```
@@ -188,7 +189,7 @@ See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
 | 4. Client Portal Features | ✅ Complete |
 | 5. Admin Dashboard Pages | ✅ Complete |
 | 6. Quotes & Contracts | ✅ Complete |
-| 7. Realtime & Notifications | ⏳ Pending |
+| 7. Realtime & Notifications | ✅ Complete |
 | 8. Advanced File Features | ⏳ Pending |
 | 9. Docker & Deployment | ⏳ Pending |
 
