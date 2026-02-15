@@ -1,6 +1,7 @@
 'use client';
 
 import { FileIcon } from './file-icon';
+import { FileActionButton } from './file-context-menu';
 import { formatFileSize } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -8,9 +9,13 @@ import type { FileListItem } from '@/types/database';
 interface FileGridProps {
   files: FileListItem[];
   onNavigate: (file: FileListItem) => void;
-  onContextMenu?: (e: React.MouseEvent, file: FileListItem) => void;
   selectedFiles: Set<string>;
   onSelect: (path: string, multi: boolean) => void;
+  onPreview: (file: FileListItem) => void;
+  onDownload: (file: FileListItem) => void;
+  onRename: (file: FileListItem, newName: string) => void;
+  onDelete: (file: FileListItem) => void;
+  onCopyPath: (file: FileListItem) => void;
 }
 
 export function FileGrid({
@@ -18,6 +23,11 @@ export function FileGrid({
   onNavigate,
   selectedFiles,
   onSelect,
+  onPreview,
+  onDownload,
+  onRename,
+  onDelete,
+  onCopyPath,
 }: FileGridProps) {
   if (files.length === 0) {
     return (
@@ -39,8 +49,15 @@ export function FileGrid({
         const isSelected = selectedFiles.has(file.path);
 
         return (
-          <button
+          <div
             key={file.path}
+            className={cn(
+              'group relative flex flex-col items-center gap-2 p-4 rounded-xl border transition-all',
+              'text-start hover:shadow-md cursor-pointer',
+              isSelected
+                ? 'border-primary bg-primary/5 shadow-sm'
+                : 'border-transparent hover:border-border bg-card hover:bg-accent/30'
+            )}
             onClick={(e) => {
               if (e.ctrlKey || e.metaKey) {
                 onSelect(file.path, true);
@@ -49,14 +66,19 @@ export function FileGrid({
               }
             }}
             onDoubleClick={() => onNavigate(file)}
-            className={cn(
-              'group relative flex flex-col items-center gap-2 p-4 rounded-xl border transition-all',
-              'text-start hover:shadow-md',
-              isSelected
-                ? 'border-primary bg-primary/5 shadow-sm'
-                : 'border-transparent hover:border-border bg-card hover:bg-accent/30'
-            )}
           >
+            {/* Action menu */}
+            <div className="absolute top-2 end-2 z-10" onClick={(e) => e.stopPropagation()}>
+              <FileActionButton
+                file={file}
+                onPreview={onPreview}
+                onDownload={onDownload}
+                onRename={onRename}
+                onDelete={onDelete}
+                onCopyPath={onCopyPath}
+              />
+            </div>
+
             {/* Icon */}
             <div
               className={cn(
@@ -87,13 +109,13 @@ export function FileGrid({
 
             {/* Selection indicator */}
             {isSelected && (
-              <div className="absolute top-2 end-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+              <div className="absolute top-2 start-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
               </div>
             )}
-          </button>
+          </div>
         );
       })}
     </div>

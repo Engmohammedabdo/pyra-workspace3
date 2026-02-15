@@ -20,7 +20,7 @@
 ## Features
 
 ### Admin Panel (`/dashboard`)
-- **File Explorer** — Grid/list views, upload, create folders, search, breadcrumb navigation
+- **File Explorer** — Grid/list views, drag-drop upload, preview panel (image/PDF/video/audio/code), context menu, sort/filter, keyboard shortcuts
 - **User Management** — CRUD, role-based access (admin/employee), password management
 - **Client Management** — CRUD with linked project/file tracking
 - **Project Management** — CRUD with file assignment
@@ -190,7 +190,7 @@ See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
 | 5. Admin Dashboard Pages | ✅ Complete |
 | 6. Quotes & Contracts | ✅ Complete |
 | 7. Realtime & Notifications | ✅ Complete |
-| 8. Advanced File Features | ⏳ Pending |
+| 8. Advanced File Features | ✅ Complete |
 | 9. Docker & Deployment | ⏳ Pending |
 
 ## License

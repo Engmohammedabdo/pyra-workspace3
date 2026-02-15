@@ -1,6 +1,7 @@
 'use client';
 
 import { FileIcon } from './file-icon';
+import { FileActionButton } from './file-context-menu';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -8,9 +9,13 @@ import type { FileListItem } from '@/types/database';
 interface FileListProps {
   files: FileListItem[];
   onNavigate: (file: FileListItem) => void;
-  onContextMenu?: (e: React.MouseEvent, file: FileListItem) => void;
   selectedFiles: Set<string>;
   onSelect: (path: string, multi: boolean) => void;
+  onPreview: (file: FileListItem) => void;
+  onDownload: (file: FileListItem) => void;
+  onRename: (file: FileListItem, newName: string) => void;
+  onDelete: (file: FileListItem) => void;
+  onCopyPath: (file: FileListItem) => void;
 }
 
 export function FileList({
@@ -18,6 +23,11 @@ export function FileList({
   onNavigate,
   selectedFiles,
   onSelect,
+  onPreview,
+  onDownload,
+  onRename,
+  onDelete,
+  onCopyPath,
 }: FileListProps) {
   if (files.length === 0) {
     return (
@@ -36,10 +46,11 @@ export function FileList({
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       {/* Table header */}
-      <div className="grid grid-cols-[1fr_120px_160px] gap-4 px-4 py-2.5 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground">
+      <div className="grid grid-cols-[1fr_100px_140px_40px] gap-4 px-4 py-2.5 bg-muted/50 border-b border-border text-xs font-medium text-muted-foreground">
         <span>الاسم</span>
         <span className="text-end">الحجم</span>
         <span className="text-end">آخر تعديل</span>
+        <span />
       </div>
 
       {/* File rows */}
@@ -64,7 +75,7 @@ export function FileList({
                 if (e.key === 'Enter') onNavigate(file);
               }}
               className={cn(
-                'grid grid-cols-[1fr_120px_160px] gap-4 px-4 py-3 transition-colors cursor-pointer',
+                'group grid grid-cols-[1fr_100px_140px_40px] gap-4 px-4 py-3 transition-colors cursor-pointer',
                 'hover:bg-accent/50',
                 isSelected && 'bg-primary/5'
               )}
@@ -89,6 +100,18 @@ export function FileList({
               {/* Last modified */}
               <div className="text-end text-sm text-muted-foreground">
                 {file.updatedAt ? formatRelativeDate(file.updatedAt) : '—'}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                <FileActionButton
+                  file={file}
+                  onPreview={onPreview}
+                  onDownload={onDownload}
+                  onRename={onRename}
+                  onDelete={onDelete}
+                  onCopyPath={onCopyPath}
+                />
               </div>
             </div>
           );

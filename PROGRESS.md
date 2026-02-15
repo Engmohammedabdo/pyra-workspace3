@@ -222,5 +222,64 @@
 - [x] 0 TypeScript errors (tsc --noEmit)
 - [x] next build: 94 routes, all successful
 
-## Phase 8: Advanced File Features ⏳
+## Phase 8: Advanced File Features ✅
+**Status:** Complete | **Commit:** `e51f3ec`
+
+### File Preview Panel
+- [x] components/files/file-preview.tsx — Sheet-based side panel preview
+- [x] Image preview (inline img with max-height)
+- [x] Video preview (HTML5 video player with controls)
+- [x] Audio preview (HTML5 audio player with file icon)
+- [x] PDF preview (iframe embed)
+- [x] Text/Code preview (fetch + monospace pre block, 50K char limit)
+- [x] Generic fallback with file type indicator
+- [x] Metadata footer (type, size, path, last modified)
+- [x] Download + Open in new tab buttons
+- [x] Double-click file → opens preview (instead of just toast)
+
+### File Context Menu
+- [x] components/files/file-context-menu.tsx — DropdownMenu with actions per file
+- [x] Actions: Preview, Download, Rename, Copy Path, Delete
+- [x] Rename dialog with text input + confirm
+- [x] Delete confirmation dialog (soft delete to trash)
+- [x] FileActionButton (three-dot menu) on hover in grid/list views
+
+### Drag & Drop Upload
+- [x] components/files/file-drop-zone.tsx — Visual drag-drop zone overlay
+- [x] Drag enter/leave tracking with counter (handles nested elements)
+- [x] Animated upload icon with bounce effect
+- [x] Arabic text: "أفلت الملفات هنا للرفع"
+- [x] Wraps entire file explorer area
+
+### Sort & Filter Controls
+- [x] Sort by: Name, Size, Date, Type — with ascending/descending toggle
+- [x] Type filter: All, Images, Video, Audio, Documents, Archives, Code
+- [x] Sort/Filter dropdowns integrated into toolbar
+- [x] Active filter indicator (highlighted filter icon)
+- [x] Folders always sorted first regardless of sort field
+
+### Bulk Operations
+- [x] Ctrl+A selects all files
+- [x] Delete key deletes selected files
+- [x] Bulk delete button in toolbar when files are selected
+- [x] Selection count display in toolbar and file count row
+
+### Keyboard Shortcuts
+- [x] Ctrl+A — Select all files
+- [x] Delete — Delete selected files
+- [x] Escape — Deselect all / close preview
+- [x] Space — Preview selected file
+- [x] Enter — Open folder / preview file (in list view)
+- [x] Ctrl/Cmd+Click — Multi-select
+
+### Updated Components
+- [x] file-explorer.tsx — Rewritten with sort/filter state, preview integration, keyboard handler, drop zone wrapper
+- [x] file-toolbar.tsx — Added sort dropdown, type filter dropdown, bulk delete button
+- [x] file-grid.tsx — Added FileActionButton (three-dot menu) per item
+- [x] file-list.tsx — Added actions column with FileActionButton
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 94 routes, all successful
+
 ## Phase 9: Docker & Deployment ⏳

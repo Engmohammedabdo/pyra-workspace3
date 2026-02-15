@@ -8,10 +8,40 @@ import {
   LayoutList,
   RefreshCw,
   Search,
+  ArrowUpDown,
+  Filter,
+  Trash2,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils/cn';
 
 export type ViewMode = 'grid' | 'list';
+export type SortField = 'name' | 'size' | 'date' | 'type';
+export type SortOrder = 'asc' | 'desc';
+export type FileTypeFilter = 'all' | 'image' | 'video' | 'audio' | 'document' | 'archive' | 'code';
+
+const SORT_LABELS: Record<SortField, string> = {
+  name: 'الاسم',
+  size: 'الحجم',
+  date: 'التاريخ',
+  type: 'النوع',
+};
+
+const FILTER_LABELS: Record<FileTypeFilter, string> = {
+  all: 'الكل',
+  image: 'صور',
+  video: 'فيديو',
+  audio: 'صوت',
+  document: 'مستندات',
+  archive: 'أرشيف',
+  code: 'أكواد',
+};
 
 interface FileToolbarProps {
   viewMode: ViewMode;
@@ -23,6 +53,13 @@ interface FileToolbarProps {
   isLoading: boolean;
   isUploading: boolean;
   isCreating: boolean;
+  sortField: SortField;
+  sortOrder: SortOrder;
+  onSortChange: (field: SortField, order: SortOrder) => void;
+  typeFilter: FileTypeFilter;
+  onTypeFilterChange: (filter: FileTypeFilter) => void;
+  selectedCount: number;
+  onDeleteSelected?: () => void;
 }
 
 export function FileToolbar({
@@ -35,6 +72,13 @@ export function FileToolbar({
   isLoading,
   isUploading,
   isCreating,
+  sortField,
+  sortOrder,
+  onSortChange,
+  typeFilter,
+  onTypeFilterChange,
+  selectedCount,
+  onDeleteSelected,
 }: FileToolbarProps) {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -54,8 +98,15 @@ export function FileToolbar({
     if (files.length > 0) {
       onUploadFiles(files);
     }
-    // Reset input
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleSortClick = (field: SortField) => {
+    if (field === sortField) {
+      onSortChange(field, sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      onSortChange(field, 'asc');
+    }
   };
 
   return (
@@ -98,6 +149,20 @@ export function FileToolbar({
           onChange={handleFileSelect}
         />
 
+        {/* Delete selected */}
+        {selectedCount > 0 && onDeleteSelected && (
+          <button
+            onClick={onDeleteSelected}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+            )}
+          >
+            <Trash2 size={16} />
+            <span>حذف ({selectedCount})</span>
+          </button>
+        )}
+
         {/* Spacer */}
         <div className="flex-1" />
 
@@ -123,6 +188,68 @@ export function FileToolbar({
             )}
           />
         </div>
+
+        {/* Type Filter */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                'hover:bg-accent text-muted-foreground hover:text-accent-foreground',
+                typeFilter !== 'all' && 'text-primary bg-primary/10'
+              )}
+              title="تصفية حسب النوع"
+            >
+              <Filter size={16} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {(Object.entries(FILTER_LABELS) as [FileTypeFilter, string][]).map(
+              ([key, label]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => onTypeFilterChange(key)}
+                  className={cn(typeFilter === key && 'bg-accent')}
+                >
+                  {label}
+                </DropdownMenuItem>
+              )
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Sort */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              className={cn(
+                'p-2 rounded-lg transition-colors',
+                'hover:bg-accent text-muted-foreground hover:text-accent-foreground'
+              )}
+              title="ترتيب"
+            >
+              <ArrowUpDown size={16} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {(Object.entries(SORT_LABELS) as [SortField, string][]).map(
+              ([key, label]) => (
+                <DropdownMenuItem
+                  key={key}
+                  onClick={() => handleSortClick(key)}
+                  className={cn(sortField === key && 'bg-accent')}
+                >
+                  {label}
+                  {sortField === key && (
+                    <span className="ms-auto text-xs text-muted-foreground">
+                      {sortOrder === 'asc' ? '↑' : '↓'}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              )
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Refresh */}
         <button
