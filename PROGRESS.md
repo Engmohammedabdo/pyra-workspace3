@@ -63,7 +63,7 @@
 - [x] Arabic locale for formatDate() and formatRelativeDate()
 
 ## Phase 4: Client Portal Features ✅
-**Status:** Complete | **Commit:** `pending`
+**Status:** Complete | **Commit:** `a89e823`
 
 ### Portal API Endpoints (11 new routes)
 - [x] GET /api/portal/dashboard — Client dashboard stats + recent data
@@ -89,7 +89,7 @@
 - [x] Build verification: 0 TS errors, 81 routes
 
 ## Phase 4.1: Security Fixes + Broken Pages ✅
-**Status:** Complete | **Commit:** `pending`
+**Status:** Complete | **Commit:** `ba5ec7e`
 
 ### 🔴 Critical Fixes
 - [x] SECURITY: Removed `company` from PATCH /api/portal/profile (data isolation bypass)
