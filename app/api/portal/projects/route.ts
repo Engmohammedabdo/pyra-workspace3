@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { escapeLike } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/projects
@@ -35,8 +36,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      // Escape LIKE wildcards to prevent SQL injection
-      const escaped = search.replace(/[%_]/g, '\\$&');
+      const escaped = escapeLike(search);
       query = query.ilike('name', `%${escaped}%`);
     }
 

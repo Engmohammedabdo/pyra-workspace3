@@ -36,7 +36,7 @@ interface QuoteItem {
   sort_order: number;
 }
 
-interface QuoteData {
+export interface QuoteData {
   id: string;
   quote_number: string;
   client_id: string | null;

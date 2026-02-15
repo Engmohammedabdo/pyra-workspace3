@@ -187,6 +187,15 @@ Two rounds of security hardening applied across all API routes:
 - File upload whitelist (MIME types + extension blocklist)
 - Stable Realtime subscriptions (useRef callback pattern)
 
+**Medium Priority Improvements (Phase 4.3)**
+- LIKE wildcard escaping on all 8 search endpoints (centralized `escapeLike()`)
+- Enhanced path traversal validation (null bytes, backslashes, loop-based `..` removal)
+- CSRF Origin header validation on all state-changing API requests
+- Security headers: HSTS, Permissions-Policy, X-XSS-Protection
+- Error Boundaries on dashboard + portal layouts with Arabic error UI
+- Unified Supabase client patterns (service-role for admin writes, server for reads)
+- Eliminated `any` types with proper QuoteData interface
+
 ## Deployment
 
 Designed for self-hosted Docker deployment with `output: 'standalone'`:
@@ -214,6 +223,7 @@ See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
 | 8. Advanced File Features | ✅ Complete |
 | Security Audit (Critical) | ✅ Complete |
 | Security Audit (High) | ✅ Complete |
+| Improvements (Medium) | ✅ Complete |
 | 9. Docker & Deployment | ⏳ Pending |
 
 ## License

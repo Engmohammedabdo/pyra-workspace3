@@ -7,6 +7,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { verifyPassword } from '@/lib/utils/password';
 import { shareDownloadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { isPathSafe } from '@/lib/utils/path';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -77,6 +78,11 @@ export async function GET(
       if (!verifyPassword(providedPassword, shareLink.password_hash)) {
         return apiError('كلمة المرور غير صحيحة', 403);
       }
+    }
+
+    // Path traversal check on stored path
+    if (!isPathSafe(shareLink.file_path)) {
+      return apiError('مسار الملف غير صالح', 400);
     }
 
     // Download file from storage

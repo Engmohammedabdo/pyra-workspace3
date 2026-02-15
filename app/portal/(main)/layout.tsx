@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getPortalSession } from '@/lib/portal/auth';
 import { PortalSidebar } from '@/components/portal/portal-sidebar';
 import { PortalTopbar } from '@/components/portal/portal-topbar';
+import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 
 export default async function PortalMainLayout({
   children,
@@ -26,7 +27,9 @@ export default async function PortalMainLayout({
             company: client.company,
           }}
         />
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="p-4 lg:p-6">
+          <ErrorBoundaryWrapper>{children}</ErrorBoundaryWrapper>
+        </main>
       </div>
     </div>
   );

@@ -50,6 +50,27 @@ export async function middleware(request: NextRequest) {
   // Portal pages are server-rendered and will redirect to /portal/login
   // if no valid cookie session exists.
 
+  // ── CSRF protection for state-changing API requests ────────
+  // Verify Origin header matches the app's host for POST/PATCH/DELETE/PUT
+  const method = request.method;
+  if (
+    pathname.startsWith('/api') &&
+    ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)
+  ) {
+    const origin = request.headers.get('origin');
+    const host = request.headers.get('host');
+    // Allow if origin matches host, or if there's no origin (same-origin fetch)
+    if (origin && host) {
+      const originHost = new URL(origin).host;
+      if (originHost !== host) {
+        return NextResponse.json(
+          { error: 'CSRF validation failed' },
+          { status: 403 }
+        );
+      }
+    }
+  }
+
   // Protect admin API routes (except public and portal ones)
   if (
     pathname.startsWith('/api') &&

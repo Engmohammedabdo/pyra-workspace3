@@ -1,6 +1,7 @@
 import { requireAuth } from '@/lib/auth/guards';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
+import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 
 export default async function DashboardLayout({
   children,
@@ -15,7 +16,9 @@ export default async function DashboardLayout({
       <div className="lg:ps-[280px] transition-all duration-300">
         <Topbar user={session.pyraUser} />
         <main className="p-4 lg:p-6">
-          {children}
+          <ErrorBoundaryWrapper>
+            {children}
+          </ErrorBoundaryWrapper>
         </main>
       </div>
     </div>

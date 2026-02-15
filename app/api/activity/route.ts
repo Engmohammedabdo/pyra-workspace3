@@ -6,6 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/activity
@@ -49,7 +50,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('username', username);
     }
     if (targetPath) {
-      query = query.ilike('target_path', `%${targetPath}%`);
+      query = query.ilike('target_path', `%${escapeLike(targetPath)}%`);
     }
     if (from) {
       query = query.gte('created_at', from);

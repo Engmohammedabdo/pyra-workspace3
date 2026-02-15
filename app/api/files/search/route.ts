@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/files/search?q=search_term&limit=50&offset=0
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createServerSupabaseClient();
-    const searchTerm = query.toLowerCase();
+    const searchTerm = escapeLike(query.toLowerCase());
 
     // Search by file_name_lower using ilike for partial matching
     const { data, error, count } = await supabase

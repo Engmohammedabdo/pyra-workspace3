@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/users
@@ -35,8 +36,9 @@ export async function GET(request: NextRequest) {
 
     // Apply search filter (search in username and display_name)
     if (search.trim()) {
+      const escaped = escapeLike(search.trim());
       query = query.or(
-        `username.ilike.%${search.trim()}%,display_name.ilike.%${search.trim()}%`
+        `username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`
       );
     }
 
@@ -90,9 +92,11 @@ export async function POST(request: NextRequest) {
     const cleanUsername = username.trim().toLowerCase();
     const email = `${cleanUsername}@pyra.local`;
 
+    // Use service-role client for admin write operations
+    const serviceClient = createServiceRoleClient();
+
     // Check if username already exists
-    const supabase = await createServerSupabaseClient();
-    const { data: existing } = await supabase
+    const { data: existing } = await serviceClient
       .from('pyra_users')
       .select('id')
       .eq('username', cleanUsername)
@@ -103,7 +107,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Create Supabase Auth user
-    const serviceClient = createServiceRoleClient();
     const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
       email,
       password,
@@ -121,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Insert into pyra_users
-    const { data: newUser, error: insertError } = await supabase
+    const { data: newUser, error: insertError } = await serviceClient
       .from('pyra_users')
       .insert({
         username: cleanUsername,
@@ -143,14 +146,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 3: Insert auth mapping
-    await supabase.from('pyra_auth_mapping').insert({
+    await serviceClient.from('pyra_auth_mapping').insert({
       id: generateId('am'),
       auth_user_id: authData.user.id,
       pyra_username: cleanUsername,
     });
 
     // Step 4: Log the activity
-    await supabase.from('pyra_activity_log').insert({
+    await serviceClient.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_created',
       username: admin.pyraUser.username,

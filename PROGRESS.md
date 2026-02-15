@@ -327,4 +327,46 @@
 - [x] 0 TypeScript errors (tsc --noEmit)
 - [x] next build: 64 static pages, all successful
 
+## Phase 4.3: Medium Priority Improvements ✅
+**Status:** Complete | **Commit:** _(pending)_
+
+### M1: Escape LIKE wildcards in search queries
+- [x] Created shared `escapeLike()` utility in `lib/utils/path.ts` (escapes `%`, `_`, `\`)
+- [x] Fixed 5 VULNERABLE endpoints that had no escaping: files/search, activity, users, clients, projects
+- [x] Consolidated 3 endpoints with inconsistent inline escaping: quotes, portal/projects, portal/files
+- [x] All 8 ilike/or search routes now use `escapeLike()` uniformly
+
+### M2: Improve path traversal validation
+- [x] Enhanced `sanitizePath()` — null byte/backslash upfront rejection, loop-based `..` removal
+- [x] Created `isPathSafe()` centralized path safety validator
+- [x] Applied to `portal/files/[id]/download` (replaced 5-line inline check)
+- [x] Applied to `shares/download/[token]` (added missing check before storage download)
+
+### M3: CSRF + Security headers
+- [x] Added Origin header validation in `middleware.ts` for all state-changing API requests (POST/PATCH/PUT/DELETE)
+- [x] Added `X-XSS-Protection: 1; mode=block` header in `next.config.ts`
+- [x] Added `Strict-Transport-Security` (HSTS) with 2-year max-age, includeSubDomains, preload
+- [x] Added `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+### M4: Error Boundaries + debounce
+- [x] `components/error-boundary.tsx` — React class ErrorBoundary with Arabic error UI and retry button
+- [x] `components/error-boundary-wrapper.tsx` — Client-side wrapper for server component layouts
+- [x] `hooks/useDebounce.ts` — Generic debounce hook (configurable delay, default 300ms)
+- [x] Wrapped `/dashboard` layout children in ErrorBoundaryWrapper
+- [x] Wrapped `/portal/(main)` layout children in ErrorBoundaryWrapper
+
+### M5: Unify Supabase client patterns
+- [x] `app/api/projects/route.ts` POST — switched from `createServerSupabaseClient()` to `createServiceRoleClient()` for admin write operations
+- [x] `app/api/users/route.ts` POST — unified all write operations (duplicate check, insert, auth mapping, activity log) to use `serviceClient` consistently
+- [x] Pattern: GET uses `createServerSupabaseClient()` (respects RLS), POST/PATCH/DELETE use `createServiceRoleClient()` for admin writes
+
+### M6: Reduce `any` types
+- [x] Exported `QuoteData` interface from `components/quotes/QuoteBuilder.tsx`
+- [x] `app/dashboard/quotes/[id]/page.tsx` — replaced `Record<string, unknown>` + `as any` with proper `QuoteData` type
+- [x] Removed `eslint-disable-next-line @typescript-eslint/no-explicit-any` comment
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 64 static pages, all successful
+
 ## Phase 9: Docker & Deployment ⏳

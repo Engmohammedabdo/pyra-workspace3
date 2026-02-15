@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { escapeLike } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/files
@@ -61,8 +62,7 @@ export async function GET(request: NextRequest) {
       .order('added_at', { ascending: false });
 
     if (search) {
-      // Escape LIKE wildcards
-      const escaped = search.replace(/[%_]/g, '\\$&');
+      const escaped = escapeLike(search);
       filesQuery = filesQuery.ilike('file_name', `%${escaped}%`);
     }
 

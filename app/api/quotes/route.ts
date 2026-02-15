@@ -9,6 +9,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
+import { escapeLike } from '@/lib/utils/path';
 
 const QUOTE_FIELDS = `
   id, quote_number, team_id, client_id, project_name, status,
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      const escaped = search.replace(/%/g, '\\%').replace(/_/g, '\\_');
+      const escaped = escapeLike(search);
       query = query.or(
         `quote_number.ilike.%${escaped}%,client_name.ilike.%${escaped}%,client_company.ilike.%${escaped}%,project_name.ilike.%${escaped}%`
       );

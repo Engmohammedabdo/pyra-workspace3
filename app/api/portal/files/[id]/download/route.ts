@@ -7,6 +7,7 @@ import {
   apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
+import { isPathSafe } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/files/[id]/download
@@ -37,11 +38,7 @@ export async function GET(
     }
 
     // ── Path traversal check ────────────────────────
-    if (
-      projectFile.file_path.includes('..') ||
-      projectFile.file_path.includes('\0') ||
-      /[\\]/.test(projectFile.file_path)
-    ) {
+    if (!isPathSafe(projectFile.file_path)) {
       return apiForbidden('مسار الملف غير صالح');
     }
 

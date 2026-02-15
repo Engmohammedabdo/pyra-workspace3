@@ -7,8 +7,9 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/projects
@@ -73,8 +74,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
+      const escaped = escapeLike(search);
       query = query.or(
-        `name.ilike.%${search}%,description.ilike.%${search}%,client_company.ilike.%${search}%`
+        `name.ilike.%${escaped}%,description.ilike.%${escaped}%,client_company.ilike.%${escaped}%`
       );
     }
 
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
       return apiValidationError(`حالة غير صالحة. الحالات المسموحة: ${validStatuses.join(', ')}`);
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient();
     const now = new Date().toISOString();
     const projectId = generateId('pr');
 

@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { escapeLike } from '@/lib/utils/path';
 
 // Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
@@ -40,8 +41,9 @@ export async function GET(request: NextRequest) {
 
     // Search filter — match name, email, or company
     if (search) {
+      const escaped = escapeLike(search);
       query = query.or(
-        `name.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`
+        `name.ilike.%${escaped}%,email.ilike.%${escaped}%,company.ilike.%${escaped}%`
       );
     }
 
