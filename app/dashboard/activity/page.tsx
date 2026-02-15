@@ -1,8 +1,125 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatRelativeDate, formatDate } from '@/lib/utils/format';
+
+interface ActivityItem {
+  id: string;
+  action_type: string;
+  username: string;
+  display_name: string;
+  target_path: string;
+  details: Record<string, unknown> | null;
+  ip_address: string;
+  created_at: string;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',
+  file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',
+  user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',
+  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', share_created: 'رابط مشاركة',
+  review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',
+  file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',
+};
+
 export default function ActivityPage() {
+  const [items, setItems] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const pageSize = 20;
+
+  const fetchActivity = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (typeFilter !== 'all') params.set('action_type', typeFilter);
+      params.set('page', String(page));
+      params.set('limit', String(pageSize));
+      const res = await fetch(`/api/activity?${params}`);
+      const json = await res.json();
+      if (json.data) setItems(json.data);
+      if (json.meta?.total) setTotal(json.meta.total);
+    } catch (err) { console.error(err); } finally { setLoading(false); }
+  }, [typeFilter, page]);
+
+  useEffect(() => { fetchActivity(); }, [fetchActivity]);
+
+  const totalPages = Math.ceil(total / pageSize);
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">النشاط — Activity</h1>
-      <p className="text-muted-foreground">قريباً في المرحلة 3</p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" /> سجل النشاط</h1>
+        <p className="text-muted-foreground">جميع الإجراءات والعمليات في النظام</p>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(1); }}>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder="نوع النشاط" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">جميع الأنواع</SelectItem>
+            <SelectItem value="file_uploaded">رفع ملف</SelectItem>
+            <SelectItem value="file_deleted">حذف ملف</SelectItem>
+            <SelectItem value="file_renamed">إعادة تسمية</SelectItem>
+            <SelectItem value="folder_created">إنشاء مجلد</SelectItem>
+            <SelectItem value="user_created">إنشاء مستخدم</SelectItem>
+            <SelectItem value="user_deleted">حذف مستخدم</SelectItem>
+            <SelectItem value="team_created">فريق</SelectItem>
+            <SelectItem value="settings_updated">إعدادات</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-sm text-muted-foreground">{total} نتيجة</span>
+      </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <ScrollArea className="max-h-[600px]">
+            {loading ? Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="p-4 border-b"><Skeleton className="h-12 w-full" /></div>
+            )) : items.length === 0 ? (
+              <div className="p-12 text-center text-muted-foreground">لا توجد نشاطات</div>
+            ) : items.map(item => (
+              <div key={item.id} className="flex items-start gap-3 p-4 border-b">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/10 mt-0.5">
+                  <Activity className="h-4 w-4 text-orange-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{item.display_name}</span>
+                    <Badge variant="secondary" className="text-[10px]">{ACTION_LABELS[item.action_type] || item.action_type}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">{item.target_path}</p>
+                  <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
+                    <span>@{item.username}</span><span>·</span>
+                    <span>{formatRelativeDate(item.created_at)}</span><span>·</span>
+                    <span>{formatDate(item.created_at, 'dd-MM-yyyy HH:mm')}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}><ChevronRight className="h-4 w-4" /></Button>
+          <span className="text-sm text-muted-foreground">صفحة {page} من {totalPages}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}><ChevronLeft className="h-4 w-4" /></Button>
+        </div>
+      )}
     </div>
   );
 }

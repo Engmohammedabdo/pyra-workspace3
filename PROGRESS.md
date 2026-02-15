@@ -112,7 +112,31 @@
 - [x] Files page rewritten to use dedicated /api/portal/files endpoint
 - [x] Build verification: 0 TS errors, 82 routes
 
-## Phase 5: Admin Dashboard Pages ⏳
+## Phase 5: Admin Dashboard Pages ✅
+**Status:** Complete | **Commit:** `a1486c7`
+
+### Dashboard Pages (12 pages rewritten from placeholders)
+- [x] /dashboard — Real stats cards (files, users, clients, projects, notifications, storage) + recent activity timeline
+- [x] /dashboard/users — Full CRUD table with create/edit/delete/password-change dialogs, search & role filter
+- [x] /dashboard/clients — Full CRUD table with create/edit/delete dialogs, active status toggle, search
+- [x] /dashboard/projects — Full CRUD table with create/edit/delete dialogs, client select, status filter & search
+- [x] /dashboard/teams — CRUD table with create/edit/delete dialogs + member management (add/remove users)
+- [x] /dashboard/notifications — Notification list with unread count, read/unread filter, mark all read
+- [x] /dashboard/activity — Activity timeline with action type filter, pagination (20/page)
+- [x] /dashboard/trash — Trash table with restore & permanent delete (with confirmation dialog)
+- [x] /dashboard/settings — Grouped settings form (Company, Quotes, Bank, Storage) with save all
+- [x] /dashboard/reviews — Reviews grouped by file path, toggle resolve, delete with confirmation, path search
+- [x] /dashboard/permissions — Permission table built from user data, add/remove path-based permissions
+- [x] /dashboard/quotes — List page with status filter & search (create deferred to Phase 6)
+
+### Sidebar Updates
+- [x] Added Clients, Projects, Reviews nav items to sidebar
+- [x] Added Briefcase, MessageSquare icons
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 82 routes, all successful
+
 ## Phase 6: Quotes & Contracts ⏳
 ## Phase 7: Realtime & Notifications ⏳
 ## Phase 8: Advanced File Features ⏳
