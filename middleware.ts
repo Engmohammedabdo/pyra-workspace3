@@ -16,7 +16,15 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Public routes - no auth needed
-  const publicRoutes = ['/login', '/portal/login', '/share', '/api/health'];
+  const publicRoutes = [
+    '/login',
+    '/portal/login',
+    '/portal/forgot-password',
+    '/portal/reset-password',
+    '/share',
+    '/api/health',
+    '/api/portal/auth',
+  ];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   if (isPublicRoute) {
@@ -36,15 +44,20 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect portal routes (except portal login)
-  if (pathname.startsWith('/portal') && !pathname.startsWith('/portal/login')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/portal/login', request.url));
-    }
-  }
+  // Portal routes use cookie-based sessions (NOT Supabase Auth).
+  // The portal (main) layout.tsx handles auth via getPortalSession().
+  // Middleware only handles Supabase Auth for admin/dashboard routes.
+  // Portal pages are server-rendered and will redirect to /portal/login
+  // if no valid cookie session exists.
 
-  // Protect API routes (except public ones)
-  if (pathname.startsWith('/api') && !pathname.startsWith('/api/health') && !pathname.startsWith('/api/auth')) {
+  // Protect admin API routes (except public and portal ones)
+  if (
+    pathname.startsWith('/api') &&
+    !pathname.startsWith('/api/health') &&
+    !pathname.startsWith('/api/auth') &&
+    !pathname.startsWith('/api/portal') &&
+    !pathname.startsWith('/api/shares/download')
+  ) {
     if (!user) {
       return NextResponse.json(
         { error: 'Unauthorized' },
