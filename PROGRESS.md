@@ -34,7 +34,7 @@
 - [x] Build verification: 0 TS errors, 41 routes
 
 ## Phase 3: Client Portal Login System ✅
-**Status:** Complete | **Commit:** `pending`
+**Status:** Complete | **Commit:** `b47d727`
 
 - [x] /portal/login — Client login page (Arabic RTL, Pyramedia branding, responsive)
 - [x] /portal/forgot-password — Forgot password page with email form
