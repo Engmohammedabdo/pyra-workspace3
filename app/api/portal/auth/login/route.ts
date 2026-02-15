@@ -10,15 +10,15 @@ import {
 import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
 
 /**
- * Fields to return for the logged-in client -- everything EXCEPT password_hash
+ * Fields to return for the logged-in client (safe — no auth_user_id)
  */
 const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
  * POST /api/portal/auth/login
  *
- * Client login using Supabase Auth (since pyra_clients.password_hash stores
- * the Supabase Auth user ID; passwords are managed by Supabase Auth).
+ * Client login using Supabase Auth. The auth_user_id field on pyra_clients
+ * stores the Supabase Auth user UUID; passwords are managed by Supabase Auth.
  *
  * Body: { email: string, password: string, remember_me?: boolean }
  *
@@ -29,7 +29,7 @@ const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_a
  *  4. Authenticate via Supabase Auth signInWithPassword
  *  5. Create a portal session (cookie-based)
  *  6. Update last_login_at on pyra_clients
- *  7. Return client data (no password_hash)
+ *  7. Return client data (no auth_user_id)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // ── Look up the client ───────────────────────────
     const { data: client, error: clientError } = await supabase
       .from('pyra_clients')
-      .select('id, name, email, phone, company, password_hash, last_login_at, is_active, created_at')
+      .select('id, name, email, phone, company, last_login_at, is_active, created_at')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -81,8 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Authenticate via Supabase Auth ────────────────
-    // password_hash stores the Supabase Auth user ID; the actual password
-    // is stored in Supabase Auth. We verify using signInWithPassword.
+    // Passwords are managed by Supabase Auth. We verify using signInWithPassword.
     const { error: authError } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
       password,

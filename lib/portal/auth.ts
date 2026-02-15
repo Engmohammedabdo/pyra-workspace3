@@ -1,38 +1,56 @@
 import { cookies } from 'next/headers';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { randomBytes, createHash } from 'crypto';
 import type { PyraClient } from '@/types/database';
 
 const PORTAL_SESSION_COOKIE = 'pyra_portal_session';
 const SESSION_EXPIRY_DAYS = 30;
 
 /**
- * Fields to select from pyra_clients -- everything EXCEPT password_hash
+ * Fields to select from pyra_clients -- everything EXCEPT auth_user_id
  */
 export const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
+ * Generate a cryptographically secure session token (48 bytes = 64 chars base64url).
+ */
+function generateSecureToken(): string {
+  return randomBytes(48).toString('base64url');
+}
+
+/**
+ * Hash a token using SHA-256 for storage.
+ * Only the hash is stored in the database; the raw token lives in the cookie.
+ */
+function hashToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
+
+/**
  * Create a portal session for a client.
- * Inserts a row in pyra_sessions and sets a signed cookie.
+ * Inserts a row in pyra_sessions (storing a SHA-256 hash of the token)
+ * and sets an httpOnly cookie with the raw token.
  *
- * The cookie value format is `clientId:token`.
+ * Cookie format: `clientId:rawToken`
  */
 export async function createPortalSession(clientId: string): Promise<string> {
-  const token = generateId('ps'); // ps = portal session
+  const rawToken = generateSecureToken();
+  const tokenHash = hashToken(rawToken);
   const cookieStore = await cookies();
 
   const supabase = createServiceRoleClient();
   await supabase.from('pyra_sessions').insert({
     id: generateId('sess'),
     username: clientId, // reuse username field for client_id
-    token,
+    token: tokenHash,   // store HASH, not raw token
     ip_address: 'server',
     user_agent: 'portal',
     last_activity: new Date().toISOString(),
     expires_at: new Date(Date.now() + SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
   });
 
-  cookieStore.set(PORTAL_SESSION_COOKIE, `${clientId}:${token}`, {
+  cookieStore.set(PORTAL_SESSION_COOKIE, `${clientId}:${rawToken}`, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
@@ -40,29 +58,35 @@ export async function createPortalSession(clientId: string): Promise<string> {
     path: '/',
   });
 
-  return token;
+  return rawToken;
 }
 
 /**
  * Read the current portal session from the cookie and validate it.
- * Returns the PyraClient (without password_hash) if session is valid, null otherwise.
+ * Hashes the raw token from the cookie and compares against the stored hash.
+ * Returns the PyraClient (without auth_user_id) if session is valid, null otherwise.
  */
 export async function getPortalSession(): Promise<PyraClient | null> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(PORTAL_SESSION_COOKIE)?.value;
   if (!sessionCookie) return null;
 
-  const [clientId, token] = sessionCookie.split(':');
-  if (!clientId || !token) return null;
+  const separatorIdx = sessionCookie.indexOf(':');
+  if (separatorIdx === -1) return null;
 
+  const clientId = sessionCookie.slice(0, separatorIdx);
+  const rawToken = sessionCookie.slice(separatorIdx + 1);
+  if (!clientId || !rawToken) return null;
+
+  const tokenHash = hashToken(rawToken);
   const supabase = createServiceRoleClient();
 
-  // Verify session exists and is not expired
+  // Verify session exists (by hash) and is not expired
   const { data: session } = await supabase
     .from('pyra_sessions')
     .select('id, username, token, expires_at, last_activity')
     .eq('username', clientId)
-    .eq('token', token)
+    .eq('token', tokenHash)
     .gt('expires_at', new Date().toISOString())
     .single();
 
@@ -87,23 +111,40 @@ export async function getPortalSession(): Promise<PyraClient | null> {
 
 /**
  * Destroy the current portal session.
- * Deletes the session record from pyra_sessions and clears the cookie.
+ * Hashes the raw token, deletes the matching session record, and clears the cookie.
  */
 export async function destroyPortalSession(): Promise<void> {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(PORTAL_SESSION_COOKIE)?.value;
 
   if (sessionCookie) {
-    const [clientId, token] = sessionCookie.split(':');
-    if (clientId && token) {
-      const supabase = createServiceRoleClient();
-      await supabase
-        .from('pyra_sessions')
-        .delete()
-        .eq('username', clientId)
-        .eq('token', token);
+    const separatorIdx = sessionCookie.indexOf(':');
+    if (separatorIdx !== -1) {
+      const clientId = sessionCookie.slice(0, separatorIdx);
+      const rawToken = sessionCookie.slice(separatorIdx + 1);
+      if (clientId && rawToken) {
+        const tokenHash = hashToken(rawToken);
+        const supabase = createServiceRoleClient();
+        await supabase
+          .from('pyra_sessions')
+          .delete()
+          .eq('username', clientId)
+          .eq('token', tokenHash);
+      }
     }
   }
 
   cookieStore.delete(PORTAL_SESSION_COOKIE);
+}
+
+/**
+ * Destroy ALL portal sessions for a given client.
+ * Used on password change to invalidate every session.
+ */
+export async function destroyAllClientSessions(clientId: string): Promise<void> {
+  const supabase = createServiceRoleClient();
+  await supabase
+    .from('pyra_sessions')
+    .delete()
+    .eq('username', clientId);
 }

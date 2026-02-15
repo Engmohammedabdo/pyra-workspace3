@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 
 const QUOTE_FIELDS = `
   id, quote_number, team_id, client_id, project_name, status,
@@ -99,31 +100,8 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Generate quote number: QT-XXXX
-    // Get settings for prefix
-    const { data: prefixSetting } = await supabase
-      .from('pyra_settings')
-      .select('value')
-      .eq('key', 'quote_prefix')
-      .maybeSingle();
-
-    const prefix = prefixSetting?.value || 'QT';
-
-    // Get max quote number
-    const { data: lastQuote } = await supabase
-      .from('pyra_quotes')
-      .select('quote_number')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let nextNum = 1;
-    if (lastQuote?.quote_number) {
-      const match = lastQuote.quote_number.match(/(\d+)$/);
-      if (match) nextNum = parseInt(match[1]) + 1;
-    }
-
-    const quoteNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+    // Generate quote number atomically (race-condition safe)
+    const quoteNumber = await generateNextQuoteNumber(supabase);
 
     // Calculate totals
     const subtotal = items.reduce(

@@ -45,10 +45,10 @@ export async function GET(
       return apiForbidden('مسار الملف غير صالح');
     }
 
-    // ── Verify project belongs to client's company ────
+    // ── Verify project belongs to client ─────────────
     const { data: project } = await supabase
       .from('pyra_projects')
-      .select('id, client_company')
+      .select('id, client_id, client_company')
       .eq('id', projectFile.project_id)
       .single();
 
@@ -56,7 +56,11 @@ export async function GET(
       return apiNotFound('المشروع غير موجود');
     }
 
-    if (project.client_company !== client.company) {
+    const ownsProject = project.client_id
+      ? project.client_id === client.id
+      : project.client_company === client.company;
+
+    if (!ownsProject) {
       return apiForbidden('لا تملك صلاحية الوصول لهذا الملف');
     }
 

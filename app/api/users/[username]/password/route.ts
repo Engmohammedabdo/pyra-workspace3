@@ -38,8 +38,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { password } = body;
 
     // Validate password
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!password || typeof password !== 'string' || password.length < 12) {
+      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
     }
 
     const supabase = await createServerSupabaseClient();

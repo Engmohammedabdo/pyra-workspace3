@@ -166,6 +166,27 @@ NEXT_STANDALONE=false
 | Portal Auth | 5 | Client (Cookie) |
 | Portal Quotes | 3 | Client (Cookie) |
 
+## Security
+
+Two rounds of security hardening applied across all API routes:
+
+**Critical Fixes (Phase 4.1)**
+- Session fixation prevention (regenerate session on login)
+- Privilege escalation blocked (role changes require admin)
+- Session invalidation on password change
+- Scrypt hashing for share link passwords
+- Quote number race condition (atomic counter)
+- Rate limiting on all auth endpoints (login, forgot-password, reset-password, password change)
+
+**High Priority Fixes (Phase 4.2)**
+- IDOR prevention — portal queries scoped by `client_id` FK (not company string)
+- 12-character minimum passwords across all auth flows
+- Employee project access scoped by team membership
+- Atomic file upload + index with storage rollback on failure
+- Quote state machine (enforced valid status transitions)
+- File upload whitelist (MIME types + extension blocklist)
+- Stable Realtime subscriptions (useRef callback pattern)
+
 ## Deployment
 
 Designed for self-hosted Docker deployment with `output: 'standalone'`:
@@ -191,6 +212,8 @@ See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
 | 6. Quotes & Contracts | ✅ Complete |
 | 7. Realtime & Notifications | ✅ Complete |
 | 8. Advanced File Features | ✅ Complete |
+| Security Audit (Critical) | ✅ Complete |
+| Security Audit (High) | ✅ Complete |
 | 9. Docker & Deployment | ⏳ Pending |
 
 ## License

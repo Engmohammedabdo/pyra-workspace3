@@ -92,6 +92,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       status,
     } = body;
 
+    // ── Validate state transition ────────────────────
+    // Valid transitions: draft→sent, sent→viewed, viewed→signed, signed→(none)
+    // Admin can also revert: sent→draft, viewed→draft
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      draft:   ['sent'],
+      sent:    ['draft', 'viewed'],
+      viewed:  ['draft', 'signed'],
+      signed:  [],            // terminal state — cannot be changed via PATCH
+      expired: ['draft'],     // can reactivate
+    };
+
     // Build update object
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -99,7 +110,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (estimate_date !== undefined) updates.estimate_date = estimate_date;
     if (expiry_date !== undefined) updates.expiry_date = expiry_date;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
-    if (status !== undefined) updates.status = status;
+
+    if (status !== undefined) {
+      const currentStatus = existing.status as string;
+      const allowedNextStates = VALID_TRANSITIONS[currentStatus] || [];
+
+      if (!allowedNextStates.includes(status)) {
+        return apiValidationError(
+          `لا يمكن تغيير حالة عرض السعر من "${currentStatus}" إلى "${status}"`
+        );
+      }
+      updates.status = status;
+    }
 
     // Update client info if changed
     if (client_id !== undefined) {

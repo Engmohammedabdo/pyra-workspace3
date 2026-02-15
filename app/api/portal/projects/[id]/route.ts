@@ -34,7 +34,7 @@ export async function GET(
     // ── Fetch the project ─────────────────────────────
     const { data: project, error: projectError } = await supabase
       .from('pyra_projects')
-      .select('id, name, description, status, client_company, team_id, updated_at, created_at')
+      .select('id, name, description, status, client_id, client_company, team_id, updated_at, created_at')
       .eq('id', id)
       .single();
 
@@ -42,8 +42,12 @@ export async function GET(
       return apiNotFound('المشروع غير موجود');
     }
 
-    // ── Verify ownership ──────────────────────────────
-    if (project.client_company !== client.company) {
+    // ── Verify ownership (client_id takes priority, fallback to company) ──
+    const ownsProject = project.client_id
+      ? project.client_id === client.id
+      : project.client_company === client.company;
+
+    if (!ownsProject) {
       return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
     }
 

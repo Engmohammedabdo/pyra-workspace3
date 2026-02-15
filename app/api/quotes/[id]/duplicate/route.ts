@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -39,29 +40,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .eq('quote_id', id)
       .order('sort_order', { ascending: true });
 
-    // Generate new quote number
-    const { data: prefixSetting } = await supabase
-      .from('pyra_settings')
-      .select('value')
-      .eq('key', 'quote_prefix')
-      .maybeSingle();
-
-    const prefix = prefixSetting?.value || 'QT';
-
-    const { data: lastQuote } = await supabase
-      .from('pyra_quotes')
-      .select('quote_number')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let nextNum = 1;
-    if (lastQuote?.quote_number) {
-      const match = lastQuote.quote_number.match(/(\d+)$/);
-      if (match) nextNum = parseInt(match[1]) + 1;
-    }
-
-    const quoteNumber = `${prefix}-${String(nextNum).padStart(4, '0')}`;
+    // Generate new quote number atomically (race-condition safe)
+    const quoteNumber = await generateNextQuoteNumber(supabase);
     const newId = generateId('qt');
     const today = new Date().toISOString().split('T')[0];
 

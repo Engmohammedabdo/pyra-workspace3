@@ -108,8 +108,8 @@ export default function PortalProfilePage() {
     e.preventDefault();
 
     // Validation
-    if (newPassword.length < 8) {
-      toast.error('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل');
+    if (newPassword.length < 12) {
+      toast.error('كلمة المرور الجديدة يجب أن تكون 12 حرف على الأقل');
       return;
     }
     if (newPassword.length > 128) {

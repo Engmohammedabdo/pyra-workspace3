@@ -82,6 +82,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (body.role !== 'admin' && body.role !== 'employee') {
         return apiValidationError('الدور يجب أن يكون admin أو employee');
       }
+      // Prevent admin from changing their own role (could lock themselves out)
+      if (username === admin.pyraUser.username) {
+        return apiError('لا يمكنك تغيير دورك الخاص', 400);
+      }
+      // Prevent demoting the last admin
+      if (existingUser.role === 'admin' && body.role !== 'admin') {
+        const { count: adminCount } = await supabase
+          .from('pyra_users')
+          .select('id', { count: 'exact', head: true })
+          .eq('role', 'admin');
+        if ((adminCount ?? 0) <= 1) {
+          return apiError('لا يمكن تخفيض دور آخر مدير. يجب وجود مدير واحد على الأقل', 400);
+        }
+      }
       updateData.role = body.role;
     }
 

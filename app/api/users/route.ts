@@ -75,8 +75,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('اسم المستخدم مطلوب (3 أحرف على الأقل)');
     }
 
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!password || typeof password !== 'string' || password.length < 12) {
+      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
     }
 
     if (!role || (role !== 'admin' && role !== 'employee')) {
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
       .from('pyra_users')
       .insert({
         username: cleanUsername,
-        password_hash: '***supabase-auth***', // Password managed by Supabase Auth
+        auth_user_id: authData.user?.id || 'pending',
         role,
         display_name: display_name.trim(),
         permissions: permissions || {},

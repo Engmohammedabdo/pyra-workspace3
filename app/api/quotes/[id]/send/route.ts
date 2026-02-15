@@ -4,6 +4,7 @@ import {
   apiSuccess,
   apiUnauthorized,
   apiNotFound,
+  apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -25,11 +26,18 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     const { data: quote } = await supabase
       .from('pyra_quotes')
-      .select('id, quote_number, client_id, client_name, total, currency')
+      .select('id, quote_number, client_id, client_name, total, currency, status')
       .eq('id', id)
       .maybeSingle();
 
     if (!quote) return apiNotFound('عرض السعر غير موجود');
+
+    // Only draft quotes can be sent
+    if (quote.status !== 'draft') {
+      return apiValidationError(
+        `لا يمكن إرسال عرض سعر في حالة "${quote.status}". يجب أن يكون في حالة مسودة`
+      );
+    }
 
     const now = new Date().toISOString();
 

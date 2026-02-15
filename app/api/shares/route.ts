@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { hashPassword } from '@/lib/utils/password';
 
 // =============================================================
 // GET /api/shares
@@ -76,12 +77,10 @@ export async function POST(request: NextRequest) {
       expiresAt = expiryDate.toISOString();
     }
 
-    // Hash password if provided (simple hash for share links)
+    // Hash password if provided (scrypt with random salt)
     let passwordHash: string | null = null;
     if (password?.trim()) {
-      // Use a simple base64 encoding for share link passwords
-      // In production, use bcrypt or similar
-      passwordHash = Buffer.from(password.trim()).toString('base64');
+      passwordHash = hashPassword(password.trim());
     }
 
     const { data: shareLink, error } = await supabase

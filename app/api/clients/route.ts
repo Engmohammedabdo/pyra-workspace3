@@ -9,7 +9,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
-// Fields to select — everything EXCEPT password_hash
+// Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
     if (!name?.trim()) return apiValidationError('الاسم مطلوب');
     if (!email?.trim()) return apiValidationError('البريد الإلكتروني مطلوب');
     if (!company?.trim()) return apiValidationError('اسم الشركة مطلوب');
-    if (!password || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!password || password.length < 12) {
+      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
     }
 
     const supabase = createServiceRoleClient();
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
         email: email.trim().toLowerCase(),
         phone: phone?.trim() || null,
         company: company.trim(),
-        password_hash: authUser.user.id, // reference to auth user
+        auth_user_id: authUser.user.id,
         is_active: true,
       })
       .select(CLIENT_FIELDS)

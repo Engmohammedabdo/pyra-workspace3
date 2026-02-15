@@ -18,18 +18,21 @@ export async function GET() {
 
     const supabase = createServiceRoleClient();
 
+    // Client project scope: client_id match OR legacy (null client_id + company match)
+    const projectScope = `client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${client.company})`;
+
     // ── Active projects count ─────────────────────────
     const { count: activeProjectsCount } = await supabase
       .from('pyra_projects')
       .select('id', { count: 'exact', head: true })
-      .eq('client_company', client.company)
+      .or(projectScope)
       .in('status', ['active', 'in_progress', 'review']);
 
     // ── Project IDs for this client ────────────────────
     const { data: clientProjects } = await supabase
       .from('pyra_projects')
       .select('id')
-      .eq('client_company', client.company);
+      .or(projectScope);
 
     const projectIds = (clientProjects || []).map((p) => p.id);
 
@@ -68,7 +71,7 @@ export async function GET() {
     const { data: recentProjects } = await supabase
       .from('pyra_projects')
       .select('id, name, status, updated_at')
-      .eq('client_company', client.company)
+      .or(projectScope)
       .order('updated_at', { ascending: false })
       .limit(5);
 

@@ -282,4 +282,49 @@
 - [x] 0 TypeScript errors (tsc --noEmit)
 - [x] next build: 94 routes, all successful
 
+## Phase 4.2: Security Fixes (HIGH Priority) ✅
+**Status:** Complete | **Commit:** (pending)
+
+### H1: Fix IDOR — Scope portal queries by client_id
+- [x] All portal endpoints now use `client_id` FK instead of `client_company` string
+- [x] Compound `.or()` filter: prefer `client_id`, fallback to `client_company` for legacy projects
+- [x] 9 portal API files updated: projects, files (approve/download/revision), comments, dashboard
+- [x] `ownsProject` ownership check added to all single-resource portal routes
+
+### H2: Raise minimum password length to 12 characters
+- [x] Backend: 5 API routes updated (users, clients, portal password, portal reset-password)
+- [x] Frontend: 3 pages updated (users page, portal profile, portal reset-password)
+- [x] Consistent 12–128 character range across all password flows
+
+### H3: Employee permission checks on projects
+- [x] GET /api/projects — Employees see only projects from teams they belong to (via `pyra_team_members`)
+- [x] GET /api/projects/[id] — Team membership check before allowing single project access
+- [x] Admins retain full access to all projects
+
+### H4: Atomic file operations (upload + index)
+- [x] Storage upload rollback on index upsert failure
+- [x] `uploadedPaths.push()` moved after successful index insert
+- [x] Error recorded and file cleaned up from storage on failure
+
+### H5: Quote state transition protection
+- [x] `VALID_TRANSITIONS` map: draft→sent, sent→draft/viewed, viewed→draft/signed, signed→(terminal), expired→draft
+- [x] PATCH /api/quotes/[id] validates status transitions before applying
+- [x] POST /api/quotes/[id]/send restricted to draft quotes only
+- [x] POST /api/portal/quotes/[id]/sign restricted to sent/viewed quotes only
+
+### H6: Stabilize useRealtime hook callbacks
+- [x] `useRef` pattern for callbacks — avoids re-subscription on every render
+- [x] `useRealtime()` depends only on `[username]`, not callback identity
+- [x] `useRealtimeActivity()` depends on `[]` — subscribes once
+
+### H7: File type whitelist for uploads
+- [x] `ALLOWED_MIME_TYPES` set: documents, images, video, audio, archives, design, fonts
+- [x] `BLOCKED_EXTENSIONS` set: .exe, .bat, .cmd, .ps1, .sh, .dll, .msi, .scr, etc.
+- [x] `isAllowedFileType()` function with dual defense (extension blocklist + MIME whitelist)
+- [x] Validation runs before any storage upload
+
+### Build Verification
+- [x] 0 TypeScript errors (tsc --noEmit)
+- [x] next build: 64 static pages, all successful
+
 ## Phase 9: Docker & Deployment ⏳

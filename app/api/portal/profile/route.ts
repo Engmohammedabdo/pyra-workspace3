@@ -101,16 +101,15 @@ export async function PATCH(request: NextRequest) {
         updates.email = normalizedEmail;
 
         // Also update Supabase Auth user email
-        // password_hash stores the Supabase Auth user ID
         const { data: fullClient } = await supabase
           .from('pyra_clients')
-          .select('password_hash')
+          .select('auth_user_id')
           .eq('id', client.id)
           .single();
 
-        if (fullClient?.password_hash) {
+        if (fullClient?.auth_user_id) {
           const { error: authUpdateError } = await supabase.auth.admin.updateUserById(
-            fullClient.password_hash,
+            fullClient.auth_user_id,
             { email: normalizedEmail }
           );
 

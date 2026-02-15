@@ -268,7 +268,7 @@ export default function UsersPage() {
             </div>
             <div className="space-y-2">
               <Label>كلمة المرور</Label>
-              <Input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="6 أحرف على الأقل" dir="ltr" />
+              <Input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="12 حرف على الأقل" dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>الدور</Label>
@@ -322,7 +322,7 @@ export default function UsersPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label>كلمة المرور الجديدة</Label>
-              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="8 أحرف على الأقل" dir="ltr" />
+              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="12 حرف على الأقل" dir="ltr" />
             </div>
           </div>
           <DialogFooter>

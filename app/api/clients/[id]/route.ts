@@ -10,7 +10,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
-// Fields to select — everything EXCEPT password_hash
+// Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
@@ -91,7 +91,7 @@ export async function PATCH(
     // ── Verify client exists ─────────────────────────
     const { data: existing } = await supabase
       .from('pyra_clients')
-      .select('id, email, password_hash')
+      .select('id, email, auth_user_id')
       .eq('id', id)
       .maybeSingle();
 
@@ -125,7 +125,7 @@ export async function PATCH(
         }
 
         // Update email in Supabase Auth as well
-        await supabase.auth.admin.updateUserById(existing.password_hash, {
+        await supabase.auth.admin.updateUserById(existing.auth_user_id, {
           email: newEmail,
         });
       }
@@ -205,7 +205,7 @@ export async function DELETE(
     // ── Verify client exists ─────────────────────────
     const { data: existing } = await supabase
       .from('pyra_clients')
-      .select('id, name, email, company, password_hash')
+      .select('id, name, email, company, auth_user_id')
       .eq('id', id)
       .maybeSingle();
 
@@ -247,7 +247,7 @@ export async function DELETE(
 
     // ── Delete from Supabase Auth ────────────────────
     const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
-      existing.password_hash
+      existing.auth_user_id
     );
 
     if (authDeleteError) {

@@ -46,8 +46,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+    if (password.length < 12) {
+      setError('كلمة المرور يجب أن تكون 12 حرف على الأقل');
       return;
     }
 
@@ -173,7 +173,7 @@ function ResetPasswordForm() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        يجب أن تتكون كلمة المرور من 6 أحرف على الأقل
+        يجب أن تتكون كلمة المرور من 12 حرف على الأقل
       </p>
 
       {/* Error message */}

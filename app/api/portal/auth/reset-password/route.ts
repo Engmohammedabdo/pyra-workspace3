@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { destroyAllClientSessions } from '@/lib/portal/auth';
 import {
   apiSuccess,
   apiError,
@@ -20,7 +21,7 @@ import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
  *  2. Look up the reset token in pyra_sessions (username starts with "reset:")
  *  3. Verify it's not expired
  *  4. Extract client_id from the username field
- *  5. Look up the client to get the Supabase Auth user ID (password_hash)
+ *  5. Look up the client to get the Supabase Auth user ID (auth_user_id)
  *  6. Update the password in Supabase Auth
  *  7. Delete the reset session record
  *  8. Return success
@@ -46,8 +47,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('رمز إعادة التعيين مطلوب');
     }
 
-    if (!password || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!password || password.length < 12) {
+      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
     }
 
     const supabase = createServiceRoleClient();
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     // ── Look up the client ───────────────────────────
     const { data: client } = await supabase
       .from('pyra_clients')
-      .select('id, password_hash, is_active')
+      .select('id, auth_user_id, is_active')
       .eq('id', clientId)
       .maybeSingle();
 
@@ -93,8 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Update password in Supabase Auth ──────────────
-    // password_hash stores the Supabase Auth user ID
-    const authUserId = client.password_hash;
+    const authUserId = client.auth_user_id;
 
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       authUserId,
@@ -118,9 +118,12 @@ export async function POST(request: NextRequest) {
       .delete()
       .like('username', `reset:${clientId}`);
 
+    // ── Invalidate ALL active portal sessions ──────
+    await destroyAllClientSessions(clientId);
+
     return apiSuccess({
       success: true,
-      message: 'تم إعادة تعيين كلمة المرور بنجاح',
+      message: 'تم إعادة تعيين كلمة المرور بنجاح. يرجى تسجيل الدخول بكلمة المرور الجديدة',
     });
   } catch (err) {
     console.error('POST /api/portal/auth/reset-password error:', err);

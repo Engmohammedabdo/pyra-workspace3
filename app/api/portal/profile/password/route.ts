@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
-import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
-import { getPortalSession } from '@/lib/portal/auth';
+import { getPortalSession, destroyAllClientSessions } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { passwordChangeLimiter } from '@/lib/utils/rate-limit';
 import {
@@ -52,8 +51,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('كلمة المرور الجديدة مطلوبة');
     }
 
-    if (new_password.length < 8) {
-      return apiValidationError('كلمة المرور الجديدة يجب أن تكون 8 أحرف على الأقل');
+    if (new_password.length < 12) {
+      return apiValidationError('كلمة المرور الجديدة يجب أن تكون 12 حرف على الأقل');
     }
 
     if (new_password.length > 128) {
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
     // ── Fetch full client to get Supabase Auth user ID ─
     const { data: fullClient } = await supabase
       .from('pyra_clients')
-      .select('password_hash, email')
+      .select('auth_user_id, email')
       .eq('id', client.id)
       .single();
 
@@ -95,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // ── Update password via admin API ─────────────────
     const { error: updateError } = await supabase.auth.admin.updateUserById(
-      fullClient.password_hash,
+      fullClient.auth_user_id,
       { password: new_password }
     );
 
@@ -104,26 +103,11 @@ export async function POST(request: NextRequest) {
       return apiServerError('فشل تحديث كلمة المرور');
     }
 
-    // ── Invalidate all OTHER portal sessions ──────────
-    // Keep the current session active, destroy all others
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get('pyra_portal_session')?.value;
-    let currentToken: string | undefined;
-    if (sessionCookie) {
-      const parts = sessionCookie.split(':');
-      currentToken = parts[1];
-    }
+    // ── Invalidate ALL portal sessions (including current) ──
+    // After password change, user must re-login for security
+    await destroyAllClientSessions(client.id);
 
-    if (currentToken) {
-      // Delete all sessions for this client EXCEPT the current one
-      await supabase
-        .from('pyra_sessions')
-        .delete()
-        .eq('username', client.id)
-        .neq('token', currentToken);
-    }
-
-    return apiSuccess({ message: 'تم تغيير كلمة المرور بنجاح' });
+    return apiSuccess({ message: 'تم تغيير كلمة المرور بنجاح. يرجى تسجيل الدخول مرة أخرى' });
   } catch (err) {
     console.error('POST /api/portal/profile/password error:', err);
     return apiServerError();

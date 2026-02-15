@@ -8,7 +8,7 @@
 export interface PyraUser {
   id: number;
   username: string;
-  password_hash: string;
+  auth_user_id: string;
   role: 'admin' | 'employee';
   display_name: string;
   permissions: UserPermissions;
@@ -182,7 +182,7 @@ export interface PyraClient {
   email: string;
   phone: string | null;
   company: string;
-  password_hash: string;
+  auth_user_id: string;
   last_login_at: string | null;
   is_active: boolean;
   created_at: string;
@@ -192,7 +192,9 @@ export interface PyraProject {
   id: string;
   name: string;
   description: string | null;
+  client_id: string | null;
   client_company: string;
+  team_id: string | null;
   status: 'active' | 'in_progress' | 'review' | 'completed' | 'archived';
   created_by: string;
   created_at: string;

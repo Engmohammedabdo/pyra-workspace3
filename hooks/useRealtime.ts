@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -12,9 +12,17 @@ interface UseRealtimeOptions {
 /**
  * Subscribe to Supabase Realtime for live notification updates.
  * Listens for INSERT events on pyra_notifications filtered by recipient.
+ *
+ * Uses a ref for the callback to avoid re-subscribing on every render.
  */
 export function useRealtime({ username, onNewNotification }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onNewNotification);
+
+  // Keep the callback ref up-to-date without re-subscribing
+  useEffect(() => {
+    callbackRef.current = onNewNotification;
+  }, [onNewNotification]);
 
   useEffect(() => {
     if (!username) return;
@@ -32,7 +40,7 @@ export function useRealtime({ username, onNewNotification }: UseRealtimeOptions)
           filter: `recipient_username=eq.${username}`,
         },
         (payload) => {
-          onNewNotification?.(payload.new as Record<string, unknown>);
+          callbackRef.current?.(payload.new as Record<string, unknown>);
         }
       )
       .subscribe();
@@ -43,15 +51,23 @@ export function useRealtime({ username, onNewNotification }: UseRealtimeOptions)
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [username, onNewNotification]);
+  }, [username]); // Only re-subscribe when username changes
 }
 
 /**
  * Subscribe to Supabase Realtime for activity log updates.
  * Listens for INSERT events on pyra_activity_log.
+ *
+ * Uses a ref for the callback to avoid re-subscribing on every render.
  */
 export function useRealtimeActivity(onNewActivity?: (activity: Record<string, unknown>) => void) {
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onNewActivity);
+
+  // Keep the callback ref up-to-date without re-subscribing
+  useEffect(() => {
+    callbackRef.current = onNewActivity;
+  }, [onNewActivity]);
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
@@ -66,7 +82,7 @@ export function useRealtimeActivity(onNewActivity?: (activity: Record<string, un
           table: 'pyra_activity_log',
         },
         (payload) => {
-          onNewActivity?.(payload.new as Record<string, unknown>);
+          callbackRef.current?.(payload.new as Record<string, unknown>);
         }
       )
       .subscribe();
@@ -77,5 +93,5 @@ export function useRealtimeActivity(onNewActivity?: (activity: Record<string, un
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [onNewActivity]);
+  }, []); // Subscribe once, never re-subscribe
 }

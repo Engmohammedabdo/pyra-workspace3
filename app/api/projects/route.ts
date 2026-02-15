@@ -12,7 +12,7 @@ import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // GET /api/projects
-// List projects. Admin sees all.
+// List projects. Admin sees all; employee sees only team projects.
 // Supports ?status=, ?client_company=, ?search= filters
 // =============================================================
 export async function GET(request: NextRequest) {
@@ -27,9 +27,41 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
+    // If employee, scope to their team's projects only
+    let teamProjectIds: string[] | null = null;
+    if (auth.pyraUser.role === 'employee') {
+      const { data: memberships } = await supabase
+        .from('pyra_team_members')
+        .select('team_id')
+        .eq('username', auth.pyraUser.username);
+
+      const teamIds = (memberships || []).map((m) => m.team_id);
+
+      if (teamIds.length === 0) {
+        // Employee not in any team — return empty
+        return apiSuccess([], { total: 0 });
+      }
+
+      const { data: teamProjects } = await supabase
+        .from('pyra_projects')
+        .select('id')
+        .in('team_id', teamIds);
+
+      teamProjectIds = (teamProjects || []).map((p) => p.id);
+
+      if (teamProjectIds.length === 0) {
+        return apiSuccess([], { total: 0 });
+      }
+    }
+
     let query = supabase
       .from('pyra_projects')
       .select('*', { count: 'exact' });
+
+    // Scope employee to their team's projects
+    if (teamProjectIds) {
+      query = query.in('id', teamProjectIds);
+    }
 
     // Apply filters
     if (status) {

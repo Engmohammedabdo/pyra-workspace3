@@ -10,6 +10,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { sanitizePath, getFileName, getParentPath, joinPath } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
+import { apiWriteLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -23,6 +24,10 @@ const MAX_BATCH_SIZE = 50;
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit batch deletes
+    const limited = checkRateLimit(apiWriteLimiter, request);
+    if (limited) return limited;
+
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
 

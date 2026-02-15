@@ -5,6 +5,8 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { verifyPassword } from '@/lib/utils/password';
+import { shareDownloadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -17,6 +19,10 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    // Rate limit public downloads (no auth — most exposed endpoint)
+    const limited = checkRateLimit(shareDownloadLimiter, request);
+    if (limited) return limited;
+
     const { token } = await params;
     const supabase = createServiceRoleClient();
 
@@ -65,12 +71,10 @@ export async function GET(
       return apiError('تم الوصول إلى الحد الأقصى لعدد التحميلات', 410);
     }
 
-    // Validate password if set
+    // Validate password if set (timing-safe comparison via scrypt)
     if (shareLink.password_hash) {
       const providedPassword = request.nextUrl.searchParams.get('password') || '';
-      const encodedPassword = Buffer.from(providedPassword).toString('base64');
-
-      if (encodedPassword !== shareLink.password_hash) {
+      if (!verifyPassword(providedPassword, shareLink.password_hash)) {
         return apiError('كلمة المرور غير صحيحة', 403);
       }
     }

@@ -82,7 +82,7 @@ export function createRateLimiter(name: string, config: RateLimiterConfig) {
   };
 }
 
-// ─── Pre-configured limiters for portal auth ───────────────
+// ─── Pre-configured limiters ────────────────────────────────
 
 /** Login: max 5 attempts per IP per 15 minutes */
 export const loginLimiter = createRateLimiter('portal-login', {
@@ -108,6 +108,32 @@ export const passwordChangeLimiter = createRateLimiter('portal-password-change',
   windowMs: 15 * 60 * 1000, // 15 minutes
 });
 
+// ─── General API rate limiters ──────────────────────────────
+
+/** API writes (POST/PATCH/DELETE): max 30 per IP per minute */
+export const apiWriteLimiter = createRateLimiter('api-write', {
+  maxRequests: 30,
+  windowMs: 60 * 1000,
+});
+
+/** API reads (GET): max 120 per IP per minute */
+export const apiReadLimiter = createRateLimiter('api-read', {
+  maxRequests: 120,
+  windowMs: 60 * 1000,
+});
+
+/** File uploads: max 20 per IP per minute */
+export const uploadLimiter = createRateLimiter('file-upload', {
+  maxRequests: 20,
+  windowMs: 60 * 1000,
+});
+
+/** Share link downloads (public, no auth): max 30 per IP per minute */
+export const shareDownloadLimiter = createRateLimiter('share-download', {
+  maxRequests: 30,
+  windowMs: 60 * 1000,
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.
@@ -119,4 +145,36 @@ export function getClientIp(request: Request): string {
     return forwarded.split(',')[0].trim();
   }
   return request.headers.get('x-real-ip') || 'unknown';
+}
+
+/**
+ * Check a rate limiter and return a 429 Response if limited, or null if OK.
+ * Use at the top of API route handlers:
+ *
+ *   const limited = checkRateLimit(apiWriteLimiter, request);
+ *   if (limited) return limited;
+ */
+export function checkRateLimit(
+  limiter: ReturnType<typeof createRateLimiter>,
+  request: Request
+): Response | null {
+  const ip = getClientIp(request);
+  const result = limiter.check(ip);
+  if (result.limited) {
+    const retrySeconds = Math.ceil(result.retryAfterMs / 1000);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retrySeconds} ثانية`,
+      }),
+      {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': String(retrySeconds),
+        },
+      }
+    );
+  }
+  return null;
 }

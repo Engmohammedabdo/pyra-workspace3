@@ -41,8 +41,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!quote) return apiNotFound('عرض السعر غير موجود');
     if (quote.client_id !== session.id) return apiForbidden();
 
-    if (quote.status === 'signed') {
-      return apiValidationError('عرض السعر موقع بالفعل');
+    // Only sent or viewed quotes can be signed
+    if (!['sent', 'viewed'].includes(quote.status)) {
+      return apiValidationError(
+        quote.status === 'signed'
+          ? 'عرض السعر موقع بالفعل'
+          : `لا يمكن توقيع عرض سعر في حالة "${quote.status}"`
+      );
     }
 
     const now = new Date().toISOString();

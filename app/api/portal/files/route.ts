@@ -29,11 +29,11 @@ export async function GET(request: NextRequest) {
     const statusFilter = searchParams.get('status');
     const search = searchParams.get('search');
 
-    // ── Get client's projects ─────────────────────────
+    // ── Get client's projects (client_id match OR legacy company match) ──
     let projectQuery = supabase
       .from('pyra_projects')
       .select('id, name')
-      .eq('client_company', client.company);
+      .or(`client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${client.company})`);
 
     if (projectIdFilter) {
       projectQuery = projectQuery.eq('id', projectIdFilter);
