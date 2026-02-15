@@ -6,6 +6,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
 
 /**
  * POST /api/portal/auth/reset-password
@@ -26,6 +27,17 @@ import {
  */
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limiting (5 per IP per 15 min) ──────────
+    const clientIp = getClientIp(request);
+    const rateCheck = resetPasswordLimiter.check(clientIp);
+    if (rateCheck.limited) {
+      const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
+      return apiError(
+        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        429
+      );
+    }
+
     const body = await request.json();
     const { token, password } = body;
 

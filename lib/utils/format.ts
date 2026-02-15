@@ -10,11 +10,11 @@ export function formatFileSize(bytes: number): string {
 }
 
 export function formatDate(date: string | Date, pattern: string = 'dd-MM-yyyy'): string {
-  return format(new Date(date), pattern);
+  return format(new Date(date), pattern, { locale: ar });
 }
 
 export function formatRelativeDate(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true });
+  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ar });
 }
 
 export function formatCurrency(amount: number, currency: string = 'AED'): string {

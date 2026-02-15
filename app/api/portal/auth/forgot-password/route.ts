@@ -3,9 +3,11 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import {
   apiSuccess,
+  apiError,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { forgotPasswordLimiter } from '@/lib/utils/rate-limit';
 
 const RESET_TOKEN_EXPIRY_HOURS = 1;
 
@@ -35,8 +37,19 @@ export async function POST(request: NextRequest) {
       return apiValidationError('البريد الإلكتروني مطلوب');
     }
 
-    const supabase = createServiceRoleClient();
     const normalizedEmail = email.trim().toLowerCase();
+
+    // ── Rate limiting (3 per email per hour) ────────
+    const rateCheck = forgotPasswordLimiter.check(normalizedEmail);
+    if (rateCheck.limited) {
+      const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
+      return apiError(
+        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        429
+      );
+    }
+
+    const supabase = createServiceRoleClient();
 
     // ── Look up the client ───────────────────────────
     const { data: client } = await supabase
@@ -83,9 +96,6 @@ export async function POST(request: NextRequest) {
 
     // In production, send the email here:
     // await sendPasswordResetEmail(client.email, client.name, resetToken);
-    console.log(
-      `[Portal] Password reset token for ${client.email}: ${resetToken} (expires: ${expiresAt})`
-    );
 
     // ── Build response ───────────────────────────────
     const response: Record<string, unknown> = {

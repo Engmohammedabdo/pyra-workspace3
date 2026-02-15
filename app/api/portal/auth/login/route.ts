@@ -7,6 +7,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
 
 /**
  * Fields to return for the logged-in client -- everything EXCEPT password_hash
@@ -32,6 +33,17 @@ const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_a
  */
 export async function POST(request: NextRequest) {
   try {
+    // ── Rate limiting (5 per IP per 15 min) ──────────
+    const clientIp = getClientIp(request);
+    const rateCheck = loginLimiter.check(clientIp);
+    if (rateCheck.limited) {
+      const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
+      return apiError(
+        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        429
+      );
+    }
+
     const body = await request.json();
     const { email, password } = body;
 
