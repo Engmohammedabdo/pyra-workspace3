@@ -328,7 +328,7 @@
 - [x] next build: 64 static pages, all successful
 
 ## Phase 4.3: Medium Priority Improvements ✅
-**Status:** Complete | **Commit:** _(pending)_
+**Status:** Complete | **Commit:** `52e4797`
 
 ### M1: Escape LIKE wildcards in search queries
 - [x] Created shared `escapeLike()` utility in `lib/utils/path.ts` (escapes `%`, `_`, `\`)
