@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { FileListItem } from '@/types/database';
 
@@ -152,17 +152,48 @@ export function useUploadFiles() {
   return { ...mutation, uploadProgress };
 }
 
-/** Upload a single file via XHR with progress callback */
-function uploadSingleFile(
+/**
+ * Upload a single file via direct-to-Supabase signed URL.
+ * This bypasses the Next.js body parser entirely, avoiding the
+ * "Failed to parse body as FormData" error on large files.
+ *
+ * Flow:
+ *   1. POST /api/files/upload-url → get signed upload URL
+ *   2. PUT file directly to Supabase Storage (XHR for progress)
+ *   3. POST /api/files/upload-complete → index file in database
+ */
+async function uploadSingleFile(
   file: File,
   parentPath: string,
   onProgress: (percentage: number) => void
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const formData = new FormData();
-    formData.set('prefix', parentPath);
-    formData.append('files[]', file);
+  // Step 1 — Get signed upload URL from our API
+  const urlRes = await fetch('/api/files/upload-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      fileSize: file.size,
+      mimeType: file.type || 'application/octet-stream',
+      prefix: parentPath,
+    }),
+  });
 
+  if (!urlRes.ok) {
+    const json = await urlRes.json().catch(() => ({}));
+    throw new Error(json.error || `فشل إنشاء رابط الرفع (${urlRes.status})`);
+  }
+
+  const { data: urlData } = await urlRes.json();
+  const { signedUrl, storagePath, safeName } = urlData as {
+    signedUrl: string;
+    token: string;
+    storagePath: string;
+    safeName: string;
+  };
+
+  // Step 2 — Upload file directly to Supabase Storage via XHR (for progress)
+  await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
     xhr.upload.addEventListener('progress', (e) => {
@@ -174,37 +205,46 @@ function uploadSingleFile(
 
     xhr.addEventListener('load', () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const json = JSON.parse(xhr.responseText);
-          if (json.data?.uploaded?.[0]) {
-            resolve(json.data.uploaded[0]);
-          } else {
-            resolve(file.name);
-          }
-        } catch {
-          resolve(file.name);
-        }
+        resolve();
       } else {
-        try {
-          const json = JSON.parse(xhr.responseText);
-          reject(new Error(json.error || `خطأ في الخادم (${xhr.status})`));
-        } catch {
-          reject(new Error(`خطأ في الخادم (${xhr.status})`));
-        }
+        reject(
+          new Error(`فشل الرفع إلى التخزين (${xhr.status})`)
+        );
       }
     });
 
     xhr.addEventListener('error', () => {
-      reject(new Error('فشل الاتصال بالخادم'));
+      reject(new Error('فشل الاتصال بخادم التخزين'));
     });
 
     xhr.addEventListener('abort', () => {
       reject(new Error('تم إلغاء الرفع'));
     });
 
-    xhr.open('POST', '/api/files');
-    xhr.send(formData);
+    xhr.open('PUT', signedUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.send(file);
   });
+
+  // Step 3 — Index the file in the database
+  const completeRes = await fetch('/api/files/upload-complete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      storagePath,
+      fileName: safeName,
+      fileSize: file.size,
+      mimeType: file.type || 'application/octet-stream',
+    }),
+  });
+
+  if (!completeRes.ok) {
+    const json = await completeRes.json().catch(() => ({}));
+    // File is already uploaded to storage — warn but don't fail hard
+    console.warn('Upload indexing warning:', json.error);
+  }
+
+  return storagePath;
 }
 
 // ============================================================
