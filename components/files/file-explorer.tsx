@@ -9,7 +9,8 @@ import { FileGrid } from './file-grid';
 import { FileList } from './file-list';
 import { FilePreview } from './file-preview';
 import { FileDropZone } from './file-drop-zone';
-import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl, useMoveFile } from '@/hooks/useFiles';
+import { UploadProgressBar } from './upload-progress';
+import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl, useMoveFiles } from '@/hooks/useFiles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { FilePermissionsDialog } from './file-permissions-dialog';
 import type { FileListItem } from '@/types/database';
@@ -84,7 +85,7 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const uploadFiles = useUploadFiles();
   const deleteFiles = useDeleteFiles();
   const getUrl = useFileUrl();
-  const moveFile = useMoveFile();
+  const moveFiles = useMoveFiles();
   const { data: currentUser } = useCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
 
@@ -186,8 +187,14 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
       uploadFiles.mutate(
         { parentPath: currentPath, files: fileList },
         {
-          onSuccess: () => {
-            toast.success(`تم رفع ${fileList.length} ملف(ات) بنجاح`);
+          onSuccess: (result) => {
+            const uploaded = result?.uploaded?.length || fileList.length;
+            const errCount = result?.errors?.length || 0;
+            if (errCount > 0) {
+              toast.warning(`تم رفع ${uploaded} ملف(ات) مع ${errCount} خطأ`);
+            } else {
+              toast.success(`تم رفع ${uploaded} ملف(ات) بنجاح`);
+            }
           },
           onError: (err) => {
             toast.error(err.message);
@@ -298,23 +305,32 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     );
   }, []);
 
-  // Move file (drag & drop)
+  // Move file(s) (drag & drop) — supports multiple selected files
   const handleMoveFile = useCallback(
     (sourcePath: string, destinationFolder: string) => {
-      const fileName = sourcePath.split('/').pop() || '';
-      moveFile.mutate(
-        { sourcePath, destinationFolder },
+      // If the dragged file is part of a multi-selection, move all selected
+      const pathsToMove = selectedFiles.has(sourcePath) && selectedFiles.size > 1
+        ? Array.from(selectedFiles)
+        : [sourcePath];
+
+      const label = pathsToMove.length > 1
+        ? `${pathsToMove.length} عنصر(ات)`
+        : `"${decodeURIComponent(sourcePath.split('/').pop() || '')}"`;
+
+      moveFiles.mutate(
+        { sourcePaths: pathsToMove, destinationFolder },
         {
           onSuccess: () => {
-            toast.success(`تم نقل "${decodeURIComponent(fileName)}" بنجاح`);
+            toast.success(`تم نقل ${label} بنجاح`);
+            setSelectedFiles(new Set());
           },
           onError: (err) => {
-            toast.error(`فشل في نقل الملف: ${err.message}`);
+            toast.error(`فشل في النقل: ${err.message}`);
           },
         }
       );
     },
-    [moveFile]
+    [moveFiles, selectedFiles]
   );
 
   // Permissions dialog
@@ -409,6 +425,9 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
           selectedCount={selectedFiles.size}
           onDeleteSelected={handleDeleteSelected}
         />
+
+        {/* Upload Progress Bar */}
+        <UploadProgressBar progress={uploadFiles.uploadProgress} />
 
         {/* File count + filter indicators */}
         {!isLoading && files.length > 0 && (

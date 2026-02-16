@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { FileListItem } from '@/types/database';
 
@@ -62,12 +63,29 @@ export function useCreateFolder() {
 }
 
 // ============================================================
-// Hook: Upload files (via API route with FormData)
+// Upload progress state
+// ============================================================
+export interface UploadProgress {
+  /** Total files count */
+  totalFiles: number;
+  /** Current file index (1-based) */
+  currentFile: number;
+  /** Current file name */
+  currentFileName: string;
+  /** Percentage done (0-100) for XMLHttpRequest progress */
+  percentage: number;
+  /** Overall percentage across all files */
+  overallPercentage: number;
+}
+
+// ============================================================
+// Hook: Upload files with progress tracking (XHR-based)
 // ============================================================
 export function useUploadFiles() {
   const queryClient = useQueryClient();
+  const [uploadProgress, setUploadProgress] = useState<UploadProgress | null>(null);
 
-  return useMutation({
+  const mutation = useMutation({
     mutationFn: async ({
       parentPath,
       files,
@@ -75,27 +93,117 @@ export function useUploadFiles() {
       parentPath: string;
       files: File[];
     }) => {
-      const formData = new FormData();
-      formData.set('prefix', parentPath);
-      for (const file of files) {
-        formData.append('files[]', file);
+      const totalFiles = files.length;
+      const results: string[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const currentFile = i + 1;
+
+        setUploadProgress({
+          totalFiles,
+          currentFile,
+          currentFileName: file.name,
+          percentage: 0,
+          overallPercentage: Math.round((i / totalFiles) * 100),
+        });
+
+        try {
+          const uploadedPath = await uploadSingleFile(
+            file,
+            parentPath,
+            (pct) => {
+              setUploadProgress({
+                totalFiles,
+                currentFile,
+                currentFileName: file.name,
+                percentage: pct,
+                overallPercentage: Math.round(
+                  ((i + pct / 100) / totalFiles) * 100
+                ),
+              });
+            }
+          );
+          results.push(uploadedPath);
+        } catch (err) {
+          errors.push(
+            `فشل رفع "${file.name}": ${err instanceof Error ? err.message : 'خطأ غير معروف'}`
+          );
+        }
       }
 
-      const res = await fetch('/api/files', {
-        method: 'POST',
-        body: formData,
-      });
+      setUploadProgress(null);
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل رفع الملفات');
+      if (results.length === 0) {
+        throw new Error(errors.join('; ') || 'فشل رفع جميع الملفات');
       }
 
-      return res.json();
+      return { uploaded: results, errors };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.parentPath] });
     },
+    onError: () => {
+      setUploadProgress(null);
+    },
+  });
+
+  return { ...mutation, uploadProgress };
+}
+
+/** Upload a single file via XHR with progress callback */
+function uploadSingleFile(
+  file: File,
+  parentPath: string,
+  onProgress: (percentage: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.set('prefix', parentPath);
+    formData.append('files[]', file);
+
+    const xhr = new XMLHttpRequest();
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const pct = Math.round((e.loaded / e.total) * 100);
+        onProgress(pct);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          if (json.data?.uploaded?.[0]) {
+            resolve(json.data.uploaded[0]);
+          } else {
+            resolve(file.name);
+          }
+        } catch {
+          resolve(file.name);
+        }
+      } else {
+        try {
+          const json = JSON.parse(xhr.responseText);
+          reject(new Error(json.error || `خطأ في الخادم (${xhr.status})`));
+        } catch {
+          reject(new Error(`خطأ في الخادم (${xhr.status})`));
+        }
+      }
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('فشل الاتصال بالخادم'));
+    });
+
+    xhr.addEventListener('abort', () => {
+      reject(new Error('تم إلغاء الرفع'));
+    });
+
+    xhr.open('POST', '/api/files');
+    xhr.send(formData);
   });
 }
 
@@ -127,46 +235,54 @@ export function useDeleteFiles() {
 }
 
 // ============================================================
-// Hook: Move a file or folder to a new location (via API route)
+// Hook: Move files/folders to a new location (supports batch)
 // ============================================================
-export function useMoveFile() {
+export function useMoveFiles() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({
-      sourcePath,
+      sourcePaths,
       destinationFolder,
     }: {
-      sourcePath: string;
+      sourcePaths: string[];
       destinationFolder: string;
     }) => {
-      // Build new path: destinationFolder/filename
-      const fileName = sourcePath.split('/').pop() || '';
-      const newPath = destinationFolder ? `${destinationFolder}/${fileName}` : fileName;
-
-      const encodedPath = sourcePath
-        .split('/')
-        .map(encodeURIComponent)
-        .join('/');
-
-      const res = await fetch(`/api/files/${encodedPath}`, {
-        method: 'PATCH',
+      const res = await fetch('/api/files/move-batch', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'move', newPath }),
+        body: JSON.stringify({ sourcePaths, destinationFolder }),
       });
 
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل في نقل الملف');
+        throw new Error(json.error || 'فشل في نقل الملفات');
       }
 
       return res.json();
     },
     onSuccess: () => {
-      // Invalidate all file queries to refresh both source and destination
       queryClient.invalidateQueries({ queryKey: ['files'] });
     },
   });
+}
+
+// Keep legacy single-file hook as alias
+export function useMoveFile() {
+  const moveBatch = useMoveFiles();
+
+  return {
+    ...moveBatch,
+    mutate: (
+      { sourcePath, destinationFolder }: { sourcePath: string; destinationFolder: string },
+      options?: Parameters<typeof moveBatch.mutate>[1]
+    ) => {
+      moveBatch.mutate(
+        { sourcePaths: [sourcePath], destinationFolder },
+        options
+      );
+    },
+  };
 }
 
 // ============================================================
