@@ -188,7 +188,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         })
       );
 
-      await supabase.from('pyra_quote_items').insert(itemRows);
+      const { error: itemsErr } = await supabase.from('pyra_quote_items').insert(itemRows);
+      if (itemsErr) console.error('Quote items insert error:', itemsErr);
     }
 
     const { data: quote, error: updateError } = await supabase
@@ -230,7 +231,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const supabase = createServiceRoleClient();
 
     // Delete items first
-    await supabase.from('pyra_quote_items').delete().eq('quote_id', id);
+    const { error: itemsDelErr } = await supabase.from('pyra_quote_items').delete().eq('quote_id', id);
+    if (itemsDelErr) console.error('Quote items delete error:', itemsDelErr);
 
     const { error } = await supabase
       .from('pyra_quotes')

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
-    query = query.order('created_at', { ascending: false });
+    query = query.order('created_at', { ascending: false }).limit(200);
 
     const { data: quotes, count, error } = await query;
 

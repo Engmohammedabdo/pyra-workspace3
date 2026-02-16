@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Order by creation date descending
-    query = query.order('created_at', { ascending: false });
+    // Order by creation date descending, with limit to prevent unbounded results
+    query = query.order('created_at', { ascending: false }).limit(200);
 
     const { data: users, error } = await query;
 

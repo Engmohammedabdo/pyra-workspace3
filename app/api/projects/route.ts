@@ -221,7 +221,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Log activity
-    await supabase.from('pyra_activity_log').insert({
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'project_created',
       username: auth.pyraUser.username,
@@ -236,6 +236,7 @@ export async function POST(request: NextRequest) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+    if (logErr) console.error('Activity log insert error:', logErr);
 
     return apiSuccess({ ...project, folder_path: folderPath }, undefined, 201);
   } catch (err) {

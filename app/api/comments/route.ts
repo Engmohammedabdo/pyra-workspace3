@@ -159,11 +159,12 @@ export async function POST(request: NextRequest) {
         created_at: now,
       }));
 
-      await supabase.from('pyra_client_notifications').insert(notifications);
+      const { error: notifErr } = await supabase.from('pyra_client_notifications').insert(notifications);
+      if (notifErr) console.error('Client notification insert error:', notifErr);
     }
 
     // Log activity
-    await supabase.from('pyra_activity_log').insert({
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'comment_created',
       username: auth.pyraUser.username,
@@ -176,6 +177,7 @@ export async function POST(request: NextRequest) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+    if (logErr) console.error('Activity log insert error:', logErr);
 
     return apiSuccess(comment, undefined, 201);
   } catch (err) {

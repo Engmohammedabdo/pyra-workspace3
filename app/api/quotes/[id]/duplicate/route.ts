@@ -99,7 +99,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         amount: item.amount,
       }));
 
-      await supabase.from('pyra_quote_items').insert(newItems);
+      const { error: itemsErr } = await supabase.from('pyra_quote_items').insert(newItems);
+      if (itemsErr) console.error('Quote items duplicate insert error:', itemsErr);
     }
 
     return apiSuccess(newQuote, undefined, 201);

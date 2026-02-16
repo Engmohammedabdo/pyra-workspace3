@@ -133,11 +133,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           created_at: now,
         }));
 
-        await supabase.from('pyra_client_notifications').insert(notifications);
+        const { error: notifErr } = await supabase.from('pyra_client_notifications').insert(notifications);
+        if (notifErr) console.error('Client notification insert error:', notifErr);
       }
 
       // Also notify via internal notifications (for team members)
-      await supabase.from('pyra_notifications').insert({
+      const { error: intNotifErr } = await supabase.from('pyra_notifications').insert({
         id: generateId('nt'),
         recipient_username: existing.reviewed_by !== auth.pyraUser.username
           ? (existing.reviewed_by || 'admin')
@@ -150,10 +151,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         target_path: projectFile.file_path,
         is_read: false,
       });
+      if (intNotifErr) console.error('Internal notification insert error:', intNotifErr);
     }
 
     // Log activity
-    await supabase.from('pyra_activity_log').insert({
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: status === 'approved' ? 'file_approved' : 'revision_requested',
       username: auth.pyraUser.username,
@@ -167,6 +169,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+    if (logErr) console.error('Activity log insert error:', logErr);
 
     return apiSuccess(approval);
   } catch (err) {

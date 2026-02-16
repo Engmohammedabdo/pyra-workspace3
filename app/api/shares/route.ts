@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
       .select('*')
       .eq('file_path', filePath)
       .eq('is_active', true)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error('Share links list error:', error);

@@ -59,8 +59,8 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_active', false);
     }
 
-    // Order by newest first
-    query = query.order('created_at', { ascending: false });
+    // Order by newest first, with limit to prevent unbounded results
+    query = query.order('created_at', { ascending: false }).limit(500);
 
     const { data: clients, count, error } = await query;
 

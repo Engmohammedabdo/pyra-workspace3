@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       query = query.ilike('name', `%${escaped}%`);
     }
 
-    query = query.order('updated_at', { ascending: false });
+    query = query.order('updated_at', { ascending: false }).limit(100);
 
     const { data: projects, error } = await query;
 

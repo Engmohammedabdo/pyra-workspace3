@@ -24,7 +24,8 @@ export async function GET(_request: NextRequest) {
     const { data: teams, error } = await supabase
       .from('pyra_teams')
       .select('*')
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) {
       console.error('Teams list error:', error);

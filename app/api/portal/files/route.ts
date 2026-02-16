@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
       filesQuery = filesQuery.ilike('file_name', `%${escaped}%`);
     }
 
+    filesQuery = filesQuery.limit(500);
+
     const { data: files, error: filesError } = await filesQuery;
 
     if (filesError) {

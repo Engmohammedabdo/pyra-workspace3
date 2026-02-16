@@ -89,11 +89,13 @@ export async function GET(
       return apiServerError('فشل في تحميل الملف');
     }
 
-    // Increment access count
-    await supabase
-      .from('pyra_share_links')
-      .update({ access_count: (shareLink.access_count || 0) + 1 })
-      .eq('id', shareLink.id);
+    // Increment access count atomically (prevents race condition with concurrent downloads)
+    const { error: rpcError } = await supabase.rpc('increment_share_access', {
+      link_id: shareLink.id,
+    });
+    if (rpcError) {
+      console.error('Share access count increment error:', rpcError);
+    }
 
     // Extract filename from path
     const fileName = shareLink.file_path.split('/').pop() || 'download';
