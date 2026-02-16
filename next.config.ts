@@ -9,6 +9,9 @@ const nextConfig: NextConfig = {
   // Always use standalone for containerised deployment (Coolify / Nixpacks)
   output: 'standalone',
 
+  // External packages that need native modules
+  serverExternalPackages: ['bcryptjs'],
+
   // Security headers (PRD Section 11.2)
   async headers() {
     return [

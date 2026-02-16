@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
+
+export const maxDuration = 120; // seconds — moving folders can take time
+export const dynamic = 'force-dynamic';
+
 import {
   apiSuccess,
   apiUnauthorized,

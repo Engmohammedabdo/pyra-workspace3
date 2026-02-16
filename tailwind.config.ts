@@ -80,9 +80,21 @@ const config: Config = {
         sm: 'calc(var(--radius) - 4px)',
       },
       fontFamily: {
-        sans: ['var(--font-dm-sans)', 'var(--font-noto-sans-arabic)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-cairo)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-jetbrains-mono)', 'monospace'],
-        arabic: ['var(--font-noto-kufi-arabic)', 'var(--font-noto-sans-arabic)', 'sans-serif'],
+        arabic: ['var(--font-cairo)', 'sans-serif'],
+      },
+      fontSize: {
+        // Bump all sizes up by ~2 steps for better readability
+        xs: ['0.8125rem', { lineHeight: '1.25rem' }],     // 13px (was 12px)
+        sm: ['0.9375rem', { lineHeight: '1.375rem' }],    // 15px (was 14px)
+        base: ['1.0625rem', { lineHeight: '1.625rem' }],  // 17px (was 16px)
+        lg: ['1.1875rem', { lineHeight: '1.75rem' }],     // 19px (was 18px)
+        xl: ['1.375rem', { lineHeight: '1.875rem' }],     // 22px (was 20px)
+        '2xl': ['1.625rem', { lineHeight: '2rem' }],      // 26px (was 24px)
+        '3xl': ['2rem', { lineHeight: '2.375rem' }],      // 32px (was 30px)
+        '4xl': ['2.5rem', { lineHeight: '2.75rem' }],     // 40px (was 36px)
+        '5xl': ['3.25rem', { lineHeight: '1' }],          // 52px (was 48px)
       },
       keyframes: {
         'accordion-down': {

@@ -19,6 +19,10 @@ import { generateId } from '@/lib/utils/id';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 import type { FileListItem } from '@/types/database';
 
+// ── Route Segment Config: allow large file uploads ──
+export const maxDuration = 60; // seconds — timeout for large uploads
+export const dynamic = 'force-dynamic';
+
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
 // Maximum upload size: 100 MB
@@ -288,7 +292,14 @@ export async function POST(request: NextRequest) {
       { count: uploadedPaths.length, errorCount: errors.length }
     );
   } catch (err) {
-    console.error('Files POST error:', err);
-    return apiServerError();
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('Files POST error:', message, err);
+
+    // Return a more informative error for debugging
+    if (message.includes('Body exceeded') || message.includes('body size')) {
+      return apiValidationError('حجم الملف أكبر من الحد المسموح للخادم');
+    }
+
+    return apiServerError(`خطأ في رفع الملفات: ${message}`);
   }
 }

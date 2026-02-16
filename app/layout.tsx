@@ -1,25 +1,19 @@
 import type { Metadata } from 'next';
-import { DM_Sans, JetBrains_Mono, Noto_Kufi_Arabic } from 'next/font/google';
+import { Cairo, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from 'sonner';
 import './globals.css';
 
-const dmSans = DM_Sans({
-  subsets: ['latin'],
-  variable: '--font-dm-sans',
+const cairo = Cairo({
+  subsets: ['arabic', 'latin'],
+  variable: '--font-cairo',
   display: 'swap',
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains-mono',
-  display: 'swap',
-});
-
-const notoKufiArabic = Noto_Kufi_Arabic({
-  subsets: ['arabic'],
-  variable: '--font-noto-kufi-arabic',
   display: 'swap',
 });
 
@@ -39,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
       <body
-        className={`${dmSans.variable} ${jetbrainsMono.variable} ${notoKufiArabic.variable} font-sans antialiased`}
+        className={`${cairo.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"
