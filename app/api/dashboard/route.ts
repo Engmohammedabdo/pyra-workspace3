@@ -50,34 +50,34 @@ async function getAdminDashboard(
     // Total files
     supabase
       .from('pyra_file_index')
-      .select('*', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true }),
 
     // Total users
     supabase
       .from('pyra_users')
-      .select('*', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true }),
 
     // Total clients
     supabase
       .from('pyra_clients')
-      .select('*', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true }),
 
     // Total projects
     supabase
       .from('pyra_projects')
-      .select('*', { count: 'exact', head: true }),
+      .select('id', { count: 'exact', head: true }),
 
     // Recent activity (last 10)
     supabase
       .from('pyra_activity_log')
-      .select('*')
+      .select('id, action_type, username, display_name, target_path, details, created_at')
       .order('created_at', { ascending: false })
       .limit(10),
 
     // Unread notifications count
     supabase
       .from('pyra_notifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('recipient_username', username)
       .eq('is_read', false),
 
@@ -128,7 +128,7 @@ async function getEmployeeDashboard(
     // Their recent activity
     supabase
       .from('pyra_activity_log')
-      .select('*')
+      .select('id, action_type, username, display_name, target_path, details, created_at')
       .eq('username', pyraUser.username)
       .order('created_at', { ascending: false })
       .limit(10),
@@ -136,7 +136,7 @@ async function getEmployeeDashboard(
     // Unread notifications
     supabase
       .from('pyra_notifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('recipient_username', pyraUser.username)
       .eq('is_read', false),
 
@@ -144,7 +144,7 @@ async function getEmployeeDashboard(
     allPaths.length > 0
       ? supabase
           .from('pyra_file_index')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .or(allPaths.map((p) => `file_path.like.${p}%`).join(','))
       : Promise.resolve({ count: 0, data: null, error: null }),
   ]);

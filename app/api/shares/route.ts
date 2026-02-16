@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const { data: links, error } = await supabase
       .from('pyra_share_links')
-      .select('*')
+      .select('id, token, file_path, file_name, created_by, created_by_display, expires_at, max_access, access_count, is_active, created_at')
       .eq('file_path', filePath)
       .eq('is_active', true)
       .order('created_at', { ascending: false })

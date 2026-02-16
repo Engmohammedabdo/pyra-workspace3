@@ -9,16 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-
-const QUOTE_FIELDS = `
-  id, quote_number, client_id, project_name, status,
-  estimate_date, expiry_date, currency, subtotal, tax_rate,
-  tax_amount, total, notes, terms, bank_details,
-  company_name, company_logo, client_name, client_email,
-  client_company, client_phone, client_address,
-  signature_data, signed_by, signed_at, signed_ip,
-  sent_at, viewed_at, created_by, created_at, updated_at
-`;
+import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

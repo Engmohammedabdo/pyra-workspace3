@@ -30,7 +30,7 @@ export async function GET(
     // Find share link by token
     const { data: shareLink, error: fetchError } = await supabase
       .from('pyra_share_links')
-      .select('*')
+      .select('id, token, file_path, file_name, expires_at, max_access, access_count, is_active')
       .eq('token', token)
       .single();
 

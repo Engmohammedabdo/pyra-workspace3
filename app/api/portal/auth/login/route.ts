@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { createPortalSession } from '@/lib/portal/auth';
+import { createPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
 import {
   apiSuccess,
   apiError,
@@ -9,11 +9,6 @@ import {
 } from '@/lib/api/response';
 import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
 import bcrypt from 'bcryptjs';
-
-/**
- * Fields to return for the logged-in client (safe — no auth_user_id)
- */
-const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
 
 /**
  * POST /api/portal/auth/login

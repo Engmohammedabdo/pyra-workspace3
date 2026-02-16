@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Build query
     let query = supabase
       .from('pyra_notifications')
-      .select('*', { count: 'exact' })
+      .select('id, type, title, message, source_username, source_display_name, target_path, is_read, created_at', { count: 'exact' })
       .eq('recipient_username', auth.pyraUser.username)
       .order('created_at', { ascending: false })
       .limit(50);
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // Get unread count separately
     const { count: unreadCount } = await supabase
       .from('pyra_notifications')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('recipient_username', auth.pyraUser.username)
       .eq('is_read', false);
 

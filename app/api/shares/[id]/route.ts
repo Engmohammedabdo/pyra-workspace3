@@ -28,7 +28,7 @@ export async function PATCH(
     // Verify link exists
     const { data: existing, error: fetchError } = await supabase
       .from('pyra_share_links')
-      .select('*')
+      .select('id, created_by, is_active')
       .eq('id', id)
       .single();
 

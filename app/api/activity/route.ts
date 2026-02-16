@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_activity_log')
-      .select('*', { count: 'exact' });
+      .select('id, action_type, username, display_name, target_path, details, ip_address, created_at', { count: 'exact' });
 
     // Apply filters
     if (actionType) {

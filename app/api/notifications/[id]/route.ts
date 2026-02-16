@@ -27,7 +27,7 @@ export async function PATCH(
     // Verify the notification belongs to the current user
     const { data: existing, error: fetchError } = await supabase
       .from('pyra_notifications')
-      .select('*')
+      .select('id, recipient_username')
       .eq('id', id)
       .single();
 
@@ -76,7 +76,7 @@ export async function DELETE(
     // Verify the notification exists
     const { data: existing, error: fetchError } = await supabase
       .from('pyra_notifications')
-      .select('*')
+      .select('id, recipient_username')
       .eq('id', id)
       .single();
 
