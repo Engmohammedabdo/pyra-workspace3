@@ -84,8 +84,14 @@ export function createRateLimiter(name: string, config: RateLimiterConfig) {
 
 // ─── Pre-configured limiters ────────────────────────────────
 
-/** Login: max 5 attempts per IP per 15 minutes */
+/** Portal login: max 5 attempts per IP per 15 minutes */
 export const loginLimiter = createRateLimiter('portal-login', {
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+});
+
+/** Admin login: max 5 attempts per IP per 15 minutes */
+export const adminLoginLimiter = createRateLimiter('admin-login', {
   maxRequests: 5,
   windowMs: 15 * 60 * 1000, // 15 minutes
 });

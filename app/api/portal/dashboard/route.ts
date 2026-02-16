@@ -1,6 +1,7 @@
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/dashboard
@@ -19,7 +20,9 @@ export async function GET() {
     const supabase = createServiceRoleClient();
 
     // Client project scope: client_id match OR legacy (null client_id + company match)
-    const projectScope = `client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${client.company})`;
+    // Escape company name to prevent PostgREST filter injection
+    const safeCompany = escapePostgrestValue(client.company || '');
+    const projectScope = `client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${safeCompany})`;
 
     // ── Active projects count ─────────────────────────
     const { count: activeProjectsCount } = await supabase

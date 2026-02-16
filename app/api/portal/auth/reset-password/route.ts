@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { destroyAllClientSessions } from '@/lib/portal/auth';
+import { createHash } from 'crypto';
 import {
   apiSuccess,
   apiError,
@@ -8,6 +9,13 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
+
+/**
+ * Hash a reset token using SHA-256 to look up the stored hash.
+ */
+function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 /**
  * POST /api/portal/auth/reset-password
@@ -18,7 +26,7 @@ import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
  *
  * Flow:
  *  1. Validate input
- *  2. Look up the reset token in pyra_sessions (username starts with "reset:")
+ *  2. Hash the token, look up matching token_hash in pyra_sessions (username starts with "reset:")
  *  3. Verify it's not expired
  *  4. Extract client_id from the username field
  *  5. Look up the client to get the Supabase Auth user ID (auth_user_id)
@@ -53,11 +61,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // ── Look up the reset token ──────────────────────
+    // ── Look up the reset token by HASH ──────────────
+    // The raw token was sent to the client; we hash it to match the stored token_hash.
+    const tokenHash = hashResetToken(token.trim());
     const { data: resetSession, error: sessionError } = await supabase
       .from('pyra_sessions')
-      .select('*')
-      .eq('token', token.trim())
+      .select('id, username, token_hash, expires_at')
+      .eq('token_hash', tokenHash)
       .like('username', 'reset:%')
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();

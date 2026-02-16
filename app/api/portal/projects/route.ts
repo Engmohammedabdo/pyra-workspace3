@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/projects
@@ -26,10 +26,12 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     // Scope: client_id match OR (legacy: client_id is null AND company matches)
+    // Escape company name to prevent PostgREST filter injection
+    const safeCompany = escapePostgrestValue(client.company || '');
     let query = supabase
       .from('pyra_projects')
       .select('id, name, description, status, client_id, client_company, updated_at, created_at')
-      .or(`client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${client.company})`);
+      .or(`client_id.eq.${client.id},and(client_id.is.null,client_company.eq.${safeCompany})`);
 
     if (status) {
       query = query.eq('status', status);

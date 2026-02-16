@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { createHash } from 'crypto';
 import {
   apiSuccess,
   apiError,
@@ -10,6 +11,14 @@ import {
 import { forgotPasswordLimiter } from '@/lib/utils/rate-limit';
 
 const RESET_TOKEN_EXPIRY_HOURS = 1;
+
+/**
+ * Hash a reset token using SHA-256 for storage.
+ * Only the hash is stored; the raw token is sent to the client via email/response.
+ */
+function hashResetToken(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
+}
 
 /**
  * POST /api/portal/auth/forgot-password
@@ -22,7 +31,7 @@ const RESET_TOKEN_EXPIRY_HOURS = 1;
  *  1. Validate email
  *  2. Check if client exists and is active
  *  3. Generate a reset token
- *  4. Store it in pyra_sessions with username = "reset:{clientId}"
+ *  4. Store its SHA-256 hash in pyra_sessions with username = "reset:{clientId}"
  *  5. In production, this would send an email with the token/link.
  *     In dev mode, the token is returned in the response for testing.
  *  6. Always return success (to prevent email enumeration)
@@ -73,6 +82,7 @@ export async function POST(request: NextRequest) {
 
     // ── Generate reset token ─────────────────────────
     const resetToken = generateId('rst');
+    const tokenHash = hashResetToken(resetToken);
     const expiresAt = new Date(
       Date.now() + RESET_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000
     ).toISOString();
@@ -83,14 +93,11 @@ export async function POST(request: NextRequest) {
       .delete()
       .like('username', `reset:${client.id}`);
 
-    // Store reset token in pyra_sessions
+    // Store HASHED reset token in pyra_sessions (matches actual schema: id, username, token_hash, expires_at)
     await supabase.from('pyra_sessions').insert({
       id: generateId('sess'),
       username: `reset:${client.id}`,
-      token: resetToken,
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-      user_agent: request.headers.get('user-agent') || 'portal',
-      last_activity: new Date().toISOString(),
+      token_hash: tokenHash,
       expires_at: expiresAt,
     });
 

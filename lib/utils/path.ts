@@ -71,3 +71,21 @@ export function isPathSafe(filePath: string): boolean {
   if (filePath.startsWith('/')) return false;
   return true;
 }
+
+/**
+ * Escape a value for use inside PostgREST `.or()` / `.filter()` strings.
+ * PostgREST uses commas, parens, and dots as filter syntax delimiters.
+ * Wrapping in double-quotes prevents injection of arbitrary filter operators.
+ *
+ * Example:
+ *   escapePostgrestValue('evil,status.eq.deleted')
+ *   → '"evil,status.eq.deleted"'
+ *
+ * Used in `.or()` calls like:
+ *   `.or(\`client_company.eq.${escapePostgrestValue(company)}\`)`
+ */
+export function escapePostgrestValue(value: string): string {
+  // Replace any existing double-quotes with escaped double-quotes,
+  // then wrap the entire value in double-quotes.
+  return `"${value.replace(/"/g, '\\"')}"`;
+}

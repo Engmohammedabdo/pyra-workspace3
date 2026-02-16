@@ -4,6 +4,7 @@ import {
   apiSuccess,
   apiUnauthorized,
   apiNotFound,
+  apiError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // =============================================================
 // PATCH /api/shares/[id]
 // Deactivate share link
+// Only the creator or an admin can deactivate a share link.
 // =============================================================
 export async function PATCH(
   _request: NextRequest,
@@ -32,6 +34,14 @@ export async function PATCH(
 
     if (fetchError || !existing) {
       return apiNotFound('رابط المشاركة غير موجود');
+    }
+
+    // IDOR check: only the creator or admin can deactivate
+    const isOwner = existing.created_by === auth.pyraUser.username;
+    const isAdmin = auth.pyraUser.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return apiError('ليس لديك صلاحية لإلغاء رابط المشاركة هذا', 403);
     }
 
     const { data: updated, error } = await supabase
