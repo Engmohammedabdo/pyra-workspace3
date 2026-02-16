@@ -39,7 +39,7 @@ export default function NotificationsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filter === 'unread') params.set('unread', 'true');
+      if (filter === 'unread') params.set('unread_only', 'true');
       const res = await fetch(`/api/notifications?${params}`);
       const json = await res.json();
       if (json.data) setNotifications(json.data);

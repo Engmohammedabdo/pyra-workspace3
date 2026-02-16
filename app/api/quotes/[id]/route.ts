@@ -11,9 +11,9 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
 const QUOTE_FIELDS = `
-  id, quote_number, team_id, client_id, project_name, status,
+  id, quote_number, client_id, project_name, status,
   estimate_date, expiry_date, currency, subtotal, tax_rate,
-  tax_amount, total, notes, terms_conditions, bank_details,
+  tax_amount, total, notes, terms, bank_details,
   company_name, company_logo, client_name, client_email,
   client_company, client_phone, client_address,
   signature_data, signed_by, signed_at, signed_ip,

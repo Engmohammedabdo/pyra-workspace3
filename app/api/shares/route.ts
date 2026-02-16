@@ -8,7 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { hashPassword } from '@/lib/utils/password';
+// Note: password protection for share links is not supported in current schema
 
 // =============================================================
 // GET /api/shares
@@ -77,24 +77,26 @@ export async function POST(request: NextRequest) {
       expiresAt = expiryDate.toISOString();
     }
 
-    // Hash password if provided (scrypt with random salt)
-    let passwordHash: string | null = null;
-    if (password?.trim()) {
-      passwordHash = hashPassword(password.trim());
-    }
+    // Extract file name from path
+    const fileName = file_path.trim().split('/').pop() || 'file';
+
+    // Calculate default expiry if not provided (7 days)
+    const defaultExpiry = new Date();
+    defaultExpiry.setDate(defaultExpiry.getDate() + 7);
+    const finalExpiresAt = expiresAt || defaultExpiry.toISOString();
 
     const { data: shareLink, error } = await supabase
       .from('pyra_share_links')
       .insert({
         id: generateId('sl'),
         file_path: file_path.trim(),
+        file_name: fileName,
         token,
         created_by: auth.pyraUser.username,
         created_by_display: auth.pyraUser.display_name,
-        expires_at: expiresAt,
-        password_hash: passwordHash,
-        max_downloads: max_downloads ? Number(max_downloads) : null,
-        download_count: 0,
+        expires_at: finalExpiresAt,
+        max_access: max_downloads ? Number(max_downloads) : 0,
+        access_count: 0,
         is_active: true,
       })
       .select()

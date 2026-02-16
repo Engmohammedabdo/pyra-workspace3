@@ -12,12 +12,13 @@ import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { escapeLike } from '@/lib/utils/path';
 
 const QUOTE_FIELDS = `
-  id, quote_number, team_id, client_id, project_name, status,
+  id, quote_number, client_id, project_name, status,
   estimate_date, expiry_date, currency, subtotal, tax_rate,
-  tax_amount, total, notes, client_name, client_email,
+  tax_amount, total, notes, terms, bank_details,
+  company_name, company_logo, client_name, client_email,
   client_company, client_phone, client_address,
-  signature_data, signed_by, signed_at, sent_at, viewed_at,
-  created_by, created_at, updated_at
+  signature_data, signed_by, signed_at, signed_ip,
+  sent_at, viewed_at, created_by, created_at, updated_at
 `;
 
 /**
@@ -203,7 +204,6 @@ export async function POST(request: NextRequest) {
       .insert({
         id: quoteId,
         quote_number: quoteNumber,
-        team_id: 'default',
         client_id: client_id || null,
         project_name: project_name?.trim() || null,
         status: 'draft',
@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
         tax_amount: taxAmount,
         total,
         notes: notes?.trim() || null,
-        terms_conditions: termsConditions,
+        terms: termsConditions,
         bank_details: bankDetails,
         company_name: companyMap.company_name || null,
         company_logo: companyMap.company_logo || null,

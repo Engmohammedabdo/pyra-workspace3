@@ -51,7 +51,6 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .insert({
         id: newId,
         quote_number: quoteNumber,
-        team_id: original.team_id,
         client_id: original.client_id,
         project_name: original.project_name,
         status: 'draft',
@@ -63,7 +62,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         tax_amount: original.tax_amount,
         total: original.total,
         notes: original.notes,
-        terms_conditions: original.terms_conditions,
+        terms: original.terms,
         bank_details: original.bank_details,
         company_name: original.company_name,
         company_logo: original.company_logo,

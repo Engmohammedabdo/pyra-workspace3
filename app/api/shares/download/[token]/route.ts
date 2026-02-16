@@ -5,7 +5,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { verifyPassword } from '@/lib/utils/password';
+// password protection not supported in current schema
 import { shareDownloadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 import { isPathSafe } from '@/lib/utils/path';
 
@@ -58,10 +58,10 @@ export async function GET(
       }
     }
 
-    // Validate: max_downloads not exceeded
+    // Validate: max_access not exceeded (0 = unlimited)
     if (
-      shareLink.max_downloads !== null &&
-      shareLink.download_count >= shareLink.max_downloads
+      shareLink.max_access > 0 &&
+      shareLink.access_count >= shareLink.max_access
     ) {
       // Deactivate the link
       await supabase
@@ -72,13 +72,7 @@ export async function GET(
       return apiError('تم الوصول إلى الحد الأقصى لعدد التحميلات', 410);
     }
 
-    // Validate password if set (timing-safe comparison via scrypt)
-    if (shareLink.password_hash) {
-      const providedPassword = request.nextUrl.searchParams.get('password') || '';
-      if (!verifyPassword(providedPassword, shareLink.password_hash)) {
-        return apiError('كلمة المرور غير صحيحة', 403);
-      }
-    }
+    // Note: password protection not supported in current schema
 
     // Path traversal check on stored path
     if (!isPathSafe(shareLink.file_path)) {
@@ -95,10 +89,10 @@ export async function GET(
       return apiServerError('فشل في تحميل الملف');
     }
 
-    // Increment download count
+    // Increment access count
     await supabase
       .from('pyra_share_links')
-      .update({ download_count: shareLink.download_count + 1 })
+      .update({ access_count: (shareLink.access_count || 0) + 1 })
       .eq('id', shareLink.id);
 
     // Extract filename from path

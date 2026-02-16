@@ -43,10 +43,7 @@ export async function createPortalSession(clientId: string): Promise<string> {
   await supabase.from('pyra_sessions').insert({
     id: generateId('sess'),
     username: clientId, // reuse username field for client_id
-    token: tokenHash,   // store HASH, not raw token
-    ip_address: 'server',
-    user_agent: 'portal',
-    last_activity: new Date().toISOString(),
+    token_hash: tokenHash,   // store HASH, not raw token
     expires_at: new Date(Date.now() + SESSION_EXPIRY_DAYS * 24 * 60 * 60 * 1000).toISOString(),
   });
 
@@ -84,19 +81,13 @@ export async function getPortalSession(): Promise<PyraClient | null> {
   // Verify session exists (by hash) and is not expired
   const { data: session } = await supabase
     .from('pyra_sessions')
-    .select('id, username, token, expires_at, last_activity')
+    .select('id, username, token_hash, expires_at')
     .eq('username', clientId)
-    .eq('token', tokenHash)
+    .eq('token_hash', tokenHash)
     .gt('expires_at', new Date().toISOString())
     .single();
 
   if (!session) return null;
-
-  // Update last_activity timestamp
-  await supabase
-    .from('pyra_sessions')
-    .update({ last_activity: new Date().toISOString() })
-    .eq('id', session.id);
 
   // Get client (active only)
   const { data: client } = await supabase
@@ -129,7 +120,7 @@ export async function destroyPortalSession(): Promise<void> {
           .from('pyra_sessions')
           .delete()
           .eq('username', clientId)
-          .eq('token', tokenHash);
+          .eq('token_hash', tokenHash);
       }
     }
   }

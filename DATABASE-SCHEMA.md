@@ -93,11 +93,15 @@ Bidirectional comments between clients (portal) and team members on projects.
 | project_id | varchar | NOT NULL | — |
 | file_id | varchar | YES | — |
 | author_type | varchar | NOT NULL | `'client'` or `'team'` |
+| author_id | varchar | NOT NULL | — |
 | author_name | varchar | NOT NULL | — |
 | text | text | NOT NULL | — |
+| parent_id | varchar | YES | — (self-reference for threads) |
 | is_read_by_client | boolean | YES | `false` |
 | is_read_by_team | boolean | YES | `false` |
 | created_at | timestamptz | YES | `now()` |
+| mentions | jsonb | YES | `'[]'` |
+| attachments | jsonb | YES | `'[]'` |
 
 ---
 
@@ -359,15 +363,15 @@ Financial quotes/invoices for clients. Supports digital signatures.
 |--------|------|----------|---------|
 | **id** | text | NOT NULL | — |
 | quote_number | text | NOT NULL | UNIQUE |
-| project_id | text | YES | — |
 | client_id | text | YES | — |
+| project_name | text | YES | — |
 | status | text | YES | `'draft'` |
-| title | text | YES | — |
+| estimate_date | date | YES | `CURRENT_DATE` |
+| expiry_date | date | YES | — |
 | currency | text | YES | `'SAR'` |
 | subtotal | numeric | YES | `0` |
 | tax_rate | numeric | YES | `0` |
 | tax_amount | numeric | YES | `0` |
-| discount_amount | numeric | YES | `0` |
 | total | numeric | YES | `0` |
 | notes | text | YES | — |
 | terms | jsonb | YES | `'[]'` |
@@ -498,8 +502,8 @@ Soft-deleted files with 30-day auto-purge. Original file is copied to `.trash/` 
 | mime_type | varchar | YES | `''` |
 | deleted_by | varchar | NOT NULL | — |
 | deleted_by_display | varchar | NOT NULL | — |
-| auto_purge_at | timestamptz | NOT NULL | — |
-| created_at | timestamptz | YES | `now()` |
+| deleted_at | timestamptz | YES | `now()` |
+| auto_purge_at | timestamptz | YES | — |
 
 ---
 

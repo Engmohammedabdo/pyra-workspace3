@@ -127,6 +127,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           id: generateId('cn'),
           client_id: client.id,
           type: status === 'approved' ? 'file_approved' : 'revision_requested',
+          title: status === 'approved' ? 'تمت الموافقة على ملف' : 'مراجعة مطلوبة',
           message: `${statusText} الملف: ${projectFile.file_name} في مشروع ${project.name}`,
           is_read: false,
           created_at: now,

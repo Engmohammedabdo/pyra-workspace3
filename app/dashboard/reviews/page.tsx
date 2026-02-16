@@ -48,7 +48,13 @@ export default function ReviewsPage() {
 
   const toggleResolve = async (id: string) => {
     try {
-      await fetch(`/api/reviews/${id}`, { method: 'PATCH' });
+      const review = reviews.find(r => r.id === id);
+      if (!review) return;
+      await fetch(`/api/reviews/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ resolved: !review.resolved }),
+      });
       setReviews(prev => prev.map(r => r.id === id ? { ...r, resolved: !r.resolved } : r));
     } catch (err) { console.error(err); }
   };

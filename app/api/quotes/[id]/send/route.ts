@@ -59,6 +59,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         id: generateId('cn'),
         client_id: quote.client_id,
         type: 'quote_sent',
+        title: 'عرض سعر جديد',
         message: `تم إرسال عرض سعر جديد: ${quote.quote_number}`,
         is_read: false,
       });

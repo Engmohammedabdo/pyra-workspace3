@@ -147,6 +147,7 @@ export async function POST(request: NextRequest) {
           id: generateId('cn'),
           client_id: client.id,
           type: 'approval_request',
+          title: 'طلب موافقة جديد',
           message: `ملف جديد بانتظار موافقتك: ${projectFile.file_name} في مشروع ${project.name}`,
           is_read: false,
           created_at: now,

@@ -152,6 +152,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Generate storage path for project files
+    const storagePath = `projects/${projectId}`;
+
     const newProject = {
       id: projectId,
       name: name.trim(),
@@ -160,6 +163,7 @@ export async function POST(request: NextRequest) {
       client_company: client_company.trim(),
       team_id: team_id || null,
       status: status || 'active',
+      storage_path: storagePath,
       created_by: auth.pyraUser.username,
       created_at: now,
       updated_at: now,

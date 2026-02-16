@@ -9,6 +9,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { escapeLike } from '@/lib/utils/path';
+import { hashPassword } from '@/lib/utils/password';
 
 // =============================================================
 // GET /api/users
@@ -123,12 +124,13 @@ export async function POST(request: NextRequest) {
       return apiServerError(`فشل في إنشاء حساب المصادقة: ${authError.message}`);
     }
 
-    // Step 2: Insert into pyra_users
+    // Step 2: Insert into pyra_users (password_hash via scrypt)
+    const passwordHash = hashPassword(password);
     const { data: newUser, error: insertError } = await serviceClient
       .from('pyra_users')
       .insert({
         username: cleanUsername,
-        auth_user_id: authData.user?.id || 'pending',
+        password_hash: passwordHash,
         role,
         display_name: display_name.trim(),
         permissions: permissions || {},
