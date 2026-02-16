@@ -1,6 +1,12 @@
 # Pyra Workspace 3.0
 
-**Full-stack workspace & project management platform** built with Next.js 15, Supabase, and Tailwind CSS. Arabic-first RTL interface with dual auth systems for admin employees and client portal users.
+**Pyramedia's Digital Workspace** — File management, client portal, project tracking, quotations, and team collaboration platform.
+
+Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hosted) + **shadcn/ui**.
+
+> Migrated from PHP 8 / vanilla JS to a modern full-stack TypeScript architecture.
+
+---
 
 ## Tech Stack
 
@@ -8,224 +14,197 @@
 |-------|-----------|
 | Framework | Next.js 15 (App Router, Turbopack) |
 | Language | TypeScript (strict mode) |
-| Styling | Tailwind CSS 3.4 + shadcn/ui + Radix UI |
-| Database | Supabase (PostgreSQL + Auth + Storage + Realtime) |
-| State | TanStack React Query |
-| Forms | React Hook Form + Zod |
+| Database | PostgreSQL via Supabase (self-hosted) |
+| Storage | Supabase Storage |
+| Auth | Supabase Auth + cookie-based portal sessions |
+| UI | shadcn/ui + Radix UI + Tailwind CSS 3.4 |
+| State | TanStack React Query v5 |
+| Realtime | Supabase Realtime (WebSocket) + polling fallback |
 | Charts | Recharts |
-| Animation | Framer Motion |
-| Icons | Lucide React |
 | PDF | jsPDF |
+| Package Manager | pnpm |
+
+---
 
 ## Features
 
-### Admin Panel (`/dashboard`)
-- **File Explorer** — Grid/list views, drag-drop upload, preview panel (image/PDF/video/audio/code), context menu, sort/filter, keyboard shortcuts
-- **User Management** — CRUD, role-based access (admin/employee), password management
-- **Client Management** — CRUD with linked project/file tracking
-- **Project Management** — CRUD with file assignment
-- **Teams** — Create teams, manage members
-- **Approvals** — Submit files for approval, approve/reject workflow
-- **Reviews** — Create review annotations, resolve/delete
-- **Notifications** — Real-time notification system with mark read/unread, bell dropdown with live updates
-- **Command Palette** — Ctrl+K global search across all dashboard pages
-- **Share Links** — Generate public download links with expiry
-- **Trash** — Soft delete with restore and permanent delete
-- **Activity Log** — Filtered audit log of all system actions
-- **Settings** — System-wide configuration management
-- **Quotes** — Full quote builder with PDF generation, client auto-fill, service items, VAT calculation
+### Admin Dashboard (`/dashboard`)
+- **File Explorer** — Grid/list views, upload, drag-drop, preview panel, sort/filter, bulk operations, keyboard shortcuts, context menu
+- **User Management** — CRUD with role-based access (admin/employee), path-based permissions
+- **Client Management** — CRUD with status toggle, linked project/quote checks
+- **Project Management** — CRUD with team scoping, file assignment, approval workflow
+- **Team Management** — CRUD with member add/remove
+- **Quotations** — Full quote builder, auto-numbering (QT-XXXX), VAT calculation, PDF generation, status flow (draft > sent > viewed > signed)
+- **Notifications** — Realtime bell with unread badge, notification list, mark read
+- **Activity Log** — Filterable audit trail of all system actions
+- **Trash** — Soft delete with 30-day auto-purge, restore capability
+- **Reviews** — File review system grouped by path
+- **Permissions** — Path-based permission management per user
+- **Settings** — Company, quotes, bank, storage configuration
+- **Command Palette** — Ctrl+K global search across all pages
 
 ### Client Portal (`/portal`)
-- **Separate Auth System** — Cookie-based sessions using `pyra_clients` table (not Supabase Auth)
-- **Login/Logout** — Arabic RTL branded login with Pyramedia branding
-- **Password Reset** — Token-based forgot/reset password flow
-- **Dashboard** — Welcome card, stats grid, recent projects, recent notifications
-- **Projects** — View assigned projects with filter tabs, file approval workflow, comments
-- **Files** — Browse shared files with approve/revision/download actions
-- **Quotes** — View quotes, electronic signature with canvas pad
-- **Notifications** — Client-specific notifications with read/unread filters
-- **Profile** — Manage client profile + password change
+- **Dashboard** — Welcome card, stats, recent projects/notifications
+- **Projects** — Project list with status tabs, detail view with files + comments
+- **Files** — All files across projects with approve/request-revision workflow
+- **Quotes** — View quotes, electronic signature via canvas
+- **Notifications** — Notification list with read/unread filters
+- **Profile** — Personal info editor, password change
+
+### Security
+- CSRF protection (Origin header validation)
+- Rate limiting on sensitive endpoints
+- Path traversal prevention
+- LIKE wildcard escaping
+- File type whitelist (MIME + extension)
+- HSTS + security headers
+- IDOR protection on portal routes
+- Error boundaries with Arabic UI
+
+---
 
 ## Project Structure
 
 ```
-pyra-workspace-3/
-├── app/
-│   ├── (auth)/login/           # Admin login page
-│   ├── dashboard/              # Admin panel pages (13 sections)
-│   ├── portal/
-│   │   ├── (auth)/             # Client login, forgot/reset password
-│   │   └── (main)/             # Authenticated portal pages
-│   └── api/
-│       ├── auth/               # Admin auth (Supabase Auth)
-│       ├── portal/auth/        # Client auth (cookie-based)
-│       ├── files/              # File CRUD + upload/download
-│       ├── users/              # User CRUD + password
-│       ├── clients/            # Client CRUD
-│       ├── projects/           # Project CRUD + file assignment
-│       ├── approvals/          # Approval workflow
-│       ├── comments/           # File comments
-│       ├── notifications/      # Notification management
-│       ├── reviews/            # Review annotations
-│       ├── teams/              # Team + member management
-│       ├── shares/             # Public share links
-│       ├── trash/              # Soft delete management
-│       ├── activity/           # Audit log
-│       ├── dashboard/          # Role-based stats
-│       └── settings/           # System config
-├── components/
-│   ├── ui/                     # 20 shadcn/ui components
-│   ├── layout/                 # Admin sidebar, topbar, breadcrumb, mobile nav, notification bell, command palette
-│   ├── portal/                 # Portal sidebar, topbar, mobile nav
-│   └── files/                  # File explorer components
-├── lib/
-│   ├── supabase/               # Server, client, middleware Supabase clients
-│   ├── api/                    # Shared API helpers (auth, response)
-│   ├── auth/                   # Admin auth guards + permissions
-│   ├── portal/                 # Portal session management
-│   └── utils/                  # cn, format, id, path utilities
-├── hooks/                      # React hooks (useFiles, useNotifications, useRealtime)
-├── types/                      # TypeScript interfaces (30 types, 22 tables)
-└── middleware.ts                # Route protection (dual auth)
+app/
+  api/                    # 40+ API route handlers
+    files/                # File CRUD, search, folders, batch delete
+    users/                # User CRUD, password management
+    clients/              # Client CRUD
+    projects/             # Project CRUD, file assignment
+    approvals/            # Submit, approve/reject
+    quotes/               # Quote CRUD, duplicate, send
+    notifications/        # List, mark read
+    teams/                # Team CRUD, members
+    shares/               # Share links, public download
+    trash/                # Restore, permanent delete
+    portal/               # Client portal endpoints (12 routes)
+    dashboard/            # Stats API
+    activity/             # Audit log
+    settings/             # Config get/update
+  dashboard/              # Admin pages (12 pages)
+  portal/                 # Client portal pages (7 pages)
+components/
+  ui/                     # shadcn/ui components (20+)
+  layout/                 # Sidebar, topbar, notification bell, command palette
+  files/                  # File explorer, grid, list, preview, context menu, drop zone
+  quotes/                 # QuoteBuilder, SignaturePad
+  portal/                 # Portal sidebar, topbar, mobile nav
+hooks/                    # React hooks (files, notifications, realtime, debounce)
+lib/
+  api/                    # Auth helpers, response helpers
+  auth/                   # Guards, middleware utilities
+  portal/                 # Portal session management
+  supabase/               # Supabase client factories (server, client, middleware, service role)
+  utils/                  # Path sanitization, rate limiting, ID generation
+  pdf/                    # PDF generation engine
 ```
+
+---
+
+## Database
+
+26 PostgreSQL tables with `pyra_` prefix + 1 view (`v_project_summary`).
+
+Key tables: `pyra_users`, `pyra_clients`, `pyra_projects`, `pyra_project_files`, `pyra_teams`, `pyra_quotes`, `pyra_quote_items`, `pyra_notifications`, `pyra_file_index`, `pyra_trash`, `pyra_activity_log`, `pyra_settings`.
+
+Full schema documentation: [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md)
+
+---
 
 ## Getting Started
 
 ### Prerequisites
-
-- Node.js 22+
-- pnpm (recommended) or npm
-- Supabase project with 22 tables configured
+- Node.js 18+
+- pnpm
+- Supabase instance (self-hosted or cloud)
 
 ### Installation
 
 ```bash
-# Clone
+# Clone the repository
 git clone https://github.com/Engmohammedabdo/pyra-workspace3.git
 cd pyra-workspace3
 
 # Install dependencies
 pnpm install
 
-# Configure environment
+# Configure environment variables
 cp .env.example .env.local
-# Edit .env.local with your Supabase credentials
-
-# Development
-pnpm dev
-
-# Type check
-pnpm check
-
-# Production build
-pnpm build
-pnpm start
+# Edit .env.local with your Supabase URL, keys, and other config
 ```
 
 ### Environment Variables
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME=Pyra Workspace
+NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 NEXT_PUBLIC_STORAGE_BUCKET=pyraai-workspace
-NEXT_STANDALONE=false
 ```
+
+### Development
+
+```bash
+pnpm dev          # Start dev server with Turbopack
+pnpm build        # Production build
+pnpm start        # Start production server (port 3000)
+pnpm check        # TypeScript type checking
+pnpm lint         # ESLint
+```
+
+---
+
+## Build Phases
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| 1 | Project Foundation (Next.js 15 + Auth + File Explorer) | Done |
+| 2 | API Endpoints (40+ routes) | Done |
+| 3 | Client Portal Login System | Done |
+| 3.1 | Security Fixes (rate limiting, token security) | Done |
+| 4 | Client Portal Features (11 routes, 7 pages) | Done |
+| 4.1 | Security Fixes + Broken Pages | Done |
+| 4.2 | High Priority Security (IDOR, passwords, permissions) | Done |
+| 4.3 | Medium Priority (CSRF, LIKE escaping, error boundaries) | Done |
+| 5 | Admin Dashboard Pages (12 pages) | Done |
+| 6 | Quotes & Contracts (PDF, signatures, status flow) | Done |
+| 7 | Realtime & Notifications (WebSocket + polling) | Done |
+| 8 | Advanced File Features (preview, context menu, drag-drop) | Done |
+| 9 | Docker & Deployment | Pending |
+
+Full build log: [`PROGRESS.md`](./PROGRESS.md)
+
+---
 
 ## API Overview
 
-**94 routes** across 17 resource groups. All responses follow a consistent format:
+| Group | Routes | Description |
+|-------|--------|-------------|
+| `/api/files` | 6 | File CRUD, search, folders, batch delete |
+| `/api/users` | 4 | User CRUD, password change |
+| `/api/clients` | 2 | Client CRUD |
+| `/api/projects` | 3 | Project CRUD, file assignment |
+| `/api/approvals` | 2 | Submit, approve/reject |
+| `/api/quotes` | 7 | Quote CRUD, duplicate, send |
+| `/api/notifications` | 3 | List, mark read, mark all read |
+| `/api/teams` | 3 | Team CRUD, member management |
+| `/api/shares` | 3 | Create share links, public download |
+| `/api/trash` | 2 | Restore, permanent delete |
+| `/api/portal/*` | 12 | Client portal endpoints |
+| `/api/dashboard` | 1 | Role-based stats |
+| `/api/activity` | 1 | Filtered audit log |
+| `/api/settings` | 1 | Config get/update |
+| `/api/health` | 1 | Health check |
 
-```json
-{
-  "data": { ... },
-  "error": null,
-  "meta": null
-}
-```
+---
 
-| Group | Routes | Auth |
-|-------|--------|------|
-| Files | 6 | Admin (Supabase) |
-| Users | 4 | Admin (Supabase) |
-| Clients | 2 | Admin (Supabase) |
-| Projects | 3 | Admin (Supabase) |
-| Approvals | 2 | Admin (Supabase) |
-| Comments | 2 | Admin (Supabase) |
-| Notifications | 3 | Admin (Supabase) |
-| Reviews | 2 | Admin (Supabase) |
-| Teams | 3 | Admin (Supabase) |
-| Shares | 3 | Admin (Supabase) |
-| Trash | 2 | Admin (Supabase) |
-| Activity | 1 | Admin (Supabase) |
-| Dashboard | 1 | Admin (Supabase) |
-| Settings | 1 | Admin (Supabase) |
-| Quotes | 4 | Admin (Supabase) |
-| Portal Auth | 5 | Client (Cookie) |
-| Portal Quotes | 3 | Client (Cookie) |
+## RTL Support
 
-## Security
+The entire UI is RTL-first (Arabic), with automatic LTR detection for English content. All layouts, navigation, and components are designed for right-to-left reading direction.
 
-Two rounds of security hardening applied across all API routes:
-
-**Critical Fixes (Phase 4.1)**
-- Session fixation prevention (regenerate session on login)
-- Privilege escalation blocked (role changes require admin)
-- Session invalidation on password change
-- Scrypt hashing for share link passwords
-- Quote number race condition (atomic counter)
-- Rate limiting on all auth endpoints (login, forgot-password, reset-password, password change)
-
-**High Priority Fixes (Phase 4.2)**
-- IDOR prevention — portal queries scoped by `client_id` FK (not company string)
-- 12-character minimum passwords across all auth flows
-- Employee project access scoped by team membership
-- Atomic file upload + index with storage rollback on failure
-- Quote state machine (enforced valid status transitions)
-- File upload whitelist (MIME types + extension blocklist)
-- Stable Realtime subscriptions (useRef callback pattern)
-
-**Medium Priority Improvements (Phase 4.3)**
-- LIKE wildcard escaping on all 8 search endpoints (centralized `escapeLike()`)
-- Enhanced path traversal validation (null bytes, backslashes, loop-based `..` removal)
-- CSRF Origin header validation on all state-changing API requests
-- Security headers: HSTS, Permissions-Policy, X-XSS-Protection
-- Error Boundaries on dashboard + portal layouts with Arabic error UI
-- Unified Supabase client patterns (service-role for admin writes, server for reads)
-- Eliminated `any` types with proper QuoteData interface
-
-## Deployment
-
-Designed for self-hosted Docker deployment with `output: 'standalone'`:
-
-```bash
-# Set NEXT_STANDALONE=true for production
-NEXT_STANDALONE=true pnpm build
-```
-
-> On Windows development, set `NEXT_STANDALONE=false` in `.env.local` to avoid symlink issues.
-
-## Build Progress
-
-See [PROGRESS.md](./PROGRESS.md) for detailed phase-by-phase build tracking.
-
-| Phase | Status |
-|-------|--------|
-| 1. Project Foundation | ✅ Complete |
-| 2. API Endpoints | ✅ Complete |
-| 3. Client Portal Login | ✅ Complete |
-| 4. Client Portal Features | ✅ Complete |
-| 5. Admin Dashboard Pages | ✅ Complete |
-| 6. Quotes & Contracts | ✅ Complete |
-| 7. Realtime & Notifications | ✅ Complete |
-| 8. Advanced File Features | ✅ Complete |
-| Security Audit (Critical) | ✅ Complete |
-| Security Audit (High) | ✅ Complete |
-| Improvements (Medium) | ✅ Complete |
-| 9. Docker & Deployment | ⏳ Pending |
+---
 
 ## License
 
-Private — PYRAMEDIA X FOR AI SOLUTIONS
+Private project. All rights reserved by Pyramedia.
