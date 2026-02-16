@@ -38,6 +38,8 @@ const ALLOWED_MIME_TYPES = new Set([
   'text/plain',
   'text/csv',
   'text/html',
+  'text/markdown',
+  'text/x-markdown',
   'text/css',
   'text/javascript',
   'application/json',

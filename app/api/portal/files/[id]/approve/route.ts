@@ -28,10 +28,10 @@ export async function POST(
     const { id: fileId } = await params;
     const supabase = createServiceRoleClient();
 
-    // ── Verify file exists ────────────────────────────
+    // ── Verify file exists and is client_visible ──────
     const { data: projectFile } = await supabase
       .from('pyra_project_files')
-      .select('id, project_id')
+      .select('id, project_id, file_name, client_visible')
       .eq('id', fileId)
       .single();
 
@@ -39,10 +39,14 @@ export async function POST(
       return apiNotFound('الملف غير موجود');
     }
 
+    if (projectFile.client_visible === false) {
+      return apiForbidden('هذا الملف غير متاح للعرض');
+    }
+
     // ── Verify project belongs to client ─────────────
     const { data: project } = await supabase
       .from('pyra_projects')
-      .select('id, client_id, client_company')
+      .select('id, name, client_id, client_company')
       .eq('id', projectFile.project_id)
       .single();
 
@@ -95,6 +99,23 @@ export async function POST(
         return apiServerError();
       }
 
+      // ── Audit trail ──────────────────────────────
+      await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'file_approved',
+        username: client.name,
+        display_name: client.name,
+        target_path: projectFile.file_name,
+        details: {
+          file_id: fileId,
+          project_id: projectFile.project_id,
+          project_name: project?.name,
+          status: 'approved',
+          comment,
+        },
+        ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+      });
+
       return apiSuccess(updated);
     } else {
       // Create new approval record
@@ -115,6 +136,23 @@ export async function POST(
         console.error('POST /api/portal/files/[id]/approve — insert error:', error);
         return apiServerError();
       }
+
+      // ── Audit trail ──────────────────────────────
+      await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'file_approved',
+        username: client.name,
+        display_name: client.name,
+        target_path: projectFile.file_name,
+        details: {
+          file_id: fileId,
+          project_id: projectFile.project_id,
+          project_name: project?.name,
+          status: 'approved',
+          comment,
+        },
+        ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+      });
 
       return apiSuccess(created, undefined, 201);
     }

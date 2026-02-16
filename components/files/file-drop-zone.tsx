@@ -19,6 +19,10 @@ export function FileDropZone({ onDrop, disabled, children }: FileDropZoneProps) 
       e.preventDefault();
       e.stopPropagation();
       if (disabled) return;
+
+      // Ignore internal drag operations (file moving within explorer)
+      if (e.dataTransfer.types.includes('application/x-pyra-file-path')) return;
+
       dragCounter.current += 1;
       if (e.dataTransfer.types.includes('Files')) {
         setIsDragOver(true);
@@ -54,6 +58,9 @@ export function FileDropZone({ onDrop, disabled, children }: FileDropZoneProps) 
       dragCounter.current = 0;
 
       if (disabled) return;
+
+      // Ignore internal drag operations (file moving within explorer)
+      if (e.dataTransfer.types.includes('application/x-pyra-file-path')) return;
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {

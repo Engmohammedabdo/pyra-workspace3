@@ -8,6 +8,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
+import bcrypt from 'bcryptjs';
 
 /**
  * Fields to return for the logged-in client (safe — no auth_user_id)
@@ -59,10 +60,10 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const normalizedEmail = email.trim().toLowerCase();
 
-    // ── Look up the client ───────────────────────────
+    // ── Look up the client (include auth fields for verification) ──
     const { data: client, error: clientError } = await supabase
       .from('pyra_clients')
-      .select('id, name, email, phone, company, last_login_at, is_active, created_at')
+      .select('id, name, email, phone, company, last_login_at, is_active, created_at, auth_user_id, password_hash, status')
       .eq('email', normalizedEmail)
       .maybeSingle();
 
@@ -75,27 +76,37 @@ export async function POST(request: NextRequest) {
       return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
     }
 
-    // ── Check if active ──────────────────────────────
-    if (!client.is_active) {
+    // ── Check if active (support both is_active and status fields) ──
+    const isActive = client.is_active !== null ? client.is_active : client.status === 'active';
+    if (!isActive) {
       return apiError('تم تعطيل حسابك. يرجى التواصل مع فريق الدعم', 403);
     }
 
-    // ── Authenticate via Supabase Auth ────────────────
-    // Passwords are managed by Supabase Auth. We verify using signInWithPassword.
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email: normalizedEmail,
-      password,
-    });
+    // ── Authenticate: Supabase Auth or legacy password_hash ──
+    let authenticated = false;
 
-    if (authError) {
-      // Log failed attempt
-      console.warn('Portal login — auth failed for:', normalizedEmail, authError.message);
-      return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
+    if (client.auth_user_id) {
+      // Method 1: Supabase Auth (new clients)
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
+      if (!authError) {
+        authenticated = true;
+        await supabase.auth.signOut();
+      }
     }
 
-    // Sign out immediately — we don't want to keep a Supabase Auth session
-    // for the portal; we use our own cookie-based session instead.
-    await supabase.auth.signOut();
+    if (!authenticated && client.password_hash && client.password_hash !== 'supabase_auth_managed') {
+      // Method 2: Legacy bcrypt hash (existing clients)
+      const hashToCheck = client.password_hash.replace(/^\$2y\$/, '$2a$');
+      authenticated = await bcrypt.compare(password, hashToCheck);
+    }
+
+    if (!authenticated) {
+      console.warn('Portal login — auth failed for:', normalizedEmail);
+      return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
+    }
 
     // ── Create portal session ────────────────────────
     await createPortalSession(client.id);

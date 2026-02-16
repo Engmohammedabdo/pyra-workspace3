@@ -3,6 +3,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     // Verify project exists
     const { data: project, error: projectError } = await supabase
       .from('pyra_projects')
-      .select('id')
+      .select('id, team_id')
       .eq('id', id)
       .single();
 
@@ -36,12 +37,28 @@ export async function GET(request: NextRequest, context: RouteContext) {
       return apiNotFound('المشروع غير موجود');
     }
 
+    // Employee access check
+    if (auth.pyraUser.role === 'employee') {
+      if (!project.team_id) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+      const { data: membership } = await supabase
+        .from('pyra_team_members')
+        .select('id')
+        .eq('team_id', project.team_id)
+        .eq('username', auth.pyraUser.username)
+        .maybeSingle();
+      if (!membership) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+    }
+
     // Fetch project files
     const { data: files, error, count } = await supabase
       .from('pyra_project_files')
       .select('*', { count: 'exact' })
       .eq('project_id', id)
-      .order('added_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Project files list error:', error);
@@ -67,7 +84,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     const body = await request.json();
-    const { file_path, file_name, file_type } = body;
+    const { file_path, file_name, mime_type, category, client_visible } = body;
 
     // Validation
     if (!file_path || typeof file_path !== 'string') {
@@ -76,7 +93,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!file_name || typeof file_name !== 'string') {
       return apiValidationError('اسم الملف مطلوب');
     }
-    if (!file_type || typeof file_type !== 'string') {
+    if (!mime_type || typeof mime_type !== 'string') {
       return apiValidationError('نوع الملف مطلوب');
     }
 
@@ -85,12 +102,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Verify project exists
     const { data: project, error: projectError } = await supabase
       .from('pyra_projects')
-      .select('id')
+      .select('id, team_id')
       .eq('id', id)
       .single();
 
     if (projectError || !project) {
       return apiNotFound('المشروع غير موجود');
+    }
+
+    // Employee access check
+    if (auth.pyraUser.role === 'employee') {
+      if (!project.team_id) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+      const { data: membership } = await supabase
+        .from('pyra_team_members')
+        .select('id')
+        .eq('team_id', project.team_id)
+        .eq('username', auth.pyraUser.username)
+        .maybeSingle();
+      if (!membership) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
     }
 
     // Check if file is already assigned to this project
@@ -113,9 +146,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       project_id: id,
       file_path: file_path.trim(),
       file_name: file_name.trim(),
-      file_type: file_type.trim(),
-      added_by: auth.pyraUser.username,
-      added_at: now,
+      mime_type: mime_type.trim(),
+      category: category?.trim() || null,
+      client_visible: client_visible !== false, // default true
+      uploaded_by: auth.pyraUser.username,
     };
 
     const { data: projectFile, error } = await supabase
@@ -165,6 +199,28 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     }
 
     const supabase = await createServerSupabaseClient();
+
+    // Employee access check
+    if (auth.pyraUser.role === 'employee') {
+      const { data: proj } = await supabase
+        .from('pyra_projects')
+        .select('team_id')
+        .eq('id', id)
+        .single();
+
+      if (!proj?.team_id) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+      const { data: membership } = await supabase
+        .from('pyra_team_members')
+        .select('id')
+        .eq('team_id', proj.team_id)
+        .eq('username', auth.pyraUser.username)
+        .maybeSingle();
+      if (!membership) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+    }
 
     // Verify the file belongs to this project
     const { data: existingFile, error: fetchError } = await supabase

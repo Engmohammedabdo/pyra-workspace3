@@ -1,67 +1,27 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import type { FileListItem, StorageFile } from '@/types/database';
-import { joinPath } from '@/lib/utils/path';
-
-const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+import type { FileListItem } from '@/types/database';
 
 // ============================================================
-// Transform Supabase StorageFile → our FileListItem
-// ============================================================
-function transformStorageFile(file: StorageFile, parentPath: string): FileListItem {
-  const isFolder = file.id === null;
-  return {
-    name: file.name,
-    path: joinPath(parentPath, file.name),
-    isFolder,
-    size: file.metadata?.size || 0,
-    mimeType: file.metadata?.mimetype || (isFolder ? 'folder' : 'application/octet-stream'),
-    updatedAt: file.updated_at || file.created_at || null,
-  };
-}
-
-// ============================================================
-// Hook: List files in a directory
+// Hook: List files in a directory (via API route)
 // ============================================================
 export function useFiles(path: string = '') {
-  const supabase = createBrowserSupabaseClient();
-
   return useQuery<FileListItem[]>({
     queryKey: ['files', path],
     queryFn: async () => {
       const cleanPath = path.replace(/^\/+/, '').replace(/\/+$/, '');
+      const params = new URLSearchParams();
+      if (cleanPath) params.set('path', cleanPath);
 
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .list(cleanPath || '', {
-          limit: 500,
-          offset: 0,
-          sortBy: { column: 'name', order: 'asc' },
-        });
-
-      if (error) {
-        throw new Error(error.message);
+      const res = await fetch(`/api/files?${params.toString()}`);
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'فشل في قراءة الملفات');
       }
 
-      if (!data) return [];
-
-      // Filter out .emptyFolderPlaceholder files
-      const filtered = data.filter(
-        (f) => f.name !== '.emptyFolderPlaceholder' && f.name !== '.gitkeep'
-      );
-
-      // Transform and sort: folders first, then files
-      const items = filtered.map((f) =>
-        transformStorageFile(f as StorageFile, cleanPath)
-      );
-
-      return items.sort((a, b) => {
-        if (a.isFolder && !b.isFolder) return -1;
-        if (!a.isFolder && b.isFolder) return 1;
-        return a.name.localeCompare(b.name, 'ar');
-      });
+      const json = await res.json();
+      return (json.data || []) as FileListItem[];
     },
     staleTime: 30_000, // 30 seconds
     refetchOnWindowFocus: true,
@@ -69,10 +29,9 @@ export function useFiles(path: string = '') {
 }
 
 // ============================================================
-// Hook: Create folder
+// Hook: Create folder (via API route)
 // ============================================================
 export function useCreateFolder() {
-  const supabase = createBrowserSupabaseClient();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -83,17 +42,18 @@ export function useCreateFolder() {
       parentPath: string;
       folderName: string;
     }) => {
-      const fullPath = joinPath(parentPath, folderName, '.emptyFolderPlaceholder');
+      const res = await fetch('/api/files/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: parentPath, name: folderName }),
+      });
 
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(fullPath, new Uint8Array(0), {
-          contentType: 'application/x-empty',
-          upsert: false,
-        });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'فشل إنشاء المجلد');
+      }
 
-      if (error) throw new Error(error.message);
-      return { path: joinPath(parentPath, folderName) };
+      return res.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.parentPath] });
@@ -102,10 +62,9 @@ export function useCreateFolder() {
 }
 
 // ============================================================
-// Hook: Upload files
+// Hook: Upload files (via API route with FormData)
 // ============================================================
 export function useUploadFiles() {
-  const supabase = createBrowserSupabaseClient();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -116,26 +75,23 @@ export function useUploadFiles() {
       parentPath: string;
       files: File[];
     }) => {
-      const results = await Promise.allSettled(
-        files.map(async (file) => {
-          const filePath = joinPath(parentPath, file.name);
-          const { error } = await supabase.storage
-            .from(BUCKET)
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: true,
-            });
-          if (error) throw error;
-          return filePath;
-        })
-      );
-
-      const failed = results.filter((r) => r.status === 'rejected');
-      if (failed.length > 0) {
-        throw new Error(`فشل رفع ${failed.length} ملف(ات)`);
+      const formData = new FormData();
+      formData.set('prefix', parentPath);
+      for (const file of files) {
+        formData.append('files[]', file);
       }
 
-      return results;
+      const res = await fetch('/api/files', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'فشل رفع الملفات');
+      }
+
+      return res.json();
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.parentPath] });
@@ -144,20 +100,25 @@ export function useUploadFiles() {
 }
 
 // ============================================================
-// Hook: Delete files
+// Hook: Delete files (via API route)
 // ============================================================
 export function useDeleteFiles() {
-  const supabase = createBrowserSupabaseClient();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ paths }: { paths: string[] }) => {
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .remove(paths);
+      const res = await fetch('/api/files/delete-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths }),
+      });
 
-      if (error) throw new Error(error.message);
-      return paths;
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'فشل في الحذف');
+      }
+
+      return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -166,19 +127,60 @@ export function useDeleteFiles() {
 }
 
 // ============================================================
-// Hook: Get public/signed URL for a file
+// Hook: Move a file or folder to a new location (via API route)
 // ============================================================
-export function useFileUrl() {
-  const supabase = createBrowserSupabaseClient();
+export function useMoveFile() {
+  const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ path }: { path: string }) => {
-      const { data } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(path, 3600); // 1 hour
+    mutationFn: async ({
+      sourcePath,
+      destinationFolder,
+    }: {
+      sourcePath: string;
+      destinationFolder: string;
+    }) => {
+      // Build new path: destinationFolder/filename
+      const fileName = sourcePath.split('/').pop() || '';
+      const newPath = destinationFolder ? `${destinationFolder}/${fileName}` : fileName;
 
-      if (!data?.signedUrl) throw new Error('فشل إنشاء رابط الملف');
-      return data.signedUrl;
+      const encodedPath = sourcePath
+        .split('/')
+        .map(encodeURIComponent)
+        .join('/');
+
+      const res = await fetch(`/api/files/${encodedPath}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'move', newPath }),
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json.error || 'فشل في نقل الملف');
+      }
+
+      return res.json();
+    },
+    onSuccess: () => {
+      // Invalidate all file queries to refresh both source and destination
+      queryClient.invalidateQueries({ queryKey: ['files'] });
+    },
+  });
+}
+
+// ============================================================
+// Hook: Get download URL for a file (via API route)
+// ============================================================
+export function useFileUrl() {
+  return useMutation({
+    mutationFn: async ({ path }: { path: string }) => {
+      // Return the API download route URL directly
+      const encodedPath = path
+        .split('/')
+        .map(encodeURIComponent)
+        .join('/');
+      return `/api/files/download/${encodedPath}`;
     },
   });
 }

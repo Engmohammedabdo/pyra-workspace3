@@ -9,7 +9,9 @@ import { FileGrid } from './file-grid';
 import { FileList } from './file-list';
 import { FilePreview } from './file-preview';
 import { FileDropZone } from './file-drop-zone';
-import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl } from '@/hooks/useFiles';
+import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl, useMoveFile } from '@/hooks/useFiles';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { FilePermissionsDialog } from './file-permissions-dialog';
 import type { FileListItem } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -73,6 +75,8 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const [typeFilter, setTypeFilter] = useState<FileTypeFilter>('all');
   const [previewFile, setPreviewFile] = useState<FileListItem | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [permissionsFile, setPermissionsFile] = useState<FileListItem | null>(null);
+  const [permissionsOpen, setPermissionsOpen] = useState(false);
 
   // Data hooks
   const { data: files = [], isLoading, refetch } = useFiles(currentPath);
@@ -80,6 +84,9 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const uploadFiles = useUploadFiles();
   const deleteFiles = useDeleteFiles();
   const getUrl = useFileUrl();
+  const moveFile = useMoveFile();
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
 
   // Processed files: search → type filter → sort
   const processedFiles = useMemo(() => {
@@ -291,6 +298,31 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     );
   }, []);
 
+  // Move file (drag & drop)
+  const handleMoveFile = useCallback(
+    (sourcePath: string, destinationFolder: string) => {
+      const fileName = sourcePath.split('/').pop() || '';
+      moveFile.mutate(
+        { sourcePath, destinationFolder },
+        {
+          onSuccess: () => {
+            toast.success(`تم نقل "${decodeURIComponent(fileName)}" بنجاح`);
+          },
+          onError: (err) => {
+            toast.error(`فشل في نقل الملف: ${err.message}`);
+          },
+        }
+      );
+    },
+    [moveFile]
+  );
+
+  // Permissions dialog
+  const handlePermissions = useCallback((file: FileListItem) => {
+    setPermissionsFile(file);
+    setPermissionsOpen(true);
+  }, []);
+
   // Sort change
   const handleSortChange = useCallback((field: SortField, order: SortOrder) => {
     setSortField(field);
@@ -347,6 +379,9 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     onRename: handleRename,
     onDelete: handleDeleteFile,
     onCopyPath: handleCopyPath,
+    onMoveFile: handleMoveFile,
+    onPermissions: isAdmin ? handlePermissions : undefined,
+    isAdmin,
   };
 
   return (
@@ -418,6 +453,15 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
       />
+
+      {/* File Permissions Dialog (admin only) */}
+      {isAdmin && (
+        <FilePermissionsDialog
+          file={permissionsFile}
+          open={permissionsOpen}
+          onOpenChange={setPermissionsOpen}
+        />
+      )}
     </FileDropZone>
   );
 }

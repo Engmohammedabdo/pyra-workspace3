@@ -196,6 +196,10 @@ export interface PyraProject {
   client_company: string;
   team_id: string | null;
   status: 'active' | 'in_progress' | 'review' | 'completed' | 'archived';
+  start_date: string | null;
+  deadline: string | null;
+  storage_path: string | null;
+  cover_image: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -204,29 +208,39 @@ export interface PyraProject {
 export interface PyraProjectFile {
   id: string;
   project_id: string;
-  file_path: string;
   file_name: string;
-  file_type: string;
-  added_by: string;
-  added_at: string;
+  file_path: string;
+  file_size: number | null;
+  mime_type: string;
+  category: string | null;
+  version: number;
+  needs_approval: boolean;
+  uploaded_by: string;
+  created_at: string;
+  client_visible: boolean;
 }
 
 export interface PyraFileApproval {
   id: string;
   file_id: string;
+  client_id: string;
   status: 'pending' | 'approved' | 'revision_requested';
-  reviewed_by: string | null;
-  reviewed_at: string | null;
   comment: string | null;
   created_at: string;
+  updated_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
 }
 
 export interface PyraClientComment {
   id: string;
   project_id: string;
+  file_id: string | null;
   author_type: 'client' | 'team';
+  author_id: string;
   author_name: string;
   text: string;
+  mentions: string[];
   parent_id: string | null;
   attachments: string[];
   is_read_by_client: boolean;

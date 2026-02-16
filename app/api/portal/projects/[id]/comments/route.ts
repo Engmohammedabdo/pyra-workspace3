@@ -16,6 +16,9 @@ import {
  *
  * Create a comment on a project.
  * Body: { text: string, parent_id?: string }
+ *
+ * @mentions are extracted from text (e.g. @Ahmed) and validated
+ * against project team members. Only valid mentions are stored.
  */
 export async function POST(
   request: NextRequest,
@@ -31,7 +34,7 @@ export async function POST(
     // ── Verify project exists and belongs to client ───
     const { data: project } = await supabase
       .from('pyra_projects')
-      .select('id, client_id, client_company')
+      .select('id, client_id, client_company, team_id, name')
       .eq('id', projectId)
       .single();
 
@@ -59,6 +62,36 @@ export async function POST(
       return apiValidationError('التعليق طويل جداً (الحد الأقصى 5000 حرف)');
     }
 
+    // ── Extract @mentions and validate against project members ──
+    const mentionPattern = /@([\w\u0600-\u06FF]+)/g;
+    const rawMentions = [...text.matchAll(mentionPattern)].map((m: RegExpMatchArray) => m[1]);
+    let validMentions: string[] = [];
+
+    if (rawMentions.length > 0 && project.team_id) {
+      // Get team members for this project
+      const { data: teamMembers } = await supabase
+        .from('pyra_team_members')
+        .select('username')
+        .eq('team_id', project.team_id);
+
+      const memberUsernames = (teamMembers || []).map((m: { username: string }) => m.username);
+      if (memberUsernames.length > 0) {
+        // Get display names to match mentions by username or display_name
+        const { data: users } = await supabase
+          .from('pyra_users')
+          .select('username, display_name')
+          .in('username', memberUsernames);
+
+        const validNames = new Set<string>();
+        (users || []).forEach((u: { username: string; display_name: string }) => {
+          validNames.add(u.username.toLowerCase());
+          validNames.add(u.display_name.toLowerCase());
+        });
+
+        validMentions = rawMentions.filter((m: string) => validNames.has(m.toLowerCase()));
+      }
+    }
+
     // ── Create the comment ────────────────────────────
     const commentId = generateId('cc');
     const { data: comment, error } = await supabase
@@ -67,20 +100,38 @@ export async function POST(
         id: commentId,
         project_id: projectId,
         author_type: 'client',
+        author_id: client.id,
         author_name: client.name,
         text: text.trim(),
+        mentions: validMentions,
         parent_id: parent_id || null,
         attachments: [],
         is_read_by_client: true,
         is_read_by_team: false,
       })
-      .select('id, project_id, author_type, author_name, text, parent_id, is_read_by_client, is_read_by_team, created_at')
+      .select('id, project_id, author_type, author_name, text, mentions, parent_id, is_read_by_client, is_read_by_team, created_at')
       .single();
 
     if (error) {
       console.error('POST /api/portal/projects/[id]/comments — insert error:', error);
       return apiServerError();
     }
+
+    // ── Log activity (audit trail) ──────────────────
+    await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'client_comment',
+      username: client.name,
+      display_name: client.name,
+      target_path: projectId,
+      details: {
+        comment_id: commentId,
+        project_name: project.name,
+        mentions: validMentions,
+        is_reply: !!parent_id,
+      },
+      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    });
 
     return apiSuccess(comment, undefined, 201);
   } catch (err) {

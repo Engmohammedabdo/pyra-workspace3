@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const { data: approval, error } = await supabase
       .from('pyra_file_approvals')
       .select(
-        '*, pyra_project_files(id, project_id, file_path, file_name, file_type, added_by, added_at)'
+        '*, pyra_project_files(id, project_id, file_path, file_name, mime_type, uploaded_by, created_at)'
       )
       .eq('id', id)
       .single();
@@ -71,7 +71,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { data: existing, error: fetchError } = await supabase
       .from('pyra_file_approvals')
       .select(
-        '*, pyra_project_files(id, project_id, file_path, file_name, file_type, pyra_projects(id, name, client_company))'
+        '*, pyra_project_files(id, project_id, file_path, file_name, mime_type, pyra_projects(id, name, client_company))'
       )
       .eq('id', id)
       .single();
@@ -107,7 +107,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       project_id: string;
       file_path: string;
       file_name: string;
-      file_type: string;
+      mime_type: string;
       pyra_projects: { id: string; name: string; client_company: string } | null;
     } | null;
 

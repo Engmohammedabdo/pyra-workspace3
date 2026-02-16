@@ -50,7 +50,7 @@ export async function requireAuth(): Promise<AuthSession> {
 export async function requireAdmin(): Promise<AuthSession> {
   const session = await requireAuth();
   if (session.pyraUser.role !== 'admin') {
-    redirect('/login');
+    redirect('/dashboard');
   }
   return session;
 }

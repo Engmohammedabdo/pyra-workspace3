@@ -26,15 +26,19 @@ export async function GET(
     const { id: fileId } = await params;
     const supabase = createServiceRoleClient();
 
-    // ── Verify file exists ────────────────────────────
+    // ── Verify file exists and is client_visible ──────
     const { data: projectFile } = await supabase
       .from('pyra_project_files')
-      .select('id, project_id, file_path, file_name')
+      .select('id, project_id, file_path, file_name, client_visible')
       .eq('id', fileId)
       .single();
 
     if (!projectFile) {
       return apiNotFound('الملف غير موجود');
+    }
+
+    if (projectFile.client_visible === false) {
+      return apiForbidden('هذا الملف غير متاح للعرض');
     }
 
     // ── Path traversal check ────────────────────────

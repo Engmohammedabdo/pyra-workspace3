@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('pyra_file_approvals')
       .select(
-        '*, pyra_project_files!inner(id, project_id, file_path, file_name, file_type, added_by, added_at)',
+        '*, pyra_project_files!inner(id, project_id, file_path, file_name, mime_type, uploaded_by, created_at)',
         { count: 'exact' }
       );
 

@@ -38,7 +38,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     // Employee access check: must be a member of the project's team
-    if (auth.pyraUser.role === 'employee' && project.team_id) {
+    if (auth.pyraUser.role === 'employee') {
+      if (!project.team_id) {
+        // No team assigned — no employee should see this project
+        return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
+      }
+
       const { data: membership } = await supabase
         .from('pyra_team_members')
         .select('id')

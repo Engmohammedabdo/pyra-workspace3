@@ -11,8 +11,8 @@ import { escapeLike } from '@/lib/utils/path';
  *  - project_name
  *  - approval status (pending | approved | revision_requested)
  *
- * Response shape: Array of { id, file_name, file_type, file_size, file_path,
- *   added_at, project_id, project_name, approval: { id, status, comment } | null }
+ * Response shape: Array of { id, file_name, mime_type, file_size, file_path,
+ *   created_at, project_id, project_name, approval: { id, status, comment } | null }
  *
  * Supports:
  *  - ?project_id=xxx  — filter by project
@@ -54,12 +54,13 @@ export async function GET(request: NextRequest) {
     const projectMap = new Map(projects.map((p) => [p.id, p.name]));
     const projectIds = projects.map((p) => p.id);
 
-    // ── Get all project files ─────────────────────────
+    // ── Get all project files (only client_visible) ────
     let filesQuery = supabase
       .from('pyra_project_files')
-      .select('id, project_id, file_name, file_type, file_size, file_path, added_at')
+      .select('id, project_id, file_name, mime_type, file_size, file_path, created_at, client_visible')
       .in('project_id', projectIds)
-      .order('added_at', { ascending: false });
+      .eq('client_visible', true)
+      .order('created_at', { ascending: false });
 
     if (search) {
       const escaped = escapeLike(search);
@@ -92,10 +93,10 @@ export async function GET(request: NextRequest) {
     let result = files.map((f) => ({
       id: f.id,
       file_name: f.file_name,
-      file_type: f.file_type,
+      mime_type: f.mime_type,
       file_size: f.file_size,
       file_path: f.file_path,
-      added_at: f.added_at,
+      created_at: f.created_at,
       project_id: f.project_id,
       project_name: projectMap.get(f.project_id) || '',
       approval: approvalMap.get(f.id) || null,

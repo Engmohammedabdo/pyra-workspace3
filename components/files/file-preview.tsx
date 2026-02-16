@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Download, ExternalLink, FileText, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,8 @@ import { FileIcon } from './file-icon';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface FilePreviewProps {
   file: FileListItem | null;
@@ -40,6 +42,17 @@ function isText(mime: string) {
     mime === 'application/javascript' ||
     mime === 'application/xml'
   );
+}
+function isMarkdown(name: string) {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
+}
+
+// Detect if text is predominantly RTL (Arabic, Hebrew, etc.)
+function detectDirection(text: string): 'rtl' | 'ltr' {
+  const rtlChars = (text.match(/[\u0600-\u06FF\u0750-\u077F\u0590-\u05FF\uFE70-\uFEFF]/g) || []).length;
+  const latinChars = (text.match(/[a-zA-Z]/g) || []).length;
+  return rtlChars > latinChars ? 'rtl' : 'ltr';
 }
 
 export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
@@ -83,6 +96,9 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
       window.open(signedUrl, '_blank');
     }
   };
+
+  // Determine if this file is markdown by name
+  const isMarkdownFile = !file.isFolder && isMarkdown(decodedName);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -139,8 +155,10 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
             <AudioPreview url={signedUrl} name={decodedName} />
           ) : isPdf(file.mimeType) ? (
             <PdfPreview url={signedUrl} />
+          ) : isMarkdownFile ? (
+            <MarkdownPreview url={signedUrl} />
           ) : isText(file.mimeType) ? (
-            <TextPreview url={signedUrl} />
+            <TextPreview url={signedUrl} fileName={decodedName} />
           ) : (
             <GenericPreview file={file} />
           )}
@@ -248,7 +266,46 @@ function PdfPreview({ url }: { url: string }) {
   );
 }
 
-function TextPreview({ url }: { url: string }) {
+// ============================================================
+// Markdown Preview - renders .md files with proper formatting
+// ============================================================
+function MarkdownPreview({ url }: { url: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    fetch(url)
+      .then((res) => res.text())
+      .then((text) => setContent(text.slice(0, 100000)))
+      .catch(() => setError(true));
+  }, [url]);
+
+  const direction = useMemo(() => {
+    if (!content) return 'ltr';
+    return detectDirection(content);
+  }, [content]);
+
+  if (error) return <PreviewError />;
+  if (content === null) return <PreviewLoading />;
+
+  return (
+    <div
+      className="rounded-lg border bg-card overflow-auto max-h-[60vh] p-6"
+      dir={direction}
+    >
+      <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:leading-relaxed prose-a:text-primary prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg prose-img:rounded-lg prose-table:text-sm prose-th:bg-muted/50 prose-td:border prose-th:border prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          {content}
+        </ReactMarkdown>
+      </article>
+    </div>
+  );
+}
+
+// ============================================================
+// Text Preview - for plain text, code, JSON, etc.
+// ============================================================
+function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState(false);
 
@@ -262,9 +319,11 @@ function TextPreview({ url }: { url: string }) {
   if (error) return <PreviewError />;
   if (content === null) return <PreviewLoading />;
 
+  const isCode = fileName && /\.(js|ts|jsx|tsx|css|html|xml|json|py|java|c|cpp|rs|go|rb|php|sh|yaml|yml|toml|sql)$/i.test(fileName);
+
   return (
     <div className="rounded-lg border bg-muted/30 overflow-auto max-h-[60vh]">
-      <pre className="p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed" dir="ltr">
+      <pre className={`p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed ${isCode ? 'text-foreground' : ''}`} dir="ltr">
         {content}
       </pre>
     </div>

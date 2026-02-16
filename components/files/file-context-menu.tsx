@@ -25,6 +25,7 @@ import {
   FolderInput,
   Copy,
   MoreVertical,
+  Shield,
 } from 'lucide-react';
 import type { FileListItem } from '@/types/database';
 
@@ -36,6 +37,8 @@ interface FileContextMenuProps {
   onRename: (file: FileListItem, newName: string) => void;
   onDelete: (file: FileListItem) => void;
   onCopyPath: (file: FileListItem) => void;
+  onPermissions?: (file: FileListItem) => void;
+  isAdmin?: boolean;
 }
 
 export function FileContextMenu({
@@ -46,6 +49,8 @@ export function FileContextMenu({
   onRename,
   onDelete,
   onCopyPath,
+  onPermissions,
+  isAdmin,
 }: FileContextMenuProps) {
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -97,6 +102,15 @@ export function FileContextMenu({
             <Copy className="me-2 h-4 w-4" />
             نسخ المسار
           </DropdownMenuItem>
+          {isAdmin && onPermissions && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onPermissions(file)}>
+                <Shield className="me-2 h-4 w-4" />
+                صلاحيات
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setDeleteOpen(true)}
@@ -169,6 +183,8 @@ export function FileActionButton({
   onRename,
   onDelete,
   onCopyPath,
+  onPermissions,
+  isAdmin,
 }: Omit<FileContextMenuProps, 'children'>) {
   return (
     <FileContextMenu
@@ -178,6 +194,8 @@ export function FileActionButton({
       onRename={onRename}
       onDelete={onDelete}
       onCopyPath={onCopyPath}
+      onPermissions={onPermissions}
+      isAdmin={isAdmin}
     >
       <button
         onClick={(e) => e.stopPropagation()}

@@ -51,11 +51,12 @@ export async function GET(
       return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
     }
 
-    // ── Fetch project files ───────────────────────────
+    // ── Fetch project files (only client_visible) ─────
     const { data: projectFiles } = await supabase
       .from('pyra_project_files')
-      .select('id, project_id, file_name, file_type, file_size, file_path, added_at')
-      .eq('project_id', id);
+      .select('id, project_id, file_name, mime_type, file_size, file_path, created_at, client_visible')
+      .eq('project_id', id)
+      .eq('client_visible', true);
 
     // Get file details from pyra_file_index for each project file
     const filePaths = (projectFiles || []).map((f) => f.file_path);
@@ -63,7 +64,7 @@ export async function GET(
     if (filePaths.length > 0) {
       const { data } = await supabase
         .from('pyra_file_index')
-        .select('file_path, file_name, file_type, file_size, mime_type')
+        .select('file_path, file_name, file_size, mime_type')
         .in('file_path', filePaths);
       fileIndexData = (data || []) as { file_path: string; [key: string]: unknown }[];
     }
@@ -88,7 +89,7 @@ export async function GET(
     // ── Fetch comments ────────────────────────────────
     const { data: comments } = await supabase
       .from('pyra_client_comments')
-      .select('id, project_id, author_type, author_name, content, is_read_by_client, is_read_by_team, created_at')
+      .select('id, project_id, author_type, author_name, text, is_read_by_client, is_read_by_team, created_at')
       .eq('project_id', id)
       .order('created_at', { ascending: true });
 
