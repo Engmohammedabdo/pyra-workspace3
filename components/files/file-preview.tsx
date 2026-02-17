@@ -28,7 +28,7 @@ import { DocxViewer } from './docx-viewer';
 import { PdfViewer } from './pdf-viewer';
 import { FileTagsPopover } from './file-tags';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
-import { useFileUrl, useSignedUrl } from '@/hooks/useFiles';
+import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -97,12 +97,11 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
   const [loading, setLoading] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const getProxyUrl = useFileUrl();
-  const getSignedUrl = useSignedUrl();
+  const getUrl = useFileUrl();
 
-  // Get URL when file changes
-  // For PDF & video: use direct signed URL (better for large files — streams from CDN)
-  // For everything else: use proxy URL (streaming through our API)
+  // Get the proxy URL for the file
+  // The proxy API route handles large files (>10MB) via 302 redirect to signed URL
+  // and small files via direct streaming — so one URL works for all cases
   useEffect(() => {
     if (!file || file.isFolder) {
       setSignedUrl(null);
@@ -110,32 +109,13 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
     }
 
     setLoading(true);
-
-    const needsDirectUrl = isPdf(file.mimeType) || isVideo(file.mimeType) || file.size > 5_000_000;
-
-    if (needsDirectUrl) {
-      getSignedUrl.mutateAsync({ path: file.path }).then((url) => {
-        setSignedUrl(url);
-        setLoading(false);
-      }).catch(() => {
-        // Fallback to proxy URL
-        getProxyUrl.mutateAsync({ path: file.path }).then((url) => {
-          setSignedUrl(url);
-          setLoading(false);
-        }).catch(() => {
-          setSignedUrl(null);
-          setLoading(false);
-        });
-      });
-    } else {
-      getProxyUrl.mutateAsync({ path: file.path }).then((url) => {
-        setSignedUrl(url);
-        setLoading(false);
-      }).catch(() => {
-        setSignedUrl(null);
-        setLoading(false);
-      });
-    }
+    getUrl.mutateAsync({ path: file.path }).then((url) => {
+      setSignedUrl(url);
+      setLoading(false);
+    }).catch(() => {
+      setSignedUrl(null);
+      setLoading(false);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.path]);
 
@@ -339,9 +319,7 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
           onRestored={() => {
             if (file && !file.isFolder) {
               setLoading(true);
-              const fetcher = (isPdf(file.mimeType) || isVideo(file.mimeType) || file.size > 5_000_000)
-                ? getSignedUrl : getProxyUrl;
-              fetcher.mutateAsync({ path: file.path }).then((url) => {
+              getUrl.mutateAsync({ path: file.path }).then((url) => {
                 setSignedUrl(url);
                 setLoading(false);
               }).catch(() => {

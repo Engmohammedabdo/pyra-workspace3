@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -8,7 +8,6 @@ import {
   ChevronRight,
   ChevronLeft,
   Loader2,
-  Columns2,
   AlignJustify,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,9 +30,6 @@ interface PDFPageViewport {
   height: number;
 }
 
-/* ---------------------------------------------------------------
-   Zoom presets
---------------------------------------------------------------- */
 const ZOOM_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
 
 /* ---------------------------------------------------------------
@@ -44,21 +40,19 @@ interface Props {
 }
 
 export function PdfViewer({ url }: Props) {
-  /* State */
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [zoom, setZoom] = useState<number | 'fit'> ('fit');      // 'fit' = fit-to-width
+  const [zoom, setZoom] = useState<number | 'fit'>('fit');
   const [rotation, setRotation] = useState(0);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [rendering, setRendering] = useState(false);
 
-  /* Refs */
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const renderIdRef = useRef(0);   // to cancel stale renders
+  const renderIdRef = useRef(0);
 
   /* ====================== LOAD PDF ====================== */
   useEffect(() => {
@@ -74,19 +68,63 @@ export function PdfViewer({ url }: Props) {
         const pdfjsLib = await import('pdfjs-dist');
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
-        const loadingTask = pdfjsLib.getDocument({
-          url,
-          cMapUrl:            '/pdf-assets/cmaps/',
-          cMapPacked:         true,
-          standardFontDataUrl: '/pdf-assets/fonts/',
-          enableXfa:          true,
-          useSystemFonts:     true,
-          disableFontFace:    false,
-        });
+        // Strategy: fetch the PDF as ArrayBuffer ourselves (through our same-origin
+        // proxy API), then hand the raw data to PDF.js. This avoids CORS issues
+        // with direct Supabase signed URLs.
+        setProgress(5);
 
-        loadingTask.onProgress = (p: { loaded: number; total: number }) => {
-          if (p.total > 0) setProgress(Math.min(99, Math.round((p.loaded / p.total) * 100)));
-        };
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // Stream the response to track progress
+        const contentLength = response.headers.get('Content-Length');
+        const totalBytes = contentLength ? parseInt(contentLength, 10) : 0;
+
+        let data: ArrayBuffer;
+
+        if (totalBytes > 0 && response.body) {
+          // Stream with progress tracking
+          const reader = response.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let received = 0;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            received += value.length;
+            if (!cancelled) {
+              setProgress(Math.min(90, Math.round((received / totalBytes) * 90)));
+            }
+          }
+
+          // Combine chunks
+          const combined = new Uint8Array(received);
+          let offset = 0;
+          for (const chunk of chunks) {
+            combined.set(chunk, offset);
+            offset += chunk.length;
+          }
+          data = combined.buffer;
+        } else {
+          // No content-length — just read all
+          data = await response.arrayBuffer();
+          if (!cancelled) setProgress(60);
+        }
+
+        if (cancelled) return;
+        setProgress(92);
+
+        // Now load the PDF from raw data — no CORS issues
+        const loadingTask = pdfjsLib.getDocument({
+          data,
+          cMapUrl: '/pdf-assets/cmaps/',
+          cMapPacked: true,
+          standardFontDataUrl: '/pdf-assets/fonts/',
+          enableXfa: true,
+          useSystemFonts: true,
+          disableFontFace: false,
+        });
 
         doc = (await loadingTask.promise) as unknown as PDFDocumentProxy;
 
@@ -124,8 +162,7 @@ export function PdfViewer({ url }: Props) {
     try {
       const pg = await pdf.getPage(page);
 
-      // Calculate scale: fit-to-width or explicit zoom
-      const containerWidth = containerRef.current.clientWidth - 48; // 24px padding each side
+      const containerWidth = containerRef.current.clientWidth - 48;
       const baseViewport = pg.getViewport({ scale: 1, rotation });
       const fitScale = containerWidth / baseViewport.width;
       const actualZoom = zoom === 'fit' ? fitScale : zoom;
@@ -139,17 +176,15 @@ export function PdfViewer({ url }: Props) {
 
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      canvas.style.width  = `${viewport.width / dpr}px`;
+      canvas.style.width = `${viewport.width / dpr}px`;
       canvas.style.height = `${viewport.height / dpr}px`;
 
-      // Cancel guard
       if (renderId !== renderIdRef.current) return;
 
       await pg.render({ canvasContext: ctx, viewport }).promise;
-
-      pg.cleanup();   // release page resources
+      pg.cleanup();
     } catch {
-      // render was cancelled or failed — ignore
+      // render cancelled
     } finally {
       if (renderId === renderIdRef.current) setRendering(false);
     }
@@ -157,7 +192,6 @@ export function PdfViewer({ url }: Props) {
 
   useEffect(() => { renderPage(); }, [renderPage]);
 
-  /* Recalculate fit-to-width on window resize */
   useEffect(() => {
     if (zoom !== 'fit') return;
     const onResize = () => renderPage();
@@ -166,44 +200,30 @@ export function PdfViewer({ url }: Props) {
   }, [zoom, renderPage]);
 
   /* ====================== CONTROLS ====================== */
-  const numericZoom = useMemo(() => {
-    if (zoom !== 'fit' ) return zoom;
-    if (!containerRef.current || !pdf) return 1;
-    return 1; // placeholder — actual fit is done in renderPage
-  }, [zoom, pdf]);
-
   const zoomIn = () => {
-    if (zoom === 'fit') {
-      // switch from fit to first step above 1
-      setZoom(1.25);
-    } else {
-      const idx = ZOOM_STEPS.findIndex(z => z >= zoom);
-      setZoom(ZOOM_STEPS[Math.min(idx + 1, ZOOM_STEPS.length - 1)]);
-    }
+    if (zoom === 'fit') { setZoom(1.25); return; }
+    const idx = ZOOM_STEPS.findIndex(z => z >= zoom);
+    setZoom(ZOOM_STEPS[Math.min(idx + 1, ZOOM_STEPS.length - 1)]);
   };
   const zoomOut = () => {
-    if (zoom === 'fit') {
-      setZoom(0.75);
-    } else {
-      const idx = ZOOM_STEPS.findIndex(z => z >= zoom);
-      setZoom(ZOOM_STEPS[Math.max(idx - 1, 0)]);
-    }
+    if (zoom === 'fit') { setZoom(0.75); return; }
+    const idx = ZOOM_STEPS.findIndex(z => z >= zoom);
+    setZoom(ZOOM_STEPS[Math.max(idx - 1, 0)]);
   };
   const fitWidth = () => setZoom('fit');
   const rotate = () => setRotation(r => (r + 90) % 360);
   const goNext = () => setPage(p => Math.min(p + 1, total));
   const goPrev = () => setPage(p => Math.max(p - 1, 1));
 
-  /* Keyboard shortcuts */
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
       switch (e.key) {
-        case 'ArrowLeft':  goNext(); break;   // RTL
-        case 'ArrowRight': goPrev(); break;   // RTL
-        case '+': case '=': zoomIn();  break;
-        case '-':           zoomOut(); break;
-        case '0':           fitWidth(); break;
+        case 'ArrowLeft': goNext(); break;
+        case 'ArrowRight': goPrev(); break;
+        case '+': case '=': zoomIn(); break;
+        case '-': zoomOut(); break;
+        case '0': fitWidth(); break;
       }
     };
     window.addEventListener('keydown', h);
@@ -222,7 +242,6 @@ export function PdfViewer({ url }: Props) {
         </div>
         <div className="text-center space-y-2">
           <p className="text-sm font-semibold">جاري تحميل PDF...</p>
-          {/* Progress bar */}
           <div className="w-56 h-1.5 bg-muted rounded-full overflow-hidden mx-auto">
             <div
               className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-300 ease-out"
@@ -253,9 +272,8 @@ export function PdfViewer({ url }: Props) {
   /* ====================== VIEWER ====================== */
   return (
     <div className="flex flex-col h-full">
-      {/* ─── Toolbar ─── */}
+      {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-2 border-b bg-muted/30 backdrop-blur-sm shrink-0 gap-2 flex-wrap">
-        {/* Page nav */}
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goPrev} disabled={page <= 1}>
             <ChevronRight className="h-4 w-4" />
@@ -279,12 +297,10 @@ export function PdfViewer({ url }: Props) {
           </Button>
         </div>
 
-        {/* Zoom + Rotate */}
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomOut}>
             <ZoomOut className="h-3.5 w-3.5" />
           </Button>
-
           <button
             onClick={fitWidth}
             className={`text-xs font-mono min-w-[52px] text-center rounded px-1.5 py-0.5 transition-colors ${
@@ -293,13 +309,10 @@ export function PdfViewer({ url }: Props) {
           >
             {zoom === 'fit' ? 'ملائم' : `${Math.round((zoom as number) * 100)}%`}
           </button>
-
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={zoomIn}>
             <ZoomIn className="h-3.5 w-3.5" />
           </Button>
-
           <div className="w-px h-4 bg-border mx-0.5" />
-
           <Button
             variant="ghost"
             size="icon"
@@ -309,14 +322,13 @@ export function PdfViewer({ url }: Props) {
           >
             <AlignJustify className="h-3.5 w-3.5" />
           </Button>
-
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={rotate} title="تدوير">
             <RotateCw className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      {/* ─── Canvas area ─── */}
+      {/* Canvas */}
       <div
         ref={containerRef}
         className="flex-1 overflow-auto flex justify-center bg-muted/20 p-6"
@@ -334,14 +346,9 @@ export function PdfViewer({ url }: Props) {
         </div>
       </div>
 
-      {/* ─── Thumbnail strip ─── */}
+      {/* Thumbnails */}
       {total > 1 && (
-        <ThumbnailStrip
-          pdf={pdf!}
-          currentPage={page}
-          totalPages={total}
-          onSelect={setPage}
-        />
+        <ThumbnailStrip pdf={pdf!} currentPage={page} totalPages={total} onSelect={setPage} />
       )}
     </div>
   );
@@ -351,10 +358,7 @@ export function PdfViewer({ url }: Props) {
    Thumbnail Strip
 =============================================================== */
 function ThumbnailStrip({
-  pdf,
-  currentPage,
-  totalPages,
-  onSelect,
+  pdf, currentPage, totalPages, onSelect,
 }: {
   pdf: PDFDocumentProxy;
   currentPage: number;
@@ -364,7 +368,6 @@ function ThumbnailStrip({
   const [thumbs, setThumbs] = useState<string[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
-  /* Generate lazily (first 30 pages max) */
   useEffect(() => {
     let cancelled = false;
     const max = Math.min(totalPages, 30);
@@ -376,14 +379,13 @@ function ThumbnailStrip({
         try {
           const pg = await pdf.getPage(i);
           const vp = pg.getViewport({ scale: 0.25, rotation: 0 });
-          const c  = document.createElement('canvas');
-          c.width  = vp.width;
+          const c = document.createElement('canvas');
+          c.width = vp.width;
           c.height = vp.height;
           const ctx = c.getContext('2d')!;
           await pg.render({ canvasContext: ctx, viewport: vp }).promise;
           urls[i - 1] = c.toDataURL('image/jpeg', 0.4);
           pg.cleanup();
-          // batch-update every 5 pages
           if (i % 5 === 0 || i === max) setThumbs([...urls]);
         } catch { /* skip */ }
       }
@@ -392,7 +394,6 @@ function ThumbnailStrip({
     return () => { cancelled = true; };
   }, [pdf, totalPages]);
 
-  /* scroll active into view */
   useEffect(() => {
     const el = ref.current?.querySelector(`[data-p="${currentPage}"]`);
     el?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
