@@ -8,6 +8,30 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
+// ── Allowed setting keys (whitelist) ─────────────────────────
+// Only these keys can be written via the PATCH endpoint.
+// Add new keys here when you introduce new settings.
+const ALLOWED_KEYS = new Set([
+  'app_name',
+  'app_logo',
+  'primary_color',
+  'secondary_color',
+  'max_upload_size',
+  'allowed_extensions',
+  'default_language',
+  'maintenance_mode',
+  'portal_enabled',
+  'portal_welcome_message',
+  'notification_email',
+  'smtp_host',
+  'smtp_port',
+  'smtp_user',
+  'smtp_pass',
+  'smtp_from',
+  'watermark_enabled',
+  'watermark_text',
+]);
+
 // =============================================================
 // GET /api/settings
 // Get all settings as key-value object (admin only)
@@ -55,6 +79,14 @@ export async function PATCH(request: NextRequest) {
 
     if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
       return apiValidationError('يجب تقديم إعدادات للتحديث');
+    }
+
+    // ── Validate keys against whitelist ────────────────────
+    const invalidKeys = Object.keys(body).filter((k) => !ALLOWED_KEYS.has(k.trim()));
+    if (invalidKeys.length > 0) {
+      return apiValidationError(
+        `مفاتيح غير مسموح بها: ${invalidKeys.join(', ')}`
+      );
     }
 
     const supabase = await createServerSupabaseClient();

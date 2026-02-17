@@ -146,6 +146,12 @@ export const reindexLimiter = createRateLimiter('admin-reindex', {
   windowMs: 10 * 60 * 1000,
 });
 
+/** User password change (admin panel): max 5 per IP per 15 minutes */
+export const userPasswordChangeLimiter = createRateLimiter('user-password-change', {
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000,
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.

@@ -21,12 +21,14 @@ import {
 import { generateId } from '@/lib/utils/id';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+const MAX_FOLDER_DEPTH = 15;
 
 /**
  * POST /api/files/move-batch
  *
  * Move one or more files/folders to a destination folder.
  * Folders are moved recursively (all children are moved).
+ * Includes rollback on failure and recursion depth limit.
  *
  * Body: { sourcePaths: string[], destinationFolder: string }
  */
@@ -88,7 +90,7 @@ export async function POST(request: NextRequest) {
 
         if (isFolder) {
           // ── Move folder recursively ──
-          await moveFolderRecursive(storage, supabase, sourcePath, newPath);
+          await moveFolderRecursive(storage, supabase, sourcePath, newPath, 0);
           moved.push(sourcePath);
         } else {
           // ── Move single file ──
@@ -131,7 +133,8 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Move a single file: download → upload to new path → delete original → update index
+ * Move a single file: download → upload to new path → delete original → update index.
+ * With rollback: if delete original fails, remove the copy at new path.
  */
 async function moveSingleFile(
   storage: ReturnType<typeof createServiceRoleClient>,
@@ -161,10 +164,15 @@ async function moveSingleFile(
     throw new Error('فشل الرفع إلى المسار الجديد');
   }
 
-  // Delete original
-  await storage.storage.from(BUCKET).remove([sourcePath]);
+  // Delete original — if this fails, rollback the upload
+  const { error: delError } = await storage.storage.from(BUCKET).remove([sourcePath]);
+  if (delError) {
+    // Rollback: remove the copy we just uploaded
+    await storage.storage.from(BUCKET).remove([destPath]);
+    throw new Error('فشل حذف الملف الأصلي — تم التراجع');
+  }
 
-  // Update file index
+  // Update file index — delete old, insert new
   await supabase.from('pyra_file_index').delete().eq('file_path', sourcePath);
 
   const newFileName = getFileName(destPath);
@@ -186,14 +194,20 @@ async function moveSingleFile(
 }
 
 /**
- * Move a folder recursively: list all children → move each file → clean up placeholders
+ * Move a folder recursively: list all children → move each file → clean up placeholders.
+ * Includes depth limit to prevent infinite recursion.
  */
 async function moveFolderRecursive(
   storage: ReturnType<typeof createServiceRoleClient>,
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   sourceFolderPath: string,
-  destFolderPath: string
+  destFolderPath: string,
+  depth: number
 ) {
+  if (depth > MAX_FOLDER_DEPTH) {
+    throw new Error(`تجاوز الحد الأقصى لعمق المجلدات (${MAX_FOLDER_DEPTH})`);
+  }
+
   // List all items in the source folder
   const { data: items, error: listError } = await storage.storage
     .from(BUCKET)
@@ -222,8 +236,8 @@ async function moveFolderRecursive(
     const childDestPath = `${destFolderPath}/${item.name}`;
 
     if (item.id === null) {
-      // This is a sub-folder → recurse
-      await moveFolderRecursive(storage, supabase, childSourcePath, childDestPath);
+      // This is a sub-folder → recurse with depth tracking
+      await moveFolderRecursive(storage, supabase, childSourcePath, childDestPath, depth + 1);
     } else {
       // This is a file → move it
       if (item.name === '.emptyFolderPlaceholder') {

@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { userPasswordChangeLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
 type RouteParams = { params: Promise<{ username: string }> };
 
@@ -22,6 +23,10 @@ type RouteParams = { params: Promise<{ username: string }> };
 // =============================================================
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
+    // Rate limit
+    const limited = checkRateLimit(userPasswordChangeLimiter, request);
+    if (limited) return limited;
+
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
 

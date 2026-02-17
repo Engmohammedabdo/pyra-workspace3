@@ -81,19 +81,20 @@ async function getAdminDashboard(
       .eq('recipient_username', username)
       .eq('is_read', false),
 
-    // Storage used (sum of file_size)
+    // Storage used — only fetch file_size column (lightweight)
     supabase
       .from('pyra_file_index')
-      .select('file_size'),
+      .select('file_size')
+      .not('file_size', 'is', null)
+      .limit(10000),
   ]);
 
-  // Calculate total storage
+  // Calculate total storage from the lightweight query
   let storageUsed = 0;
   if (storageResult.data) {
-    storageUsed = storageResult.data.reduce(
-      (sum, file) => sum + (file.file_size || 0),
-      0
-    );
+    for (const file of storageResult.data) {
+      storageUsed += file.file_size || 0;
+    }
   }
 
   return apiSuccess({
