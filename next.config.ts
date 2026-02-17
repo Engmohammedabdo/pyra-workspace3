@@ -54,14 +54,25 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               `img-src 'self' data: blob: ${supabaseUrl} ${appUrl}`,
-              `connect-src 'self' ${supabaseUrl} ${appUrl} wss://*.supabase.co wss://*.pyramedia.cloud`,
+              `connect-src 'self' blob: ${supabaseUrl} ${appUrl} https://cdn.jsdelivr.net wss://*.supabase.co wss://*.pyramedia.cloud`,
               "frame-src 'self'",
               "media-src 'self' blob:",
+              "worker-src 'self' blob:",
             ].join('; '),
           },
         ],
       },
     ];
+  },
+
+  // Webpack: handle pdfjs-dist worker & canvas
+  webpack: (config) => {
+    // Alias for pdfjs-dist worker (resolves to build/ in v5)
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+    return config;
   },
 
   // Image optimization

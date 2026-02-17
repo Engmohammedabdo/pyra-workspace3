@@ -1,19 +1,31 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Download, ExternalLink, FileText, Eye, Send, MessageSquare, Loader2, History } from 'lucide-react';
+import {
+  X,
+  Download,
+  ExternalLink,
+  FileText,
+  Eye,
+  Send,
+  MessageSquare,
+  Loader2,
+  History,
+  Info,
+  Music,
+  Code,
+  FileImage,
+  Film,
+  FileType,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet';
 import { FileIcon } from './file-icon';
 import { VersionHistory } from './version-history';
 import { DocxViewer } from './docx-viewer';
+import { PdfViewer } from './pdf-viewer';
 import { FileTagsPopover } from './file-tags';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { useFileUrl } from '@/hooks/useFiles';
@@ -68,10 +80,23 @@ function detectDirection(text: string): 'rtl' | 'ltr' {
   return rtlChars > latinChars ? 'rtl' : 'ltr';
 }
 
+// Get icon & color for file type
+function getFileTypeInfo(mime: string, name: string) {
+  if (isPdf(mime)) return { icon: FileType, color: 'text-red-500', bg: 'bg-red-500/10', label: 'PDF' };
+  if (isImage(mime)) return { icon: FileImage, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'صورة' };
+  if (isVideo(mime)) return { icon: Film, color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'فيديو' };
+  if (isAudio(mime)) return { icon: Music, color: 'text-pink-500', bg: 'bg-pink-500/10', label: 'صوت' };
+  if (isDocx(name)) return { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-600/10', label: 'Word' };
+  if (isMarkdown(name)) return { icon: FileText, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Markdown' };
+  if (isText(mime)) return { icon: Code, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'نص' };
+  return { icon: FileText, color: 'text-muted-foreground', bg: 'bg-muted', label: 'ملف' };
+}
+
 export function FilePreview({ file, open, onOpenChange, projectId, fileId }: FilePreviewProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const getUrl = useFileUrl();
 
   // Get signed URL when file changes
@@ -92,14 +117,26 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.path]);
 
-  if (!file) return null;
+  // Close on Escape
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onOpenChange(false);
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [open, onOpenChange]);
+
+  if (!file || !open) return null;
 
   const decodedName = decodeURIComponent(file.name);
+  const typeInfo = getFileTypeInfo(file.mimeType, decodedName);
+  const TypeIcon = typeInfo.icon;
 
   const handleDownload = () => {
     if (signedUrl) {
       const a = document.createElement('a');
-      a.href = signedUrl;
+      a.href = signedUrl + (signedUrl.includes('?') ? '&' : '?') + 'download=true';
       a.download = decodedName;
       a.click();
     }
@@ -115,212 +152,343 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
   const isMarkdownFile = !file.isFolder && isMarkdown(decodedName);
   const isDocxFile = !file.isFolder && isDocx(decodedName);
 
+  // Full-screen for media-heavy files (PDF, images, video)
+  const isFullViewer = isPdf(file.mimeType) || isImage(file.mimeType) || isVideo(file.mimeType);
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-full sm:max-w-lg p-0 flex flex-col">
-        {/* Header */}
-        <SheetHeader className="p-4 border-b space-y-0">
-          <div className="flex items-center gap-3">
-            <FileIcon mimeType={file.mimeType} isFolder={file.isFolder} size={24} />
+    <>
+      {/* =================== FULLSCREEN OVERLAY =================== */}
+      <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md animate-in fade-in duration-200">
+        {/* ============ TOP BAR ============ */}
+        <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm shrink-0">
+          {/* File Info (Right side - RTL) */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className={`w-10 h-10 rounded-xl ${typeInfo.bg} flex items-center justify-center shrink-0`}>
+              <TypeIcon className={`h-5 w-5 ${typeInfo.color}`} />
+            </div>
             <div className="min-w-0 flex-1">
-              <SheetTitle className="text-base truncate">{decodedName}</SheetTitle>
-              <SheetDescription className="text-xs">
-                {file.isFolder ? 'مجلد' : formatFileSize(file.size)}
-                {file.updatedAt && ` · ${formatRelativeDate(file.updatedAt)}`}
-              </SheetDescription>
+              <h2 className="text-sm font-semibold truncate">{decodedName}</h2>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeInfo.color} border-current/20`}>
+                  {typeInfo.label}
+                </Badge>
+                <span>{formatFileSize(file.size)}</span>
+                {file.updatedAt && (
+                  <>
+                    <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
+                    <span>{formatRelativeDate(file.updatedAt)}</span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-          {!file.isFolder && (
-            <div className="flex items-center gap-2 mt-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                disabled={!signedUrl}
-              >
-                <Download className="h-3.5 w-3.5 me-1" />
-                تحميل
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleOpenNewTab}
-                disabled={!signedUrl}
-              >
-                <ExternalLink className="h-3.5 w-3.5 me-1" />
-                فتح
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowVersions(true)}
-                className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/30 dark:hover:bg-orange-950/20"
-              >
-                <History className="h-3.5 w-3.5 me-1" />
-                النسخ
-              </Button>
-              <FileTagsPopover filePath={file.path} />
-            </div>
-          )}
-        </SheetHeader>
 
-        {/* Preview content */}
-        <div className="flex-1 overflow-auto p-4">
-          {file.isFolder ? (
-            <FolderPreview />
-          ) : loading ? (
-            <PreviewLoading />
-          ) : !signedUrl ? (
-            <PreviewError />
-          ) : isImage(file.mimeType) ? (
-            <ImagePreview url={signedUrl} name={decodedName} />
-          ) : isVideo(file.mimeType) ? (
-            <VideoPreview url={signedUrl} />
-          ) : isAudio(file.mimeType) ? (
-            <AudioPreview url={signedUrl} name={decodedName} />
-          ) : isPdf(file.mimeType) ? (
-            <PdfPreview url={signedUrl} />
-          ) : isDocxFile ? (
-            <DocxViewer url={signedUrl} />
-          ) : isMarkdownFile ? (
-            <MarkdownPreview url={signedUrl} />
-          ) : isText(file.mimeType) ? (
-            <TextPreview url={signedUrl} fileName={decodedName} />
-          ) : (
-            <GenericPreview file={file} />
-          )}
+          {/* Actions (Left side - RTL) */}
+          <div className="flex items-center gap-1.5 shrink-0 ms-4">
+            <FileTagsPopover filePath={file.path} />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-orange-500"
+              onClick={() => setShowVersions(true)}
+              title="النسخ"
+            >
+              <History className="h-4 w-4" />
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowInfo(!showInfo)}
+              title="معلومات الملف"
+            >
+              <Info className="h-4 w-4" />
+            </Button>
+
+            <div className="w-px h-5 bg-border mx-1" />
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={handleDownload}
+              disabled={!signedUrl}
+            >
+              <Download className="h-3.5 w-3.5" />
+              تحميل
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs gap-1.5"
+              onClick={handleOpenNewTab}
+              disabled={!signedUrl}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              فتح
+            </Button>
+
+            <div className="w-px h-5 bg-border mx-1" />
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => onOpenChange(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
 
-        {/* Comments section (only when projectId + fileId are provided) */}
-        {!file.isFolder && projectId && fileId && (
-          <FileCommentsSection projectId={projectId} fileId={fileId} />
-        )}
-
-        {/* Metadata footer */}
-        {!file.isFolder && (
-          <div className="border-t p-4 space-y-2 text-xs text-muted-foreground">
-            <MetaRow label="النوع" value={file.mimeType} />
-            <MetaRow label="الحجم" value={formatFileSize(file.size)} />
-            <MetaRow label="المسار" value={file.path} />
-            {file.updatedAt && (
-              <MetaRow label="آخر تعديل" value={formatRelativeDate(file.updatedAt)} />
+        {/* ============ MAIN CONTENT ============ */}
+        <div className="flex-1 flex overflow-hidden relative">
+          {/* Preview content */}
+          <div className="flex-1 overflow-auto">
+            {file.isFolder ? (
+              <FolderPreview />
+            ) : loading ? (
+              <PreviewLoading />
+            ) : !signedUrl ? (
+              <PreviewError />
+            ) : isPdf(file.mimeType) ? (
+              <PdfViewer url={signedUrl} />
+            ) : isImage(file.mimeType) ? (
+              <ImagePreview url={signedUrl} name={decodedName} />
+            ) : isVideo(file.mimeType) ? (
+              <VideoPreview url={signedUrl} />
+            ) : isAudio(file.mimeType) ? (
+              <AudioPreview url={signedUrl} name={decodedName} />
+            ) : isDocxFile ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <DocxViewer url={signedUrl} />
+              </div>
+            ) : isMarkdownFile ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <MarkdownPreview url={signedUrl} />
+              </div>
+            ) : isText(file.mimeType) ? (
+              <div className="max-w-4xl mx-auto p-6">
+                <TextPreview url={signedUrl} fileName={decodedName} />
+              </div>
+            ) : (
+              <GenericPreview file={file} />
             )}
           </div>
-        )}
-      </SheetContent>
+
+          {/* Info Side Panel (slides in) */}
+          {showInfo && (
+            <div className="w-72 border-s bg-card/50 backdrop-blur-sm p-4 space-y-4 overflow-y-auto shrink-0 animate-in slide-in-from-left duration-200">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                معلومات الملف
+              </h3>
+
+              <div className="space-y-3">
+                <InfoRow label="الاسم" value={decodedName} />
+                <InfoRow label="النوع" value={file.mimeType} />
+                <InfoRow label="الحجم" value={formatFileSize(file.size)} />
+                <InfoRow label="المسار" value={file.path} mono />
+                {file.updatedAt && (
+                  <InfoRow label="آخر تعديل" value={formatRelativeDate(file.updatedAt)} />
+                )}
+              </div>
+
+              {/* Comments section */}
+              {projectId && fileId && (
+                <div className="pt-4 border-t">
+                  <FileCommentsSection projectId={projectId} fileId={fileId} />
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Version History Sheet */}
-      <VersionHistory
-        filePath={file?.path || null}
-        open={showVersions}
-        onOpenChange={setShowVersions}
-        onRestored={() => {
-          // Re-fetch signed URL after restore
-          if (file && !file.isFolder) {
-            setLoading(true);
-            getUrl.mutateAsync({ path: file.path }).then((url) => {
-              setSignedUrl(url);
-              setLoading(false);
-            }).catch(() => {
-              setSignedUrl(null);
-              setLoading(false);
-            });
-          }
-        }}
-      />
-    </Sheet>
+      {showVersions && (
+        <VersionHistory
+          filePath={file?.path || null}
+          open={showVersions}
+          onOpenChange={setShowVersions}
+          onRestored={() => {
+            if (file && !file.isFolder) {
+              setLoading(true);
+              getUrl.mutateAsync({ path: file.path }).then((url) => {
+                setSignedUrl(url);
+                setLoading(false);
+              }).catch(() => {
+                setSignedUrl(null);
+                setLoading(false);
+              });
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 
 // ----- Sub-components -----
 
-function MetaRow({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-start gap-2">
-      <span className="font-medium min-w-16 shrink-0">{label}:</span>
-      <span className="break-all">{value}</span>
+    <div className="space-y-1">
+      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
+      <p className={`text-xs break-all ${mono ? 'font-mono text-muted-foreground' : ''}`}>{value}</p>
     </div>
   );
 }
 
 function PreviewLoading() {
   return (
-    <div className="flex items-center justify-center h-64">
-      <div className="animate-pulse text-sm text-muted-foreground">جاري التحميل...</div>
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
+      <div className="relative">
+        <div className="absolute inset-0 rounded-2xl bg-orange-500/20 animate-ping" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/25">
+          <Loader2 className="h-8 w-8 text-white animate-spin" />
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium">جاري تحميل المعاينة...</p>
+        <p className="text-xs text-muted-foreground mt-1">يرجى الانتظار</p>
+      </div>
     </div>
   );
 }
 
 function PreviewError() {
   return (
-    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-      <Eye className="h-8 w-8 mb-2 opacity-50" />
-      <p className="text-sm">فشل في تحميل المعاينة</p>
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-4">
+      <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center">
+        <Eye className="h-10 w-10 text-destructive/50" />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium text-destructive">فشل في تحميل المعاينة</p>
+        <p className="text-xs text-muted-foreground mt-2 max-w-xs">
+          تأكد من وجود الملف وصلاحيتك للوصول إليه
+        </p>
+      </div>
     </div>
   );
 }
 
 function FolderPreview() {
   return (
-    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-      <FileIcon mimeType="folder" isFolder size={48} />
-      <p className="text-sm mt-4">مجلد — انقر مرتين لفتحه</p>
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-muted-foreground">
+      <FileIcon mimeType="folder" isFolder size={64} />
+      <p className="text-sm mt-6 font-medium">مجلد — انقر مرتين لفتحه</p>
     </div>
   );
 }
 
+// =================== IMAGE PREVIEW ===================
 function ImagePreview({ url, name }: { url: string; name: string }) {
+  const [imgZoom, setImgZoom] = useState(1);
+  const [loaded, setLoaded] = useState(false);
+
   return (
-    <div className="flex items-center justify-center bg-muted/30 rounded-lg min-h-48">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={name}
-        className="max-w-full max-h-[60vh] object-contain rounded"
-        loading="lazy"
-      />
+    <div className="flex flex-col h-full">
+      {/* Image zoom controls */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setImgZoom((z) => Math.max(0.25, z - 0.25))}
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </Button>
+        <span className="text-xs font-mono min-w-[40px] text-center">{Math.round(imgZoom * 100)}%</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={() => setImgZoom((z) => Math.min(4, z + 0.25))}
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </Button>
+        <div className="w-px h-4 bg-border" />
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-[10px] px-2"
+          onClick={() => setImgZoom(1)}
+        >
+          تصفير
+        </Button>
+      </div>
+
+      <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-[repeating-conic-gradient(#0001_0%_25%,transparent_0%_50%)] dark:bg-[repeating-conic-gradient(#fff1_0%_25%,transparent_0%_50%)] bg-[length:20px_20px]">
+        {!loaded && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+          </div>
+        )}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={name}
+          className="transition-transform duration-200 rounded-lg shadow-2xl max-w-none"
+          style={{
+            transform: `scale(${imgZoom})`,
+            maxWidth: imgZoom === 1 ? '100%' : 'none',
+            maxHeight: imgZoom === 1 ? '80vh' : 'none',
+          }}
+          loading="lazy"
+          onLoad={() => setLoaded(true)}
+        />
+      </div>
     </div>
   );
 }
 
+// =================== VIDEO PREVIEW ===================
 function VideoPreview({ url }: { url: string }) {
   return (
-    <div className="bg-black rounded-lg overflow-hidden">
+    <div className="flex items-center justify-center h-full bg-black/90 p-4">
       <video
         src={url}
         controls
-        className="w-full max-h-[60vh]"
+        autoPlay={false}
+        className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
         preload="metadata"
       />
     </div>
   );
 }
 
+// =================== AUDIO PREVIEW ===================
 function AudioPreview({ url, name }: { url: string; name: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 py-8">
-      <FileIcon mimeType="audio/mpeg" isFolder={false} size={48} />
-      <p className="text-sm font-medium">{name}</p>
-      <audio src={url} controls className="w-full max-w-sm" preload="metadata" />
-    </div>
-  );
-}
-
-function PdfPreview({ url }: { url: string }) {
-  return (
-    <div className="rounded-lg overflow-hidden border bg-white">
-      <iframe
+    <div className="flex flex-col items-center justify-center h-full gap-8 p-8">
+      {/* Beautiful audio visualization placeholder */}
+      <div className="relative">
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 blur-3xl opacity-20 animate-pulse" />
+        <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
+          <div className="w-32 h-32 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center">
+            <Music className="h-12 w-12 text-purple-500" />
+          </div>
+        </div>
+      </div>
+      <div className="text-center">
+        <p className="text-base font-semibold">{name}</p>
+        <p className="text-xs text-muted-foreground mt-1">ملف صوتي</p>
+      </div>
+      <audio
         src={url}
-        className="w-full h-[60vh]"
-        title="PDF Preview"
+        controls
+        className="w-full max-w-md"
+        preload="metadata"
       />
     </div>
   );
 }
 
-// ============================================================
-// Markdown Preview - renders .md files with proper formatting
-// ============================================================
+// =================== MARKDOWN PREVIEW ===================
 function MarkdownPreview({ url }: { url: string }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -342,7 +510,7 @@ function MarkdownPreview({ url }: { url: string }) {
 
   return (
     <div
-      className="rounded-lg border bg-card overflow-auto max-h-[60vh] p-6"
+      className="rounded-xl border bg-card shadow-sm overflow-auto p-8"
       dir={direction}
     >
       <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:leading-relaxed prose-a:text-primary prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg prose-img:rounded-lg prose-table:text-sm prose-th:bg-muted/50 prose-td:border prose-th:border prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2">
@@ -354,9 +522,7 @@ function MarkdownPreview({ url }: { url: string }) {
   );
 }
 
-// ============================================================
-// Text Preview - for plain text, code, JSON, etc.
-// ============================================================
+// =================== TEXT PREVIEW ===================
 function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -372,29 +538,46 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
   if (content === null) return <PreviewLoading />;
 
   const isCode = fileName && /\.(js|ts|jsx|tsx|css|html|xml|json|py|java|c|cpp|rs|go|rb|php|sh|yaml|yml|toml|sql)$/i.test(fileName);
+  const lineCount = content.split('\n').length;
 
   return (
-    <div className="rounded-lg border bg-muted/30 overflow-auto max-h-[60vh]">
-      <pre className={`p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed ${isCode ? 'text-foreground' : ''}`} dir="ltr">
-        {content}
-      </pre>
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      {/* File header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Code className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-xs font-medium">{fileName}</span>
+        </div>
+        <span className="text-[10px] text-muted-foreground">{lineCount} سطر</span>
+      </div>
+      <div className="overflow-auto max-h-[70vh]">
+        <pre className={`p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed ${isCode ? 'text-foreground' : ''}`} dir="ltr">
+          {content}
+        </pre>
+      </div>
     </div>
   );
 }
 
+// =================== GENERIC PREVIEW ===================
 function GenericPreview({ file }: { file: FileListItem }) {
   return (
-    <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-      <FileIcon mimeType={file.mimeType} isFolder={false} size={48} />
-      <p className="text-sm mt-4">لا تتوفر معاينة لهذا النوع من الملفات</p>
-      <p className="text-xs mt-1">{file.mimeType}</p>
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-6">
+      <div className="w-24 h-24 rounded-2xl bg-muted/50 flex items-center justify-center">
+        <FileIcon mimeType={file.mimeType} isFolder={false} size={48} />
+      </div>
+      <div className="text-center">
+        <p className="text-sm font-medium">لا تتوفر معاينة لهذا النوع</p>
+        <p className="text-xs text-muted-foreground mt-1">{file.mimeType}</p>
+      </div>
+      <p className="text-xs text-muted-foreground max-w-sm text-center">
+        يمكنك تحميل الملف أو فتحه في تطبيق خارجي باستخدام الأزرار أعلاه
+      </p>
     </div>
   );
 }
 
-// ============================================================
-// File Comments Section — inline in file preview
-// ============================================================
+// =================== FILE COMMENTS SECTION ===================
 interface CommentItem {
   id: string;
   author_type: 'client' | 'team';
@@ -460,11 +643,11 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
   const displayComments = showAll ? comments : comments.slice(-3);
 
   return (
-    <div className="border-t">
+    <div>
       {/* Header */}
-      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+      <div className="flex items-center gap-2 mb-3">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        <span className="text-sm font-medium">التعليقات</span>
+        <span className="text-sm font-semibold">التعليقات</span>
         {comments.length > 0 && (
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
             {comments.length}
@@ -473,11 +656,11 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
       </div>
 
       {/* Comments list */}
-      <div className="px-4 space-y-2 max-h-48 overflow-y-auto">
+      <div className="space-y-2 max-h-48 overflow-y-auto">
         {loading ? (
           <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
         ) : comments.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">لا توجد تعليقات. كن أول من يعلّق!</p>
+          <p className="text-xs text-muted-foreground py-2">لا توجد تعليقات</p>
         ) : (
           <>
             {!showAll && comments.length > 3 && (
@@ -523,13 +706,13 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
       </div>
 
       {/* New comment form */}
-      <form onSubmit={handleSubmit} className="flex items-end gap-2 p-4 pt-2">
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-3">
         <textarea
           value={newText}
           onChange={(e) => setNewText(e.target.value)}
-          placeholder="اكتب تعليق... (استخدم @ لذكر شخص)"
+          placeholder="اكتب تعليق..."
           rows={2}
-          className="flex-1 min-h-[56px] max-h-24 rounded-lg border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+          className="flex-1 min-h-[48px] max-h-24 rounded-lg border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
         />
         <Button
           type="submit"
