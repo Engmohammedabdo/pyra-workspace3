@@ -56,7 +56,7 @@ const nextConfig: NextConfig = {
               `img-src 'self' data: blob: ${supabaseUrl} ${appUrl}`,
               `connect-src 'self' blob: ${supabaseUrl} ${appUrl} https://cdn.jsdelivr.net wss://*.supabase.co wss://*.pyramedia.cloud`,
               "frame-src 'self'",
-              "media-src 'self' blob:",
+              `media-src 'self' blob: ${supabaseUrl}`,
               "worker-src 'self' blob:",
             ].join('; '),
           },

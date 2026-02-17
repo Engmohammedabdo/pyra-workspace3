@@ -342,7 +342,8 @@ export function useMoveFile() {
 }
 
 // ============================================================
-// Hook: Get download URL for a file (via API route)
+// Hook: Get download URL for a file (via API proxy route)
+// This streams the file through the server — works for small/medium files
 // ============================================================
 export function useFileUrl() {
   return useMutation({
@@ -353,6 +354,25 @@ export function useFileUrl() {
         .map(encodeURIComponent)
         .join('/');
       return `/api/files/download/${encodedPath}`;
+    },
+  });
+}
+
+// ============================================================
+// Hook: Get a signed URL pointing directly to Supabase storage
+// Best for large files (PDF, video) — avoids server proxy bottleneck
+// ============================================================
+export function useSignedUrl() {
+  return useMutation({
+    mutationFn: async ({ path }: { path: string }) => {
+      const encodedPath = path
+        .split('/')
+        .map(encodeURIComponent)
+        .join('/');
+      const res = await fetch(`/api/files/${encodedPath}`);
+      if (!res.ok) throw new Error('Failed to get signed URL');
+      const json = await res.json();
+      return json.data?.url as string;
     },
   });
 }
