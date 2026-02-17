@@ -8,7 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { hashPassword } from '@/lib/utils/password';
 
 // =============================================================
@@ -36,10 +36,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply search filter (search in username and display_name)
+    // Use escapePostgrestValue to wrap the LIKE pattern and prevent filter injection
     if (search.trim()) {
       const escaped = escapeLike(search.trim());
+      const safeVal = escapePostgrestValue(`%${escaped}%`);
       query = query.or(
-        `username.ilike.%${escaped}%,display_name.ilike.%${escaped}%`
+        `username.ilike.${safeVal},display_name.ilike.${safeVal}`
       );
     }
 

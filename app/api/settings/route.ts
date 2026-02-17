@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -15,7 +15,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 export async function GET(_request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const supabase = await createServerSupabaseClient();
 
@@ -49,7 +49,7 @@ export async function GET(_request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const body = await request.json();
 

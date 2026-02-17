@@ -140,6 +140,12 @@ export const shareDownloadLimiter = createRateLimiter('share-download', {
   windowMs: 60 * 1000,
 });
 
+/** Admin reindex: max 2 per IP per 10 minutes (expensive operation) */
+export const reindexLimiter = createRateLimiter('admin-reindex', {
+  maxRequests: 2,
+  windowMs: 10 * 60 * 1000,
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.

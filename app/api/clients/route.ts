@@ -8,7 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 // Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
@@ -40,10 +40,12 @@ export async function GET(request: NextRequest) {
       .select(CLIENT_FIELDS, { count: 'exact' });
 
     // Search filter — match name, email, or company
+    // Use escapePostgrestValue to wrap the LIKE pattern and prevent filter injection
     if (search) {
       const escaped = escapeLike(search);
+      const safeVal = escapePostgrestValue(`%${escaped}%`);
       query = query.or(
-        `name.ilike.%${escaped}%,email.ilike.%${escaped}%,company.ilike.%${escaped}%`
+        `name.ilike.${safeVal},email.ilike.${safeVal},company.ilike.${safeVal}`
       );
     }
 
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existing) {
-      return apiValidationError('البريد الإلكتروني مسجل بالفعل');
+      return apiValidationError('تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة');
     }
 
     // ── Create Supabase Auth user ────────────────────
@@ -128,8 +130,8 @@ export async function POST(request: NextRequest) {
       console.error('Auth user creation error:', authError);
       return apiValidationError(
         authError.message.includes('already been registered')
-          ? 'البريد الإلكتروني مسجل بالفعل في النظام'
-          : `خطأ في إنشاء الحساب: ${authError.message}`
+          ? 'تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة'
+          : 'تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة'
       );
     }
 

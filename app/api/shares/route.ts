@@ -8,11 +8,9 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-// Note: password protection for share links is not supported in current schema
-
 // =============================================================
 // GET /api/shares
-// List share links for a file
+// List share links for a file (excludes token from response)
 // Query: ?path=file_path
 // =============================================================
 export async function GET(request: NextRequest) {
@@ -28,9 +26,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
+    // Note: token excluded from select to prevent exposure in list response
     const { data: links, error } = await supabase
       .from('pyra_share_links')
-      .select('id, token, file_path, file_name, created_by, created_by_display, expires_at, max_access, access_count, is_active, created_at')
+      .select('id, file_path, file_name, created_by, created_by_display, expires_at, max_access, access_count, is_active, created_at')
       .eq('file_path', filePath)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -51,7 +50,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 // POST /api/shares
 // Create a share link
-// Body: { file_path, expires_in_hours?, max_downloads?, password? }
+// Body: { file_path, expires_in_hours?, max_downloads? }
+// Returns: full share link data including token (only on creation)
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     if (!auth) return apiUnauthorized();
 
     const body = await request.json();
-    const { file_path, expires_in_hours, max_downloads, password } = body;
+    const { file_path, expires_in_hours, max_downloads } = body;
 
     // Validation
     if (!file_path?.trim()) {

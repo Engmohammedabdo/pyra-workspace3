@@ -9,7 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { escapeLike, sanitizeFileName } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -77,8 +77,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       const escaped = escapeLike(search);
+      const safeVal = escapePostgrestValue(`%${escaped}%`);
       query = query.or(
-        `name.ilike.%${escaped}%,description.ilike.%${escaped}%,client_company.ilike.%${escaped}%`
+        `name.ilike.${safeVal},description.ilike.${safeVal},client_company.ilike.${safeVal}`
       );
     }
 

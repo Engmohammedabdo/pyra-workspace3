@@ -3,6 +3,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 // =============================================================
 // PATCH /api/approvals/[id]
-// Update approval status.
+// Update approval status. Admin only.
 // Body: { status: 'approved' | 'revision_requested', comment? }
 // Sets reviewed_by, reviewed_at. Creates notification.
 // =============================================================
@@ -54,6 +55,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
+
+    // Only admins can approve/reject files from the internal dashboard
+    if (auth.pyraUser.role !== 'admin') {
+      return apiForbidden('فقط المسؤولون يمكنهم مراجعة الموافقات');
+    }
 
     const { id } = await context.params;
     const body = await request.json();

@@ -3,6 +3,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -12,7 +13,8 @@ import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // GET /api/approvals
-// List approvals. Support ?status=, ?project_id= filters.
+// List approvals. Admin sees all; employee sees only their team's.
+// Support ?status=, ?project_id= filters.
 // Joins with pyra_project_files for file details.
 // =============================================================
 export async function GET(request: NextRequest) {
@@ -26,6 +28,32 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
+    // For employees, scope to their team's projects only
+    let teamProjectIds: string[] | null = null;
+    if (auth.pyraUser.role === 'employee') {
+      const { data: memberships } = await supabase
+        .from('pyra_team_members')
+        .select('team_id')
+        .eq('username', auth.pyraUser.username);
+
+      const teamIds = (memberships || []).map((m) => m.team_id);
+
+      if (teamIds.length === 0) {
+        return apiSuccess([], { total: 0 });
+      }
+
+      const { data: teamProjects } = await supabase
+        .from('pyra_projects')
+        .select('id')
+        .in('team_id', teamIds);
+
+      teamProjectIds = (teamProjects || []).map((p) => p.id);
+
+      if (teamProjectIds.length === 0) {
+        return apiSuccess([], { total: 0 });
+      }
+    }
+
     // Join approvals with project files to get file details
     let query = supabase
       .from('pyra_file_approvals')
@@ -33,6 +61,11 @@ export async function GET(request: NextRequest) {
         '*, pyra_project_files!inner(id, project_id, file_path, file_name, mime_type, uploaded_by, created_at)',
         { count: 'exact' }
       );
+
+    // Scope employee to their team's projects
+    if (teamProjectIds) {
+      query = query.in('pyra_project_files.project_id', teamProjectIds);
+    }
 
     // Filter by status
     if (status) {

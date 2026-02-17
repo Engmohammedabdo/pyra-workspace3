@@ -193,17 +193,26 @@ async function uploadSingleFile(
   };
 
   // Step 2 — Upload file directly to Supabase Storage via XHR (for progress)
+  // Event handlers are stored as named functions so they can be cleaned up
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.addEventListener('progress', (e) => {
+    const onProgress_ = (e: ProgressEvent) => {
       if (e.lengthComputable) {
         const pct = Math.round((e.loaded / e.total) * 100);
         onProgress(pct);
       }
-    });
+    };
 
-    xhr.addEventListener('load', () => {
+    const cleanup = () => {
+      xhr.upload.removeEventListener('progress', onProgress_);
+      xhr.removeEventListener('load', onLoad);
+      xhr.removeEventListener('error', onError);
+      xhr.removeEventListener('abort', onAbort);
+    };
+
+    const onLoad = () => {
+      cleanup();
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve();
       } else {
@@ -211,15 +220,22 @@ async function uploadSingleFile(
           new Error(`فشل الرفع إلى التخزين (${xhr.status})`)
         );
       }
-    });
+    };
 
-    xhr.addEventListener('error', () => {
+    const onError = () => {
+      cleanup();
       reject(new Error('فشل الاتصال بخادم التخزين'));
-    });
+    };
 
-    xhr.addEventListener('abort', () => {
+    const onAbort = () => {
+      cleanup();
       reject(new Error('تم إلغاء الرفع'));
-    });
+    };
+
+    xhr.upload.addEventListener('progress', onProgress_);
+    xhr.addEventListener('load', onLoad);
+    xhr.addEventListener('error', onError);
+    xhr.addEventListener('abort', onAbort);
 
     xhr.open('PUT', signedUrl);
     xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
