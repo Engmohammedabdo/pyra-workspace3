@@ -16,8 +16,9 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive } from 'lucide-react';
+import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2 } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils/format';
+import { ProjectKanban } from '@/components/projects/project-kanban';
 import { toast } from 'sonner';
 
 interface Project {
@@ -59,6 +60,7 @@ export default function ProjectsPage() {
   const [selected, setSelected] = useState<Project | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active' });
+  const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
 
   // Debounce search input
   useEffect(() => {
@@ -135,6 +137,30 @@ export default function ProjectsPage() {
     setShowEdit(true);
   };
 
+  const openDelete = (p: Project) => {
+    setSelected(p);
+    setShowDelete(true);
+  };
+
+  const handleStatusChange = async (projectId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await res.json();
+      if (json.error) { toast.error(json.error); return; }
+      // Optimistic update
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, status: newStatus } : p))
+      );
+      toast.success('تم تحديث حالة المشروع');
+    } catch {
+      toast.error('حدث خطأ');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -163,8 +189,34 @@ export default function ProjectsPage() {
             <SelectItem value="archived">مؤرشف</SelectItem>
           </SelectContent>
         </Select>
+        <div className="flex items-center border rounded-lg p-0.5 gap-0.5 ms-auto">
+          <Button
+            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => setViewMode('table')}
+          >
+            <Table2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => setViewMode('kanban')}
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
+      {viewMode === 'kanban' ? (
+        <ProjectKanban
+          projects={projects}
+          onEdit={openEdit}
+          onDelete={openDelete}
+          onStatusChange={handleStatusChange}
+        />
+      ) : (
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -247,7 +299,7 @@ export default function ProjectsPage() {
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => { setSelected(p); setShowDelete(true); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>
@@ -259,6 +311,7 @@ export default function ProjectsPage() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Create */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>

@@ -20,8 +20,18 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Pyra Workspace',
   description: 'PYRAMEDIA X Digital Workspace — File Management & Client Portal',
+  manifest: '/manifest.json',
   icons: {
     icon: '/favicon.ico',
+    apple: '/icons/icon-192.svg',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Pyra Workspace',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 };
 
@@ -32,6 +42,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        <meta name="theme-color" content="#f97316" />
+      </head>
       <body
         className={`${cairo.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
@@ -51,6 +64,17 @@ export default function RootLayout({
             dir="rtl"
           />
         </ThemeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                  navigator.serviceWorker.register('/sw.js').catch(() => {});
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );

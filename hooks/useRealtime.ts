@@ -1,8 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+// ============================================================
+// Supabase Realtime Hooks
+// ============================================================
 
 interface UseRealtimeOptions {
   username: string;
@@ -12,14 +16,11 @@ interface UseRealtimeOptions {
 /**
  * Subscribe to Supabase Realtime for live notification updates.
  * Listens for INSERT events on pyra_notifications filtered by recipient.
- *
- * Uses a ref for the callback to avoid re-subscribing on every render.
  */
 export function useRealtime({ username, onNewNotification }: UseRealtimeOptions) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const callbackRef = useRef(onNewNotification);
 
-  // Keep the callback ref up-to-date without re-subscribing
   useEffect(() => {
     callbackRef.current = onNewNotification;
   }, [onNewNotification]);
@@ -51,20 +52,16 @@ export function useRealtime({ username, onNewNotification }: UseRealtimeOptions)
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [username]); // Only re-subscribe when username changes
+  }, [username]);
 }
 
 /**
  * Subscribe to Supabase Realtime for activity log updates.
- * Listens for INSERT events on pyra_activity_log.
- *
- * Uses a ref for the callback to avoid re-subscribing on every render.
  */
 export function useRealtimeActivity(onNewActivity?: (activity: Record<string, unknown>) => void) {
   const channelRef = useRef<RealtimeChannel | null>(null);
   const callbackRef = useRef(onNewActivity);
 
-  // Keep the callback ref up-to-date without re-subscribing
   useEffect(() => {
     callbackRef.current = onNewActivity;
   }, [onNewActivity]);
@@ -93,5 +90,122 @@ export function useRealtimeActivity(onNewActivity?: (activity: Record<string, un
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, []); // Subscribe once, never re-subscribe
+  }, []);
+}
+
+/**
+ * Subscribe to file index changes (uploads, deletes, renames).
+ */
+export function useRealtimeFiles(onFileChange?: () => void) {
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onFileChange);
+
+  useEffect(() => {
+    callbackRef.current = onFileChange;
+  }, [onFileChange]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel('file-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pyra_file_index',
+        },
+        () => {
+          callbackRef.current?.();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, []);
+}
+
+/**
+ * Subscribe to project changes (status updates, new projects).
+ */
+export function useRealtimeProjects(onProjectChange?: () => void) {
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onProjectChange);
+
+  useEffect(() => {
+    callbackRef.current = onProjectChange;
+  }, [onProjectChange]);
+
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel('project-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pyra_projects',
+        },
+        () => {
+          callbackRef.current?.();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, []);
+}
+
+/**
+ * Subscribe to comment changes for a specific project.
+ */
+export function useRealtimeComments(projectId: string | null, onNewComment?: () => void) {
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onNewComment);
+
+  useEffect(() => {
+    callbackRef.current = onNewComment;
+  }, [onNewComment]);
+
+  useEffect(() => {
+    if (!projectId) return;
+
+    const supabase = createBrowserSupabaseClient();
+
+    const channel = supabase
+      .channel(`comments:${projectId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'pyra_client_comments',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          callbackRef.current?.();
+        }
+      )
+      .subscribe();
+
+    channelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [projectId]);
 }

@@ -15,9 +15,10 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Search, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2 } from 'lucide-react';
+import { FileText, Search, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
 
 interface Quote {
@@ -89,6 +90,21 @@ export default function QuotesPage() {
       toast.success('تم إرسال عرض السعر');
       fetchQuotes();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); }
+  };
+
+  const handleDownloadPDF = async (id: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${id}`);
+      const json = await res.json();
+      if (!res.ok || !json.data) {
+        toast.error('فشل في تحميل بيانات العرض');
+        return;
+      }
+      generateQuotePDF(json.data);
+      toast.success('تم تحميل ملف PDF');
+    } catch {
+      toast.error('فشل في إنشاء ملف PDF');
+    }
   };
 
   const handleDelete = async () => {
@@ -185,6 +201,9 @@ export default function QuotesPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
                               <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
+                              <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
                             </DropdownMenuItem>
                             {q.status === 'draft' && (
                               <DropdownMenuItem onClick={() => handleSend(q.id)}>

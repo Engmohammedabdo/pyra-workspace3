@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FileIcon } from './file-icon';
 import { FileActionButton } from './file-context-menu';
+import { FileTagsBadges } from './file-tags';
 import { formatFileSize } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -178,6 +179,9 @@ export function FileGrid({
                 {formatFileSize(file.size)}
               </span>
             )}
+
+            {/* Tags */}
+            <FileTagsBadges filePath={file.path} />
 
             {/* Drop indicator for folders */}
             {isDragTarget && (

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { FileIcon } from './file-icon';
 import { FileActionButton } from './file-context-menu';
+import { FileTagsBadges } from './file-tags';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -155,9 +156,12 @@ export function FileList({
                   isFolder={file.isFolder}
                   size={20}
                 />
-                <span className="text-sm font-medium truncate">
-                  {decodeURIComponent(file.name)}
-                </span>
+                <div className="min-w-0 flex-1">
+                  <span className="text-sm font-medium truncate block">
+                    {decodeURIComponent(file.name)}
+                  </span>
+                  <FileTagsBadges filePath={file.path} />
+                </div>
                 {isDragTarget && (
                   <span className="text-xs text-pyra-orange font-semibold shrink-0">
                     ← انقل هنا

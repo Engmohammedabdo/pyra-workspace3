@@ -27,8 +27,10 @@ import {
   MoreVertical,
   Shield,
   Star,
+  Tags,
 } from 'lucide-react';
 import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
+import { FileTagsPopover } from './file-tags';
 import type { FileListItem } from '@/types/database';
 
 interface FileContextMenuProps {
@@ -56,6 +58,7 @@ export function FileContextMenu({
 }: FileContextMenuProps) {
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const { data: favorites = [] } = useFavorites();
   const toggleFavorite = useToggleFavorite();
@@ -120,6 +123,10 @@ export function FileContextMenu({
               className={`me-2 h-4 w-4 ${isFavorited ? 'fill-yellow-400 text-yellow-500' : ''}`}
             />
             {isFavorited ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTagsOpen(true)}>
+            <Tags className="me-2 h-4 w-4" />
+            وسوم
           </DropdownMenuItem>
           {isAdmin && onPermissions && (
             <>
@@ -188,6 +195,15 @@ export function FileContextMenu({
               حذف
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tags Dialog */}
+      <Dialog open={tagsOpen} onOpenChange={setTagsOpen}>
+        <DialogContent className="sm:max-w-xs p-0 overflow-visible">
+          <div className="p-1">
+            <FileTagsPopover filePath={file.path} embedded />
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -14,6 +14,7 @@ import {
 import { FileIcon } from './file-icon';
 import { VersionHistory } from './version-history';
 import { DocxViewer } from './docx-viewer';
+import { FileTagsPopover } from './file-tags';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
@@ -158,6 +159,7 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
                 <History className="h-3.5 w-3.5 me-1" />
                 النسخ
               </Button>
+              <FileTagsPopover filePath={file.path} />
             </div>
           )}
         </SheetHeader>
