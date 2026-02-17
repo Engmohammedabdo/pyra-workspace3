@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { FileIcon } from './file-icon';
 import { VersionHistory } from './version-history';
+import { DocxViewer } from './docx-viewer';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
@@ -53,6 +54,10 @@ function isText(mime: string) {
 function isMarkdown(name: string) {
   const lower = name.toLowerCase();
   return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
+}
+function isDocx(name: string) {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.docx') || lower.endsWith('.doc');
 }
 
 // Detect if text is predominantly RTL (Arabic, Hebrew, etc.)
@@ -105,8 +110,9 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
     }
   };
 
-  // Determine if this file is markdown by name
+  // Determine if this file is markdown or docx by name
   const isMarkdownFile = !file.isFolder && isMarkdown(decodedName);
+  const isDocxFile = !file.isFolder && isDocx(decodedName);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -172,6 +178,8 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
             <AudioPreview url={signedUrl} name={decodedName} />
           ) : isPdf(file.mimeType) ? (
             <PdfPreview url={signedUrl} />
+          ) : isDocxFile ? (
+            <DocxViewer url={signedUrl} />
           ) : isMarkdownFile ? (
             <MarkdownPreview url={signedUrl} />
           ) : isText(file.mimeType) ? (

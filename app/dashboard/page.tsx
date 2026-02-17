@@ -28,6 +28,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
+import { DashboardCharts } from '@/components/dashboard/charts';
 
 interface DashboardData {
   total_files: number;
@@ -275,6 +276,9 @@ export default function DashboardPage() {
           />
         )}
       </div>
+
+      {/* ═══ Charts Section (Admin) ═══ */}
+      {isAdmin && <DashboardCharts />}
 
       {/* ═══ Two-column: Activity + Sidebar ═══ */}
       <div className="grid gap-4 lg:grid-cols-3">

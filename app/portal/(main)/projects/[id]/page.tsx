@@ -186,14 +186,24 @@ export default function PortalProjectDetailPage() {
 
   // ---------- Actions ----------
 
+  // Approve dialog
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [approveFileId, setApproveFileId] = useState<string | null>(null);
+  const [approveComment, setApproveComment] = useState('');
+
   async function handleApprove(fileId: string) {
     setApproveLoading(fileId);
     try {
       const res = await fetch(`/api/portal/files/${fileId}/approve`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: approveComment.trim() || undefined }),
       });
       if (res.ok) {
         toast.success('تمت الموافقة على الملف بنجاح');
+        setApproveDialogOpen(false);
+        setApproveComment('');
+        setApproveFileId(null);
         await fetchProject();
       } else {
         toast.error('حدث خطأ أثناء الموافقة على الملف');
@@ -203,6 +213,13 @@ export default function PortalProjectDetailPage() {
     } finally {
       setApproveLoading(null);
     }
+  }
+
+  // Check if file is "new" (added in the last 48 hours)
+  function isNewFile(addedAt: string): boolean {
+    const added = new Date(addedAt).getTime();
+    const now = Date.now();
+    return now - added < 48 * 60 * 60 * 1000;
   }
 
   async function handleRevisionSubmit() {
@@ -405,9 +422,16 @@ export default function PortalProjectDetailPage() {
 
                       {/* File Info */}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">
-                          {file.file_name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium truncate">
+                            {file.file_name}
+                          </p>
+                          {isNewFile(file.added_at) && (
+                            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 animate-pulse">
+                              جديد
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                           {file.file_size != null && (
                             <span>{formatFileSize(file.file_size)}</span>
@@ -422,6 +446,11 @@ export default function PortalProjectDetailPage() {
                             >
                               {approvalStatus.label}
                             </Badge>
+                          )}
+                          {approval?.comment && (
+                            <span className="text-muted-foreground italic truncate max-w-48" title={approval.comment}>
+                              &ldquo;{approval.comment}&rdquo;
+                            </span>
                           )}
                         </div>
                       </div>
@@ -456,15 +485,13 @@ export default function PortalProjectDetailPage() {
                           <>
                             <Button
                               size="sm"
-                              onClick={() => handleApprove(file.id)}
-                              disabled={approveLoading === file.id}
+                              onClick={() => {
+                                setApproveFileId(file.id);
+                                setApproveDialogOpen(true);
+                              }}
                               className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
                             >
-                              {approveLoading === file.id ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle className="h-3.5 w-3.5" />
-                              )}
+                              <CheckCircle className="h-3.5 w-3.5" />
                               <span className="hidden sm:inline">موافقة</span>
                             </Button>
 
@@ -575,6 +602,55 @@ export default function PortalProjectDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Approve Dialog */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              تأكيد الموافقة
+            </DialogTitle>
+            <DialogDescription>
+              هل أنت متأكد من الموافقة على هذا الملف؟ يمكنك إضافة تعليق اختياري.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="approve-comment">تعليق (اختياري)</Label>
+            <textarea
+              id="approve-comment"
+              value={approveComment}
+              onChange={(e) => setApproveComment(e.target.value)}
+              placeholder="مثال: ممتاز، التصميم مطابق للمطلوب..."
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setApproveDialogOpen(false);
+                setApproveComment('');
+                setApproveFileId(null);
+              }}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={() => approveFileId && handleApprove(approveFileId)}
+              disabled={approveLoading !== null}
+              className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+            >
+              {approveLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4" />
+              )}
+              تأكيد الموافقة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Revision Dialog */}
       <Dialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen}>

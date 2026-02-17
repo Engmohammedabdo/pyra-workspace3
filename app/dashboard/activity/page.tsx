@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Activity, ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface ActivityItem {
   id: string;
@@ -38,6 +40,9 @@ export default function ActivityPage() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [exporting, setExporting] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const pageSize = 20;
 
   const fetchActivity = useCallback(async () => {
@@ -56,16 +61,57 @@ export default function ActivityPage() {
 
   useEffect(() => { fetchActivity(); }, [fetchActivity]);
 
+  const handleExportCSV = useCallback(async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('format', 'csv');
+      if (typeFilter !== 'all') params.set('action_type', typeFilter);
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
+
+      const res = await fetch(`/api/activity/export?${params}`);
+      if (!res.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `activity-log-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('تم تصدير سجل النشاط بنجاح');
+    } catch {
+      toast.error('فشل في تصدير سجل النشاط');
+    } finally {
+      setExporting(false);
+    }
+  }, [typeFilter, dateFrom, dateTo]);
+
   const totalPages = Math.ceil(total / pageSize);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" /> سجل النشاط</h1>
-        <p className="text-muted-foreground">جميع الإجراءات والعمليات في النظام</p>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" /> سجل النشاط</h1>
+          <p className="text-muted-foreground">جميع الإجراءات والعمليات في النظام</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportCSV}
+          disabled={exporting}
+          className="gap-2"
+        >
+          {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          تصدير CSV
+        </Button>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(1); }}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="نوع النشاط" /></SelectTrigger>
           <SelectContent>
@@ -80,6 +126,24 @@ export default function ActivityPage() {
             <SelectItem value="settings_updated">إعدادات</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">من</span>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="w-[150px] h-9 text-xs"
+          />
+          <span className="text-xs text-muted-foreground">إلى</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="w-[150px] h-9 text-xs"
+          />
+        </div>
+
         <span className="text-sm text-muted-foreground">{total} نتيجة</span>
       </div>
 

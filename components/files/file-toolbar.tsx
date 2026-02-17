@@ -11,6 +11,7 @@ import {
   ArrowUpDown,
   Filter,
   Trash2,
+  Download,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -60,6 +61,8 @@ interface FileToolbarProps {
   onTypeFilterChange: (filter: FileTypeFilter) => void;
   selectedCount: number;
   onDeleteSelected?: () => void;
+  onBatchDownload?: () => void;
+  isBatchDownloading?: boolean;
 }
 
 export function FileToolbar({
@@ -79,6 +82,8 @@ export function FileToolbar({
   onTypeFilterChange,
   selectedCount,
   onDeleteSelected,
+  onBatchDownload,
+  isBatchDownloading,
 }: FileToolbarProps) {
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [folderName, setFolderName] = useState('');
@@ -148,6 +153,22 @@ export function FileToolbar({
           className="hidden"
           onChange={handleFileSelect}
         />
+
+        {/* Batch Download */}
+        {selectedCount > 1 && onBatchDownload && (
+          <button
+            onClick={onBatchDownload}
+            disabled={isBatchDownloading}
+            className={cn(
+              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+              'bg-blue-600 text-white hover:bg-blue-700',
+              'disabled:opacity-50 disabled:cursor-not-allowed'
+            )}
+          >
+            <Download size={16} />
+            <span>{isBatchDownloading ? 'جاري التحميل...' : `تحميل (${selectedCount})`}</span>
+          </button>
+        )}
 
         {/* Delete selected */}
         {selectedCount > 0 && onDeleteSelected && (

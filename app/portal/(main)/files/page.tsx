@@ -86,6 +86,11 @@ const approvalFilterOptions = [
   { value: 'revision_requested', label: 'مطلوب تعديل' },
 ];
 
+function isNewFile(addedAt: string): boolean {
+  const added = new Date(addedAt).getTime();
+  return Date.now() - added < 48 * 60 * 60 * 1000;
+}
+
 function getFileIcon(fileType: string) {
   const type = fileType.toLowerCase();
   if (type.startsWith('image/')) return FileImage;
@@ -345,6 +350,11 @@ export default function PortalFilesPage() {
                         <FileTypeIcon className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <span className="text-sm truncate">{file.file_name}</span>
+                      {isNewFile(file.added_at) && (
+                        <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
+                          جديد
+                        </Badge>
+                      )}
                     </div>
                     <div className="col-span-2 text-sm text-muted-foreground truncate">
                       {file.project_name}
@@ -415,9 +425,16 @@ export default function PortalFilesPage() {
                       <FileTypeIcon className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">
-                        {file.file_name}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">
+                          {file.file_name}
+                        </p>
+                        {isNewFile(file.added_at) && (
+                          <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
+                            جديد
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground flex-wrap">
                         <span>{file.project_name}</span>
                         {file.file_size != null && (

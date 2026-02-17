@@ -78,6 +78,7 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [permissionsFile, setPermissionsFile] = useState<FileListItem | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
+  const [isBatchDownloading, setIsBatchDownloading] = useState(false);
 
   // Data hooks
   const { data: files = [], isLoading, refetch } = useFiles(currentPath);
@@ -333,6 +334,47 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     [moveFiles, selectedFiles]
   );
 
+  // Batch download (ZIP)
+  const handleBatchDownload = useCallback(async () => {
+    if (selectedFiles.size < 2) return;
+    // Only download files (not folders)
+    const filePaths = Array.from(selectedFiles).filter((path) => {
+      const file = processedFiles.find((f) => f.path === path);
+      return file && !file.isFolder;
+    });
+
+    if (filePaths.length === 0) {
+      toast.error('لم يتم تحديد ملفات للتحميل');
+      return;
+    }
+
+    setIsBatchDownloading(true);
+    try {
+      const res = await fetch('/api/files/download-batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths: filePaths }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Download failed');
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `pyra-download-${Date.now()}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`تم تحميل ${filePaths.length} ملف(ات) كملف ZIP`);
+    } catch {
+      toast.error('فشل في تحميل الملفات');
+    } finally {
+      setIsBatchDownloading(false);
+    }
+  }, [selectedFiles, processedFiles]);
+
   // Permissions dialog
   const handlePermissions = useCallback((file: FileListItem) => {
     setPermissionsFile(file);
@@ -424,6 +466,8 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
           onTypeFilterChange={setTypeFilter}
           selectedCount={selectedFiles.size}
           onDeleteSelected={handleDeleteSelected}
+          onBatchDownload={handleBatchDownload}
+          isBatchDownloading={isBatchDownloading}
         />
 
         {/* Upload Progress Bar */}
