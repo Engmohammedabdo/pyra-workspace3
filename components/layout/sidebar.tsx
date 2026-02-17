@@ -29,6 +29,7 @@ import {
   PanelLeftOpen,
   Monitor,
   KeyRound,
+  Star,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -67,6 +68,7 @@ const navGroups: NavGroup[] = [
     titleEn: 'File Management',
     items: [
       { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen },
+      { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star },
       { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare },
       { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2 },
     ],

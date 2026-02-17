@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { X, Download, ExternalLink, FileText, Eye, Send, MessageSquare, Loader2 } from 'lucide-react';
+import { X, Download, ExternalLink, FileText, Eye, Send, MessageSquare, Loader2, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,6 +12,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { FileIcon } from './file-icon';
+import { VersionHistory } from './version-history';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
@@ -64,6 +65,7 @@ function detectDirection(text: string): 'rtl' | 'ltr' {
 export function FilePreview({ file, open, onOpenChange, projectId, fileId }: FilePreviewProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
   const getUrl = useFileUrl();
 
   // Get signed URL when file changes
@@ -141,6 +143,15 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
                 <ExternalLink className="h-3.5 w-3.5 me-1" />
                 فتح
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowVersions(true)}
+                className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:border-orange-900/30 dark:hover:bg-orange-950/20"
+              >
+                <History className="h-3.5 w-3.5 me-1" />
+                النسخ
+              </Button>
             </div>
           )}
         </SheetHeader>
@@ -187,6 +198,26 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
           </div>
         )}
       </SheetContent>
+
+      {/* Version History Sheet */}
+      <VersionHistory
+        filePath={file?.path || null}
+        open={showVersions}
+        onOpenChange={setShowVersions}
+        onRestored={() => {
+          // Re-fetch signed URL after restore
+          if (file && !file.isFolder) {
+            setLoading(true);
+            getUrl.mutateAsync({ path: file.path }).then((url) => {
+              setSignedUrl(url);
+              setLoading(false);
+            }).catch(() => {
+              setSignedUrl(null);
+              setLoading(false);
+            });
+          }
+        }}
+      />
     </Sheet>
   );
 }

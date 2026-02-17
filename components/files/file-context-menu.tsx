@@ -26,7 +26,9 @@ import {
   Copy,
   MoreVertical,
   Shield,
+  Star,
 } from 'lucide-react';
+import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
 import type { FileListItem } from '@/types/database';
 
 interface FileContextMenuProps {
@@ -55,6 +57,9 @@ export function FileContextMenu({
   const [renameOpen, setRenameOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [newName, setNewName] = useState('');
+  const { data: favorites = [] } = useFavorites();
+  const toggleFavorite = useToggleFavorite();
+  const isFavorited = favorites.some((f) => f.file_path === file.path);
 
   const decodedName = decodeURIComponent(file.name);
 
@@ -101,6 +106,20 @@ export function FileContextMenu({
           <DropdownMenuItem onClick={() => onCopyPath(file)}>
             <Copy className="me-2 h-4 w-4" />
             نسخ المسار
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              toggleFavorite.mutate({
+                filePath: file.path,
+                itemType: file.isFolder ? 'folder' : 'file',
+                displayName: decodedName,
+              })
+            }
+          >
+            <Star
+              className={`me-2 h-4 w-4 ${isFavorited ? 'fill-yellow-400 text-yellow-500' : ''}`}
+            />
+            {isFavorited ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
           </DropdownMenuItem>
           {isAdmin && onPermissions && (
             <>

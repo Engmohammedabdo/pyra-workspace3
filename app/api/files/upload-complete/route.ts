@@ -77,7 +77,59 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
-    // Index the file
+    // ── Auto-versioning: save old file as version before overwrite ──
+    const { data: existingFile } = await supabase
+      .from('pyra_file_index')
+      .select('file_size, mime_type')
+      .eq('file_path', storagePath)
+      .single();
+
+    if (existingFile) {
+      // File already exists — save current version before overwriting
+      try {
+        const { data: latestVersions } = await supabase
+          .from('pyra_file_versions')
+          .select('version_number')
+          .eq('file_path', storagePath)
+          .order('version_number', { ascending: false })
+          .limit(1);
+
+        const nextVersionNum = ((latestVersions?.[0]?.version_number) || 0) + 1;
+
+        // Download the existing file before it gets overwritten
+        const { data: oldFileData } = await storage.storage
+          .from(BUCKET)
+          .download(storagePath);
+
+        if (oldFileData) {
+          const versionPath = `.versions/${storagePath}_v${nextVersionNum}`;
+          const { error: versionUploadError } = await storage.storage
+            .from(BUCKET)
+            .upload(versionPath, oldFileData, {
+              contentType: existingFile.mime_type || 'application/octet-stream',
+              upsert: true,
+            });
+
+          if (!versionUploadError) {
+            await supabase.from('pyra_file_versions').insert({
+              id: generateId('fv'),
+              file_path: storagePath,
+              version_path: versionPath,
+              version_number: nextVersionNum,
+              file_size: existingFile.file_size || 0,
+              mime_type: existingFile.mime_type || 'application/octet-stream',
+              created_by: auth.pyraUser.username,
+              created_at: new Date().toISOString(),
+            });
+          }
+        }
+      } catch (versionErr) {
+        // Versioning is non-critical — log and continue
+        console.warn('Auto-versioning warning:', versionErr);
+      }
+    }
+
+    // Index the file (overwrite or create)
     const { error: indexError } = await supabase.from('pyra_file_index').upsert(
       {
         id: generateId('fi'),

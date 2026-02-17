@@ -16,8 +16,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { formatDate } from '@/lib/utils/format';
+import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive } from 'lucide-react';
+import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
 interface Project {
@@ -28,6 +28,14 @@ interface Project {
   status: string;
   created_by: string;
   created_at: string;
+  // Enriched fields from v_project_summary
+  file_count?: number;
+  comment_count?: number;
+  approved_count?: number;
+  pending_count?: number;
+  revision_count?: number;
+  total_file_size?: number;
+  unread_team_comments?: number;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
@@ -165,6 +173,8 @@ export default function ProjectsPage() {
                 <tr className="border-b bg-muted/50">
                   <th className="text-start p-3 font-medium">المشروع</th>
                   <th className="text-start p-3 font-medium">العميل</th>
+                  <th className="text-start p-3 font-medium">الملفات</th>
+                  <th className="text-start p-3 font-medium">الموافقات</th>
                   <th className="text-start p-3 font-medium">الحالة</th>
                   <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
                   <th className="text-start p-3 font-medium w-[60px]"></th>
@@ -172,9 +182,9 @@ export default function ProjectsPage() {
               </thead>
               <tbody>
                 {loading ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 5 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
+                  <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
                 )) : projects.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد مشاريع</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد مشاريع</td></tr>
                 ) : projects.map(p => {
                   const s = STATUS_MAP[p.status] || { label: p.status, variant: 'secondary' as const };
                   return (
@@ -182,8 +192,54 @@ export default function ProjectsPage() {
                       <td className="p-3">
                         <div className="font-medium">{p.name}</div>
                         {p.description && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{p.description}</div>}
+                        {/* Comments & size mini-stats */}
+                        <div className="flex items-center gap-3 mt-1">
+                          {(p.comment_count ?? 0) > 0 && (
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <MessageSquare className="h-3 w-3" /> {p.comment_count}
+                              {(p.unread_team_comments ?? 0) > 0 && (
+                                <Badge className="text-[9px] px-1 py-0 bg-orange-100 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900/30">
+                                  {p.unread_team_comments} جديد
+                                </Badge>
+                              )}
+                            </span>
+                          )}
+                          {(p.total_file_size ?? 0) > 0 && (
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <HardDrive className="h-3 w-3" /> {formatFileSize(p.total_file_size || 0)}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3 text-muted-foreground">{p.client_company}</td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-mono text-sm">{p.file_count ?? 0}</span>
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(p.approved_count ?? 0) > 0 && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+                              <CheckCircle className="h-3 w-3 me-0.5" /> {p.approved_count}
+                            </Badge>
+                          )}
+                          {(p.pending_count ?? 0) > 0 && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400">
+                              <Clock className="h-3 w-3 me-0.5" /> {p.pending_count}
+                            </Badge>
+                          )}
+                          {(p.revision_count ?? 0) > 0 && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+                              <AlertTriangle className="h-3 w-3 me-0.5" /> {p.revision_count}
+                            </Badge>
+                          )}
+                          {(p.approved_count ?? 0) === 0 && (p.pending_count ?? 0) === 0 && (p.revision_count ?? 0) === 0 && (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="p-3"><Badge variant={s.variant}>{s.label}</Badge></td>
                       <td className="p-3 text-muted-foreground text-xs">{formatDate(p.created_at)}</td>
                       <td className="p-3">
