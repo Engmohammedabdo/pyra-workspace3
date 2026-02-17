@@ -37,35 +37,14 @@ async function getAdminDashboard(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   username: string
 ) {
-  // Run all queries in parallel
-  const [
-    filesResult,
-    usersResult,
-    clientsResult,
-    projectsResult,
-    activityResult,
-    notificationsResult,
-    storageResult,
-  ] = await Promise.all([
-    // Total files
+  // Use v_dashboard_stats view for all KPIs in ONE query
+  // + separate queries for activity & notifications (user-specific)
+  const [statsResult, activityResult, notificationsResult] = await Promise.all([
+    // All dashboard stats from a single view (replaces 7 separate queries)
     supabase
-      .from('pyra_file_index')
-      .select('id', { count: 'exact', head: true }),
-
-    // Total users
-    supabase
-      .from('pyra_users')
-      .select('id', { count: 'exact', head: true }),
-
-    // Total clients
-    supabase
-      .from('pyra_clients')
-      .select('id', { count: 'exact', head: true }),
-
-    // Total projects
-    supabase
-      .from('pyra_projects')
-      .select('id', { count: 'exact', head: true }),
+      .from('v_dashboard_stats')
+      .select('*')
+      .single(),
 
     // Recent activity (last 10)
     supabase
@@ -74,37 +53,32 @@ async function getAdminDashboard(
       .order('created_at', { ascending: false })
       .limit(10),
 
-    // Unread notifications count
+    // Unread notifications count (user-specific, can't be in view)
     supabase
       .from('pyra_notifications')
       .select('id', { count: 'exact', head: true })
       .eq('recipient_username', username)
       .eq('is_read', false),
-
-    // Storage used — only fetch file_size column (lightweight)
-    supabase
-      .from('pyra_file_index')
-      .select('file_size')
-      .not('file_size', 'is', null)
-      .limit(10000),
   ]);
 
-  // Calculate total storage from the lightweight query
-  let storageUsed = 0;
-  if (storageResult.data) {
-    for (const file of storageResult.data) {
-      storageUsed += file.file_size || 0;
-    }
-  }
+  const stats = statsResult.data;
 
   return apiSuccess({
-    total_files: filesResult.count ?? 0,
-    total_users: usersResult.count ?? 0,
-    total_clients: clientsResult.count ?? 0,
-    total_projects: projectsResult.count ?? 0,
+    total_files: stats?.total_files ?? 0,
+    total_users: stats?.total_users ?? 0,
+    total_clients: stats?.total_clients ?? 0,
+    total_projects: stats?.total_projects ?? 0,
+    active_projects: stats?.active_projects ?? 0,
+    completed_projects: stats?.completed_projects ?? 0,
+    total_teams: stats?.total_teams ?? 0,
+    total_quotes: stats?.total_quotes ?? 0,
+    signed_quotes: stats?.signed_quotes ?? 0,
+    pending_approvals: stats?.pending_approvals ?? 0,
+    trash_count: stats?.trash_count ?? 0,
+    active_shares: stats?.active_shares ?? 0,
     recent_activity: activityResult.data || [],
     unread_notifications: notificationsResult.count ?? 0,
-    storage_used: storageUsed,
+    storage_used: stats?.total_storage_bytes ?? 0,
   });
 }
 

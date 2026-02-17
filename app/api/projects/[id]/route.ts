@@ -26,28 +26,47 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
     const supabase = await createServerSupabaseClient();
 
-    // Fetch project
+    // Use v_project_summary view — includes file_count, approval stats, comment_count
     const { data: project, error } = await supabase
-      .from('pyra_projects')
+      .from('v_project_summary')
       .select('*')
       .eq('id', id)
       .single();
 
     if (error || !project) {
-      return apiNotFound('المشروع غير موجود');
+      // Fallback: try raw table in case view doesn't exist yet
+      const { data: rawProject, error: rawErr } = await supabase
+        .from('pyra_projects')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (rawErr || !rawProject) {
+        return apiNotFound('المشروع غير موجود');
+      }
+
+      return apiSuccess(rawProject);
     }
 
     // Employee access check: must be a member of the project's team
     if (auth.pyraUser.role === 'employee') {
-      if (!project.team_id) {
-        // No team assigned — no employee should see this project
+      // Fetch team_id from raw table (not in view) for access check
+      const { data: rawProject } = await supabase
+        .from('pyra_projects')
+        .select('team_id')
+        .eq('id', id)
+        .single();
+
+      const teamId = rawProject?.team_id;
+
+      if (!teamId) {
         return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
       }
 
       const { data: membership } = await supabase
         .from('pyra_team_members')
         .select('id')
-        .eq('team_id', project.team_id)
+        .eq('team_id', teamId)
         .eq('username', auth.pyraUser.username)
         .maybeSingle();
 
@@ -56,27 +75,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Get file count
-    const { count: fileCount } = await supabase
-      .from('pyra_project_files')
-      .select('*', { count: 'exact', head: true })
-      .eq('project_id', id);
-
-    // Get recent comments count (last 7 days)
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-    const { count: recentCommentsCount } = await supabase
-      .from('pyra_client_comments')
-      .select('*', { count: 'exact', head: true })
-      .eq('project_id', id)
-      .gte('created_at', sevenDaysAgo.toISOString());
-
-    return apiSuccess({
-      ...project,
-      file_count: fileCount || 0,
-      recent_comments_count: recentCommentsCount || 0,
-    });
+    return apiSuccess(project);
   } catch (err) {
     console.error('Project GET error:', err);
     return apiServerError();

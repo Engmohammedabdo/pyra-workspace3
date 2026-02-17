@@ -57,8 +57,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Use v_project_summary view for enriched data (file counts, approval stats)
     let query = supabase
-      .from('pyra_projects')
+      .from('v_project_summary')
       .select('*', { count: 'exact' });
 
     // Scope employee to their team's projects
