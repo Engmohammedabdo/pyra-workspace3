@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { X, Download, ExternalLink, FileText, Eye } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { X, Download, ExternalLink, FileText, Eye, Send, MessageSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Sheet,
   SheetContent,
@@ -16,11 +17,16 @@ import { useFileUrl } from '@/hooks/useFiles';
 import type { FileListItem } from '@/types/database';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { toast } from 'sonner';
 
 interface FilePreviewProps {
   file: FileListItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Optional: if set, shows a comments section for this project + file */
+  projectId?: string;
+  /** Optional: file_id (from pyra_project_files) for file-level comments */
+  fileId?: string;
 }
 
 function isImage(mime: string) {
@@ -55,7 +61,7 @@ function detectDirection(text: string): 'rtl' | 'ltr' {
   return rtlChars > latinChars ? 'rtl' : 'ltr';
 }
 
-export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
+export function FilePreview({ file, open, onOpenChange, projectId, fileId }: FilePreviewProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const getUrl = useFileUrl();
@@ -163,6 +169,11 @@ export function FilePreview({ file, open, onOpenChange }: FilePreviewProps) {
             <GenericPreview file={file} />
           )}
         </div>
+
+        {/* Comments section (only when projectId + fileId are provided) */}
+        {!file.isFolder && projectId && fileId && (
+          <FileCommentsSection projectId={projectId} fileId={fileId} />
+        )}
 
         {/* Metadata footer */}
         {!file.isFolder && (
@@ -337,5 +348,173 @@ function GenericPreview({ file }: { file: FileListItem }) {
       <p className="text-sm mt-4">لا تتوفر معاينة لهذا النوع من الملفات</p>
       <p className="text-xs mt-1">{file.mimeType}</p>
     </div>
+  );
+}
+
+// ============================================================
+// File Comments Section — inline in file preview
+// ============================================================
+interface CommentItem {
+  id: string;
+  author_type: 'client' | 'team';
+  author_name: string;
+  text: string;
+  mentions: string[];
+  created_at: string;
+}
+
+function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId: string }) {
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newText, setNewText] = useState('');
+  const [sending, setSending] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  const fetchComments = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/comments?project_id=${projectId}&file_id=${fileId}`);
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setComments(json.data);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, fileId]);
+
+  useEffect(() => {
+    fetchComments();
+  }, [fetchComments]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newText.trim() || sending) return;
+    setSending(true);
+    try {
+      const res = await fetch('/api/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: projectId,
+          file_id: fileId,
+          text: newText.trim(),
+        }),
+      });
+      if (res.ok) {
+        setNewText('');
+        await fetchComments();
+        toast.success('تم إرسال التعليق');
+      } else {
+        toast.error('فشل إرسال التعليق');
+      }
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const displayComments = showAll ? comments : comments.slice(-3);
+
+  return (
+    <div className="border-t">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+        <span className="text-sm font-medium">التعليقات</span>
+        {comments.length > 0 && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {comments.length}
+          </Badge>
+        )}
+      </div>
+
+      {/* Comments list */}
+      <div className="px-4 space-y-2 max-h-48 overflow-y-auto">
+        {loading ? (
+          <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
+        ) : comments.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">لا توجد تعليقات. كن أول من يعلّق!</p>
+        ) : (
+          <>
+            {!showAll && comments.length > 3 && (
+              <button
+                onClick={() => setShowAll(true)}
+                className="text-xs text-orange-500 hover:underline"
+              >
+                عرض {comments.length - 3} تعليقات أقدم
+              </button>
+            )}
+            {displayComments.map((c) => {
+              const isTeam = c.author_type === 'team';
+              return (
+                <div
+                  key={c.id}
+                  className={`rounded-lg p-2.5 text-xs ${
+                    isTeam ? 'bg-blue-500/5 border border-blue-500/10' : 'bg-orange-500/5 border border-orange-500/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="font-medium">{c.author_name}</span>
+                    <Badge
+                      className={`text-[9px] px-1 py-0 ${
+                        isTeam
+                          ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                          : 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+                      }`}
+                    >
+                      {isTeam ? 'فريق' : 'عميل'}
+                    </Badge>
+                    <span className="text-muted-foreground ms-auto text-[10px]">
+                      {formatRelativeDate(c.created_at)}
+                    </span>
+                  </div>
+                  <p className="leading-relaxed text-foreground/80 whitespace-pre-line">
+                    {renderTextWithMentions(c.text)}
+                  </p>
+                </div>
+              );
+            })}
+          </>
+        )}
+      </div>
+
+      {/* New comment form */}
+      <form onSubmit={handleSubmit} className="flex items-end gap-2 p-4 pt-2">
+        <textarea
+          value={newText}
+          onChange={(e) => setNewText(e.target.value)}
+          placeholder="اكتب تعليق... (استخدم @ لذكر شخص)"
+          rows={2}
+          className="flex-1 min-h-[56px] max-h-24 rounded-lg border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          disabled={sending || !newText.trim()}
+          className="h-9 w-9 p-0 shrink-0 bg-orange-500 hover:bg-orange-600"
+        >
+          {sending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Send className="h-4 w-4" />
+          )}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+/** Render text with @mentions highlighted */
+function renderTextWithMentions(text: string) {
+  const parts = text.split(/(@[\w\u0600-\u06FF]+)/g);
+  return parts.map((part, i) =>
+    part.startsWith('@') ? (
+      <span key={i} className="text-orange-500 font-medium">{part}</span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
   );
 }

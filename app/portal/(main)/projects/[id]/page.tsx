@@ -40,6 +40,7 @@ import {
   FileText,
   Send,
   Loader2,
+  MessageSquare,
 } from 'lucide-react';
 
 // ---------- Types ----------
@@ -158,6 +159,13 @@ export default function PortalProjectDetailPage() {
   // File action loading states
   const [approveLoading, setApproveLoading] = useState<string | null>(null);
 
+  // File comment dialog
+  const [fileCommentDialogOpen, setFileCommentDialogOpen] = useState(false);
+  const [fileCommentFileId, setFileCommentFileId] = useState<string | null>(null);
+  const [fileCommentFileName, setFileCommentFileName] = useState('');
+  const [fileCommentText, setFileCommentText] = useState('');
+  const [fileCommentLoading, setFileCommentLoading] = useState(false);
+
   const fetchProject = useCallback(async () => {
     try {
       const res = await fetch(`/api/portal/projects/${projectId}`);
@@ -227,6 +235,34 @@ export default function PortalProjectDetailPage() {
       window.open(`/api/portal/files/${fileId}/download`, '_blank');
     } catch {
       toast.error('حدث خطأ أثناء تحميل الملف');
+    }
+  }
+
+  async function handleFileCommentSubmit() {
+    if (!fileCommentFileId || !fileCommentText.trim()) return;
+    setFileCommentLoading(true);
+    try {
+      const res = await fetch(`/api/portal/projects/${projectId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: fileCommentText.trim(),
+          file_id: fileCommentFileId,
+        }),
+      });
+      if (res.ok) {
+        toast.success('تم إرسال التعليق على الملف بنجاح');
+        setFileCommentDialogOpen(false);
+        setFileCommentText('');
+        setFileCommentFileId(null);
+        await fetchProject();
+      } else {
+        toast.error('حدث خطأ أثناء إرسال التعليق');
+      }
+    } catch {
+      toast.error('حدث خطأ غير متوقع');
+    } finally {
+      setFileCommentLoading(false);
     }
   }
 
@@ -395,6 +431,20 @@ export default function PortalProjectDetailPage() {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => {
+                            setFileCommentFileId(file.id);
+                            setFileCommentFileName(file.file_name);
+                            setFileCommentDialogOpen(true);
+                          }}
+                          className="gap-1.5"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">تعليق</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => handleDownload(file.id)}
                           className="gap-1.5"
                         >
@@ -502,7 +552,7 @@ export default function PortalProjectDetailPage() {
                 <textarea
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="اكتب تعليقك هنا..."
+                  placeholder="اكتب تعليقك هنا... (استخدم @ لذكر شخص من فريق العمل)"
                   className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   required
                 />
@@ -568,6 +618,55 @@ export default function PortalProjectDetailPage() {
                 <RotateCcw className="h-4 w-4" />
               )}
               إرسال طلب التعديل
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* File Comment Dialog */}
+      <Dialog open={fileCommentDialogOpen} onOpenChange={setFileCommentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعليق على ملف</DialogTitle>
+            <DialogDescription>
+              أضف تعليقك على: {fileCommentFileName}
+              <br />
+              <span className="text-xs">استخدم @ لذكر شخص من فريق العمل</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="file-comment-text">التعليق</Label>
+            <textarea
+              id="file-comment-text"
+              value={fileCommentText}
+              onChange={(e) => setFileCommentText(e.target.value)}
+              placeholder="اكتب تعليقك هنا... (مثال: @أحمد الرجاء مراجعة التصميم)"
+              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              required
+            />
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setFileCommentDialogOpen(false);
+                setFileCommentText('');
+                setFileCommentFileId(null);
+              }}
+            >
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleFileCommentSubmit}
+              disabled={fileCommentLoading || !fileCommentText.trim()}
+              className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {fileCommentLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              إرسال التعليق
             </Button>
           </DialogFooter>
         </DialogContent>

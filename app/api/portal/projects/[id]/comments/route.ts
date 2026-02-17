@@ -14,11 +14,11 @@ import {
 /**
  * POST /api/portal/projects/[id]/comments
  *
- * Create a comment on a project.
- * Body: { text: string, parent_id?: string }
+ * Create a comment on a project (optionally on a specific file).
+ * Body: { text: string, parent_id?: string, file_id?: string }
  *
  * @mentions are extracted from text (e.g. @Ahmed) and validated
- * against project team members. Only valid mentions are stored.
+ * against project team members. Valid mentions trigger notifications.
  */
 export async function POST(
   request: NextRequest,
@@ -52,7 +52,7 @@ export async function POST(
 
     // ── Parse and validate body ───────────────────────
     const body = await request.json();
-    const { text, parent_id } = body;
+    const { text, parent_id, file_id } = body;
 
     if (!text?.trim()) {
       return apiValidationError('نص التعليق مطلوب');
@@ -66,9 +66,9 @@ export async function POST(
     const mentionPattern = /@([\w\u0600-\u06FF]+)/g;
     const rawMentions = [...text.matchAll(mentionPattern)].map((m: RegExpMatchArray) => m[1]);
     let validMentions: string[] = [];
+    let mentionedUsernames: string[] = [];
 
     if (rawMentions.length > 0 && project.team_id) {
-      // Get team members for this project
       const { data: teamMembers } = await supabase
         .from('pyra_team_members')
         .select('username')
@@ -76,29 +76,39 @@ export async function POST(
 
       const memberUsernames = (teamMembers || []).map((m: { username: string }) => m.username);
       if (memberUsernames.length > 0) {
-        // Get display names to match mentions by username or display_name
         const { data: users } = await supabase
           .from('pyra_users')
           .select('username, display_name')
           .in('username', memberUsernames);
 
-        const validNames = new Set<string>();
+        const nameToUsername = new Map<string, string>();
         (users || []).forEach((u: { username: string; display_name: string }) => {
-          validNames.add(u.username.toLowerCase());
-          validNames.add(u.display_name.toLowerCase());
+          nameToUsername.set(u.username.toLowerCase(), u.username);
+          nameToUsername.set(u.display_name.toLowerCase(), u.username);
         });
 
-        validMentions = rawMentions.filter((m: string) => validNames.has(m.toLowerCase()));
+        const seenUsernames = new Set<string>();
+        for (const m of rawMentions) {
+          const uname = nameToUsername.get(m.toLowerCase());
+          if (uname && !seenUsernames.has(uname)) {
+            seenUsernames.add(uname);
+            validMentions.push(m);
+            mentionedUsernames.push(uname);
+          }
+        }
       }
     }
 
     // ── Create the comment ────────────────────────────
     const commentId = generateId('cc');
+    const now = new Date().toISOString();
+
     const { data: comment, error } = await supabase
       .from('pyra_client_comments')
       .insert({
         id: commentId,
         project_id: projectId,
+        file_id: file_id || null,
         author_type: 'client',
         author_id: client.id,
         author_name: client.name,
@@ -109,12 +119,59 @@ export async function POST(
         is_read_by_client: true,
         is_read_by_team: false,
       })
-      .select('id, project_id, author_type, author_name, text, mentions, parent_id, is_read_by_client, is_read_by_team, created_at')
+      .select('id, project_id, file_id, author_type, author_name, text, mentions, parent_id, is_read_by_client, is_read_by_team, created_at')
       .single();
 
     if (error) {
       console.error('POST /api/portal/projects/[id]/comments — insert error:', error);
       return apiServerError();
+    }
+
+    // ── Notify @mentioned team members ───────────────
+    if (mentionedUsernames.length > 0) {
+      const mentionNotifs = mentionedUsernames.map((uname) => ({
+        id: generateId('n'),
+        recipient_username: uname,
+        type: 'mention',
+        title: 'تم ذكرك في تعليق',
+        message: `${client.name} ذكرك في تعليق على مشروع ${project.name}`,
+        source_username: client.name,
+        source_display_name: client.name,
+        target_path: projectId,
+        is_read: false,
+        created_at: now,
+      }));
+      const { error: mErr } = await supabase.from('pyra_notifications').insert(mentionNotifs);
+      if (mErr) console.error('Mention notification insert error:', mErr);
+    }
+
+    // ── Notify all team members (new client comment) ─
+    if (project.team_id) {
+      const { data: teamMembers } = await supabase
+        .from('pyra_team_members')
+        .select('username')
+        .eq('team_id', project.team_id);
+
+      const teamUsernames = (teamMembers || [])
+        .map((m: { username: string }) => m.username)
+        .filter((u: string) => !mentionedUsernames.includes(u));
+
+      if (teamUsernames.length > 0) {
+        const teamNotifs = teamUsernames.map((uname: string) => ({
+          id: generateId('n'),
+          recipient_username: uname,
+          type: 'client_comment',
+          title: 'تعليق عميل جديد',
+          message: `${client.name} علّق على مشروع ${project.name}`,
+          source_username: client.name,
+          source_display_name: client.name,
+          target_path: projectId,
+          is_read: false,
+          created_at: now,
+        }));
+        const { error: tErr } = await supabase.from('pyra_notifications').insert(teamNotifs);
+        if (tErr) console.error('Team notification insert error:', tErr);
+      }
     }
 
     // ── Log activity (audit trail) ──────────────────
@@ -127,6 +184,7 @@ export async function POST(
       details: {
         comment_id: commentId,
         project_name: project.name,
+        file_id: file_id || null,
         mentions: validMentions,
         is_reply: !!parent_id,
       },
