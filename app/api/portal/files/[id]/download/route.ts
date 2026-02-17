@@ -8,6 +8,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { isPathSafe } from '@/lib/utils/path';
+import { generateId } from '@/lib/utils/id';
 
 /**
  * GET /api/portal/files/[id]/download
@@ -74,6 +75,22 @@ export async function GET(
       console.error('GET /api/portal/files/[id]/download — signed URL error:', signedUrlError);
       return apiNotFound('تعذر الوصول للملف في التخزين');
     }
+
+    // ── Log download activity (non-critical) ─────────
+    await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_download',
+      username: client.email || client.name,
+      display_name: client.name || client.company,
+      target_path: projectFile.file_path,
+      details: {
+        file_name: projectFile.file_name,
+        project_id: projectFile.project_id,
+        client_company: client.company,
+        portal_client: true,
+      },
+      ip_address: _request.headers.get('x-forwarded-for') || 'unknown',
+    });
 
     // ── Redirect to signed URL ────────────────────────
     return NextResponse.redirect(signedUrlData.signedUrl);
