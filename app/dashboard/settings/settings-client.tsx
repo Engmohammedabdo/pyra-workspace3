@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { Settings, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface SettingsMap {
   [key: string]: string;
@@ -58,10 +59,11 @@ export default function SettingsClient() {
         body: JSON.stringify(settings),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setSaved(true);
+      toast.success('تم حفظ الإعدادات');
       setTimeout(() => setSaved(false), 3000);
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   if (loading) {

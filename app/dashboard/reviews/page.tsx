@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { MessageSquare, Search, Check, Trash2 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface Review {
   id: string;
@@ -29,20 +30,27 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchPath, setSearchPath] = useState('');
+  const [debouncedPath, setDebouncedPath] = useState('');
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Review | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedPath(searchPath), 350);
+    return () => clearTimeout(timer);
+  }, [searchPath]);
 
   const fetchReviews = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (searchPath) params.set('path', searchPath);
+      if (debouncedPath) params.set('path', debouncedPath);
       const res = await fetch(`/api/reviews?${params}`);
       const json = await res.json();
       if (json.data) setReviews(json.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [searchPath]);
+  }, [debouncedPath]);
 
   useEffect(() => { fetchReviews(); }, [fetchReviews]);
 
@@ -65,10 +73,11 @@ export default function ReviewsPage() {
     try {
       const res = await fetch(`/api/reviews/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowDelete(false);
+      toast.success('تم حذف المراجعة');
       fetchReviews();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   // Group by file_path

@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Shield, Plus, Trash2, FolderLock } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Permission {
   id: string;
@@ -104,14 +105,14 @@ export default function PermissionsClient() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleCreate = async () => {
-    if (!form.target_id || !form.file_path) { alert('يرجى تعبئة جميع الحقول'); return; }
+    if (!form.target_id || !form.file_path) { toast.error('يرجى تعبئة جميع الحقول'); return; }
     setSaving(true);
     try {
       // Update user permissions via PATCH /api/users/[username]
       if (form.target_type === 'user') {
         const userRes = await fetch(`/api/users/${form.target_id}`);
         const userJson = await userRes.json();
-        if (userJson.error) { alert(userJson.error); return; }
+        if (userJson.error) { toast.error(userJson.error); return; }
 
         const currentPerms = userJson.data?.permissions || {};
         const paths = (currentPerms as Record<string, unknown>).paths as Record<string, string> || {};
@@ -128,13 +129,14 @@ export default function PermissionsClient() {
           body: JSON.stringify({ permissions: { ...currentPerms, paths } }),
         });
         const json = await res.json();
-        if (json.error) { alert(json.error); return; }
+        if (json.error) { toast.error(json.error); return; }
       }
 
       setShowCreate(false);
       setForm({ file_path: '', target_type: 'user', target_id: '', can_read: true, can_write: false, can_delete: false, can_share: false });
+      toast.success('تمت إضافة الصلاحية');
       fetchData();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const removePermission = async (perm: Permission) => {

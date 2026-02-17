@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface Project {
   id: string;
@@ -42,6 +43,7 @@ export default function ProjectsPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -50,17 +52,23 @@ export default function ProjectsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active' });
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchProjects = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (statusFilter !== 'all') params.set('status', statusFilter);
       const res = await fetch(`/api/projects?${params}`);
       const json = await res.json();
       if (json.data) setProjects(json.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [search, statusFilter]);
+  }, [debouncedSearch, statusFilter]);
 
   useEffect(() => {
     fetchProjects();
@@ -70,17 +78,19 @@ export default function ProjectsPage() {
   }, [fetchProjects]);
 
   const handleCreate = async () => {
+    if (!form.name.trim()) { toast.error('اسم المشروع مطلوب'); return; }
     setSaving(true);
     try {
       const res = await fetch('/api/projects', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowCreate(false);
       setForm({ name: '', description: '', client_company: '', status: 'active' });
+      toast.success('تم إنشاء المشروع بنجاح');
       fetchProjects();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleEdit = async () => {
@@ -91,9 +101,11 @@ export default function ProjectsPage() {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowEdit(false); fetchProjects();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowEdit(false);
+      toast.success('تم تحديث المشروع');
+      fetchProjects();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -102,9 +114,11 @@ export default function ProjectsPage() {
     try {
       const res = await fetch(`/api/projects/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowDelete(false); fetchProjects();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowDelete(false);
+      toast.success('تم حذف المشروع');
+      fetchProjects();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const openEdit = (p: Project) => {

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { FileText, Eye, PenTool, ChevronRight } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 
 const SignaturePad = dynamic(() => import('@/components/quotes/SignaturePad'), { ssr: false });
@@ -102,7 +103,7 @@ export default function PortalQuotesPage() {
 
   const handleSign = async () => {
     if (!detail || !signData || !signName.trim()) {
-      alert('يرجى كتابة اسمك والتوقيع');
+      toast.error('يرجى كتابة اسمك والتوقيع');
       return;
     }
     setSigning(true);
@@ -113,7 +114,7 @@ export default function PortalQuotesPage() {
         body: JSON.stringify({ signature_data: signData, signed_by: signName.trim() }),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowSign(false);
       setDetail(prev => prev ? { ...prev, status: 'signed', signed_by: signName.trim(), signed_at: new Date().toISOString(), signature_data: signData } : null);
       fetchQuotes();

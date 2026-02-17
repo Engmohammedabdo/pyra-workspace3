@@ -37,28 +37,70 @@ interface SidebarProps {
   };
 }
 
-const navItems = [
-  { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen },
-  { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, adminOnly: true },
-  { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase },
-  { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, adminOnly: true },
-  { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2 },
-  { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: Shield, adminOnly: true },
-  { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText },
-  { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare },
-  { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell },
-  { href: '/dashboard/activity', label: 'النشاط', labelEn: 'Activity', icon: Activity },
-  { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2 },
-  { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, adminOnly: true },
+interface NavItem {
+  href: string;
+  label: string;
+  labelEn: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+}
+
+interface NavGroup {
+  title: string;
+  titleEn: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'عام',
+    titleEn: 'General',
+    items: [
+      { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
+      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell },
+    ],
+  },
+  {
+    title: 'إدارة الملفات',
+    titleEn: 'File Management',
+    items: [
+      { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen },
+      { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare },
+      { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2 },
+    ],
+  },
+  {
+    title: 'العمل',
+    titleEn: 'Work',
+    items: [
+      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase },
+      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText },
+      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, adminOnly: true },
+    ],
+  },
+  {
+    title: 'الفريق',
+    titleEn: 'Team',
+    items: [
+      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2 },
+      { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, adminOnly: true },
+      { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: Shield, adminOnly: true },
+    ],
+  },
+  {
+    title: 'النظام',
+    titleEn: 'System',
+    items: [
+      { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity },
+      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, adminOnly: true },
+    ],
+  },
 ];
 
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const isAdmin = user.role === 'admin';
-
-  const filteredItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -85,47 +127,64 @@ export function Sidebar({ user }: SidebarProps) {
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 py-4">
-          <nav className="space-y-1 px-3">
-            {filteredItems.map((item) => {
-              const isActive = pathname === item.href ||
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              const Icon = item.icon;
+        <ScrollArea className="flex-1 py-2">
+          <nav className="px-3">
+            {navGroups.map((group) => {
+              const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
+              if (visibleItems.length === 0) return null;
 
-              const link = (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                    collapsed && 'justify-center px-2',
-                    isActive
-                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+              return (
+                <div key={group.titleEn} className="mb-3">
+                  {!collapsed && (
+                    <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                      {group.title}
+                    </div>
                   )}
-                >
-                  <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-orange-500')} />
-                  {!collapsed && <span className="truncate">{item.label}</span>}
-                  {isActive && !collapsed && (
-                    <div className="ms-auto w-1.5 h-1.5 rounded-full bg-orange-500" />
-                  )}
-                </Link>
+                  {collapsed && <div className="my-1 mx-2 border-t border-border/40" />}
+                  <div className="space-y-0.5">
+                    {visibleItems.map((item) => {
+                      const isActive = pathname === item.href ||
+                        (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                      const Icon = item.icon;
+
+                      const link = (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                            collapsed && 'justify-center px-2',
+                            isActive
+                              ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                          )}
+                        >
+                          <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-orange-500')} />
+                          {!collapsed && <span className="truncate">{item.label}</span>}
+                          {isActive && !collapsed && (
+                            <div className="ms-auto w-1.5 h-1.5 rounded-full bg-orange-500" />
+                          )}
+                        </Link>
+                      );
+
+                      if (collapsed) {
+                        return (
+                          <Tooltip key={item.href}>
+                            <TooltipTrigger asChild>
+                              {link}
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="font-medium">
+                              {item.label}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      }
+
+                      return <div key={item.href}>{link}</div>;
+                    })}
+                  </div>
+                </div>
               );
-
-              if (collapsed) {
-                return (
-                  <Tooltip key={item.href}>
-                    <TooltipTrigger asChild>
-                      {link}
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="font-medium">
-                      {item.label}
-                    </TooltipContent>
-                  </Tooltip>
-                );
-              }
-
-              return link;
             })}
           </nav>
         </ScrollArea>

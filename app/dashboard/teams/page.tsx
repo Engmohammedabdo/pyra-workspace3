@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Building2, Plus, MoreHorizontal, Pencil, Trash2, UserPlus, UserMinus, Users as UsersIcon } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface Team {
   id: string;
@@ -73,13 +74,16 @@ export default function TeamsPage() {
   };
 
   const handleCreate = async () => {
+    if (!form.name.trim()) { toast.error('اسم الفريق مطلوب'); return; }
     setSaving(true);
     try {
       const res = await fetch('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowCreate(false); setForm({ name: '', description: '' }); fetchTeams();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowCreate(false); setForm({ name: '', description: '' });
+      toast.success('تم إنشاء الفريق بنجاح');
+      fetchTeams();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleEdit = async () => {
@@ -88,9 +92,11 @@ export default function TeamsPage() {
     try {
       const res = await fetch(`/api/teams/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowEdit(false); fetchTeams();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowEdit(false);
+      toast.success('تم تحديث الفريق');
+      fetchTeams();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -99,9 +105,11 @@ export default function TeamsPage() {
     try {
       const res = await fetch(`/api/teams/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowDelete(false); fetchTeams();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowDelete(false);
+      toast.success('تم حذف الفريق');
+      fetchTeams();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const addMember = async () => {
@@ -110,9 +118,11 @@ export default function TeamsPage() {
     try {
       const res = await fetch(`/api/teams/${selected.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: newMember }) });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setNewMember(''); fetchTeamDetail(selected.id);
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setNewMember('');
+      toast.success('تمت إضافة العضو');
+      fetchTeamDetail(selected.id);
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const removeMember = async (username: string) => {
@@ -120,9 +130,10 @@ export default function TeamsPage() {
     try {
       const res = await fetch(`/api/teams/${selected.id}/members?username=${username}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
+      toast.success('تم إزالة العضو');
       fetchTeamDetail(selected.id);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
   };
 
   const openMembers = async (team: Team) => {

@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Trash2, RotateCcw, AlertTriangle } from 'lucide-react';
 import { formatFileSize, formatDate, formatRelativeDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface TrashItem {
   id: string;
@@ -45,9 +46,10 @@ export default function TrashPage() {
     try {
       const res = await fetch(`/api/trash/${id}`, { method: 'POST' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
+      toast.success('تم استعادة الملف');
       fetchTrash();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const purge = async () => {
@@ -56,9 +58,11 @@ export default function TrashPage() {
     try {
       const res = await fetch(`/api/trash/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowPurge(false); fetchTrash();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowPurge(false);
+      toast.success('تم الحذف النهائي');
+      fetchTrash();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   return (

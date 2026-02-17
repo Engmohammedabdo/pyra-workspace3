@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Building2, Plus, Search, MoreHorizontal, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface Client {
   id: string;
@@ -58,11 +59,12 @@ export default function ClientsClient() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowCreate(false);
       setForm({ name: '', email: '', phone: '', company: '', password: '', is_active: true });
+      toast.success('تم إنشاء العميل بنجاح');
       fetchClients();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleEdit = async () => {
@@ -74,9 +76,11 @@ export default function ClientsClient() {
         body: JSON.stringify({ name: form.name, email: form.email, phone: form.phone || null, company: form.company, is_active: form.is_active }),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowEdit(false); fetchClients();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowEdit(false);
+      toast.success('تم تحديث العميل');
+      fetchClients();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -85,9 +89,11 @@ export default function ClientsClient() {
     try {
       const res = await fetch(`/api/clients/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
-      setShowDelete(false); fetchClients();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      if (json.error) { toast.error(json.error); return; }
+      setShowDelete(false);
+      toast.success('تم حذف العميل');
+      fetchClients();
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const openEdit = (c: Client) => {

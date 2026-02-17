@@ -18,6 +18,7 @@ import {
 import { FileText, Search, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface Quote {
   id: string;
@@ -74,18 +75,20 @@ export default function QuotesPage() {
     try {
       const res = await fetch(`/api/quotes/${id}/duplicate`, { method: 'POST' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
+      toast.success('تم نسخ عرض السعر');
       fetchQuotes();
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
   };
 
   const handleSend = async (id: string) => {
     try {
       const res = await fetch(`/api/quotes/${id}/send`, { method: 'POST' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
+      toast.success('تم إرسال عرض السعر');
       fetchQuotes();
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
   };
 
   const handleDelete = async () => {
@@ -94,11 +97,12 @@ export default function QuotesPage() {
     try {
       const res = await fetch(`/api/quotes/${selected.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowDelete(false);
       setSelected(null);
+      toast.success('تم حذف عرض السعر');
       fetchQuotes();
-    } catch (err) { console.error(err); } finally { setDeleting(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setDeleting(false); }
   };
 
   return (

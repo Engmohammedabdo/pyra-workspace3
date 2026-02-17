@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/select';
 import { Plus, Trash2, Save, Send, FileDown, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 import { generateQuotePdf } from '@/lib/pdf/generateQuotePdf';
 
 interface Client {
@@ -154,7 +155,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
 
   const handleSave = async (send = false) => {
     if (services.some(s => !s.description.trim())) {
-      alert('يرجى تعبئة وصف جميع العناصر');
+      toast.error('يرجى تعبئة وصف جميع العناصر');
       return;
     }
     setSaving(true);
@@ -178,7 +179,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
 
       const json = await res.json();
       if (json.error) {
-        alert(json.error);
+        toast.error(json.error);
         return;
       }
 

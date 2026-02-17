@@ -37,6 +37,7 @@ import {
   Key,
   Shield,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
 
 interface PyraUser {
@@ -95,11 +96,12 @@ export default function UsersClient() {
         body: JSON.stringify(formData),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowCreateDialog(false);
       setFormData({ username: '', display_name: '', password: '', role: 'employee' });
+      toast.success('تم إنشاء المستخدم بنجاح');
       fetchUsers();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleEdit = async () => {
@@ -112,10 +114,11 @@ export default function UsersClient() {
         body: JSON.stringify({ display_name: formData.display_name, role: formData.role }),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowEditDialog(false);
+      toast.success('تم تحديث المستخدم');
       fetchUsers();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handlePasswordChange = async () => {
@@ -128,10 +131,11 @@ export default function UsersClient() {
         body: JSON.stringify({ new_password: newPassword }),
       });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowPasswordDialog(false);
       setNewPassword('');
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+      toast.success('تم تغيير كلمة المرور');
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
@@ -140,10 +144,11 @@ export default function UsersClient() {
     try {
       const res = await fetch(`/api/users/${selectedUser.username}`, { method: 'DELETE' });
       const json = await res.json();
-      if (json.error) { alert(json.error); return; }
+      if (json.error) { toast.error(json.error); return; }
       setShowDeleteDialog(false);
+      toast.success('تم حذف المستخدم');
       fetchUsers();
-    } catch (err) { console.error(err); } finally { setSaving(false); }
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
   const openEdit = (user: PyraUser) => {
