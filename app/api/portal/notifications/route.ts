@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(notifications || []);
+    return apiSuccess(notifications || [], { client_id: client.id });
   } catch (err) {
     console.error('GET /api/portal/notifications error:', err);
     return apiServerError();

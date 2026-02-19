@@ -89,7 +89,7 @@ export async function GET(
     // ── Fetch comments ────────────────────────────────
     const { data: comments } = await supabase
       .from('pyra_client_comments')
-      .select('id, project_id, author_type, author_name, text, is_read_by_client, is_read_by_team, created_at')
+      .select('id, project_id, file_id, author_type, author_name, text, is_read_by_client, is_read_by_team, created_at')
       .eq('project_id', id)
       .order('created_at', { ascending: true });
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { formatDate, formatRelativeDate, formatFileSize } from '@/lib/utils/format';
@@ -42,6 +42,9 @@ import {
   Loader2,
   MessageSquare,
   Eye,
+  Search,
+  History,
+  Filter,
 } from 'lucide-react';
 import { MentionTextarea } from '@/components/portal/mention-textarea';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
@@ -68,6 +71,7 @@ interface ProjectComment {
   author_type: 'client' | 'team';
   author_name: string;
   text: string;
+  file_id: string | null;
   parent_id: string | null;
   created_at: string;
 }
@@ -204,6 +208,11 @@ export default function PortalProjectDetailPage() {
   // File preview
   const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Comment filtering & search
+  const [commentSearch, setCommentSearch] = useState('');
+  const [commentFileFilter, setCommentFileFilter] = useState<string>('all');
+  const [commentAuthorFilter, setCommentAuthorFilter] = useState<string>('all');
 
   const fetchProject = useCallback(async () => {
     try {
@@ -448,7 +457,7 @@ export default function PortalProjectDetailPage() {
         )}
       </div>
 
-      {/* Tabs: Files + Comments */}
+      {/* Tabs: Files + Comments + Activity */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="files">
@@ -456,6 +465,10 @@ export default function PortalProjectDetailPage() {
           </TabsTrigger>
           <TabsTrigger value="comments">
             التعليقات ({project.comments.length})
+          </TabsTrigger>
+          <TabsTrigger value="activity" className="gap-1.5">
+            <History className="h-3.5 w-3.5" />
+            النشاط
           </TabsTrigger>
         </TabsList>
 
@@ -602,54 +615,79 @@ export default function PortalProjectDetailPage() {
 
         {/* ---- COMMENTS TAB ---- */}
         <TabsContent value="comments" className="mt-4 space-y-4">
-          {/* Comments List */}
-          {project.comments.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <p className="text-sm text-muted-foreground">
-                  لا توجد تعليقات حتى الآن. كن أول من يعلق!
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {project.comments.map((comment) => {
-                const isTeam = comment.author_type === 'team';
-                return (
-                  <Card
-                    key={comment.id}
-                    className={cn(
-                      isTeam && 'bg-blue-500/5 border-blue-500/15'
-                    )}
-                  >
-                    <CardContent className="py-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-medium">
-                          {comment.author_name}
-                        </span>
-                        <Badge
-                          className={cn(
-                            'text-[10px] px-2 py-0',
-                            isTeam
-                              ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                              : 'bg-orange-500/10 text-orange-600 border-orange-500/20'
-                          )}
-                        >
-                          {isTeam ? 'فريق العمل' : 'العميل'}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground ms-auto">
-                          {formatRelativeDate(comment.created_at)}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed text-foreground/80">
-                        {renderTextWithMentions(comment.text)}
-                      </p>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+          {/* Comment Filters */}
+          {project.comments.length > 0 && (
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-center flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="ابحث في التعليقات..."
+                  value={commentSearch}
+                  onChange={(e) => setCommentSearch(e.target.value)}
+                  className="ps-9 h-9 text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant={commentAuthorFilter === 'all' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setCommentAuthorFilter('all')}
+                >
+                  الكل
+                </Button>
+                <Button
+                  variant={commentAuthorFilter === 'team' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setCommentAuthorFilter('team')}
+                >
+                  <Filter className="h-3 w-3" />
+                  فريق العمل
+                </Button>
+                <Button
+                  variant={commentAuthorFilter === 'client' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setCommentAuthorFilter('client')}
+                >
+                  <Filter className="h-3 w-3" />
+                  العميل
+                </Button>
+                {project.files.some(f => project.comments.some(c => c.file_id === f.id)) && (
+                  <>
+                    <div className="w-px h-5 bg-border mx-1" />
+                    <Button
+                      variant={commentFileFilter === 'all' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setCommentFileFilter('all')}
+                    >
+                      كل الملفات
+                    </Button>
+                    <Button
+                      variant={commentFileFilter === 'general' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setCommentFileFilter('general')}
+                    >
+                      عام
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           )}
+
+          {/* Filtered Comments */}
+          <FilteredComments
+            comments={project.comments}
+            files={project.files}
+            search={commentSearch}
+            authorFilter={commentAuthorFilter}
+            fileFilter={commentFileFilter}
+            renderTextWithMentions={renderTextWithMentions}
+          />
 
           {/* New Comment Form */}
           <Card>
@@ -682,6 +720,11 @@ export default function PortalProjectDetailPage() {
               </form>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* ---- ACTIVITY TAB ---- */}
+        <TabsContent value="activity" className="mt-4">
+          <ActivityTimeline project={project} />
         </TabsContent>
       </Tabs>
 
@@ -846,6 +889,269 @@ export default function PortalProjectDetailPage() {
         open={previewOpen}
         onOpenChange={setPreviewOpen}
       />
+    </div>
+  );
+}
+
+// ── Filtered Comments Component ──
+
+function FilteredComments({
+  comments,
+  files,
+  search,
+  authorFilter,
+  fileFilter,
+  renderTextWithMentions,
+}: {
+  comments: ProjectComment[];
+  files: ProjectFile[];
+  search: string;
+  authorFilter: string;
+  fileFilter: string;
+  renderTextWithMentions: (text: string) => React.ReactNode;
+}) {
+  const fileMap = useMemo(() => {
+    const m = new Map<string, string>();
+    files.forEach(f => m.set(f.id, f.file_name));
+    return m;
+  }, [files]);
+
+  const filtered = useMemo(() => {
+    let list = comments;
+
+    // Author filter
+    if (authorFilter !== 'all') {
+      list = list.filter(c => c.author_type === authorFilter);
+    }
+
+    // File filter
+    if (fileFilter === 'general') {
+      list = list.filter(c => !c.file_id);
+    } else if (fileFilter !== 'all') {
+      list = list.filter(c => c.file_id === fileFilter);
+    }
+
+    // Search
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(c =>
+        c.text.toLowerCase().includes(q) ||
+        c.author_name.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [comments, authorFilter, fileFilter, search]);
+
+  if (comments.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <MessageSquare className="h-8 w-8 text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            لا توجد تعليقات حتى الآن. كن أول من يعلق!
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (filtered.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+          <Search className="h-6 w-6 text-muted-foreground/40 mb-2" />
+          <p className="text-sm text-muted-foreground">
+            لا توجد تعليقات تطابق معايير البحث
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        {filtered.length === comments.length
+          ? `${comments.length} تعليق`
+          : `${filtered.length} من ${comments.length} تعليق`}
+      </p>
+      {filtered.map((comment) => {
+        const isTeam = comment.author_type === 'team';
+        const fileName = comment.file_id ? fileMap.get(comment.file_id) : null;
+
+        return (
+          <Card
+            key={comment.id}
+            className={cn(isTeam && 'bg-blue-500/5 border-blue-500/15')}
+          >
+            <CardContent className="py-4">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-sm font-medium">
+                  {comment.author_name}
+                </span>
+                <Badge
+                  className={cn(
+                    'text-[10px] px-2 py-0',
+                    isTeam
+                      ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
+                      : 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+                  )}
+                >
+                  {isTeam ? 'فريق العمل' : 'العميل'}
+                </Badge>
+                {fileName && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] px-2 py-0 gap-1 text-muted-foreground"
+                  >
+                    <FileText className="h-2.5 w-2.5" />
+                    {fileName}
+                  </Badge>
+                )}
+                <span className="text-xs text-muted-foreground ms-auto">
+                  {formatRelativeDate(comment.created_at)}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-foreground/80">
+                {renderTextWithMentions(comment.text)}
+              </p>
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Activity Timeline Component ──
+
+interface ActivityEvent {
+  id: string;
+  type: 'file_added' | 'comment' | 'approval' | 'revision' | 'status_change';
+  title: string;
+  description: string;
+  date: string;
+  icon: string;
+  color: string;
+}
+
+function ActivityTimeline({ project }: { project: ProjectDetail }) {
+  const events = useMemo(() => {
+    const list: ActivityEvent[] = [];
+
+    // File events
+    project.files.forEach(f => {
+      list.push({
+        id: `file-${f.id}`,
+        type: 'file_added',
+        title: 'تم إضافة ملف',
+        description: f.file_name,
+        date: f.added_at,
+        icon: '📄',
+        color: 'border-blue-500',
+      });
+
+      if (f.approval) {
+        if (f.approval.status === 'approved') {
+          list.push({
+            id: `approval-${f.id}`,
+            type: 'approval',
+            title: 'تمت الموافقة على ملف',
+            description: f.file_name + (f.approval.comment ? ` — ${f.approval.comment}` : ''),
+            date: f.approval.reviewed_at || f.added_at,
+            icon: '✅',
+            color: 'border-green-500',
+          });
+        } else if (f.approval.status === 'revision_requested') {
+          list.push({
+            id: `revision-${f.id}`,
+            type: 'revision',
+            title: 'تم طلب تعديل',
+            description: f.file_name + (f.approval.comment ? ` — ${f.approval.comment}` : ''),
+            date: f.approval.reviewed_at || f.added_at,
+            icon: '🔄',
+            color: 'border-amber-500',
+          });
+        }
+      }
+    });
+
+    // Comment events
+    project.comments.forEach(c => {
+      list.push({
+        id: `comment-${c.id}`,
+        type: 'comment',
+        title: c.author_type === 'team' ? `تعليق من ${c.author_name}` : `تعليق العميل`,
+        description: c.text.length > 80 ? c.text.slice(0, 80) + '...' : c.text,
+        date: c.created_at,
+        icon: c.author_type === 'team' ? '💬' : '🗨️',
+        color: c.author_type === 'team' ? 'border-blue-400' : 'border-orange-400',
+      });
+    });
+
+    // Sort by date descending (newest first)
+    return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [project]);
+
+  if (events.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+          <History className="h-8 w-8 text-muted-foreground/40 mb-3" />
+          <p className="text-sm text-muted-foreground">
+            لا توجد أنشطة مسجلة حتى الآن
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Group events by date
+  const grouped = events.reduce<Record<string, ActivityEvent[]>>((acc, event) => {
+    const dateKey = formatDate(event.date);
+    if (!acc[dateKey]) acc[dateKey] = [];
+    acc[dateKey].push(event);
+    return acc;
+  }, {});
+
+  return (
+    <div className="space-y-6">
+      {Object.entries(grouped).map(([date, dayEvents]) => (
+        <div key={date}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium text-muted-foreground px-2">{date}</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <div className="space-y-0 relative">
+            {/* Vertical timeline line */}
+            <div className="absolute start-[15px] top-2 bottom-2 w-px bg-border" />
+
+            {dayEvents.map((event, idx) => (
+              <div key={event.id} className="flex items-start gap-3 py-2 relative">
+                {/* Timeline dot */}
+                <div className={cn(
+                  'w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 bg-background border-2 z-10',
+                  event.color
+                )}>
+                  {event.icon}
+                </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0 pt-0.5">
+                  <p className="text-sm font-medium">{event.title}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {event.description}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                    {formatRelativeDate(event.date)}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
