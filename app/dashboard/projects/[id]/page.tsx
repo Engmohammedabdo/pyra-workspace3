@@ -558,7 +558,7 @@ export default function ProjectDetailPage() {
                     لا توجد ملفات
                   </div>
                 ) : (
-                  <ScrollArea className="max-h-[600px]">
+                  <ScrollArea className="max-h-[calc(100vh-300px)]">
                     <div className="divide-y">
                       {Object.entries(groupedFiles).map(([folder, folderFiles]) => {
                         const isCollapsed = collapsedFolders[folder];

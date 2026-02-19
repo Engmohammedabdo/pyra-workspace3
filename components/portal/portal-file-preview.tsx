@@ -506,32 +506,51 @@ function TextPreview({ url, name, mime }: { url: string; name: string; mime: str
         transition={{ duration: 0.3 }}
         className="max-w-4xl mx-auto"
       >
-        {/* File header */}
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b">
-          <FileText className="h-4 w-4 text-emerald-500" />
-          <span className="text-sm font-medium text-muted-foreground">{name}</span>
-          {isMarkdown && (
-            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-500 border-emerald-500/20">
-              Markdown
-            </Badge>
-          )}
-        </div>
-
         {isMarkdown ? (
-          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground/80 prose-strong:text-foreground prose-code:text-orange-600 prose-code:bg-orange-50 dark:prose-code:bg-orange-950/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-sm prose-pre:bg-muted prose-pre:border">
-            <MarkdownRenderer content={content} />
-          </div>
+          <>
+            {/* Elegant document header */}
+            <div className="relative mb-8 pb-6 border-b border-gradient">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <FileText className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">{name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium">
+                      Markdown
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      {content.split('\n').length} سطر
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-transparent" />
+            </div>
+
+            {/* Beautiful rendered markdown */}
+            <div className="md-preview space-y-0">
+              <MarkdownRenderer content={content} />
+            </div>
+          </>
         ) : (
-          <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-relaxed text-foreground/80 bg-muted/50 rounded-lg p-4 border overflow-auto">
-            {content}
-          </pre>
+          <>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+              <FileText className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-medium text-muted-foreground">{name}</span>
+            </div>
+            <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-relaxed text-foreground/80 bg-muted/50 rounded-lg p-4 border overflow-auto">
+              {content}
+            </pre>
+          </>
         )}
       </motion.div>
     </div>
   );
 }
 
-// ── Simple Markdown Renderer ──
+// ── Enhanced Markdown Renderer ──
 
 function MarkdownRenderer({ content }: { content: string }) {
   const lines = content.split('\n');
@@ -544,9 +563,23 @@ function MarkdownRenderer({ content }: { content: string }) {
     const isOrdered = listBuffer[0].ordered;
     const Tag = isOrdered ? 'ol' : 'ul';
     elements.push(
-      <Tag key={`list-${elements.length}`} className={isOrdered ? 'list-decimal ps-6 my-2' : 'list-disc ps-6 my-2'}>
+      <Tag
+        key={`list-${elements.length}`}
+        className={
+          isOrdered
+            ? 'list-decimal ps-6 my-3 space-y-1.5'
+            : 'ps-5 my-3 space-y-1.5'
+        }
+      >
         {listBuffer.map((item, idx) => (
-          <li key={idx} className="my-0.5">
+          <li
+            key={idx}
+            className={
+              isOrdered
+                ? 'text-sm leading-relaxed text-foreground/80 marker:text-orange-500 marker:font-semibold'
+                : 'text-sm leading-relaxed text-foreground/80 relative ps-4 before:content-[""] before:absolute before:start-0 before:top-[9px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-gradient-to-br before:from-orange-400 before:to-amber-500'
+            }
+          >
             <InlineMarkdown text={item.text} />
           </li>
         ))}
@@ -569,13 +602,70 @@ function MarkdownRenderer({ content }: { content: string }) {
         i++;
       }
       elements.push(
-        <pre key={`code-${elements.length}`} className="bg-muted border rounded-lg p-4 my-3 overflow-x-auto">
-          {lang && <div className="text-[10px] text-muted-foreground mb-2 font-sans">{lang}</div>}
-          <code className="text-sm font-mono">{codeLines.join('\n')}</code>
-        </pre>
+        <div key={`code-${elements.length}`} className="my-4 rounded-xl overflow-hidden border border-border/60 shadow-sm">
+          {lang && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted/80 border-b border-border/40">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
+              </div>
+              <span className="text-[10px] text-muted-foreground font-mono ms-2">{lang}</span>
+            </div>
+          )}
+          <pre className="bg-muted/40 p-4 overflow-x-auto">
+            <code className="text-[13px] font-mono leading-relaxed text-foreground/90">{codeLines.join('\n')}</code>
+          </pre>
+        </div>
       );
       i++;
       continue;
+    }
+
+    // Table detection
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      flushList();
+      const tableRows: string[] = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) {
+        tableRows.push(lines[i]);
+        i++;
+      }
+      if (tableRows.length >= 2) {
+        const headerCells = tableRows[0].split('|').filter(c => c.trim()).map(c => c.trim());
+        const isSeparator = (row: string) => /^\|[\s\-:|]+\|$/.test(row.trim());
+        const dataStartIdx = isSeparator(tableRows[1]) ? 2 : 1;
+        const bodyRows = tableRows.slice(dataStartIdx).map(row =>
+          row.split('|').filter(c => c.trim()).map(c => c.trim())
+        );
+
+        elements.push(
+          <div key={`table-${elements.length}`} className="my-5 overflow-x-auto rounded-xl border border-border/60 shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border/40">
+                  {headerCells.map((cell, ci) => (
+                    <th key={ci} className="px-4 py-2.5 text-start font-semibold text-foreground/90 text-xs">
+                      <InlineMarkdown text={cell} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, ri) => (
+                  <tr key={ri} className="border-b border-border/20 last:border-0 hover:bg-muted/30 transition-colors">
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="px-4 py-2.5 text-foreground/75 text-sm">
+                        <InlineMarkdown text={cell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
     }
 
     // Headings
@@ -585,16 +675,16 @@ function MarkdownRenderer({ content }: { content: string }) {
       const level = headingMatch[1].length;
       const text = headingMatch[2];
       const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
-      const sizes: Record<number, string> = {
-        1: 'text-2xl font-bold mt-6 mb-3',
-        2: 'text-xl font-bold mt-5 mb-2',
-        3: 'text-lg font-semibold mt-4 mb-2',
-        4: 'text-base font-semibold mt-3 mb-1',
-        5: 'text-sm font-semibold mt-2 mb-1',
-        6: 'text-sm font-medium mt-2 mb-1',
+      const styles: Record<number, string> = {
+        1: 'text-2xl font-bold mt-8 mb-4 pb-3 border-b border-border/40 bg-gradient-to-l from-foreground to-foreground/70 bg-clip-text',
+        2: 'text-xl font-bold mt-7 mb-3 flex items-center gap-2 before:content-[""] before:w-1 before:h-6 before:rounded-full before:bg-gradient-to-b before:from-orange-500 before:to-amber-500',
+        3: 'text-lg font-semibold mt-5 mb-2.5 text-foreground/90',
+        4: 'text-base font-semibold mt-4 mb-2 text-foreground/85',
+        5: 'text-sm font-semibold mt-3 mb-1.5 text-foreground/80 uppercase tracking-wide',
+        6: 'text-sm font-medium mt-3 mb-1.5 text-muted-foreground uppercase tracking-wide',
       };
       elements.push(
-        <Tag key={`h-${elements.length}`} className={sizes[level]}>
+        <Tag key={`h-${elements.length}`} className={styles[level]}>
           <InlineMarkdown text={text} />
         </Tag>
       );
@@ -605,7 +695,17 @@ function MarkdownRenderer({ content }: { content: string }) {
     // Horizontal rule
     if (/^(-{3,}|_{3,}|\*{3,})$/.test(line.trim())) {
       flushList();
-      elements.push(<hr key={`hr-${elements.length}`} className="my-4 border-border" />);
+      elements.push(
+        <div key={`hr-${elements.length}`} className="my-6 flex items-center gap-3">
+          <div className="flex-1 h-px bg-gradient-to-l from-transparent via-border to-transparent" />
+          <div className="flex gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/60" />
+            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/40" />
+          </div>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+        </div>
+      );
       i++;
       continue;
     }
@@ -619,10 +719,19 @@ function MarkdownRenderer({ content }: { content: string }) {
         i++;
       }
       elements.push(
-        <blockquote key={`bq-${elements.length}`} className="border-s-4 border-orange-400 ps-4 my-3 text-muted-foreground italic">
-          {quoteLines.map((ql, qi) => (
-            <p key={qi}><InlineMarkdown text={ql} /></p>
-          ))}
+        <blockquote
+          key={`bq-${elements.length}`}
+          className="my-4 relative rounded-lg bg-gradient-to-l from-amber-500/5 to-orange-500/5 border border-orange-500/10"
+        >
+          <div className="absolute top-0 bottom-0 start-0 w-1 rounded-s-lg bg-gradient-to-b from-orange-500 to-amber-400" />
+          <div className="ps-5 pe-4 py-3">
+            <div className="text-orange-500/60 text-2xl leading-none mb-1">&ldquo;</div>
+            {quoteLines.map((ql, qi) => (
+              <p key={qi} className="text-sm leading-relaxed text-foreground/70 italic">
+                <InlineMarkdown text={ql} />
+              </p>
+            ))}
+          </div>
         </blockquote>
       );
       continue;
@@ -655,7 +764,7 @@ function MarkdownRenderer({ content }: { content: string }) {
 
     // Regular paragraph
     elements.push(
-      <p key={`p-${elements.length}`} className="my-2 leading-relaxed">
+      <p key={`p-${elements.length}`} className="my-2.5 text-sm leading-[1.8] text-foreground/75">
         <InlineMarkdown text={line} />
       </p>
     );
@@ -666,40 +775,50 @@ function MarkdownRenderer({ content }: { content: string }) {
   return <>{elements}</>;
 }
 
-// ── Inline Markdown (bold, italic, code, links) ──
+// ── Inline Markdown (bold, italic, code, links, strikethrough) ──
 
 function InlineMarkdown({ text }: { text: string }) {
-  // Process inline markdown: **bold**, *italic*, `code`, [link](url)
   const parts: React.ReactNode[] = [];
-  // Combined regex for inline elements
-  const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\[(.+?)\]\((.+?)\))/g;
+  // Combined regex: **bold**, *italic*, ~~strikethrough~~, `code`, [link](url)
+  const regex = /(\*\*(.+?)\*\*)|(~~(.+?)~~)|(\*(.+?)\*)|(`(.+?)`)|(\[(.+?)\]\((.+?)\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = regex.exec(text)) !== null) {
-    // Add text before match
     if (match.index > lastIndex) {
       parts.push(text.slice(lastIndex, match.index));
     }
 
     if (match[1]) {
       // **bold**
-      parts.push(<strong key={match.index}>{match[2]}</strong>);
+      parts.push(<strong key={match.index} className="font-semibold text-foreground">{match[2]}</strong>);
     } else if (match[3]) {
-      // *italic*
-      parts.push(<em key={match.index}>{match[4]}</em>);
+      // ~~strikethrough~~
+      parts.push(<del key={match.index} className="text-muted-foreground/60 line-through">{match[4]}</del>);
     } else if (match[5]) {
+      // *italic*
+      parts.push(<em key={match.index} className="italic text-foreground/80">{match[6]}</em>);
+    } else if (match[7]) {
       // `code`
       parts.push(
-        <code key={match.index} className="text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded-md text-sm">
-          {match[6]}
+        <code
+          key={match.index}
+          className="text-[13px] font-mono text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded-md border border-orange-200/30 dark:border-orange-800/30"
+        >
+          {match[8]}
         </code>
       );
-    } else if (match[7]) {
+    } else if (match[9]) {
       // [link](url)
       parts.push(
-        <a key={match.index} href={match[9]} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">
-          {match[8]}
+        <a
+          key={match.index}
+          href={match[11]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-orange-500 hover:text-orange-600 underline underline-offset-2 decoration-orange-500/30 hover:decoration-orange-500/60 transition-colors"
+        >
+          {match[10]}
         </a>
       );
     }
@@ -737,7 +856,7 @@ function DocxPreview({ url, name, onDownload }: { url: string; name: string; onD
           src={officeUrl}
           className="w-full h-full border-0"
           title="DOCX Preview"
-          sandbox="allow-scripts allow-same-origin allow-popups"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         />
         {/* Fallback overlay in case Office viewer doesn't load */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
