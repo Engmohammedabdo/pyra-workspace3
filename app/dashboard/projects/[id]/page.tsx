@@ -198,6 +198,7 @@ export default function ProjectDetailPage() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [visibilityUpdating, setVisibilityUpdating] = useState<Set<string>>(new Set());
+  const [syncing, setSyncing] = useState(false);
 
   // Fetch project details
   const fetchProject = useCallback(async () => {
@@ -328,6 +329,30 @@ export default function ProjectDetailPage() {
   // Toggle folder collapse
   const toggleFolder = (folder: string) => {
     setCollapsedFolders((prev) => ({ ...prev, [folder]: !prev[folder] }));
+  };
+
+  // Sync files from Storage → pyra_project_files
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/files/sync`, { method: 'POST' });
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+      } else {
+        const d = json.data;
+        if (d.synced > 0) {
+          toast.success(d.message);
+          fetchFiles(); // Reload file list
+        } else {
+          toast.info(d.message);
+        }
+      }
+    } catch {
+      toast.error('فشل في مزامنة الملفات');
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Submit new comment
@@ -498,52 +523,74 @@ export default function ProjectDetailPage() {
                   <CardTitle className="text-base flex items-center gap-2">
                     <FileText className="h-4 w-4" /> ملفات المشروع
                   </CardTitle>
-                  {files.length > 0 && (
-                    <div className="flex items-center gap-3">
-                      {/* Visible count badge */}
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-xs gap-1',
-                          visibleCount > 0
-                            ? 'border-green-500/30 text-green-600'
-                            : 'border-muted-foreground/30 text-muted-foreground'
-                        )}
-                      >
-                        <Eye className="h-3 w-3" />
-                        {visibleCount} من {files.length} مرئي للعميل
-                      </Badge>
-                      {/* Toggle all */}
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              'h-7 gap-1.5 text-xs',
-                              allVisible
-                                ? 'border-green-500/30 text-green-600 hover:text-red-600 hover:border-red-500/30'
-                                : 'border-muted-foreground/30 hover:text-green-600 hover:border-green-500/30'
-                            )}
-                            onClick={toggleAllVisibility}
-                          >
-                            {allVisible ? (
-                              <>
-                                <EyeOff className="h-3 w-3" /> إخفاء الكل
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="h-3 w-3" /> إظهار الكل
-                              </>
-                            )}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {allVisible ? 'إخفاء جميع الملفات عن العميل' : 'إظهار جميع الملفات للعميل'}
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {/* Sync from Storage */}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1.5 text-xs"
+                          onClick={handleSync}
+                          disabled={syncing}
+                        >
+                          {syncing ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3 w-3" />
+                          )}
+                          مزامنة الملفات
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>مزامنة الملفات من التخزين السحابي</TooltipContent>
+                    </Tooltip>
+                    {files.length > 0 && (
+                      <>
+                        {/* Visible count badge */}
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'text-xs gap-1',
+                            visibleCount > 0
+                              ? 'border-green-500/30 text-green-600'
+                              : 'border-muted-foreground/30 text-muted-foreground'
+                          )}
+                        >
+                          <Eye className="h-3 w-3" />
+                          {visibleCount} من {files.length} مرئي للعميل
+                        </Badge>
+                        {/* Toggle all */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className={cn(
+                                'h-7 gap-1.5 text-xs',
+                                allVisible
+                                  ? 'border-green-500/30 text-green-600 hover:text-red-600 hover:border-red-500/30'
+                                  : 'border-muted-foreground/30 hover:text-green-600 hover:border-green-500/30'
+                              )}
+                              onClick={toggleAllVisibility}
+                            >
+                              {allVisible ? (
+                                <>
+                                  <EyeOff className="h-3 w-3" /> إخفاء الكل
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-3 w-3" /> إظهار الكل
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {allVisible ? 'إخفاء جميع الملفات عن العميل' : 'إظهار جميع الملفات للعميل'}
+                          </TooltipContent>
+                        </Tooltip>
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="p-0">
