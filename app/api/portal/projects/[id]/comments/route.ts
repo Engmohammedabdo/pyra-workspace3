@@ -155,6 +155,8 @@ export async function POST(
     }
 
     // ── Notify @mentioned users (admins + team) ───────
+    const projectDashboardPath = `/dashboard/projects/${projectId}`;
+
     if (mentionedUsernames.length > 0) {
       const mentionNotifs = mentionedUsernames.map((uname) => ({
         id: generateId('n'),
@@ -164,7 +166,7 @@ export async function POST(
         message: `${client.name} ذكرك في تعليق على مشروع ${project.name}`,
         source_username: client.name,
         source_display_name: client.name,
-        target_path: projectId,
+        target_path: projectDashboardPath,
         is_read: false,
         created_at: now,
       }));
@@ -188,7 +190,7 @@ export async function POST(
         message: `${client.name} علّق على مشروع ${project.name}`,
         source_username: client.name,
         source_display_name: client.name,
-        target_path: projectId,
+        target_path: projectDashboardPath,
         is_read: false,
         created_at: now,
       }));

@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
         message: `${auth.pyraUser.display_name} ذكرك في تعليق على مشروع ${project.name}`,
         source_username: auth.pyraUser.username,
         source_display_name: auth.pyraUser.display_name,
-        target_path: project_id,
+        target_path: `/dashboard/projects/${project_id}`,
         is_read: false,
         created_at: now,
       }));

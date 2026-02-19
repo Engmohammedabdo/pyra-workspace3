@@ -13,6 +13,27 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { useRealtime } from '@/hooks/useRealtime';
 import { formatRelativeDate } from '@/lib/utils/format';
 
+/** Resolve legacy target_path (raw project ID) to a dashboard route */
+function resolveTargetLink(type: string, targetPath: string): string | null {
+  if (!targetPath) return null;
+  if (type === 'mention' || type === 'client_comment' || type === 'comment_added') {
+    return `/dashboard/projects/${targetPath}`;
+  }
+  if (type === 'file_uploaded' || type === 'file_shared') {
+    return '/dashboard/files';
+  }
+  if (type === 'review_added' || type === 'approval_requested') {
+    return '/dashboard/reviews';
+  }
+  if (type === 'team_added') {
+    return '/dashboard/teams';
+  }
+  if (type === 'permission_changed') {
+    return '/dashboard/permissions';
+  }
+  return '/dashboard/notifications';
+}
+
 interface NotificationBellProps {
   username: string;
 }
@@ -29,12 +50,19 @@ export function NotificationBell({ username }: NotificationBellProps) {
 
   useRealtime({ username, onNewNotification: handleNewNotification });
 
-  const handleNotificationClick = (notification: { id: string; target_path: string; is_read: boolean }) => {
+  const handleNotificationClick = (notification: { id: string; type: string; target_path: string; is_read: boolean }) => {
     if (!notification.is_read) {
       markRead(notification.id);
     }
     if (notification.target_path) {
-      router.push(notification.target_path);
+      // If target_path already starts with /dashboard, use it directly
+      if (notification.target_path.startsWith('/dashboard')) {
+        router.push(notification.target_path);
+      } else {
+        // Legacy: target_path is a raw project ID — resolve it
+        const resolved = resolveTargetLink(notification.type, notification.target_path);
+        if (resolved) router.push(resolved);
+      }
     }
   };
 

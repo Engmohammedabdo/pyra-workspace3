@@ -36,24 +36,21 @@ const NOTIF_TYPES: Record<string, string> = {
 /** Resolve a notification target_path to a dashboard route */
 function resolveTargetLink(type: string, targetPath: string): string | null {
   if (!targetPath) return null;
-  // Project-related (project IDs, comments, mentions)
+  // If target_path already starts with /dashboard, use it directly (new format)
+  if (targetPath.startsWith('/dashboard')) return targetPath;
+  // Legacy: target_path is a raw ID — resolve based on type
   if (type === 'mention' || type === 'client_comment' || type === 'comment_added') {
-    return `/dashboard/projects`;
+    return `/dashboard/projects/${targetPath}`;
   }
-  // File-related
   if (type === 'file_uploaded' || type === 'file_shared') {
-    const dir = targetPath.includes('/') ? targetPath.substring(0, targetPath.lastIndexOf('/')) : '';
-    return `/dashboard/files${dir ? `/${encodeURIComponent(dir)}` : ''}`;
+    return '/dashboard/files';
   }
-  // Review-related
   if (type === 'review_added' || type === 'approval_requested') {
     return '/dashboard/reviews';
   }
-  // Team-related
   if (type === 'team_added') {
     return '/dashboard/teams';
   }
-  // Permission-related
   if (type === 'permission_changed') {
     return '/dashboard/permissions';
   }

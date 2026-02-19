@@ -154,7 +154,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         message: `${statusText} الملف "${projectFile.file_name}" في مشروع "${project.name}" بواسطة ${auth.pyraUser.display_name}`,
         source_username: auth.pyraUser.username,
         source_display_name: auth.pyraUser.display_name,
-        target_path: projectFile.file_path,
+        target_path: `/dashboard/projects/${project.id}`,
         is_read: false,
       });
       if (intNotifErr) console.error('Internal notification insert error:', intNotifErr);
