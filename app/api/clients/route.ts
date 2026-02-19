@@ -169,20 +169,31 @@ export async function POST(request: NextRequest) {
       return apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`);
     }
 
-    // ── Create project folder for client (projects/{company}) ──
+    // ── Create default project + folder for client ──
     const safeCompany = sanitizeFileName(company.trim());
     const folderPath = `projects/${safeCompany}`;
-    const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
+    const projectId = generateId('pr');
 
-    // Upload empty placeholder to create folder in storage
+    // 1) Create default project linked to client
+    void supabase.from('pyra_projects').insert({
+      id: projectId,
+      name: `ملفات ${company.trim()}`,
+      description: `المجلد الرئيسي لملفات عميل ${company.trim()}`,
+      client_id: clientId,
+      client_company: company.trim(),
+      status: 'active',
+      storage_path: folderPath,
+      created_by: admin.pyraUser.username,
+    });
+
+    // 2) Create folder in storage + index it
     void supabase.storage
       .from(BUCKET)
-      .upload(placeholderPath, new Uint8Array(0), {
+      .upload(`${folderPath}/.emptyFolderPlaceholder`, new Uint8Array(0), {
         contentType: 'application/x-empty',
         upsert: true,
       })
       .then(() => {
-        // Index the folder
         void supabase.from('pyra_file_index').upsert(
           {
             id: generateId('fi'),
