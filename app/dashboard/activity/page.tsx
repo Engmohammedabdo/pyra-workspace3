@@ -26,12 +26,24 @@ interface ActivityItem {
 }
 
 const ACTION_LABELS: Record<string, string> = {
+  // Admin / system actions
   file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',
   file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',
   user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',
   client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', share_created: 'رابط مشاركة',
   review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',
   file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',
+  password_changed: 'تغيير كلمة مرور',
+  // Portal client actions
+  portal_login: 'دخول عميل', portal_logout: 'خروج عميل',
+  portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)',
+  file_approved: 'اعتماد ملف', revision_requested: 'طلب تعديل',
+  client_comment: 'تعليق عميل', quote_signed: 'توقيع عرض سعر',
+  quote_viewed: 'مشاهدة عرض سعر',
+  portal_password_changed: 'تغيير كلمة مرور (عميل)',
+  portal_password_reset_requested: 'طلب استعادة كلمة مرور',
+  portal_password_reset_completed: 'إعادة تعيين كلمة مرور',
+  portal_profile_updated: 'تحديث بروفايل عميل',
 };
 
 export default function ActivityPage() {
@@ -115,7 +127,7 @@ export default function ActivityPage() {
 
       <div className="flex items-center gap-3 flex-wrap">
         <Select value={typeFilter} onValueChange={v => { setTypeFilter(v); setPage(1); }}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="نوع النشاط" /></SelectTrigger>
+          <SelectTrigger className="w-[200px]"><SelectValue placeholder="نوع النشاط" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">جميع الأنواع</SelectItem>
             <SelectItem value="file_uploaded">رفع ملف</SelectItem>
@@ -126,6 +138,18 @@ export default function ActivityPage() {
             <SelectItem value="user_deleted">حذف مستخدم</SelectItem>
             <SelectItem value="team_created">فريق</SelectItem>
             <SelectItem value="settings_updated">إعدادات</SelectItem>
+            <SelectItem value="_divider" disabled>── أنشطة العملاء ──</SelectItem>
+            <SelectItem value="portal_login">دخول عميل</SelectItem>
+            <SelectItem value="portal_logout">خروج عميل</SelectItem>
+            <SelectItem value="portal_download">تحميل ملف (عميل)</SelectItem>
+            <SelectItem value="portal_preview">معاينة ملف (عميل)</SelectItem>
+            <SelectItem value="file_approved">اعتماد ملف</SelectItem>
+            <SelectItem value="revision_requested">طلب تعديل</SelectItem>
+            <SelectItem value="client_comment">تعليق عميل</SelectItem>
+            <SelectItem value="quote_viewed">مشاهدة عرض سعر</SelectItem>
+            <SelectItem value="quote_signed">توقيع عرض سعر</SelectItem>
+            <SelectItem value="portal_password_changed">تغيير كلمة مرور (عميل)</SelectItem>
+            <SelectItem value="portal_profile_updated">تحديث بروفايل عميل</SelectItem>
           </SelectContent>
         </Select>
 

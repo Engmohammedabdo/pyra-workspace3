@@ -59,14 +59,26 @@ export async function GET(request: NextRequest) {
     const headers = ['التاريخ', 'الوقت', 'المستخدم', 'الاسم', 'نوع الإجراء', 'المسار', 'IP', 'التفاصيل'];
 
     const ACTION_LABELS: Record<string, string> = {
+      // Admin / system actions
       file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',
       file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',
       user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',
       client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', share_created: 'رابط مشاركة',
       review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',
       file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',
+      password_changed: 'تغيير كلمة مرور',
       upload: 'رفع ملف', version_restore: 'استعادة نسخة', version_delete: 'حذف نسخة',
       trash_empty: 'تفريغ السلة', trash_purge: 'حذف منتهية',
+      // Portal client actions
+      portal_login: 'دخول عميل', portal_logout: 'خروج عميل',
+      portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)',
+      file_approved: 'اعتماد ملف', revision_requested: 'طلب تعديل',
+      client_comment: 'تعليق عميل', quote_signed: 'توقيع عرض سعر',
+      quote_viewed: 'مشاهدة عرض سعر',
+      portal_password_changed: 'تغيير كلمة مرور (عميل)',
+      portal_password_reset_requested: 'طلب استعادة كلمة مرور',
+      portal_password_reset_completed: 'إعادة تعيين كلمة مرور',
+      portal_profile_updated: 'تحديث بروفايل عميل',
     };
 
     // Build CSV content
