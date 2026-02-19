@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { createPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
 import {
   apiSuccess,
@@ -82,13 +83,19 @@ export async function POST(request: NextRequest) {
 
     if (client.auth_user_id) {
       // Method 1: Supabase Auth (new clients)
-      const { error: authError } = await supabase.auth.signInWithPassword({
+      // Use a disposable anon client for signInWithPassword (service role doesn't support it)
+      const anonClient = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      );
+      const { error: authError } = await anonClient.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
       if (!authError) {
         authenticated = true;
-        await supabase.auth.signOut();
+        await anonClient.auth.signOut();
       }
     }
 

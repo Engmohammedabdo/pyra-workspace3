@@ -62,14 +62,15 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
 
     // ── Look up the reset token by HASH ──────────────
-    // The raw token was sent to the client; we hash it to match the stored token_hash.
+    // The raw token was sent to the client; we hash it to match the stored id.
+    // Actual columns: id=tokenHash, username="reset:{clientId}", ip_address=expiresAt
     const tokenHash = hashResetToken(token.trim());
     const { data: resetSession, error: sessionError } = await supabase
       .from('pyra_sessions')
-      .select('id, username, token_hash, expires_at')
-      .eq('token_hash', tokenHash)
+      .select('id, username, ip_address, last_activity')
+      .eq('id', tokenHash)
       .like('username', 'reset:%')
-      .gt('expires_at', new Date().toISOString())
+      .eq('user_agent', 'reset_token')
       .maybeSingle();
 
     if (sessionError) {
@@ -79,6 +80,14 @@ export async function POST(request: NextRequest) {
 
     if (!resetSession) {
       return apiError('رمز إعادة التعيين غير صالح أو منتهي الصلاحية', 400);
+    }
+
+    // Check expiry (stored in ip_address field)
+    const expiresAt = resetSession.ip_address;
+    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
+      // Token expired — clean up
+      await supabase.from('pyra_sessions').delete().eq('id', tokenHash);
+      return apiError('رمز إعادة التعيين منتهي الصلاحية', 400);
     }
 
     // ── Extract client ID ────────────────────────────

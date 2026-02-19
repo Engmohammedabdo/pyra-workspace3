@@ -93,12 +93,15 @@ export async function POST(request: NextRequest) {
       .delete()
       .like('username', `reset:${client.id}`);
 
-    // Store HASHED reset token in pyra_sessions (matches actual schema: id, username, token_hash, expires_at)
+    // Store HASHED reset token in pyra_sessions
+    // Actual columns: id, username, ip_address, user_agent, last_activity, created_at
+    // Mapping: id=tokenHash, username="reset:{clientId}", ip_address=expiresAt, user_agent="reset_token"
     await supabase.from('pyra_sessions').insert({
-      id: generateId('sess'),
+      id: tokenHash,
       username: `reset:${client.id}`,
-      token_hash: tokenHash,
-      expires_at: expiresAt,
+      ip_address: expiresAt,
+      user_agent: 'reset_token',
+      last_activity: new Date().toISOString(),
     });
 
     // In production, send the email here:
