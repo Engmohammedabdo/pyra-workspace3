@@ -154,8 +154,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generate storage path for project files
-    const storagePath = `projects/${projectId}`;
+    // Build storage path that matches actual folder structure:
+    // projects/{company}/{project-slug}
+    const companySlug = sanitizeFileName(client_company.trim())
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    const projectSlug = sanitizeFileName(name.trim())
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    const storagePath = `projects/${companySlug}/${projectSlug}`;
 
     const newProject = {
       id: projectId,
@@ -183,15 +190,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Auto-create project folder in Storage ────────
-    const companySlug = sanitizeFileName(client_company.trim())
-      .replace(/\s+/g, '-')
-      .toLowerCase();
-    const projectSlug = sanitizeFileName(name.trim())
-      .replace(/\s+/g, '-')
-      .toLowerCase();
-
-    // Build folder path: projects/{company}/{project}/
-    const folderPath = `projects/${companySlug}/${projectSlug}`;
+    // storagePath already built above as projects/{company}/{project}
 
     // Check if folder already exists to prevent duplication
     const { data: existingFiles } = await supabase.storage
@@ -207,7 +206,7 @@ export async function POST(request: NextRequest) {
       await supabase.storage
         .from(BUCKET)
         .upload(
-          `${folderPath}/.emptyFolderPlaceholder`,
+          `${storagePath}/.emptyFolderPlaceholder`,
           new Uint8Array(0),
           { contentType: 'application/octet-stream', upsert: true }
         );
@@ -216,7 +215,7 @@ export async function POST(request: NextRequest) {
       await supabase.storage
         .from(BUCKET)
         .upload(
-          `${folderPath}/deliverables/.emptyFolderPlaceholder`,
+          `${storagePath}/deliverables/.emptyFolderPlaceholder`,
           new Uint8Array(0),
           { contentType: 'application/octet-stream', upsert: true }
         );
@@ -234,13 +233,13 @@ export async function POST(request: NextRequest) {
         client_company: client_company.trim(),
         client_id: resolvedClientId,
         team_id: team_id || null,
-        folder_path: folderPath,
+        folder_path: storagePath,
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
     if (logErr) console.error('Activity log insert error:', logErr);
 
-    return apiSuccess({ ...project, folder_path: folderPath }, undefined, 201);
+    return apiSuccess({ ...project, folder_path: storagePath }, undefined, 201);
   } catch (err) {
     console.error('Projects POST error:', err);
     return apiServerError();

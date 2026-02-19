@@ -169,37 +169,29 @@ export async function POST(request: NextRequest) {
       return apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`);
     }
 
-    // ── Create default project + folder for client ──
-    const safeCompany = sanitizeFileName(company.trim());
-    const folderPath = `projects/${safeCompany}`;
-    const projectId = generateId('pr');
+    // ── Create company folder in storage ─────────────
+    // Slug must match the convention used by POST /api/projects:
+    // projects/{company-slug}/{project-slug}
+    const companySlug = sanitizeFileName(company.trim())
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+    const companyFolder = `projects/${companySlug}`;
 
-    // 1) Create default project linked to client
-    void supabase.from('pyra_projects').insert({
-      id: projectId,
-      name: `ملفات ${company.trim()}`,
-      description: `المجلد الرئيسي لملفات عميل ${company.trim()}`,
-      client_id: clientId,
-      client_company: company.trim(),
-      status: 'active',
-      storage_path: folderPath,
-      created_by: admin.pyraUser.username,
-    });
-
-    // 2) Create folder in storage + index it
+    // Create company root folder placeholder (fire-and-forget)
     void supabase.storage
       .from(BUCKET)
-      .upload(`${folderPath}/.emptyFolderPlaceholder`, new Uint8Array(0), {
+      .upload(`${companyFolder}/.emptyFolderPlaceholder`, new Uint8Array(0), {
         contentType: 'application/x-empty',
         upsert: true,
       })
       .then(() => {
+        // Index the company folder
         void supabase.from('pyra_file_index').upsert(
           {
             id: generateId('fi'),
-            file_path: folderPath,
-            file_name: safeCompany,
-            file_name_lower: safeCompany.toLowerCase(),
+            file_path: companyFolder,
+            file_name: companySlug,
+            file_name_lower: companySlug.toLowerCase(),
             file_size: 0,
             mime_type: 'folder',
             is_folder: true,
