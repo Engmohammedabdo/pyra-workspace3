@@ -40,7 +40,7 @@ async function getAdminDashboard(
 ) {
   // Use v_dashboard_stats view for all KPIs in ONE query
   // + separate queries for activity & notifications (user-specific)
-  const [statsResult, activityResult, notificationsResult] = await Promise.all([
+  const [statsResult, activityResult, notificationsResult, storageSettingResult] = await Promise.all([
     // All dashboard stats from a single view (replaces 7 separate queries)
     supabase
       .from('v_dashboard_stats')
@@ -60,9 +60,20 @@ async function getAdminDashboard(
       .select('id', { count: 'exact', head: true })
       .eq('recipient_username', username)
       .eq('is_read', false),
+
+    // Max storage setting
+    supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'max_storage_gb')
+      .maybeSingle(),
   ]);
 
   const stats = statsResult.data;
+
+  const maxStorageGb = storageSettingResult.data?.value
+    ? parseFloat(storageSettingResult.data.value)
+    : 50; // default fallback
 
   return apiSuccess({
     total_files: stats?.total_files ?? 0,
@@ -80,6 +91,7 @@ async function getAdminDashboard(
     recent_activity: activityResult.data || [],
     unread_notifications: notificationsResult.count ?? 0,
     storage_used: stats?.total_storage_bytes ?? 0,
+    max_storage_gb: maxStorageGb,
   });
 }
 

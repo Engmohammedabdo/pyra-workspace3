@@ -18,6 +18,7 @@ import {
   Monitor,
   Loader2,
   Save,
+  Key,
 } from 'lucide-react';
 import { formatDate, formatRelativeDate } from '@/lib/utils/format';
 import { TwoFactorSetup } from '@/components/auth/two-factor-setup';
@@ -51,6 +52,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ display_name: '', email: '', phone: '' });
+  const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
+  const [changingPassword, setChangingPassword] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -99,6 +102,37 @@ export default function ProfilePage() {
       toast.error('حدث خطأ');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!profile) return;
+    if (!passwordForm.newPass || passwordForm.newPass.length < 12) {
+      toast.error('كلمة المرور يجب أن تكون 12 حرف على الأقل');
+      return;
+    }
+    if (passwordForm.newPass !== passwordForm.confirm) {
+      toast.error('كلمة المرور الجديدة وتأكيدها غير متطابقتين');
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const res = await fetch(`/api/users/${profile.username}/password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordForm.newPass }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'فشل في تغيير كلمة المرور');
+        return;
+      }
+      toast.success('تم تغيير كلمة المرور بنجاح');
+      setPasswordForm({ current: '', newPass: '', confirm: '' });
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -203,6 +237,58 @@ export default function ProfilePage() {
                   <Save className="h-4 w-4 me-2" />
                 )}
                 حفظ التغييرات
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Password Change */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Key className="h-4 w-4" /> تغيير كلمة المرور
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>كلمة المرور الجديدة</Label>
+                <Input
+                  type="password"
+                  value={passwordForm.newPass}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, newPass: e.target.value }))}
+                  placeholder="12 حرف على الأقل"
+                  dir="ltr"
+                  minLength={12}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>تأكيد كلمة المرور</Label>
+                <Input
+                  type="password"
+                  value={passwordForm.confirm}
+                  onChange={(e) => setPasswordForm((p) => ({ ...p, confirm: e.target.value }))}
+                  placeholder="أعد كتابة كلمة المرور"
+                  dir="ltr"
+                  minLength={12}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              يجب أن تكون كلمة المرور 12 حرف على الأقل
+            </p>
+            <div className="flex justify-end">
+              <Button
+                onClick={handlePasswordChange}
+                disabled={changingPassword || !passwordForm.newPass}
+                variant="outline"
+              >
+                {changingPassword ? (
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
+                ) : (
+                  <Key className="h-4 w-4 me-2" />
+                )}
+                تغيير كلمة المرور
               </Button>
             </div>
           </CardContent>

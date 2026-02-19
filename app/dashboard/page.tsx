@@ -53,6 +53,7 @@ interface DashboardData {
   }>;
   unread_notifications: number;
   storage_used: number;
+  max_storage_gb?: number;
   // Employee fields
   accessible_files?: number;
   permitted_paths?: string[];
@@ -128,17 +129,15 @@ function MiniStat({ label, value, icon: Icon, accent }: {
 }
 
 /* ── Storage bar ─────────────────────────── */
-function StorageBar({ used }: { used: number }) {
-  // Estimate: show percentage of 50GB
-  const MAX_GB = 50;
+function StorageBar({ used, maxGb = 50 }: { used: number; maxGb?: number }) {
   const usedGB = used / (1024 * 1024 * 1024);
-  const percent = Math.min((usedGB / MAX_GB) * 100, 100);
+  const percent = Math.min((usedGB / maxGb) * 100, 100);
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs">
         <span className="text-muted-foreground">مساحة التخزين</span>
-        <span className="font-mono font-medium">{formatFileSize(used)} / {MAX_GB} GB</span>
+        <span className="font-mono font-medium">{formatFileSize(used)} / {maxGb} GB</span>
       </div>
       <div className="h-2.5 rounded-full bg-muted overflow-hidden">
         <div
@@ -344,7 +343,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <StorageBar used={data!.storage_used} />
+                <StorageBar used={data!.storage_used} maxGb={data!.max_storage_gb} />
               </CardContent>
             </Card>
           )}

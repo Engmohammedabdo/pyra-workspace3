@@ -50,16 +50,23 @@ export default function QuotesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Debounce search input (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const res = await fetch(`/api/quotes?${params}`);
       const json = await res.json();
       if (json.data) setQuotes(json.data);
@@ -68,7 +75,7 @@ export default function QuotesPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search]);
+  }, [statusFilter, debouncedSearch]);
 
   useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
 

@@ -50,6 +50,8 @@ export default function ActivityPage() {
     try {
       const params = new URLSearchParams();
       if (typeFilter !== 'all') params.set('action_type', typeFilter);
+      if (dateFrom) params.set('from', dateFrom);
+      if (dateTo) params.set('to', dateTo);
       params.set('page', String(page));
       params.set('limit', String(pageSize));
       const res = await fetch(`/api/activity?${params}`);
@@ -57,7 +59,7 @@ export default function ActivityPage() {
       if (json.data) setItems(json.data);
       if (json.meta?.total) setTotal(json.meta.total);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [typeFilter, page]);
+  }, [typeFilter, page, dateFrom, dateTo]);
 
   useEffect(() => { fetchActivity(); }, [fetchActivity]);
 
@@ -132,14 +134,14 @@ export default function ActivityPage() {
           <Input
             type="date"
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
+            onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
             className="w-[150px] h-9 text-xs"
           />
           <span className="text-xs text-muted-foreground">إلى</span>
           <Input
             type="date"
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
+            onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
             className="w-[150px] h-9 text-xs"
           />
         </div>

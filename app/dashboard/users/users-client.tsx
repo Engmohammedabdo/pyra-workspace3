@@ -53,6 +53,7 @@ export default function UsersClient() {
   const [users, setUsers] = useState<PyraUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -69,11 +70,17 @@ export default function UsersClient() {
   });
   const [newPassword, setNewPassword] = useState('');
 
+  // Debounce search input (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       if (roleFilter !== 'all') params.set('role', roleFilter);
       const res = await fetch(`/api/users?${params}`);
       const json = await res.json();
@@ -83,7 +90,7 @@ export default function UsersClient() {
     } finally {
       setLoading(false);
     }
-  }, [search, roleFilter]);
+  }, [debouncedSearch, roleFilter]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 

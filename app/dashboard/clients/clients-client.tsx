@@ -32,6 +32,7 @@ export default function ClientsClient() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -39,16 +40,22 @@ export default function ClientsClient() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', password: '', is_active: true });
 
+  // Debounce search input (350ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 350);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (search) params.set('search', search);
+      if (debouncedSearch) params.set('search', debouncedSearch);
       const res = await fetch(`/api/clients?${params}`);
       const json = await res.json();
       if (json.data) setClients(json.data);
     } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [search]);
+  }, [debouncedSearch]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
