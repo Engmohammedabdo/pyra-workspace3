@@ -210,15 +210,6 @@ export async function POST(request: NextRequest) {
           new Uint8Array(0),
           { contentType: 'application/octet-stream', upsert: true }
         );
-
-      // Also create a client-visible subfolder for deliverables
-      await supabase.storage
-        .from(BUCKET)
-        .upload(
-          `${storagePath}/deliverables/.emptyFolderPlaceholder`,
-          new Uint8Array(0),
-          { contentType: 'application/octet-stream', upsert: true }
-        );
     }
 
     // Log activity
