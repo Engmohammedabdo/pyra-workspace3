@@ -558,7 +558,7 @@ export default function ProjectDetailPage() {
                     لا توجد ملفات
                   </div>
                 ) : (
-                  <ScrollArea className="max-h-[calc(100vh-300px)]">
+                  <div className="overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                     <div className="divide-y">
                       {Object.entries(groupedFiles).map(([folder, folderFiles]) => {
                         const isCollapsed = collapsedFolders[folder];
@@ -731,7 +731,7 @@ export default function ProjectDetailPage() {
                         );
                       })}
                     </div>
-                  </ScrollArea>
+                  </div>
                 )}
               </CardContent>
             </Card>
