@@ -5,6 +5,16 @@ import nodemailer from 'nodemailer';
 // Uses SMTP configured via environment variables
 // ============================================================
 
+/** Escape HTML special chars to prevent injection in email templates */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || 'localhost',
   port: Number(process.env.SMTP_PORT) || 587,
@@ -94,12 +104,12 @@ export const emailTemplates = {
   /** New file uploaded to project */
   fileUploaded: (data: { projectName: string; fileName: string; uploadedBy: string; projectUrl: string }) =>
     baseLayout(`
-      <h2>📁 ملف جديد في مشروع "${data.projectName}"</h2>
+      <h2>📁 ملف جديد في مشروع "${escapeHtml(data.projectName)}"</h2>
       <div class="detail">
-        <div class="detail-row"><span class="detail-label">اسم الملف:</span> <strong>${data.fileName}</strong></div>
-        <div class="detail-row"><span class="detail-label">رفع بواسطة:</span> <strong>${data.uploadedBy}</strong></div>
+        <div class="detail-row"><span class="detail-label">اسم الملف:</span> <strong>${escapeHtml(data.fileName)}</strong></div>
+        <div class="detail-row"><span class="detail-label">رفع بواسطة:</span> <strong>${escapeHtml(data.uploadedBy)}</strong></div>
       </div>
-      <a href="${data.projectUrl}" class="btn">عرض المشروع</a>
+      <a href="${escapeHtml(data.projectUrl)}" class="btn">عرض المشروع</a>
     `),
 
   /** File approval status changed */
@@ -110,40 +120,40 @@ export const emailTemplates = {
       pending: '⏳ بانتظار المراجعة',
     };
     return baseLayout(`
-      <h2>حالة الموافقة — ${data.projectName}</h2>
+      <h2>حالة الموافقة — ${escapeHtml(data.projectName)}</h2>
       <div class="detail">
-        <div class="detail-row"><span class="detail-label">الملف:</span> <strong>${data.fileName}</strong></div>
-        <div class="detail-row"><span class="detail-label">الحالة:</span> <strong>${statusLabels[data.status] || data.status}</strong></div>
-        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${data.reviewedBy}</strong></div>
-        ${data.comment ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e4e4e7;"><p style="font-size: 13px; color: #52525b;">"${data.comment}"</p></div>` : ''}
+        <div class="detail-row"><span class="detail-label">الملف:</span> <strong>${escapeHtml(data.fileName)}</strong></div>
+        <div class="detail-row"><span class="detail-label">الحالة:</span> <strong>${statusLabels[data.status] || escapeHtml(data.status)}</strong></div>
+        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${escapeHtml(data.reviewedBy)}</strong></div>
+        ${data.comment ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e4e4e7;"><p style="font-size: 13px; color: #52525b;">"${escapeHtml(data.comment)}"</p></div>` : ''}
       </div>
-      <a href="${data.projectUrl}" class="btn">عرض المشروع</a>
+      <a href="${escapeHtml(data.projectUrl)}" class="btn">عرض المشروع</a>
     `);
   },
 
   /** New comment on project */
   newComment: (data: { projectName: string; authorName: string; commentText: string; projectUrl: string }) =>
     baseLayout(`
-      <h2>💬 تعليق جديد في "${data.projectName}"</h2>
+      <h2>💬 تعليق جديد في "${escapeHtml(data.projectName)}"</h2>
       <div class="detail">
-        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${data.authorName}</strong></div>
+        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${escapeHtml(data.authorName)}</strong></div>
         <div style="margin-top: 8px; padding: 12px; background: #fff; border-radius: 6px; border: 1px solid #e4e4e7;">
-          <p style="margin: 0; font-size: 14px; color: #27272a;">${data.commentText}</p>
+          <p style="margin: 0; font-size: 14px; color: #27272a;">${escapeHtml(data.commentText)}</p>
         </div>
       </div>
-      <a href="${data.projectUrl}" class="btn">عرض التعليقات</a>
+      <a href="${escapeHtml(data.projectUrl)}" class="btn">عرض التعليقات</a>
     `),
 
   /** New user created (welcome) */
   welcomeUser: (data: { displayName: string; username: string; loginUrl: string }) =>
     baseLayout(`
-      <h2>مرحباً ${data.displayName} 👋</h2>
+      <h2>مرحباً ${escapeHtml(data.displayName)} 👋</h2>
       <p>تم إنشاء حسابك في نظام Pyra Workspace بنجاح.</p>
       <div class="detail">
-        <div class="detail-row"><span class="detail-label">اسم المستخدم:</span> <strong>${data.username}</strong></div>
+        <div class="detail-row"><span class="detail-label">اسم المستخدم:</span> <strong>${escapeHtml(data.username)}</strong></div>
       </div>
       <p>يرجى تسجيل الدخول وتغيير كلمة المرور.</p>
-      <a href="${data.loginUrl}" class="btn">تسجيل الدخول</a>
+      <a href="${escapeHtml(data.loginUrl)}" class="btn">تسجيل الدخول</a>
     `),
 
   /** Project status changed */
@@ -152,13 +162,13 @@ export const emailTemplates = {
       active: 'نشط', in_progress: 'قيد التنفيذ', review: 'مراجعة', completed: 'مكتمل', archived: 'مؤرشف',
     };
     return baseLayout(`
-      <h2>تحديث حالة مشروع "${data.projectName}"</h2>
+      <h2>تحديث حالة مشروع "${escapeHtml(data.projectName)}"</h2>
       <div class="detail">
-        <div class="detail-row"><span class="detail-label">الحالة السابقة:</span> <strong>${statusLabels[data.oldStatus] || data.oldStatus}</strong></div>
-        <div class="detail-row"><span class="detail-label">الحالة الجديدة:</span> <strong>${statusLabels[data.newStatus] || data.newStatus}</strong></div>
-        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${data.changedBy}</strong></div>
+        <div class="detail-row"><span class="detail-label">الحالة السابقة:</span> <strong>${statusLabels[data.oldStatus] || escapeHtml(data.oldStatus)}</strong></div>
+        <div class="detail-row"><span class="detail-label">الحالة الجديدة:</span> <strong>${statusLabels[data.newStatus] || escapeHtml(data.newStatus)}</strong></div>
+        <div class="detail-row"><span class="detail-label">بواسطة:</span> <strong>${escapeHtml(data.changedBy)}</strong></div>
       </div>
-      <a href="${data.projectUrl}" class="btn">عرض المشروع</a>
+      <a href="${escapeHtml(data.projectUrl)}" class="btn">عرض المشروع</a>
     `);
   },
 };

@@ -30,11 +30,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ── Verify user has admin/employee role in pyra_users ──
+    const username = data.user.user_metadata?.username || data.user.email;
+    const { data: pyraUser, error: pyraErr } = await supabase
+      .from('pyra_users')
+      .select('role, username, display_name')
+      .or(`username.eq.${username},email.eq.${email}`)
+      .limit(1)
+      .maybeSingle();
+
+    if (pyraErr || !pyraUser) {
+      // Sign out immediately — this user has no admin/employee record
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { error: 'هذا الحساب غير مسجل كمستخدم إداري' },
+        { status: 403 }
+      );
+    }
+
+    if (!['admin', 'employee'].includes(pyraUser.role)) {
+      await supabase.auth.signOut();
+      return NextResponse.json(
+        { error: 'لا تملك صلاحية الدخول للوحة الإدارة' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       user: {
         id: data.user.id,
         email: data.user.email,
+        role: pyraUser.role,
+        username: pyraUser.username,
       },
     });
   } catch {

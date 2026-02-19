@@ -319,7 +319,7 @@ export default function PortalProfilePage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    minLength={8}
+                    minLength={12}
                     dir="ltr"
                     className="text-left pe-10"
                   />
@@ -349,7 +349,7 @@ export default function PortalProfilePage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="••••••••"
                     required
-                    minLength={8}
+                    minLength={12}
                     dir="ltr"
                     className={cn(
                       'text-left pe-10',

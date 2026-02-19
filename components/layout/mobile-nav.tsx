@@ -19,6 +19,12 @@ import {
   Settings,
   Bell,
   Shield,
+  Briefcase,
+  UserCircle,
+  Star,
+  CheckSquare,
+  History,
+  Monitor,
 } from 'lucide-react';
 
 interface MobileNavProps {
@@ -32,13 +38,20 @@ interface MobileNavProps {
 const navItems = [
   { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
   { href: '/dashboard/files', label: 'الملفات', icon: FolderOpen },
+  { href: '/dashboard/projects', label: 'المشاريع', icon: Briefcase },
+  { href: '/dashboard/clients', label: 'العملاء', icon: Building2, adminOnly: true },
   { href: '/dashboard/users', label: 'المستخدمون', icon: Users, adminOnly: true },
   { href: '/dashboard/teams', label: 'الفرق', icon: Building2 },
   { href: '/dashboard/permissions', label: 'الصلاحيات', icon: Shield, adminOnly: true },
   { href: '/dashboard/quotes', label: 'عروض الأسعار', icon: FileText },
+  { href: '/dashboard/reviews', label: 'المراجعات', icon: CheckSquare },
+  { href: '/dashboard/favorites', label: 'المفضلة', icon: Star },
   { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell },
   { href: '/dashboard/activity', label: 'النشاط', icon: Activity },
   { href: '/dashboard/trash', label: 'المحذوفات', icon: Trash2 },
+  { href: '/dashboard/login-history', label: 'سجل الدخول', icon: History, adminOnly: true },
+  { href: '/dashboard/sessions', label: 'الجلسات', icon: Monitor, adminOnly: true },
+  { href: '/dashboard/profile', label: 'الملف الشخصي', icon: UserCircle },
   { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, adminOnly: true },
 ];
 

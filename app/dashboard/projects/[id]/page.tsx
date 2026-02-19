@@ -384,7 +384,8 @@ export default function ProjectDetailPage() {
   // Download file
   const handleDownload = async (file: ProjectFile) => {
     try {
-      const res = await fetch(`/api/files/download?path=${encodeURIComponent(file.file_path)}`);
+      const pathSegments = file.file_path.split('/').map(encodeURIComponent).join('/');
+      const res = await fetch(`/api/files/download/${pathSegments}`);
       if (!res.ok) {
         toast.error('فشل في تحميل الملف');
         return;

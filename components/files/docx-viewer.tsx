@@ -3,6 +3,25 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Loader2, FileWarning } from 'lucide-react';
 
+/**
+ * Sanitize HTML output from mammoth converter.
+ * Strips event handlers (onerror, onclick, etc.), <script>, <style>, <iframe>,
+ * javascript: URIs, and data: URIs to prevent XSS from malicious DOCX files.
+ */
+function sanitizeHtml(html: string): string {
+  return html
+    // Remove <script>...</script> and <style>...</style> blocks entirely
+    .replace(/<script[\s>][\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s>][\s\S]*?<\/style>/gi, '')
+    // Remove <iframe>, <object>, <embed>, <form>, <input> tags
+    .replace(/<\/?(?:iframe|object|embed|form|input|textarea|button|link|meta|base)[^>]*>/gi, '')
+    // Remove all event handler attributes (on*)
+    .replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    // Remove javascript: and data: URIs from href/src attributes
+    .replace(/(href|src)\s*=\s*(?:"javascript:[^"]*"|'javascript:[^']*')/gi, '$1=""')
+    .replace(/(href|src)\s*=\s*(?:"data:[^"]*"|'data:[^']*')/gi, '$1=""');
+}
+
 interface DocxViewerProps {
   url: string;
 }
@@ -36,7 +55,7 @@ export function DocxViewer({ url }: DocxViewerProps) {
         );
 
         if (!cancelled) {
-          setHtml(result.value);
+          setHtml(sanitizeHtml(result.value));
           setLoading(false);
         }
       } catch (err) {

@@ -37,8 +37,9 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return apiNotFound('التعليق غير موجود');
     }
 
-    // Authorization: only the author (by display_name match) or admin can delete
-    const isAuthor = comment.author_name === auth.pyraUser.display_name;
+    // Authorization: only the author (by username match) or admin can delete
+    const isAuthor = comment.author_id === auth.pyraUser.username ||
+      comment.author_name === auth.pyraUser.display_name; // fallback for legacy comments without author_id
     const isAdmin = auth.pyraUser.role === 'admin';
 
     if (!isAuthor && !isAdmin) {
