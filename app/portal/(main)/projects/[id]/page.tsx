@@ -138,6 +138,38 @@ function getFileIcon(fileType: string) {
   return FileIcon;
 }
 
+/** Render comment text with @mentions highlighted in orange. */
+function renderTextWithMentions(text: string) {
+  const mentionRegex = /@([\w\u0600-\u06FF]+)/g;
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = mentionRegex.exec(text)) !== null) {
+    // Push text before the mention
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    // Push highlighted mention
+    parts.push(
+      <span
+        key={match.index}
+        className="text-orange-600 font-semibold"
+      >
+        @{match[1]}
+      </span>
+    );
+    lastIndex = mentionRegex.lastIndex;
+  }
+
+  // Push remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return parts.length > 0 ? parts : text;
+}
+
 // ---------- Component ----------
 
 export default function PortalProjectDetailPage() {
@@ -610,7 +642,7 @@ export default function PortalProjectDetailPage() {
                         </span>
                       </div>
                       <p className="text-sm leading-relaxed text-foreground/80">
-                        {comment.text}
+                        {renderTextWithMentions(comment.text)}
                       </p>
                     </CardContent>
                   </Card>
