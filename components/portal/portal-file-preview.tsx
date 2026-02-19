@@ -48,6 +48,17 @@ function isAudio(mime: string) {
 function isPdf(mime: string) {
   return mime === 'application/pdf';
 }
+function isTextLike(mime: string) {
+  return (
+    mime.startsWith('text/') ||
+    mime === 'application/json' ||
+    mime === 'application/xml' ||
+    mime === 'application/javascript'
+  );
+}
+function isDocx(mime: string) {
+  return mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+}
 
 function getFileTypeInfo(mime: string) {
   if (isPdf(mime))
@@ -58,11 +69,15 @@ function getFileTypeInfo(mime: string) {
     return { icon: Film, color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'فيديو' };
   if (isAudio(mime))
     return { icon: Music, color: 'text-pink-500', bg: 'bg-pink-500/10', label: 'صوت' };
+  if (isTextLike(mime))
+    return { icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'نص' };
+  if (isDocx(mime))
+    return { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-600/10', label: 'Word' };
   return { icon: FileText, color: 'text-muted-foreground', bg: 'bg-muted', label: 'ملف' };
 }
 
 function canPreview(mime: string) {
-  return isImage(mime) || isVideo(mime) || isAudio(mime) || isPdf(mime);
+  return isImage(mime) || isVideo(mime) || isAudio(mime) || isPdf(mime) || isTextLike(mime) || isDocx(mime);
 }
 
 // ── Animation variants ──
@@ -231,6 +246,10 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
               <PdfPreview url={signedUrl} />
             ) : isAudio(file.file_type) ? (
               <AudioPreview url={signedUrl} name={decodedName} />
+            ) : isTextLike(file.file_type) ? (
+              <TextPreview url={signedUrl} name={decodedName} mime={file.file_type} />
+            ) : isDocx(file.file_type) ? (
+              <DocxPreview url={signedUrl} name={decodedName} onDownload={handleDownload} />
             ) : (
               <GenericPreview name={decodedName} typeInfo={typeInfo} onDownload={handleDownload} />
             )}
@@ -451,6 +470,288 @@ function AudioPreview({ url, name }: { url: string; name: string }) {
         <p className="text-xs text-muted-foreground mt-1">ملف صوتي</p>
       </div>
       <audio src={url} controls className="w-full max-w-md" preload="metadata" />
+    </div>
+  );
+}
+
+// ── Text/Markdown Preview ──
+
+function TextPreview({ url, name, mime }: { url: string; name: string; mime: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [textLoading, setTextLoading] = useState(true);
+  const [textError, setTextError] = useState(false);
+  const isMarkdown = mime === 'text/markdown' || name.endsWith('.md');
+
+  useEffect(() => {
+    setTextLoading(true);
+    setTextError(false);
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error('Failed to fetch');
+        return res.text();
+      })
+      .then((text) => setContent(text))
+      .catch(() => setTextError(true))
+      .finally(() => setTextLoading(false));
+  }, [url]);
+
+  if (textLoading) return <PreviewLoading />;
+  if (textError || content === null) return <PreviewError />;
+
+  return (
+    <div className="h-full overflow-auto p-4 md:p-8">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="max-w-4xl mx-auto"
+      >
+        {/* File header */}
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+          <FileText className="h-4 w-4 text-emerald-500" />
+          <span className="text-sm font-medium text-muted-foreground">{name}</span>
+          {isMarkdown && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-emerald-500 border-emerald-500/20">
+              Markdown
+            </Badge>
+          )}
+        </div>
+
+        {isMarkdown ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground/80 prose-strong:text-foreground prose-code:text-orange-600 prose-code:bg-orange-50 dark:prose-code:bg-orange-950/30 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:text-sm prose-pre:bg-muted prose-pre:border">
+            <MarkdownRenderer content={content} />
+          </div>
+        ) : (
+          <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-relaxed text-foreground/80 bg-muted/50 rounded-lg p-4 border overflow-auto">
+            {content}
+          </pre>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Simple Markdown Renderer ──
+
+function MarkdownRenderer({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+  let listBuffer: { level: number; text: string; ordered: boolean; num?: number }[] = [];
+
+  function flushList() {
+    if (listBuffer.length === 0) return;
+    const isOrdered = listBuffer[0].ordered;
+    const Tag = isOrdered ? 'ol' : 'ul';
+    elements.push(
+      <Tag key={`list-${elements.length}`} className={isOrdered ? 'list-decimal ps-6 my-2' : 'list-disc ps-6 my-2'}>
+        {listBuffer.map((item, idx) => (
+          <li key={idx} className="my-0.5">
+            <InlineMarkdown text={item.text} />
+          </li>
+        ))}
+      </Tag>
+    );
+    listBuffer = [];
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // Code blocks
+    if (line.startsWith('```')) {
+      flushList();
+      const lang = line.slice(3).trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      elements.push(
+        <pre key={`code-${elements.length}`} className="bg-muted border rounded-lg p-4 my-3 overflow-x-auto">
+          {lang && <div className="text-[10px] text-muted-foreground mb-2 font-sans">{lang}</div>}
+          <code className="text-sm font-mono">{codeLines.join('\n')}</code>
+        </pre>
+      );
+      i++;
+      continue;
+    }
+
+    // Headings
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      flushList();
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      const sizes: Record<number, string> = {
+        1: 'text-2xl font-bold mt-6 mb-3',
+        2: 'text-xl font-bold mt-5 mb-2',
+        3: 'text-lg font-semibold mt-4 mb-2',
+        4: 'text-base font-semibold mt-3 mb-1',
+        5: 'text-sm font-semibold mt-2 mb-1',
+        6: 'text-sm font-medium mt-2 mb-1',
+      };
+      elements.push(
+        <Tag key={`h-${elements.length}`} className={sizes[level]}>
+          <InlineMarkdown text={text} />
+        </Tag>
+      );
+      i++;
+      continue;
+    }
+
+    // Horizontal rule
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(line.trim())) {
+      flushList();
+      elements.push(<hr key={`hr-${elements.length}`} className="my-4 border-border" />);
+      i++;
+      continue;
+    }
+
+    // Blockquote
+    if (line.startsWith('>')) {
+      flushList();
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith('>')) {
+        quoteLines.push(lines[i].replace(/^>\s?/, ''));
+        i++;
+      }
+      elements.push(
+        <blockquote key={`bq-${elements.length}`} className="border-s-4 border-orange-400 ps-4 my-3 text-muted-foreground italic">
+          {quoteLines.map((ql, qi) => (
+            <p key={qi}><InlineMarkdown text={ql} /></p>
+          ))}
+        </blockquote>
+      );
+      continue;
+    }
+
+    // Unordered list
+    const ulMatch = line.match(/^(\s*)[-*+]\s+(.+)/);
+    if (ulMatch) {
+      listBuffer.push({ level: ulMatch[1].length, text: ulMatch[2], ordered: false });
+      i++;
+      continue;
+    }
+
+    // Ordered list
+    const olMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)/);
+    if (olMatch) {
+      listBuffer.push({ level: olMatch[1].length, text: olMatch[3], ordered: true, num: parseInt(olMatch[2]) });
+      i++;
+      continue;
+    }
+
+    // Flush list if we hit a non-list line
+    flushList();
+
+    // Empty line
+    if (line.trim() === '') {
+      i++;
+      continue;
+    }
+
+    // Regular paragraph
+    elements.push(
+      <p key={`p-${elements.length}`} className="my-2 leading-relaxed">
+        <InlineMarkdown text={line} />
+      </p>
+    );
+    i++;
+  }
+
+  flushList();
+  return <>{elements}</>;
+}
+
+// ── Inline Markdown (bold, italic, code, links) ──
+
+function InlineMarkdown({ text }: { text: string }) {
+  // Process inline markdown: **bold**, *italic*, `code`, [link](url)
+  const parts: React.ReactNode[] = [];
+  // Combined regex for inline elements
+  const regex = /(\*\*(.+?)\*\*)|(\*(.+?)\*)|(`(.+?)`)|(\[(.+?)\]\((.+?)\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    // Add text before match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+
+    if (match[1]) {
+      // **bold**
+      parts.push(<strong key={match.index}>{match[2]}</strong>);
+    } else if (match[3]) {
+      // *italic*
+      parts.push(<em key={match.index}>{match[4]}</em>);
+    } else if (match[5]) {
+      // `code`
+      parts.push(
+        <code key={match.index} className="text-orange-600 bg-orange-50 dark:bg-orange-950/30 px-1.5 py-0.5 rounded-md text-sm">
+          {match[6]}
+        </code>
+      );
+    } else if (match[7]) {
+      // [link](url)
+      parts.push(
+        <a key={match.index} href={match[9]} target="_blank" rel="noopener noreferrer" className="text-orange-500 hover:underline">
+          {match[8]}
+        </a>
+      );
+    }
+
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+
+  return <>{parts}</>;
+}
+
+// ── DOCX Preview ──
+
+function DocxPreview({ url, name, onDownload }: { url: string; name: string; onDownload: () => void }) {
+  // DOCX files can be previewed using Microsoft Office Online viewer
+  const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b shrink-0">
+        <FileText className="h-4 w-4 text-blue-600" />
+        <span className="text-xs text-blue-600 font-medium">{name}</span>
+        <span className="text-[10px] text-muted-foreground">— معاينة عبر Microsoft Office Online</span>
+      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        className="flex-1 relative"
+      >
+        <iframe
+          src={officeUrl}
+          className="w-full h-full border-0"
+          title="DOCX Preview"
+          sandbox="allow-scripts allow-same-origin allow-popups"
+        />
+        {/* Fallback overlay in case Office viewer doesn't load */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDownload}
+            className="gap-2 text-xs bg-background/80 backdrop-blur-sm"
+          >
+            <Download className="h-3 w-3" />
+            إذا لم تظهر المعاينة، حمّل الملف
+          </Button>
+        </div>
+      </motion.div>
     </div>
   );
 }

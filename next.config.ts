@@ -48,7 +48,7 @@ const nextConfig: NextConfig = {
           "font-src 'self' https://fonts.gstatic.com",
           `img-src 'self' data: blob: ${supabaseUrl} ${appUrl}`,
           `connect-src 'self' blob: ${supabaseUrl} ${appUrl} https://cdn.jsdelivr.net wss://*.supabase.co wss://*.pyramedia.cloud`,
-          "frame-src 'self'",
+          `frame-src 'self' ${supabaseUrl} blob: https://view.officeapps.live.com`,
           `media-src 'self' blob: ${supabaseUrl}`,
           "worker-src 'self' blob:",
         ].join('; '),
