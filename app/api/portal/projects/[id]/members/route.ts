@@ -45,25 +45,36 @@ export async function GET(
       return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
     }
 
-    if (!project.team_id) {
-      return apiSuccess([]);
-    }
-
     // ── Get team members ─────────────────────────────
-    const { data: teamMembers } = await supabase
-      .from('pyra_team_members')
-      .select('username')
-      .eq('team_id', project.team_id);
+    // If the project has a team assigned, return that team's members.
+    // Otherwise, return ALL users (admins + employees) since they all
+    // have access and the client should be able to @mention them.
+    let usernames: string[] = [];
 
-    if (!teamMembers || teamMembers.length === 0) {
-      return apiSuccess([]);
+    if (project.team_id) {
+      const { data: teamMembers } = await supabase
+        .from('pyra_team_members')
+        .select('username')
+        .eq('team_id', project.team_id);
+
+      usernames = (teamMembers || []).map((m: { username: string }) => m.username);
     }
 
-    const usernames = teamMembers.map((m: { username: string }) => m.username);
-    const { data: users } = await supabase
-      .from('pyra_users')
-      .select('display_name')
-      .in('username', usernames);
+    // Fallback: if no team or team has no members, return all active users
+    let users: { display_name: string }[] | null;
+
+    if (usernames.length > 0) {
+      const { data } = await supabase
+        .from('pyra_users')
+        .select('display_name')
+        .in('username', usernames);
+      users = data;
+    } else {
+      const { data } = await supabase
+        .from('pyra_users')
+        .select('display_name');
+      users = data;
+    }
 
     const members = (users || []).map((u: { display_name: string }) => ({
       display_name: u.display_name,

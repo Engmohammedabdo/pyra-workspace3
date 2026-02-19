@@ -124,6 +124,7 @@ export async function POST(
         .insert({
           id: generateId('fa'),
           file_id: fileId,
+          client_id: client.id,
           status: 'approved',
           reviewed_by: client.name,
           reviewed_at: now,
