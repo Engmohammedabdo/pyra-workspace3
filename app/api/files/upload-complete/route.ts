@@ -10,6 +10,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getParentPath, isPathSafe } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
+import { autoLinkFileToProject } from '@/lib/utils/project-files';
 
 export const dynamic = 'force-dynamic';
 
@@ -149,6 +150,15 @@ export async function POST(request: NextRequest) {
       console.error('Index error after direct upload:', indexError);
       return apiServerError(`فشل فهرسة الملف: ${indexError.message}`);
     }
+
+    // Auto-link to project if file is inside a project folder
+    void autoLinkFileToProject(supabase, {
+      filePath: storagePath,
+      fileName,
+      fileSize: fileSize || 0,
+      mimeType: mimeType || 'application/octet-stream',
+      uploadedBy: auth.pyraUser.username,
+    });
 
     // Log activity (non-critical)
     await supabase.from('pyra_activity_log').insert({

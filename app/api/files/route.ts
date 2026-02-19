@@ -17,6 +17,7 @@ import {
 } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { autoLinkFileToProject } from '@/lib/utils/project-files';
 import type { FileListItem } from '@/types/database';
 
 // ── Route Segment Config: allow large file uploads ──
@@ -266,6 +267,15 @@ export async function POST(request: NextRequest) {
       }
 
       uploadedPaths.push(filePath);
+
+      // Auto-link to project if file is inside a project folder
+      void autoLinkFileToProject(supabase, {
+        filePath,
+        fileName: safeName,
+        fileSize: file.size,
+        mimeType: file.type || 'application/octet-stream',
+        uploadedBy: auth.pyraUser.username,
+      });
 
       // Log activity (non-critical — don't rollback on failure)
       await supabase.from('pyra_activity_log').insert({
