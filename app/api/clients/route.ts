@@ -151,6 +151,7 @@ export async function POST(request: NextRequest) {
         phone: phone?.trim() || null,
         company: company.trim(),
         auth_user_id: authUser.user.id,
+        password_hash: 'supabase_auth_managed',
         is_active: true,
       })
       .select(CLIENT_FIELDS)
