@@ -43,7 +43,9 @@ import {
   FolderOpen,
   Search,
   Loader2,
+  Eye,
 } from 'lucide-react';
+import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 
 // ---------- Types ----------
 
@@ -124,6 +126,10 @@ export default function PortalFilesPage() {
 
   // Approve loading
   const [approveLoading, setApproveLoading] = useState<string | null>(null);
+
+  // File preview
+  const [previewFile, setPreviewFile] = useState<FileWithProject | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -360,7 +366,12 @@ export default function PortalFilesPage() {
                       <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
                         <FileTypeIcon className="h-4 w-4 text-muted-foreground" />
                       </div>
-                      <span className="text-sm truncate">{file.file_name}</span>
+                      <span
+                        className="text-sm truncate cursor-pointer hover:text-orange-500 transition-colors"
+                        onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                      >
+                        {file.file_name}
+                      </span>
                       {isNewFile(file.added_at) && (
                         <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
                           جديد
@@ -391,6 +402,15 @@ export default function PortalFilesPage() {
                       {formatDate(file.added_at)}
                     </div>
                     <div className="col-span-2 flex items-center justify-end gap-1.5">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                        className="h-8 w-8 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
+                        title="معاينة"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -437,7 +457,10 @@ export default function PortalFilesPage() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium truncate">
+                        <p
+                          className="text-sm font-medium truncate cursor-pointer hover:text-orange-500 transition-colors"
+                          onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                        >
                           {file.file_name}
                         </p>
                         {isNewFile(file.added_at) && (
@@ -467,6 +490,15 @@ export default function PortalFilesPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                        className="h-8 w-8 p-0 text-orange-500"
+                        title="معاينة"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -559,6 +591,22 @@ export default function PortalFilesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Preview */}
+      <PortalFilePreview
+        file={
+          previewFile
+            ? {
+                id: previewFile.id,
+                file_name: previewFile.file_name,
+                file_type: previewFile.file_type,
+                file_size: previewFile.file_size,
+              }
+            : null
+        }
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </div>
   );
 }

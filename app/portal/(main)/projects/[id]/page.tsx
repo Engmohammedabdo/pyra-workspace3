@@ -41,7 +41,10 @@ import {
   Send,
   Loader2,
   MessageSquare,
+  Eye,
 } from 'lucide-react';
+import { MentionTextarea } from '@/components/portal/mention-textarea';
+import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 
 // ---------- Types ----------
 
@@ -165,6 +168,10 @@ export default function PortalProjectDetailPage() {
   const [fileCommentFileName, setFileCommentFileName] = useState('');
   const [fileCommentText, setFileCommentText] = useState('');
   const [fileCommentLoading, setFileCommentLoading] = useState(false);
+
+  // File preview
+  const [previewFile, setPreviewFile] = useState<ProjectFile | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const fetchProject = useCallback(async () => {
     try {
@@ -453,7 +460,10 @@ export default function PortalProjectDetailPage() {
                       {/* File Info */}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium truncate">
+                          <p
+                            className="text-sm font-medium truncate cursor-pointer hover:text-orange-500 transition-colors"
+                            onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                          >
                             {file.file_name}
                           </p>
                           {isNewFile(file.added_at) && (
@@ -499,6 +509,16 @@ export default function PortalProjectDetailPage() {
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           <span className="hidden sm:inline">تعليق</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
+                          className="gap-1.5 text-orange-500 hover:text-orange-600 border-orange-500/30 hover:bg-orange-500/10"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">معاينة</span>
                         </Button>
 
                         <Button
@@ -606,11 +626,11 @@ export default function PortalProjectDetailPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmitComment} className="space-y-3">
-                <textarea
+                <MentionTextarea
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
+                  onChange={setNewComment}
+                  projectId={projectId}
                   placeholder="اكتب تعليقك هنا... (استخدم @ لذكر شخص من فريق العمل)"
-                  className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                   required
                 />
                 <div className="flex justify-end">
@@ -742,12 +762,13 @@ export default function PortalProjectDetailPage() {
           </DialogHeader>
           <div className="space-y-2">
             <Label htmlFor="file-comment-text">التعليق</Label>
-            <textarea
+            <MentionTextarea
               id="file-comment-text"
               value={fileCommentText}
-              onChange={(e) => setFileCommentText(e.target.value)}
+              onChange={setFileCommentText}
+              projectId={projectId}
               placeholder="اكتب تعليقك هنا... (مثال: @أحمد الرجاء مراجعة التصميم)"
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+              rows={4}
               required
             />
           </div>
@@ -777,6 +798,22 @@ export default function PortalProjectDetailPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Preview */}
+      <PortalFilePreview
+        file={
+          previewFile
+            ? {
+                id: previewFile.id,
+                file_name: previewFile.file_name,
+                file_type: previewFile.file_type,
+                file_size: previewFile.file_size,
+              }
+            : null
+        }
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </div>
   );
 }

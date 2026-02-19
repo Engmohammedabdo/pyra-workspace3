@@ -9,6 +9,8 @@ import { generateId } from './id';
  * project in pyra_projects by storage_path and inserts a record in
  * pyra_project_files so the client can see it in the portal.
  *
+ * Also sends a notification to the client when a new file is linked.
+ *
  * Non-critical — errors are logged but never thrown.
  */
 export async function autoLinkFileToProject(
@@ -34,25 +36,27 @@ export async function autoLinkFileToProject(
     // Try progressively shorter prefixes to find a matching project.
     // E.g. for "projects/ontime/branding/subfolder/file.png"
     // try "projects/ontime/branding/subfolder", then "projects/ontime/branding"
-    let projectId: string | null = null;
+    let matchedProject: { id: string; client_id: string | null } | null = null;
 
     for (let depth = parts.length - 1; depth >= 3; depth--) {
       const candidatePath = parts.slice(0, depth).join('/');
 
       const { data: project } = await supabase
         .from('pyra_projects')
-        .select('id')
+        .select('id, client_id')
         .eq('storage_path', candidatePath)
         .limit(1)
         .maybeSingle();
 
       if (project) {
-        projectId = project.id;
+        matchedProject = project;
         break;
       }
     }
 
-    if (!projectId) return; // No matching project — file is not inside a project folder
+    if (!matchedProject) return; // No matching project — file is not inside a project folder
+
+    const projectId = matchedProject.id;
 
     // Check if already linked (avoid duplicates)
     const { data: existing } = await supabase
@@ -79,6 +83,23 @@ export async function autoLinkFileToProject(
       version: 1,
       created_at: new Date().toISOString(),
     });
+
+    // ── Notify client about new file upload (non-critical) ──
+    if (matchedProject.client_id) {
+      try {
+        await supabase.from('pyra_client_notifications').insert({
+          id: generateId('cn'),
+          client_id: matchedProject.client_id,
+          type: 'file_upload',
+          title: 'ملف جديد',
+          message: `تم رفع ملف جديد: ${fileName}`,
+          target_project_id: projectId,
+          is_read: false,
+        });
+      } catch (notifErr) {
+        console.warn('autoLinkFileToProject notification warning:', notifErr);
+      }
+    }
   } catch (err) {
     // Non-critical — log and continue
     console.warn('autoLinkFileToProject warning:', err);

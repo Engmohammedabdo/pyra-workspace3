@@ -252,7 +252,10 @@ export interface PyraClientNotification {
   id: string;
   client_id: string;
   type: string;
+  title: string;
   message: string;
+  target_project_id: string | null;
+  target_file_id: string | null;
   is_read: boolean;
   created_at: string;
 }
