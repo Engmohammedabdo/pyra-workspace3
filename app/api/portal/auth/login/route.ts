@@ -9,6 +9,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
+import { generateId } from '@/lib/utils/id';
 import bcrypt from 'bcryptjs';
 
 /**
@@ -118,6 +119,21 @@ export async function POST(request: NextRequest) {
       .from('pyra_clients')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', client.id);
+
+    // ── Log login activity (non-critical) ────────────
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_login',
+      username: client.email || client.name,
+      display_name: client.name || client.company,
+      target_path: `/portal`,
+      details: {
+        client_id: client.id,
+        client_company: client.company,
+        portal_client: true,
+      },
+      ip_address: clientIp,
+    });
 
     // ── Return safe client data ──────────────────────
     const { data: safeClient } = await supabase

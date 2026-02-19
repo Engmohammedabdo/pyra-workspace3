@@ -9,6 +9,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
+import { generateId } from '@/lib/utils/id';
 
 /**
  * Hash a reset token using SHA-256 to look up the stored hash.
@@ -136,6 +137,20 @@ export async function POST(request: NextRequest) {
       .from('pyra_sessions')
       .delete()
       .like('username', `reset:${clientId}`);
+
+    // ── Log password reset activity ──────────────────
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_password_reset_completed',
+      username: `client:${clientId}`,
+      display_name: 'عميل',
+      target_path: `/portal/auth`,
+      details: {
+        client_id: clientId,
+        portal_client: true,
+      },
+      ip_address: clientIp,
+    });
 
     // ── Invalidate ALL active portal sessions ──────
     await destroyAllClientSessions(clientId);

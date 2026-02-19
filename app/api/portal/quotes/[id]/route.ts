@@ -8,6 +8,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -49,6 +50,22 @@ export async function GET(_request: NextRequest, context: RouteContext) {
         .eq('id', id);
       quote.status = 'viewed';
       quote.viewed_at = now;
+
+      // ── Log quote viewed activity ──────────────────
+      void supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'quote_viewed',
+        username: session.email || session.name,
+        display_name: session.name || session.company,
+        target_path: `/quotes/${id}`,
+        details: {
+          quote_id: id,
+          quote_number: quote.quote_number,
+          client_company: session.company,
+          portal_client: true,
+        },
+        ip_address: _request.headers.get('x-forwarded-for') || 'unknown',
+      });
     }
 
     // Get items

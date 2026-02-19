@@ -7,6 +7,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { generateId } from '@/lib/utils/id';
 
 /**
  * GET /api/portal/profile
@@ -136,6 +137,22 @@ export async function PATCH(request: NextRequest) {
       console.error('PATCH /api/portal/profile — update error:', updateError);
       return apiServerError();
     }
+
+    // ── Log profile update activity ──────────────────
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_profile_updated',
+      username: client.email || client.name,
+      display_name: client.name || client.company,
+      target_path: `/portal/profile`,
+      details: {
+        client_id: client.id,
+        client_company: client.company,
+        updated_fields: Object.keys(updates),
+        portal_client: true,
+      },
+      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    });
 
     // ── Return updated data ───────────────────────────
     const { data: updatedClient } = await supabase

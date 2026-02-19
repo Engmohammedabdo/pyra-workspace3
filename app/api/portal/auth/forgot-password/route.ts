@@ -8,7 +8,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { forgotPasswordLimiter } from '@/lib/utils/rate-limit';
+import { forgotPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
 
 const RESET_TOKEN_EXPIRY_HOURS = 1;
 
@@ -106,6 +106,21 @@ export async function POST(request: NextRequest) {
 
     // In production, send the email here:
     // await sendPasswordResetEmail(client.email, client.name, resetToken);
+
+    // ── Log reset request activity (non-critical) ───
+    const clientIp = getClientIp(request);
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_password_reset_requested',
+      username: client.email || client.name,
+      display_name: client.name || 'عميل',
+      target_path: `/portal/auth`,
+      details: {
+        client_id: client.id,
+        portal_client: true,
+      },
+      ip_address: clientIp,
+    });
 
     // ── Build response ───────────────────────────────
     const response: Record<string, unknown> = {

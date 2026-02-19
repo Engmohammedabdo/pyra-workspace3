@@ -10,6 +10,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { generateId } from '@/lib/utils/id';
 
 /**
  * POST /api/portal/profile/password
@@ -102,6 +103,21 @@ export async function POST(request: NextRequest) {
       console.error('POST /api/portal/profile/password — update error:', updateError);
       return apiServerError('فشل تحديث كلمة المرور');
     }
+
+    // ── Log password change activity ────────────────
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'portal_password_changed',
+      username: client.email || client.name,
+      display_name: client.name || client.company,
+      target_path: `/portal/profile`,
+      details: {
+        client_id: client.id,
+        client_company: client.company,
+        portal_client: true,
+      },
+      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    });
 
     // ── Invalidate ALL portal sessions (including current) ──
     // After password change, user must re-login for security
