@@ -171,7 +171,37 @@ export default function PortalProjectDetailPage() {
       const res = await fetch(`/api/portal/projects/${projectId}`);
       const json = await res.json();
       if (res.ok && json.data) {
-        setProject(json.data);
+        const d = json.data;
+        // API returns { project, project_files, file_approvals, comments }
+        // Transform into the shape the UI expects
+        const approvalMap = new Map(
+          (d.file_approvals || []).map((a: { file_id: string; id: string; status: string; comment: string | null; reviewed_at: string | null }) => [
+            a.file_id,
+            { id: a.id, status: a.status, comment: a.comment, reviewed_at: a.reviewed_at },
+          ])
+        );
+
+        const files: ProjectFile[] = (d.project_files || []).map(
+          (f: { id: string; file_name: string; mime_type: string; file_path: string; file_size?: number; created_at: string }) => ({
+            id: f.id,
+            file_name: f.file_name,
+            file_type: f.mime_type || 'application/octet-stream',
+            file_path: f.file_path,
+            file_size: f.file_size,
+            added_at: f.created_at,
+            approval: approvalMap.get(f.id) || undefined,
+          })
+        );
+
+        setProject({
+          id: d.project.id,
+          name: d.project.name,
+          description: d.project.description,
+          status: d.project.status,
+          updated_at: d.project.updated_at,
+          files,
+          comments: d.comments || [],
+        });
       }
     } catch {
       // silently fail
