@@ -10,11 +10,17 @@ const PRECACHE_URLS = [
   '/offline',
 ];
 
-// Install — cache static assets
+// Install — cache static assets (non-blocking: skip URLs that fail)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll(PRECACHE_URLS);
+      return Promise.allSettled(
+        PRECACHE_URLS.map((url) =>
+          cache.add(url).catch(() => {
+            // Silently skip URLs that can't be cached
+          })
+        )
+      );
     })
   );
   self.skipWaiting();

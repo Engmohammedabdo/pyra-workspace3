@@ -62,7 +62,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         tax_amount: original.tax_amount,
         total: original.total,
         notes: original.notes,
-        terms: original.terms,
+        terms_conditions: original.terms_conditions,
         bank_details: original.bank_details,
         company_name: original.company_name,
         company_logo: original.company_logo,

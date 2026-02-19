@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
         tax_amount: taxAmount,
         total,
         notes: notes?.trim() || null,
-        terms: termsConditions,
+        terms_conditions: termsConditions,
         bank_details: bankDetails,
         company_name: companyMap.company_name || null,
         company_logo: companyMap.company_logo || null,
