@@ -16,10 +16,11 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2 } from 'lucide-react';
+import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2, Eye } from 'lucide-react';
 import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { ProjectKanban } from '@/components/projects/project-kanban';
 import { toast } from 'sonner';
+import { useRouter } from 'next/navigation';
 
 interface Project {
   id: string;
@@ -48,6 +49,7 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 };
 
 export default function ProjectsPage() {
+  const router = useRouter();
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,7 +244,7 @@ export default function ProjectsPage() {
                   return (
                     <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                       <td className="p-3">
-                        <div className="font-medium">{p.name}</div>
+                        <div className="font-medium text-primary hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>{p.name}</div>
                         {p.description && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{p.description}</div>}
                         {/* Comments & size mini-stats */}
                         <div className="flex items-center gap-3 mt-1">
@@ -298,6 +300,7 @@ export default function ProjectsPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => router.push(`/dashboard/projects/${p.id}`)}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
                           </DropdownMenuContent>
