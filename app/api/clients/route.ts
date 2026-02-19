@@ -97,21 +97,25 @@ export async function POST(request: NextRequest) {
     if (!name?.trim()) return apiValidationError('الاسم مطلوب');
     if (!email?.trim()) return apiValidationError('البريد الإلكتروني مطلوب');
     if (!company?.trim()) return apiValidationError('اسم الشركة مطلوب');
-    if (!password || password.length < 12) {
-      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
+    if (!password || password.length < 6) {
+      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
     }
 
     const supabase = createServiceRoleClient();
 
     // ── Check for duplicate email ────────────────────
-    const { data: existing } = await supabase
+    const { data: existing, error: checkError } = await supabase
       .from('pyra_clients')
       .select('id')
       .eq('email', email.trim().toLowerCase())
       .maybeSingle();
 
+    if (checkError) {
+      console.error('Client check error:', checkError);
+    }
+
     if (existing) {
-      return apiValidationError('تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة');
+      return apiValidationError('البريد الإلكتروني مسجل مسبقاً');
     }
 
     // ── Create Supabase Auth user ────────────────────
@@ -127,12 +131,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (authError) {
-      console.error('Auth user creation error:', authError);
-      return apiValidationError(
-        authError.message.includes('already been registered')
-          ? 'تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة'
-          : 'تعذر إنشاء الحساب. تحقق من البيانات وأعد المحاولة'
-      );
+      console.error('Auth user creation error:', authError.message, authError);
+      // If user already exists in Auth but not in pyra_clients, provide clear message
+      if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
+        return apiValidationError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة');
+      }
+      return apiValidationError(`فشل إنشاء الحساب: ${authError.message}`);
     }
 
     // ── Insert into pyra_clients ─────────────────────
@@ -153,14 +157,14 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError) {
-      console.error('Client insert error:', insertError);
+      console.error('Client insert error:', insertError.message, insertError);
       // Rollback: delete the auth user we just created
       await supabase.auth.admin.deleteUser(authUser.user.id);
-      return apiServerError();
+      return apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`);
     }
 
-    // ── Log activity ─────────────────────────────────
-    await supabase.from('pyra_activity_log').insert({
+    // ── Log activity (fire-and-forget) ────────────────
+    void supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'client_created',
       username: admin.pyraUser.username,
