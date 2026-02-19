@@ -152,6 +152,10 @@ export async function POST(request: NextRequest) {
         company: company.trim(),
         auth_user_id: authUser.user.id,
         password_hash: 'supabase_auth_managed',
+        role: 'client',
+        status: 'active',
+        language: 'ar',
+        created_by: admin.pyraUser.username,
         is_active: true,
       })
       .select(CLIENT_FIELDS)
