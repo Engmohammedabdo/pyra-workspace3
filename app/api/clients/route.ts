@@ -8,10 +8,11 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
 
 // Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
+const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
 /**
  * GET /api/clients
@@ -167,6 +168,36 @@ export async function POST(request: NextRequest) {
       await supabase.auth.admin.deleteUser(authUser.user.id);
       return apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`);
     }
+
+    // ── Create project folder for client (projects/{company}) ──
+    const safeCompany = sanitizeFileName(company.trim());
+    const folderPath = `projects/${safeCompany}`;
+    const placeholderPath = `${folderPath}/.emptyFolderPlaceholder`;
+
+    // Upload empty placeholder to create folder in storage
+    void supabase.storage
+      .from(BUCKET)
+      .upload(placeholderPath, new Uint8Array(0), {
+        contentType: 'application/x-empty',
+        upsert: true,
+      })
+      .then(() => {
+        // Index the folder
+        void supabase.from('pyra_file_index').upsert(
+          {
+            id: generateId('fi'),
+            file_path: folderPath,
+            file_name: safeCompany,
+            file_name_lower: safeCompany.toLowerCase(),
+            file_size: 0,
+            mime_type: 'folder',
+            is_folder: true,
+            parent_path: 'projects',
+            indexed_at: new Date().toISOString(),
+          },
+          { onConflict: 'file_path' }
+        );
+      });
 
     // ── Log activity (fire-and-forget) ────────────────
     void supabase.from('pyra_activity_log').insert({
