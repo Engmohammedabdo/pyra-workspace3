@@ -51,7 +51,29 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(projects || []);
+    // Enrich with files_count per project
+    const projectIds = (projects || []).map((p) => p.id);
+    const fileCounts = new Map<string, number>();
+    if (projectIds.length > 0) {
+      const { data: counts } = await supabase
+        .from('pyra_project_files')
+        .select('project_id')
+        .in('project_id', projectIds)
+        .eq('client_visible', true);
+
+      if (counts) {
+        for (const row of counts) {
+          fileCounts.set(row.project_id, (fileCounts.get(row.project_id) || 0) + 1);
+        }
+      }
+    }
+
+    const enriched = (projects || []).map((p) => ({
+      ...p,
+      files_count: fileCounts.get(p.id) || 0,
+    }));
+
+    return apiSuccess(enriched);
   } catch (err) {
     console.error('GET /api/portal/projects error:', err);
     return apiServerError();

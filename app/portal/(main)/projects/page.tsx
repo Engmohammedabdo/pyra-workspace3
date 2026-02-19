@@ -76,7 +76,16 @@ export default function PortalProjectsPage() {
         const res = await fetch('/api/portal/projects');
         const json = await res.json();
         if (res.ok && json.data) {
-          setProjects(json.data);
+          // API may not include filesCount — default to 0
+          const mapped: PortalProject[] = (json.data as Array<Record<string, unknown>>).map((p) => ({
+            id: p.id as string,
+            name: p.name as string,
+            description: (p.description ?? null) as string | null,
+            status: (p.status || 'active') as PortalProject['status'],
+            filesCount: (p.filesCount ?? p.files_count ?? 0) as number,
+            updated_at: p.updated_at as string,
+          }));
+          setProjects(mapped);
         }
       } catch {
         // silently fail

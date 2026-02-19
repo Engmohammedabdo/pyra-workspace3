@@ -130,7 +130,18 @@ export default function PortalFilesPage() {
       const res = await fetch('/api/portal/files');
       const json = await res.json();
       if (res.ok && json.data) {
-        setFiles(json.data);
+        // API returns mime_type; frontend expects file_type
+        const mapped: FileWithProject[] = (json.data as Array<Record<string, unknown>>).map((f) => ({
+          id: f.id as string,
+          file_name: f.file_name as string,
+          file_type: (f.mime_type || f.file_type || 'application/octet-stream') as string,
+          file_size: f.file_size as number | undefined,
+          added_at: (f.created_at || f.added_at) as string,
+          project_id: f.project_id as string,
+          project_name: f.project_name as string,
+          approval: f.approval as FileWithProject['approval'],
+        }));
+        setFiles(mapped);
       }
     } catch {
       // silently fail
