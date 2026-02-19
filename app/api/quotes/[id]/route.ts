@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -20,7 +21,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -58,7 +59,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await context.params;
     const body = await request.json();
@@ -216,7 +217,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();

@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -27,7 +28,7 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 export async function GET(request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const supabase = createServiceRoleClient();
     const searchParams = request.nextUrl.searchParams;
@@ -89,7 +90,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const body = await request.json();
     const { name, email, phone, company, password } = body;

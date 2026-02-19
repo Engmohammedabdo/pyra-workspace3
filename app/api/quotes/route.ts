@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -20,7 +21,7 @@ import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 export async function GET(request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const supabase = createServiceRoleClient();
     const sp = request.nextUrl.searchParams;
@@ -75,7 +76,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const body = await request.json();
     const {

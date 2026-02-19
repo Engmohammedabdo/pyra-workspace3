@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,7 +15,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 export async function GET(_request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const supabase = await createServerSupabaseClient();
 
@@ -42,14 +43,15 @@ export async function GET(_request: NextRequest) {
 export async function DELETE(_request: NextRequest) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const supabase = await createServerSupabaseClient();
 
+    // Terminate all sessions except the current admin's
     const { error } = await supabase
       .from('pyra_sessions')
       .delete()
-      .neq('id', 'keep-none'); // Delete all — we pass dummy to delete all
+      .neq('username', admin.pyraUser.username);
 
     if (error) {
       console.error('Sessions terminate all error:', error);

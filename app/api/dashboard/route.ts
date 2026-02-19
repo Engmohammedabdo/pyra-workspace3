@@ -6,7 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/dashboard
@@ -133,7 +133,7 @@ async function getEmployeeDashboard(
       ? supabase
           .from('pyra_file_index')
           .select('id', { count: 'exact', head: true })
-          .or(allPaths.map((p) => `file_path.like.${escapeLike(p)}%`).join(','))
+          .or(allPaths.map((p) => `file_path.like.${escapePostgrestValue(escapeLike(p) + '%')}`).join(','))
       : Promise.resolve({ count: 0, data: null, error: null }),
   ]);
 

@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -25,7 +26,7 @@ export async function GET(
 ) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -82,7 +83,7 @@ export async function PATCH(
 ) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await params;
     const body = await request.json();
@@ -197,7 +198,7 @@ export async function DELETE(
 ) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await params;
     const supabase = createServiceRoleClient();

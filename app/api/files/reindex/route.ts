@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (limited) return limited;
 
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const storage = createServiceRoleClient();
     const supabase = await createServerSupabaseClient();

@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -17,7 +18,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await context.params;
 

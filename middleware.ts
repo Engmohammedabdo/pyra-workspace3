@@ -51,20 +51,33 @@ export async function middleware(request: NextRequest) {
   // if no valid cookie session exists.
 
   // ── CSRF protection for state-changing API requests ────────
-  // Verify Origin header matches the app's host for POST/PATCH/DELETE/PUT
+  // Verify Origin/Referer header matches the app's host for POST/PATCH/DELETE/PUT
   const method = request.method;
   if (
     pathname.startsWith('/api') &&
     ['POST', 'PATCH', 'PUT', 'DELETE'].includes(method)
   ) {
     const origin = request.headers.get('origin');
+    const referer = request.headers.get('referer');
     const host = request.headers.get('host');
-    // Allow if origin matches host, or if there's no origin (same-origin fetch)
-    if (origin && host) {
-      const originHost = new URL(origin).host;
-      if (originHost !== host) {
+
+    if (host) {
+      // Try Origin header first, fall back to Referer
+      const sourceUrl = origin || (referer ? new URL(referer).origin : null);
+
+      if (sourceUrl) {
+        const sourceHost = new URL(sourceUrl).host;
+        if (sourceHost !== host) {
+          return NextResponse.json(
+            { error: 'CSRF validation failed' },
+            { status: 403 }
+          );
+        }
+      } else {
+        // No Origin or Referer header — block state-changing requests
+        // (legitimate browser requests always include at least one of these)
         return NextResponse.json(
-          { error: 'CSRF validation failed' },
+          { error: 'CSRF validation failed — missing origin' },
           { status: 403 }
         );
       }

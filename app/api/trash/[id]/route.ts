@@ -3,6 +3,7 @@ import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -21,7 +22,7 @@ export async function POST(
 ) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -112,7 +113,7 @@ export async function DELETE(
 ) {
   try {
     const admin = await getApiAdmin();
-    if (!admin) return apiUnauthorized();
+    if (!admin) return apiForbidden();
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
