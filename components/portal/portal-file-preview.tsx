@@ -252,7 +252,7 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
             ) : isVideo(effectiveMime) ? (
               <VideoPreview url={signedUrl} />
             ) : isPdf(effectiveMime) ? (
-              <PdfPreview url={signedUrl} />
+              <PdfPreview url={`/api/portal/files/${file.id}/view`} />
             ) : isAudio(effectiveMime) ? (
               <AudioPreview url={signedUrl} name={decodedName} />
             ) : isTextLike(effectiveMime) ? (

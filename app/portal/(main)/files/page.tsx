@@ -52,6 +52,7 @@ import {
   Home,
 } from 'lucide-react';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
+import { PdfThumbnail } from '@/components/portal/pdf-thumbnail';
 import { resolveMimeType } from '@/lib/utils/mime';
 
 // ---------- Types ----------
@@ -115,6 +116,10 @@ function isNewFile(addedAt: string): boolean {
 
 function isImageType(fileType: string): boolean {
   return fileType.toLowerCase().startsWith('image/');
+}
+
+function isPdfType(fileType: string): boolean {
+  return fileType.toLowerCase() === 'application/pdf';
 }
 
 function getFileIcon(fileType: string) {
@@ -270,6 +275,7 @@ function FileCard({
   const approval = file.approval;
   const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
   const isImage = isImageType(file.file_type);
+  const isPdf = isPdfType(file.file_type);
   const [imgError, setImgError] = useState(false);
   const canAct = !approval || approval.status === 'pending';
 
@@ -287,6 +293,12 @@ function FileCard({
             className="w-full h-full object-cover"
             loading="lazy"
             onError={() => setImgError(true)}
+          />
+        ) : isPdf ? (
+          <PdfThumbnail
+            url={`/api/portal/files/${file.id}/view`}
+            fileName={file.file_name}
+            className="w-full h-full"
           />
         ) : (
           <div className={cn('w-full h-full flex items-center justify-center', colorBg)}>

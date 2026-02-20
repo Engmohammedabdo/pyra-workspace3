@@ -67,6 +67,17 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      // Portal file view route — allow same-origin embedding (for PDF preview via iframe)
+      {
+        source: '/api/portal/files/:id/view',
+        headers: [
+          ...commonHeaders,
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
       // All other routes — DENY framing
       {
         source: '/(.*)',
