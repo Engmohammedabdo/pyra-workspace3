@@ -41,6 +41,7 @@ const ACTION_LABELS: Record<string, string> = {
   client_comment: 'تعليق عميل', quote_signed: 'توقيع عرض سعر',
   quote_viewed: 'مشاهدة عرض سعر',
   script_approved: 'اعتماد سكريبت', script_revision_requested: 'طلب تعديل سكريبت',
+  script_reply_sent: 'رد إدارة على سكريبت', script_client_reply: 'رد عميل على سكريبت',
   portal_password_changed: 'تغيير كلمة مرور (عميل)',
   portal_password_reset_requested: 'طلب استعادة كلمة مرور',
   portal_password_reset_completed: 'إعادة تعيين كلمة مرور',
@@ -151,6 +152,8 @@ export default function ActivityPage() {
             <SelectItem value="quote_signed">توقيع عرض سعر</SelectItem>
             <SelectItem value="script_approved">اعتماد سكريبت</SelectItem>
             <SelectItem value="script_revision_requested">طلب تعديل سكريبت</SelectItem>
+            <SelectItem value="script_reply_sent">رد إدارة على سكريبت</SelectItem>
+            <SelectItem value="script_client_reply">رد عميل على سكريبت</SelectItem>
             <SelectItem value="portal_password_changed">تغيير كلمة مرور (عميل)</SelectItem>
             <SelectItem value="portal_profile_updated">تحديث بروفايل عميل</SelectItem>
           </SelectContent>

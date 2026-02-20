@@ -18,8 +18,9 @@ import {
   FileText, Download, Copy, Clock, HardDrive,
   ChevronLeft, Film, Loader2, ShieldAlert, RefreshCw,
   CheckCircle, AlertTriangle, MessageSquareWarning,
+  Send, Shield, User, Info, MessageSquare,
 } from 'lucide-react';
-import type { PyraScriptReview } from '@/types/database';
+import type { PyraScriptReview, PyraScriptReviewReply } from '@/types/database';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -202,6 +203,10 @@ export default function EtmamScriptsPage() {
   const [reviewComment, setReviewComment] = useState('');
   const [showRevisionForm, setShowRevisionForm] = useState(false);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replySending, setReplySending] = useState(false);
+  const [replies, setReplies] = useState<PyraScriptReviewReply[]>([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -381,6 +386,41 @@ export default function EtmamScriptsPage() {
     },
     [currentVersionFilename, reviewComment, queryClient]
   );
+
+  // ── Fetch replies for current review ──
+  const fetchReplies = useCallback(async (reviewId: string) => {
+    setRepliesLoading(true);
+    try {
+      const res = await fetch(`/api/portal/scripts/reviews/replies?review_id=${reviewId}`);
+      const json = await res.json();
+      setReplies(json.data || []);
+    } catch {
+      setReplies([]);
+    } finally {
+      setRepliesLoading(false);
+    }
+  }, []);
+
+  // ── Send reply from client ──
+  const handleSendReply = useCallback(async () => {
+    if (!replyText.trim() || !currentReview) return;
+    setReplySending(true);
+    try {
+      const res = await fetch('/api/portal/scripts/reviews/replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_id: currentReview.id, message: replyText.trim() }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      toast.success('تم إرسال الرد');
+      setReplyText('');
+      fetchReplies(currentReview.id);
+    } catch {
+      toast.error('فشل في إرسال الرد');
+    } finally {
+      setReplySending(false);
+    }
+  }, [replyText, currentReview, fetchReplies]);
 
   // ── Auth error (403 from API) ──
   const isForbidden = filesError instanceof Error && filesError.message === 'FORBIDDEN';
@@ -708,6 +748,16 @@ export default function EtmamScriptsPage() {
                     ) : scriptContent ? (
                       <ScrollArea className="h-[calc(100vh-400px)]">
                         <div className="p-6 lg:p-8" dir="rtl">
+                          {/* UX Hint Banner */}
+                          {!currentReview || currentReview.status !== 'approved' ? (
+                            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#003866]/5 border border-[#003866]/10 mb-6">
+                              <Info className="h-4 w-4 text-[#003866] shrink-0 mt-0.5" />
+                              <p className="text-xs text-[#003866]/80 leading-relaxed">
+                                بعد قراءة السكريبت، انتقل لأسفل الصفحة لاعتماده أو طلب تعديلات. يمكنك أيضاً التواصل مع فريق العمل عبر المحادثة المرفقة.
+                              </p>
+                            </div>
+                          ) : null}
+
                           <article className="prose prose-sm max-w-none">
                             <ReactMarkdown
                               remarkPlugins={[remarkGfm]}
@@ -847,6 +897,106 @@ export default function EtmamScriptsPage() {
                                     </motion.div>
                                   )}
                                 </AnimatePresence>
+                              </div>
+                            )}
+
+                            {/* ── Reply Thread (for reviewed scripts) ── */}
+                            {currentReview && (
+                              <div className="mt-4 pt-4 border-t border-[#e6dfd7]/60">
+                                <button
+                                  onClick={() => {
+                                    if (replies.length === 0 && !repliesLoading) {
+                                      fetchReplies(currentReview.id);
+                                    } else {
+                                      setReplies([]);
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 text-xs text-[#003866] hover:text-[#003866]/70 transition-colors mb-3"
+                                >
+                                  <MessageSquare className="h-3.5 w-3.5" />
+                                  {replies.length > 0 ? 'إخفاء المحادثة' : 'عرض المحادثة والرد'}
+                                </button>
+
+                                {(replies.length > 0 || repliesLoading) && (
+                                  <div className="space-y-3">
+                                    {/* Replies list */}
+                                    {repliesLoading ? (
+                                      <div className="flex items-center justify-center py-3">
+                                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                                      </div>
+                                    ) : replies.length > 0 ? (
+                                      <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                                        {replies.map((reply) => (
+                                          <div
+                                            key={reply.id}
+                                            className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                                              reply.sender_type === 'admin'
+                                                ? 'bg-blue-50 border border-blue-100'
+                                                : 'bg-gray-50 border border-gray-100'
+                                            }`}
+                                          >
+                                            <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                                              reply.sender_type === 'admin'
+                                                ? 'bg-blue-100 text-blue-600'
+                                                : 'bg-gray-200 text-gray-600'
+                                            }`}>
+                                              {reply.sender_type === 'admin' ? (
+                                                <Shield className="h-3 w-3" />
+                                              ) : (
+                                                <User className="h-3 w-3" />
+                                              )}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2">
+                                                <span className="font-medium text-foreground">
+                                                  {reply.sender_name}
+                                                </span>
+                                                <span className="text-muted-foreground text-[10px]">
+                                                  {reply.sender_type === 'admin' ? 'فريق العمل' : 'العميل'}
+                                                </span>
+                                                <span className="text-muted-foreground/60 text-[10px]">
+                                                  {new Date(reply.created_at).toLocaleString('ar-SA')}
+                                                </span>
+                                              </div>
+                                              <p className="text-foreground/80 leading-relaxed mt-0.5">
+                                                {reply.message}
+                                              </p>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-muted-foreground text-center py-2">
+                                        لا توجد ردود بعد
+                                      </p>
+                                    )}
+
+                                    {/* Client reply input */}
+                                    <div className="flex items-start gap-2">
+                                      <textarea
+                                        value={replyText}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReplyText(e.target.value)}
+                                        placeholder="اكتب ردك هنا..."
+                                        className="flex-1 min-h-[50px] text-xs resize-none rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003866]/30 focus:border-transparent"
+                                        dir="rtl"
+                                        maxLength={5000}
+                                      />
+                                      <Button
+                                        size="sm"
+                                        onClick={handleSendReply}
+                                        disabled={replySending || !replyText.trim()}
+                                        className="gap-1.5 bg-[#003866] hover:bg-[#003866]/90 text-white shrink-0"
+                                      >
+                                        {replySending ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <Send className="h-3.5 w-3.5" />
+                                        )}
+                                        رد
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>

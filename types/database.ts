@@ -278,6 +278,15 @@ export interface PyraScriptReview {
   updated_at: string;
 }
 
+export interface PyraScriptReviewReply {
+  id: string;
+  review_id: string;
+  sender_type: 'admin' | 'client';
+  sender_name: string;
+  message: string;
+  created_at: string;
+}
+
 // ==========================================
 // Quote Tables (2)
 // ==========================================

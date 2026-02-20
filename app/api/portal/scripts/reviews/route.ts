@@ -150,6 +150,25 @@ export async function POST(request: NextRequest) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
 
+    // ── Notify admin (fire-and-forget) ──
+    const notifTitle = status === 'approved'
+      ? 'العميل اعتمد سكريبت'
+      : 'العميل طلب تعديل سكريبت';
+    const notifMessage = status === 'approved'
+      ? `${client.name} اعتمد سكريبت فيديو #${String(video_number).padStart(2, '0')} (النسخة ${version})`
+      : `${client.name} طلب تعديل سكريبت فيديو #${String(video_number).padStart(2, '0')} (النسخة ${version})`;
+    void supabase.from('pyra_notifications').insert({
+      id: generateId('nt'),
+      recipient_username: 'admin',
+      type: actionType,
+      title: notifTitle,
+      message: notifMessage,
+      source_username: client.name,
+      source_display_name: client.name,
+      target_path: '/dashboard/script-reviews',
+      is_read: false,
+    });
+
     return apiSuccess(review, undefined, existing ? 200 : 201);
   } catch (err) {
     console.error('[portal/scripts/reviews] POST unexpected:', err);

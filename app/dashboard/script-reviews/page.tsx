@@ -10,10 +10,12 @@ import {
 } from '@/components/ui/select';
 import {
   ScrollText, CheckCircle, AlertTriangle, Clock, RefreshCw,
-  Film, MessageSquare,
+  Film, MessageSquare, Send, Loader2, ChevronDown, ChevronUp,
+  User, Shield,
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
-import type { PyraScriptReview } from '@/types/database';
+import { toast } from 'sonner';
+import type { PyraScriptReview, PyraScriptReviewReply } from '@/types/database';
 
 const STATUS_CONFIG = {
   approved: {
@@ -32,6 +34,215 @@ const STATUS_CONFIG = {
     icon: Clock,
   },
 } as const;
+
+function ReviewCard({
+  review,
+  onReplySubmitted,
+}: {
+  review: PyraScriptReview;
+  onReplySubmitted: () => void;
+}) {
+  const config = STATUS_CONFIG[review.status];
+  const StatusIcon = config.icon;
+
+  const [showReplies, setShowReplies] = useState(false);
+  const [replies, setReplies] = useState<PyraScriptReviewReply[]>([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const fetchReplies = useCallback(async () => {
+    setRepliesLoading(true);
+    try {
+      const res = await fetch(`/api/scripts/reviews/replies?review_id=${review.id}`);
+      const json = await res.json();
+      setReplies(json.data || []);
+    } catch {
+      setReplies([]);
+    } finally {
+      setRepliesLoading(false);
+    }
+  }, [review.id]);
+
+  const handleToggleReplies = useCallback(() => {
+    const next = !showReplies;
+    setShowReplies(next);
+    if (next && replies.length === 0) {
+      fetchReplies();
+    }
+  }, [showReplies, replies.length, fetchReplies]);
+
+  const handleSendReply = useCallback(async () => {
+    if (!replyText.trim()) return;
+    setSending(true);
+    try {
+      const res = await fetch('/api/scripts/reviews/replies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_id: review.id, message: replyText.trim() }),
+      });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error || 'Failed');
+      }
+      toast.success('تم إرسال الرد');
+      setReplyText('');
+      fetchReplies();
+      onReplySubmitted();
+    } catch {
+      toast.error('فشل في إرسال الرد');
+    } finally {
+      setSending(false);
+    }
+  }, [replyText, review.id, fetchReplies, onReplySubmitted]);
+
+  return (
+    <Card className="hover:shadow-sm transition-shadow">
+      <CardHeader className="py-4 px-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-[#003866]/10 flex items-center justify-center shrink-0">
+              <Film className="h-5 w-5 text-[#003866]" />
+            </div>
+            <div>
+              <CardTitle className="text-sm flex items-center gap-2">
+                <span className="text-[#b89a77] font-bold">
+                  #{String(review.video_number).padStart(2, '0')}
+                </span>
+                {review.filename.replace(/\.md$/, '').replace(/^video-\d+-/, '')}
+                <Badge className="text-[10px]" variant="outline">
+                  V{review.version}
+                </Badge>
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-1">
+                {review.client_name}
+                {review.reviewed_at &&
+                  ` • ${formatRelativeDate(review.reviewed_at)}`}
+              </p>
+            </div>
+          </div>
+          <Badge className={`shrink-0 text-[10px] ${config.color}`}>
+            <StatusIcon className="h-3 w-3 me-1" />
+            {config.label}
+          </Badge>
+        </div>
+      </CardHeader>
+
+      {/* Client comment */}
+      {review.comment && (
+        <CardContent className="pt-0 px-5 pb-3">
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
+            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <p className="text-[10px] font-medium text-muted-foreground mb-1">
+                تعليق العميل:
+              </p>
+              <p className="text-foreground/80 text-xs leading-relaxed">
+                {review.comment}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      )}
+
+      {/* Replies toggle + thread */}
+      <CardContent className="pt-0 px-5 pb-4">
+        <button
+          onClick={handleToggleReplies}
+          className="flex items-center gap-1.5 text-xs text-[#003866] hover:text-[#003866]/70 transition-colors"
+        >
+          {showReplies ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+          {showReplies ? 'إخفاء المحادثة' : 'عرض المحادثة والرد'}
+        </button>
+
+        {showReplies && (
+          <div className="mt-3 space-y-3">
+            {/* Reply thread */}
+            {repliesLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : replies.length > 0 ? (
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {replies.map((reply) => (
+                  <div
+                    key={reply.id}
+                    className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                      reply.sender_type === 'admin'
+                        ? 'bg-blue-50 border border-blue-100'
+                        : 'bg-gray-50 border border-gray-100'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                      reply.sender_type === 'admin'
+                        ? 'bg-blue-100 text-blue-600'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {reply.sender_type === 'admin' ? (
+                        <Shield className="h-3 w-3" />
+                      ) : (
+                        <User className="h-3 w-3" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">
+                          {reply.sender_name}
+                        </span>
+                        <span className="text-muted-foreground text-[10px]">
+                          {reply.sender_type === 'admin' ? 'الإدارة' : 'العميل'}
+                        </span>
+                        <span className="text-muted-foreground/60 text-[10px]">
+                          {formatRelativeDate(reply.created_at)}
+                        </span>
+                      </div>
+                      <p className="text-foreground/80 leading-relaxed mt-0.5">
+                        {reply.message}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground text-center py-2">
+                لا توجد ردود بعد
+              </p>
+            )}
+
+            {/* Reply input */}
+            <div className="flex items-start gap-2">
+              <textarea
+                value={replyText}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReplyText(e.target.value)}
+                placeholder="اكتب ردك هنا..."
+                className="flex-1 min-h-[60px] text-xs resize-none rounded-md border border-input bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#003866]/30 focus:border-transparent"
+                dir="rtl"
+                maxLength={5000}
+              />
+              <Button
+                size="sm"
+                onClick={handleSendReply}
+                disabled={sending || !replyText.trim()}
+                className="gap-1.5 bg-[#003866] hover:bg-[#003866]/90 text-white shrink-0"
+              >
+                {sending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
+                رد
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ScriptReviewsPage() {
   const [reviews, setReviews] = useState<PyraScriptReview[]>([]);
@@ -131,54 +342,13 @@ export default function ScriptReviewsPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {reviews.map((review) => {
-            const config = STATUS_CONFIG[review.status];
-            const StatusIcon = config.icon;
-
-            return (
-              <Card key={review.id} className="hover:shadow-sm transition-shadow">
-                <CardHeader className="py-4 px-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#003866]/10 flex items-center justify-center shrink-0">
-                        <Film className="h-5 w-5 text-[#003866]" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <span className="text-[#b89a77] font-bold">
-                            #{String(review.video_number).padStart(2, '0')}
-                          </span>
-                          {review.filename.replace(/\.md$/, '').replace(/^video-\d+-/, '')}
-                          <Badge className="text-[10px]" variant="outline">
-                            V{review.version}
-                          </Badge>
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {review.client_name}
-                          {review.reviewed_at &&
-                            ` • ${formatRelativeDate(review.reviewed_at)}`}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge className={`shrink-0 text-[10px] ${config.color}`}>
-                      <StatusIcon className="h-3 w-3 me-1" />
-                      {config.label}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                {review.comment && (
-                  <CardContent className="pt-0 px-5 pb-4">
-                    <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/50 text-sm">
-                      <MessageSquare className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                      <p className="text-foreground/80 text-xs leading-relaxed">
-                        {review.comment}
-                      </p>
-                    </div>
-                  </CardContent>
-                )}
-              </Card>
-            );
-          })}
+          {reviews.map((review) => (
+            <ReviewCard
+              key={review.id}
+              review={review}
+              onReplySubmitted={fetchReviews}
+            />
+          ))}
         </div>
       )}
     </div>

@@ -22,6 +22,7 @@ import {
   FolderKanban,
   CheckCheck,
   Loader2,
+  ScrollText,
 } from 'lucide-react';
 
 // ---------- Types ----------
@@ -52,6 +53,8 @@ function getNotificationIcon(type: string) {
       return MessageSquare;
     case 'project_update':
       return FolderKanban;
+    case 'script_reply':
+      return ScrollText;
     default:
       return Bell;
   }
@@ -73,6 +76,8 @@ function getNotificationIconColor(type: string) {
       return 'text-blue-500 bg-blue-500/10';
     case 'project_update':
       return 'text-orange-500 bg-orange-500/10';
+    case 'script_reply':
+      return 'text-indigo-500 bg-indigo-500/10';
     default:
       return 'text-muted-foreground bg-muted';
   }

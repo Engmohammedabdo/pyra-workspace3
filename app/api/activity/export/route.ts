@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
       portal_profile_updated: 'تحديث بروفايل عميل',
       script_approved: 'اعتماد سكريبت',
       script_revision_requested: 'طلب تعديل سكريبت',
+      script_reply_sent: 'رد إدارة على سكريبت',
+      script_client_reply: 'رد عميل على سكريبت',
     };
 
     // Build CSV content
