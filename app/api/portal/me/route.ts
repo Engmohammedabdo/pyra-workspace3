@@ -1,5 +1,5 @@
 import { getPortalSession } from '@/lib/portal/auth';
-import { apiSuccess, apiUnauthorized } from '@/lib/api/response';
+import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 
 /**
  * GET /api/portal/me
@@ -18,7 +18,8 @@ export async function GET() {
       email: client.email,
       company: client.company,
     });
-  } catch {
-    return apiUnauthorized();
+  } catch (err) {
+    console.error('GET /api/portal/me error:', err);
+    return apiServerError();
   }
 }

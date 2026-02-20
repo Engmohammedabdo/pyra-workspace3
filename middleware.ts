@@ -61,26 +61,27 @@ export async function middleware(request: NextRequest) {
     const referer = request.headers.get('referer');
     const host = request.headers.get('host');
 
-    if (host) {
-      // Try Origin header first, fall back to Referer
-      const sourceUrl = origin || (referer ? new URL(referer).origin : null);
+    // Use host header, fall back to APP_URL env var
+    const effectiveHost = host || new URL(process.env.NEXT_PUBLIC_APP_URL || 'https://workspace.pyramedia.cloud').host;
 
-      if (sourceUrl) {
-        const sourceHost = new URL(sourceUrl).host;
-        if (sourceHost !== host) {
-          return NextResponse.json(
-            { error: 'CSRF validation failed' },
-            { status: 403 }
-          );
-        }
-      } else {
-        // No Origin or Referer header — block state-changing requests
-        // (legitimate browser requests always include at least one of these)
+    // Try Origin header first, fall back to Referer
+    const sourceUrl = origin || (referer ? new URL(referer).origin : null);
+
+    if (sourceUrl) {
+      const sourceHost = new URL(sourceUrl).host;
+      if (sourceHost !== effectiveHost) {
         return NextResponse.json(
-          { error: 'CSRF validation failed — missing origin' },
+          { error: 'CSRF validation failed' },
           { status: 403 }
         );
       }
+    } else {
+      // No Origin or Referer header — block state-changing requests
+      // (legitimate browser requests always include at least one of these)
+      return NextResponse.json(
+        { error: 'CSRF validation failed — missing origin' },
+        { status: 403 }
+      );
     }
   }
 

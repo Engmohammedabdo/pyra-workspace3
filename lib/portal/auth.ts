@@ -60,6 +60,7 @@ export async function createPortalSession(clientId: string): Promise<string> {
 
   if (error) {
     console.error('Portal session insert error:', error.message);
+    throw new Error('Failed to create portal session');
   }
 
   cookieStore.set(PORTAL_SESSION_COOKIE, `${clientId}:${rawToken}`, {

@@ -116,6 +116,13 @@ export async function POST(request: NextRequest) {
     // ── Update password in Supabase Auth ──────────────
     const authUserId = client.auth_user_id;
 
+    if (!authUserId) {
+      return apiError(
+        'حسابك لا يدعم إعادة تعيين كلمة المرور عبر هذا الرابط. يرجى التواصل مع فريق الدعم',
+        400
+      );
+    }
+
     const { error: updateError } = await supabase.auth.admin.updateUserById(
       authUserId,
       { password }
@@ -150,6 +157,8 @@ export async function POST(request: NextRequest) {
         portal_client: true,
       },
       ip_address: clientIp,
+    }).then(({ error: logErr }) => {
+      if (logErr) console.error('[activity-log] insert error:', logErr.message);
     });
 
     // ── Invalidate ALL active portal sessions ──────

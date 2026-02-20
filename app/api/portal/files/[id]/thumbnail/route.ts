@@ -3,6 +3,12 @@ import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
 import { isImageFile } from '@/lib/utils/mime';
+import {
+  apiUnauthorized,
+  apiNotFound,
+  apiForbidden,
+  apiServerError,
+} from '@/lib/api/response';
 
 /**
  * GET /api/portal/files/[id]/thumbnail
@@ -18,7 +24,7 @@ export async function GET(
   try {
     const client = await getPortalSession();
     if (!client) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const { id: fileId } = await params;
@@ -31,16 +37,16 @@ export async function GET(
       .single();
 
     if (!projectFile || projectFile.client_visible === false) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound();
     }
 
     // Only serve thumbnails for images (check both stored mime + file extension)
     if (!isImageFile(projectFile.file_name, projectFile.mime_type)) {
-      return NextResponse.json({ error: 'Not an image' }, { status: 404 });
+      return apiNotFound('Not an image');
     }
 
     if (!isPathSafe(projectFile.file_path)) {
-      return NextResponse.json({ error: 'Invalid path' }, { status: 403 });
+      return apiForbidden('Invalid path');
     }
 
     // Verify project ownership
@@ -51,7 +57,7 @@ export async function GET(
       .single();
 
     if (!project) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound();
     }
 
     const ownsProject = project.client_id
@@ -59,7 +65,7 @@ export async function GET(
       : project.client_company === client.company;
 
     if (!ownsProject) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiForbidden();
     }
 
     // Generate signed URL (5 minutes)
@@ -68,7 +74,7 @@ export async function GET(
       .createSignedUrl(projectFile.file_path, 60 * 5);
 
     if (signedUrlError || !signedUrlData?.signedUrl) {
-      return NextResponse.json({ error: 'Storage error' }, { status: 500 });
+      return apiServerError('Storage error');
     }
 
     // Redirect to the signed URL with cache headers
@@ -79,6 +85,6 @@ export async function GET(
     });
   } catch (err) {
     console.error('GET /api/portal/files/[id]/thumbnail error:', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return apiServerError();
   }
 }

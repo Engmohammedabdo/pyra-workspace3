@@ -152,6 +152,8 @@ export async function PATCH(request: NextRequest) {
         portal_client: true,
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    }).then(({ error: logErr }) => {
+      if (logErr) console.error('[activity-log] insert error:', logErr.message);
     });
 
     // ── Return updated data ───────────────────────────

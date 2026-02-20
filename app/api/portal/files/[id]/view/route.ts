@@ -3,6 +3,12 @@ import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
 import { resolveMimeType } from '@/lib/utils/mime';
+import {
+  apiUnauthorized,
+  apiNotFound,
+  apiForbidden,
+  apiServerError,
+} from '@/lib/api/response';
 
 /**
  * GET /api/portal/files/[id]/view
@@ -47,7 +53,7 @@ export async function GET(
   try {
     const client = await getPortalSession();
     if (!client) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiUnauthorized();
     }
 
     const { id: fileId } = await params;
@@ -61,11 +67,11 @@ export async function GET(
       .single();
 
     if (!projectFile || projectFile.client_visible === false) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound();
     }
 
     if (!isPathSafe(projectFile.file_path)) {
-      return NextResponse.json({ error: 'Invalid path' }, { status: 403 });
+      return apiForbidden('Invalid path');
     }
 
     // ── Verify project ownership ──
@@ -76,7 +82,7 @@ export async function GET(
       .single();
 
     if (!project) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+      return apiNotFound();
     }
 
     const ownsProject = project.client_id
@@ -84,7 +90,7 @@ export async function GET(
       : project.client_company === client.company;
 
     if (!ownsProject) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return apiForbidden();
     }
 
     const effectiveMime = resolveMimeType(projectFile.file_name, projectFile.mime_type);
@@ -97,7 +103,7 @@ export async function GET(
         .createSignedUrl(projectFile.file_path, 60 * 5);
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
-        return NextResponse.json({ error: 'Storage error' }, { status: 500 });
+        return apiServerError('Storage error');
       }
       return NextResponse.redirect(signedUrlData.signedUrl, 302);
     }
@@ -109,7 +115,7 @@ export async function GET(
 
     if (downloadError || !fileData) {
       console.error('GET /api/portal/files/[id]/view — download error:', downloadError);
-      return NextResponse.json({ error: 'Download failed' }, { status: 500 });
+      return apiServerError('Download failed');
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
@@ -132,6 +138,6 @@ export async function GET(
     });
   } catch (err) {
     console.error('GET /api/portal/files/[id]/view error:', err);
-    return NextResponse.json({ error: 'Server error' }, { status: 500 });
+    return apiServerError();
   }
 }

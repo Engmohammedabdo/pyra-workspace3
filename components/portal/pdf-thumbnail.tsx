@@ -7,9 +7,8 @@ import { FileText, Loader2 } from 'lucide-react';
  * PdfThumbnail – renders the first page of a PDF into a <canvas>.
  *
  * Uses pdfjs-dist (already installed & configured in next.config.ts).
- * Lazy-loads the PDF only when the component mounts (IntersectionObserver
- * can be added by the parent if needed). Falls back to a styled icon
- * if rendering fails.
+ * Lazy-loads the PDF only when the component mounts. Falls back to a
+ * styled icon if rendering fails.
  */
 
 interface PdfThumbnailProps {
@@ -24,20 +23,20 @@ interface PdfThumbnailProps {
 export function PdfThumbnail({ url, fileName, className }: PdfThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
-  const renderingRef = useRef(false);
+  const currentUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (renderingRef.current) return;
-    renderingRef.current = true;
+    // Skip if same URL is already rendered
+    if (currentUrlRef.current === url) return;
+    currentUrlRef.current = url;
+    setState('loading');
 
     let cancelled = false;
 
     async function renderPdf() {
       try {
-        // Dynamically import pdfjs-dist (client-only, tree-shaken)
         const pdfjsLib = await import('pdfjs-dist');
 
-        // Set worker path (pdfjs-dist v5 ships the worker in build/)
         if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
           pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
             'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -47,22 +46,20 @@ export function PdfThumbnail({ url, fileName, className }: PdfThumbnailProps) {
 
         const loadingTask = pdfjsLib.getDocument({
           url,
-          // Only load first page for performance
           disableAutoFetch: true,
           disableStream: true,
         });
 
         const pdf = await loadingTask.promise;
-        if (cancelled) return;
+        if (cancelled) { await pdf.destroy(); return; }
 
         const page = await pdf.getPage(1);
-        if (cancelled) return;
+        if (cancelled) { page.cleanup(); await pdf.destroy(); return; }
 
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) { page.cleanup(); await pdf.destroy(); return; }
 
-        // Render at a reasonable resolution for thumbnails
-        const desiredWidth = 400; // px
+        const desiredWidth = 400;
         const viewport = page.getViewport({ scale: 1 });
         const scale = desiredWidth / viewport.width;
         const scaledViewport = page.getViewport({ scale });
@@ -71,7 +68,7 @@ export function PdfThumbnail({ url, fileName, className }: PdfThumbnailProps) {
         canvas.height = scaledViewport.height;
 
         const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+        if (!ctx) { page.cleanup(); await pdf.destroy(); return; }
 
         await page.render({
           canvasContext: ctx,
@@ -83,11 +80,12 @@ export function PdfThumbnail({ url, fileName, className }: PdfThumbnailProps) {
           setState('ready');
         }
 
-        // Clean up
         page.cleanup();
         await pdf.destroy();
       } catch (err) {
-        console.warn('PdfThumbnail render failed:', err);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('PdfThumbnail render failed:', err);
+        }
         if (!cancelled) setState('error');
       }
     }
@@ -117,7 +115,7 @@ export function PdfThumbnail({ url, fileName, className }: PdfThumbnailProps) {
       <canvas
         ref={canvasRef}
         className="w-full h-full object-cover"
-        style={{ display: state === 'ready' ? 'block' : 'block', opacity: state === 'ready' ? 1 : 0.3 }}
+        style={{ display: 'block', opacity: state === 'ready' ? 1 : 0.3 }}
         title={fileName}
       />
     </div>

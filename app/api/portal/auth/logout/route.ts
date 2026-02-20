@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
           portal_client: true,
         },
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+      }).then(({ error: logErr }) => {
+        if (logErr) console.error('[activity-log] insert error:', logErr.message);
       });
     }
 

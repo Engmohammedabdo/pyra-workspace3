@@ -74,7 +74,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Notify via activity log
     await supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
+      id: generateId('al'),
       action_type: 'quote_signed',
       username: session.name,
       display_name: session.name,

@@ -32,7 +32,7 @@ export async function GET() {
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
       .from('pyra_script_reviews')
-      .select('*')
+      .select('id, filename, video_number, version, status, comment, client_name, reviewed_at, created_at, updated_at')
       .order('video_number', { ascending: true });
 
     if (error) {
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
           updated_at: now,
         })
         .eq('id', existing.id)
-        .select('*')
+        .select('id, filename, video_number, version, status, comment, client_name, reviewed_at, updated_at')
         .single();
 
       if (error) {
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
           client_name: client.name,
           reviewed_at: now,
         })
-        .select('*')
+        .select('id, filename, video_number, version, status, comment, client_name, reviewed_at, created_at')
         .single();
 
       if (error) {
@@ -148,6 +148,8 @@ export async function POST(request: NextRequest) {
         comment: comment?.trim() || null,
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    }).then(({ error: logErr }) => {
+      if (logErr) console.error('[activity-log] insert error:', logErr.message);
     });
 
     // ── Notify all admins (fire-and-forget) ──
@@ -157,26 +159,29 @@ export async function POST(request: NextRequest) {
     const notifMessage = status === 'approved'
       ? `${client.name} اعتمد سكريبت فيديو #${String(video_number).padStart(2, '0')} (النسخة ${version})`
       : `${client.name} طلب تعديل سكريبت فيديو #${String(video_number).padStart(2, '0')} (النسخة ${version})`;
-    supabase
-      .from('pyra_users')
-      .select('username')
-      .then(async ({ data: admins }) => {
-        if (!admins?.length) return;
-        const notifs = admins.map((a: { username: string }) => ({
-          id: generateId('nt'),
-          recipient_username: a.username,
-          type: actionType,
-          title: notifTitle,
-          message: notifMessage,
-          source_username: client.name,
-          source_display_name: client.name,
-          target_path: '/dashboard/script-reviews',
-          is_read: false,
-          created_at: now,
-        }));
-        const { error: nErr } = await supabase.from('pyra_notifications').insert(notifs);
-        if (nErr) console.error('[portal/scripts/reviews] notify error:', nErr.message);
-      });
+    Promise.resolve(
+      supabase
+        .from('pyra_users')
+        .select('username')
+        .eq('role', 'admin')
+        .then(async ({ data: admins }) => {
+          if (!admins?.length) return;
+          const notifs = admins.map((a: { username: string }) => ({
+            id: generateId('nt'),
+            recipient_username: a.username,
+            type: actionType,
+            title: notifTitle,
+            message: notifMessage,
+            source_username: client.name,
+            source_display_name: client.name,
+            target_path: '/dashboard/script-reviews',
+            is_read: false,
+            created_at: now,
+          }));
+          const { error: nErr } = await supabase.from('pyra_notifications').insert(notifs);
+          if (nErr) console.error('[portal/scripts/reviews] notify error:', nErr.message);
+        })
+    ).catch((err: unknown) => console.error('[portal/scripts/reviews] notification chain error:', err));
 
     return apiSuccess(review, undefined, existing ? 200 : 201);
   } catch (err) {

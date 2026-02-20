@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { data: quote, error } = await supabase
       .from('pyra_quotes')
-      .select('*')
+      .select('id, quote_number, title, description, total_amount, status, client_id, signed_by, signed_at, viewed_at, valid_until, created_at, updated_at')
       .eq('id', id)
       .maybeSingle();
 
@@ -65,6 +65,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
           portal_client: true,
         },
         ip_address: _request.headers.get('x-forwarded-for') || 'unknown',
+      }).then(({ error: logErr }) => {
+        if (logErr) console.error('[activity-log] insert error:', logErr.message);
       });
     }
 

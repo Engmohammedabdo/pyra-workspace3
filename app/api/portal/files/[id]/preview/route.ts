@@ -94,6 +94,8 @@ export async function GET(
         portal_client: true,
       },
       ip_address: _request.headers.get('x-forwarded-for') || 'unknown',
+    }).then(({ error: logErr }) => {
+      if (logErr) console.error('[activity-log] insert error:', logErr.message);
     });
 
     // Resolve correct MIME type (DB may store 'application/octet-stream' for many files)
