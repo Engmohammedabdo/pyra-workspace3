@@ -56,6 +56,17 @@ const nextConfig: NextConfig = {
     ];
 
     return [
+      // Default: DENY framing for all routes (catch-all FIRST so specific overrides win)
+      {
+        source: '/(.*)',
+        headers: [
+          ...commonHeaders,
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+        ],
+      },
       // File download API routes — allow same-origin embedding (for PDF preview via iframe)
       {
         source: '/api/files/download/:path*',
@@ -75,17 +86,6 @@ const nextConfig: NextConfig = {
           {
             key: 'X-Frame-Options',
             value: 'SAMEORIGIN',
-          },
-        ],
-      },
-      // All other routes — DENY framing
-      {
-        source: '/(.*)',
-        headers: [
-          ...commonHeaders,
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
           },
         ],
       },
