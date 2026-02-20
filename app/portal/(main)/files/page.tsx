@@ -71,9 +71,15 @@ interface FileWithProject {
   } | null;
 }
 
-interface FolderGroup {
-  folder: string;
-  folderLabel: string;
+interface TreeFolder {
+  name: string;
+  label: string;
+  fileCount: number;
+  totalSize: number;
+}
+
+interface LevelContents {
+  folders: TreeFolder[];
   files: FileWithProject[];
 }
 
@@ -144,58 +150,86 @@ function getFileColorBg(fileType: string): string {
   return 'bg-gray-50 text-gray-400';
 }
 
-function extractSubfolder(filePath: string): string {
+/**
+ * Extract subfolder parts from a file path as an array.
+ * Path format: projects/{company}/{project}/{sub1}/{sub2}/.../filename
+ * Returns: ['sub1', 'sub2', ...] (empty array if file is at project root)
+ */
+function getSubfolderParts(filePath: string): string[] {
   const parts = filePath.split('/');
-  if (parts.length <= 4) return '';
-  return parts.slice(3, parts.length - 1).join('/');
+  // parts: ['projects', company, project, sub1, sub2, ..., filename]
+  if (parts.length <= 4) return []; // file at project root
+  return parts.slice(3, parts.length - 1);
 }
 
-function formatFolderName(folder: string): string {
-  if (!folder) return 'ملفات عامة';
-  return folder
-    .split('/')
-    .map((part) =>
-      part
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-    )
-    .join(' / ');
+/**
+ * Format a single folder segment name for display.
+ * Replaces dashes/underscores with spaces, capitalizes words.
+ */
+function formatSegmentName(segment: string): string {
+  return segment
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function groupFilesByFolder(files: FileWithProject[]): FolderGroup[] {
-  const map = new Map<string, FileWithProject[]>();
+/**
+ * Given all files and the current navigation path,
+ * compute what's visible at this level:
+ * - folders: immediate child directories
+ * - files: files that live at exactly this depth
+ */
+function getItemsAtLevel(files: FileWithProject[], currentPath: string[]): LevelContents {
+  const depth = currentPath.length;
+  const folderMap = new Map<string, { count: number; totalSize: number }>();
+  const filesAtLevel: FileWithProject[] = [];
 
-  for (const f of files) {
-    const folder = extractSubfolder(f.file_path);
-    if (!map.has(folder)) map.set(folder, []);
-    map.get(folder)!.push(f);
+  for (const file of files) {
+    const parts = getSubfolderParts(file.file_path);
+
+    // Check if file is under the current path
+    let matches = true;
+    for (let i = 0; i < depth; i++) {
+      if (i >= parts.length || parts[i] !== currentPath[i]) {
+        matches = false;
+        break;
+      }
+    }
+    if (!matches) continue;
+
+    if (parts.length === depth) {
+      // File is exactly at this level (no deeper subfolder)
+      filesAtLevel.push(file);
+    } else if (parts.length > depth) {
+      // File is in a child folder — count the immediate child folder
+      const folderName = parts[depth];
+      const existing = folderMap.get(folderName) || { count: 0, totalSize: 0 };
+      existing.count++;
+      existing.totalSize += file.file_size || 0;
+      folderMap.set(folderName, existing);
+    }
   }
 
-  const groups = Array.from(map.entries())
-    .map(([folder, files]) => ({
-      folder,
-      folderLabel: formatFolderName(folder),
-      files,
+  const folders: TreeFolder[] = Array.from(folderMap.entries())
+    .map(([name, info]) => ({
+      name,
+      label: formatSegmentName(name),
+      fileCount: info.count,
+      totalSize: info.totalSize,
     }))
-    .sort((a, b) => {
-      if (a.folder === '') return -1;
-      if (b.folder === '') return 1;
-      return a.folder.localeCompare(b.folder);
-    });
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  return groups;
+  return { folders, files: filesAtLevel };
 }
 
 // ---------- Sub-Components ----------
 
 function FolderCard({
-  group,
+  folder,
   onClick,
 }: {
-  group: FolderGroup;
+  folder: TreeFolder;
   onClick: () => void;
 }) {
-  const totalSize = group.files.reduce((sum, f) => sum + (f.file_size || 0), 0);
   return (
     <button
       onClick={onClick}
@@ -205,10 +239,10 @@ function FolderCard({
         <Folder className="h-5 w-5 text-orange-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{group.folderLabel}</p>
+        <p className="text-sm font-semibold truncate">{folder.label}</p>
         <p className="text-[11px] text-muted-foreground">
-          {group.files.length} ملف
-          {totalSize > 0 && <> · {formatFileSize(totalSize)}</>}
+          {folder.fileCount} ملف
+          {folder.totalSize > 0 && <> · {formatFileSize(folder.totalSize)}</>}
         </p>
       </div>
     </button>
@@ -422,7 +456,7 @@ export default function PortalFilesPage() {
   const [projectFilter, setProjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [activeFolder, setActiveFolder] = useState<string | null>(null);
+  const [currentPath, setCurrentPath] = useState<string[]>([]);
 
   // Revision dialog
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
@@ -503,25 +537,15 @@ export default function PortalFilesPage() {
     return list;
   }, [files, projectFilter, statusFilter, search]);
 
-  // Group by folder
-  const folderGroups = useMemo(() => groupFilesByFolder(filteredFiles), [filteredFiles]);
+  // Get folders + files at the current navigation level
+  const levelContents = useMemo(
+    () => getItemsAtLevel(filteredFiles, currentPath),
+    [filteredFiles, currentPath]
+  );
 
-  // Active folder view
-  const activeFolderGroup = useMemo(() => {
-    if (activeFolder === null) return null;
-    return folderGroups.find((g) => g.folder === activeFolder) || null;
-  }, [activeFolder, folderGroups]);
-
-  // Root files (no subfolder)
-  const rootFiles = useMemo(() => {
-    const rootGroup = folderGroups.find((g) => g.folder === '');
-    return rootGroup?.files || [];
-  }, [folderGroups]);
-
-  // Non-root folder groups (for folder cards)
-  const subfolderGroups = useMemo(() => {
-    return folderGroups.filter((g) => g.folder !== '');
-  }, [folderGroups]);
+  // Count total items in current view
+  const totalFolders = levelContents.folders.length;
+  const totalFilesAtLevel = levelContents.files.length;
 
   // ---------- Actions ----------
 
@@ -729,9 +753,18 @@ export default function PortalFilesPage() {
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span>{filteredFiles.length} ملف</span>
-        <span>·</span>
-        <span>{folderGroups.length} {folderGroups.length === 1 ? 'قسم' : 'أقسام'}</span>
+        <span>{filteredFiles.length} ملف إجمالي</span>
+        {(totalFolders > 0 || totalFilesAtLevel > 0) && (
+          <>
+            <span>·</span>
+            <span>
+              {totalFolders > 0 && <>{totalFolders} مجلد</>}
+              {totalFolders > 0 && totalFilesAtLevel > 0 && ' و '}
+              {totalFilesAtLevel > 0 && <>{totalFilesAtLevel} ملف</>}
+              {' '}في هذا المستوى
+            </span>
+          </>
+        )}
         {filteredFiles.length !== files.length && (
           <>
             <span>·</span>
@@ -741,19 +774,35 @@ export default function PortalFilesPage() {
       </div>
 
       {/* Breadcrumb */}
-      {activeFolder !== null && (
-        <div className="flex items-center gap-1.5 text-sm">
+      {currentPath.length > 0 && (
+        <div className="flex items-center gap-1.5 text-sm flex-wrap">
           <button
-            onClick={() => setActiveFolder(null)}
+            onClick={() => setCurrentPath([])}
             className="flex items-center gap-1 text-orange-600 hover:text-orange-700 transition-colors font-medium"
           >
             <Home className="h-3.5 w-3.5" />
             الكل
           </button>
-          <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="font-semibold">
-            {activeFolderGroup?.folderLabel || formatFolderName(activeFolder)}
-          </span>
+          {currentPath.map((segment, idx) => {
+            const isLast = idx === currentPath.length - 1;
+            return (
+              <span key={idx} className="flex items-center gap-1.5">
+                <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                {isLast ? (
+                  <span className="font-semibold">
+                    {formatSegmentName(segment)}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))}
+                    className="text-orange-600 hover:text-orange-700 transition-colors font-medium"
+                  >
+                    {formatSegmentName(segment)}
+                  </button>
+                )}
+              </span>
+            );
+          })}
         </div>
       )}
 
@@ -770,57 +819,67 @@ export default function PortalFilesPage() {
             </p>
           </CardContent>
         </Card>
-      ) : activeFolder !== null ? (
-        /* ── Inside a folder ── */
-        activeFolderGroup ? (
-          viewMode === 'grid'
-            ? renderFileGrid(activeFolderGroup.files)
-            : renderFileList(activeFolderGroup.files)
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            لا توجد ملفات في هذا المجلد
-          </p>
-        )
+      ) : totalFolders === 0 && totalFilesAtLevel === 0 ? (
+        /* ── Empty level (no folders or files at this depth) ── */
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <FolderOpen className="h-10 w-10 text-muted-foreground/40 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              هذا المجلد فارغ
+            </p>
+            {currentPath.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-3 text-orange-600 hover:text-orange-700"
+                onClick={() => setCurrentPath(currentPath.slice(0, -1))}
+              >
+                <ChevronRight className="h-4 w-4 me-1" />
+                رجوع
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       ) : (
-        /* ── Root view: Folder cards + root files ── */
+        /* ── Current level: Folder cards + files ── */
         <div className="space-y-6">
           {/* Folder Cards */}
-          {subfolderGroups.length > 0 && (
+          {totalFolders > 0 && (
             <div>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
                 المجلدات
               </h3>
               <div className="flex flex-wrap gap-3">
-                {subfolderGroups.map((group) => (
+                {levelContents.folders.map((folder) => (
                   <FolderCard
-                    key={group.folder}
-                    group={group}
-                    onClick={() => setActiveFolder(group.folder)}
+                    key={folder.name}
+                    folder={folder}
+                    onClick={() => setCurrentPath([...currentPath, folder.name])}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {/* Root Files */}
-          {rootFiles.length > 0 && (
+          {/* Files at this level */}
+          {totalFilesAtLevel > 0 && (
             <div>
-              {subfolderGroups.length > 0 && (
+              {totalFolders > 0 && (
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  ملفات عامة
+                  الملفات
                 </h3>
               )}
               {viewMode === 'grid'
-                ? renderFileGrid(rootFiles)
-                : renderFileList(rootFiles)
+                ? renderFileGrid(levelContents.files)
+                : renderFileList(levelContents.files)
               }
             </div>
           )}
 
-          {/* If no root files, show all files from all folders */}
-          {rootFiles.length === 0 && subfolderGroups.length > 0 && (
+          {/* Hint when only folders are visible */}
+          {totalFilesAtLevel === 0 && totalFolders > 0 && (
             <p className="text-xs text-muted-foreground text-center">
-              اضغط على أي مجلد لعرض الملفات بداخله
+              اضغط على أي مجلد لعرض محتوياته
             </p>
           )}
         </div>
