@@ -79,6 +79,8 @@ export async function GET(request: NextRequest) {
       portal_password_reset_requested: 'طلب استعادة كلمة مرور',
       portal_password_reset_completed: 'إعادة تعيين كلمة مرور',
       portal_profile_updated: 'تحديث بروفايل عميل',
+      script_approved: 'اعتماد سكريبت',
+      script_revision_requested: 'طلب تعديل سكريبت',
     };
 
     // Build CSV content

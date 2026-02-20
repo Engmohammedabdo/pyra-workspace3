@@ -30,6 +30,7 @@ import {
   Monitor,
   KeyRound,
   Star,
+  ScrollText,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -80,6 +81,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase },
       { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, adminOnly: true },
+      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText },
     ],
   },
   {

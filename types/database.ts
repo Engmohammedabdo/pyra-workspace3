@@ -261,6 +261,24 @@ export interface PyraClientNotification {
 }
 
 // ==========================================
+// Script Reviews (Etmam)
+// ==========================================
+
+export interface PyraScriptReview {
+  id: string;
+  filename: string;
+  video_number: number;
+  version: number;
+  status: 'pending' | 'approved' | 'revision_requested';
+  comment: string | null;
+  client_id: string;
+  client_name: string;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
 // Quote Tables (2)
 // ==========================================
 

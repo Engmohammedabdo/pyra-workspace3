@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +17,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FileText, Download, Copy, Clock, HardDrive,
   ChevronLeft, Film, Loader2, ShieldAlert, RefreshCw,
+  CheckCircle, AlertTriangle, MessageSquareWarning,
 } from 'lucide-react';
+import type { PyraScriptReview } from '@/types/database';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -197,6 +199,11 @@ export default function EtmamScriptsPage() {
   const [selectedVersion, setSelectedVersion] = useState<string>('');
   const [scriptContent, setScriptContent] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
+  const [reviewComment, setReviewComment] = useState('');
+  const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const queryClient = useQueryClient();
 
   // ── Fetch script files (auth is handled server-side) ──
   const {
@@ -224,6 +231,25 @@ export default function EtmamScriptsPage() {
       return failureCount < 2;
     },
   });
+
+  // ── Fetch reviews ──
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['etmam-script-reviews'],
+    queryFn: async () => {
+      const res = await fetch('/api/portal/scripts/reviews');
+      if (!res.ok) return [];
+      const json = await res.json();
+      return (json.data || []) as PyraScriptReview[];
+    },
+    refetchInterval: 30000,
+  });
+
+  // ── Reviews lookup map (filename → review) ──
+  const reviewMap = useMemo(() => {
+    const map = new Map<string, PyraScriptReview>();
+    for (const r of reviews) map.set(r.filename, r);
+    return map;
+  }, [reviews]);
 
   // ── Load script content ──
   const loadScriptContent = useCallback(async (filename: string) => {
@@ -299,6 +325,62 @@ export default function EtmamScriptsPage() {
       toast.error('فشل في نسخ النص');
     }
   }, [scriptContent]);
+
+  // ── Current version filename (for review lookup) ──
+  const currentVersionFilename = useMemo(() => {
+    if (!selectedVideo) return null;
+    const group = videoGroups.find((g) => g.videoNumber === selectedVideo);
+    if (!group) return null;
+    const vNum = parseInt(selectedVersion.replace('v', ''));
+    const ver = group.versions.find((v) => v.version === vNum);
+    return ver?.filename || null;
+  }, [selectedVideo, selectedVersion, videoGroups]);
+
+  const currentReview = currentVersionFilename ? reviewMap.get(currentVersionFilename) : null;
+
+  // ── Submit review (approve or request revision) ──
+  const handleReview = useCallback(
+    async (status: 'approved' | 'revision_requested') => {
+      if (!currentVersionFilename) return;
+      if (status === 'revision_requested' && !reviewComment.trim()) {
+        toast.error('يرجى كتابة ملاحظاتك قبل طلب التعديل');
+        return;
+      }
+
+      setReviewSubmitting(true);
+      try {
+        const parsed = parseScriptFilename(currentVersionFilename);
+        const res = await fetch('/api/portal/scripts/reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: currentVersionFilename,
+            video_number: parsed?.videoNumber || 0,
+            version: parsed?.version || 1,
+            status,
+            comment: reviewComment.trim() || null,
+          }),
+        });
+
+        if (!res.ok) {
+          const json = await res.json();
+          throw new Error(json.error || 'Failed');
+        }
+
+        toast.success(
+          status === 'approved' ? 'تم اعتماد السكريبت بنجاح' : 'تم إرسال طلب التعديل'
+        );
+        setReviewComment('');
+        setShowRevisionForm(false);
+        queryClient.invalidateQueries({ queryKey: ['etmam-script-reviews'] });
+      } catch {
+        toast.error('حدث خطأ أثناء إرسال المراجعة');
+      } finally {
+        setReviewSubmitting(false);
+      }
+    },
+    [currentVersionFilename, reviewComment, queryClient]
+  );
 
   // ── Auth error (403 from API) ──
   const isForbidden = filesError instanceof Error && filesError.message === 'FORBIDDEN';
@@ -414,6 +496,15 @@ export default function EtmamScriptsPage() {
                     const isSelected = selectedVideo === group.videoNumber;
                     const latestVersion = group.versions[group.versions.length - 1];
 
+                    // Review status for latest version
+                    const latestReview = reviewMap.get(latestVersion.filename);
+                    const hasApproved = group.versions.every(
+                      (v) => reviewMap.get(v.filename)?.status === 'approved'
+                    );
+                    const hasRevision = group.versions.some(
+                      (v) => reviewMap.get(v.filename)?.status === 'revision_requested'
+                    );
+
                     return (
                       <motion.button
                         key={group.videoNumber}
@@ -453,7 +544,20 @@ export default function EtmamScriptsPage() {
                                 {group.versions.length}{' '}
                                 {group.versions.length === 1 ? 'نسخة' : 'نسخ'}
                               </span>
-                              {latestVersion.updatedAt && (
+                              {latestReview && (
+                                <span className={`text-[10px] flex items-center gap-0.5 ${
+                                  isSelected ? 'text-white/70' : ''
+                                }`}>
+                                  • {hasApproved ? (
+                                    <span className={isSelected ? 'text-green-300' : 'text-green-600'}>معتمد</span>
+                                  ) : hasRevision ? (
+                                    <span className={isSelected ? 'text-red-300' : 'text-red-500'}>تعديل</span>
+                                  ) : (
+                                    <span className={isSelected ? 'text-yellow-300' : 'text-yellow-600'}>قيد المراجعة</span>
+                                  )}
+                                </span>
+                              )}
+                              {!latestReview && latestVersion.updatedAt && (
                                 <span
                                   className={`text-[10px] ${
                                     isSelected
@@ -514,11 +618,23 @@ export default function EtmamScriptsPage() {
                   <CardHeader className="border-b border-[#e6dfd7]/40">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <CardTitle className="text-[#003866] flex items-center gap-2">
+                        <CardTitle className="text-[#003866] flex items-center gap-2 flex-wrap">
                           <span className="text-[#b89a77]">
                             #{String(selectedGroup!.videoNumber).padStart(2, '0')}
                           </span>
                           {selectedGroup!.title}
+                          {currentReview?.status === 'approved' && (
+                            <Badge className="bg-green-100 text-green-700 border-green-200 text-[10px]">
+                              <CheckCircle className="h-3 w-3 me-1" />
+                              معتمد
+                            </Badge>
+                          )}
+                          {currentReview?.status === 'revision_requested' && (
+                            <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">
+                              <AlertTriangle className="h-3 w-3 me-1" />
+                              مطلوب تعديل
+                            </Badge>
+                          )}
                         </CardTitle>
                         {currentVersion && (
                           <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
@@ -600,6 +716,140 @@ export default function EtmamScriptsPage() {
                               {scriptContent}
                             </ReactMarkdown>
                           </article>
+
+                          {/* ── Review Action Panel ── */}
+                          <div className="mt-8 pt-6 border-t border-[#e6dfd7]">
+                            {currentReview?.status === 'approved' ? (
+                              /* Already approved */
+                              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200">
+                                <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-medium text-green-800">
+                                    تم اعتماد هذه النسخة
+                                  </p>
+                                  <p className="text-xs text-green-600 mt-0.5">
+                                    بواسطة {currentReview.client_name}
+                                    {currentReview.reviewed_at &&
+                                      ` • ${new Date(currentReview.reviewed_at).toLocaleString('ar-SA')}`}
+                                  </p>
+                                  {currentReview.comment && (
+                                    <p className="text-xs text-green-700 mt-2 bg-green-100 rounded p-2">
+                                      {currentReview.comment}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ) : currentReview?.status === 'revision_requested' ? (
+                              /* Revision requested — show previous comment + allow re-approve */
+                              <div className="space-y-3">
+                                <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
+                                  <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="text-sm font-medium text-red-800">
+                                      تم طلب تعديل على هذه النسخة
+                                    </p>
+                                    <p className="text-xs text-red-600 mt-0.5">
+                                      بواسطة {currentReview.client_name}
+                                      {currentReview.reviewed_at &&
+                                        ` • ${new Date(currentReview.reviewed_at).toLocaleString('ar-SA')}`}
+                                    </p>
+                                    {currentReview.comment && (
+                                      <p className="text-xs text-red-700 mt-2 bg-red-100 rounded p-2">
+                                        {currentReview.comment}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleReview('approved')}
+                                    disabled={reviewSubmitting}
+                                    className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                                  >
+                                    {reviewSubmitting ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    )}
+                                    اعتماد الآن
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              /* Pending — show approve/revision buttons */
+                              <div className="space-y-3">
+                                <p className="text-sm text-muted-foreground">
+                                  بعد مراجعة السكريبت، يمكنك اعتماده أو طلب تعديلات:
+                                </p>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleReview('approved')}
+                                    disabled={reviewSubmitting}
+                                    className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
+                                  >
+                                    {reviewSubmitting ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <CheckCircle className="h-3.5 w-3.5" />
+                                    )}
+                                    اعتماد السكريبت
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setShowRevisionForm(!showRevisionForm)}
+                                    disabled={reviewSubmitting}
+                                    className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+                                  >
+                                    <MessageSquareWarning className="h-3.5 w-3.5" />
+                                    طلب تعديل
+                                  </Button>
+                                </div>
+
+                                <AnimatePresence>
+                                  {showRevisionForm && (
+                                    <motion.div
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="space-y-2 pt-2">
+                                        <textarea
+                                          value={reviewComment}
+                                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setReviewComment(e.target.value)}
+                                          placeholder="اكتب ملاحظاتك وتعديلاتك المطلوبة..."
+                                          className="w-full min-h-[100px] text-sm resize-none rounded-md border border-red-200 bg-background px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-transparent"
+                                          dir="rtl"
+                                          maxLength={5000}
+                                        />
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-[10px] text-muted-foreground">
+                                            {reviewComment.length}/5000
+                                          </span>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleReview('revision_requested')}
+                                            disabled={reviewSubmitting || !reviewComment.trim()}
+                                            className="gap-1.5 bg-red-600 hover:bg-red-700 text-white"
+                                          >
+                                            {reviewSubmitting ? (
+                                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                            ) : (
+                                              <MessageSquareWarning className="h-3.5 w-3.5" />
+                                            )}
+                                            إرسال طلب التعديل
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </ScrollArea>
                     ) : (
