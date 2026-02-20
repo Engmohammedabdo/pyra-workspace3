@@ -750,11 +750,18 @@ export default function EtmamScriptsPage() {
                         <div className="p-6 lg:p-8" dir="rtl">
                           {/* UX Hint Banner */}
                           {!currentReview || currentReview.status !== 'approved' ? (
-                            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-[#003866]/5 border border-[#003866]/10 mb-6">
-                              <Info className="h-4 w-4 text-[#003866] shrink-0 mt-0.5" />
-                              <p className="text-xs text-[#003866]/80 leading-relaxed">
-                                بعد قراءة السكريبت، انتقل لأسفل الصفحة لاعتماده أو طلب تعديلات. يمكنك أيضاً التواصل مع فريق العمل عبر المحادثة المرفقة.
-                              </p>
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border-2 border-red-200 mb-6 shadow-sm">
+                              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-red-800 mb-1">
+                                  مطلوب منك اتخاذ إجراء
+                                </p>
+                                <p className="text-sm text-red-700 leading-relaxed">
+                                  بعد قراءة السكريبت، انتقل لأسفل الصفحة لاعتماده أو طلب تعديلات. يمكنك أيضاً التواصل مع فريق العمل عبر المحادثة المرفقة.
+                                </p>
+                              </div>
                             </div>
                           ) : null}
 
