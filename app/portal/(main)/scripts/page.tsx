@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createWorkspaceClient } from '@/lib/supabase/workspace-client';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -45,11 +44,6 @@ interface VideoGroup {
   title: string;
   versions: VideoVersion[];
 }
-
-// ── Constants ──────────────────────────────────────────
-
-const SCRIPTS_PATH = 'projects/injazat/Etmam/video-scripts';
-const BUCKET = 'pyraai-workspace';
 
 // ── Filename Parser ────────────────────────────────────
 
@@ -204,63 +198,41 @@ export default function EtmamScriptsPage() {
   const [scriptContent, setScriptContent] = useState<string | null>(null);
   const [contentLoading, setContentLoading] = useState(false);
 
-  // ── Check authorization ──
-  const { data: clientData, isLoading: clientLoading } = useQuery({
-    queryKey: ['portal-me'],
-    queryFn: async () => {
-      const res = await fetch('/api/portal/me');
-      if (!res.ok) return null;
-      const json = await res.json();
-      return json.data as { id: string; name: string; email: string; company: string } | null;
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const clientAuthorized = useMemo(() => {
-    if (!clientData) return null;
-    const company = (clientData.company || '').toLowerCase();
-    return (
-      company.includes('injazat') ||
-      company.includes('إنجازات') ||
-      company.includes('etmam') ||
-      company.includes('إتمام')
-    );
-  }, [clientData]);
-
-  // ── Fetch script files ──
+  // ── Fetch script files (auth is handled server-side) ──
   const {
     data: videoGroups = [],
     isLoading: filesLoading,
     refetch: refetchFiles,
+    error: filesError,
   } = useQuery({
     queryKey: ['etmam-scripts'],
     queryFn: async () => {
-      const workspace = createWorkspaceClient();
-      const { data, error } = await workspace.storage
-        .from(BUCKET)
-        .list(SCRIPTS_PATH, {
-          sortBy: { column: 'name', order: 'asc' },
-        });
-
-      if (error) throw error;
-      return groupScriptFiles((data as ScriptFile[]) || []);
+      const res = await fetch('/api/portal/scripts');
+      if (res.status === 401 || res.status === 403) {
+        throw new Error(res.status === 403 ? 'FORBIDDEN' : 'UNAUTHORIZED');
+      }
+      if (!res.ok) throw new Error('FETCH_FAILED');
+      const json = await res.json();
+      return groupScriptFiles((json.data as ScriptFile[]) || []);
     },
     refetchInterval: 30000,
-    enabled: clientAuthorized === true,
+    retry: (failureCount, error) => {
+      // Don't retry auth errors
+      if (error instanceof Error && (error.message === 'FORBIDDEN' || error.message === 'UNAUTHORIZED')) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
   // ── Load script content ──
   const loadScriptContent = useCallback(async (filename: string) => {
     setContentLoading(true);
     try {
-      const workspace = createWorkspaceClient();
-      const { data, error } = await workspace.storage
-        .from(BUCKET)
-        .download(`${SCRIPTS_PATH}/${filename}`);
-
-      if (error) throw error;
-      const text = await data.text();
-      setScriptContent(text);
+      const res = await fetch(`/api/portal/scripts/${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error('Failed');
+      const json = await res.json();
+      setScriptContent(json.data.content);
     } catch {
       toast.error('فشل في تحميل محتوى السكريبت');
       setScriptContent(null);
@@ -300,14 +272,12 @@ export default function EtmamScriptsPage() {
   // ── Download script ──
   const handleDownload = useCallback(async (filename: string) => {
     try {
-      const workspace = createWorkspaceClient();
-      const { data, error } = await workspace.storage
-        .from(BUCKET)
-        .download(`${SCRIPTS_PATH}/${filename}`);
+      const res = await fetch(`/api/portal/scripts/${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error('Failed');
+      const json = await res.json();
 
-      if (error) throw error;
-
-      const url = URL.createObjectURL(data);
+      const blob = new Blob([json.data.content], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
@@ -330,18 +300,9 @@ export default function EtmamScriptsPage() {
     }
   }, [scriptContent]);
 
-  // ── Loading state (auth check) ──
-  if (clientLoading || clientAuthorized === null) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-[600px] w-full rounded-lg" />
-      </div>
-    );
-  }
-
-  // ── Not authorized ──
-  if (clientAuthorized === false) {
+  // ── Auth error (403 from API) ──
+  const isForbidden = filesError instanceof Error && filesError.message === 'FORBIDDEN';
+  if (isForbidden) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-16 text-center">
