@@ -7,8 +7,6 @@ import { toast } from 'sonner';
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,15 +38,18 @@ import {
   FileArchive,
   FileCode,
   FileSpreadsheet,
-  File as FileIcon,
+  File as FileIconLucide,
   FileText,
   FolderOpen,
   Folder,
   Search,
   Loader2,
   Eye,
-  ChevronDown,
   ChevronLeft,
+  LayoutGrid,
+  List,
+  ChevronRight,
+  Home,
 } from 'lucide-react';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 
@@ -105,6 +106,10 @@ function isNewFile(addedAt: string): boolean {
   return Date.now() - added < 48 * 60 * 60 * 1000;
 }
 
+function isImageType(fileType: string): boolean {
+  return fileType.toLowerCase().startsWith('image/');
+}
+
 function getFileIcon(fileType: string) {
   const type = fileType.toLowerCase();
   if (type.startsWith('image/')) return FileImage;
@@ -118,26 +123,33 @@ function getFileIcon(fileType: string) {
     return FileSpreadsheet;
   if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css') || type.includes('markdown'))
     return FileCode;
-  return FileIcon;
+  return FileIconLucide;
 }
 
-/** Extract subfolder name from file_path relative to the project storage_path.
- *  e.g. "projects/injazat/Etmam/Brand-Guideline/file.pdf" → "Brand-Guideline"
- *  e.g. "projects/injazat/Etmam/file.pdf" → "" (root)
- */
+function getFileColorBg(fileType: string): string {
+  const type = fileType.toLowerCase();
+  if (type.startsWith('image/')) return 'bg-emerald-50 text-emerald-500';
+  if (type.startsWith('video/')) return 'bg-purple-50 text-purple-500';
+  if (type.startsWith('audio/')) return 'bg-pink-50 text-pink-500';
+  if (type.includes('zip') || type.includes('rar') || type.includes('archive'))
+    return 'bg-amber-50 text-amber-600';
+  if (type.includes('pdf'))
+    return 'bg-red-50 text-red-500';
+  if (type.includes('document') || type.includes('word'))
+    return 'bg-blue-50 text-blue-500';
+  if (type.includes('sheet') || type.includes('excel') || type.includes('csv'))
+    return 'bg-green-50 text-green-600';
+  if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css') || type.includes('markdown'))
+    return 'bg-cyan-50 text-cyan-500';
+  return 'bg-gray-50 text-gray-400';
+}
+
 function extractSubfolder(filePath: string): string {
-  // path pattern: projects/{company}/{project}/{subfolder}/.../{file}
   const parts = filePath.split('/');
-  // minimum: projects/company/project/file = 4 parts → root
-  // subfolder: projects/company/project/subfolder/file = 5+ parts
   if (parts.length <= 4) return '';
-  // The subfolder is parts[3] (0-indexed), but it could be deeper
-  // Actually, take everything between project folder and filename
-  // Root = 3 folder parts (projects/company/project) + filename
   return parts.slice(3, parts.length - 1).join('/');
 }
 
-/** Format folder name for display: "legal-research/scripts" → "Legal Research / Scripts" */
 function formatFolderName(folder: string): string {
   if (!folder) return 'ملفات عامة';
   return folder
@@ -150,7 +162,6 @@ function formatFolderName(folder: string): string {
     .join(' / ');
 }
 
-/** Group files by their subfolder */
 function groupFilesByFolder(files: FileWithProject[]): FolderGroup[] {
   const map = new Map<string, FileWithProject[]>();
 
@@ -160,7 +171,6 @@ function groupFilesByFolder(files: FileWithProject[]): FolderGroup[] {
     map.get(folder)!.push(f);
   }
 
-  // Sort: root files first, then alphabetical
   const groups = Array.from(map.entries())
     .map(([folder, files]) => ({
       folder,
@@ -176,7 +186,234 @@ function groupFilesByFolder(files: FileWithProject[]): FolderGroup[] {
   return groups;
 }
 
-// ---------- Component ----------
+// ---------- Sub-Components ----------
+
+function FolderCard({
+  group,
+  onClick,
+}: {
+  group: FolderGroup;
+  onClick: () => void;
+}) {
+  const totalSize = group.files.reduce((sum, f) => sum + (f.file_size || 0), 0);
+  return (
+    <button
+      onClick={onClick}
+      className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 hover:shadow-md transition-all duration-200 text-start min-w-[180px] max-w-[240px] shrink-0 group"
+    >
+      <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0 group-hover:bg-orange-200 transition-colors">
+        <Folder className="h-5 w-5 text-orange-600" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate">{group.folderLabel}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {group.files.length} ملف
+          {totalSize > 0 && <> · {formatFileSize(totalSize)}</>}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function FileCard({
+  file,
+  onPreview,
+  onDownload,
+  onApprove,
+  onRevision,
+  approveLoading,
+}: {
+  file: FileWithProject;
+  onPreview: () => void;
+  onDownload: () => void;
+  onApprove: () => void;
+  onRevision: () => void;
+  approveLoading: boolean;
+}) {
+  const FileTypeIcon = getFileIcon(file.file_type);
+  const colorBg = getFileColorBg(file.file_type);
+  const approval = file.approval;
+  const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
+  const isImage = isImageType(file.file_type);
+  const [imgError, setImgError] = useState(false);
+  const canAct = !approval || approval.status === 'pending';
+
+  return (
+    <div
+      className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-orange-200 transition-all duration-200 cursor-pointer"
+      onClick={onPreview}
+    >
+      {/* Thumbnail / Icon Area */}
+      <div className="aspect-[4/3] relative overflow-hidden bg-muted/20">
+        {isImage && !imgError ? (
+          <img
+            src={`/api/portal/files/${file.id}/thumbnail`}
+            alt={file.file_name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className={cn('w-full h-full flex items-center justify-center', colorBg)}>
+            <FileTypeIcon className="h-12 w-12 opacity-80" />
+          </div>
+        )}
+
+        {/* Hover overlay with actions */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+          <button
+            onClick={(e) => { e.stopPropagation(); onPreview(); }}
+            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            title="معاينة"
+          >
+            <Eye className="h-4 w-4 text-gray-700" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDownload(); }}
+            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            title="تحميل"
+          >
+            <Download className="h-4 w-4 text-gray-700" />
+          </button>
+          {canAct && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onApprove(); }}
+                disabled={approveLoading}
+                className="w-9 h-9 rounded-full bg-green-500/90 hover:bg-green-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                title="موافقة"
+              >
+                {approveLoading ? (
+                  <Loader2 className="h-4 w-4 text-white animate-spin" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 text-white" />
+                )}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onRevision(); }}
+                className="w-9 h-9 rounded-full bg-amber-500/90 hover:bg-amber-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                title="طلب تعديل"
+              >
+                <RotateCcw className="h-4 w-4 text-white" />
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Top badges */}
+        <div className="absolute top-2 start-2 flex items-center gap-1">
+          {isNewFile(file.added_at) && (
+            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shadow-sm">
+              جديد
+            </Badge>
+          )}
+          {approvalStatus && (
+            <Badge className={cn('text-[9px] px-1.5 py-0 shadow-sm', approvalStatus.className)}>
+              {approvalStatus.label}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      {/* File Info */}
+      <div className="p-3">
+        <p className="text-sm font-medium line-clamp-2 leading-tight mb-1" title={file.file_name}>
+          {file.file_name}
+        </p>
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          {file.file_size != null && (
+            <span>{formatFileSize(file.file_size)}</span>
+          )}
+          {file.file_size != null && <span>·</span>}
+          <span>{formatDate(file.added_at)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FileRow({
+  file,
+  onPreview,
+  onDownload,
+  onApprove,
+  onRevision,
+  approveLoading,
+}: {
+  file: FileWithProject;
+  onPreview: () => void;
+  onDownload: () => void;
+  onApprove: () => void;
+  onRevision: () => void;
+  approveLoading: boolean;
+}) {
+  const FileTypeIcon = getFileIcon(file.file_type);
+  const approval = file.approval;
+  const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
+  const canAct = !approval || approval.status === 'pending';
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors border-b last:border-b-0">
+      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+        <FileTypeIcon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            className="text-sm truncate cursor-pointer hover:text-orange-500 transition-colors"
+            onClick={onPreview}
+          >
+            {file.file_name}
+          </span>
+          {isNewFile(file.added_at) && (
+            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
+              جديد
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+          {file.file_size != null && <span>{formatFileSize(file.file_size)}</span>}
+          <span>&middot;</span>
+          <span>{formatDate(file.added_at)}</span>
+          {approvalStatus && (
+            <>
+              <span>&middot;</span>
+              <Badge className={cn('text-[9px] px-1.5 py-0', approvalStatus.className)}>
+                {approvalStatus.label}
+              </Badge>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <Button variant="ghost" size="sm" onClick={onPreview} className="h-8 w-8 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10" title="معاينة">
+          <Eye className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onDownload} className="h-8 w-8 p-0" title="تحميل">
+          <Download className="h-4 w-4" />
+        </Button>
+        {canAct && (
+          <>
+            <Button
+              variant="ghost" size="sm" onClick={onApprove} disabled={approveLoading}
+              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10" title="موافقة"
+            >
+              {approveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+            </Button>
+            <Button
+              variant="ghost" size="sm" onClick={onRevision}
+              className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10" title="طلب تعديل"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- Main Component ----------
 
 export default function PortalFilesPage() {
   const [files, setFiles] = useState<FileWithProject[]>([]);
@@ -184,7 +421,8 @@ export default function PortalFilesPage() {
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
 
   // Revision dialog
   const [revisionDialogOpen, setRevisionDialogOpen] = useState(false);
@@ -198,6 +436,17 @@ export default function PortalFilesPage() {
   // File preview
   const [previewFile, setPreviewFile] = useState<FileWithProject | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Restore view mode from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('portal-files-view');
+    if (saved === 'list' || saved === 'grid') setViewMode(saved);
+  }, []);
+
+  const toggleViewMode = useCallback((mode: 'grid' | 'list') => {
+    setViewMode(mode);
+    localStorage.setItem('portal-files-view', mode);
+  }, []);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -228,13 +477,11 @@ export default function PortalFilesPage() {
     fetchFiles();
   }, [fetchFiles]);
 
-  // Unique projects for filter dropdown
+  // Unique projects
   const projects = useMemo(() => {
     const map = new Map<string, string>();
     for (const f of files) {
-      if (!map.has(f.project_id)) {
-        map.set(f.project_id, f.project_name);
-      }
+      if (!map.has(f.project_id)) map.set(f.project_id, f.project_name);
     }
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [files]);
@@ -242,14 +489,10 @@ export default function PortalFilesPage() {
   // Filter files
   const filteredFiles = useMemo(() => {
     let list = files;
-    if (projectFilter !== 'all') {
-      list = list.filter((f) => f.project_id === projectFilter);
-    }
+    if (projectFilter !== 'all') list = list.filter((f) => f.project_id === projectFilter);
     if (statusFilter !== 'all') {
       list = list.filter((f) => {
-        if (statusFilter === 'pending') {
-          return !f.approval || f.approval.status === 'pending';
-        }
+        if (statusFilter === 'pending') return !f.approval || f.approval.status === 'pending';
         return f.approval?.status === statusFilter;
       });
     }
@@ -260,17 +503,25 @@ export default function PortalFilesPage() {
     return list;
   }, [files, projectFilter, statusFilter, search]);
 
-  // Group filtered files by folder
+  // Group by folder
   const folderGroups = useMemo(() => groupFilesByFolder(filteredFiles), [filteredFiles]);
 
-  const toggleFolder = (folder: string) => {
-    setCollapsedFolders((prev) => {
-      const next = new Set(prev);
-      if (next.has(folder)) next.delete(folder);
-      else next.add(folder);
-      return next;
-    });
-  };
+  // Active folder view
+  const activeFolderGroup = useMemo(() => {
+    if (activeFolder === null) return null;
+    return folderGroups.find((g) => g.folder === activeFolder) || null;
+  }, [activeFolder, folderGroups]);
+
+  // Root files (no subfolder)
+  const rootFiles = useMemo(() => {
+    const rootGroup = folderGroups.find((g) => g.folder === '');
+    return rootGroup?.files || [];
+  }, [folderGroups]);
+
+  // Non-root folder groups (for folder cards)
+  const subfolderGroups = useMemo(() => {
+    return folderGroups.filter((g) => g.folder !== '');
+  }, [folderGroups]);
 
   // ---------- Actions ----------
 
@@ -324,97 +575,51 @@ export default function PortalFilesPage() {
     window.open(`/api/portal/files/${fileId}/download`, '_blank');
   }
 
-  // ---------- File Row ----------
+  function openPreview(file: FileWithProject) {
+    setPreviewFile(file);
+    setPreviewOpen(true);
+  }
 
-  function FileRow({ file }: { file: FileWithProject }) {
-    const FileTypeIcon = getFileIcon(file.file_type);
-    const approval = file.approval;
-    const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
+  function openRevision(fileId: string) {
+    setRevisionFileId(fileId);
+    setRevisionDialogOpen(true);
+  }
 
+  // ---------- Render helpers ----------
+
+  function renderFileGrid(fileList: FileWithProject[]) {
     return (
-      <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors border-b last:border-b-0">
-        <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
-          <FileTypeIcon className="h-4 w-4 text-muted-foreground" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span
-              className="text-sm truncate cursor-pointer hover:text-orange-500 transition-colors"
-              onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
-            >
-              {file.file_name}
-            </span>
-            {isNewFile(file.added_at) && (
-              <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
-                جديد
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-            {file.file_size != null && <span>{formatFileSize(file.file_size)}</span>}
-            <span>&middot;</span>
-            <span>{formatDate(file.added_at)}</span>
-            {approvalStatus && (
-              <>
-                <span>&middot;</span>
-                <Badge className={cn('text-[9px] px-1.5 py-0', approvalStatus.className)}>
-                  {approvalStatus.label}
-                </Badge>
-              </>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
-            className="h-8 w-8 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
-            title="معاينة"
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleDownload(file.id)}
-            className="h-8 w-8 p-0"
-            title="تحميل"
-          >
-            <Download className="h-4 w-4" />
-          </Button>
-          {(!approval || approval.status === 'pending') && (
-            <>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleApprove(file.id)}
-                disabled={approveLoading === file.id}
-                className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10"
-                title="موافقة"
-              >
-                {approveLoading === file.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-4 w-4" />
-                )}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setRevisionFileId(file.id);
-                  setRevisionDialogOpen(true);
-                }}
-                className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10"
-                title="طلب تعديل"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-            </>
-          )}
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {fileList.map((file) => (
+          <FileCard
+            key={file.id}
+            file={file}
+            onPreview={() => openPreview(file)}
+            onDownload={() => handleDownload(file.id)}
+            onApprove={() => handleApprove(file.id)}
+            onRevision={() => openRevision(file.id)}
+            approveLoading={approveLoading === file.id}
+          />
+        ))}
       </div>
+    );
+  }
+
+  function renderFileList(fileList: FileWithProject[]) {
+    return (
+      <Card className="overflow-hidden">
+        {fileList.map((file) => (
+          <FileRow
+            key={file.id}
+            file={file}
+            onPreview={() => openPreview(file)}
+            onDownload={() => handleDownload(file.id)}
+            onApprove={() => handleApprove(file.id)}
+            onRevision={() => openRevision(file.id)}
+            approveLoading={approveLoading === file.id}
+          />
+        ))}
+      </Card>
     );
   }
 
@@ -432,9 +637,11 @@ export default function PortalFilesPage() {
           <Skeleton className="h-10 w-48" />
           <Skeleton className="h-10 w-64" />
         </div>
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-lg" />
-        ))}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-[4/3] rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -442,13 +649,42 @@ export default function PortalFilesPage() {
   // ---------- Render ----------
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">الملفات</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          استعرض جميع ملفات مشاريعك وحمّلها
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">الملفات</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            استعرض جميع ملفات مشاريعك وحمّلها
+          </p>
+        </div>
+        {/* View Toggle */}
+        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+          <button
+            onClick={() => toggleViewMode('grid')}
+            className={cn(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'grid'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            title="عرض شبكي"
+          >
+            <LayoutGrid className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => toggleViewMode('list')}
+            className={cn(
+              'p-2 rounded-md transition-colors',
+              viewMode === 'list'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+            title="عرض قائمة"
+          >
+            <List className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -462,14 +698,11 @@ export default function PortalFilesPage() {
             <SelectContent>
               <SelectItem value="all">جميع المشاريع</SelectItem>
               {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
-                </SelectItem>
+                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">حالة الموافقة</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -478,14 +711,11 @@ export default function PortalFilesPage() {
             </SelectTrigger>
             <SelectContent>
               {approvalFilterOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
-
         <div className="relative w-full sm:w-64 sm:ms-auto">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -500,17 +730,34 @@ export default function PortalFilesPage() {
       {/* Stats */}
       <div className="flex items-center gap-4 text-xs text-muted-foreground">
         <span>{filteredFiles.length} ملف</span>
-        <span>&middot;</span>
+        <span>·</span>
         <span>{folderGroups.length} {folderGroups.length === 1 ? 'قسم' : 'أقسام'}</span>
         {filteredFiles.length !== files.length && (
           <>
-            <span>&middot;</span>
+            <span>·</span>
             <span>من أصل {files.length}</span>
           </>
         )}
       </div>
 
-      {/* Files grouped by folder */}
+      {/* Breadcrumb */}
+      {activeFolder !== null && (
+        <div className="flex items-center gap-1.5 text-sm">
+          <button
+            onClick={() => setActiveFolder(null)}
+            className="flex items-center gap-1 text-orange-600 hover:text-orange-700 transition-colors font-medium"
+          >
+            <Home className="h-3.5 w-3.5" />
+            الكل
+          </button>
+          <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-semibold">
+            {activeFolderGroup?.folderLabel || formatFolderName(activeFolder)}
+          </span>
+        </div>
+      )}
+
+      {/* Content */}
       {filteredFiles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -523,48 +770,59 @@ export default function PortalFilesPage() {
             </p>
           </CardContent>
         </Card>
+      ) : activeFolder !== null ? (
+        /* ── Inside a folder ── */
+        activeFolderGroup ? (
+          viewMode === 'grid'
+            ? renderFileGrid(activeFolderGroup.files)
+            : renderFileList(activeFolderGroup.files)
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            لا توجد ملفات في هذا المجلد
+          </p>
+        )
       ) : (
-        <div className="space-y-4">
-          {folderGroups.map((group) => {
-            const isCollapsed = collapsedFolders.has(group.folder);
-            return (
-              <Card key={group.folder} className="overflow-hidden">
-                {/* Folder Header */}
-                <button
-                  onClick={() => toggleFolder(group.folder)}
-                  className="w-full flex items-center gap-3 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors border-b"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center shrink-0">
-                    <Folder className="h-4 w-4 text-orange-600" />
-                  </div>
-                  <div className="flex-1 text-start min-w-0">
-                    <h3 className="text-sm font-semibold">{group.folderLabel}</h3>
-                    <p className="text-[11px] text-muted-foreground">
-                      {group.files.length} {group.files.length === 1 ? 'ملف' : 'ملفات'}
-                      {group.files.reduce((sum, f) => sum + (f.file_size || 0), 0) > 0 && (
-                        <> &middot; {formatFileSize(group.files.reduce((sum, f) => sum + (f.file_size || 0), 0))}</>
-                      )}
-                    </p>
-                  </div>
-                  <ChevronDown
-                    className={cn(
-                      'h-4 w-4 text-muted-foreground transition-transform duration-200',
-                      isCollapsed && '-rotate-90'
-                    )}
+        /* ── Root view: Folder cards + root files ── */
+        <div className="space-y-6">
+          {/* Folder Cards */}
+          {subfolderGroups.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                المجلدات
+              </h3>
+              <div className="flex flex-wrap gap-3">
+                {subfolderGroups.map((group) => (
+                  <FolderCard
+                    key={group.folder}
+                    group={group}
+                    onClick={() => setActiveFolder(group.folder)}
                   />
-                </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-                {/* Files */}
-                {!isCollapsed && (
-                  <div>
-                    {group.files.map((file) => (
-                      <FileRow key={file.id} file={file} />
-                    ))}
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+          {/* Root Files */}
+          {rootFiles.length > 0 && (
+            <div>
+              {subfolderGroups.length > 0 && (
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  ملفات عامة
+                </h3>
+              )}
+              {viewMode === 'grid'
+                ? renderFileGrid(rootFiles)
+                : renderFileList(rootFiles)
+              }
+            </div>
+          )}
+
+          {/* If no root files, show all files from all folders */}
+          {rootFiles.length === 0 && subfolderGroups.length > 0 && (
+            <p className="text-xs text-muted-foreground text-center">
+              اضغط على أي مجلد لعرض الملفات بداخله
+            </p>
+          )}
         </div>
       )}
 
