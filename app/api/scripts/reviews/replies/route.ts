@@ -93,13 +93,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Notify client (fire-and-forget) ──
-    void supabase.from('pyra_client_notifications').insert({
+    supabase.from('pyra_client_notifications').insert({
       id: generateId('cn'),
       client_id: review.client_id,
       type: 'script_reply',
       title: 'رد جديد على مراجعة السكريبت',
       message: `${auth.pyraUser.display_name} رد على ملاحظاتك في سكريبت فيديو #${String(review.video_number).padStart(2, '0')} (النسخة ${review.version})`,
       is_read: false,
+      created_at: new Date().toISOString(),
+    }).then(({ error: e }) => {
+      if (e) console.error('[scripts/reviews/replies] client notify error:', e.message);
     });
 
     // ── Activity log (fire-and-forget) ──

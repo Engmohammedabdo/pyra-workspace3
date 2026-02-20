@@ -103,18 +103,27 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    // ── Notify admin (fire-and-forget) ──
-    void supabase.from('pyra_notifications').insert({
-      id: generateId('nt'),
-      recipient_username: 'admin',
-      type: 'script_client_reply',
-      title: 'رد العميل على مراجعة السكريبت',
-      message: `${client.name} رد على سكريبت فيديو #${String(review.video_number).padStart(2, '0')} (النسخة ${review.version})`,
-      source_username: client.name,
-      source_display_name: client.name,
-      target_path: '/dashboard/script-reviews',
-      is_read: false,
-    });
+    // ── Notify all admins (fire-and-forget) ──
+    supabase
+      .from('pyra_users')
+      .select('username')
+      .then(async ({ data: admins }) => {
+        if (!admins?.length) return;
+        const notifs = admins.map((a: { username: string }) => ({
+          id: generateId('nt'),
+          recipient_username: a.username,
+          type: 'script_client_reply',
+          title: 'رد العميل على مراجعة السكريبت',
+          message: `${client.name} رد على سكريبت فيديو #${String(review.video_number).padStart(2, '0')} (النسخة ${review.version})`,
+          source_username: client.name,
+          source_display_name: client.name,
+          target_path: '/dashboard/script-reviews',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }));
+        const { error: nErr } = await supabase.from('pyra_notifications').insert(notifs);
+        if (nErr) console.error('[portal/scripts/reviews/replies] notify error:', nErr.message);
+      });
 
     // ── Activity log (fire-and-forget) ──
     void supabase.from('pyra_activity_log').insert({
