@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from './id';
+import { resolveMimeType } from './mime';
 
 /**
  * Auto-link a file to its project in pyra_project_files.
@@ -76,7 +77,7 @@ export async function autoLinkFileToProject(
       file_name: fileName,
       file_path: filePath,
       file_size: fileSize || 0,
-      mime_type: mimeType || 'application/octet-stream',
+      mime_type: resolveMimeType(fileName, mimeType),
       uploaded_by: uploadedBy,
       client_visible: true,
       needs_approval: true,

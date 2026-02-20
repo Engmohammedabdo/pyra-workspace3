@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
+import { isImageFile } from '@/lib/utils/mime';
 
 /**
  * GET /api/portal/files/[id]/thumbnail
@@ -25,7 +26,7 @@ export async function GET(
 
     const { data: projectFile } = await supabase
       .from('pyra_project_files')
-      .select('id, project_id, file_path, mime_type, client_visible')
+      .select('id, project_id, file_path, file_name, mime_type, client_visible')
       .eq('id', fileId)
       .single();
 
@@ -33,8 +34,8 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
-    // Only serve thumbnails for images
-    if (!projectFile.mime_type?.startsWith('image/')) {
+    // Only serve thumbnails for images (check both stored mime + file extension)
+    if (!isImageFile(projectFile.file_name, projectFile.mime_type)) {
       return NextResponse.json({ error: 'Not an image' }, { status: 404 });
     }
 

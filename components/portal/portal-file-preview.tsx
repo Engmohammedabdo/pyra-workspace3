@@ -110,12 +110,15 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  // The API may return a more accurate mime_type than what the parent has
+  const [resolvedMime, setResolvedMime] = useState<string | null>(null);
 
   // Fetch signed URL from preview endpoint
   useEffect(() => {
     if (!file || !open) {
       setSignedUrl(null);
       setError(false);
+      setResolvedMime(null);
       return;
     }
 
@@ -127,6 +130,10 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
       .then((json) => {
         if (json.data?.url) {
           setSignedUrl(json.data.url);
+          // Use the API's resolved mime_type if available
+          if (json.data.mime_type) {
+            setResolvedMime(json.data.mime_type);
+          }
         } else {
           setError(true);
         }
@@ -154,9 +161,11 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
   if (!file) return null;
 
   const decodedName = decodeURIComponent(file.file_name);
-  const typeInfo = getFileTypeInfo(file.file_type);
+  // Use the API-resolved MIME type if available, otherwise use the prop
+  const effectiveMime = resolvedMime || file.file_type;
+  const typeInfo = getFileTypeInfo(effectiveMime);
   const TypeIcon = typeInfo.icon;
-  const previewable = canPreview(file.file_type);
+  const previewable = canPreview(effectiveMime);
 
   return (
     <AnimatePresence>
@@ -238,17 +247,17 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
               <PreviewError />
             ) : !previewable ? (
               <GenericPreview name={decodedName} typeInfo={typeInfo} onDownload={handleDownload} />
-            ) : isImage(file.file_type) ? (
+            ) : isImage(effectiveMime) ? (
               <ImagePreview url={signedUrl} name={decodedName} />
-            ) : isVideo(file.file_type) ? (
+            ) : isVideo(effectiveMime) ? (
               <VideoPreview url={signedUrl} />
-            ) : isPdf(file.file_type) ? (
+            ) : isPdf(effectiveMime) ? (
               <PdfPreview url={signedUrl} />
-            ) : isAudio(file.file_type) ? (
+            ) : isAudio(effectiveMime) ? (
               <AudioPreview url={signedUrl} name={decodedName} />
-            ) : isTextLike(file.file_type) ? (
-              <TextPreview url={signedUrl} name={decodedName} mime={file.file_type} />
-            ) : isDocx(file.file_type) ? (
+            ) : isTextLike(effectiveMime) ? (
+              <TextPreview url={signedUrl} name={decodedName} mime={effectiveMime} />
+            ) : isDocx(effectiveMime) ? (
               <DocxPreview url={signedUrl} name={decodedName} onDownload={handleDownload} />
             ) : (
               <GenericPreview name={decodedName} typeInfo={typeInfo} onDownload={handleDownload} />

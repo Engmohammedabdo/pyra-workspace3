@@ -52,6 +52,7 @@ import {
   Home,
 } from 'lucide-react';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
+import { resolveMimeType } from '@/lib/utils/mime';
 
 // ---------- Types ----------
 
@@ -487,17 +488,21 @@ export default function PortalFilesPage() {
       const res = await fetch('/api/portal/files');
       const json = await res.json();
       if (res.ok && json.data) {
-        const mapped: FileWithProject[] = (json.data as Array<Record<string, unknown>>).map((f) => ({
-          id: f.id as string,
-          file_name: f.file_name as string,
-          file_type: (f.mime_type || f.file_type || 'application/octet-stream') as string,
-          file_path: (f.file_path || '') as string,
-          file_size: f.file_size as number | undefined,
-          added_at: (f.created_at || f.added_at) as string,
-          project_id: f.project_id as string,
-          project_name: f.project_name as string,
-          approval: f.approval as FileWithProject['approval'],
-        }));
+        const mapped: FileWithProject[] = (json.data as Array<Record<string, unknown>>).map((f) => {
+          const fileName = f.file_name as string;
+          const storedMime = (f.mime_type || f.file_type || null) as string | null;
+          return {
+            id: f.id as string,
+            file_name: fileName,
+            file_type: resolveMimeType(fileName, storedMime),
+            file_path: (f.file_path || '') as string,
+            file_size: f.file_size as number | undefined,
+            added_at: (f.created_at || f.added_at) as string,
+            project_id: f.project_id as string,
+            project_name: f.project_name as string,
+            approval: f.approval as FileWithProject['approval'],
+          };
+        });
         setFiles(mapped);
       }
     } catch {

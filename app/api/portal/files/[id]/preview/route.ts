@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { isPathSafe } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
+import { resolveMimeType } from '@/lib/utils/mime';
 
 /**
  * GET /api/portal/files/[id]/preview
@@ -95,9 +96,15 @@ export async function GET(
       ip_address: _request.headers.get('x-forwarded-for') || 'unknown',
     });
 
+    // Resolve correct MIME type (DB may store 'application/octet-stream' for many files)
+    const effectiveMime = resolveMimeType(
+      projectFile.file_name,
+      projectFile.mime_type
+    );
+
     return apiSuccess({
       url: signedUrlData.signedUrl,
-      mime_type: projectFile.mime_type || 'application/octet-stream',
+      mime_type: effectiveMime,
       file_name: projectFile.file_name,
       file_size: projectFile.file_size || 0,
     });
