@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/tooltip';
 import { Bell, LogOut, User, Sun, Moon, BellRing } from 'lucide-react';
 import { PortalMobileNav } from '@/components/portal/portal-mobile-nav';
+import { PortalCommandSearch } from '@/components/portal/portal-command-search';
 import { usePortalNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
 import type { PyraClient } from '@/types/database';
 import { useEffect, useState } from 'react';
@@ -80,6 +81,9 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
         </div>
 
         <div className="ms-auto flex items-center gap-1.5">
+          {/* Global Search */}
+          <PortalCommandSearch />
+
           {/* Desktop Push Toggle */}
           {mounted && 'Notification' in window && (
             <Tooltip>

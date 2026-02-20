@@ -50,7 +50,10 @@ import {
   List,
   ChevronRight,
   Home,
+  Star,
+  PackageCheck,
 } from 'lucide-react';
+import { usePortalFavorites } from '@/hooks/usePortalFavorites';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 import { PdfThumbnail } from '@/components/portal/pdf-thumbnail';
 import { resolveMimeType } from '@/lib/utils/mime';
@@ -262,6 +265,8 @@ function FileCard({
   onApprove,
   onRevision,
   approveLoading,
+  onToggleFavorite,
+  favorited,
 }: {
   file: FileWithProject;
   onPreview: () => void;
@@ -269,6 +274,8 @@ function FileCard({
   onApprove: () => void;
   onRevision: () => void;
   approveLoading: boolean;
+  onToggleFavorite: () => void;
+  favorited: boolean;
 }) {
   const FileTypeIcon = getFileIcon(file.file_type);
   const colorBg = getFileColorBg(file.file_type);
@@ -346,6 +353,22 @@ function FileCard({
             </>
           )}
         </div>
+
+        {/* Favorite star */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite();
+          }}
+          className={cn(
+            'absolute top-2 end-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all',
+            favorited
+              ? 'bg-amber-100 text-amber-500'
+              : 'bg-black/20 text-white opacity-0 group-hover:opacity-100'
+          )}
+        >
+          <Star className={cn('h-4 w-4', favorited && 'fill-amber-500')} />
+        </button>
 
         {/* Top badges */}
         <div className="absolute top-2 start-2 flex items-center gap-1">
@@ -483,6 +506,10 @@ export default function PortalFilesPage() {
   // File preview
   const [previewFile, setPreviewFile] = useState<FileWithProject | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Favorites & bulk download
+  const { toggleFavorite, isFavorite } = usePortalFavorites();
+  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   // Restore view mode from localStorage
   useEffect(() => {
@@ -626,6 +653,44 @@ export default function PortalFilesPage() {
     setRevisionDialogOpen(true);
   }
 
+  async function handleBulkDownload() {
+    const itemsAtLevel = getItemsAtLevel(files, currentPath);
+    if (itemsAtLevel.files.length === 0 && itemsAtLevel.folders.length === 0) {
+      toast.error('لا توجد ملفات للتحميل');
+      return;
+    }
+
+    setBulkDownloading(true);
+    try {
+      const res = await fetch('/api/portal/files/bulk-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: currentPath }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'فشل في التحميل');
+        return;
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentPath.length > 0 ? currentPath[currentPath.length - 1] : 'files'}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('تم تحميل الملفات بنجاح');
+    } catch {
+      toast.error('حدث خطأ أثناء التحميل');
+    } finally {
+      setBulkDownloading(false);
+    }
+  }
+
   // ---------- Render helpers ----------
 
   function renderFileGrid(fileList: FileWithProject[]) {
@@ -640,6 +705,8 @@ export default function PortalFilesPage() {
             onApprove={() => handleApprove(file.id)}
             onRevision={() => openRevision(file.id)}
             approveLoading={approveLoading === file.id}
+            onToggleFavorite={() => toggleFavorite({ id: file.id, type: 'file', name: file.file_name })}
+            favorited={isFavorite(file.id, 'file')}
           />
         ))}
       </div>
@@ -699,7 +766,22 @@ export default function PortalFilesPage() {
             استعرض جميع ملفات مشاريعك وحمّلها
           </p>
         </div>
-        {/* View Toggle */}
+        {/* View Toggle & Bulk Download */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkDownload}
+            disabled={bulkDownloading}
+            className="gap-2"
+          >
+            {bulkDownloading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <PackageCheck className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">تحميل الكل</span>
+          </Button>
         <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
           <button
             onClick={() => toggleViewMode('grid')}
@@ -725,6 +807,7 @@ export default function PortalFilesPage() {
           >
             <List className="h-4 w-4" />
           </button>
+        </div>
         </div>
       </div>
 
