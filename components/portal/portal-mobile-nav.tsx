@@ -19,6 +19,7 @@ import {
   FileText,
   Bell,
   User,
+  ScrollText,
 } from 'lucide-react';
 
 const portalNavItems = [
@@ -36,6 +37,11 @@ const portalNavItems = [
     href: '/portal/quotes',
     label: 'عروض الأسعار',
     icon: FileText,
+  },
+  {
+    href: '/portal/scripts',
+    label: 'السكريبتات',
+    icon: ScrollText,
   },
   {
     href: '/portal/notifications',
