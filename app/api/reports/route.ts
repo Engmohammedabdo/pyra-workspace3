@@ -133,7 +133,7 @@ export async function GET(_request: NextRequest) {
         new_this_month: clientsNewRes.count ?? 0,
       },
       revenue: {
-        total_this_month: totalRevenue,
+        total: totalRevenue,
         outstanding: totalOutstanding,
         overdue: totalOverdue,
       },

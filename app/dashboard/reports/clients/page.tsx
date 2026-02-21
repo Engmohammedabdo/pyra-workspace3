@@ -85,7 +85,7 @@ export default function ClientsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" /> إجمالي العملاء
                 </p>
-                <p className="text-2xl font-bold mt-1">{data?.summary.total ?? 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.summary?.total ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -93,7 +93,7 @@ export default function ClientsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <UserCheck className="h-3.5 w-3.5" /> نشط
                 </p>
-                <p className="text-2xl font-bold mt-1 text-green-600">{data?.summary.active ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-green-600">{data?.summary?.active ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -101,7 +101,7 @@ export default function ClientsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <UserPlus className="h-3.5 w-3.5" /> جديد في الفترة
                 </p>
-                <p className="text-2xl font-bold mt-1 text-blue-600">{data?.summary.new_this_period ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-blue-600">{data?.summary?.new_this_period ?? 0}</p>
               </CardContent>
             </Card>
           </>

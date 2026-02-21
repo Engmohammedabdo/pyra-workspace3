@@ -79,7 +79,7 @@ export default function StorageReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <FileText className="h-3.5 w-3.5" /> إجمالي الملفات
                 </p>
-                <p className="text-2xl font-bold mt-1">{data?.summary.total_files ?? 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.summary?.total_files ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -87,7 +87,7 @@ export default function StorageReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <FolderOpen className="h-3.5 w-3.5" /> إجمالي المجلدات
                 </p>
-                <p className="text-2xl font-bold mt-1">{data?.summary.total_folders ?? 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.summary?.total_folders ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -96,7 +96,7 @@ export default function StorageReportPage() {
                   <HardDrive className="h-3.5 w-3.5" /> الحجم الإجمالي
                 </p>
                 <p className="text-2xl font-bold mt-1">
-                  {formatFileSize(data?.summary.total_size ?? 0)}
+                  {formatFileSize(data?.summary?.total_size ?? 0)}
                 </p>
               </CardContent>
             </Card>

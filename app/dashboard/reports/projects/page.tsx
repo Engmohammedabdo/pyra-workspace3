@@ -93,7 +93,7 @@ export default function ProjectsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Briefcase className="h-3.5 w-3.5" /> إجمالي المشاريع
                 </p>
-                <p className="text-2xl font-bold mt-1">{data?.summary.total ?? 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.summary?.total ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -101,7 +101,7 @@ export default function ProjectsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <CheckCircle className="h-3.5 w-3.5" /> مكتمل في الفترة
                 </p>
-                <p className="text-2xl font-bold mt-1 text-green-600">{data?.summary.completed ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-green-600">{data?.summary?.completed ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -109,7 +109,7 @@ export default function ProjectsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" /> متوسط أيام الإنجاز
                 </p>
-                <p className="text-2xl font-bold mt-1">{data?.summary.avg_completion_days ?? 0}</p>
+                <p className="text-2xl font-bold mt-1">{data?.summary?.avg_completion_days ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -117,7 +117,7 @@ export default function ProjectsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <AlertTriangle className="h-3.5 w-3.5" /> متأخرة
                 </p>
-                <p className="text-2xl font-bold mt-1 text-red-600">{data?.summary.overdue ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-red-600">{data?.summary?.overdue ?? 0}</p>
               </CardContent>
             </Card>
           </>

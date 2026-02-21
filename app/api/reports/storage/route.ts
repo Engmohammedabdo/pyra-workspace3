@@ -43,7 +43,7 @@ export async function GET(_request: NextRequest) {
       // Top 10 largest files
       supabase
         .from('pyra_file_index')
-        .select('file_name, file_path, file_size, mime_type')
+        .select('id, file_name, file_path, file_size, mime_type, project_id')
         .eq('is_folder', false)
         .order('file_size', { ascending: false })
         .limit(10),
@@ -78,11 +78,25 @@ export async function GET(_request: NextRequest) {
       .slice(0, 10);
 
     return apiSuccess({
-      total_files: totalFilesRes.count ?? 0,
-      total_folders: totalFoldersRes.count ?? 0,
-      total_size_bytes: totalSizeBytes,
-      by_mime_type: byMimeType,
-      largest_files: largestFilesRes.data || [],
+      summary: {
+        total_files: totalFilesRes.count ?? 0,
+        total_folders: totalFoldersRes.count ?? 0,
+        total_size: totalSizeBytes,
+      },
+      by_mime_type: byMimeType.map((m) => ({
+        name: m.mime_type,
+        size: m.total_size,
+        count: m.count,
+      })),
+      largest_files: (largestFilesRes.data || []).map(
+        (f: { id: string; file_name: string; file_path: string; file_size: number; mime_type: string; project_id: string | null }) => ({
+          id: f.id,
+          name: f.file_name,
+          size: f.file_size,
+          mime_type: f.mime_type,
+          project_name: f.file_path?.split('/')[0] || '—',
+        })
+      ),
     });
   } catch (err) {
     console.error('GET /api/reports/storage error:', err);

@@ -112,7 +112,7 @@ export default function RevenueReportPage() {
                   <DollarSign className="h-3.5 w-3.5" /> إجمالي الإيرادات
                 </p>
                 <p className="text-2xl font-bold mt-1 text-green-600">
-                  {formatCurrency(data?.summary.total_revenue ?? 0)}
+                  {formatCurrency(data?.summary?.total_revenue ?? 0)}
                 </p>
               </CardContent>
             </Card>
@@ -122,7 +122,7 @@ export default function RevenueReportPage() {
                   <Receipt className="h-3.5 w-3.5" /> إجمالي الفواتير
                 </p>
                 <p className="text-2xl font-bold mt-1">
-                  {formatCurrency(data?.summary.total_invoiced ?? 0)}
+                  {formatCurrency(data?.summary?.total_invoiced ?? 0)}
                 </p>
               </CardContent>
             </Card>
@@ -132,7 +132,7 @@ export default function RevenueReportPage() {
                   <TrendingUp className="h-3.5 w-3.5" /> مستحقة
                 </p>
                 <p className="text-2xl font-bold mt-1 text-orange-600">
-                  {formatCurrency(data?.summary.outstanding ?? 0)}
+                  {formatCurrency(data?.summary?.outstanding ?? 0)}
                 </p>
               </CardContent>
             </Card>
@@ -142,7 +142,7 @@ export default function RevenueReportPage() {
                   <AlertTriangle className="h-3.5 w-3.5" /> متأخرة
                 </p>
                 <p className="text-2xl font-bold mt-1 text-red-600">
-                  {formatCurrency(data?.summary.overdue ?? 0)}
+                  {formatCurrency(data?.summary?.overdue ?? 0)}
                 </p>
               </CardContent>
             </Card>

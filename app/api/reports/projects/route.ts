@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       // Recent completions (last 5)
       supabase
         .from('pyra_projects')
-        .select('id, name, client_company, updated_at')
+        .select('id, name, client_company, created_at, updated_at')
         .eq('status', 'completed')
         .order('updated_at', { ascending: false })
         .limit(5),
@@ -91,20 +91,28 @@ export async function GET(request: NextRequest) {
 
     // Recent completions formatted
     const recentCompletions = (recentCompletionsRes.data || []).map(
-      (p: { id: string; name: string; client_company: string; updated_at: string }) => ({
-        id: p.id,
-        name: p.name,
-        client_company: p.client_company,
-        completed_at: p.updated_at,
-      })
+      (p: { id: string; name: string; client_company: string; created_at: string; updated_at: string }) => {
+        const daysTaken = Math.round(
+          (new Date(p.updated_at).getTime() - new Date(p.created_at).getTime()) / 86400000
+        );
+        return {
+          id: p.id,
+          name: p.name,
+          client_company: p.client_company,
+          completed_at: p.updated_at,
+          days_taken: daysTaken,
+        };
+      }
     );
 
     return apiSuccess({
-      total_projects: totalProjects,
-      by_status: byStatus,
-      completed_this_period: completedInRangeRes.count ?? 0,
-      avg_completion_days: avgCompletionDays,
-      overdue_projects: overdueRes.count ?? 0,
+      summary: {
+        total: totalProjects,
+        completed: completedInRangeRes.count ?? 0,
+        avg_completion_days: avgCompletionDays,
+        overdue: overdueRes.count ?? 0,
+      },
+      by_status: byStatus.map((s) => ({ name: s.status, count: s.count })),
       recent_completions: recentCompletions,
     });
   } catch (err) {

@@ -132,12 +132,20 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.total - a.total);
 
     return apiSuccess({
-      total_revenue: totalRevenue,
-      total_invoiced: totalInvoiced,
-      total_outstanding: totalOutstanding,
-      total_overdue: totalOverdue,
-      revenue_trend: revenueTrend,
-      by_payment_method: byPaymentMethod,
+      summary: {
+        total_revenue: totalRevenue,
+        total_invoiced: totalInvoiced,
+        outstanding: totalOutstanding,
+        overdue: totalOverdue,
+      },
+      revenue_trend: revenueTrend.map((r) => ({
+        name: r.period,
+        amount: r.revenue,
+      })),
+      by_payment_method: byPaymentMethod.map((m) => ({
+        name: m.method,
+        amount: m.total,
+      })),
     });
   } catch (err) {
     console.error('GET /api/reports/revenue error:', err);

@@ -100,8 +100,32 @@ export async function GET(request: NextRequest) {
     );
 
     return apiSuccess({
-      total_members: users.length,
-      activity_summary: activitySummary,
+      summary: {
+        total_members: users.length,
+      },
+      activity: activitySummary.slice(0, 20).map(
+        (u: { display_name: string; actions_count: number }) => ({
+          name: u.display_name,
+          actions: u.actions_count,
+        })
+      ),
+      activity_summary: activitySummary.map(
+        (u: {
+          username: string;
+          display_name: string;
+          role: string;
+          actions_count: number;
+          files_uploaded: number;
+          last_active: string | null;
+        }) => ({
+          username: u.username,
+          display_name: u.display_name,
+          role: u.role,
+          actions: u.actions_count,
+          files_uploaded: u.files_uploaded,
+          last_active: u.last_active,
+        })
+      ),
     });
   } catch (err) {
     console.error('GET /api/reports/team error:', err);

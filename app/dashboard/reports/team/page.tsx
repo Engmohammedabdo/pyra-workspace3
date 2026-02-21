@@ -96,7 +96,7 @@ export default function TeamReportPage() {
               <p className="text-sm text-muted-foreground flex items-center gap-1">
                 <Users className="h-3.5 w-3.5" /> إجمالي الأعضاء
               </p>
-              <p className="text-2xl font-bold mt-1">{data?.summary.total_members ?? 0}</p>
+              <p className="text-2xl font-bold mt-1">{data?.summary?.total_members ?? 0}</p>
             </CardContent>
           </Card>
         )}

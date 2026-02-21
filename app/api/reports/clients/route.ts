@@ -113,11 +113,19 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.count - a.count);
 
     return apiSuccess({
-      total_clients: totalClientsRes.count ?? 0,
-      active_clients: activeClientsRes.count ?? 0,
-      new_clients_this_period: newClientsRes.count ?? 0,
-      top_clients: topClients,
-      client_distribution: clientDistribution,
+      summary: {
+        total: totalClientsRes.count ?? 0,
+        active: activeClientsRes.count ?? 0,
+        new_this_period: newClientsRes.count ?? 0,
+      },
+      top_clients: topClients.map((c: { name: string; company: string; total_revenue: number }) => ({
+        name: c.company || c.name,
+        revenue: c.total_revenue,
+      })),
+      client_distribution: clientDistribution.map((c: { company: string; count: number }) => ({
+        name: c.company,
+        count: c.count,
+      })),
     });
   } catch (err) {
     console.error('GET /api/reports/clients error:', err);
