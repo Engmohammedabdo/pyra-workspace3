@@ -420,6 +420,35 @@ export interface PyraPayment {
 }
 
 // ==========================================
+// Automation Tables (2)
+// ==========================================
+
+export interface PyraAutomationRule {
+  id: string;
+  name: string;
+  description: string | null;
+  trigger_event: string;
+  conditions: Array<{ field: string; operator: string; value: unknown }>;
+  actions: Array<{ type: string; config: Record<string, unknown> }>;
+  is_enabled: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraAutomationLog {
+  id: string;
+  rule_id: string;
+  rule_name: string | null;
+  trigger_event: string | null;
+  trigger_data: Record<string, unknown> | null;
+  actions_executed: Array<{ type: string; success: boolean; error?: string }> | null;
+  status: 'success' | 'partial_failure' | 'failed';
+  error_message: string | null;
+  executed_at: string;
+}
+
+// ==========================================
 // API Types
 // ==========================================
 

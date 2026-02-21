@@ -33,6 +33,7 @@ import {
   ScrollText,
   Receipt,
   BarChart3,
+  Zap,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -101,6 +102,7 @@ const navGroups: NavGroup[] = [
     titleEn: 'System',
     items: [
       { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, adminOnly: true },
+      { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, adminOnly: true },
       { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity },
       { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, adminOnly: true },
       { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, adminOnly: true },
