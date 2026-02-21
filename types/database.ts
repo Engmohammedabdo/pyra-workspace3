@@ -420,6 +420,39 @@ export interface PyraPayment {
 }
 
 // ==========================================
+// Knowledge Base Tables (2)
+// ==========================================
+
+export interface PyraKbCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  icon: string | null;
+  sort_order: number;
+  is_public: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraKbArticle {
+  id: string;
+  category_id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string | null;
+  is_public: boolean;
+  sort_order: number;
+  view_count: number;
+  author: string | null;
+  author_display_name: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
 // Automation Tables (2)
 // ==========================================
 

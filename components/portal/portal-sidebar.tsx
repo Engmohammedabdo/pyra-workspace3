@@ -12,6 +12,7 @@ import {
   Bell,
   User,
   ScrollText,
+  HelpCircle,
 } from 'lucide-react';
 
 const portalNavItems = [
@@ -39,6 +40,11 @@ const portalNavItems = [
     href: '/portal/scripts',
     label: 'السكريبتات',
     icon: ScrollText,
+  },
+  {
+    href: '/portal/help',
+    label: 'مركز المساعدة',
+    icon: HelpCircle,
   },
   {
     href: '/portal/notifications',
