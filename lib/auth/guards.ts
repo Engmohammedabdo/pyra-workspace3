@@ -26,7 +26,7 @@ export async function requireAuth(): Promise<AuthSession> {
 
   const { data: pyraUser } = await supabase
     .from('pyra_users')
-    .select('id, username, role, display_name, permissions, created_at')
+    .select('*')
     .eq('username', user.user_metadata?.username || user.email)
     .single();
 
@@ -64,7 +64,7 @@ export async function getOptionalAuth(): Promise<AuthSession | null> {
 
     const { data: pyraUser } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, created_at')
+      .select('*')
       .eq('username', user.user_metadata?.username || user.email)
       .single();
 

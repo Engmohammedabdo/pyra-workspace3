@@ -16,13 +16,16 @@ export async function getApiAuth(): Promise<{
 
     if (error || !user) return null;
 
-    const { data: pyraUser } = await supabase
+    const { data: pyraUser, error: pyraError } = await supabase
       .from('pyra_users')
-      .select('id, username, auth_user_id, role, display_name, permissions, created_at')
+      .select('*')
       .eq('username', user.user_metadata?.username || user.email)
       .single();
 
-    if (!pyraUser) return null;
+    if (pyraError || !pyraUser) {
+      if (pyraError) console.error('getApiAuth pyra_users error:', pyraError.message);
+      return null;
+    }
 
     return {
       userId: user.id,
