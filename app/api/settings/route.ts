@@ -50,6 +50,8 @@ const ALLOWED_KEYS = new Set([
   'invoice_prefix',
   'payment_terms_days',
   'default_currency',
+  // KPI settings
+  'kpi_storage_warning_percent',
 ]);
 
 // =============================================================

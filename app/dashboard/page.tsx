@@ -29,6 +29,12 @@ import {
 } from 'lucide-react';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { DashboardCharts } from '@/components/dashboard/charts';
+import { KpiGrid } from '@/components/dashboard/KpiGrid';
+import { SmartAlerts } from '@/components/dashboard/SmartAlerts';
+import { RevenueTrendChart } from '@/components/dashboard/RevenueTrendChart';
+import { ProjectPipelineChart } from '@/components/dashboard/ProjectPipelineChart';
+import { ClientDistributionChart } from '@/components/dashboard/ClientDistributionChart';
+import { TeamWorkloadChart } from '@/components/dashboard/TeamWorkloadChart';
 
 interface DashboardData {
   total_files: number;
@@ -195,6 +201,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ═══ KPI Section (Admin) ═══ */}
+      {isAdmin && (
+        <>
+          <SmartAlerts />
+          <KpiGrid />
+        </>
+      )}
+
       {/* ═══ Primary Stats Grid ═══ */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -278,6 +292,20 @@ export default function DashboardPage() {
 
       {/* ═══ Charts Section (Admin) ═══ */}
       {isAdmin && <DashboardCharts />}
+
+      {/* ═══ KPI Charts (Admin) ═══ */}
+      {isAdmin && (
+        <>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <RevenueTrendChart />
+            <ProjectPipelineChart />
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ClientDistributionChart />
+            <TeamWorkloadChart />
+          </div>
+        </>
+      )}
 
       {/* ═══ Two-column: Activity + Sidebar ═══ */}
       <div className="grid gap-4 lg:grid-cols-3">
