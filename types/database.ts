@@ -470,6 +470,38 @@ export interface PyraClientBranding {
 }
 
 // ==========================================
+// Webhook Tables (2)
+// ==========================================
+
+export interface PyraWebhook {
+  id: string;
+  name: string;
+  url: string;
+  secret: string;
+  events: string[];
+  is_enabled: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraWebhookDelivery {
+  id: string;
+  webhook_id: string;
+  event: string;
+  payload: Record<string, unknown> | null;
+  response_status: number | null;
+  response_body: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  status: 'pending' | 'success' | 'failed' | 'retrying';
+  next_retry_at: string | null;
+  error_message: string | null;
+  delivered_at: string | null;
+  created_at: string;
+}
+
+// ==========================================
 // Automation Tables (2)
 // ==========================================
 

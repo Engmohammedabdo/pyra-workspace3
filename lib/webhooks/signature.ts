@@ -1,0 +1,9 @@
+import crypto from 'crypto';
+
+export function signPayload(payload: string, secret: string): string {
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex');
+}
+
+export function generateWebhookSecret(): string {
+  return `whsec_${crypto.randomBytes(24).toString('hex')}`;
+}
