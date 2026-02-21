@@ -360,6 +360,66 @@ export interface PyraAuthMapping {
 }
 
 // ==========================================
+// Invoice Tables (3)
+// ==========================================
+
+export interface PyraInvoice {
+  id: string;
+  invoice_number: string;
+  quote_id: string | null;
+  client_id: string | null;
+  project_name: string | null;
+  status: 'draft' | 'sent' | 'paid' | 'partially_paid' | 'overdue' | 'cancelled';
+  issue_date: string;
+  due_date: string;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  amount_paid: number;
+  amount_due: number;
+  notes: string | null;
+  terms_conditions: TermCondition[];
+  bank_details: BankDetails;
+  company_name: string | null;
+  company_logo: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_company: string | null;
+  client_phone: string | null;
+  client_address: string | null;
+  milestone_type: 'booking_deposit' | 'initial_delivery' | 'final_delivery' | null;
+  parent_invoice_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraInvoiceItem {
+  id: string;
+  invoice_id: string;
+  sort_order: number;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  created_at: string;
+}
+
+export interface PyraPayment {
+  id: string;
+  invoice_id: string;
+  amount: number;
+  payment_date: string;
+  method: 'bank_transfer' | 'cash' | 'cheque' | 'credit_card' | 'online' | 'other';
+  reference: string | null;
+  notes: string | null;
+  recorded_by: string;
+  created_at: string;
+}
+
+// ==========================================
 // API Types
 // ==========================================
 

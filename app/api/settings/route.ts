@@ -46,6 +46,10 @@ const ALLOWED_KEYS = new Set([
   'smtp_from',
   'watermark_enabled',
   'watermark_text',
+  // Invoice settings
+  'invoice_prefix',
+  'payment_terms_days',
+  'default_currency',
 ]);
 
 // =============================================================

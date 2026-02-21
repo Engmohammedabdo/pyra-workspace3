@@ -16,3 +16,15 @@ export const QUOTE_FIELDS = `
   signature_data, signed_by, signed_at, signed_ip,
   sent_at, viewed_at, created_by, created_at, updated_at
 `;
+
+/** Columns returned for a single invoice (used by list + detail endpoints). */
+export const INVOICE_FIELDS = `
+  id, invoice_number, quote_id, client_id, project_name, status,
+  issue_date, due_date, currency, subtotal, tax_rate,
+  tax_amount, total, amount_paid, amount_due, notes,
+  terms_conditions, bank_details,
+  company_name, company_logo, client_name, client_email,
+  client_company, client_phone, client_address,
+  milestone_type, parent_invoice_id,
+  created_by, created_at, updated_at
+`;

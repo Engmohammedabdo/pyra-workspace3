@@ -8,6 +8,7 @@ import {
   FolderKanban,
   FolderOpen,
   FileText,
+  Receipt,
   Bell,
   User,
   ScrollText,
@@ -28,6 +29,11 @@ const portalNavItems = [
     href: '/portal/quotes',
     label: 'عروض الأسعار',
     icon: FileText,
+  },
+  {
+    href: '/portal/invoices',
+    label: 'الفواتير',
+    icon: Receipt,
   },
   {
     href: '/portal/scripts',
