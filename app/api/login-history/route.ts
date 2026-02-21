@@ -10,7 +10,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // =============================================================
 // GET /api/login-history
 // List login attempts (admin only)
-// Supports ?username=, ?success=, ?page=, ?limit=
+// Supports ?username=, ?success=, ?source=, ?page=, ?limit=
+//   source: 'admin' | 'portal' | 'all' (default: 'all')
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const username = searchParams.get('username')?.trim() || '';
     const success = searchParams.get('success');
+    const source = searchParams.get('source') || 'all';
     const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
@@ -30,6 +32,13 @@ export async function GET(request: NextRequest) {
       .from('pyra_login_attempts')
       .select('id, username, ip_address, success, attempted_at', { count: 'exact' })
       .order('attempted_at', { ascending: false });
+
+    // Filter by source: admin users vs portal clients
+    if (source === 'admin') {
+      query = query.not('username', 'like', 'client:%');
+    } else if (source === 'portal') {
+      query = query.like('username', 'client:%');
+    }
 
     if (username) {
       query = query.ilike('username', `%${username}%`);

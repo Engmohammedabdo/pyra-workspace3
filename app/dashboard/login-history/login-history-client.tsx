@@ -18,11 +18,20 @@ interface LoginAttempt {
   attempted_at: string;
 }
 
+/** Format username for display — strip 'client:' prefix and show badge */
+function formatUsername(username: string): { name: string; isClient: boolean } {
+  if (username.startsWith('client:')) {
+    return { name: username.slice(7), isClient: true };
+  }
+  return { name: username, isClient: false };
+}
+
 export default function LoginHistoryClient() {
   const [attempts, setAttempts] = useState<LoginAttempt[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterUser, setFilterUser] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterSource, setFilterSource] = useState<string>('all');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const pageSize = 50;
@@ -34,6 +43,7 @@ export default function LoginHistoryClient() {
       const params = new URLSearchParams();
       if (filterUser.trim()) params.set('username', filterUser.trim());
       if (filterStatus !== 'all') params.set('success', filterStatus);
+      if (filterSource !== 'all') params.set('source', filterSource);
       params.set('page', String(page));
       params.set('limit', String(pageSize));
 
@@ -46,7 +56,7 @@ export default function LoginHistoryClient() {
     } finally {
       setLoading(false);
     }
-  }, [filterUser, filterStatus, page]);
+  }, [filterUser, filterStatus, filterSource, page]);
 
   useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
@@ -110,12 +120,22 @@ export default function LoginHistoryClient() {
           onChange={(e) => handleUserFilterChange(e.target.value)}
           className="max-w-xs"
         />
-        <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); setPage(1); }}>
+        <Select value={filterSource} onValueChange={v => { setFilterSource(v); setPage(1); }}>
           <SelectTrigger className="w-[160px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">الكل</SelectItem>
+            <SelectItem value="admin">الإدارة فقط</SelectItem>
+            <SelectItem value="portal">العملاء فقط</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); setPage(1); }}>
+          <SelectTrigger className="w-[160px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">كل الحالات</SelectItem>
             <SelectItem value="true">ناجح فقط</SelectItem>
             <SelectItem value="false">فاشل فقط</SelectItem>
           </SelectContent>
@@ -147,7 +167,23 @@ export default function LoginHistoryClient() {
                   <tr><td colSpan={4} className="p-12 text-center text-muted-foreground">لا توجد محاولات دخول</td></tr>
                 ) : attempts.map(attempt => (
                   <tr key={attempt.id} className="border-b hover:bg-muted/30 transition-colors">
-                    <td className="p-3 font-medium">{attempt.username}</td>
+                    <td className="p-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const { name, isClient } = formatUsername(attempt.username);
+                          return (
+                            <>
+                              <span>{name}</span>
+                              {isClient && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-blue-600 border-blue-200 dark:text-blue-400 dark:border-blue-800">
+                                  عميل
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </td>
                     <td className="p-3 text-muted-foreground font-mono text-xs">{attempt.ip_address || '—'}</td>
                     <td className="p-3">
                       {attempt.success ? (
