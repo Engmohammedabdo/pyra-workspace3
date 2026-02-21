@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_login_attempts')
-      .select('id, username, ip_address, user_agent, success, attempted_at', { count: 'exact' })
+      .select('id, username, ip_address, success, attempted_at', { count: 'exact' })
       .order('attempted_at', { ascending: false });
 
     // Filter by source: admin users vs portal clients

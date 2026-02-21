@@ -6,8 +6,7 @@ import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate
 function recordLoginAttempt(
   username: string,
   ip: string,
-  success: boolean,
-  userAgent: string
+  success: boolean
 ) {
   const svc = createServiceRoleClient();
   svc
@@ -16,7 +15,6 @@ function recordLoginAttempt(
       username,
       ip_address: ip,
       success,
-      user_agent: userAgent,
       attempted_at: new Date().toISOString(),
     })
     .then(({ error }) => {
@@ -26,7 +24,6 @@ function recordLoginAttempt(
 
 export async function POST(request: NextRequest) {
   const ip = getClientIp(request);
-  const ua = request.headers.get('user-agent') || '';
 
   try {
     // Rate limit: 5 attempts per IP per 15 minutes
@@ -50,7 +47,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       // ── Record failed attempt ──
-      recordLoginAttempt(email, ip, false, ua);
+      recordLoginAttempt(email, ip, false);
       return NextResponse.json(
         { error: error.message },
         { status: 401 }
@@ -69,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (pyraErr || !pyraUser) {
       await supabase.auth.signOut();
       // ── Record failed attempt (no pyra_users record) ──
-      recordLoginAttempt(email, ip, false, ua);
+      recordLoginAttempt(email, ip, false);
       return NextResponse.json(
         { error: 'هذا الحساب غير مسجل كمستخدم إداري' },
         { status: 403 }
@@ -79,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (!['admin', 'employee'].includes(pyraUser.role)) {
       await supabase.auth.signOut();
       // ── Record failed attempt (wrong role) ──
-      recordLoginAttempt(pyraUser.username, ip, false, ua);
+      recordLoginAttempt(pyraUser.username, ip, false);
       return NextResponse.json(
         { error: 'لا تملك صلاحية الدخول للوحة الإدارة' },
         { status: 403 }
@@ -87,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Record successful login ──
-    recordLoginAttempt(pyraUser.username, ip, true, ua);
+    recordLoginAttempt(pyraUser.username, ip, true);
 
     return NextResponse.json({
       success: true,
