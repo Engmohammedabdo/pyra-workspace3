@@ -1,8 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { adminLoginLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
+
+/** Record login attempt (fire-and-forget, never blocks the response) */
+function recordLoginAttempt(
+  username: string,
+  ip: string,
+  success: boolean,
+  userAgent: string
+) {
+  const svc = createServiceRoleClient();
+  svc
+    .from('pyra_login_attempts')
+    .insert({
+      username,
+      ip_address: ip,
+      success,
+      user_agent: userAgent,
+      attempted_at: new Date().toISOString(),
+    })
+    .then(({ error }) => {
+      if (error) console.error('[login-attempt] insert error:', error.message);
+    });
+}
 
 export async function POST(request: NextRequest) {
+  const ip = getClientIp(request);
+  const ua = request.headers.get('user-agent') || '';
+
   try {
     // Rate limit: 5 attempts per IP per 15 minutes
     const limited = checkRateLimit(adminLoginLimiter, request);
@@ -24,6 +49,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (error) {
+      // ── Record failed attempt ──
+      recordLoginAttempt(email, ip, false, ua);
       return NextResponse.json(
         { error: error.message },
         { status: 401 }
@@ -40,8 +67,9 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (pyraErr || !pyraUser) {
-      // Sign out immediately — this user has no admin/employee record
       await supabase.auth.signOut();
+      // ── Record failed attempt (no pyra_users record) ──
+      recordLoginAttempt(email, ip, false, ua);
       return NextResponse.json(
         { error: 'هذا الحساب غير مسجل كمستخدم إداري' },
         { status: 403 }
@@ -50,11 +78,16 @@ export async function POST(request: NextRequest) {
 
     if (!['admin', 'employee'].includes(pyraUser.role)) {
       await supabase.auth.signOut();
+      // ── Record failed attempt (wrong role) ──
+      recordLoginAttempt(pyraUser.username, ip, false, ua);
       return NextResponse.json(
         { error: 'لا تملك صلاحية الدخول للوحة الإدارة' },
         { status: 403 }
       );
     }
+
+    // ── Record successful login ──
+    recordLoginAttempt(pyraUser.username, ip, true, ua);
 
     return NextResponse.json({
       success: true,

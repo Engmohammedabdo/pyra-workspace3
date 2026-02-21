@@ -12,6 +12,28 @@ import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
 import { generateId } from '@/lib/utils/id';
 import bcrypt from 'bcryptjs';
 
+/** Record portal login attempt (fire-and-forget) */
+function recordPortalLoginAttempt(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  email: string,
+  ip: string,
+  success: boolean,
+  userAgent: string
+) {
+  supabase
+    .from('pyra_login_attempts')
+    .insert({
+      username: `client:${email}`,
+      ip_address: ip,
+      success,
+      user_agent: userAgent,
+      attempted_at: new Date().toISOString(),
+    })
+    .then(({ error }) => {
+      if (error) console.error('[login-attempt] portal insert error:', error.message);
+    });
+}
+
 /**
  * POST /api/portal/auth/login
  *
@@ -33,6 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     // ── Rate limiting (5 per IP per 15 min) ──────────
     const clientIp = getClientIp(request);
+    const ua = request.headers.get('user-agent') || '';
     const rateCheck = loginLimiter.check(clientIp);
     if (rateCheck.limited) {
       const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
@@ -70,6 +93,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (!client) {
+      // ── Record failed attempt (unknown email) ──
+      recordPortalLoginAttempt(supabase, normalizedEmail, clientIp, false, ua);
       return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
     }
 
@@ -107,9 +132,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!authenticated) {
+      // ── Record failed attempt (wrong password) ──
+      recordPortalLoginAttempt(supabase, client.email || normalizedEmail, clientIp, false, ua);
       console.warn('Portal login — auth failed for:', normalizedEmail);
       return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
     }
+
+    // ── Record successful login attempt ──────────────
+    recordPortalLoginAttempt(supabase, client.email || normalizedEmail, clientIp, true, ua);
 
     // ── Create portal session ────────────────────────
     await createPortalSession(client.id);

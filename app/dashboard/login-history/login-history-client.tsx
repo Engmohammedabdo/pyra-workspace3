@@ -14,8 +14,19 @@ interface LoginAttempt {
   id: number;
   username: string;
   ip_address: string;
+  user_agent: string;
   success: boolean;
   attempted_at: string;
+}
+
+/** Parse user agent to friendly browser name */
+function parseBrowser(ua: string): string {
+  if (!ua) return '—';
+  if (ua.includes('Edg')) return 'Edge';
+  if (ua.includes('Chrome')) return 'Chrome';
+  if (ua.includes('Firefox')) return 'Firefox';
+  if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
+  return ua.substring(0, 20);
 }
 
 /** Format username for display — strip 'client:' prefix and show badge */
@@ -152,6 +163,7 @@ export default function LoginHistoryClient() {
                 <tr className="border-b bg-muted/50">
                   <th className="text-start p-3 font-medium">المستخدم</th>
                   <th className="text-start p-3 font-medium">عنوان IP</th>
+                  <th className="text-start p-3 font-medium">المتصفح</th>
                   <th className="text-start p-3 font-medium">الحالة</th>
                   <th className="text-start p-3 font-medium">التوقيت</th>
                 </tr>
@@ -159,12 +171,12 @@ export default function LoginHistoryClient() {
               <tbody>
                 {loading ? Array.from({ length: 8 }).map((_, i) => (
                   <tr key={i} className="border-b">
-                    {Array.from({ length: 4 }).map((_, j) => (
+                    {Array.from({ length: 5 }).map((_, j) => (
                       <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>
                     ))}
                   </tr>
                 )) : attempts.length === 0 ? (
-                  <tr><td colSpan={4} className="p-12 text-center text-muted-foreground">لا توجد محاولات دخول</td></tr>
+                  <tr><td colSpan={5} className="p-12 text-center text-muted-foreground">لا توجد محاولات دخول</td></tr>
                 ) : attempts.map(attempt => (
                   <tr key={attempt.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3 font-medium">
@@ -185,6 +197,7 @@ export default function LoginHistoryClient() {
                       </div>
                     </td>
                     <td className="p-3 text-muted-foreground font-mono text-xs">{attempt.ip_address || '—'}</td>
+                    <td className="p-3 text-muted-foreground text-xs">{parseBrowser(attempt.user_agent)}</td>
                     <td className="p-3">
                       {attempt.success ? (
                         <Badge className="bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
