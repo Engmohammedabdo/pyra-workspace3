@@ -453,6 +453,23 @@ export interface PyraKbArticle {
 }
 
 // ==========================================
+// Client Branding (1)
+// ==========================================
+
+export interface PyraClientBranding {
+  id: string;
+  client_id: string;
+  primary_color: string;
+  secondary_color: string;
+  logo_url: string | null;
+  favicon_url: string | null;
+  company_name_display: string | null;
+  login_background_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
 // Automation Tables (2)
 // ==========================================
 
