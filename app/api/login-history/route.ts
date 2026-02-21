@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
@@ -11,7 +10,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // =============================================================
 // GET /api/login-history
 // List login attempts (admin only)
-// Supports ?username=, ?success=, ?limit=
+// Supports ?username=, ?success=, ?page=, ?limit=
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
@@ -19,25 +18,28 @@ export async function GET(request: NextRequest) {
     if (!admin) return apiForbidden();
 
     const searchParams = request.nextUrl.searchParams;
-    const username = searchParams.get('username');
+    const username = searchParams.get('username')?.trim() || '';
     const success = searchParams.get('success');
-    const limit = parseInt(searchParams.get('limit') || '100');
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
+    const offset = (page - 1) * limit;
 
     const supabase = await createServerSupabaseClient();
 
     let query = supabase
       .from('pyra_login_attempts')
-      .select('*', { count: 'exact' })
-      .order('attempted_at', { ascending: false })
-      .limit(Math.min(limit, 500));
+      .select('id, username, ip_address, success, attempted_at', { count: 'exact' })
+      .order('attempted_at', { ascending: false });
 
     if (username) {
-      query = query.eq('username', username);
+      query = query.ilike('username', `%${username}%`);
     }
 
-    if (success !== null && success !== undefined) {
+    if (success === 'true' || success === 'false') {
       query = query.eq('success', success === 'true');
     }
+
+    query = query.range(offset, offset + limit - 1);
 
     const { data, count, error } = await query;
 
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data || [], { total: count ?? 0 });
+    return apiSuccess(data || [], { total: count ?? 0, page, limit });
   } catch (err) {
     console.error('GET /api/login-history error:', err);
     return apiServerError();

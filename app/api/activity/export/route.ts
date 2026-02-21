@@ -91,17 +91,25 @@ export async function GET(request: NextRequest) {
       const dateStr = date.toLocaleDateString('en-CA'); // YYYY-MM-DD
       const timeStr = date.toLocaleTimeString('en-GB', { hour12: false });
       const actionLabel = ACTION_LABELS[row.action_type] || row.action_type;
-      const details = row.details ? JSON.stringify(row.details).replace(/"/g, '""') : '';
+      const details = row.details ? JSON.stringify(row.details) : '';
+
+      // Proper CSV escaping for all fields
+      const escapeCSV = (val: string) => {
+        if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+          return `"${val.replace(/"/g, '""')}"`;
+        }
+        return val;
+      };
 
       return [
         dateStr,
         timeStr,
-        row.username,
-        row.display_name,
-        actionLabel,
-        row.target_path,
+        escapeCSV(row.username || ''),
+        escapeCSV(row.display_name || ''),
+        escapeCSV(actionLabel),
+        escapeCSV(row.target_path || ''),
         row.ip_address || '',
-        `"${details}"`,
+        escapeCSV(details),
       ].join(',');
     });
 

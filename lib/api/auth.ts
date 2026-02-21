@@ -18,7 +18,7 @@ export async function getApiAuth(): Promise<{
 
     const { data: pyraUser } = await supabase
       .from('pyra_users')
-      .select('*')
+      .select('id, username, auth_user_id, role, display_name, permissions, created_at')
       .eq('username', user.user_metadata?.username || user.email)
       .single();
 

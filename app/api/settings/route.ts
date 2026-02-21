@@ -12,6 +12,22 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // Only these keys can be written via the PATCH endpoint.
 // Add new keys here when you introduce new settings.
 const ALLOWED_KEYS = new Set([
+  // Company info
+  'company_name',
+  'company_logo',
+  // Quote settings
+  'quote_prefix',
+  'quote_expiry_days',
+  'vat_rate',
+  // Bank data
+  'bank_name',
+  'bank_account_name',
+  'bank_account_no',
+  'bank_iban',
+  // Storage settings
+  'max_upload_size_mb',
+  'max_storage_gb',
+  // Legacy / system keys (keep for backward compat)
   'app_name',
   'app_logo',
   'primary_color',
@@ -45,7 +61,7 @@ export async function GET(_request: NextRequest) {
 
     const { data: settings, error } = await supabase
       .from('pyra_settings')
-      .select('*');
+      .select('key, value');
 
     if (error) {
       console.error('Settings list error:', error);
@@ -119,7 +135,7 @@ export async function PATCH(request: NextRequest) {
     // Return the updated settings
     const { data: settings } = await supabase
       .from('pyra_settings')
-      .select('*');
+      .select('key, value');
 
     const settingsMap: Record<string, string> = {};
     for (const setting of settings || []) {

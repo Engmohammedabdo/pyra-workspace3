@@ -21,7 +21,8 @@ export async function GET(_request: NextRequest) {
 
     const { data, count, error } = await supabase
       .from('pyra_sessions')
-      .select('*', { count: 'exact' })
+      .select('id, username, ip_address, user_agent, last_activity, created_at', { count: 'exact' })
+      .not('user_agent', 'eq', 'reset_token')
       .order('last_activity', { ascending: false });
 
     if (error) {
@@ -47,10 +48,11 @@ export async function DELETE(_request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
-    // Terminate all sessions except the current admin's
+    // Terminate all portal client sessions (exclude reset tokens and admin sessions)
     const { error } = await supabase
       .from('pyra_sessions')
       .delete()
+      .not('user_agent', 'eq', 'reset_token')
       .neq('username', admin.pyraUser.username);
 
     if (error) {
