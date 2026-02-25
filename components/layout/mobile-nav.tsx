@@ -25,6 +25,11 @@ import {
   CheckSquare,
   History,
   Monitor,
+  Wallet,
+  ArrowDownCircle,
+  RefreshCw,
+  CreditCard,
+  FileSignature,
 } from 'lucide-react';
 
 interface MobileNavProps {
@@ -47,6 +52,11 @@ const navItems = [
   { href: '/dashboard/reviews', label: 'المراجعات', icon: CheckSquare },
   { href: '/dashboard/favorites', label: 'المفضلة', icon: Star },
   { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell },
+  { href: '/dashboard/finance', label: 'الإدارة المالية', icon: Wallet, adminOnly: true },
+  { href: '/dashboard/finance/expenses', label: 'المصاريف', icon: ArrowDownCircle, adminOnly: true },
+  { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', icon: RefreshCw, adminOnly: true },
+  { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, adminOnly: true },
+  { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, adminOnly: true },
   { href: '/dashboard/activity', label: 'النشاط', icon: Activity },
   { href: '/dashboard/trash', label: 'المحذوفات', icon: Trash2 },
   { href: '/dashboard/login-history', label: 'سجل الدخول', icon: History, adminOnly: true },

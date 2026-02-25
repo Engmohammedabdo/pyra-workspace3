@@ -531,6 +531,108 @@ export interface PyraAutomationLog {
 }
 
 // ==========================================
+// Finance Tables (5)
+// ==========================================
+
+export interface PyraExpenseCategory {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  icon: string | null;
+  color: string | null;
+  is_default: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface PyraExpense {
+  id: string;
+  category_id: string | null;
+  description: string | null;
+  amount: number;
+  currency: string;
+  vat_rate: number;
+  vat_amount: number;
+  expense_date: string | null;
+  vendor: string | null;
+  payment_method: string | null;
+  receipt_url: string | null;
+  notes: string | null;
+  is_recurring: boolean;
+  recurring_period: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  category_name?: string;
+  category_name_ar?: string;
+  category_color?: string;
+}
+
+export interface PyraCard {
+  id: string;
+  card_name: string | null;
+  bank_name: string | null;
+  last_four: string | null;
+  card_type: string | null;
+  expiry_month: number | null;
+  expiry_year: number | null;
+  is_default: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  subscription_count?: number;
+}
+
+export interface PyraSubscription {
+  id: string;
+  name: string;
+  provider: string | null;
+  cost: number;
+  currency: string;
+  billing_cycle: string | null;
+  next_renewal_date: string | null;
+  card_id: string | null;
+  category: string | null;
+  status: string;
+  url: string | null;
+  notes: string | null;
+  auto_renew: boolean;
+  created_at: string;
+  updated_at: string;
+  // joined
+  card_name?: string;
+  card_last_four?: string;
+}
+
+export interface PyraContract {
+  id: string;
+  client_id: string | null;
+  project_id: string | null;
+  title: string | null;
+  description: string | null;
+  contract_type: string | null;
+  total_value: number;
+  currency: string;
+  vat_rate: number;
+  billing_structure: Record<string, unknown> | null;
+  start_date: string | null;
+  end_date: string | null;
+  status: string;
+  amount_billed: number;
+  amount_collected: number;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  client_name?: string;
+  client_company?: string;
+  project_name?: string;
+}
+
+// ==========================================
 // API Types
 // ==========================================
 

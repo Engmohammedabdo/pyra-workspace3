@@ -36,6 +36,11 @@ import {
   Zap,
   BookOpen,
   Webhook,
+  Wallet,
+  ArrowDownCircle,
+  RefreshCw,
+  CreditCard,
+  FileSignature,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -88,6 +93,17 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, adminOnly: true },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, adminOnly: true },
       { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText },
+    ],
+  },
+  {
+    title: 'المالية',
+    titleEn: 'Finance',
+    items: [
+      { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, adminOnly: true },
+      { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, adminOnly: true },
+      { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', labelEn: 'Subscriptions', icon: RefreshCw, adminOnly: true },
+      { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, adminOnly: true },
+      { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, adminOnly: true },
     ],
   },
   {

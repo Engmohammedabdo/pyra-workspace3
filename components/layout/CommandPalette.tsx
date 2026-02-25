@@ -24,6 +24,11 @@ import {
   UsersRound,
   Search,
   HardDrive,
+  Wallet,
+  ArrowDownCircle,
+  RefreshCw,
+  CreditCard,
+  FileSignature,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -41,6 +46,13 @@ const NAV_ITEMS = [
   { label: 'الصلاحيات', path: '/dashboard/permissions', icon: Shield, keywords: 'permissions صلاحيات' },
   { label: 'الإعدادات', path: '/dashboard/settings', icon: Settings, keywords: 'settings إعدادات' },
   { label: 'سلة المحذوفات', path: '/dashboard/trash', icon: Trash2, keywords: 'trash محذوفات سلة' },
+  { label: 'الإدارة المالية', path: '/dashboard/finance', icon: Wallet, keywords: 'finance مالية إدارة محاسبة' },
+  { label: 'المصاريف', path: '/dashboard/finance/expenses', icon: ArrowDownCircle, keywords: 'expenses مصاريف نفقات' },
+  { label: 'إضافة مصروف', path: '/dashboard/finance/expenses/new', icon: ArrowDownCircle, keywords: 'new expense مصروف جديد' },
+  { label: 'الاشتراكات', path: '/dashboard/finance/subscriptions', icon: RefreshCw, keywords: 'subscriptions اشتراكات' },
+  { label: 'البطاقات', path: '/dashboard/finance/cards', icon: CreditCard, keywords: 'cards بطاقات' },
+  { label: 'العقود', path: '/dashboard/finance/contracts', icon: FileSignature, keywords: 'contracts عقود' },
+  { label: 'إنشاء عقد', path: '/dashboard/finance/contracts/new', icon: FileSignature, keywords: 'new contract عقد جديد' },
 ];
 
 interface CommandPaletteProps {
