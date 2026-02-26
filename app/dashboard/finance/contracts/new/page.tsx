@@ -15,7 +15,7 @@ import { ArrowRight, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Client { id: string; name: string; company: string; }
-interface Project { id: string; name: string; }
+interface Project { id: string; name: string; client_id: string | null; }
 
 const CONTRACT_TYPES = [
   { value: 'retainer', label: 'ثابت شهري (Retainer)' },
@@ -28,13 +28,18 @@ const CONTRACT_TYPES = [
 export default function NewContractPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', client_id: '', project_id: '',
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
     start_date: '', end_date: '', notes: '',
   });
+
+  // Filter projects by selected client
+  const filteredProjects = form.client_id
+    ? allProjects.filter(p => p.client_id === form.client_id)
+    : allProjects;
 
   useEffect(() => {
     fetch('/api/clients?pageSize=100')
@@ -43,7 +48,7 @@ export default function NewContractPage() {
       .catch(() => {});
     fetch('/api/projects?pageSize=100')
       .then(r => r.json())
-      .then(j => { if (j.data) setProjects(j.data); })
+      .then(j => { if (j.data) setAllProjects(j.data); })
       .catch(() => {});
   }, []);
 
@@ -78,7 +83,14 @@ export default function NewContractPage() {
     }
   };
 
-  const u = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const u = (k: string, v: string) => {
+    if (k === 'client_id') {
+      // Reset project when client changes (project may not belong to new client)
+      setForm(p => ({ ...p, client_id: v, project_id: '' }));
+    } else {
+      setForm(p => ({ ...p, [k]: v }));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -113,10 +125,10 @@ export default function NewContractPage() {
               <div className="space-y-2">
                 <Label>المشروع</Label>
                 <Select value={form.project_id} onValueChange={v => u('project_id', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={form.client_id ? 'اختر المشروع' : 'اختر العميل أولاً'} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">بدون مشروع</SelectItem>
-                    {projects.map(p => (
+                    {filteredProjects.map(p => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
