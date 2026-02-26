@@ -121,11 +121,10 @@ export async function POST(req: NextRequest) {
 
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
+      action_type: 'create_contract',
       username: admin.pyraUser.username,
       display_name: admin.pyraUser.display_name,
-      action: 'create_contract',
-      target_type: 'contract',
-      target_id: data.id,
+      target_path: `/finance/contracts/${data.id}`,
       details: { title, contract_type, total_value },
     }).then();
 

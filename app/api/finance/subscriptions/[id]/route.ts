@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
 
 export async function GET(
@@ -73,6 +74,16 @@ export async function DELETE(
       .eq('id', id);
 
     if (error) throw error;
+
+    supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'delete_subscription',
+      username: admin.pyraUser.username,
+      display_name: admin.pyraUser.display_name,
+      target_path: `/finance/subscriptions/${id}`,
+      details: { subscription_id: id },
+    }).then();
+
     return apiSuccess({ deleted: true });
   } catch {
     return apiServerError();

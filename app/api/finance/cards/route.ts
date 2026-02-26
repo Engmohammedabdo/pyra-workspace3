@@ -77,6 +77,16 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'create_card',
+      username: admin.pyraUser.username,
+      display_name: admin.pyraUser.display_name,
+      target_path: `/finance/cards/${data.id}`,
+      details: { card_name, bank_name },
+    }).then();
+
     return apiSuccess(data, undefined, 201);
   } catch {
     return apiServerError();

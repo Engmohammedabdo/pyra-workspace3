@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServiceRoleClient();
   const url = req.nextUrl.searchParams;
+  const page = parseInt(url.get('page') || '1');
+  const pageSize = parseInt(url.get('pageSize') || '20');
   const status = url.get('status') || '';
   const search = url.get('search') || '';
 
@@ -23,7 +25,8 @@ export async function GET(req: NextRequest) {
     if (search) query = query.or(`name.ilike.%${search}%,provider.ilike.%${search}%`);
 
     const { data, error, count } = await query
-      .order('next_renewal_date', { ascending: true });
+      .order('next_renewal_date', { ascending: true })
+      .range((page - 1) * pageSize, page * pageSize - 1);
 
     if (error) throw error;
 
@@ -57,6 +60,9 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess(enriched, {
       total: count ?? 0,
+      page,
+      pageSize,
+      hasMore: (count ?? 0) > page * pageSize,
       monthly_total: Math.round(monthlyTotal * 100) / 100,
     });
   } catch {
@@ -101,11 +107,10 @@ export async function POST(req: NextRequest) {
 
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
+      action_type: 'create_subscription',
       username: admin.pyraUser.username,
       display_name: admin.pyraUser.display_name,
-      action: 'create_subscription',
-      target_type: 'subscription',
-      target_id: data.id,
+      target_path: `/finance/subscriptions/${data.id}`,
       details: { name, provider, cost },
     }).then();
 

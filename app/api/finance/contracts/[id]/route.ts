@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
 
 export async function GET(
@@ -102,12 +103,12 @@ export async function DELETE(
     if (error) throw error;
 
     supabase.from('pyra_activity_log').insert({
-      id: `al_${Date.now()}`,
+      id: generateId('al'),
+      action_type: 'delete_contract',
       username: admin.pyraUser.username,
       display_name: admin.pyraUser.display_name,
-      action: 'delete_contract',
-      target_type: 'contract',
-      target_id: id,
+      target_path: `/finance/contracts/${id}`,
+      details: { contract_id: id },
     }).then();
 
     return apiSuccess({ deleted: true });

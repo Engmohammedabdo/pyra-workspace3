@@ -62,10 +62,12 @@ export async function GET(req: NextRequest) {
       category_color: e.category_id ? categories[e.category_id as string]?.color : null,
     }));
 
-    // Calculate summary from a separate query
+    // Calculate summary from a separate query (same filters as main query)
     let summaryQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount');
+    if (search) summaryQuery = summaryQuery.or(`description.ilike.%${search}%,vendor.ilike.%${search}%`);
+    if (category) summaryQuery = summaryQuery.eq('category_id', category);
     if (from) summaryQuery = summaryQuery.gte('expense_date', from);
     if (to) summaryQuery = summaryQuery.lte('expense_date', to);
     const { data: allExpenses } = await summaryQuery;
@@ -130,11 +132,10 @@ export async function POST(req: NextRequest) {
     // Activity log
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
+      action_type: 'create_expense',
       username: admin.pyraUser.username,
       display_name: admin.pyraUser.display_name,
-      action: 'create_expense',
-      target_type: 'expense',
-      target_id: data.id,
+      target_path: `/finance/expenses/${data.id}`,
       details: { description, amount, vendor },
     }).then();
 
