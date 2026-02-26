@@ -52,6 +52,7 @@ const navItems = [
   { href: '/dashboard/teams', label: 'الفرق', icon: Building2 },
   { href: '/dashboard/permissions', label: 'الصلاحيات', icon: Shield, adminOnly: true },
   { href: '/dashboard/quotes', label: 'عروض الأسعار', icon: FileText },
+  { href: '/dashboard/invoices', label: 'الفواتير', icon: FileText, adminOnly: true },
   { href: '/dashboard/reviews', label: 'المراجعات', icon: CheckSquare },
   { href: '/dashboard/favorites', label: 'المفضلة', icon: Star },
   { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell },

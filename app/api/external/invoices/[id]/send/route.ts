@@ -1,12 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import {
-  apiSuccess,
-  apiForbidden,
-  apiNotFound,
-  apiValidationError,
-  apiServerError,
-} from '@/lib/api/response';
+import { getExternalAuth, hasPermission } from '@/lib/api/external-auth';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
@@ -15,14 +9,15 @@ import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 type RouteContext = { params: Promise<{ id: string }> };
 
 /**
- * POST /api/invoices/[id]/send
- * Mark a draft invoice as "sent" and notify the client.
- * Admin only.
+ * POST /api/external/invoices/[id]/send
+ * Mark a draft invoice as "sent" via External API.
+ * Auth: API key with 'invoices:send' permission
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const ctx = await getExternalAuth(request);
+    if (!ctx) return apiError('مفتاح API غير صالح أو مفقود', 401);
+    if (!hasPermission(ctx, 'invoices:send')) return apiError('لا تملك صلاحية إرسال الفواتير', 403);
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -33,9 +28,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+    if (!invoice) return apiError('الفاتورة غير موجودة', 404);
     if (invoice.status !== 'draft') {
-      return apiValidationError('يمكن إرسال المسودات فقط');
+      return apiError('يمكن إرسال المسودات فقط', 422);
     }
 
     const { data: updated, error } = await supabase
@@ -45,32 +40,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .select(INVOICE_FIELDS)
       .single();
 
-    if (error) {
-      console.error('Invoice send error:', error);
-      return apiServerError();
-    }
+    if (error) throw error;
 
     // Create client notification
     if (invoice.client_id) {
-      const { error: nErr } = await supabase
-        .from('pyra_client_notifications')
-        .insert({
-          id: generateId('cn'),
-          client_id: invoice.client_id,
-          type: 'invoice_sent',
-          title: 'فاتورة جديدة',
-          message: `تم إرسال فاتورة ${invoice.invoice_number} إليك`,
-          is_read: false,
-        });
-      if (nErr) console.error('Invoice notification error:', nErr);
+      await supabase.from('pyra_client_notifications').insert({
+        id: generateId('cn'),
+        client_id: invoice.client_id,
+        type: 'invoice_sent',
+        title: 'فاتورة جديدة',
+        message: `تم إرسال فاتورة ${invoice.invoice_number} إليك`,
+        is_read: false,
+      });
     }
 
-    // Log activity
+    // Activity log
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'invoice_sent',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: 'api',
+      display_name: ctx.apiKey.name,
       target_path: `/dashboard/invoices/${id}`,
       details: { invoice_number: invoice.invoice_number, client_name: invoice.client_name },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -79,8 +68,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     dispatchWebhookEvent('invoice_sent', { invoice_id: id, invoice_number: invoice.invoice_number, client_name: invoice.client_name });
 
     return apiSuccess(updated);
-  } catch (err) {
-    console.error('POST /api/invoices/[id]/send error:', err);
+  } catch {
     return apiServerError();
   }
 }

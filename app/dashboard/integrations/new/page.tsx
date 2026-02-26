@@ -25,6 +25,10 @@ const AVAILABLE_EVENTS: { value: string; label: string }[] = [
   { value: 'approval_status_changed', label: 'تغيير حالة موافقة' },
   { value: 'project_created', label: 'إنشاء مشروع' },
   { value: 'client_created', label: 'إنشاء عميل' },
+  { value: 'expense_created', label: 'إنشاء مصروف' },
+  { value: 'invoice_created', label: 'إنشاء فاتورة' },
+  { value: 'invoice_sent', label: 'إرسال فاتورة' },
+  { value: 'subscription_created', label: 'إنشاء اشتراك' },
 ];
 
 /* ───────────────────────── Component ──────────────────── */

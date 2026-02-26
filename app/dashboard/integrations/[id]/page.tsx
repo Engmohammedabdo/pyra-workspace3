@@ -65,6 +65,10 @@ const EVENT_LABELS: Record<string, string> = {
   approval_status_changed: 'تغيير حالة موافقة',
   project_created: 'إنشاء مشروع',
   client_created: 'إنشاء عميل',
+  expense_created: 'إنشاء مصروف',
+  invoice_created: 'إنشاء فاتورة',
+  invoice_sent: 'إرسال فاتورة',
+  subscription_created: 'إنشاء اشتراك',
   test: 'اختبار',
 };
 
@@ -78,6 +82,10 @@ const AVAILABLE_EVENTS: { value: string; label: string }[] = [
   { value: 'approval_status_changed', label: 'تغيير حالة موافقة' },
   { value: 'project_created', label: 'إنشاء مشروع' },
   { value: 'client_created', label: 'إنشاء عميل' },
+  { value: 'expense_created', label: 'إنشاء مصروف' },
+  { value: 'invoice_created', label: 'إنشاء فاتورة' },
+  { value: 'invoice_sent', label: 'إرسال فاتورة' },
+  { value: 'subscription_created', label: 'إنشاء اشتراك' },
 ];
 
 const STATUS_BADGES: Record<string, { label: string; color: string }> = {

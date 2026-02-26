@@ -29,6 +29,7 @@ import {
 import { ArrowRight, FileText, TrendingUp, TrendingDown, Receipt } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { ExportButton } from '@/components/reports/ExportButton';
 
 /* ══════════════════════════════════════════════════════
    Types
@@ -806,22 +807,29 @@ export default function FinanceReportsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <Link
-          href="/dashboard/finance"
-          className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
-        >
-          <ArrowRight className="h-5 w-5" />
-        </Link>
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-            <FileText className="h-5 w-5 text-orange-500" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">التقارير المالية</h1>
-            <p className="text-muted-foreground text-sm">تحليل مالي شامل للأرباح والضرائب والعملاء</p>
+          <Link
+            href="/dashboard/finance"
+            className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors"
+          >
+            <ArrowRight className="h-5 w-5" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+              <FileText className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold">التقارير المالية</h1>
+              <p className="text-muted-foreground text-sm">تحليل مالي شامل للأرباح والضرائب والعملاء</p>
+            </div>
           </div>
         </div>
+        <ExportButton
+          type="finance"
+          from={getDefaultFrom()}
+          to={getDefaultTo()}
+        />
       </div>
 
       {/* Tabs */}

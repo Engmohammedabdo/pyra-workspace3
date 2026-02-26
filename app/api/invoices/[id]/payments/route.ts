@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -98,6 +99,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    if (newStatus === 'paid') {
+      dispatchWebhookEvent('invoice_paid', { invoice_id: id, invoice_number: invoice.invoice_number, total: invoice.total, client_name: invoice.client_name });
+    }
 
     return apiSuccess(payment, {
       new_status: newStatus,

@@ -38,7 +38,7 @@ export const EXPENSE_CATEGORY_FIELDS = `
 `;
 
 export const EXPENSE_FIELDS = `
-  id, category_id, project_id, description, amount, currency,
+  id, category_id, project_id, subscription_id, description, amount, currency,
   vat_rate, vat_amount, expense_date, vendor, payment_method,
   receipt_url, notes, is_recurring, recurring_period,
   created_by, created_at, updated_at

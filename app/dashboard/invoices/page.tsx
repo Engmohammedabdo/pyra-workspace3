@@ -24,6 +24,7 @@ import {
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
+import { ExportButton } from '@/components/reports/ExportButton';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -181,11 +182,18 @@ export default function InvoicesPage() {
           </h1>
           <p className="text-muted-foreground">إدارة الفواتير والمدفوعات</p>
         </div>
-        <Link href="/dashboard/invoices/new">
-          <Button className="bg-orange-500 hover:bg-orange-600">
-            <Plus className="h-4 w-4 me-2" /> فاتورة جديدة
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            type="invoices"
+            from={new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]}
+            to={new Date().toISOString().split('T')[0]}
+          />
+          <Link href="/dashboard/invoices/new">
+            <Button className="bg-orange-500 hover:bg-orange-600">
+              <Plus className="h-4 w-4 me-2" /> فاتورة جديدة
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Revenue Summary Cards */}

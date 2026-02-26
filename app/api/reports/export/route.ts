@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
     const to = url.searchParams.get('to') || new Date().toISOString().split('T')[0];
     const toEnd = to + 'T23:59:59';
 
-    if (!type || !['projects', 'clients', 'revenue', 'team', 'storage'].includes(type)) {
-      return apiError('type is required (projects, clients, revenue, team, storage)', 400);
+    if (!type || !['projects', 'clients', 'revenue', 'team', 'storage', 'expenses', 'invoices', 'finance'].includes(type)) {
+      return apiError('type is required (projects, clients, revenue, team, storage, expenses, invoices, finance)', 400);
     }
 
     let csvContent = '';
@@ -47,6 +47,15 @@ export async function GET(request: NextRequest) {
         break;
       case 'storage':
         csvContent = await exportStorage(supabase);
+        break;
+      case 'expenses':
+        csvContent = await exportExpenses(supabase, from, toEnd);
+        break;
+      case 'invoices':
+        csvContent = await exportInvoicesCSV(supabase, from, toEnd);
+        break;
+      case 'finance':
+        csvContent = await exportFinanceReport(supabase, from, to, toEnd);
         break;
     }
 
@@ -283,4 +292,99 @@ async function exportStorage(supabase: SupabaseClient): Promise<string> {
   );
 
   return toCSV(headers, rows);
+}
+
+// ── Export: Expenses ─────────────────────────────────────
+
+async function exportExpenses(
+  supabase: SupabaseClient,
+  from: string,
+  toEnd: string
+): Promise<string> {
+  const { data: expenses } = await supabase
+    .from('pyra_expenses')
+    .select('description, amount, currency, vat_amount, expense_date, vendor, payment_method, category_id, notes')
+    .gte('expense_date', from)
+    .lte('expense_date', toEnd)
+    .order('expense_date', { ascending: false })
+    .limit(5000);
+
+  // Resolve category names
+  const categoryIds = [...new Set((expenses || []).map((e: { category_id: string | null }) => e.category_id).filter(Boolean))];
+  let categories: Record<string, string> = {};
+  if (categoryIds.length > 0) {
+    const { data: cats } = await supabase
+      .from('pyra_expense_categories')
+      .select('id, name_ar')
+      .in('id', categoryIds);
+    if (cats) {
+      categories = Object.fromEntries(cats.map((c: { id: string; name_ar: string }) => [c.id, c.name_ar || '']));
+    }
+  }
+
+  const headers = ['الوصف', 'المبلغ', 'العملة', 'الضريبة', 'التاريخ', 'المورد', 'طريقة الدفع', 'التصنيف', 'ملاحظات'];
+
+  const rows = (expenses || []).map(
+    (e: { description: string | null; amount: number; currency: string; vat_amount: number; expense_date: string | null; vendor: string | null; payment_method: string | null; category_id: string | null; notes: string | null }) => [
+      e.description || '',
+      e.amount,
+      e.currency,
+      e.vat_amount,
+      e.expense_date || '',
+      e.vendor || '',
+      e.payment_method || '',
+      e.category_id ? categories[e.category_id] || '' : '',
+      e.notes || '',
+    ]
+  );
+
+  return toCSV(headers, rows);
+}
+
+// ── Export: Invoices CSV ─────────────────────────────────
+
+async function exportInvoicesCSV(
+  supabase: SupabaseClient,
+  from: string,
+  toEnd: string
+): Promise<string> {
+  const { data: invoices } = await supabase
+    .from('pyra_invoices')
+    .select('invoice_number, client_name, status, total, amount_paid, amount_due, currency, issue_date, due_date')
+    .gte('created_at', from)
+    .lte('created_at', toEnd)
+    .order('created_at', { ascending: false })
+    .limit(5000);
+
+  const headers = ['رقم الفاتورة', 'العميل', 'الحالة', 'الإجمالي', 'المدفوع', 'المتبقي', 'العملة', 'تاريخ الإصدار', 'تاريخ الاستحقاق'];
+
+  const rows = (invoices || []).map(
+    (i: { invoice_number: string; client_name: string | null; status: string; total: number; amount_paid: number; amount_due: number; currency: string; issue_date: string | null; due_date: string | null }) => [
+      i.invoice_number,
+      i.client_name || '',
+      i.status,
+      i.total,
+      i.amount_paid,
+      i.amount_due,
+      i.currency,
+      i.issue_date || '',
+      i.due_date || '',
+    ]
+  );
+
+  return toCSV(headers, rows);
+}
+
+// ── Export: Finance Report (Combined) ────────────────────
+
+async function exportFinanceReport(
+  supabase: SupabaseClient,
+  from: string,
+  to: string,
+  toEnd: string
+): Promise<string> {
+  const expensesCSV = await exportExpenses(supabase, from, toEnd);
+  const invoicesCSV = await exportInvoicesCSV(supabase, from, toEnd);
+
+  return `--- المصاريف (${from} — ${to}) ---\n${expensesCSV}\n\n--- الفواتير (${from} — ${to}) ---\n${invoicesCSV}`;
 }

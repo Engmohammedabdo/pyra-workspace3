@@ -41,6 +41,10 @@ const EVENT_LABELS: Record<string, string> = {
   approval_status_changed: 'تغيير حالة موافقة',
   project_created: 'إنشاء مشروع',
   client_created: 'إنشاء عميل',
+  expense_created: 'إنشاء مصروف',
+  invoice_created: 'إنشاء فاتورة',
+  invoice_sent: 'إرسال فاتورة',
+  subscription_created: 'إنشاء اشتراك',
 };
 
 /* ───────────────────────── Component ──────────────────── */

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 
 /**
  * GET /api/external/invoices
@@ -226,6 +227,8 @@ export async function POST(req: NextRequest) {
       },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
     }).then();
+
+    dispatchWebhookEvent('invoice_created', { invoice_id: invoiceId, invoice_number: invoiceNumber, total, client_name: resolvedClientData.client_name, source: source || 'api' });
 
     // Fetch items to return with invoice
     const { data: createdItems } = await supabase

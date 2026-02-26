@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/re
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
+import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -158,6 +159,8 @@ export async function POST(req: NextRequest) {
       target_path: `/finance/expenses/${data.id}`,
       details: { description, amount, vendor },
     }).then();
+
+    dispatchWebhookEvent('expense_created', { expense_id: data.id, description, amount, vendor });
 
     return apiSuccess(data, undefined, 201);
   } catch {

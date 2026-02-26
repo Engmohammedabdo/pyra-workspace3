@@ -11,6 +11,7 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { escapeLike } from '@/lib/utils/path';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 
 /**
  * GET /api/invoices
@@ -240,6 +241,8 @@ export async function POST(request: NextRequest) {
       details: { invoice_number: invoiceNumber, total, client_name: clientData.client_name },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    dispatchWebhookEvent('invoice_created', { invoice_id: invoiceId, invoice_number: invoiceNumber, total, client_name: clientData.client_name });
 
     return apiSuccess(invoice, undefined, 201);
   } catch (err) {

@@ -16,6 +16,7 @@ import {
 import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { ExportButton } from '@/components/reports/ExportButton';
 
 interface Expense {
   id: string;
@@ -119,9 +120,16 @@ export default function ExpensesPage() {
             <ArrowDownCircle className="h-6 w-6" /> المصاريف
           </h1>
         </div>
-        <Link href="/dashboard/finance/expenses/new">
-          <Button><Plus className="h-4 w-4 ml-2" /> إضافة مصروف</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            type="expenses"
+            from={fromDate || new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]}
+            to={toDate || new Date().toISOString().split('T')[0]}
+          />
+          <Link href="/dashboard/finance/expenses/new">
+            <Button><Plus className="h-4 w-4 ml-2" /> إضافة مصروف</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Summary */}
