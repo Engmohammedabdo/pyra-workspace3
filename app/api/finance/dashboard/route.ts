@@ -1,6 +1,7 @@
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 export async function GET() {
   const admin = await getApiAdmin();
@@ -42,23 +43,23 @@ export async function GET() {
     // Expenses MTD
     const { data: expensesMtd } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount')
+      .select('amount, vat_amount, currency')
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
 
     const totalExpensesMtd = (expensesMtd || []).reduce(
-      (sum: number, e: { amount: number; vat_amount: number }) => sum + Number(e.amount) + Number(e.vat_amount || 0), 0
+      (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
     // Expenses YTD
     const { data: expensesYtd } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount')
+      .select('amount, vat_amount, currency')
       .gte('expense_date', startOfYear)
       .lte('expense_date', today);
 
     const totalExpensesYtd = (expensesYtd || []).reduce(
-      (sum: number, e: { amount: number; vat_amount: number }) => sum + Number(e.amount) + Number(e.vat_amount || 0), 0
+      (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
     // Outstanding invoices
@@ -121,29 +122,29 @@ export async function GET() {
     // Get all expenses for last 12 months
     const { data: expenses12m } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount, expense_date')
+      .select('amount, vat_amount, currency, expense_date')
       .gte('expense_date', twelveMonthsAgo)
       .lte('expense_date', today);
 
-    (expenses12m || []).forEach((e: { amount: number; vat_amount: number; expense_date: string }) => {
+    (expenses12m || []).forEach((e: { amount: number; vat_amount: number; currency: string; expense_date: string }) => {
       const eDate = new Date(e.expense_date);
       const monthIndex = 11 - ((now.getFullYear() - eDate.getFullYear()) * 12 + now.getMonth() - eDate.getMonth());
       if (monthIndex >= 0 && monthIndex < 12) {
-        monthlyData[monthIndex].expenses += Number(e.amount) + Number(e.vat_amount || 0);
+        monthlyData[monthIndex].expenses += toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency);
       }
     });
 
     // Expense breakdown by category (current month)
     const { data: expensesByCategory } = await supabase
       .from('pyra_expenses')
-      .select('category_id, amount')
+      .select('category_id, amount, currency')
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
 
     const categoryTotals: Record<string, number> = {};
-    (expensesByCategory || []).forEach((e: { category_id: string | null; amount: number }) => {
+    (expensesByCategory || []).forEach((e: { category_id: string | null; amount: number; currency: string }) => {
       const key = e.category_id || 'uncategorized';
-      categoryTotals[key] = (categoryTotals[key] || 0) + Number(e.amount);
+      categoryTotals[key] = (categoryTotals[key] || 0) + toAED(Number(e.amount), e.currency);
     });
 
     // Get category names
@@ -170,12 +171,12 @@ export async function GET() {
     // Active subscriptions monthly cost
     const { data: activeSubs } = await supabase
       .from('pyra_subscriptions')
-      .select('cost, billing_cycle')
+      .select('cost, currency, billing_cycle')
       .eq('status', 'active');
 
     const monthlySubsCost = (activeSubs || []).reduce(
-      (sum: number, s: { cost: number; billing_cycle: string }) => {
-        const cost = Number(s.cost);
+      (sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
+        const cost = toAED(Number(s.cost), s.currency);
         if (s.billing_cycle === 'yearly') return sum + cost / 12;
         if (s.billing_cycle === 'quarterly') return sum + cost / 3;
         return sum + cost;

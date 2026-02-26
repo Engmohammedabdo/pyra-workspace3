@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 /* ── Arabic month names ────────────────────────────── */
 const ARABIC_MONTHS = [
@@ -114,7 +115,7 @@ export async function GET(req: NextRequest) {
     // Fetch all expenses in the full range at once
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount, expense_date')
+      .select('amount, vat_amount, currency, expense_date')
       .gte('expense_date', from)
       .lte('expense_date', to);
 
@@ -131,7 +132,7 @@ export async function GET(req: NextRequest) {
 
       const periodExpenses = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end)
-        .reduce((sum: number, exp: { amount: number; vat_amount: number }) => sum + Number(exp.amount) + Number(exp.vat_amount), 0);
+        .reduce((sum: number, exp: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(exp.amount) + Number(exp.vat_amount), exp.currency), 0);
 
       totalRevenue += periodRevenue;
       totalExpenses += periodExpenses;

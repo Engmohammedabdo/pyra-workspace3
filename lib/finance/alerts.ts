@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 interface Alert {
   type: string;
@@ -140,13 +141,13 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
 
     const { data: expenses } = await supabase
       .from('pyra_expenses')
-      .select('project_id, amount, vat_amount')
+      .select('project_id, amount, vat_amount, currency')
       .in('project_id', projectIds);
 
     const expByProject: Record<string, number> = {};
     for (const exp of expenses || []) {
       const pid = exp.project_id as string;
-      expByProject[pid] = (expByProject[pid] || 0) + Number(exp.amount) + Number(exp.vat_amount);
+      expByProject[pid] = (expByProject[pid] || 0) + toAED(Number(exp.amount) + Number(exp.vat_amount), exp.currency as string);
     }
 
     for (const proj of projects) {

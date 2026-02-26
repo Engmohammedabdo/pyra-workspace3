@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 /* ── GET /api/finance/reports/project-profitability ── */
 
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     // 2. Fetch expenses (optionally date-filtered)
     let expQuery = supabase
       .from('pyra_expenses')
-      .select('project_id, amount, vat_amount, expense_date')
+      .select('project_id, amount, vat_amount, currency, expense_date')
       .not('project_id', 'is', null);
 
     if (from) expQuery = expQuery.gte('expense_date', from);
@@ -52,11 +53,11 @@ export async function GET(req: NextRequest) {
     if (invErr) throw invErr;
 
     // 4. Build lookup maps
-    // Expenses by project_id
+    // Expenses by project_id (converted to AED)
     const expByProject: Record<string, number> = {};
     for (const exp of expenses || []) {
       const pid = exp.project_id as string;
-      expByProject[pid] = (expByProject[pid] || 0) + Number(exp.amount) + Number(exp.vat_amount);
+      expByProject[pid] = (expByProject[pid] || 0) + toAED(Number(exp.amount) + Number(exp.vat_amount), exp.currency as string);
     }
 
     // Revenue by project name (invoices use project_name string)

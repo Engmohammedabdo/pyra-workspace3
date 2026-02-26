@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/re
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
+import { toAED } from '@/lib/utils/currency';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -49,10 +50,10 @@ export async function GET(req: NextRequest) {
       card_last_four: s.card_id ? cards[s.card_id as string]?.last_four : null,
     }));
 
-    // Monthly total for active subscriptions
+    // Monthly total for active subscriptions (converted to AED)
     const activeData = (data || []).filter((s: { status: string }) => s.status === 'active');
-    const monthlyTotal = activeData.reduce((sum: number, s: { cost: number; billing_cycle: string }) => {
-      const cost = Number(s.cost);
+    const monthlyTotal = activeData.reduce((sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
+      const cost = toAED(Number(s.cost), s.currency);
       if (s.billing_cycle === 'yearly') return sum + cost / 12;
       if (s.billing_cycle === 'quarterly') return sum + cost / 3;
       return sum + cost;

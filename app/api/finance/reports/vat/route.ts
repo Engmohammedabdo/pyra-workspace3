@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 /* ── Arabic month names ────────────────────────────── */
 const ARABIC_MONTHS = [
@@ -79,7 +80,7 @@ export async function GET(req: NextRequest) {
     // VAT Paid: vat_amount from expenses
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
-      .select('vat_amount, expense_date')
+      .select('vat_amount, currency, expense_date')
       .gte('expense_date', from)
       .lte('expense_date', to);
 
@@ -98,7 +99,7 @@ export async function GET(req: NextRequest) {
 
       const paid = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= m.start && exp.expense_date <= m.end)
-        .reduce((sum: number, exp: { vat_amount: number }) => sum + Number(exp.vat_amount || 0), 0);
+        .reduce((sum: number, exp: { vat_amount: number; currency: string }) => sum + toAED(Number(exp.vat_amount || 0), exp.currency), 0);
 
       totalCollected += collected;
       totalPaid += paid;

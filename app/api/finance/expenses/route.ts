@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { toAED } from '@/lib/utils/currency';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
     // Calculate summary from a separate query (same filters as main query)
     let summaryQuery = supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount');
+      .select('amount, vat_amount, currency');
     if (search) summaryQuery = summaryQuery.or(`description.ilike.%${search}%,vendor.ilike.%${search}%`);
     if (category) summaryQuery = summaryQuery.eq('category_id', category);
     if (projectId) summaryQuery = summaryQuery.eq('project_id', projectId);
@@ -92,8 +93,8 @@ export async function GET(req: NextRequest) {
     if (to) summaryQuery = summaryQuery.lte('expense_date', to);
     const { data: allExpenses } = await summaryQuery;
 
-    const totalAmount = (allExpenses || []).reduce((sum: number, e: { amount: number }) => sum + Number(e.amount), 0);
-    const totalVat = (allExpenses || []).reduce((sum: number, e: { vat_amount: number }) => sum + Number(e.vat_amount), 0);
+    const totalAmount = (allExpenses || []).reduce((sum: number, e: { amount: number; currency: string }) => sum + toAED(Number(e.amount), e.currency), 0);
+    const totalVat = (allExpenses || []).reduce((sum: number, e: { vat_amount: number; currency: string }) => sum + toAED(Number(e.vat_amount), e.currency), 0);
 
     return apiSuccess(enriched, {
       total: count ?? 0,
