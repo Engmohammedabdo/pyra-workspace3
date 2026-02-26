@@ -29,6 +29,10 @@ import {
   RefreshCw,
   CreditCard,
   FileSignature,
+  Repeat,
+  PieChart,
+  Target,
+  AlertTriangle,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -53,6 +57,11 @@ const NAV_ITEMS = [
   { label: 'البطاقات', path: '/dashboard/finance/cards', icon: CreditCard, keywords: 'cards بطاقات' },
   { label: 'العقود', path: '/dashboard/finance/contracts', icon: FileSignature, keywords: 'contracts عقود' },
   { label: 'إنشاء عقد', path: '/dashboard/finance/contracts/new', icon: FileSignature, keywords: 'new contract عقد جديد' },
+  { label: 'الفواتير المتكررة', path: '/dashboard/finance/recurring', icon: Repeat, keywords: 'recurring invoices فواتير متكررة' },
+  { label: 'إنشاء فاتورة متكررة', path: '/dashboard/finance/recurring/new', icon: Repeat, keywords: 'new recurring invoice فاتورة متكررة جديدة' },
+  { label: 'التقارير المالية', path: '/dashboard/finance/reports', icon: PieChart, keywords: 'reports تقارير مالية أرباح خسائر' },
+  { label: 'أهداف الإيرادات', path: '/dashboard/finance/targets', icon: Target, keywords: 'revenue targets أهداف إيرادات' },
+  { label: 'التنبيهات المالية', path: '/dashboard/finance', icon: AlertTriangle, keywords: 'alerts تنبيهات مالية' },
 ];
 
 interface CommandPaletteProps {

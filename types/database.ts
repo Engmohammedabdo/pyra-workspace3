@@ -548,6 +548,7 @@ export interface PyraExpenseCategory {
 export interface PyraExpense {
   id: string;
   category_id: string | null;
+  project_id: string | null;
   description: string | null;
   amount: number;
   currency: string;
@@ -567,6 +568,7 @@ export interface PyraExpense {
   category_name?: string;
   category_name_ar?: string;
   category_color?: string;
+  project_name?: string;
 }
 
 export interface PyraCard {
@@ -630,6 +632,70 @@ export interface PyraContract {
   client_name?: string;
   client_company?: string;
   project_name?: string;
+}
+
+export interface PyraContractMilestone {
+  id: string;
+  contract_id: string;
+  title: string;
+  description: string | null;
+  percentage: number;
+  amount: number;
+  due_date: string | null;
+  status: 'pending' | 'in_progress' | 'completed' | 'invoiced';
+  invoice_id: string | null;
+  sort_order: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraRecurringInvoice {
+  id: string;
+  contract_id: string | null;
+  client_id: string | null;
+  title: string;
+  items: Array<{ description: string; quantity: number; rate: number }>;
+  currency: string;
+  billing_cycle: string;
+  next_generation_date: string;
+  last_generated_at: string | null;
+  status: 'active' | 'paused' | 'cancelled';
+  auto_send: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  client_name?: string;
+  client_company?: string;
+  contract_title?: string;
+}
+
+export interface PyraRevenueTarget {
+  id: string;
+  period_type: 'monthly' | 'quarterly' | 'yearly';
+  period_start: string;
+  period_end: string;
+  target_amount: number;
+  currency: string;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraStripePayment {
+  id: string;
+  invoice_id: string;
+  stripe_session_id: string | null;
+  stripe_payment_intent_id: string | null;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  client_id: string | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ==========================================

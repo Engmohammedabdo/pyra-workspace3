@@ -30,6 +30,9 @@ import {
   RefreshCw,
   CreditCard,
   FileSignature,
+  Repeat,
+  PieChart,
+  Target,
 } from 'lucide-react';
 
 interface MobileNavProps {
@@ -57,6 +60,9 @@ const navItems = [
   { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', icon: RefreshCw, adminOnly: true },
   { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, adminOnly: true },
   { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, adminOnly: true },
+  { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', icon: Repeat, adminOnly: true },
+  { href: '/dashboard/finance/reports', label: 'التقارير المالية', icon: PieChart, adminOnly: true },
+  { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', icon: Target, adminOnly: true },
   { href: '/dashboard/activity', label: 'النشاط', icon: Activity },
   { href: '/dashboard/trash', label: 'المحذوفات', icon: Trash2 },
   { href: '/dashboard/login-history', label: 'سجل الدخول', icon: History, adminOnly: true },

@@ -38,7 +38,7 @@ export const EXPENSE_CATEGORY_FIELDS = `
 `;
 
 export const EXPENSE_FIELDS = `
-  id, category_id, description, amount, currency,
+  id, category_id, project_id, description, amount, currency,
   vat_rate, vat_amount, expense_date, vendor, payment_method,
   receipt_url, notes, is_recurring, recurring_period,
   created_by, created_at, updated_at
@@ -62,4 +62,28 @@ export const CONTRACT_FIELDS = `
   billing_structure, start_date, end_date, status,
   amount_billed, amount_collected, notes,
   created_by, created_at, updated_at
+`;
+
+export const MILESTONE_FIELDS = `
+  id, contract_id, title, description, percentage,
+  amount, due_date, status, invoice_id, sort_order,
+  completed_at, created_at, updated_at
+`;
+
+export const RECURRING_INVOICE_FIELDS = `
+  id, contract_id, client_id, title, items, currency,
+  billing_cycle, next_generation_date, last_generated_at,
+  status, auto_send, created_by, created_at, updated_at
+`;
+
+export const REVENUE_TARGET_FIELDS = `
+  id, period_type, period_start, period_end,
+  target_amount, currency, notes, created_by,
+  created_at, updated_at
+`;
+
+export const STRIPE_PAYMENT_FIELDS = `
+  id, invoice_id, stripe_session_id, stripe_payment_intent_id,
+  amount, currency, status, client_id, metadata,
+  created_at, updated_at
 `;

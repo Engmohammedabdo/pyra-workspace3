@@ -16,6 +16,7 @@ import { ArrowRight, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Category { id: string; name: string; name_ar: string; }
+interface Project { id: string; name: string; }
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'نقداً' },
@@ -29,17 +30,22 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
-    expense_date: '', vendor: '', payment_method: '', category_id: '', notes: '',
+    expense_date: '', vendor: '', payment_method: '', category_id: '', project_id: '', notes: '',
   });
 
   useEffect(() => {
     fetch('/api/finance/expenses/categories')
       .then(r => r.json())
       .then(j => { if (j.data) setCategories(j.data); })
+      .catch(() => {});
+    fetch('/api/projects?pageSize=100')
+      .then(r => r.json())
+      .then(j => { if (j.data) setProjects(j.data.map((p: Project) => ({ id: p.id, name: p.name }))); })
       .catch(() => {});
   }, []);
 
@@ -57,6 +63,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
             vendor: j.data.vendor || '',
             payment_method: j.data.payment_method || '',
             category_id: j.data.category_id || '',
+            project_id: j.data.project_id || '',
             notes: j.data.notes || '',
           });
         }
@@ -77,6 +84,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
           amount: Number(form.amount),
           vat_rate: Number(form.vat_rate),
           category_id: form.category_id || null,
+          project_id: form.project_id || null,
           payment_method: form.payment_method || null,
         }),
       });
@@ -151,6 +159,16 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
                   <SelectContent>
                     <SelectItem value="none">غير محدد</SelectItem>
                     {PAYMENT_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>المشروع</Label>
+                <Select value={form.project_id} onValueChange={v => update('project_id', v === 'none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون مشروع</SelectItem>
+                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

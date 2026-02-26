@@ -51,6 +51,11 @@ export async function middleware(request: NextRequest) {
   // if no valid cookie session exists.
 
   // ── CSRF protection for state-changing API requests ────────
+  // Stripe webhooks come from external servers — exempt from CSRF
+  if (pathname.startsWith('/api/stripe/webhook')) {
+    return response;
+  }
+
   // Verify Origin/Referer header matches the app's host for POST/PATCH/DELETE/PUT
   const method = request.method;
   if (
@@ -85,13 +90,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin API routes (except public and portal ones)
+  // Protect admin API routes (except public, portal, and Stripe webhook)
   if (
     pathname.startsWith('/api') &&
     !pathname.startsWith('/api/health') &&
     !pathname.startsWith('/api/auth') &&
     !pathname.startsWith('/api/portal') &&
-    !pathname.startsWith('/api/shares/download')
+    !pathname.startsWith('/api/shares/download') &&
+    !pathname.startsWith('/api/stripe/webhook')
   ) {
     if (!user) {
       return NextResponse.json(

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { ChevronRight, Download } from 'lucide-react';
+import { ChevronRight, Download, CreditCard, Loader2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 
 interface InvoiceItem {
@@ -79,6 +79,7 @@ export default function PortalInvoiceDetailPage() {
   const router = useRouter();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
 
   useEffect(() => {
     const fetchInvoice = async () => {
@@ -123,18 +124,45 @@ export default function PortalInvoiceDetailPage() {
 
   const s = STATUS_MAP[invoice.status] || { label: invoice.status, variant: 'secondary' as const };
 
+  const canPay = ['sent', 'partially_paid', 'overdue'].includes(invoice.status) && invoice.amount_due > 0;
+
+  const handlePay = async () => {
+    setPaying(true);
+    try {
+      const res = await fetch(`/api/portal/invoices/${invoice.id}/pay`, { method: 'POST' });
+      const json = await res.json();
+      if (json.data?.checkout_url) {
+        window.location.href = json.data.checkout_url;
+      } else {
+        alert(json.error || 'حدث خطأ أثناء إنشاء جلسة الدفع');
+        setPaying(false);
+      }
+    } catch {
+      alert('حدث خطأ في الاتصال');
+      setPaying(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.push('/portal/invoices')} className="gap-1">
           <ChevronRight className="h-4 w-4" /> العودة للفواتير
         </Button>
-        <Button variant="outline" size="sm" className="gap-2" asChild>
-          <a href={`/api/portal/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer">
-            <Download className="h-4 w-4" />
-            تحميل PDF
-          </a>
-        </Button>
+        <div className="flex items-center gap-2">
+          {canPay && (
+            <Button size="sm" className="gap-2 bg-green-600 hover:bg-green-700" onClick={handlePay} disabled={paying}>
+              {paying ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+              {paying ? 'جاري التحويل...' : 'ادفع الآن'}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="gap-2" asChild>
+            <a href={`/api/portal/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer">
+              <Download className="h-4 w-4" />
+              تحميل PDF
+            </a>
+          </Button>
+        </div>
       </div>
 
       <Card className="max-w-[800px] mx-auto">

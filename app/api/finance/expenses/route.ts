@@ -15,6 +15,7 @@ export async function GET(req: NextRequest) {
   const pageSize = parseInt(url.get('pageSize') || '20');
   const search = url.get('search') || '';
   const category = url.get('category') || '';
+  const projectId = url.get('project_id') || '';
   const from = url.get('from') || '';
   const to = url.get('to') || '';
 
@@ -28,6 +29,9 @@ export async function GET(req: NextRequest) {
     }
     if (category) {
       query = query.eq('category_id', category);
+    }
+    if (projectId) {
+      query = query.eq('project_id', projectId);
     }
     if (from) {
       query = query.gte('expense_date', from);
@@ -55,11 +59,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // get project info for each expense
+    const projectIds = [...new Set((data || []).map((e: { project_id: string | null }) => e.project_id).filter(Boolean))];
+    let projects: Record<string, { name: string }> = {};
+    if (projectIds.length > 0) {
+      const { data: projs } = await supabase
+        .from('pyra_projects')
+        .select('id, name')
+        .in('id', projectIds);
+      if (projs) {
+        projects = Object.fromEntries(projs.map((p: { id: string; name: string }) => [p.id, p]));
+      }
+    }
+
     const enriched = (data || []).map((e: Record<string, unknown>) => ({
       ...e,
       category_name: e.category_id ? categories[e.category_id as string]?.name : null,
       category_name_ar: e.category_id ? categories[e.category_id as string]?.name_ar : null,
       category_color: e.category_id ? categories[e.category_id as string]?.color : null,
+      project_name: e.project_id ? projects[e.project_id as string]?.name : null,
     }));
 
     // Calculate summary from a separate query (same filters as main query)
@@ -68,6 +86,7 @@ export async function GET(req: NextRequest) {
       .select('amount, vat_amount');
     if (search) summaryQuery = summaryQuery.or(`description.ilike.%${search}%,vendor.ilike.%${search}%`);
     if (category) summaryQuery = summaryQuery.eq('category_id', category);
+    if (projectId) summaryQuery = summaryQuery.eq('project_id', projectId);
     if (from) summaryQuery = summaryQuery.gte('expense_date', from);
     if (to) summaryQuery = summaryQuery.lte('expense_date', to);
     const { data: allExpenses } = await summaryQuery;
@@ -99,7 +118,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, receipt_url, notes, is_recurring, recurring_period } = body;
+    const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, project_id, receipt_url, notes, is_recurring, recurring_period } = body;
 
     if (!amount || amount <= 0) return apiError('المبلغ مطلوب', 422);
 
@@ -118,6 +137,7 @@ export async function POST(req: NextRequest) {
         vendor,
         payment_method,
         category_id: category_id || null,
+        project_id: project_id || null,
         receipt_url,
         notes,
         is_recurring: is_recurring || false,

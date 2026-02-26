@@ -41,6 +41,10 @@ import {
   RefreshCw,
   CreditCard,
   FileSignature,
+  Repeat,
+  AlertTriangle,
+  Target,
+  PieChart,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -104,6 +108,9 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', labelEn: 'Subscriptions', icon: RefreshCw, adminOnly: true },
       { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, adminOnly: true },
       { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, adminOnly: true },
+      { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, adminOnly: true },
+      { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, adminOnly: true },
+      { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, adminOnly: true },
     ],
   },
   {
