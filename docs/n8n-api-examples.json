@@ -1,16 +1,43 @@
 {
   "_info": {
     "title": "Pyra Workspace - External API Reference for n8n AI Agent",
-    "version": "3.0.0",
+    "version": "4.0.0",
     "base_url": "https://workspace.pyramedia.cloud",
     "auth_header": "X-API-Key",
-    "auth_note": "Create API keys from: Dashboard → Settings → External API Keys section",
-    "important_rules": [
-      "The AI agent MUST fetch categories from GET /api/external/expenses/categories before creating expenses",
-      "The AI agent MUST use only existing category IDs — never invent or guess categories",
-      "When processing a subscription invoice, ALWAYS search subscriptions first before creating a new one",
-      "Use category_id (not category name) when creating expenses for accuracy",
-      "The search in GET /api/external/subscriptions is fuzzy (partial match, case-insensitive)"
+    "auth_note": "Create API keys from: Dashboard → Settings → External API Keys section"
+  },
+
+  "critical_rules": [
+    "ALWAYS fetch categories from GET /api/external/expenses/categories on startup and cache them",
+    "NEVER invent or guess category IDs — only use IDs returned from the categories endpoint",
+    "ALWAYS extract data directly from the invoice — NEVER generate or translate descriptions yourself",
+    "The description field must contain the actual service/product name from the invoice, NOT a summary in Arabic",
+    "When processing a subscription invoice, ALWAYS search subscriptions first before creating a new one",
+    "ALWAYS extract VAT/tax information from the invoice if present",
+    "ALWAYS detect and send the payment method (credit_card, debit_card, bank_transfer, cash)",
+    "Subscription cost must be the BASE amount BEFORE tax — NOT the total",
+    "The expense amount must be the TOTAL amount INCLUDING tax"
+  ],
+
+  "actual_expense_categories": {
+    "_note": "These are the REAL category IDs in the database. Use ONLY these. Fetch fresh list from the API on each session.",
+    "categories": [
+      { "id": "ec_rent", "name": "Rent", "name_ar": "إيجار", "use_for": "Office rent, warehouse rent, parking rent" },
+      { "id": "ec_salaries", "name": "Salaries", "name_ar": "رواتب", "use_for": "Employee salaries, freelancer payments, commissions" },
+      { "id": "ec_software", "name": "Software", "name_ar": "برامج", "use_for": "One-time software purchases, software licenses (non-recurring)" },
+      { "id": "ec_marketing", "name": "Marketing", "name_ar": "إعلانات", "use_for": "Ads, social media marketing, promotional materials, Google/Meta ads" },
+      { "id": "ec_office", "name": "Office", "name_ar": "مكتب", "use_for": "Office supplies, stationery, furniture, equipment" },
+      { "id": "ec_travel", "name": "Travel", "name_ar": "سفر", "use_for": "Flights, hotels, transportation for business trips" },
+      { "id": "ec_subscriptions", "name": "Subscriptions", "name_ar": "اشتراكات", "use_for": "ALL recurring subscriptions: SaaS tools, cloud services, hosting, AI tools, design tools, etc. This is the PRIMARY category for any subscription/recurring expense" },
+      { "id": "ec_utilities", "name": "Utilities", "name_ar": "مرافق", "use_for": "Electricity, water, internet, phone bills" },
+      { "id": "ec_other", "name": "Other", "name_ar": "أخرى", "use_for": "ONLY when no other category matches. Avoid using this." }
+    ],
+    "category_selection_rules": [
+      "If the invoice is for a recurring subscription (SaaS, cloud, AI tool, hosting) → use ec_subscriptions",
+      "If the invoice is for a one-time software purchase → use ec_software",
+      "If the invoice is for advertising/marketing → use ec_marketing",
+      "If the invoice is for food/drinks → there is no food category, use ec_other",
+      "If unsure → set category_id to null, do NOT use ec_other as a default"
     ]
   },
 
@@ -20,228 +47,143 @@
       "description": "Verify API key is valid and check permissions",
       "method": "GET",
       "url": "{{base_url}}/api/external/status",
-      "headers": { "X-API-Key": "{{api_key}}" },
-      "response_example": {
-        "data": {
-          "status": "ok",
-          "key_name": "n8n Integration",
-          "permissions": ["expenses:create", "expenses:read", "subscriptions:read", "subscriptions:create", "invoices:create", "invoices:read", "invoices:send", "alerts:read"]
-        }
-      }
+      "headers": { "X-API-Key": "{{api_key}}" }
     },
 
     "2_get_expense_categories": {
-      "description": "MUST be called first — Get all valid expense categories. The AI agent must ONLY use these categories. Never invent new ones.",
+      "description": "MUST be called FIRST on every session — returns all valid expense categories with their real IDs. Cache this list.",
       "permission_required": "expenses:read",
       "method": "GET",
       "url": "{{base_url}}/api/external/expenses/categories",
       "headers": { "X-API-Key": "{{api_key}}" },
-      "response_example": {
-        "data": [
-          { "id": "ec_abc123", "name": "Subscriptions", "name_ar": "اشتراكات" },
-          { "id": "ec_def456", "name": "Food & Beverages", "name_ar": "طعام ومشروبات" },
-          { "id": "ec_ghi789", "name": "Transportation", "name_ar": "مواصلات" },
-          { "id": "ec_jkl012", "name": "Office Supplies", "name_ar": "مستلزمات مكتبية" },
-          { "id": "ec_mno345", "name": "Marketing", "name_ar": "تسويق" },
-          { "id": "ec_pqr678", "name": "Software", "name_ar": "برامج" },
-          { "id": "ec_stu901", "name": "Hosting", "name_ar": "استضافة" }
-        ],
-        "error": null
-      },
-      "usage_note": "Cache this response at the start of each workflow. Use the id field as category_id when creating expenses."
+      "usage_note": "Cache this response. Use the 'id' field as category_id when creating expenses. NEVER use an ID that is not in this list."
     },
 
     "3_search_subscriptions": {
-      "description": "Search existing subscriptions by name/provider (fuzzy, case-insensitive, partial match). Use this to check if a subscription already exists before creating an expense.",
+      "description": "Search existing subscriptions by name/provider. The search is fuzzy (partial match, case-insensitive).",
       "permission_required": "subscriptions:read",
       "method": "GET",
       "url": "{{base_url}}/api/external/subscriptions?search={{keyword}}",
       "headers": { "X-API-Key": "{{api_key}}" },
       "query_params": {
-        "search": "(optional) fuzzy search on name + provider — e.g., 'eleven' matches 'ElevenLabs', 'Eleven Labs', etc.",
-        "status": "(optional) filter by: active, paused, cancelled",
+        "search": "(optional) fuzzy search — e.g., 'eleven' finds 'ElevenLabs Starter'",
+        "status": "(optional) active | paused | cancelled",
         "page": "(optional) default: 1",
         "pageSize": "(optional) default: 20, max: 100"
       },
-      "examples": [
-        "GET /api/external/subscriptions?search=eleven → finds 'ElevenLabs'",
-        "GET /api/external/subscriptions?search=adobe → finds 'Adobe Creative Cloud'",
-        "GET /api/external/subscriptions?search=figma → finds 'Figma Pro'"
-      ],
-      "response_example": {
-        "data": [
-          {
-            "id": "sub_abc123",
-            "name": "ElevenLabs",
-            "provider": "ElevenLabs",
-            "cost": 5,
-            "currency": "USD",
-            "billing_cycle": "monthly",
-            "next_renewal_date": "2026-03-15",
-            "category": "أدوات",
-            "status": "active",
-            "auto_renew": true
-          }
-        ],
-        "meta": { "total": 1, "page": 1, "pageSize": 20 },
-        "error": null
-      }
+      "search_tips": [
+        "Use a short keyword from the vendor/product name",
+        "Examples: 'eleven' for ElevenLabs, 'adobe' for Adobe, 'figma' for Figma",
+        "The search matches both 'name' and 'provider' fields"
+      ]
     },
 
     "4_create_subscription": {
-      "description": "Create a new subscription record. Use only when the subscription does NOT exist yet.",
+      "description": "Create a new subscription. ONLY if search returned no results.",
       "permission_required": "subscriptions:create",
       "method": "POST",
       "url": "{{base_url}}/api/external/subscriptions",
-      "headers": {
-        "Content-Type": "application/json",
-        "X-API-Key": "{{api_key}}"
+      "headers": { "Content-Type": "application/json", "X-API-Key": "{{api_key}}" },
+      "body_fields": {
+        "name": "(required) The product/plan name from the invoice — e.g., 'ElevenLabs Starter', 'Adobe Creative Cloud', 'Figma Professional'",
+        "provider": "(optional) The company name — e.g., 'Eleven Labs Inc.', 'Adobe Inc.', 'Figma Inc.'",
+        "cost": "(required) The BASE cost per billing cycle BEFORE tax — e.g., if invoice says $5.00 + $0.25 VAT = $5.25 total, use 5.00",
+        "currency": "(optional) default: AED — use the currency from the invoice (USD, EUR, etc.)",
+        "billing_cycle": "(optional) monthly | quarterly | yearly — default: monthly. Determine from invoice period.",
+        "next_renewal_date": "(optional) YYYY-MM-DD — calculate from invoice: if paid Feb 26 and monthly, next is 2026-03-26",
+        "category": "(optional) free-text category for the subscription",
+        "notes": "(optional) any additional info from the invoice",
+        "source": "(recommended) 'telegram' if from Telegram, 'n8n' otherwise"
       },
-      "body": {
-        "name": "ElevenLabs",
-        "provider": "ElevenLabs",
-        "cost": 5,
+      "example_body": {
+        "name": "ElevenLabs Starter",
+        "provider": "Eleven Labs Inc.",
+        "cost": 5.00,
         "currency": "USD",
         "billing_cycle": "monthly",
-        "next_renewal_date": "2026-04-15",
-        "category": "أدوات",
-        "notes": "AI voice generation",
-        "source": "n8n"
-      },
-      "body_fields": {
-        "name": "(required) subscription name",
-        "provider": "(optional) provider/vendor name",
-        "cost": "(required) amount per billing cycle — must be > 0",
-        "currency": "(optional) default: AED",
-        "billing_cycle": "(optional) monthly | quarterly | yearly — default: monthly",
-        "next_renewal_date": "(optional) YYYY-MM-DD",
-        "category": "(optional) free-text category for the subscription",
-        "url": "(optional) subscription URL",
-        "notes": "(optional) additional notes",
-        "source": "(optional) source identifier — e.g., n8n, telegram"
-      },
-      "response_example": {
-        "data": {
-          "id": "sub_abc123",
-          "name": "ElevenLabs",
-          "provider": "ElevenLabs",
-          "cost": 5,
-          "currency": "USD",
-          "billing_cycle": "monthly",
-          "status": "active"
-        }
-      }
-    },
-
-    "5_create_expense": {
-      "description": "Create a new expense. Use category_id from GET /categories endpoint. Optionally link to a subscription_id.",
-      "permission_required": "expenses:create",
-      "method": "POST",
-      "url": "{{base_url}}/api/external/expenses",
-      "headers": {
-        "Content-Type": "application/json",
-        "X-API-Key": "{{api_key}}"
-      },
-      "body": {
-        "description": "ElevenLabs — تجديد اشتراك شهري",
-        "amount": 5,
-        "currency": "USD",
-        "category_id": "ec_abc123",
-        "subscription_id": "sub_abc123",
-        "vendor": "ElevenLabs",
-        "expense_date": "2026-02-26",
-        "payment_method": "credit_card",
-        "notes": "تجديد تلقائي",
-        "source": "n8n"
-      },
-      "body_fields": {
-        "description": "(required) expense description",
-        "amount": "(required) must be > 0",
-        "currency": "(optional) default: AED",
-        "category_id": "(recommended) category ID from GET /expenses/categories — takes priority over 'category'",
-        "category": "(fallback) category name in Arabic or English — matched against existing categories",
-        "subscription_id": "(optional) link this expense to an existing subscription — validated against pyra_subscriptions",
-        "vendor": "(optional) vendor name",
-        "expense_date": "(optional) YYYY-MM-DD — default: today",
-        "payment_method": "(optional) cash | credit_card | bank_transfer | debit_card",
-        "notes": "(optional) additional notes",
-        "project_id": "(optional) link to a project",
-        "source": "(optional) source identifier — e.g., telegram, n8n"
-      },
-      "response_example": {
-        "data": {
-          "id": "exp_abc123",
-          "description": "ElevenLabs — تجديد اشتراك شهري",
-          "amount": 5,
-          "currency": "USD",
-          "category_id": "ec_abc123",
-          "subscription_id": "sub_abc123",
-          "vendor": "ElevenLabs",
-          "expense_date": "2026-02-26"
-        }
-      }
-    },
-
-    "6_create_expense_minimal": {
-      "description": "Create expense with minimum required fields (for simple one-time expenses)",
-      "method": "POST",
-      "url": "{{base_url}}/api/external/expenses",
-      "headers": {
-        "Content-Type": "application/json",
-        "X-API-Key": "{{api_key}}"
-      },
-      "body": {
-        "description": "غداء فريق العمل",
-        "amount": 350,
-        "category_id": "ec_def456",
+        "next_renewal_date": "2026-03-26",
+        "category": "برامج",
+        "notes": "AI voice generation tool",
         "source": "telegram"
       }
     },
 
-    "7_list_expenses": {
+    "5_create_expense": {
+      "description": "Create an expense. Link to subscription if applicable. Include VAT if present in invoice.",
+      "permission_required": "expenses:create",
+      "method": "POST",
+      "url": "{{base_url}}/api/external/expenses",
+      "headers": { "Content-Type": "application/json", "X-API-Key": "{{api_key}}" },
+      "body_fields": {
+        "description": "(required) MUST be the actual product/service name from the invoice — e.g., 'ElevenLabs Starter — تجديد اشتراك شهري'. Format: '{Product Name} — تجديد اشتراك {cycle}' for subscriptions, or the actual description from the invoice for regular expenses",
+        "amount": "(required) The TOTAL amount INCLUDING tax — e.g., if subtotal $5.00 + VAT $0.25, use 5.25",
+        "currency": "(optional) default: AED — use the currency from the invoice",
+        "category_id": "(recommended) MUST be a real ID from GET /expenses/categories — e.g., 'ec_subscriptions' for subscriptions",
+        "category": "(fallback) category name in Arabic or English — only if category_id is not available",
+        "subscription_id": "(optional) link to existing subscription — get from search or create response",
+        "vendor": "(optional) The company/vendor name exactly as on the invoice",
+        "expense_date": "(optional) YYYY-MM-DD — the payment/invoice date. Default: today",
+        "payment_method": "(optional) Detect from invoice: 'credit_card' for Visa/Mastercard/Amex, 'debit_card' for debit, 'bank_transfer' for wire/bank, 'cash' for cash",
+        "vat_rate": "(optional) VAT/tax percentage — e.g., 5 for 5% VAT. Default: 0",
+        "vat_amount": "(optional) VAT/tax amount — e.g., 0.25. Default: 0",
+        "notes": "(optional) any additional notes from the invoice (receipt number, invoice number, etc.)",
+        "source": "(recommended) 'telegram' if from Telegram, 'n8n' otherwise"
+      },
+      "example_subscription_expense": {
+        "description": "ElevenLabs Starter — تجديد اشتراك شهري",
+        "amount": 5.25,
+        "currency": "USD",
+        "category_id": "ec_subscriptions",
+        "subscription_id": "sub_EXISTING_ID",
+        "vendor": "Eleven Labs Inc.",
+        "expense_date": "2026-02-26",
+        "payment_method": "credit_card",
+        "vat_rate": 5,
+        "vat_amount": 0.25,
+        "notes": "Invoice #E341CA96-0005, Receipt #2287-8842-8203",
+        "source": "telegram"
+      },
+      "example_regular_expense": {
+        "description": "Google Ads — حملة فبراير 2026",
+        "amount": 1500,
+        "currency": "AED",
+        "category_id": "ec_marketing",
+        "vendor": "Google",
+        "expense_date": "2026-02-20",
+        "payment_method": "credit_card",
+        "vat_rate": 5,
+        "vat_amount": 71.43,
+        "source": "telegram"
+      }
+    },
+
+    "6_list_expenses": {
       "description": "List expenses with optional filters",
       "permission_required": "expenses:read",
       "method": "GET",
-      "url": "{{base_url}}/api/external/expenses?from=2026-01-01&to=2026-02-28&page=1&pageSize=20",
+      "url": "{{base_url}}/api/external/expenses",
       "headers": { "X-API-Key": "{{api_key}}" },
       "query_params": {
         "category_id": "(optional) filter by category ID",
         "vendor": "(optional) partial match on vendor name",
         "project_id": "(optional) filter by project ID",
-        "from": "(optional) start date — YYYY-MM-DD",
-        "to": "(optional) end date — YYYY-MM-DD",
+        "from": "(optional) start date YYYY-MM-DD",
+        "to": "(optional) end date YYYY-MM-DD",
         "page": "(optional) default: 1",
         "pageSize": "(optional) default: 20, max: 100"
       }
     },
 
-    "8_create_invoice": {
+    "7_create_invoice": {
       "description": "Create a new invoice for a client",
       "permission_required": "invoices:create",
       "method": "POST",
       "url": "{{base_url}}/api/external/invoices",
-      "headers": {
-        "Content-Type": "application/json",
-        "X-API-Key": "{{api_key}}"
-      },
-      "body": {
-        "client_name": "شركة إنجازات",
-        "items": [
-          { "description": "تصميم هوية بصرية", "quantity": 1, "rate": 5000 },
-          { "description": "إدارة سوشال ميديا — فبراير", "quantity": 1, "rate": 3000 }
-        ],
-        "currency": "AED",
-        "due_date": "2026-03-26",
-        "notes": "فاتورة خدمات فبراير 2026",
-        "source": "n8n"
-      },
+      "headers": { "Content-Type": "application/json", "X-API-Key": "{{api_key}}" },
       "body_fields": {
         "client_id": "(optional) client ID if known",
-        "client_name": "(optional) client name — auto-searched in database",
-        "items": "(required) array of line items",
-        "items[].description": "(required) item description",
-        "items[].quantity": "(optional) default: 1",
-        "items[].rate": "(required) unit price",
+        "client_name": "(optional) client name — auto-searched",
+        "items": "(required) array of { description, quantity, rate }",
         "currency": "(optional) default: AED",
         "due_date": "(optional) YYYY-MM-DD",
         "notes": "(optional)",
@@ -249,291 +191,292 @@
       }
     },
 
-    "9_list_invoices": {
+    "8_list_invoices": {
       "description": "List invoices with optional filters",
       "permission_required": "invoices:read",
       "method": "GET",
-      "url": "{{base_url}}/api/external/invoices?status=sent&page=1&pageSize=10",
+      "url": "{{base_url}}/api/external/invoices",
       "headers": { "X-API-Key": "{{api_key}}" },
       "query_params": {
         "status": "(optional) draft | sent | paid | partially_paid | overdue | cancelled",
-        "client_id": "(optional) filter by client ID",
+        "client_id": "(optional)",
         "page": "(optional) default: 1",
         "pageSize": "(optional) default: 20, max: 100"
       }
     },
 
-    "10_send_invoice": {
-      "description": "Send a draft invoice (change status from draft to sent)",
+    "9_send_invoice": {
+      "description": "Send a draft invoice (change status to sent)",
       "permission_required": "invoices:send",
       "method": "POST",
       "url": "{{base_url}}/api/external/invoices/{{invoice_id}}/send",
       "headers": { "X-API-Key": "{{api_key}}" }
     },
 
-    "11_get_alerts": {
-      "description": "Get smart financial alerts (overdue invoices, expiring contracts, budget overruns, subscription renewals)",
+    "10_get_alerts": {
+      "description": "Get smart financial alerts",
       "permission_required": "alerts:read",
       "method": "GET",
       "url": "{{base_url}}/api/external/alerts",
-      "headers": { "X-API-Key": "{{api_key}}" },
-      "response_example": {
-        "data": {
-          "alerts": [
-            {
-              "type": "overdue_invoices",
-              "severity": "critical",
-              "title": "فواتير متأخرة",
-              "message": "يوجد 3 فاتورة متأخرة بإجمالي 25000.00"
-            },
-            {
-              "type": "subscription_renewal",
-              "severity": "warning",
-              "title": "تجديد اشتراك قادم",
-              "message": "الاشتراك \"Adobe CC\" سيتجدد في 2026-03-01 بقيمة 250.00 AED"
-            }
-          ],
-          "summary": { "total_count": 5, "critical_count": 1, "warning_count": 3, "info_count": 1 }
-        }
-      }
+      "headers": { "X-API-Key": "{{api_key}}" }
     }
   },
 
   "ai_agent_workflow": {
     "title": "Telegram Invoice Photo → AI Agent → Pyra API",
-    "description": "Complete flow for the AI agent to process invoice photos sent via Telegram and create the correct records in Pyra",
+    "description": "Complete workflow for processing invoice photos from Telegram and creating records in Pyra",
 
     "step_0_init": {
-      "description": "On startup, cache categories and use them throughout the session",
+      "description": "On startup / first message, fetch and cache categories",
       "action": "GET /api/external/expenses/categories",
-      "result": "Store the categories array. The AI agent must ONLY use category IDs from this list.",
-      "critical_rule": "NEVER create, invent, or guess a category. If no category matches, use null."
+      "store_as": "CATEGORIES_CACHE",
+      "critical": "You MUST do this before processing any invoice. Never skip this step."
     },
 
-    "step_1_receive_photo": {
-      "description": "User sends invoice photo via Telegram",
-      "action": "AI reads the photo and extracts: vendor_name, amount, currency, date, description, is_recurring (yes/no)"
-    },
-
-    "step_2_classify": {
-      "description": "AI classifies the invoice type",
-      "decision_tree": {
-        "is_recurring_or_subscription": {
-          "condition": "Is this a subscription/recurring service? (SaaS, hosting, cloud, tools, etc.)",
-          "yes": "→ Go to step_3_subscription_flow",
-          "no": "→ Go to step_4_regular_expense_flow"
-        }
+    "step_1_receive_and_extract": {
+      "description": "User sends invoice photo via Telegram. Extract ALL data from the photo.",
+      "extract_fields": {
+        "vendor_name": "The company/vendor name (e.g., 'Eleven Labs Inc.', 'Adobe Inc.')",
+        "product_name": "The specific product/plan name (e.g., 'Starter', 'Creative Cloud', 'Professional')",
+        "subtotal": "The amount BEFORE tax",
+        "vat_rate": "The tax/VAT percentage (e.g., 5 for 5%)",
+        "vat_amount": "The tax/VAT amount",
+        "total_amount": "The TOTAL amount INCLUDING tax — this goes in the expense",
+        "currency": "USD, EUR, AED, etc.",
+        "invoice_date": "The payment/invoice date in YYYY-MM-DD format",
+        "payment_method": "Detect from payment info: VISA/Mastercard → 'credit_card', bank → 'bank_transfer'",
+        "invoice_number": "The invoice number if visible",
+        "receipt_number": "The receipt number if visible",
+        "billing_period": "The service period (e.g., Feb 26 – Mar 26)",
+        "is_subscription": "true if this is a recurring subscription, false otherwise"
       },
-      "subscription_indicators": [
-        "Monthly/yearly billing cycle mentioned",
-        "Known SaaS providers (Adobe, AWS, Google, Microsoft, Figma, Slack, etc.)",
-        "Words like: subscription, renewal, recurring, plan, license, تجديد, اشتراك",
-        "Auto-renewal or next billing date mentioned"
+      "extraction_rules": [
+        "Extract data EXACTLY as written on the invoice — do NOT translate or paraphrase",
+        "If vendor says 'Eleven Labs Inc.' use exactly that, don't change to 'ElevenLabs'",
+        "The product_name is the plan/tier name — e.g., 'Starter', 'Pro', 'Enterprise'",
+        "If VAT/tax is shown, extract BOTH the percentage and the amount",
+        "Detect payment method from card info: 'VISA - 6641' → payment_method: 'credit_card'"
       ]
     },
 
+    "step_2_classify": {
+      "description": "Determine if this is a subscription or a regular expense",
+      "is_subscription_if": [
+        "Monthly/yearly billing cycle mentioned",
+        "Known SaaS/cloud providers (Adobe, AWS, Google Cloud, Microsoft 365, Figma, Slack, ElevenLabs, etc.)",
+        "Words like: subscription, renewal, recurring, plan, license, per subscription, تجديد, اشتراك",
+        "Billing period shown (e.g., 'Feb 26 – Mar 26')",
+        "Auto-renewal mentioned"
+      ],
+      "if_subscription": "→ Go to step_3_subscription_flow",
+      "if_not_subscription": "→ Go to step_4_regular_expense_flow"
+    },
+
     "step_3_subscription_flow": {
-      "description": "Handle subscription invoice",
+      "description": "Handle subscription invoice — search, create if needed, then create expense",
       "steps": [
         {
-          "step": "3a",
-          "action": "GET /api/external/subscriptions?search={{vendor_keyword}}",
-          "note": "Use a keyword from the vendor name. e.g., for 'Eleven Labs Inc.' use search=eleven. The API does fuzzy partial match.",
-          "examples": [
-            "vendor: 'ElevenLabs Inc.' → search=eleven",
-            "vendor: 'Adobe Systems' → search=adobe",
-            "vendor: 'Amazon Web Services' → search=aws OR search=amazon",
-            "vendor: 'Google Cloud Platform' → search=google"
-          ]
+          "step": "3a — Search for existing subscription",
+          "action": "GET /api/external/subscriptions?search={{short_keyword}}",
+          "keyword_extraction": "Use the SHORTEST unique keyword from vendor name. Examples: 'Eleven Labs Inc.' → 'eleven', 'Adobe Systems' → 'adobe', 'Amazon Web Services' → 'aws'",
+          "result": "If found → use subscription_id from response → go to 3d. If not found → go to 3c."
         },
         {
-          "step": "3b",
-          "condition": "Subscription found?",
-          "yes": "Use the subscription_id from the response → Go to step 3d",
-          "no": "→ Go to step 3c (create new subscription)"
-        },
-        {
-          "step": "3c",
+          "step": "3c — Create new subscription (only if 3a returned no results)",
           "action": "POST /api/external/subscriptions",
-          "body": {
-            "name": "{{vendor_name}}",
+          "body_template": {
+            "name": "{{vendor_name}} {{product_name}}",
             "provider": "{{vendor_name}}",
-            "cost": "{{amount}}",
-            "currency": "{{currency}}",
-            "billing_cycle": "monthly (or yearly/quarterly based on invoice)",
-            "next_renewal_date": "{{calculate from invoice date + billing cycle}}",
-            "source": "n8n"
+            "cost": "{{subtotal — the amount BEFORE tax, NOT total}}",
+            "currency": "{{currency from invoice}}",
+            "billing_cycle": "monthly or yearly — determine from billing_period",
+            "next_renewal_date": "{{calculate: invoice_date + 1 billing cycle}}",
+            "source": "telegram"
           },
-          "result": "Save the returned subscription_id"
+          "example": {
+            "name": "ElevenLabs Starter",
+            "provider": "Eleven Labs Inc.",
+            "cost": 5.00,
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "next_renewal_date": "2026-03-26",
+            "source": "telegram"
+          },
+          "important": "cost MUST be the base amount BEFORE tax. If total is $5.25 and VAT is $0.25, cost = $5.00"
         },
         {
-          "step": "3d",
+          "step": "3d — Create expense linked to subscription",
           "action": "POST /api/external/expenses",
-          "body": {
-            "description": "{{vendor_name}} — تجديد اشتراك {{billing_cycle}}",
-            "amount": "{{amount}}",
+          "body_template": {
+            "description": "{{vendor_name}} {{product_name}} — تجديد اشتراك {{billing_cycle_arabic}}",
+            "amount": "{{total_amount — the TOTAL including tax}}",
             "currency": "{{currency}}",
-            "category_id": "{{id of 'اشتراكات' category from cached categories}}",
-            "subscription_id": "{{subscription_id from step 3b or 3c}}",
-            "vendor": "{{vendor_name}}",
+            "category_id": "ec_subscriptions",
+            "subscription_id": "{{subscription_id from step 3a or 3c}}",
+            "vendor": "{{vendor_name exactly as on invoice}}",
             "expense_date": "{{invoice_date}}",
+            "payment_method": "{{detected payment method}}",
+            "vat_rate": "{{vat percentage, e.g. 5}}",
+            "vat_amount": "{{vat amount, e.g. 0.25}}",
+            "notes": "{{invoice_number + receipt_number if available}}",
+            "source": "telegram"
+          },
+          "billing_cycle_arabic_map": {
+            "monthly": "شهري",
+            "quarterly": "ربع سنوي",
+            "yearly": "سنوي"
+          },
+          "example": {
+            "description": "ElevenLabs Starter — تجديد اشتراك شهري",
+            "amount": 5.25,
+            "currency": "USD",
+            "category_id": "ec_subscriptions",
+            "subscription_id": "sub_3nDRx-oKZl_GmdfW",
+            "vendor": "Eleven Labs Inc.",
+            "expense_date": "2026-02-26",
             "payment_method": "credit_card",
-            "source": "n8n"
-          }
+            "vat_rate": 5,
+            "vat_amount": 0.25,
+            "notes": "Invoice #E341CA96-0005, Receipt #2287-8842-8203",
+            "source": "telegram"
+          },
+          "critical_notes": [
+            "category_id MUST be 'ec_subscriptions' for ALL subscription expenses",
+            "amount MUST be the TOTAL including tax (subtotal + vat_amount)",
+            "description format: '{Vendor} {Product} — تجديد اشتراك {cycle}'",
+            "vendor MUST be the exact company name from the invoice",
+            "ALWAYS include vat_rate and vat_amount if tax is shown on invoice"
+          ]
         }
       ]
     },
 
     "step_4_regular_expense_flow": {
-      "description": "Handle regular (non-subscription) expense",
+      "description": "Handle non-subscription expense",
       "steps": [
         {
-          "step": "4a",
-          "action": "Match the expense to the best category from cached categories",
+          "step": "4a — Match category from cached categories",
           "rules": [
-            "If vendor is restaurant/cafe → use 'طعام ومشروبات' category",
-            "If vendor is Uber/Careem/taxi → use 'مواصلات' category",
-            "If vendor is office supply store → use 'مستلزمات مكتبية' category",
-            "If unsure → set category_id to null (DO NOT guess)",
-            "NEVER create a category that doesn't exist in the list"
+            "SaaS/cloud/AI tools subscription → ec_subscriptions",
+            "One-time software purchase → ec_software",
+            "Ads, social media marketing → ec_marketing",
+            "Office supplies, equipment → ec_office",
+            "Business travel, hotels, flights → ec_travel",
+            "Rent → ec_rent",
+            "Salaries, freelancer payments → ec_salaries",
+            "Electricity, water, internet → ec_utilities",
+            "If genuinely unsure → set category_id to null (let admin categorize later)",
+            "AVOID using ec_other unless absolutely necessary"
           ]
         },
         {
-          "step": "4b",
+          "step": "4b — Create expense",
           "action": "POST /api/external/expenses",
-          "body": {
-            "description": "{{description from invoice}}",
-            "amount": "{{amount}}",
+          "body_template": {
+            "description": "{{actual description from invoice — do NOT translate or invent}}",
+            "amount": "{{total amount including tax}}",
             "currency": "{{currency}}",
             "category_id": "{{matched category_id or null}}",
-            "vendor": "{{vendor_name}}",
-            "expense_date": "{{invoice_date}}",
-            "payment_method": "{{inferred or null}}",
-            "source": "n8n"
+            "vendor": "{{vendor name from invoice}}",
+            "expense_date": "{{date from invoice}}",
+            "payment_method": "{{detected: credit_card / debit_card / bank_transfer / cash}}",
+            "vat_rate": "{{vat percentage if shown}}",
+            "vat_amount": "{{vat amount if shown}}",
+            "source": "telegram"
           }
         }
       ]
     },
 
     "step_5_reply": {
-      "description": "Send confirmation back to Telegram",
-      "template_subscription": "✅ تم تسجيل اشتراك {{vendor}} بمبلغ {{amount}} {{currency}}\n📂 التصنيف: اشتراكات\n🔗 مرتبط باشتراك: {{subscription_name}}",
-      "template_expense": "✅ تم تسجيل مصروف {{amount}} {{currency}}\n📝 {{description}}\n📂 التصنيف: {{category_name}}"
+      "description": "Send confirmation back to Telegram user",
+      "template_subscription": "✅ تم تسجيل فاتورة اشتراك\n🏢 {{vendor_name}} — {{product_name}}\n💰 {{total_amount}} {{currency}} (شامل ضريبة {{vat_amount}})\n📂 التصنيف: اشتراكات\n🔗 مرتبط باشتراك: {{subscription_name}}\n📅 التجديد القادم: {{next_renewal_date}}\n💳 {{payment_method}}",
+      "template_expense": "✅ تم تسجيل مصروف\n💰 {{total_amount}} {{currency}}\n📝 {{description}}\n📂 التصنيف: {{category_name}}\n💳 {{payment_method}}"
     }
   },
 
-  "n8n_workflows": {
+  "common_mistakes_to_avoid": [
+    {
+      "mistake": "Using AI-generated Arabic text as description instead of actual invoice data",
+      "wrong": { "description": "استخدام الاشتراك للشهر القادم" },
+      "correct": { "description": "ElevenLabs Starter — تجديد اشتراك شهري" },
+      "rule": "The description MUST contain the actual product name from the invoice"
+    },
+    {
+      "mistake": "Using ec_other instead of ec_subscriptions for subscription invoices",
+      "wrong": { "category_id": "ec_other" },
+      "correct": { "category_id": "ec_subscriptions" },
+      "rule": "ALL recurring subscription expenses use ec_subscriptions"
+    },
+    {
+      "mistake": "Not extracting VAT information",
+      "wrong": { "vat_rate": 0, "vat_amount": 0 },
+      "correct": { "vat_rate": 5, "vat_amount": 0.25 },
+      "rule": "If the invoice shows VAT/tax, always extract the rate and amount"
+    },
+    {
+      "mistake": "Using total amount as subscription cost",
+      "wrong": { "cost": 5.25 },
+      "correct": { "cost": 5.00 },
+      "rule": "Subscription cost = subtotal BEFORE tax. Expense amount = total WITH tax."
+    },
+    {
+      "mistake": "Not detecting payment method from card info",
+      "wrong": { "payment_method": null },
+      "correct": { "payment_method": "credit_card" },
+      "rule": "VISA/Mastercard/Amex → credit_card. Look for card type and last 4 digits."
+    },
+    {
+      "mistake": "Not calculating next_renewal_date for subscriptions",
+      "wrong": { "next_renewal_date": null },
+      "correct": { "next_renewal_date": "2026-03-26" },
+      "rule": "Calculate from invoice date + billing cycle (monthly = +1 month, yearly = +1 year)"
+    }
+  ],
 
+  "n8n_workflows": {
     "ai_invoice_processor": {
       "description": "Main AI Agent workflow: Telegram Photo → AI Analysis → Smart Expense/Subscription Creation",
       "flow": "Telegram Trigger (photo) → AI Agent (analyze) → Tool Calls (Pyra API) → Telegram Reply",
-      "steps": [
-        {
-          "step": 1,
-          "node": "Telegram Trigger",
-          "config": "Listen for photo messages in bot chat"
-        },
-        {
-          "step": 2,
-          "node": "AI Agent (OpenAI/Claude)",
-          "description": "Analyze the invoice photo and extract data",
-          "system_prompt": "You are a financial assistant. Analyze invoice photos and extract: vendor_name, amount, currency, date, description, is_subscription (boolean). Use the Pyra API tools to create the correct records. Follow the ai_agent_workflow steps exactly.",
-          "tools": [
-            "GET /api/external/expenses/categories",
-            "GET /api/external/subscriptions?search=",
-            "POST /api/external/subscriptions",
-            "POST /api/external/expenses"
-          ]
-        },
-        {
-          "step": 3,
-          "node": "Telegram Reply",
-          "config": "Send confirmation with expense/subscription details"
-        }
-      ]
-    },
-
-    "telegram_expense_bot": {
-      "description": "Simple text-based expense bot (no AI, just parsing)",
-      "flow": "Telegram Trigger → Parse Message → HTTP Request → Reply",
-      "steps": [
-        {
-          "step": 1,
-          "node": "Telegram Trigger",
-          "config": "Listen for text messages"
-        },
-        {
-          "step": 2,
-          "node": "Code Node",
-          "example_code": "const msg = $input.first().json.message.text;\nconst match = msg.match(/(مصروف|expense)\\s+(\\d+\\.?\\d*)\\s+(.+)/i);\nif (match) {\n  return { json: { description: match[3].trim(), amount: parseFloat(match[2]), source: 'telegram' } };\n}\nreturn { json: { error: 'Could not parse' } };"
-        },
-        {
-          "step": 3,
-          "node": "HTTP Request",
-          "config": {
-            "method": "POST",
-            "url": "{{base_url}}/api/external/expenses",
-            "headers": { "Content-Type": "application/json", "X-API-Key": "={{api_key}}" }
-          }
-        },
-        {
-          "step": 4,
-          "node": "Telegram Reply",
-          "config": "✅ تم إدخال مصروف {{amount}} — {{description}}"
-        }
+      "agent_system_prompt": "You are a financial assistant for Pyra Workspace. You process invoice photos sent via Telegram and create expense records in the Pyra system. Follow these rules strictly:\n\n1. ALWAYS extract data directly from the invoice image — never invent or summarize\n2. Use the EXACT vendor name, product name, and amounts from the invoice\n3. For subscriptions, use category_id 'ec_subscriptions'\n4. Extract VAT separately: subtotal goes to subscription cost, total goes to expense amount\n5. Detect payment method from card info on the invoice\n6. Calculate next_renewal_date from invoice date + billing cycle\n7. Description format for subscriptions: '{Vendor} {Product} — تجديد اشتراك {شهري/سنوي}'\n8. NEVER use ec_other for subscription invoices\n9. ALWAYS search for existing subscriptions before creating new ones",
+      "tools": [
+        "GET /api/external/expenses/categories",
+        "GET /api/external/subscriptions?search=",
+        "POST /api/external/subscriptions",
+        "POST /api/external/expenses"
       ]
     },
 
     "daily_alerts_check": {
       "description": "Daily smart alerts → Telegram notification",
-      "flow": "Schedule Trigger (8 AM) → GET /alerts → Filter Critical → Telegram",
-      "steps": [
-        { "step": 1, "node": "Schedule Trigger", "config": "Daily at 8:00 AM" },
-        { "step": 2, "node": "HTTP Request", "config": { "method": "GET", "url": "{{base_url}}/api/external/alerts" } },
-        { "step": 3, "node": "IF Node", "config": "data.summary.critical_count > 0" },
-        { "step": 4, "node": "Telegram", "config": "🚨 {{critical_count}} تنبيه حرج!\n{{alerts_list}}" }
-      ]
+      "flow": "Schedule Trigger (8 AM) → GET /alerts → Filter Critical → Telegram"
     }
   },
 
   "curl_examples": {
-    "verify_key": "curl -H 'X-API-Key: pyra_YOUR_KEY' https://workspace.pyramedia.cloud/api/external/status",
     "get_categories": "curl -H 'X-API-Key: pyra_YOUR_KEY' https://workspace.pyramedia.cloud/api/external/expenses/categories",
     "search_subscriptions": "curl -H 'X-API-Key: pyra_YOUR_KEY' 'https://workspace.pyramedia.cloud/api/external/subscriptions?search=eleven'",
-    "create_subscription": "curl -X POST https://workspace.pyramedia.cloud/api/external/subscriptions -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"name\": \"ElevenLabs\", \"provider\": \"ElevenLabs\", \"cost\": 5, \"currency\": \"USD\", \"billing_cycle\": \"monthly\", \"source\": \"curl\"}'",
-    "create_expense_with_subscription": "curl -X POST https://workspace.pyramedia.cloud/api/external/expenses -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"description\": \"ElevenLabs — تجديد شهري\", \"amount\": 5, \"currency\": \"USD\", \"category_id\": \"ec_SUBSCRIPTIONS_ID\", \"subscription_id\": \"sub_EXISTING_ID\", \"vendor\": \"ElevenLabs\", \"source\": \"curl\"}'",
-    "create_expense_simple": "curl -X POST https://workspace.pyramedia.cloud/api/external/expenses -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"description\": \"غداء عمل\", \"amount\": 250, \"category_id\": \"ec_FOOD_ID\", \"source\": \"curl\"}'",
-    "list_expenses": "curl -H 'X-API-Key: pyra_YOUR_KEY' 'https://workspace.pyramedia.cloud/api/external/expenses?from=2026-01-01&to=2026-02-28'",
-    "list_invoices": "curl -H 'X-API-Key: pyra_YOUR_KEY' 'https://workspace.pyramedia.cloud/api/external/invoices?status=sent'",
-    "send_invoice": "curl -X POST -H 'X-API-Key: pyra_YOUR_KEY' https://workspace.pyramedia.cloud/api/external/invoices/inv_abc123/send",
-    "get_alerts": "curl -H 'X-API-Key: pyra_YOUR_KEY' https://workspace.pyramedia.cloud/api/external/alerts"
+    "create_subscription": "curl -X POST https://workspace.pyramedia.cloud/api/external/subscriptions -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"name\": \"ElevenLabs Starter\", \"provider\": \"Eleven Labs Inc.\", \"cost\": 5.00, \"currency\": \"USD\", \"billing_cycle\": \"monthly\", \"next_renewal_date\": \"2026-03-26\", \"source\": \"telegram\"}'",
+    "create_expense_subscription": "curl -X POST https://workspace.pyramedia.cloud/api/external/expenses -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"description\": \"ElevenLabs Starter — تجديد اشتراك شهري\", \"amount\": 5.25, \"currency\": \"USD\", \"category_id\": \"ec_subscriptions\", \"subscription_id\": \"sub_EXISTING_ID\", \"vendor\": \"Eleven Labs Inc.\", \"expense_date\": \"2026-02-26\", \"payment_method\": \"credit_card\", \"vat_rate\": 5, \"vat_amount\": 0.25, \"source\": \"telegram\"}'",
+    "create_expense_simple": "curl -X POST https://workspace.pyramedia.cloud/api/external/expenses -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY' -d '{\"description\": \"Google Ads Campaign Feb 2026\", \"amount\": 1500, \"category_id\": \"ec_marketing\", \"vendor\": \"Google\", \"source\": \"telegram\"}'"
   },
 
   "error_codes": {
-    "401": "مفتاح API غير صالح أو مفقود — Invalid or missing API key",
-    "403": "لا تملك الصلاحية المطلوبة — Missing required permission",
-    "422": "بيانات غير صالحة — Validation error (check required fields)",
-    "500": "خطأ في الخادم — Server error"
+    "401": "مفتاح API غير صالح أو مفقود",
+    "403": "لا تملك الصلاحية المطلوبة",
+    "422": "بيانات غير صالحة (تحقق من الحقول المطلوبة)",
+    "500": "خطأ في الخادم"
   },
 
   "available_permissions": [
-    { "permission": "*", "description": "Full access to all endpoints" },
-    { "permission": "expenses:create", "description": "Create expenses via POST /api/external/expenses" },
-    { "permission": "expenses:read", "description": "List expenses + categories via GET /api/external/expenses[/categories]" },
-    { "permission": "subscriptions:read", "description": "Search/list subscriptions via GET /api/external/subscriptions" },
-    { "permission": "subscriptions:create", "description": "Create subscriptions via POST /api/external/subscriptions" },
-    { "permission": "invoices:create", "description": "Create invoices via POST /api/external/invoices" },
-    { "permission": "invoices:read", "description": "List invoices via GET /api/external/invoices" },
-    { "permission": "invoices:send", "description": "Send draft invoices via POST /api/external/invoices/{id}/send" },
-    { "permission": "alerts:read", "description": "Read finance alerts via GET /api/external/alerts" },
-    { "permission": "payments:read", "description": "Read payment data (future endpoint)" }
-  ],
-
-  "webhook_events": [
-    { "event": "expense_created", "description": "Fired when a new expense is created (internal or external)" },
-    { "event": "invoice_created", "description": "Fired when a new invoice is created" },
-    { "event": "invoice_sent", "description": "Fired when an invoice status changes to sent" },
-    { "event": "invoice_paid", "description": "Fired when an invoice is fully paid" },
-    { "event": "subscription_created", "description": "Fired when a new subscription is created via external API" }
+    { "permission": "*", "description": "Full access" },
+    { "permission": "expenses:create", "description": "Create expenses" },
+    { "permission": "expenses:read", "description": "List expenses + categories" },
+    { "permission": "subscriptions:read", "description": "Search/list subscriptions" },
+    { "permission": "subscriptions:create", "description": "Create subscriptions" },
+    { "permission": "invoices:create", "description": "Create invoices" },
+    { "permission": "invoices:read", "description": "List invoices" },
+    { "permission": "invoices:send", "description": "Send draft invoices" },
+    { "permission": "alerts:read", "description": "Read finance alerts" }
   ]
 }
