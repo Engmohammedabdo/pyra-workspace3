@@ -699,6 +699,24 @@ export interface PyraStripePayment {
 }
 
 // ==========================================
+// External API Keys
+// ==========================================
+
+export interface PyraApiKey {
+  id: string;
+  name: string;
+  key_hash: string;
+  key_prefix: string;
+  permissions: string[];
+  is_active: boolean;
+  last_used_at: string | null;
+  expires_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ==========================================
 // API Types
 // ==========================================
 

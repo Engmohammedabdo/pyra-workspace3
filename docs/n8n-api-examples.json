@@ -1,0 +1,335 @@
+{
+  "_info": {
+    "title": "Pyra Workspace - External API Examples for n8n",
+    "version": "1.0.0",
+    "base_url": "https://workspace.pyramedia.cloud",
+    "auth_header": "X-API-Key",
+    "auth_note": "Create API keys from: Dashboard → Settings → External API Keys section"
+  },
+
+  "endpoints": {
+
+    "1_verify_api_key": {
+      "description": "Verify API key is valid and check permissions",
+      "method": "GET",
+      "url": "{{base_url}}/api/external/status",
+      "headers": {
+        "X-API-Key": "{{api_key}}"
+      },
+      "response_example": {
+        "data": {
+          "status": "ok",
+          "key_name": "n8n Integration",
+          "permissions": ["expenses:create", "invoices:create", "invoices:read"]
+        },
+        "error": null
+      }
+    },
+
+    "2_create_expense": {
+      "description": "Create a new expense (from Telegram, n8n, etc.)",
+      "permission_required": "expenses:create",
+      "method": "POST",
+      "url": "{{base_url}}/api/external/expenses",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "{{api_key}}"
+      },
+      "body": {
+        "description": "أوبر - مشوار العميل",
+        "amount": 150,
+        "currency": "AED",
+        "category": "مواصلات",
+        "vendor": "Uber",
+        "expense_date": "2026-02-26",
+        "payment_method": "credit_card",
+        "notes": "مشوار لاجتماع العميل",
+        "project_id": null,
+        "source": "telegram"
+      },
+      "body_fields": {
+        "description": "(required) وصف المصروف",
+        "amount": "(required) المبلغ — must be > 0",
+        "currency": "(optional) العملة — default: AED",
+        "category": "(optional) اسم التصنيف بالعربي أو الإنجليزي — يتم مطابقته تلقائياً مع التصنيفات الموجودة",
+        "vendor": "(optional) اسم المورد/الجهة",
+        "expense_date": "(optional) تاريخ المصروف — default: today (YYYY-MM-DD)",
+        "payment_method": "(optional) طريقة الدفع — options: cash, credit_card, bank_transfer, debit_card",
+        "notes": "(optional) ملاحظات إضافية",
+        "project_id": "(optional) معرف المشروع لربط المصروف بمشروع",
+        "source": "(optional) مصدر الإدخال — مثال: telegram, n8n, zapier"
+      },
+      "response_example": {
+        "data": {
+          "id": "exp_abc123def456",
+          "description": "أوبر - مشوار العميل",
+          "amount": 150,
+          "currency": "AED",
+          "category_id": "cat_xyz789",
+          "vendor": "Uber",
+          "expense_date": "2026-02-26",
+          "payment_method": "credit_card",
+          "notes": "مشوار لاجتماع العميل [telegram]",
+          "created_at": "2026-02-26T10:30:00.000Z"
+        },
+        "error": null
+      }
+    },
+
+    "3_create_expense_minimal": {
+      "description": "Create expense with minimum required fields",
+      "method": "POST",
+      "url": "{{base_url}}/api/external/expenses",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "{{api_key}}"
+      },
+      "body": {
+        "description": "غداء فريق العمل",
+        "amount": 350
+      }
+    },
+
+    "4_create_invoice": {
+      "description": "Create a new invoice for a client",
+      "permission_required": "invoices:create",
+      "method": "POST",
+      "url": "{{base_url}}/api/external/invoices",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "{{api_key}}"
+      },
+      "body": {
+        "client_name": "شركة إنجازات",
+        "items": [
+          {
+            "description": "تصميم هوية بصرية",
+            "quantity": 1,
+            "rate": 5000
+          },
+          {
+            "description": "إدارة حسابات السوشال ميديا - شهر فبراير",
+            "quantity": 1,
+            "rate": 3000
+          }
+        ],
+        "currency": "AED",
+        "due_date": "2026-03-26",
+        "notes": "فاتورة خدمات فبراير 2026",
+        "source": "n8n"
+      },
+      "body_fields": {
+        "client_id": "(optional) معرف العميل — لو معروف",
+        "client_name": "(optional) اسم العميل — يتم البحث عنه تلقائياً في قاعدة البيانات",
+        "items": "(required) مصفوفة البنود — كل بند يحتوي: description, quantity, rate",
+        "items[].description": "(required) وصف البند",
+        "items[].quantity": "(optional) الكمية — default: 1",
+        "items[].rate": "(required) سعر الوحدة",
+        "currency": "(optional) العملة — default: AED",
+        "due_date": "(optional) تاريخ الاستحقاق — YYYY-MM-DD",
+        "notes": "(optional) ملاحظات",
+        "source": "(optional) مصدر الإنشاء"
+      },
+      "response_example": {
+        "data": {
+          "id": "inv_abc123def456",
+          "invoice_number": "INV-0042",
+          "client_id": "cl_xyz789",
+          "client_name": "شركة إنجازات",
+          "status": "draft",
+          "subtotal": 8000,
+          "tax_rate": 5,
+          "tax_amount": 400,
+          "total": 8400,
+          "amount_paid": 0,
+          "amount_due": 8400,
+          "currency": "AED",
+          "issue_date": "2026-02-26",
+          "due_date": "2026-03-26",
+          "items": [
+            { "description": "تصميم هوية بصرية", "quantity": 1, "rate": 5000, "amount": 5000 },
+            { "description": "إدارة حسابات السوشال ميديا - شهر فبراير", "quantity": 1, "rate": 3000, "amount": 3000 }
+          ]
+        },
+        "error": null
+      }
+    },
+
+    "5_create_invoice_by_client_id": {
+      "description": "Create invoice using client_id directly",
+      "method": "POST",
+      "url": "{{base_url}}/api/external/invoices",
+      "headers": {
+        "Content-Type": "application/json",
+        "X-API-Key": "{{api_key}}"
+      },
+      "body": {
+        "client_id": "cl_abc123",
+        "items": [
+          { "description": "استشارة تقنية", "quantity": 2, "rate": 1500 }
+        ],
+        "due_date": "2026-03-15"
+      }
+    },
+
+    "6_list_invoices": {
+      "description": "List invoices with optional filters",
+      "permission_required": "invoices:read",
+      "method": "GET",
+      "url": "{{base_url}}/api/external/invoices?status=sent&page=1&pageSize=10",
+      "headers": {
+        "X-API-Key": "{{api_key}}"
+      },
+      "query_params": {
+        "status": "(optional) filter by status: draft, sent, paid, partially_paid, overdue, cancelled",
+        "client_id": "(optional) filter by client ID",
+        "page": "(optional) page number — default: 1",
+        "pageSize": "(optional) items per page — default: 20, max: 100"
+      },
+      "response_example": {
+        "data": [
+          {
+            "id": "inv_abc123",
+            "invoice_number": "INV-0042",
+            "total": 8400,
+            "status": "sent",
+            "client_name": "شركة إنجازات"
+          }
+        ],
+        "meta": { "total": 15, "page": 1, "pageSize": 10 },
+        "error": null
+      }
+    }
+  },
+
+  "n8n_workflows": {
+
+    "telegram_expense_bot": {
+      "description": "Telegram Bot → Parse Message → Create Expense in Pyra",
+      "flow": "Telegram Trigger → Set Node (parse) → HTTP Request → Telegram (reply)",
+      "steps": [
+        {
+          "step": 1,
+          "node": "Telegram Trigger",
+          "config": "Listen for messages in bot chat"
+        },
+        {
+          "step": 2,
+          "node": "Set / Code Node",
+          "description": "Parse the message to extract expense data",
+          "example_code": "// Message format: \"مصروف 500 أوبر\" or \"expense 500 Uber\"\nconst msg = $input.first().json.message.text;\nconst match = msg.match(/(مصروف|expense)\\s+(\\d+\\.?\\d*)\\s+(.+)/i);\n\nif (match) {\n  return {\n    json: {\n      description: match[3].trim(),\n      amount: parseFloat(match[2]),\n      source: 'telegram',\n      expense_date: new Date().toISOString().split('T')[0]\n    }\n  };\n}\n\nreturn { json: { error: 'Could not parse message' } };"
+        },
+        {
+          "step": 3,
+          "node": "HTTP Request",
+          "config": {
+            "method": "POST",
+            "url": "https://workspace.pyramedia.cloud/api/external/expenses",
+            "headers": {
+              "Content-Type": "application/json",
+              "X-API-Key": "={{ $credentials.pyraApiKey }}"
+            },
+            "body": "={{ JSON.stringify($json) }}"
+          }
+        },
+        {
+          "step": 4,
+          "node": "Telegram (Send Message)",
+          "config": "Reply with: ✅ تم إدخال مصروف {{amount}} {{currency}} — {{description}}"
+        }
+      ]
+    },
+
+    "telegram_invoice_bot": {
+      "description": "Telegram Bot → Create Invoice → Return Invoice Number",
+      "flow": "Telegram Trigger → Code Node → HTTP Request → Telegram Reply",
+      "steps": [
+        {
+          "step": 1,
+          "node": "Telegram Trigger",
+          "config": "Listen for /invoice command"
+        },
+        {
+          "step": 2,
+          "node": "Code Node",
+          "description": "Parse: /invoice إنجازات 5000 تصميم هوية",
+          "example_code": "const msg = $input.first().json.message.text;\nconst match = msg.match(/\\/invoice\\s+(.+?)\\s+(\\d+\\.?\\d*)\\s+(.+)/i);\n\nif (match) {\n  return {\n    json: {\n      client_name: match[1].trim(),\n      items: [{\n        description: match[3].trim(),\n        quantity: 1,\n        rate: parseFloat(match[2])\n      }],\n      source: 'telegram'\n    }\n  };\n}"
+        },
+        {
+          "step": 3,
+          "node": "HTTP Request",
+          "config": {
+            "method": "POST",
+            "url": "https://workspace.pyramedia.cloud/api/external/invoices",
+            "headers": {
+              "Content-Type": "application/json",
+              "X-API-Key": "={{ $credentials.pyraApiKey }}"
+            }
+          }
+        },
+        {
+          "step": 4,
+          "node": "Telegram Reply",
+          "config": "✅ تم إنشاء فاتورة {{invoice_number}} بمبلغ {{total}} {{currency}} للعميل {{client_name}}"
+        }
+      ]
+    },
+
+    "scheduled_overdue_check": {
+      "description": "Daily check for overdue invoices → Notify via Telegram",
+      "flow": "Schedule Trigger (daily) → HTTP Request (list invoices) → Filter → Telegram Notify",
+      "steps": [
+        {
+          "step": 1,
+          "node": "Schedule Trigger",
+          "config": "Run daily at 9:00 AM"
+        },
+        {
+          "step": 2,
+          "node": "HTTP Request",
+          "config": {
+            "method": "GET",
+            "url": "https://workspace.pyramedia.cloud/api/external/invoices?status=overdue",
+            "headers": { "X-API-Key": "={{ $credentials.pyraApiKey }}" }
+          }
+        },
+        {
+          "step": 3,
+          "node": "IF Node",
+          "config": "Check if data array length > 0"
+        },
+        {
+          "step": 4,
+          "node": "Telegram Send Message",
+          "config": "⚠️ لديك {{count}} فاتورة متأخرة! المبلغ الإجمالي: {{total_overdue}} AED"
+        }
+      ]
+    }
+  },
+
+  "curl_examples": {
+    "verify_key": "curl -H 'X-API-Key: pyra_YOUR_KEY_HERE' https://workspace.pyramedia.cloud/api/external/status",
+
+    "create_expense": "curl -X POST https://workspace.pyramedia.cloud/api/external/expenses -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY_HERE' -d '{\"description\": \"غداء عمل\", \"amount\": 250, \"vendor\": \"مطعم الشرق\", \"source\": \"curl\"}'",
+
+    "create_invoice": "curl -X POST https://workspace.pyramedia.cloud/api/external/invoices -H 'Content-Type: application/json' -H 'X-API-Key: pyra_YOUR_KEY_HERE' -d '{\"client_name\": \"شركة إنجازات\", \"items\": [{\"description\": \"خدمات تسويق\", \"quantity\": 1, \"rate\": 5000}], \"source\": \"curl\"}'",
+
+    "list_invoices": "curl -H 'X-API-Key: pyra_YOUR_KEY_HERE' 'https://workspace.pyramedia.cloud/api/external/invoices?status=sent&page=1'"
+  },
+
+  "error_codes": {
+    "401": "مفتاح API غير صالح أو مفقود — Invalid or missing API key",
+    "403": "لا تملك الصلاحية المطلوبة — Missing required permission",
+    "422": "بيانات غير صالحة — Validation error (check required fields)",
+    "500": "خطأ في الخادم — Server error"
+  },
+
+  "available_permissions": [
+    { "permission": "*", "description": "Full access to all endpoints" },
+    { "permission": "expenses:create", "description": "Create expenses via POST /api/external/expenses" },
+    { "permission": "expenses:read", "description": "Read expenses (future endpoint)" },
+    { "permission": "invoices:create", "description": "Create invoices via POST /api/external/invoices" },
+    { "permission": "invoices:read", "description": "List invoices via GET /api/external/invoices" },
+    { "permission": "payments:read", "description": "Read payment data (future endpoint)" }
+  ]
+}

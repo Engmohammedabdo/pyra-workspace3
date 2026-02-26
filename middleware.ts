@@ -51,8 +51,8 @@ export async function middleware(request: NextRequest) {
   // if no valid cookie session exists.
 
   // ── CSRF protection for state-changing API requests ────────
-  // Stripe webhooks come from external servers — exempt from CSRF
-  if (pathname.startsWith('/api/stripe/webhook')) {
+  // External API & Stripe webhooks come from external servers — exempt from CSRF
+  if (pathname.startsWith('/api/stripe/webhook') || pathname.startsWith('/api/external')) {
     return response;
   }
 
@@ -97,7 +97,8 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith('/api/auth') &&
     !pathname.startsWith('/api/portal') &&
     !pathname.startsWith('/api/shares/download') &&
-    !pathname.startsWith('/api/stripe/webhook')
+    !pathname.startsWith('/api/stripe/webhook') &&
+    !pathname.startsWith('/api/external')
   ) {
     if (!user) {
       return NextResponse.json(

@@ -87,3 +87,9 @@ export const STRIPE_PAYMENT_FIELDS = `
   amount, currency, status, client_id, metadata,
   created_at, updated_at
 `;
+
+export const API_KEY_FIELDS = `
+  id, name, key_prefix, permissions, is_active,
+  last_used_at, expires_at, created_by,
+  created_at, updated_at
+`;
