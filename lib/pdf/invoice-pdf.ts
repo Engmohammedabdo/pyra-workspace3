@@ -2,7 +2,6 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
-import { processArabicText } from './arabic';
 
 // ============================================================
 // Invoice PDF Generator — Matches quote-pdf.ts style
@@ -114,7 +113,7 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
   });
 
   await registerArabicFont(doc);
-  const arText = (t: string) => processArabicText(t);
+  const arText = (t: string) => doc.processArabic(t);
 
   const pageWidth = 210;
   const margin = 20;

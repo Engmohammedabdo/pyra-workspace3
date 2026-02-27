@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
-import { processArabicText } from './arabic';
 
 export interface ServiceItem {
   description: string;
@@ -56,7 +55,7 @@ export async function generateQuotePdf(data: QuoteData): Promise<void> {
   let y = 20;
 
   await registerArabicFont(doc);
-  const arText = (t: string) => processArabicText(t);
+  const arText = (t: string) => doc.processArabic(t);
 
   // ── Company Header ──────────────────────────────────
   doc.setFontSize(18);
