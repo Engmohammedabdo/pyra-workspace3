@@ -100,6 +100,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
 
+    // Update contract amount_collected if invoice is linked to a milestone
+    const { data: milestone } = await supabase
+      .from('pyra_contract_milestones')
+      .select('contract_id')
+      .eq('invoice_id', id)
+      .maybeSingle();
+
+    if (milestone?.contract_id) {
+      const { data: contract } = await supabase
+        .from('pyra_contracts')
+        .select('amount_collected')
+        .eq('id', milestone.contract_id)
+        .maybeSingle();
+
+      if (contract) {
+        await supabase
+          .from('pyra_contracts')
+          .update({
+            amount_collected: (contract.amount_collected || 0) + amount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', milestone.contract_id);
+      }
+    }
+
     if (newStatus === 'paid') {
       dispatchWebhookEvent('invoice_paid', { invoice_id: id, invoice_number: invoice.invoice_number, total: invoice.total, client_name: invoice.client_name });
     }

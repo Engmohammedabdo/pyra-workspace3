@@ -100,8 +100,8 @@ export async function POST(
     const settingsMap: Record<string, string> = {};
     for (const s of settings || []) settingsMap[s.key] = s.value;
 
-    // Use contract vat_rate if set, otherwise fall back to settings
-    const taxRate = contract.vat_rate > 0 ? contract.vat_rate : parseFloat(settingsMap.vat_rate || '5');
+    // Use contract vat_rate if explicitly set (even 0), otherwise fall back to settings
+    const taxRate = contract.vat_rate != null ? Number(contract.vat_rate) : parseFloat(settingsMap.vat_rate || '5');
 
     const bankDetails = {
       bank: settingsMap.bank_name || '',
