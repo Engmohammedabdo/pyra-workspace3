@@ -188,16 +188,16 @@ export default function PortalQuotesPage() {
               <div className="w-64 space-y-2 border rounded-lg p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">المجموع الفرعي</span>
-                  <span className="font-mono" dir="ltr">{fmtNum(detail.subtotal)} AED</span>
+                  <span className="font-mono" dir="ltr">{fmtNum(detail.subtotal)} {detail.currency}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">ضريبة ({detail.tax_rate}%)</span>
-                  <span className="font-mono" dir="ltr">{fmtNum(detail.tax_amount)} AED</span>
+                  <span className="font-mono" dir="ltr">{fmtNum(detail.tax_amount)} {detail.currency}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>الإجمالي</span>
-                  <span className="font-mono text-orange-600" dir="ltr">{fmtNum(detail.total)} AED</span>
+                  <span className="font-mono text-orange-600" dir="ltr">{fmtNum(detail.total)} {detail.currency}</span>
                 </div>
               </div>
             </div>

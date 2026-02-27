@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     // Fetch all invoices in the full range at once
     const { data: invoices, error: invErr } = await supabase
       .from('pyra_invoices')
-      .select('amount_paid, issue_date')
+      .select('amount_paid, currency, issue_date')
       .in('status', ['paid', 'partially_paid'])
       .gte('issue_date', from)
       .lte('issue_date', to);
@@ -128,7 +128,7 @@ export async function GET(req: NextRequest) {
     const periodResults = periods.map((p) => {
       const periodRevenue = (invoices || [])
         .filter((inv: { issue_date: string }) => inv.issue_date >= p.start && inv.issue_date <= p.end)
-        .reduce((sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid), 0);
+        .reduce((sum: number, inv: { amount_paid: number; currency: string }) => sum + toAED(Number(inv.amount_paid), inv.currency), 0);
 
       const periodExpenses = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end)

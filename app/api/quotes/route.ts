@@ -91,6 +91,15 @@ export async function POST(request: NextRequest) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       return apiValidationError('يجب إضافة عنصر واحد على الأقل');
     }
+    // Validate item values
+    for (const item of items) {
+      if (!item.quantity || item.quantity <= 0) {
+        return apiValidationError('الكمية يجب أن تكون أكبر من صفر');
+      }
+      if (item.rate == null || item.rate < 0) {
+        return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
+      }
+    }
 
     const supabase = createServiceRoleClient();
 
@@ -100,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Calculate totals
     const subtotal = items.reduce(
       (sum: number, item: { quantity: number; rate: number }) =>
-        sum + (item.quantity || 0) * (item.rate || 0),
+        sum + item.quantity * item.rate,
       0
     );
 
@@ -229,9 +238,9 @@ export async function POST(request: NextRequest) {
         quote_id: quoteId,
         sort_order: idx + 1,
         description: item.description?.trim() || '',
-        quantity: item.quantity || 0,
-        rate: item.rate || 0,
-        amount: (item.quantity || 0) * (item.rate || 0),
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.quantity * item.rate,
       })
     );
 

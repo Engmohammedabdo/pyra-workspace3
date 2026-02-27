@@ -41,7 +41,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!invoice) return apiNotFound('الفاتورة غير موجودة');
 
     // 3. Validate status
-    if (['draft', 'cancelled', 'paid'].includes(invoice.status)) {
+    if (['draft', 'cancelled', 'paid', 'expired'].includes(invoice.status)) {
       return apiError('لا يمكن الدفع لهذه الفاتورة');
     }
 

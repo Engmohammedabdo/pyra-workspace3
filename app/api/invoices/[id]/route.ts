@@ -115,6 +115,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       if (items.length === 0) {
         return apiValidationError('يجب إضافة بند واحد على الأقل');
       }
+      // Validate item values
+      for (const item of items) {
+        if (!item.quantity || item.quantity <= 0) {
+          return apiValidationError('الكمية يجب أن تكون أكبر من صفر');
+        }
+        if (item.rate == null || item.rate < 0) {
+          return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
+        }
+      }
 
       // Delete old items then insert new ones
       await supabase.from('pyra_invoice_items').delete().eq('invoice_id', id);
@@ -125,9 +134,9 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           invoice_id: id,
           sort_order: idx + 1,
           description: item.description?.trim() || '',
-          quantity: item.quantity || 1,
-          rate: item.rate || 0,
-          amount: (item.quantity || 1) * (item.rate || 0),
+          quantity: item.quantity,
+          rate: item.rate,
+          amount: item.quantity * item.rate,
         })
       );
 

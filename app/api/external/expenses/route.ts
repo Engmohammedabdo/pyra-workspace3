@@ -113,11 +113,12 @@ export async function POST(req: NextRequest) {
         category_id = cat.id;
       }
     } else if (category) {
-      // Fallback: match by name (Arabic or English)
+      // Fallback: match by name (Arabic or English) — sanitize input
+      const safeCat = category.replace(/[%_,().\\]/g, '');
       const { data: cat } = await supabase
         .from('pyra_expense_categories')
         .select('id')
-        .or(`name.ilike.${category},name_ar.ilike.${category}`)
+        .or(`name.ilike.%${safeCat}%,name_ar.ilike.%${safeCat}%`)
         .limit(1)
         .maybeSingle();
       if (cat) {

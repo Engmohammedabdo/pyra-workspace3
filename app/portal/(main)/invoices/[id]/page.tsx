@@ -9,6 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { ChevronRight, Download, CreditCard, Loader2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
+import { toast } from 'sonner';
 
 interface InvoiceItem {
   id: string;
@@ -46,6 +48,11 @@ interface InvoiceDetail {
   client_name: string | null;
   client_company: string | null;
   client_email: string | null;
+  client_phone: string | null;
+  client_address: string | null;
+  quote_id: string | null;
+  milestone_type: string | null;
+  terms_conditions: { text: string }[] | null;
   bank_details: {
     bank: string;
     account_name: string;
@@ -122,6 +129,12 @@ export default function PortalInvoiceDetailPage() {
     );
   }
 
+  const handleDownloadPDF = () => {
+    if (!invoice) return;
+    generateInvoicePDF(invoice as any);
+    toast.success('تم تحميل ملف PDF');
+  };
+
   const s = STATUS_MAP[invoice.status] || { label: invoice.status, variant: 'secondary' as const };
 
   const canPay = ['sent', 'partially_paid', 'overdue'].includes(invoice.status) && invoice.amount_due > 0;
@@ -156,11 +169,9 @@ export default function PortalInvoiceDetailPage() {
               {paying ? 'جاري التحويل...' : 'ادفع الآن'}
             </Button>
           )}
-          <Button variant="outline" size="sm" className="gap-2" asChild>
-            <a href={`/api/portal/invoices/${invoice.id}/pdf`} target="_blank" rel="noopener noreferrer">
-              <Download className="h-4 w-4" />
-              تحميل PDF
-            </a>
+          <Button variant="outline" size="sm" className="gap-2" onClick={handleDownloadPDF}>
+            <Download className="h-4 w-4" />
+            تحميل PDF
           </Button>
         </div>
       </div>

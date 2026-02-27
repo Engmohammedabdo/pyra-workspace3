@@ -39,6 +39,11 @@ export async function POST(
 
     if (mErr || !milestone) return apiNotFound('المرحلة غير موجودة');
 
+    // Guard: check if invoice already generated (race-condition safe)
+    if (milestone.invoice_id) {
+      return apiError('تم إنشاء فاتورة لهذه المرحلة مسبقاً', 400);
+    }
+
     if (milestone.status !== 'completed') {
       return apiError(
         milestone.status === 'invoiced'

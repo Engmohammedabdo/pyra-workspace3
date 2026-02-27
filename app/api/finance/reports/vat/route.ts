@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
     // VAT Collected: tax_amount from paid invoices
     const { data: invoices, error: invErr } = await supabase
       .from('pyra_invoices')
-      .select('tax_amount, issue_date')
+      .select('tax_amount, currency, issue_date')
       .in('status', ['paid', 'partially_paid'])
       .gte('issue_date', from)
       .lte('issue_date', to);
@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
     const monthly = months.map((m) => {
       const collected = (invoices || [])
         .filter((inv: { issue_date: string }) => inv.issue_date >= m.start && inv.issue_date <= m.end)
-        .reduce((sum: number, inv: { tax_amount: number }) => sum + Number(inv.tax_amount || 0), 0);
+        .reduce((sum: number, inv: { tax_amount: number; currency: string }) => sum + toAED(Number(inv.tax_amount || 0), inv.currency), 0);
 
       const paid = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= m.start && exp.expense_date <= m.end)

@@ -20,5 +20,9 @@ const EXCHANGE_RATES: Record<string, number> = {
 export function toAED(amount: number, currency?: string | null): number {
   if (!currency || currency === 'AED') return amount;
   const rate = EXCHANGE_RATES[currency.toUpperCase()];
-  return rate ? amount * rate : amount;
+  if (!rate) {
+    console.warn(`toAED: unknown currency "${currency}", returning amount as-is`);
+    return amount;
+  }
+  return amount * rate;
 }

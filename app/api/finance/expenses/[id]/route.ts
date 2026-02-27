@@ -41,25 +41,37 @@ export async function PATCH(
 
   try {
     const body = await req.json();
+
+    // Allowlist fields to prevent mass assignment
+    const allowedFields = [
+      'description', 'amount', 'currency', 'vat_rate', 'vat_amount',
+      'expense_date', 'vendor', 'payment_method', 'receipt_url', 'notes',
+      'category_id', 'project_id', 'subscription_id', 'is_recurring', 'recurring_period',
+    ];
+    const update: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) update[field] = body[field];
+    }
+
     // Recalculate VAT if rate or amount changed
-    if (body.vat_rate !== undefined || body.amount !== undefined) {
+    if (update.vat_rate !== undefined || update.amount !== undefined) {
       const { data: existing } = await supabase
         .from('pyra_expenses')
         .select('amount, vat_rate')
         .eq('id', id)
         .single();
       if (existing) {
-        const amount = body.amount ?? existing.amount;
-        const vat_rate = body.vat_rate ?? existing.vat_rate;
-        body.vat_amount = amount * vat_rate / 100;
+        const amount = (update.amount as number) ?? existing.amount;
+        const vat_rate = (update.vat_rate as number) ?? existing.vat_rate;
+        update.vat_amount = amount * vat_rate / 100;
       }
     }
 
-    body.updated_at = new Date().toISOString();
+    update.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('pyra_expenses')
-      .update(body)
+      .update(update)
       .eq('id', id)
       .select(EXPENSE_FIELDS)
       .single();

@@ -67,8 +67,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiServerError();
     }
 
-    // Update invoice amounts
-    const newAmountPaid = (invoice.amount_paid || 0) + amount;
+    // Sum ALL payments for this invoice (race-condition safe)
+    const { data: allPayments } = await supabase
+      .from('pyra_payments')
+      .select('amount')
+      .eq('invoice_id', id);
+
+    const newAmountPaid = (allPayments || []).reduce(
+      (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+    );
     const newAmountDue = invoice.total - newAmountPaid;
     const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
 

@@ -34,12 +34,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { data: quote } = await supabase
       .from('pyra_quotes')
-      .select('id, client_id, quote_number, status')
+      .select('id, client_id, client_company, quote_number, status')
       .eq('id', id)
       .maybeSingle();
 
     if (!quote) return apiNotFound('عرض السعر غير موجود');
-    if (quote.client_id !== session.id) return apiForbidden();
+    const ownsQuote = quote.client_id
+      ? quote.client_id === session.id
+      : quote.client_company === session.company;
+    if (!ownsQuote) return apiForbidden();
 
     // Only sent or viewed quotes can be signed
     if (!['sent', 'viewed'].includes(quote.status)) {
