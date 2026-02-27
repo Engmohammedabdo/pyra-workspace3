@@ -170,7 +170,7 @@ export async function POST(req: NextRequest) {
       target_path: `/finance/expenses/${data.id}`,
       details: { description, amount, vendor, source: source || 'api' },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     dispatchWebhookEvent('expense_created', { expense_id: data.id, description, amount, vendor, source: source || 'api' });
 

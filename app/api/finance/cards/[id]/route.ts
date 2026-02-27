@@ -101,7 +101,7 @@ export async function DELETE(
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/cards/${id}`,
       details: { card_id: id },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess({ deleted: true });
   } catch {

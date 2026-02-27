@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/contracts/${data.id}`,
       details: { title, contract_type, total_value },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(data, undefined, 201);
   } catch {

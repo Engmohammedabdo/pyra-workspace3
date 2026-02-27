@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
         source: source || 'api',
       },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     dispatchWebhookEvent('invoice_created', { invoice_id: invoiceId, invoice_number: invoiceNumber, total, client_name: resolvedClientData.client_name, source: source || 'api' });
 

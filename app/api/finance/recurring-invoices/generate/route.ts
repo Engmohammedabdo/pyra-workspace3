@@ -11,6 +11,8 @@ import { INVOICE_FIELDS } from '@/lib/supabase/fields';
  */
 function calculateNextDate(currentDate: string, billingCycle: string): string {
   const date = new Date(currentDate);
+  const day = date.getDate();
+
   switch (billingCycle) {
     case 'monthly':
       date.setMonth(date.getMonth() + 1);
@@ -24,6 +26,13 @@ function calculateNextDate(currentDate: string, billingCycle: string): string {
     default:
       date.setMonth(date.getMonth() + 1);
   }
+
+  // Fix month overflow: if original day was 31 but new month only has 28-30 days,
+  // setMonth overflows to next month. Clamp back to last day of target month.
+  if (date.getDate() !== day) {
+    date.setDate(0); // goes to last day of previous month (the intended month)
+  }
+
   return date.toISOString().split('T')[0];
 }
 
@@ -195,7 +204,7 @@ export async function POST(req: NextRequest) {
             message: `تم إصدار فاتورة جديدة رقم ${invoiceNumber} بقيمة ${total.toFixed(2)} ${template.currency || 'AED'}`,
             target_project_id: null,
             target_file_id: null,
-          }).then();
+          }).then(null, (e: unknown) => console.error('Activity log error:', e));
         }
 
         // 8. Update template: last_generated_at + next_generation_date
@@ -225,7 +234,7 @@ export async function POST(req: NextRequest) {
             auto_send: template.auto_send,
           },
           ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-        }).then();
+        }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
         generatedInvoices.push(invoiceId);
       } catch (err) {

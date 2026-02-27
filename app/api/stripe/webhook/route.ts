@@ -19,24 +19,22 @@ export async function POST(req: NextRequest) {
 
     let event: Stripe.Event;
 
-    // Verify webhook signature if secret is configured
-    if (process.env.STRIPE_WEBHOOK_SECRET) {
-      if (!sig) {
-        return NextResponse.json(
-          { error: 'Missing stripe-signature header' },
-          { status: 400 }
-        );
-      }
-      event = getStripe().webhooks.constructEvent(
-        body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
+    // Verify webhook signature — REQUIRED in production
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not set — refusing to process');
+      return NextResponse.json(
+        { error: 'Webhook secret not configured' },
+        { status: 500 }
       );
-    } else {
-      // No webhook secret configured — parse body directly (dev/initial setup)
-      console.warn('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not set — skipping signature verification');
-      event = JSON.parse(body) as Stripe.Event;
     }
+    if (!sig) {
+      return NextResponse.json(
+        { error: 'Missing stripe-signature header' },
+        { status: 400 }
+      );
+    }
+    event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
 
     const supabase = createServiceRoleClient();
 
@@ -74,13 +72,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Invoice not found' }, { status: 400 });
       }
 
-      // 3. Calculate payment amount and new totals
+      // 3. Calculate payment amount
       const paymentAmount = (session.amount_total || 0) / 100;
-      const newAmountPaid = (invoice.amount_paid || 0) + paymentAmount;
-      const newAmountDue = invoice.total - newAmountPaid;
-      const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
 
-      // 4. Insert payment record (same pattern as /api/invoices/[id]/payments)
+      // 4. Insert payment record
       await supabase.from('pyra_payments').insert({
         id: generateId('pay'),
         invoice_id: invoiceId,
@@ -92,7 +87,18 @@ export async function POST(req: NextRequest) {
         recorded_by: 'system',
       });
 
-      // 5. Update invoice amounts
+      // 5. Sum ALL payments for this invoice (race-condition safe)
+      const { data: allPayments } = await supabase
+        .from('pyra_payments')
+        .select('amount')
+        .eq('invoice_id', invoiceId);
+      const newAmountPaid = (allPayments || []).reduce(
+        (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+      );
+      const newAmountDue = invoice.total - newAmountPaid;
+      const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
+
+      // 6. Update invoice amounts
       await supabase
         .from('pyra_invoices')
         .update({
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', invoiceId);
 
-      // 6. Create client notification
+      // 7. Create client notification
       if (clientId) {
         await supabase.from('pyra_client_notifications').insert({
           id: generateId('cn'),
@@ -115,7 +121,7 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // 7. Log activity
+      // 8. Log activity
       await supabase.from('pyra_activity_log').insert({
         id: generateId('log'),
         action_type: 'payment_recorded',

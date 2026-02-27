@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/cards/${data.id}`,
       details: { card_name, bank_name },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(data, undefined, 201);
   } catch {

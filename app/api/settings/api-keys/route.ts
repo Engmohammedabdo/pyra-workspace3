@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
       target_path: `/settings/api-keys/${apiKeyId}`,
       details: { name: name.trim(), permissions },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     // Return the full key ONCE along with the record
     return apiSuccess({ ...data, key: rawKey }, undefined, 201);

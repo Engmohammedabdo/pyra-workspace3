@@ -138,7 +138,7 @@ export async function POST(
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/contracts/${id}`,
       details: { milestone_id: milestoneId, title, percentage, amount: calculatedAmount },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(data, undefined, 201);
   } catch {

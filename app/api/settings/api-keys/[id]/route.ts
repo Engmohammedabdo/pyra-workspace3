@@ -46,7 +46,7 @@ export async function PATCH(
       target_path: `/settings/api-keys/${id}`,
       details: { updates },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(data);
   } catch {
@@ -95,7 +95,7 @@ export async function DELETE(
       target_path: `/settings/api-keys/${id}`,
       details: { api_key_name: existing.name },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess({ deleted: true });
   } catch {

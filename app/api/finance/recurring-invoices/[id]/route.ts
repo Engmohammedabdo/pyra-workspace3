@@ -124,7 +124,7 @@ export async function DELETE(
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/recurring/${id}`,
       details: { recurring_invoice_id: id },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess({ deleted: true });
   } catch {

@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       target_path: `/finance/subscriptions/${data.id}`,
       details: { name, provider, cost, billing_cycle, source: source || 'api' },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     dispatchWebhookEvent('subscription_created', {
       subscription_id: data.id,

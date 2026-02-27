@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/expenses/${data.id}`,
       details: { description, amount, vendor },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     dispatchWebhookEvent('expense_created', { expense_id: data.id, description, amount, vendor });
 

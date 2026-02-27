@@ -204,7 +204,7 @@ export function generateQuotePdf(data: QuoteData): void {
 
   doc.setFontSize(10);
   doc.setTextColor(DARK);
-  doc.text('Total (AED)', totalsX + 3, y + 21);
+  doc.text(`Total (${data.currency || 'AED'})`, totalsX + 3, y + 21);
   doc.text(fmtNum(total), totalsX + 57, y + 21, { align: 'right' });
 
   y += 30;

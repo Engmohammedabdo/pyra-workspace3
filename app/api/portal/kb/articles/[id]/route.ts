@@ -37,7 +37,7 @@ export async function GET(
       .from('pyra_kb_articles')
       .update({ view_count: (data.view_count || 0) + 1 })
       .eq('id', id)
-      .then();
+      .then(null, (e: unknown) => console.error('View count update error:', e));
 
     return apiSuccess(data);
   } catch {

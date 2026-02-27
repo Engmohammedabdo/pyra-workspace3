@@ -136,6 +136,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
   const taxRate = quote?.tax_rate ?? 5;
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
+  const currency = quote?.currency || 'AED';
 
   const fmtNum = (n: number) =>
     new Intl.NumberFormat('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
@@ -210,7 +211,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
       projectName,
       services: services.map(s => ({ description: s.description, qty: s.quantity, rate: s.rate })),
       notes,
-      currency: 'AED',
+      currency: quote?.currency || 'AED',
       taxRate,
       bankDetails: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
       companyName: quote?.company_name || 'PYRAMEDIA X',
@@ -373,16 +374,16 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
               <div className="w-64 space-y-2 border rounded-lg p-4">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">المجموع الفرعي</span>
-                  <span className="font-mono" dir="ltr">{fmtNum(subtotal)} AED</span>
+                  <span className="font-mono" dir="ltr">{fmtNum(subtotal)} {currency}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">ضريبة القيمة المضافة ({taxRate}%)</span>
-                  <span className="font-mono" dir="ltr">{fmtNum(taxAmount)} AED</span>
+                  <span className="font-mono" dir="ltr">{fmtNum(taxAmount)} {currency}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>الإجمالي</span>
-                  <span className="font-mono text-orange-600" dir="ltr">{fmtNum(total)} AED</span>
+                  <span className="font-mono text-orange-600" dir="ltr">{fmtNum(total)} {currency}</span>
                 </div>
               </div>
             </div>

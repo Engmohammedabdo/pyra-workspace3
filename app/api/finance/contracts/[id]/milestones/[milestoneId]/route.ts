@@ -83,7 +83,7 @@ export async function PATCH(
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/contracts/${id}`,
       details: { milestone_id: milestoneId, changes: Object.keys(update) },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(data);
   } catch {
@@ -136,7 +136,7 @@ export async function DELETE(
       display_name: admin.pyraUser.display_name,
       target_path: `/finance/contracts/${id}`,
       details: { milestone_id: milestoneId, title: existing.title },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess({ deleted: true });
   } catch {

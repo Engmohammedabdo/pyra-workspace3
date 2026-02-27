@@ -225,7 +225,7 @@ export async function POST(
         invoice_number: invoiceNumber,
         total,
       },
-    }).then();
+    }).then(null, (e: unknown) => console.error('Activity log error:', e));
 
     return apiSuccess(invoice, undefined, 201);
   } catch (err) {
