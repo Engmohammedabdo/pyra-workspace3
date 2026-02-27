@@ -65,15 +65,13 @@ export async function PATCH(
     const body = await request.json();
     const supabase = createServiceRoleClient();
 
-    const fields = {
-      primary_color: body.primary_color,
-      secondary_color: body.secondary_color,
-      logo_url: body.logo_url || null,
-      favicon_url: body.favicon_url || null,
-      company_name_display: body.company_name_display || null,
-      login_background_url: body.login_background_url || null,
-      updated_at: new Date().toISOString(),
-    };
+    const allowedFields = ['primary_color', 'secondary_color', 'logo_url', 'favicon_url', 'company_name_display', 'login_background_url'] as const;
+    const fields: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const key of allowedFields) {
+      if (body[key] !== undefined) {
+        fields[key] = body[key] || null;
+      }
+    }
 
     // Check if branding record already exists for this client
     const { data: existing } = await supabase

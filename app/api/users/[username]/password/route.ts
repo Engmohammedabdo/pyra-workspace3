@@ -40,7 +40,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { password } = body;
+    const { password, current_password } = body;
 
     // Validate password
     if (!password || typeof password !== 'string' || password.length < 12) {
@@ -71,8 +71,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return apiServerError('لم يتم العثور على ربط حساب المصادقة');
     }
 
-    // Update Supabase Auth password
+    // For self-change by non-admin, verify current password
     const serviceClient = createServiceRoleClient();
+    if (isSelf && !isAdmin) {
+      if (!current_password) {
+        return apiValidationError('كلمة المرور الحالية مطلوبة');
+      }
+      const { data: authUser } = await serviceClient.auth.admin.getUserById(mapping.auth_user_id);
+      if (!authUser?.user?.email) {
+        return apiServerError('لم يتم العثور على بيانات المصادقة');
+      }
+      const { error: verifyError } = await serviceClient.auth.signInWithPassword({
+        email: authUser.user.email,
+        password: current_password,
+      });
+      if (verifyError) {
+        return apiValidationError('كلمة المرور الحالية غير صحيحة');
+      }
+    }
     const { error: updateError } = await serviceClient.auth.admin.updateUserById(
       mapping.auth_user_id,
       { password }

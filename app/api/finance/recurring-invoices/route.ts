@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/re
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { RECURRING_INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { escapeLike } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
       .select(RECURRING_INVOICE_FIELDS, { count: 'exact' });
 
     if (status) query = query.eq('status', status);
-    if (search) query = query.ilike('title', `%${search}%`);
+    if (search) query = query.ilike('title', `%${escapeLike(search)}%`);
 
     const { data, error, count } = await query
       .order('next_generation_date', { ascending: true })

@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { toAED } from '@/lib/utils/currency';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -27,7 +28,8 @@ export async function GET(req: NextRequest) {
       .select(EXPENSE_FIELDS, { count: 'exact' });
 
     if (search) {
-      query = query.or(`description.ilike.%${search}%,vendor.ilike.%${search}%`);
+      const safeSearch = `%${escapeLike(search)}%`;
+      query = query.or(`description.ilike.${escapePostgrestValue(safeSearch)},vendor.ilike.${escapePostgrestValue(safeSearch)}`);
     }
     if (category) {
       query = query.eq('category_id', category);
@@ -86,7 +88,7 @@ export async function GET(req: NextRequest) {
     let summaryQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency');
-    if (search) summaryQuery = summaryQuery.or(`description.ilike.%${search}%,vendor.ilike.%${search}%`);
+    if (search) { const ss = `%${escapeLike(search)}%`; summaryQuery = summaryQuery.or(`description.ilike.${escapePostgrestValue(ss)},vendor.ilike.${escapePostgrestValue(ss)}`); }
     if (category) summaryQuery = summaryQuery.eq('category_id', category);
     if (projectId) summaryQuery = summaryQuery.eq('project_id', projectId);
     if (from) summaryQuery = summaryQuery.gte('expense_date', from);

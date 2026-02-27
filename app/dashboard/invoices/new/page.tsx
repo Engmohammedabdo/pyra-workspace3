@@ -108,6 +108,7 @@ export default function NewInvoicePage() {
         issue_date: issueDate,
         project_name: projectName || null,
         notes: notes || null,
+        vat_rate: vatRate,
         items: validItems.map(item => ({
           description: item.description.trim(),
           quantity: item.quantity,

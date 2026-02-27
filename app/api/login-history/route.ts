@@ -6,6 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/login-history
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (username) {
-      query = query.ilike('username', `%${username}%`);
+      query = query.ilike('username', `%${escapeLike(username)}%`);
     }
 
     if (success === 'true' || success === 'false') {

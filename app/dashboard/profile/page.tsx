@@ -107,6 +107,10 @@ export default function ProfilePage() {
 
   const handlePasswordChange = async () => {
     if (!profile) return;
+    if (!passwordForm.current) {
+      toast.error('كلمة المرور الحالية مطلوبة');
+      return;
+    }
     if (!passwordForm.newPass || passwordForm.newPass.length < 12) {
       toast.error('كلمة المرور يجب أن تكون 12 حرف على الأقل');
       return;
@@ -120,7 +124,7 @@ export default function ProfilePage() {
       const res = await fetch(`/api/users/${profile.username}/password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: passwordForm.newPass }),
+        body: JSON.stringify({ password: passwordForm.newPass, current_password: passwordForm.current }),
       });
       const json = await res.json();
       if (!res.ok) {

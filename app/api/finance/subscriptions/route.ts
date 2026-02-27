@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
 import { toAED } from '@/lib/utils/currency';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -23,7 +24,7 @@ export async function GET(req: NextRequest) {
       .select(SUBSCRIPTION_FIELDS, { count: 'exact' });
 
     if (status) query = query.eq('status', status);
-    if (search) query = query.or(`name.ilike.%${search}%,provider.ilike.%${search}%`);
+    if (search) { const ss = `%${escapeLike(search)}%`; query = query.or(`name.ilike.${escapePostgrestValue(ss)},provider.ilike.${escapePostgrestValue(ss)}`); }
 
     const { data, error, count } = await query
       .order('next_renewal_date', { ascending: true })

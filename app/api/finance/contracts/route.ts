@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/re
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
   const admin = await getApiAdmin();
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
 
     if (status) query = query.eq('status', status);
     if (client_id) query = query.eq('client_id', client_id);
-    if (search) query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`);
+    if (search) { const ss = `%${escapeLike(search)}%`; query = query.or(`title.ilike.${escapePostgrestValue(ss)},description.ilike.${escapePostgrestValue(ss)}`); }
 
     const { data, error, count } = await query
       .order('created_at', { ascending: false })

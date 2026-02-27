@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/external/subscriptions
@@ -32,7 +33,8 @@ export async function GET(req: NextRequest) {
 
     // Fuzzy search: case-insensitive partial match on name and provider
     if (search) {
-      query = query.or(`name.ilike.%${search}%,provider.ilike.%${search}%`);
+      const safeSearch = `%${escapeLike(search)}%`;
+      query = query.or(`name.ilike.${escapePostgrestValue(safeSearch)},provider.ilike.${escapePostgrestValue(safeSearch)}`);
     }
 
     if (status) {

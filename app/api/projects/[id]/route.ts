@@ -33,6 +33,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .single();
 
+    // Determine which data source to use
+    let projectData = project;
+
     if (error || !project) {
       // Fallback: try raw table in case view doesn't exist yet
       const { data: rawProject, error: rawErr } = await supabase
@@ -45,19 +48,19 @@ export async function GET(request: NextRequest, context: RouteContext) {
         return apiNotFound('المشروع غير موجود');
       }
 
-      return apiSuccess(rawProject);
+      projectData = rawProject;
     }
 
     // Employee access check: must be a member of the project's team
     if (auth.pyraUser.role === 'employee') {
       // Fetch team_id from raw table (not in view) for access check
-      const { data: rawProject } = await supabase
+      const { data: teamProject } = await supabase
         .from('pyra_projects')
         .select('team_id')
         .eq('id', id)
         .single();
 
-      const teamId = rawProject?.team_id;
+      const teamId = teamProject?.team_id;
 
       if (!teamId) {
         return apiForbidden('لا تملك صلاحية الوصول لهذا المشروع');
@@ -75,7 +78,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    return apiSuccess(project);
+    return apiSuccess(projectData);
   } catch (err) {
     console.error('Project GET error:', err);
     return apiServerError();

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/external/expenses
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
       query = query.eq('category_id', category_id);
     }
     if (vendor) {
-      query = query.ilike('vendor', `%${vendor}%`);
+      query = query.ilike('vendor', `%${escapeLike(vendor)}%`);
     }
     if (project_id) {
       query = query.eq('project_id', project_id);
@@ -114,11 +115,11 @@ export async function POST(req: NextRequest) {
       }
     } else if (category) {
       // Fallback: match by name (Arabic or English) — sanitize input
-      const safeCat = category.replace(/[%_,().\\]/g, '');
+      const safeCat = `%${escapeLike(category)}%`;
       const { data: cat } = await supabase
         .from('pyra_expense_categories')
         .select('id')
-        .or(`name.ilike.%${safeCat}%,name_ar.ilike.%${safeCat}%`)
+        .or(`name.ilike.${escapePostgrestValue(safeCat)},name_ar.ilike.${escapePostgrestValue(safeCat)}`)
         .limit(1)
         .maybeSingle();
       if (cat) {

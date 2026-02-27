@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAdmin } from '@/lib/api/auth';
 import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -40,7 +41,7 @@ export async function GET(req: NextRequest) {
     // 2. Get all paid invoices in range (with client_id)
     const { data: invoices, error: invErr } = await supabase
       .from('pyra_invoices')
-      .select('client_id, amount_paid')
+      .select('client_id, amount_paid, currency')
       .in('status', ['paid', 'partially_paid'])
       .gte('issue_date', from)
       .lte('issue_date', to);
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
     // 4. Get all expenses in range (with project_id)
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
-      .select('project_id, amount, vat_amount')
+      .select('project_id, amount, vat_amount, currency')
       .gte('expense_date', from)
       .lte('expense_date', to);
 
@@ -88,20 +89,20 @@ export async function GET(req: NextRequest) {
 
     // 6. Aggregate revenue per client
     const revenueByClient: Record<string, number> = {};
-    (invoices || []).forEach((inv: { client_id: string | null; amount_paid: number }) => {
+    (invoices || []).forEach((inv: { client_id: string | null; amount_paid: number; currency: string }) => {
       if (inv.client_id) {
-        revenueByClient[inv.client_id] = (revenueByClient[inv.client_id] || 0) + Number(inv.amount_paid);
+        revenueByClient[inv.client_id] = (revenueByClient[inv.client_id] || 0) + toAED(Number(inv.amount_paid), inv.currency);
       }
     });
 
     // 7. Aggregate expenses per client (via project -> client mapping)
     const expensesByClient: Record<string, number> = {};
-    (expenses || []).forEach((exp: { project_id: string | null; amount: number; vat_amount: number }) => {
+    (expenses || []).forEach((exp: { project_id: string | null; amount: number; vat_amount: number; currency: string }) => {
       if (exp.project_id) {
         const clientId = projectToClient[exp.project_id];
         if (clientId) {
           expensesByClient[clientId] =
-            (expensesByClient[clientId] || 0) + Number(exp.amount) + Number(exp.vat_amount);
+            (expensesByClient[clientId] || 0) + toAED(Number(exp.amount), exp.currency) + toAED(Number(exp.vat_amount), exp.currency);
         }
       }
     });

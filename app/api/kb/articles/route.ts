@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { generateSlug } from '@/lib/utils/slug';
+import { escapeLike } from '@/lib/utils/path';
 
 const ARTICLE_FIELDS = 'id, category_id, title, slug, excerpt, is_public, sort_order, view_count, author, author_display_name, created_at, updated_at';
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.ilike('title', `%${search}%`);
+      query = query.ilike('title', `%${escapeLike(search)}%`);
     }
 
     const { data, error, count } = await query;

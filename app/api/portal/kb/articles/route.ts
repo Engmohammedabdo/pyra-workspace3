@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { escapeLike } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/kb/articles
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.ilike('title', `%${search}%`);
+      query = query.ilike('title', `%${escapeLike(search)}%`);
     }
 
     const { data, error } = await query;

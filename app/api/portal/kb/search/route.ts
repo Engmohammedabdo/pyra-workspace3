@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiError, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/kb/search?q=...
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
       .from('pyra_kb_articles')
       .select('id, category_id, title, slug, excerpt, view_count, author_display_name, created_at')
       .eq('is_public', true)
-      .or(`title.ilike.%${q}%,content.ilike.%${q}%`)
+      .or(`title.ilike.${escapePostgrestValue(`%${escapeLike(q)}%`)},content.ilike.${escapePostgrestValue(`%${escapeLike(q)}%`)}`)
       .order('view_count', { ascending: false })
       .limit(30);
 
