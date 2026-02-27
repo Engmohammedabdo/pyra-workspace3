@@ -129,9 +129,9 @@ export default function PortalInvoiceDetailPage() {
     );
   }
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!invoice) return;
-    generateInvoicePDF(invoice as any);
+    await generateInvoicePDF(invoice as any);
     toast.success('تم تحميل ملف PDF');
   };
 

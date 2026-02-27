@@ -1,6 +1,8 @@
 'use client';
 
 import jsPDF from 'jspdf';
+import { registerArabicFont } from './pdf-fonts';
+import { processArabicText } from './arabic';
 
 // ============================================================
 // Invoice PDF Generator — Matches quote-pdf.ts style
@@ -61,7 +63,7 @@ const LIGHT_GRAY = '#f4f4f5';
 const GREEN = '#16a34a';
 
 function formatCurrency(amount: number, currency: string): string {
-  return `${amount.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -104,12 +106,15 @@ const METHOD_LABELS: Record<string, string> = {
  * Generate and download a PDF for an invoice.
  * Follows the same design language as generateQuotePDF.
  */
-export function generateInvoicePDF(invoice: InvoiceData) {
+export async function generateInvoicePDF(invoice: InvoiceData) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
+
+  await registerArabicFont(doc);
+  const arText = (t: string) => processArabicText(t);
 
   const pageWidth = 210;
   const margin = 20;
@@ -122,8 +127,8 @@ export function generateInvoicePDF(invoice: InvoiceData) {
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.text(invoice.company_name || 'Pyra Workspace', pageWidth / 2, 18, { align: 'center' });
+  doc.setFont('Amiri', 'bold');
+  doc.text(arText(invoice.company_name || 'Pyra Workspace'), pageWidth / 2, 18, { align: 'center' });
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -180,11 +185,11 @@ export function generateInvoicePDF(invoice: InvoiceData) {
   let clientY = y + 6;
   if (invoice.client_name) {
     doc.setTextColor(24, 24, 27);
-    doc.text(invoice.client_name, rightCol, clientY, { align: 'right' });
+    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_name), rightCol, clientY, { align: 'right' });
     clientY += 6;
   }
   if (invoice.client_company) {
-    doc.text(invoice.client_company, rightCol, clientY, { align: 'right' });
+    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_company), rightCol, clientY, { align: 'right' });
     clientY += 6;
   }
   if (invoice.client_email) {
@@ -197,7 +202,7 @@ export function generateInvoicePDF(invoice: InvoiceData) {
     clientY += 5;
   }
   if (invoice.client_address) {
-    doc.text(invoice.client_address, rightCol, clientY, { align: 'right' });
+    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_address), rightCol, clientY, { align: 'right' });
   }
 
   y += 38;
@@ -205,9 +210,9 @@ export function generateInvoicePDF(invoice: InvoiceData) {
   // ── Project name ──
   if (invoice.project_name) {
     doc.setTextColor(24, 24, 27);
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(`Project: ${invoice.project_name}`, margin, y);
+    doc.setFont('Amiri', 'bold');
+    doc.text(`Project: ${arText(invoice.project_name)}`, margin, y);
     y += 10;
   }
 
@@ -253,7 +258,9 @@ export function generateInvoicePDF(invoice: InvoiceData) {
     doc.setTextColor(24, 24, 27);
     doc.text(String(index + 1), col1, rowY);
     const desc = item.description.length > 50 ? item.description.slice(0, 50) + '...' : item.description;
-    doc.text(desc, col2, rowY);
+    doc.setFont('Amiri', 'normal');
+    doc.text(arText(desc), col2, rowY);
+    doc.setFont('helvetica', 'normal');
     doc.text(String(item.quantity), col3, rowY);
     doc.text(item.rate.toFixed(2), col4, rowY);
     doc.text(item.amount.toFixed(2), col5, rowY, { align: 'right' });
@@ -413,9 +420,11 @@ export function generateInvoicePDF(invoice: InvoiceData) {
 
     invoice.terms_conditions.forEach((term, i) => {
       if (y > 275) { doc.addPage(); y = margin; }
-      const text = `${i + 1}. ${term.text}`;
+      const text = `${i + 1}. ${arText(term.text)}`;
+      doc.setFont('Amiri', 'normal');
       const lines = doc.splitTextToSize(text, contentWidth - 5);
       doc.text(lines, margin, y);
+      doc.setFont('helvetica', 'normal');
       y += lines.length * 4 + 2;
     });
 
@@ -435,8 +444,10 @@ export function generateInvoicePDF(invoice: InvoiceData) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(113, 113, 122);
-    const noteLines = doc.splitTextToSize(invoice.notes, contentWidth - 5);
+    doc.setFont('Amiri', 'normal');
+    const noteLines = doc.splitTextToSize(arText(invoice.notes), contentWidth - 5);
     doc.text(noteLines, margin, y);
+    doc.setFont('helvetica', 'normal');
     y += noteLines.length * 4 + 5;
   }
 

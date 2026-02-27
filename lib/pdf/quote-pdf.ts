@@ -1,6 +1,8 @@
 'use client';
 
 import jsPDF from 'jspdf';
+import { registerArabicFont } from './pdf-fonts';
+import { processArabicText } from './arabic';
 
 // ============================================================
 // Quote PDF Generator — Arabic RTL Support
@@ -51,12 +53,12 @@ const GRAY = '#71717a';
 const LIGHT_GRAY = '#f4f4f5';
 
 function formatCurrency(amount: number, currency: string): string {
-  return `${amount.toLocaleString('ar-SA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
 function formatDate(dateStr: string): string {
   try {
-    return new Date(dateStr).toLocaleDateString('ar-SA', {
+    return new Date(dateStr).toLocaleDateString('en-GB', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
@@ -79,12 +81,15 @@ const STATUS_LABELS: Record<string, string> = {
  * Generate and download a PDF for a quote.
  * Uses jsPDF with basic Arabic text support (left-aligned for numbers, right-aligned for labels).
  */
-export function generateQuotePDF(quote: QuoteData) {
+export async function generateQuotePDF(quote: QuoteData) {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
+
+  await registerArabicFont(doc);
+  const arText = (t: string) => processArabicText(t);
 
   const pageWidth = 210;
   const margin = 20;
@@ -97,8 +102,8 @@ export function generateQuotePDF(quote: QuoteData) {
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(22);
-  doc.setFont('helvetica', 'bold');
-  doc.text(quote.company_name || 'Pyra Workspace', pageWidth / 2, 18, { align: 'center' });
+  doc.setFont('Amiri', 'bold');
+  doc.text(arText(quote.company_name || 'Pyra Workspace'), pageWidth / 2, 18, { align: 'center' });
 
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
@@ -130,8 +135,9 @@ export function generateQuotePDF(quote: QuoteData) {
 
   doc.setFont('helvetica', 'bold');
   doc.text('Status:', margin, y + 18);
+  doc.setFont('Amiri', 'normal');
+  doc.text(arText(STATUS_LABELS[quote.status] || quote.status), margin + 28, y + 18);
   doc.setFont('helvetica', 'normal');
-  doc.text(STATUS_LABELS[quote.status] || quote.status, margin + 28, y + 18);
 
   // Right side: Client details
   const rightCol = pageWidth - margin;
@@ -140,10 +146,12 @@ export function generateQuotePDF(quote: QuoteData) {
   doc.setFont('helvetica', 'normal');
 
   if (quote.client_name) {
-    doc.text(quote.client_name, rightCol, y + 6, { align: 'right' });
+    doc.setFont('Amiri', 'normal');
+    doc.text(arText(quote.client_name), rightCol, y + 6, { align: 'right' });
   }
   if (quote.client_company) {
-    doc.text(quote.client_company, rightCol, y + 12, { align: 'right' });
+    doc.setFont('Amiri', 'normal');
+    doc.text(arText(quote.client_company), rightCol, y + 12, { align: 'right' });
   }
   if (quote.client_email) {
     doc.setTextColor(113, 113, 122); // GRAY
@@ -158,9 +166,9 @@ export function generateQuotePDF(quote: QuoteData) {
   // ── Project name ──
   if (quote.project_name) {
     doc.setTextColor(24, 24, 27);
-    doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
-    doc.text(`Project: ${quote.project_name}`, margin, y);
+    doc.setFont('Amiri', 'bold');
+    doc.text(`Project: ${arText(quote.project_name)}`, margin, y);
     y += 10;
   }
 
@@ -209,7 +217,9 @@ export function generateQuotePDF(quote: QuoteData) {
     doc.text(String(index + 1), col1, rowY);
     // Truncate description if too long
     const desc = item.description.length > 50 ? item.description.slice(0, 50) + '...' : item.description;
-    doc.text(desc, col2, rowY);
+    doc.setFont('Amiri', 'normal');
+    doc.text(arText(desc), col2, rowY);
+    doc.setFont('helvetica', 'normal');
     doc.text(String(item.quantity), col3, rowY);
     doc.text(item.rate.toFixed(2), col4, rowY);
     doc.text(item.amount.toFixed(2), col5, rowY, { align: 'right' });
@@ -299,9 +309,11 @@ export function generateQuotePDF(quote: QuoteData) {
 
     quote.terms_conditions.forEach((term, i) => {
       if (y > 275) { doc.addPage(); y = margin; }
-      const text = `${i + 1}. ${term.text}`;
+      const text = `${i + 1}. ${arText(term.text)}`;
+      doc.setFont('Amiri', 'normal');
       const lines = doc.splitTextToSize(text, contentWidth - 5);
       doc.text(lines, margin, y);
+      doc.setFont('helvetica', 'normal');
       y += lines.length * 4 + 2;
     });
 
@@ -321,8 +333,10 @@ export function generateQuotePDF(quote: QuoteData) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(113, 113, 122);
-    const noteLines = doc.splitTextToSize(quote.notes, contentWidth - 5);
+    doc.setFont('Amiri', 'normal');
+    const noteLines = doc.splitTextToSize(arText(quote.notes), contentWidth - 5);
     doc.text(noteLines, margin, y);
+    doc.setFont('helvetica', 'normal');
     y += noteLines.length * 4 + 5;
   }
 
@@ -346,7 +360,8 @@ export function generateQuotePDF(quote: QuoteData) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(113, 113, 122);
-    doc.text(`Signed by: ${quote.signed_by}`, margin, y);
+    doc.setFont('Amiri', 'normal');
+    doc.text(`Signed by: ${arText(quote.signed_by)}`, margin, y);
     if (quote.signed_at) {
       doc.text(`Date: ${formatDate(quote.signed_at)}`, margin, y + 4);
     }

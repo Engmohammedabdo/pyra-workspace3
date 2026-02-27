@@ -138,7 +138,7 @@ export default function InvoicesPage() {
         toast.error('فشل في تحميل بيانات الفاتورة');
         return;
       }
-      generateInvoicePDF(json.data);
+      await generateInvoicePDF(json.data);
       toast.success('تم تحميل ملف PDF');
     } catch {
       toast.error('فشل في إنشاء ملف PDF');

@@ -107,7 +107,7 @@ export default function QuotesPage() {
         toast.error('فشل في تحميل بيانات العرض');
         return;
       }
-      generateQuotePDF(json.data);
+      await generateQuotePDF(json.data);
       toast.success('تم تحميل ملف PDF');
     } catch {
       toast.error('فشل في إنشاء ملف PDF');

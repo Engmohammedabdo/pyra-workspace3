@@ -312,7 +312,7 @@ export default function InvoiceDetailPage() {
   /* ── download PDF ── */
   const handleDownloadPDF = async () => {
     if (!invoice) return;
-    generateInvoicePDF(invoice);
+    await generateInvoicePDF(invoice);
     toast.success('تم تحميل ملف PDF');
   };
 

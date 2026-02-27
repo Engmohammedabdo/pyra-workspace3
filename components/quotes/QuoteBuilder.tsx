@@ -198,8 +198,8 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
     }
   };
 
-  const handlePdf = () => {
-    generateQuotePdf({
+  const handlePdf = async () => {
+    await generateQuotePdf({
       clientName,
       clientEmail,
       clientAddress,

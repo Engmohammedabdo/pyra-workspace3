@@ -1,4 +1,6 @@
 import jsPDF from 'jspdf';
+import { registerArabicFont } from './pdf-fonts';
+import { processArabicText } from './arabic';
 
 export interface ServiceItem {
   description: string;
@@ -46,17 +48,21 @@ function fmtNum(n: number): string {
   }).format(n);
 }
 
-export function generateQuotePdf(data: QuoteData): void {
+export async function generateQuotePdf(data: QuoteData): Promise<void> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const pw = 210; // page width
   const margin = 20;
   const cw = pw - 2 * margin; // content width
   let y = 20;
 
+  await registerArabicFont(doc);
+  const arText = (t: string) => processArabicText(t);
+
   // ── Company Header ──────────────────────────────────
   doc.setFontSize(18);
   doc.setTextColor(ORANGE);
-  doc.text(data.companyName || 'PYRAMEDIA X', margin, y);
+  doc.setFont('Amiri', 'bold');
+  doc.text(arText(data.companyName || 'PYRAMEDIA X'), margin, y);
   y += 6;
   doc.setFontSize(9);
   doc.setTextColor(GRAY);
@@ -88,9 +94,11 @@ export function generateQuotePdf(data: QuoteData): void {
 
   doc.setFontSize(9);
   doc.setTextColor(DARK);
-  doc.text(data.clientName || '—', margin, y);
+  doc.setFont('Amiri', 'normal');
+  doc.text(arText(data.clientName || '—'), margin, y);
   doc.text(data.clientEmail || '—', margin + col3, y);
-  doc.text(data.clientAddress || '—', margin + col3 * 2, y);
+  doc.setFont('Amiri', 'normal');
+  doc.text(arText(data.clientAddress || '—'), margin + col3 * 2, y);
   y += 6;
 
   doc.setFontSize(8);
@@ -101,7 +109,8 @@ export function generateQuotePdf(data: QuoteData): void {
 
   doc.setFontSize(9);
   doc.setTextColor(DARK);
-  doc.text(data.contactPerson || '—', margin, y);
+  doc.setFont('Amiri', 'normal');
+  doc.text(arText(data.contactPerson || '—'), margin, y);
   doc.text(data.clientPhone || '—', margin + col3, y);
   y += 8;
 
@@ -121,7 +130,8 @@ export function generateQuotePdf(data: QuoteData): void {
   doc.text(data.quoteNumber, margin, y);
   doc.text(data.estimateDate, margin + col4, y);
   doc.text(data.expiryDate, margin + col4 * 2, y);
-  doc.text(data.projectName || '—', margin + col4 * 3, y);
+  doc.setFont('Amiri', 'normal');
+  doc.text(arText(data.projectName || '—'), margin + col4 * 3, y);
   y += 8;
 
   // ── Orange separator ────────────────────────────────
@@ -172,7 +182,9 @@ export function generateQuotePdf(data: QuoteData): void {
       item.description.length > 55
         ? item.description.substring(0, 55) + '...'
         : item.description;
-    doc.text(desc, colX[1] + 2, y + 5);
+    doc.setFont('Amiri', 'normal');
+    doc.text(arText(desc), colX[1] + 2, y + 5);
+    doc.setFont('helvetica', 'normal');
     doc.text(String(item.qty), colX[2] + 2, y + 5);
     doc.text(fmtNum(item.rate), colX[3] + 2, y + 5);
     doc.text(fmtNum(amount), colX[4] + 2, y + 5);
@@ -216,8 +228,10 @@ export function generateQuotePdf(data: QuoteData): void {
     doc.text('Notes:', margin, y);
     y += 4;
     doc.setTextColor(GRAY);
-    const lines = doc.splitTextToSize(data.notes, cw);
+    doc.setFont('Amiri', 'normal');
+    const lines = doc.splitTextToSize(arText(data.notes), cw);
     doc.text(lines, margin, y);
+    doc.setFont('helvetica', 'normal');
     y += lines.length * 3.5 + 4;
   }
 
@@ -236,7 +250,8 @@ export function generateQuotePdf(data: QuoteData): void {
     y += 27;
     if (data.signedBy) {
       doc.setTextColor(GRAY);
-      doc.text(`Signed by: ${data.signedBy}`, margin, y);
+      doc.setFont('Amiri', 'normal');
+      doc.text(`Signed by: ${arText(data.signedBy)}`, margin, y);
       if (data.signedAt) {
         doc.text(`Date: ${data.signedAt}`, margin + 50, y);
       }
@@ -294,7 +309,7 @@ export function generateQuotePdf(data: QuoteData): void {
   doc.setFontSize(7);
   doc.setTextColor('#FFFFFF');
   doc.text(
-    `${data.companyName || 'PYRAMEDIA X'} — FOR AI SOLUTIONS`,
+    `${arText(data.companyName || 'PYRAMEDIA X')} — FOR AI SOLUTIONS`,
     pw / 2,
     footerY + 5,
     { align: 'center' }
