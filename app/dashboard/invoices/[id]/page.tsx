@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   ArrowRight, Send, Download, Trash2, Plus, Save,
-  CreditCard, Loader2, FileText, Pencil, X, Activity,
+  CreditCard, Loader2, FileText, Pencil, X, Activity, FileCheck,
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -78,6 +78,23 @@ interface Invoice {
   updated_at: string;
   items: InvoiceItem[];
   payments: Payment[];
+  contract_summary?: {
+    contract_id: string;
+    contract_title: string;
+    contract_total: number;
+    contract_currency: string;
+    total_billed: number;
+    total_collected: number;
+    remaining: number;
+    milestones: Array<{
+      id: string;
+      title: string;
+      amount: number;
+      status: string;
+      invoice_id: string | null;
+      invoice_number: string | null;
+    }>;
+  } | null;
 }
 
 /* ───────────────────────── Constants ───────────────────── */
@@ -728,6 +745,94 @@ export default function InvoiceDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Contract Summary */}
+      {invoice.contract_summary && (
+        <Card className="border-orange-200 dark:border-orange-900/50">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileCheck className="h-4 w-4 text-orange-500" /> ملخص العقد
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Contract Title */}
+              <p className="text-sm font-medium text-muted-foreground">
+                {invoice.contract_summary.contract_title}
+              </p>
+
+              {/* Summary Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">قيمة العقد</p>
+                  <p className="font-mono font-bold mt-1">
+                    {formatCurrency(invoice.contract_summary.contract_total, invoice.contract_summary.contract_currency)}
+                  </p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">المفوتر</p>
+                  <p className="font-mono font-bold mt-1">
+                    {formatCurrency(invoice.contract_summary.total_billed, invoice.contract_summary.contract_currency)}
+                  </p>
+                </div>
+                <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground">المحصّل</p>
+                  <p className="font-mono font-bold mt-1 text-green-600">
+                    {formatCurrency(invoice.contract_summary.total_collected, invoice.contract_summary.contract_currency)}
+                  </p>
+                </div>
+                <div className={`rounded-lg p-3 text-center ${
+                  invoice.contract_summary.remaining > 0
+                    ? 'bg-orange-50 dark:bg-orange-950/30'
+                    : 'bg-green-50 dark:bg-green-950/30'
+                }`}>
+                  <p className="text-xs text-muted-foreground">المتبقي</p>
+                  <p className={`font-mono font-bold mt-1 ${
+                    invoice.contract_summary.remaining > 0 ? 'text-orange-600' : 'text-green-600'
+                  }`}>
+                    {formatCurrency(invoice.contract_summary.remaining, invoice.contract_summary.contract_currency)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Milestones */}
+              {invoice.contract_summary.milestones.length > 0 && (
+                <div className="border-t pt-3">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">المراحل</p>
+                  <div className="space-y-1.5">
+                    {invoice.contract_summary.milestones.map((ms) => (
+                      <div key={ms.id} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full ${
+                            ms.status === 'invoiced' ? 'bg-green-500' :
+                            ms.status === 'completed' ? 'bg-blue-500' :
+                            ms.status === 'in_progress' ? 'bg-yellow-500' :
+                            'bg-gray-300'
+                          }`} />
+                          <span>{ms.title}</span>
+                          {ms.invoice_number && ms.invoice_id !== invoice.id && (
+                            <Link href={`/dashboard/invoices/${ms.invoice_id}`} className="text-xs text-orange-500 hover:underline">
+                              ({ms.invoice_number})
+                            </Link>
+                          )}
+                          {ms.invoice_id === invoice.id && (
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-orange-50 dark:bg-orange-950/30 text-orange-600">
+                              الفاتورة الحالية
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="font-mono text-muted-foreground">
+                          {formatCurrency(ms.amount, invoice.contract_summary!.contract_currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Activity Indicator */}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">

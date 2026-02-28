@@ -53,6 +53,21 @@ interface InvoiceData {
   milestone_type: string | null;
   items: InvoiceItem[];
   payments?: PaymentRecord[];
+  contract_summary?: {
+    contract_id: string;
+    contract_title: string;
+    contract_total: number;
+    contract_currency: string;
+    total_billed: number;
+    total_collected: number;
+    remaining: number;
+    milestones: Array<{
+      title: string;
+      amount: number;
+      status: string;
+      invoice_number: string | null;
+    }>;
+  } | null;
 }
 
 const ORANGE = '#f97316';
@@ -367,6 +382,89 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
     });
 
     y += 6;
+  }
+
+  // ── Contract Summary (if linked to a contract) ──
+  if (invoice.contract_summary) {
+    if (y > 220) { doc.addPage(); y = margin; }
+
+    const cs = invoice.contract_summary;
+    const csCurrency = cs.contract_currency || invoice.currency;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(24, 24, 27);
+    doc.text('Contract Summary', margin, y);
+    doc.setFont('Amiri', 'bold');
+    doc.text(arText('ملخص العقد'), pageWidth - margin, y, { align: 'right' });
+    y += 7;
+
+    // Contract title
+    doc.setFontSize(9);
+    doc.setFont('Amiri', 'normal');
+    doc.setTextColor(113, 113, 122);
+    doc.text(arText(cs.contract_title || ''), margin, y);
+    y += 7;
+
+    // Summary box
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(229, 231, 235);
+    doc.roundedRect(margin, y - 2, contentWidth, 32, 2, 2, 'FD');
+
+    const csLabelX = margin + 5;
+    const csValueX = margin + 55;
+    const csLabelX2 = margin + contentWidth / 2 + 5;
+    const csValueX2 = margin + contentWidth / 2 + 55;
+
+    doc.setFont('Amiri', 'normal');
+    doc.setTextColor(113, 113, 122);
+    doc.text(arText('قيمة العقد:'), csLabelX, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(24, 24, 27);
+    doc.text(formatCurrency(cs.contract_total, csCurrency), csValueX, y + 5);
+
+    doc.setFont('Amiri', 'normal');
+    doc.setTextColor(113, 113, 122);
+    doc.text(arText('المفوتر:'), csLabelX2, y + 5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(24, 24, 27);
+    doc.text(formatCurrency(cs.total_billed, csCurrency), csValueX2, y + 5);
+
+    doc.setFont('Amiri', 'normal');
+    doc.setTextColor(113, 113, 122);
+    doc.text(arText('المحصّل:'), csLabelX, y + 13);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(22, 163, 74);
+    doc.text(formatCurrency(cs.total_collected, csCurrency), csValueX, y + 13);
+
+    doc.setFont('Amiri', 'normal');
+    doc.setTextColor(113, 113, 122);
+    doc.text(arText('المتبقي:'), csLabelX2, y + 13);
+    doc.setFont('helvetica', 'bold');
+    const remainColor = cs.remaining > 0 ? [220, 38, 38] : [22, 163, 74];
+    doc.setTextColor(remainColor[0], remainColor[1], remainColor[2]);
+    doc.text(formatCurrency(cs.remaining, csCurrency), csValueX2, y + 13);
+
+    // Milestones list
+    if (cs.milestones && cs.milestones.length > 0) {
+      doc.setFont('Amiri', 'normal');
+      doc.setTextColor(113, 113, 122);
+      doc.setFontSize(8);
+      doc.text(arText('المراحل:'), csLabelX, y + 22);
+
+      let msX = csValueX;
+      for (const ms of cs.milestones) {
+        const statusIcon = ms.status === 'invoiced' ? '✓' : ms.status === 'completed' ? '●' : '○';
+        const msText = `${statusIcon} ${ms.title} (${formatCurrency(ms.amount, csCurrency)})`;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(ms.status === 'invoiced' ? 22 : 113, ms.status === 'invoiced' ? 163 : 113, ms.status === 'invoiced' ? 74 : 122);
+        doc.text(msText, msX, y + 22);
+        msX += doc.getTextWidth(msText) + 8;
+        if (msX > pageWidth - margin - 10) break;
+      }
+    }
+
+    y += 38;
   }
 
   // ── Bank Details ──
