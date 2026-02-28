@@ -132,10 +132,13 @@ export default function PortalProfilePage() {
         }),
       });
       if (res.ok) {
-        toast.success('تم تغيير كلمة المرور بنجاح');
+        toast.success('تم تغيير كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول...');
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
+        setTimeout(() => {
+          window.location.href = '/portal/login';
+        }, 1500);
       } else {
         const json = await res.json();
         toast.error(json.error || 'حدث خطأ أثناء تغيير كلمة المرور');

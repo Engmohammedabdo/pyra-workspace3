@@ -3,7 +3,7 @@ import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { buildClientProjectScope } from '@/lib/supabase/scopes';
 import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(request: NextRequest) {
   try {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
         .select('id, quote_number, title, status, total_amount, created_at')
         .eq('client_id', client.id)
         .neq('status', 'draft')
-        .or(`quote_number.ilike.%${safeTerm}%,title.ilike.%${safeTerm}%`)
+        .or(`quote_number.ilike.${escapePostgrestValue(`%${safeTerm}%`)},title.ilike.${escapePostgrestValue(`%${safeTerm}%`)}`)
         .limit(5),
     ]);
 

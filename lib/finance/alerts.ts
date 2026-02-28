@@ -59,12 +59,12 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
   // ─── 2. Overdue Invoices ───
   const { data: overdueInvoices, count: overdueCount } = await supabase
     .from('pyra_invoices')
-    .select('id, invoice_number, amount_due, client_name', { count: 'exact' })
+    .select('id, invoice_number, amount_due, currency, client_name', { count: 'exact' })
     .eq('status', 'overdue');
 
   if (overdueInvoices && overdueInvoices.length > 0) {
     const totalOverdue = overdueInvoices.reduce(
-      (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due), 0
+      (sum: number, inv: { amount_due: number; currency?: string }) => sum + toAED(Number(inv.amount_due), inv.currency || 'AED'), 0
     );
 
     alerts.push({
@@ -133,7 +133,7 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
   // ─── 4. Budget Overruns (>= 80% utilization) ───
   const { data: projects } = await supabase
     .from('pyra_projects')
-    .select('id, name, budget')
+    .select('id, name, budget, currency')
     .gt('budget', 0);
 
   if (projects && projects.length > 0) {
@@ -151,7 +151,7 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
     }
 
     for (const proj of projects) {
-      const budget = Number(proj.budget);
+      const budget = toAED(Number(proj.budget), (proj as Record<string, unknown>).currency as string || 'AED');
       const totalExpenses = expByProject[proj.id] || 0;
       const utilization = (totalExpenses / budget) * 100;
 

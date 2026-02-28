@@ -27,19 +27,18 @@ export async function generateNextQuoteNumber(
   }
 
   // Get the highest numeric suffix from existing quote numbers
-  const { data: lastQuote } = await supabase
+  // Fetch all matching numbers and find max numerically (lexicographic sort breaks after 9999)
+  const { data: allQuotes } = await supabase
     .from('pyra_quotes')
     .select('quote_number')
-    .like('quote_number', `${prefix}-%`)
-    .order('quote_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .like('quote_number', `${prefix}-%`);
 
-  let nextNum = 1;
-  if (lastQuote?.quote_number) {
-    const match = lastQuote.quote_number.match(/(\d+)$/);
-    if (match) nextNum = parseInt(match[1]) + 1;
+  let maxNum = 0;
+  for (const q of allQuotes || []) {
+    const match = q.quote_number.match(/(\d+)$/);
+    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
   }
+  const nextNum = maxNum + 1;
 
   // Retry loop: if the number already exists, increment
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {

@@ -9,7 +9,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 
@@ -46,9 +46,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      const escaped = escapeLike(search);
+      const escaped = escapePostgrestValue(`%${escapeLike(search)}%`);
       query = query.or(
-        `invoice_number.ilike.%${escaped}%,client_name.ilike.%${escaped}%,client_company.ilike.%${escaped}%,project_name.ilike.%${escaped}%`
+        `invoice_number.ilike.${escaped},client_name.ilike.${escaped},client_company.ilike.${escaped},project_name.ilike.${escaped}`
       );
     }
 

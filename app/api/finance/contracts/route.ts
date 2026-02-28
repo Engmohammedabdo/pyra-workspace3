@@ -7,18 +7,17 @@ import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
-
-  const supabase = createServiceRoleClient();
-  const url = req.nextUrl.searchParams;
-  const page = parseInt(url.get('page') || '1');
-  const pageSize = parseInt(url.get('pageSize') || '20');
-  const status = url.get('status') || '';
-  const search = url.get('search') || '';
-  const client_id = url.get('client_id') || '';
-
   try {
+    const admin = await getApiAdmin();
+    if (!admin) return apiForbidden();
+
+    const supabase = createServiceRoleClient();
+    const url = req.nextUrl.searchParams;
+    const page = parseInt(url.get('page') || '1');
+    const pageSize = parseInt(url.get('pageSize') || '20');
+    const status = url.get('status') || '';
+    const search = url.get('search') || '';
+    const client_id = url.get('client_id') || '';
     let query = supabase
       .from('pyra_contracts')
       .select(CONTRACT_FIELDS, { count: 'exact' });
@@ -79,12 +78,11 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
-
-  const supabase = createServiceRoleClient();
-
   try {
+    const admin = await getApiAdmin();
+    if (!admin) return apiForbidden();
+
+    const supabase = createServiceRoleClient();
     const body = await req.json();
     const {
       client_id, project_id, title, description, contract_type,

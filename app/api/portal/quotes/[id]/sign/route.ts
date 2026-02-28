@@ -39,10 +39,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!quote) return apiNotFound('عرض السعر غير موجود');
-    const ownsQuote = quote.client_id
-      ? quote.client_id === session.id
-      : quote.client_company === session.company;
-    if (!ownsQuote) return apiForbidden();
+    if (!quote.client_id || quote.client_id !== session.id) {
+      return apiForbidden('ليس لديك صلاحية لتوقيع هذا العرض');
+    }
 
     // Only sent or viewed quotes can be signed
     if (!['sent', 'viewed'].includes(quote.status)) {

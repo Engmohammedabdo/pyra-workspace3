@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     const { data: quote, error } = await supabase
       .from('pyra_quotes')
-      .select('id, quote_number, title, description, total_amount, status, client_id, signed_by, signed_at, viewed_at, valid_until, created_at, updated_at')
+      .select('id, quote_number, project_name, status, estimate_date, expiry_date, currency, subtotal, tax_rate, tax_amount, total, notes, client_name, client_company, client_id, signed_by, signed_at, signature_data, viewed_at, sent_at, created_at, updated_at, terms_conditions, bank_details, company_name')
       .eq('id', id)
       .maybeSingle();
 

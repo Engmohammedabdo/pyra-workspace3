@@ -19,19 +19,18 @@ export async function generateNextInvoiceNumber(
     prefix = prefixSetting?.value || 'INV';
   }
 
-  const { data: lastInvoice } = await supabase
+  // Fetch all matching numbers and find max numerically (lexicographic sort breaks after 9999)
+  const { data: allInvoices } = await supabase
     .from('pyra_invoices')
     .select('invoice_number')
-    .like('invoice_number', `${prefix}-%`)
-    .order('invoice_number', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .like('invoice_number', `${prefix}-%`);
 
-  let nextNum = 1;
-  if (lastInvoice?.invoice_number) {
-    const match = lastInvoice.invoice_number.match(/(\d+)$/);
-    if (match) nextNum = parseInt(match[1]) + 1;
+  let maxNum = 0;
+  for (const inv of allInvoices || []) {
+    const match = inv.invoice_number.match(/(\d+)$/);
+    if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
   }
+  const nextNum = maxNum + 1;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const candidate = `${prefix}-${String(nextNum + attempt).padStart(4, '0')}`;

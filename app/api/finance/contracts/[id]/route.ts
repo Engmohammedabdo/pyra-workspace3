@@ -68,11 +68,22 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    body.updated_at = new Date().toISOString();
+
+    // Allowlist fields to prevent mass assignment
+    const allowedFields = [
+      'title', 'description', 'client_id', 'project_id', 'status',
+      'start_date', 'end_date', 'total_value', 'currency', 'payment_terms',
+      'auto_invoice', 'notes', 'type', 'retainer_amount', 'retainer_cycle',
+    ];
+    const update: Record<string, unknown> = {};
+    for (const field of allowedFields) {
+      if (body[field] !== undefined) update[field] = body[field];
+    }
+    update.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('pyra_contracts')
-      .update(body)
+      .update(update)
       .eq('id', id)
       .select(CONTRACT_FIELDS)
       .single();

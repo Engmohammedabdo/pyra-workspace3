@@ -2,6 +2,7 @@ import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 import { buildClientProjectScope } from '@/lib/supabase/scopes';
+import { escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/portal/dashboard
@@ -91,7 +92,7 @@ export async function GET() {
     const { data: recentActivity } = await supabase
       .from('pyra_activity_log')
       .select('id, action_type, display_name, target_path, details, created_at')
-      .or(`username.eq.client:${client.id},username.eq.${client.name}`)
+      .or(`username.eq.${escapePostgrestValue(`client:${client.id}`)},username.eq.${escapePostgrestValue(client.name)}`)
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -102,7 +103,7 @@ export async function GET() {
     const { data: weeklyActivity } = await supabase
       .from('pyra_activity_log')
       .select('created_at')
-      .or(`username.eq.client:${client.id},username.eq.${client.name}`)
+      .or(`username.eq.${escapePostgrestValue(`client:${client.id}`)},username.eq.${escapePostgrestValue(client.name)}`)
       .gte('created_at', sevenDaysAgo.toISOString());
 
     // Group by day
@@ -146,7 +147,8 @@ export async function GET() {
         const { data: pidFiles } = await supabase
           .from('pyra_project_files')
           .select('id')
-          .eq('project_id', pid);
+          .eq('project_id', pid)
+          .eq('client_visible', true);
 
         const pidFileIds = (pidFiles || []).map((f) => f.id);
 

@@ -33,6 +33,7 @@ export async function GET() {
     const { data, error } = await supabase
       .from('pyra_script_reviews')
       .select('id, filename, video_number, version, status, comment, client_name, reviewed_at, created_at, updated_at')
+      .eq('client_id', client.id)
       .order('video_number', { ascending: true });
 
     if (error) {

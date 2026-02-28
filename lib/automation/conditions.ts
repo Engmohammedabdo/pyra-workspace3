@@ -59,6 +59,7 @@ function evaluateOperator(
     case 'is_not_empty':
       return !!fieldValue && String(fieldValue).trim() !== '';
     default:
-      return true;
+      console.warn(`evaluateOperator: unknown operator "${operator}"`);
+      return false;
   }
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
+import { escapePostgrestValue } from '@/lib/utils/path';
 
 /** Record login attempt (fire-and-forget, never blocks the response) */
 function recordLoginAttempt(
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     const { data: pyraUser, error: pyraErr } = await supabase
       .from('pyra_users')
       .select('role, username, display_name')
-      .or(`username.eq.${username},email.eq.${email}`)
+      .or(`username.eq.${escapePostgrestValue(username)},email.eq.${escapePostgrestValue(email)}`)
       .limit(1)
       .maybeSingle();
 

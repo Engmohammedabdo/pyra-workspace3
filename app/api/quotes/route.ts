@@ -10,7 +10,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
-import { escapeLike } from '@/lib/utils/path';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 
 /**
@@ -41,9 +41,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      const escaped = escapeLike(search);
+      const escaped = escapePostgrestValue(`%${escapeLike(search)}%`);
       query = query.or(
-        `quote_number.ilike.%${escaped}%,client_name.ilike.%${escaped}%,client_company.ilike.%${escaped}%,project_name.ilike.%${escaped}%`
+        `quote_number.ilike.${escaped},client_name.ilike.${escaped},client_company.ilike.${escaped},project_name.ilike.${escaped}`
       );
     }
 
