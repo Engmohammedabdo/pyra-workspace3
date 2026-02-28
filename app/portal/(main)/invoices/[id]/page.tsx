@@ -28,6 +28,26 @@ interface Payment {
   method: string | null;
 }
 
+interface ContractMilestone {
+  id: string;
+  title: string;
+  amount: number;
+  status: string;
+  invoice_id: string | null;
+  invoice_number: string | null;
+}
+
+interface ContractSummary {
+  contract_id: string;
+  contract_title: string;
+  contract_total: number;
+  contract_currency: string;
+  total_billed: number;
+  total_collected: number;
+  remaining: number;
+  milestones: ContractMilestone[];
+}
+
 interface InvoiceDetail {
   id: string;
   invoice_number: string;
@@ -61,6 +81,7 @@ interface InvoiceDetail {
   } | null;
   items: InvoiceItem[];
   payments: Payment[];
+  contract_summary?: ContractSummary | null;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
@@ -337,6 +358,88 @@ export default function PortalInvoiceDetailPage() {
               <p className="text-xs font-semibold text-muted-foreground mb-1">ملاحظات</p>
               <p className="text-sm">{invoice.notes}</p>
             </div>
+          )}
+
+          {/* Contract Summary */}
+          {invoice.contract_summary && (
+            <>
+              <Separator />
+              <div className="border border-orange-200 rounded-lg p-4 bg-orange-50/50 dark:bg-orange-950/10 dark:border-orange-900/30">
+                <p className="text-sm font-semibold mb-3 text-orange-700 dark:text-orange-400">
+                  ملخص العقد: {invoice.contract_summary.contract_title}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                  <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">قيمة العقد</p>
+                    <p className="text-sm font-bold font-mono" dir="ltr">
+                      {fmtNum(invoice.contract_summary.contract_total)} {invoice.contract_summary.contract_currency}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">المفوتر</p>
+                    <p className="text-sm font-bold font-mono" dir="ltr">
+                      {fmtNum(invoice.contract_summary.total_billed)} {invoice.contract_summary.contract_currency}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">المحصّل</p>
+                    <p className="text-sm font-bold font-mono text-green-600" dir="ltr">
+                      {fmtNum(invoice.contract_summary.total_collected)} {invoice.contract_summary.contract_currency}
+                    </p>
+                  </div>
+                  <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
+                    <p className="text-[10px] text-muted-foreground mb-0.5">المتبقي</p>
+                    <p className={`text-sm font-bold font-mono ${invoice.contract_summary.remaining > 0 ? 'text-orange-600' : 'text-green-600'}`} dir="ltr">
+                      {fmtNum(invoice.contract_summary.remaining)} {invoice.contract_summary.contract_currency}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Milestones list */}
+                {invoice.contract_summary.milestones.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground mb-1">مراحل العقد</p>
+                    {invoice.contract_summary.milestones.map((ms) => {
+                      const isCurrentInvoice = ms.invoice_id === invoice.id;
+                      return (
+                        <div
+                          key={ms.id}
+                          className={`flex items-center justify-between text-xs p-2 rounded ${
+                            isCurrentInvoice
+                              ? 'bg-orange-100 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-800'
+                              : 'bg-white dark:bg-background border'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full ${
+                                ms.status === 'invoiced'
+                                  ? 'bg-green-500'
+                                  : ms.status === 'completed'
+                                    ? 'bg-blue-500'
+                                    : 'bg-gray-300'
+                              }`}
+                            />
+                            <span className={isCurrentInvoice ? 'font-semibold' : ''}>{ms.title}</span>
+                            {isCurrentInvoice && (
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-orange-400 text-orange-600">
+                                الفاتورة الحالية
+                              </Badge>
+                            )}
+                            {!isCurrentInvoice && ms.invoice_number && (
+                              <span className="text-muted-foreground font-mono">({ms.invoice_number})</span>
+                            )}
+                          </div>
+                          <span className="font-mono" dir="ltr">
+                            {fmtNum(ms.amount)} {invoice.contract_summary!.contract_currency}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
