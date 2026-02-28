@@ -26,6 +26,9 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# local scripts with secrets
+_db_schema.js
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
