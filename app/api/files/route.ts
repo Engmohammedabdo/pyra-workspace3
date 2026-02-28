@@ -26,8 +26,8 @@ export const dynamic = 'force-dynamic';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
-// Maximum upload size: 100 MB
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Maximum upload size: 1 GB
+const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024;
 
 // ── File type whitelist ────────────────────────────────────
 // Allowed MIME types for upload. Blocks executable and dangerous file types.
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
     for (const file of files) {
       if (file.size > MAX_FILE_SIZE) {
         return apiValidationError(
-          `الملف "${file.name}" يتجاوز الحد الأقصى المسموح (100 MB)`
+          `الملف "${file.name}" يتجاوز الحد الأقصى المسموح (1 GB)`
         );
       }
       if (!isAllowedFileType(file.name, file.type || 'application/octet-stream')) {

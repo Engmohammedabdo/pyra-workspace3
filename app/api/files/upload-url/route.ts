@@ -15,8 +15,8 @@ export const dynamic = 'force-dynamic';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
-// Maximum upload size: 100 MB
-const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Maximum upload size: 1 GB
+const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024;
 
 // Blocked file extensions
 const BLOCKED_EXTENSIONS = new Set([
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     // Validate file size
     if (fileSize > MAX_FILE_SIZE) {
       return apiValidationError(
-        `الملف "${fileName}" يتجاوز الحد الأقصى المسموح (100 MB)`
+        `الملف "${fileName}" يتجاوز الحد الأقصى المسموح (1 GB)`
       );
     }
 
