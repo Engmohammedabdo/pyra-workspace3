@@ -6,7 +6,8 @@ export function formatFileSize(bytes: number): string {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+  // LTR mark (\u200E) ensures correct display order in RTL contexts
+  return `\u200E${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
 export function formatDate(date: string | Date, pattern: string = 'dd-MM-yyyy'): string {
@@ -18,12 +19,14 @@ export function formatRelativeDate(date: string | Date): string {
 }
 
 export function formatCurrency(amount: number, currency: string = 'AED'): string {
-  return new Intl.NumberFormat('en-AE', {
+  const formatted = new Intl.NumberFormat('en-AE', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+  // LTR mark ensures correct display order in RTL contexts
+  return `\u200E${formatted}`;
 }
 
 export function formatNumber(num: number): string {

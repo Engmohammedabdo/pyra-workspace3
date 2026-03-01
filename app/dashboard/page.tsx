@@ -87,6 +87,28 @@ const ACTION_LABELS: Record<string, string> = {
   version_delete: 'حذف نسخة',
   trash_empty: 'تفريغ السلة',
   trash_purge: 'حذف منتهية',
+  // Finance actions
+  payment_recorded: 'تسجيل دفعة',
+  invoice_sent: 'إرسال فاتورة',
+  invoice_created: 'إنشاء فاتورة',
+  milestone_invoice_generated: 'فاتورة مرحلة',
+  quote_sent: 'إرسال عرض سعر',
+  quote_signed: 'توقيع عرض سعر',
+  quote_viewed: 'مشاهدة عرض سعر',
+  // Portal actions
+  portal_login: 'دخول عميل',
+  portal_logout: 'خروج عميل',
+  portal_download: 'تحميل ملف (عميل)',
+  portal_preview: 'معاينة ملف (عميل)',
+  file_approved: 'اعتماد ملف',
+  revision_requested: 'طلب تعديل',
+  client_comment: 'تعليق عميل',
+  script_approved: 'اعتماد سكريبت',
+  script_revision_requested: 'طلب تعديل سكريبت',
+  script_reply_sent: 'رد إدارة على سكريبت',
+  script_client_reply: 'رد عميل على سكريبت',
+  login: 'تسجيل دخول',
+  logout: 'تسجيل خروج',
 };
 
 /* ── Clickable stat card ─────────────────────────── */

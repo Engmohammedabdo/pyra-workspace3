@@ -63,7 +63,11 @@ export async function GET(_request: NextRequest) {
     if (overdueCount > 0) {
       alerts.push({
         type: 'danger',
-        message: `لديك ${overdueCount} فواتير متأخرة`,
+        message: overdueCount === 1
+          ? 'لديك فاتورة متأخرة'
+          : overdueCount === 2
+            ? 'لديك فاتورتان متأخرتان'
+            : `لديك ${overdueCount} فواتير متأخرة`,
         link: '/dashboard/invoices?status=overdue',
       });
     }
@@ -94,7 +98,11 @@ export async function GET(_request: NextRequest) {
     if (lateProjectsCount > 0) {
       alerts.push({
         type: 'warning',
-        message: `${lateProjectsCount} مشاريع متأخرة`,
+        message: lateProjectsCount === 1
+          ? 'مشروع متأخر'
+          : lateProjectsCount === 2
+            ? 'مشروعان متأخران'
+            : `${lateProjectsCount} مشاريع متأخرة`,
         link: '/dashboard/projects',
       });
     }
@@ -104,8 +112,12 @@ export async function GET(_request: NextRequest) {
     if (pendingApprovalsCount > 0) {
       alerts.push({
         type: 'info',
-        message: `${pendingApprovalsCount} موافقات معلقة`,
-        link: '/dashboard/approvals',
+        message: pendingApprovalsCount === 1
+          ? 'موافقة معلقة'
+          : pendingApprovalsCount === 2
+            ? 'موافقتان معلقتان'
+            : `${pendingApprovalsCount} موافقات معلقة`,
+        link: '/dashboard/reviews',
       });
     }
 
