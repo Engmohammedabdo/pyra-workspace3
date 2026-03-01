@@ -15,8 +15,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Search, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
@@ -130,7 +130,7 @@ export default function QuotesPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" /> عروض الأسعار</h1>
@@ -142,10 +142,12 @@ export default function QuotesPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث بالرقم أو العميل..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="بحث بالرقم أو العميل..."
+          className="flex-1 max-w-sm"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>

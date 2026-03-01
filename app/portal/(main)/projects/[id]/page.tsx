@@ -14,7 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -610,15 +610,12 @@ export default function PortalProjectDetailPage() {
           {/* Comment Filters */}
           {project.comments.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-2 sm:items-center flex-wrap">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="ابحث في التعليقات..."
-                  value={commentSearch}
-                  onChange={(e) => setCommentSearch(e.target.value)}
-                  className="ps-9 h-9 text-sm"
-                />
-              </div>
+              <SearchInput
+                value={commentSearch}
+                onChange={setCommentSearch}
+                placeholder="ابحث في التعليقات..."
+                className="flex-1 min-w-[200px] max-w-sm"
+              />
               <div className="flex items-center gap-1.5">
                 <Button
                   variant={commentAuthorFilter === 'all' ? 'secondary' : 'ghost'}

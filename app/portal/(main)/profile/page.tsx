@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -195,7 +196,7 @@ export default function PortalProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Name */}
               <div className="space-y-2">
-                <Label htmlFor="profile-name">الاسم</Label>
+                <FormLabel htmlFor="profile-name" required>الاسم</FormLabel>
                 <Input
                   id="profile-name"
                   value={name}
@@ -220,7 +221,7 @@ export default function PortalProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Email */}
               <div className="space-y-2">
-                <Label htmlFor="profile-email">البريد الإلكتروني</Label>
+                <FormLabel htmlFor="profile-email" required>البريد الإلكتروني</FormLabel>
                 <Input
                   id="profile-email"
                   type="email"
@@ -283,7 +284,7 @@ export default function PortalProfilePage() {
           <form onSubmit={handlePasswordChange} className="space-y-4">
             {/* Current Password */}
             <div className="space-y-2">
-              <Label htmlFor="current-password">كلمة المرور الحالية</Label>
+              <FormLabel htmlFor="current-password" required>كلمة المرور الحالية</FormLabel>
               <div className="relative">
                 <Input
                   id="current-password"
@@ -313,7 +314,7 @@ export default function PortalProfilePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* New Password */}
               <div className="space-y-2">
-                <Label htmlFor="new-password">كلمة المرور الجديدة</Label>
+                <FormLabel htmlFor="new-password" required>كلمة المرور الجديدة</FormLabel>
                 <div className="relative">
                   <Input
                     id="new-password"
@@ -343,7 +344,7 @@ export default function PortalProfilePage() {
 
               {/* Confirm Password */}
               <div className="space-y-2">
-                <Label htmlFor="confirm-password">تأكيد كلمة المرور</Label>
+                <FormLabel htmlFor="confirm-password" required>تأكيد كلمة المرور</FormLabel>
                 <div className="relative">
                   <Input
                     id="confirm-password"

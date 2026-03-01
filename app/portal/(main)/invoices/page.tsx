@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { FileText } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 
 interface PortalInvoice {
@@ -59,7 +60,7 @@ export default function PortalInvoicesPage() {
   }, [fetchInvoices]);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div>
         <h1 className="text-2xl font-bold">الفواتير</h1>
         <p className="text-muted-foreground text-sm mt-1">عرض فواتيرك وسجل المدفوعات</p>
@@ -87,40 +88,41 @@ export default function PortalInvoicesPage() {
       ) : invoices.length === 0 ? (
         <EmptyState icon={FileText} title="لا توجد فواتير" description="لم يتم إرسال فواتير إليك بعد" />
       ) : (
-        <div className="space-y-3">
+        <StaggerContainer className="space-y-3">
           {invoices.map((inv) => {
             const s = STATUS_MAP[inv.status] || { label: inv.status, variant: 'secondary' as const };
             return (
-              <Card
-                key={inv.id}
-                className="cursor-pointer hover:border-orange-300 transition-colors"
-                onClick={() => router.push(`/portal/invoices/${inv.id}`)}
-              >
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-sm font-medium">{inv.invoice_number}</span>
-                      <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">{inv.project_name || 'بدون مشروع'}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(inv.issue_date, 'dd-MM-yyyy')}
-                      {inv.due_date && ` - ${formatDate(inv.due_date, 'dd-MM-yyyy')}`}
-                    </p>
-                  </div>
-                  <div className="text-end space-y-1">
-                    <p className="font-mono font-bold text-orange-600">{formatCurrency(inv.total, inv.currency)}</p>
-                    {inv.amount_due > 0 && inv.amount_due < inv.total && (
+              <StaggerItem key={inv.id}>
+                <Card
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  onClick={() => router.push(`/portal/invoices/${inv.id}`)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-sm font-medium">{inv.invoice_number}</span>
+                        <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{inv.project_name || 'بدون مشروع'}</p>
                       <p className="text-xs text-muted-foreground">
-                        المتبقي: {formatCurrency(inv.amount_due, inv.currency)}
+                        {formatDate(inv.issue_date, 'dd-MM-yyyy')}
+                        {inv.due_date && ` - ${formatDate(inv.due_date, 'dd-MM-yyyy')}`}
                       </p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                    </div>
+                    <div className="text-end space-y-1">
+                      <p className="font-mono font-bold text-orange-600">{formatCurrency(inv.total, inv.currency)}</p>
+                      {inv.amount_due > 0 && inv.amount_due < inv.total && (
+                        <p className="text-xs text-muted-foreground">
+                          المتبقي: {formatCurrency(inv.amount_due, inv.currency)}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );

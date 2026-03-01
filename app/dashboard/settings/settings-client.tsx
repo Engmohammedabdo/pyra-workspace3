@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -261,7 +262,7 @@ function ApiKeysSection() {
           <div className="rounded-lg border bg-muted/30 p-4 space-y-4">
             <h4 className="font-semibold text-sm">إنشاء مفتاح API جديد</h4>
             <div className="space-y-2">
-              <Label htmlFor="api-key-name">اسم المفتاح</Label>
+              <FormLabel htmlFor="api-key-name" required>اسم المفتاح</FormLabel>
               <Input
                 id="api-key-name"
                 placeholder="مثال: تكامل نظام المحاسبة"

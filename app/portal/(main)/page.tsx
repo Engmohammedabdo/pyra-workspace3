@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { cn } from '@/lib/utils/cn';
+import { Button } from '@/components/ui/button';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
 import {
   Card,
@@ -43,6 +44,7 @@ import {
   FileSearch,
   PenLine,
   ArrowLeftRight,
+  RefreshCw,
 } from 'lucide-react';
 
 // ---------- Types ----------
@@ -263,22 +265,24 @@ export default function PortalDashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchDashboard() {
-      try {
-        const res = await fetch('/api/portal/dashboard');
-        const json = await res.json();
-        if (res.ok && json.data) {
-          setData(json.data);
-        }
-      } catch {
-        // silently fail -- skeleton remains
-      } finally {
-        setLoading(false);
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/portal/dashboard');
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setData(json.data);
       }
+    } catch {
+      // silently fail -- skeleton remains
+    } finally {
+      setLoading(false);
     }
-    fetchDashboard();
   }, []);
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
 
   const markNotificationRead = useCallback(async (id: string) => {
     try {
@@ -409,7 +413,7 @@ export default function PortalDashboardPage() {
 
   return (
     <motion.div
-      className="space-y-6"
+      className="space-y-6 animate-in fade-in-0 duration-300"
       variants={containerVariants}
       initial="hidden"
       animate="show"
@@ -425,7 +429,7 @@ export default function PortalDashboardPage() {
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/20">
                 <LayoutDashboard className="h-7 w-7 text-white" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <h1 className="text-2xl font-bold truncate">
                   مرحبا، {data?.client.name ?? 'العميل'}
                 </h1>
@@ -439,6 +443,15 @@ export default function PortalDashboardPage() {
                   )}
                 </p>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={fetchDashboard}
+                aria-label="تحديث"
+              >
+                <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              </Button>
             </CardContent>
           </div>
         </Card>

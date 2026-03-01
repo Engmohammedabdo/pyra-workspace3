@@ -26,7 +26,7 @@ export function KpiCard({
     <div
       className={cn(
         'rounded-xl border bg-card text-card-foreground shadow-sm p-5',
-        'transition-all duration-200 hover:shadow-md hover:border-primary/20',
+        'transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5',
         accent && 'border-l-4',
       )}
       style={accent ? { borderLeftColor: accent } : undefined}

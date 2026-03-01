@@ -11,7 +11,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -42,7 +42,6 @@ import {
   FileText,
   FolderOpen,
   Folder,
-  Search,
   Loader2,
   Eye,
   ChevronLeft,
@@ -52,6 +51,7 @@ import {
   Home,
   Star,
   PackageCheck,
+  RefreshCw,
 } from 'lucide-react';
 import { usePortalFavorites } from '@/hooks/usePortalFavorites';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
@@ -758,14 +758,25 @@ export default function PortalFilesPage() {
   // ---------- Render ----------
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 animate-in fade-in-0 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">الملفات</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            استعرض جميع ملفات مشاريعك وحمّلها
-          </p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">الملفات</h1>
+            <p className="text-muted-foreground text-sm mt-1">
+              استعرض جميع ملفات مشاريعك وحمّلها
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={fetchFiles}
+            aria-label="تحديث"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
         </div>
         {/* View Toggle & Bulk Download */}
         <div className="flex items-center gap-2">
@@ -841,15 +852,12 @@ export default function PortalFilesPage() {
             </SelectContent>
           </Select>
         </div>
-        <div className="relative w-full sm:w-64 sm:ms-auto">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="ابحث عن ملف..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="ps-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="ابحث عن ملف..."
+          className="w-full sm:w-64 sm:ms-auto"
+        />
       </div>
 
       {/* Stats */}

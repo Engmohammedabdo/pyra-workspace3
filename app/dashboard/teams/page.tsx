@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -202,8 +203,8 @@ export default function TeamsPage() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>فريق جديد</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>اسم الفريق</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>الوصف</Label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel required>اسم الفريق</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel>الوصف</FormLabel><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
@@ -216,8 +217,8 @@ export default function TeamsPage() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>تعديل — {selected?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>اسم الفريق</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>الوصف</Label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel required>اسم الفريق</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel>الوصف</FormLabel><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEdit(false)}>إلغاء</Button>

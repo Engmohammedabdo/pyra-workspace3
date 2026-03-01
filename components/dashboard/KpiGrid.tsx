@@ -5,6 +5,7 @@ import { DollarSign, Briefcase, FileText, AlertTriangle, HardDrive } from 'lucid
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { KpiCard } from './KpiCard';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatCurrency } from '@/lib/utils/format';
 
 interface KpiData {
@@ -55,58 +56,68 @@ export function KpiGrid() {
   const projectsTrend = getTrend(data.active_projects.change_percent);
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
       {/* Revenue */}
-      <KpiCard
-        title="الإيرادات"
-        value={formatCurrency(data.revenue.current)}
-        icon={DollarSign}
-        trend={{
-          direction: revenueTrend,
-          percent: data.revenue.change_percent,
-        }}
-      />
+      <StaggerItem>
+        <KpiCard
+          title="الإيرادات"
+          value={formatCurrency(data.revenue.current)}
+          icon={DollarSign}
+          trend={{
+            direction: revenueTrend,
+            percent: data.revenue.change_percent,
+          }}
+        />
+      </StaggerItem>
 
       {/* Active Projects */}
-      <KpiCard
-        title="المشاريع النشطة"
-        value={String(data.active_projects.current)}
-        icon={Briefcase}
-        trend={{
-          direction: projectsTrend,
-          percent: data.active_projects.change_percent,
-        }}
-      />
+      <StaggerItem>
+        <KpiCard
+          title="المشاريع النشطة"
+          value={String(data.active_projects.current)}
+          icon={Briefcase}
+          trend={{
+            direction: projectsTrend,
+            percent: data.active_projects.change_percent,
+          }}
+        />
+      </StaggerItem>
 
       {/* Pending Invoices */}
-      <KpiCard
-        title="فواتير معلقة"
-        value={String(data.pending_invoices.current)}
-        subtitle={formatCurrency(data.pending_invoices.amount)}
-        icon={FileText}
-      />
+      <StaggerItem>
+        <KpiCard
+          title="فواتير معلقة"
+          value={String(data.pending_invoices.current)}
+          subtitle={formatCurrency(data.pending_invoices.amount)}
+          icon={FileText}
+        />
+      </StaggerItem>
 
       {/* Overdue Invoices */}
-      <KpiCard
-        title="متأخرات"
-        value={String(data.overdue_invoices.current)}
-        subtitle={formatCurrency(data.overdue_invoices.amount)}
-        icon={AlertTriangle}
-        accent="#ef4444"
-      />
+      <StaggerItem>
+        <KpiCard
+          title="متأخرات"
+          value={String(data.overdue_invoices.current)}
+          subtitle={formatCurrency(data.overdue_invoices.amount)}
+          icon={AlertTriangle}
+          accent="#ef4444"
+        />
+      </StaggerItem>
 
       {/* Storage */}
-      <KpiCard
-        title="التخزين"
-        value={`${data.storage_percent}%`}
-        icon={HardDrive}
-      >
-        <Progress
-          value={data.storage_percent}
-          className="h-2"
-        />
-      </KpiCard>
-    </div>
+      <StaggerItem>
+        <KpiCard
+          title="التخزين"
+          value={`${data.storage_percent}%`}
+          icon={HardDrive}
+        >
+          <Progress
+            value={data.storage_percent}
+            className="h-2"
+          />
+        </KpiCard>
+      </StaggerItem>
+    </StaggerContainer>
   );
 }
 

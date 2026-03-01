@@ -62,7 +62,7 @@ export function PortalSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="fixed inset-y-0 start-0 z-40 hidden lg:flex w-[240px] flex-col border-e bg-sidebar transition-all duration-300">
+    <aside aria-label="قائمة بوابة العملاء" className="fixed inset-y-0 start-0 z-40 hidden lg:flex w-[240px] flex-col border-e bg-sidebar transition-all duration-300">
       {/* Logo */}
       <div className="flex items-center h-16 border-b px-4 gap-3">
         <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm shrink-0">

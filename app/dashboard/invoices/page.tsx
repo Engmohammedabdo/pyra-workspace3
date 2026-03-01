@@ -7,10 +7,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchInput } from '@/components/ui/search-input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -18,14 +18,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  FileText, Search, Plus, MoreHorizontal, Eye, Download, Trash2,
-  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight,
+  FileText, Plus, MoreHorizontal, Eye, Download, Trash2,
+  DollarSign, AlertTriangle, TrendingUp, ChevronLeft, ChevronRight, RefreshCw,
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -174,14 +176,25 @@ export default function InvoicesPage() {
 
   /* ──────────────────────── Render ─────────────────────── */
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileText className="h-6 w-6" /> الفواتير
-          </h1>
-          <p className="text-muted-foreground">إدارة الفواتير والمدفوعات</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2">
+              <FileText className="h-6 w-6" /> الفواتير
+            </h1>
+            <p className="text-muted-foreground">إدارة الفواتير والمدفوعات</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={fetchInvoices}
+            aria-label="تحديث"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton
@@ -198,67 +211,70 @@ export default function InvoicesPage() {
       </div>
 
       {/* Revenue Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <TrendingUp className="h-5 w-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">إجمالي الإيرادات</p>
-              {revenue ? (
-                <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_revenue)}</p>
-              ) : (
-                <Skeleton className="h-6 w-24 mt-1" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      <StaggerContainer className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StaggerItem>
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">إجمالي الإيرادات</p>
+                {revenue ? (
+                  <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_revenue)}</p>
+                ) : (
+                  <Skeleton className="h-6 w-24 mt-1" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
 
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">المبالغ المستحقة</p>
-              {revenue ? (
-                <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_outstanding)}</p>
-              ) : (
-                <Skeleton className="h-6 w-24 mt-1" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <StaggerItem>
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                <DollarSign className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">المبالغ المستحقة</p>
+                {revenue ? (
+                  <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_outstanding)}</p>
+                ) : (
+                  <Skeleton className="h-6 w-24 mt-1" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
 
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">المبالغ المتأخرة</p>
-              {revenue ? (
-                <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_overdue)}</p>
-              ) : (
-                <Skeleton className="h-6 w-24 mt-1" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <StaggerItem>
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
+            <CardContent className="p-4 flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">المبالغ المتأخرة</p>
+                {revenue ? (
+                  <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_overdue)}</p>
+                ) : (
+                  <Skeleton className="h-6 w-24 mt-1" />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="بحث بالرقم أو العميل أو المشروع..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="ps-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="بحث بالرقم أو العميل أو المشروع..."
+          className="flex-1 max-w-sm"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[160px]">
             <SelectValue />

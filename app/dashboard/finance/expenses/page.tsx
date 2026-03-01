@@ -13,7 +13,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2 } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
@@ -157,10 +158,12 @@ export default function ExpensesPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="pr-10" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={(v) => { setSearch(v); setPage(1); }}
+          placeholder="بحث..."
+          className="flex-1 min-w-[200px]"
+        />
         <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v === 'all' ? '' : v); setPage(1); }}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="التصنيف" /></SelectTrigger>
           <SelectContent>

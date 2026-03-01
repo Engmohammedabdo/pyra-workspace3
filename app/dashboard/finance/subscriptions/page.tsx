@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowRight, RefreshCw, Plus, Pencil, Trash2, Search, AlertTriangle } from 'lucide-react';
+import { ArrowRight, RefreshCw, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -113,10 +113,12 @@ export default function SubscriptionsPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث..." value={search} onChange={e => setSearch(e.target.value)} className="pr-10" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="بحث..."
+          className="flex-1 min-w-[200px]"
+        />
         <Select value={statusFilter} onValueChange={v => setStatusFilter(v === 'all' ? '' : v)}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
           <SelectContent>

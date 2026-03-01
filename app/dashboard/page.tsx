@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,8 +26,10 @@ import {
   Upload,
   FolderPlus,
   UserPlus,
+  RefreshCw,
 } from 'lucide-react';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
+import { cn } from '@/lib/utils/cn';
 import { DashboardCharts } from '@/components/dashboard/charts';
 import { KpiGrid } from '@/components/dashboard/KpiGrid';
 import { SmartAlerts } from '@/components/dashboard/SmartAlerts';
@@ -35,6 +37,7 @@ import { RevenueTrendChart } from '@/components/dashboard/RevenueTrendChart';
 import { ProjectPipelineChart } from '@/components/dashboard/ProjectPipelineChart';
 import { ClientDistributionChart } from '@/components/dashboard/ClientDistributionChart';
 import { TeamWorkloadChart } from '@/components/dashboard/TeamWorkloadChart';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 interface DashboardData {
   total_files: number;
@@ -138,7 +141,7 @@ function StatCard({ href, title, value, subtitle, icon: Icon, accent }: {
 }) {
   return (
     <Link href={href} className="group">
-      <Card className="transition-colors group-hover:border-orange-500/40">
+      <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5 group-hover:border-orange-500/40">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">{title}</CardTitle>
           <Icon className={`h-4 w-4 transition-colors ${accent || 'text-muted-foreground group-hover:text-orange-500'}`} />
@@ -199,7 +202,8 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const loadDashboard = useCallback(() => {
+    setLoading(true);
     fetch('/api/dashboard')
       .then(res => res.json())
       .then(res => {
@@ -208,6 +212,10 @@ export default function DashboardPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   if (loading) {
     return (
@@ -229,13 +237,24 @@ export default function DashboardPage() {
   const isAdmin = !!(data && 'total_users' in data);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">لوحة التحكم</h1>
-          <p className="text-muted-foreground">
-            نظرة عامة على Pyra Workspace
-          </p>
+        <div className="flex items-center gap-2">
+          <div>
+            <h1 className="text-2xl font-bold">لوحة التحكم</h1>
+            <p className="text-muted-foreground">
+              نظرة عامة على Pyra Workspace
+            </p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={loadDashboard}
+            aria-label="تحديث"
+          >
+            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+          </Button>
         </div>
       </div>
 
@@ -248,85 +267,101 @@ export default function DashboardPage() {
       )}
 
       {/* ═══ Primary Stats Grid ═══ */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          href="/dashboard/files"
-          title="الملفات"
-          value={data?.total_files ?? data?.accessible_files ?? 0}
-          subtitle={isAdmin ? 'إجمالي الملفات في النظام' : 'ملفات متاحة لك'}
-          icon={FolderOpen}
-        />
-
-        {isAdmin && data && (
-          <StatCard
-            href="/dashboard/projects"
-            title="المشاريع"
-            value={data.total_projects ?? 0}
-            subtitle={`${data.active_projects ?? 0} نشط · ${data.completed_projects ?? 0} مكتمل`}
-            icon={Briefcase}
-          />
-        )}
-
-        {isAdmin && data && (
-          <StatCard
-            href="/dashboard/clients"
-            title="العملاء"
-            value={data.total_clients ?? 0}
-            subtitle="عميل مسجل"
-            icon={Building2}
-          />
-        )}
-
-        {isAdmin && data && (
-          <StatCard
-            href="/dashboard/users"
-            title="المستخدمون"
-            value={data.total_users ?? 0}
-            subtitle={`${data.total_teams ?? 0} فريق`}
-            icon={Users}
-          />
-        )}
-
-        <StatCard
-          href="/dashboard/notifications"
-          title="الإشعارات"
-          value={data?.unread_notifications ?? 0}
-          subtitle="غير مقروءة"
-          icon={Bell}
-          accent={data?.unread_notifications ? 'text-orange-500' : undefined}
-        />
-
-        {isAdmin && data && (
-          <StatCard
-            href="/dashboard/quotes"
-            title="عروض الأسعار"
-            value={data.total_quotes ?? 0}
-            subtitle={`${data.signed_quotes ?? 0} موقّعة`}
-            icon={FileText}
-          />
-        )}
-
-        {isAdmin && data && (
-          <StatCard
-            href="/dashboard/projects"
-            title="الموافقات المعلقة"
-            value={data.pending_approvals ?? 0}
-            subtitle="بانتظار الموافقة"
-            icon={Clock}
-            accent={(data.pending_approvals ?? 0) > 0 ? 'text-yellow-500' : undefined}
-          />
-        )}
-
-        {isAdmin && data && (
+      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StaggerItem>
           <StatCard
             href="/dashboard/files"
-            title="التخزين"
-            value={formatFileSize(data.storage_used ?? 0)}
-            subtitle="مساحة مستخدمة"
-            icon={HardDrive}
+            title="الملفات"
+            value={data?.total_files ?? data?.accessible_files ?? 0}
+            subtitle={isAdmin ? 'إجمالي الملفات في النظام' : 'ملفات متاحة لك'}
+            icon={FolderOpen}
           />
+        </StaggerItem>
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/projects"
+              title="المشاريع"
+              value={data.total_projects ?? 0}
+              subtitle={`${data.active_projects ?? 0} نشط · ${data.completed_projects ?? 0} مكتمل`}
+              icon={Briefcase}
+            />
+          </StaggerItem>
         )}
-      </div>
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/clients"
+              title="العملاء"
+              value={data.total_clients ?? 0}
+              subtitle="عميل مسجل"
+              icon={Building2}
+            />
+          </StaggerItem>
+        )}
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/users"
+              title="المستخدمون"
+              value={data.total_users ?? 0}
+              subtitle={`${data.total_teams ?? 0} فريق`}
+              icon={Users}
+            />
+          </StaggerItem>
+        )}
+
+        <StaggerItem>
+          <StatCard
+            href="/dashboard/notifications"
+            title="الإشعارات"
+            value={data?.unread_notifications ?? 0}
+            subtitle="غير مقروءة"
+            icon={Bell}
+            accent={data?.unread_notifications ? 'text-orange-500' : undefined}
+          />
+        </StaggerItem>
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/quotes"
+              title="عروض الأسعار"
+              value={data.total_quotes ?? 0}
+              subtitle={`${data.signed_quotes ?? 0} موقّعة`}
+              icon={FileText}
+            />
+          </StaggerItem>
+        )}
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/projects"
+              title="الموافقات المعلقة"
+              value={data.pending_approvals ?? 0}
+              subtitle="بانتظار الموافقة"
+              icon={Clock}
+              accent={(data.pending_approvals ?? 0) > 0 ? 'text-yellow-500' : undefined}
+            />
+          </StaggerItem>
+        )}
+
+        {isAdmin && data && (
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/files"
+              title="التخزين"
+              value={formatFileSize(data.storage_used ?? 0)}
+              subtitle="مساحة مستخدمة"
+              icon={HardDrive}
+            />
+          </StaggerItem>
+        )}
+      </StaggerContainer>
 
       {/* ═══ Charts Section (Admin) ═══ */}
       {isAdmin && <DashboardCharts />}

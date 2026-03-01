@@ -21,6 +21,7 @@ import {
   RefreshCw,
   ArrowDownCircle,
 } from 'lucide-react';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 /* ── Types ─────────────────────────────────────────── */
 
@@ -95,7 +96,7 @@ function KpiCard({
   colorClass: string;
 }) {
   return (
-    <Card>
+    <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         <Icon className={`h-4 w-4 ${colorClass}`} />
@@ -120,7 +121,7 @@ function QuickLinkCard({
 }) {
   return (
     <Link href={href} className="group">
-      <Card className="transition-colors group-hover:border-orange-500/40">
+      <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5 group-hover:border-orange-500/40">
         <CardContent className="flex items-center gap-3 py-4">
           <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
             <Icon className="h-5 w-5 text-orange-500" />
@@ -193,7 +194,7 @@ export default function FinanceDashboardPage() {
   const { summary, monthly_chart, expense_pie, upcoming_renewals } = data;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* ═══ Header ═══ */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
@@ -206,38 +207,48 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* ═══ KPI Cards ═══ */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-        <KpiCard
-          title="إيرادات الشهر"
-          value={formatCurrency(summary.revenue_mtd)}
-          icon={DollarSign}
-          colorClass="text-green-600"
-        />
-        <KpiCard
-          title="مصاريف الشهر"
-          value={formatCurrency(summary.expenses_mtd)}
-          icon={ArrowDownCircle}
-          colorClass="text-red-600"
-        />
-        <KpiCard
-          title="صافي الربح"
-          value={formatCurrency(summary.profit_mtd)}
-          icon={TrendingUp}
-          colorClass={summary.profit_mtd >= 0 ? 'text-green-600' : 'text-red-600'}
-        />
-        <KpiCard
-          title="مستحقات"
-          value={formatCurrency(summary.outstanding)}
-          icon={Receipt}
-          colorClass="text-orange-600"
-        />
-        <KpiCard
-          title="متأخرة"
-          value={formatCurrency(summary.overdue)}
-          icon={AlertTriangle}
-          colorClass="text-red-600"
-        />
-      </div>
+      <StaggerContainer className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+        <StaggerItem>
+          <KpiCard
+            title="إيرادات الشهر"
+            value={formatCurrency(summary.revenue_mtd)}
+            icon={DollarSign}
+            colorClass="text-green-600"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KpiCard
+            title="مصاريف الشهر"
+            value={formatCurrency(summary.expenses_mtd)}
+            icon={ArrowDownCircle}
+            colorClass="text-red-600"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KpiCard
+            title="صافي الربح"
+            value={formatCurrency(summary.profit_mtd)}
+            icon={TrendingUp}
+            colorClass={summary.profit_mtd >= 0 ? 'text-green-600' : 'text-red-600'}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KpiCard
+            title="مستحقات"
+            value={formatCurrency(summary.outstanding)}
+            icon={Receipt}
+            colorClass="text-orange-600"
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <KpiCard
+            title="متأخرة"
+            value={formatCurrency(summary.overdue)}
+            icon={AlertTriangle}
+            colorClass="text-red-600"
+          />
+        </StaggerItem>
+      </StaggerContainer>
 
       {/* ═══ Charts Row ═══ */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -364,28 +375,36 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* ═══ Quick Links ═══ */}
-      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-        <QuickLinkCard
-          href="/dashboard/finance/expenses"
-          label="المصاريف"
-          icon={ArrowDownCircle}
-        />
-        <QuickLinkCard
-          href="/dashboard/finance/subscriptions"
-          label="الاشتراكات"
-          icon={RefreshCw}
-        />
-        <QuickLinkCard
-          href="/dashboard/finance/cards"
-          label="البطاقات"
-          icon={CreditCard}
-        />
-        <QuickLinkCard
-          href="/dashboard/finance/contracts"
-          label="العقود"
-          icon={FileSignature}
-        />
-      </div>
+      <StaggerContainer className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <StaggerItem>
+          <QuickLinkCard
+            href="/dashboard/finance/expenses"
+            label="المصاريف"
+            icon={ArrowDownCircle}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard
+            href="/dashboard/finance/subscriptions"
+            label="الاشتراكات"
+            icon={RefreshCw}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard
+            href="/dashboard/finance/cards"
+            label="البطاقات"
+            icon={CreditCard}
+          />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard
+            href="/dashboard/finance/contracts"
+            label="العقود"
+            icon={FileSignature}
+          />
+        </StaggerItem>
+      </StaggerContainer>
     </div>
   );
 }

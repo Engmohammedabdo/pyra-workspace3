@@ -6,6 +6,7 @@ import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 
 const routeLabels: Record<string, string> = {
+  // Dashboard routes
   dashboard: 'الرئيسية',
   files: 'الملفات',
   users: 'المستخدمون',
@@ -30,7 +31,17 @@ const routeLabels: Record<string, string> = {
   statements: 'البيانات المالية',
   favorites: 'المفضلة',
   'script-reviews': 'مراجعات السكريبتات',
+  'knowledge-base': 'قاعدة المعرفة',
+  'login-history': 'سجل الدخول',
+  sessions: 'الجلسات',
+  integrations: 'التكاملات',
+  reports: 'التقارير',
   new: 'جديد',
+  // Portal routes
+  portal: 'البوابة',
+  help: 'مركز المساعدة',
+  scripts: 'السكريبتات',
+  profile: 'الملف الشخصي',
 };
 
 export function Breadcrumb() {

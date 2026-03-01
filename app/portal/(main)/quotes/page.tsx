@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { FileText, Eye, PenTool, ChevronRight } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
@@ -309,29 +310,31 @@ export default function PortalQuotesPage() {
       ) : quotes.length === 0 ? (
         <EmptyState icon={FileText} title="لا توجد عروض أسعار" description="لم يتم إرسال عروض أسعار إليك بعد" />
       ) : (
-        <div className="space-y-3">
+        <StaggerContainer className="space-y-3">
           {quotes.map(q => {
             const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
             return (
-              <Card key={q.id} className="cursor-pointer hover:border-orange-300 transition-colors" onClick={() => openDetail(q.id)}>
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-mono text-sm font-medium">{q.quote_number}</span>
-                      <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+              <StaggerItem key={q.id}>
+                <Card className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5" onClick={() => openDetail(q.id)}>
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-mono text-sm font-medium">{q.quote_number}</span>
+                        <Badge variant={s.variant} className="text-[10px]">{s.label}</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{q.project_name || 'بدون مشروع'}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(q.estimate_date, 'dd-MM-yyyy')}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{q.project_name || 'بدون مشروع'}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(q.estimate_date, 'dd-MM-yyyy')}</p>
-                  </div>
-                  <div className="text-end">
-                    <p className="font-mono font-bold text-orange-600">{formatCurrency(q.total, q.currency)}</p>
-                    <Eye className="h-4 w-4 text-muted-foreground mt-1 ms-auto" />
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="text-end">
+                      <p className="font-mono font-bold text-orange-600">{formatCurrency(q.total, q.currency)}</p>
+                      <Eye className="h-4 w-4 text-muted-foreground mt-1 ms-auto" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );

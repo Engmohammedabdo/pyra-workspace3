@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -315,9 +317,10 @@ export default function KnowledgeBasePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map(cat => (
-                <Card key={cat.id} className="hover:border-orange-300 transition-colors">
+                <StaggerItem key={cat.id}>
+                <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
                   <CardContent className="p-4">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -353,8 +356,9 @@ export default function KnowledgeBasePage() {
                     </div>
                   </CardContent>
                 </Card>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           )}
         </div>
       )}
@@ -464,7 +468,7 @@ export default function KnowledgeBasePage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>اسم التصنيف *</Label>
+              <FormLabel required>اسم التصنيف</FormLabel>
               <Input
                 value={catName}
                 onChange={e => setCatName(e.target.value)}

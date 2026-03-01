@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -23,8 +23,10 @@ import {
   CheckCheck,
   Loader2,
   ScrollText,
+  RefreshCw,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 // ---------- Types ----------
 
@@ -92,22 +94,24 @@ export default function PortalNotificationsPage() {
   const [filter, setFilter] = useState('all');
   const [markAllLoading, setMarkAllLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchNotifications() {
-      try {
-        const res = await fetch('/api/portal/notifications');
-        const json = await res.json();
-        if (res.ok && json.data) {
-          setNotifications(json.data);
-        }
-      } catch {
-        // silently fail
-      } finally {
-        setLoading(false);
+  const fetchNotifications = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/portal/notifications');
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setNotifications(json.data);
       }
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
     }
-    fetchNotifications();
   }, []);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const filtered = useMemo(() => {
     if (filter === 'unread') {
@@ -184,13 +188,24 @@ export default function PortalNotificationsPage() {
   // ---------- Render ----------
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">الإشعارات</h1>
-        <p className="text-muted-foreground text-sm mt-1">
-          تابع جميع التحديثات والإشعارات المتعلقة بمشاريعك
-        </p>
+      <div className="flex items-center gap-2">
+        <div>
+          <h1 className="text-2xl font-bold">الإشعارات</h1>
+          <p className="text-muted-foreground text-sm mt-1">
+            تابع جميع التحديثات والإشعارات المتعلقة بمشاريعك
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={fetchNotifications}
+          aria-label="تحديث"
+        >
+          <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+        </Button>
       </div>
 
       {/* Filters + Mark All */}
@@ -235,20 +250,20 @@ export default function PortalNotificationsPage() {
           description={filter === 'unread' ? 'لا توجد إشعارات غير مقروءة حالياً' : 'لا توجد إشعارات حتى الآن'}
         />
       ) : (
-        <div className="space-y-2">
+        <StaggerContainer className="space-y-2">
           {filtered.map((notif) => {
             const NotifIcon = getNotificationIcon(notif.type);
             const iconColor = getNotificationIconColor(notif.type);
 
             return (
-              <Card
-                key={notif.id}
-                className={cn(
-                  'cursor-pointer transition-all hover:shadow-sm',
-                  !notif.is_read && 'bg-orange-500/5 border-orange-500/20'
-                )}
-                onClick={() => !notif.is_read && markAsRead(notif.id)}
-              >
+              <StaggerItem key={notif.id}>
+                <Card
+                  className={cn(
+                    'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5',
+                    !notif.is_read && 'bg-orange-500/5 border-orange-500/20'
+                  )}
+                  onClick={() => !notif.is_read && markAsRead(notif.id)}
+                >
                 <CardContent className="flex items-start gap-4 py-4">
                   {/* Icon */}
                   <div
@@ -281,9 +296,10 @@ export default function PortalNotificationsPage() {
                   )}
                 </CardContent>
               </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );

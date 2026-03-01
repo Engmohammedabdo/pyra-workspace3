@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +15,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Building2, Plus, Search, MoreHorizontal, Pencil, Trash2, Mail, Phone } from 'lucide-react';
+import { Building2, Plus, MoreHorizontal, Pencil, Trash2, Mail, Phone } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -111,7 +113,7 @@ export default function ClientsClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6" /> العملاء</h1>
@@ -122,10 +124,12 @@ export default function ClientsClient() {
         </Button>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="بحث عن عميل..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="بحث عن عميل..."
+        className="max-w-sm"
+      />
 
       <Card>
         <CardContent className="p-0">
@@ -186,14 +190,14 @@ export default function ClientsClient() {
           <DialogHeader><DialogTitle>إضافة عميل جديد</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>الاسم</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>الشركة</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel required>الاسم</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel required>الشركة</FormLabel><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>البريد الإلكتروني</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} dir="ltr" /></div>
-              <div className="space-y-2"><Label>الهاتف</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} dir="ltr" /></div>
+              <div className="space-y-2"><FormLabel required>البريد الإلكتروني</FormLabel><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} dir="ltr" /></div>
+              <div className="space-y-2"><FormLabel>الهاتف</FormLabel><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} dir="ltr" /></div>
             </div>
-            <div className="space-y-2"><Label>كلمة المرور (لبوابة العميل)</Label><Input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} dir="ltr" /></div>
+            <div className="space-y-2"><FormLabel required>كلمة المرور (لبوابة العميل)</FormLabel><Input type="password" value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))} dir="ltr" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
@@ -208,12 +212,12 @@ export default function ClientsClient() {
           <DialogHeader><DialogTitle>تعديل العميل — {selected?.name}</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>الاسم</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-              <div className="space-y-2"><Label>الشركة</Label><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel required>الاسم</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel required>الشركة</FormLabel><Input value={form.company} onChange={e => setForm(p => ({ ...p, company: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2"><Label>البريد</Label><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} dir="ltr" /></div>
-              <div className="space-y-2"><Label>الهاتف</Label><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} dir="ltr" /></div>
+              <div className="space-y-2"><FormLabel required>البريد</FormLabel><Input type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} dir="ltr" /></div>
+              <div className="space-y-2"><FormLabel>الهاتف</FormLabel><Input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} dir="ltr" /></div>
             </div>
             <div className="flex items-center gap-2">
               <Switch checked={form.is_active} onCheckedChange={v => setForm(p => ({ ...p, is_active: v }))} />

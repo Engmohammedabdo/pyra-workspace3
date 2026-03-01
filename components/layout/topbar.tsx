@@ -13,6 +13,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Sun, Moon, LogOut, User } from 'lucide-react';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { MobileNav } from '@/components/layout/mobile-nav';
@@ -46,6 +52,7 @@ export function Topbar({ user }: TopbarProps) {
     .slice(0, 2);
 
   return (
+    <TooltipProvider delayDuration={300}>
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 lg:px-6">
       {/* Mobile Nav */}
       <MobileNav user={user} />
@@ -63,20 +70,25 @@ export function Topbar({ user }: TopbarProps) {
         <NotificationBell username={user.username} />
 
         {/* Theme Toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          title="تبديل الوضع"
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="تبديل الوضع"
+            >
+              <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+              <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}</TooltipContent>
+        </Tooltip>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="قائمة المستخدم">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-orange-500/10 text-orange-600 text-xs font-semibold">
                   {initials}
@@ -107,5 +119,6 @@ export function Topbar({ user }: TopbarProps) {
         </DropdownMenu>
       </div>
     </header>
+    </TooltipProvider>
   );
 }

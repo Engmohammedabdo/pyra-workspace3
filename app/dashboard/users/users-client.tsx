@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,13 +31,13 @@ import {
 import {
   Users,
   Plus,
-  Search,
   MoreHorizontal,
   Pencil,
   Trash2,
   Key,
   Shield,
 } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
 
@@ -165,7 +166,7 @@ export default function UsersClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -184,10 +185,12 @@ export default function UsersClient() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث عن مستخدم..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="بحث عن مستخدم..."
+          className="flex-1 max-w-sm"
+        />
         <Select value={roleFilter} onValueChange={setRoleFilter}>
           <SelectTrigger className="w-[140px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -271,19 +274,19 @@ export default function UsersClient() {
           <DialogHeader><DialogTitle>إضافة مستخدم جديد</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>اسم المستخدم</Label>
+              <FormLabel required>اسم المستخدم</FormLabel>
               <Input value={formData.username} onChange={e => setFormData(p => ({ ...p, username: e.target.value }))} placeholder="username" dir="ltr" />
             </div>
             <div className="space-y-2">
-              <Label>اسم العرض</Label>
+              <FormLabel required>اسم العرض</FormLabel>
               <Input value={formData.display_name} onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))} placeholder="الاسم الكامل" />
             </div>
             <div className="space-y-2">
-              <Label>كلمة المرور</Label>
+              <FormLabel required>كلمة المرور</FormLabel>
               <Input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="12 حرف على الأقل" dir="ltr" />
             </div>
             <div className="space-y-2">
-              <Label>الدور</Label>
+              <FormLabel required>الدور</FormLabel>
               <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -306,11 +309,11 @@ export default function UsersClient() {
           <DialogHeader><DialogTitle>تعديل المستخدم — @{selectedUser?.username}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>اسم العرض</Label>
+              <FormLabel required>اسم العرض</FormLabel>
               <Input value={formData.display_name} onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>الدور</Label>
+              <FormLabel required>الدور</FormLabel>
               <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -333,7 +336,7 @@ export default function UsersClient() {
           <DialogHeader><DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>كلمة المرور الجديدة</Label>
+              <FormLabel required>كلمة المرور الجديدة</FormLabel>
               <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="12 حرف على الأقل" dir="ltr" />
             </div>
           </div>

@@ -195,6 +195,7 @@ export function Sidebar({ user }: SidebarProps) {
   return (
     <TooltipProvider delayDuration={0}>
       <aside
+        aria-label="القائمة الجانبية الرئيسية"
         className={cn(
           'fixed inset-y-0 start-0 z-40 flex flex-col border-e bg-sidebar transition-all duration-300 hidden lg:flex',
           collapsed ? 'w-[72px]' : 'w-[280px]'
@@ -302,6 +303,7 @@ export function Sidebar({ user }: SidebarProps) {
             size="sm"
             className={cn('w-full', collapsed && 'px-2')}
             onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />

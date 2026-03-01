@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, Users, HardDrive, DollarSign, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 interface OverviewData {
   projects?: { total?: number; active?: number };
@@ -90,34 +91,36 @@ export default function ReportsPage() {
         <p className="text-muted-foreground">تقارير وتحليلات شاملة للنظام</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {reportCards.map((card) => (
-          <Link key={card.key} href={card.href}>
-            <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <card.icon className="h-5 w-5 text-primary" />
-                  {card.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-3">
-                  {card.description}
-                </p>
-                {loading ? (
-                  <Skeleton className="h-6 w-24" />
-                ) : overview ? (
-                  <span className="text-lg font-semibold text-primary">
-                    {card.getStat(overview) ?? '—'}
-                  </span>
-                ) : (
-                  <span className="text-sm text-muted-foreground">—</span>
-                )}
-              </CardContent>
-            </Card>
-          </Link>
+          <StaggerItem key={card.key}>
+            <Link href={card.href}>
+              <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5 cursor-pointer h-full">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <card.icon className="h-5 w-5 text-primary" />
+                    {card.title}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    {card.description}
+                  </p>
+                  {loading ? (
+                    <Skeleton className="h-6 w-24" />
+                  ) : overview ? (
+                    <span className="text-lg font-semibold text-primary">
+                      {card.getStat(overview) ?? '—'}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+          </StaggerItem>
         ))}
-      </div>
+      </StaggerContainer>
     </div>
   );
 }

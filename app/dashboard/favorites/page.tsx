@@ -10,6 +10,7 @@ import { Star, FolderOpen, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import type { FavoriteItem } from '@/hooks/useFavorites';
 
 export default function FavoritesPage() {
@@ -91,16 +92,17 @@ export default function FavoritesPage() {
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <FolderOpen className="h-4 w-4" /> المجلدات ({folders.length})
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {folders.map((fav) => (
-                  <FavoriteCard
-                    key={fav.id}
-                    favorite={fav}
-                    onNavigate={handleNavigate}
-                    onRemove={handleRemove}
-                  />
+                  <StaggerItem key={fav.id}>
+                    <FavoriteCard
+                      favorite={fav}
+                      onNavigate={handleNavigate}
+                      onRemove={handleRemove}
+                    />
+                  </StaggerItem>
                 ))}
-              </div>
+              </StaggerContainer>
             </div>
           )}
 
@@ -110,16 +112,17 @@ export default function FavoritesPage() {
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
                 <FileText className="h-4 w-4" /> الملفات ({files.length})
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {files.map((fav) => (
-                  <FavoriteCard
-                    key={fav.id}
-                    favorite={fav}
-                    onNavigate={handleNavigate}
-                    onRemove={handleRemove}
-                  />
+                  <StaggerItem key={fav.id}>
+                    <FavoriteCard
+                      favorite={fav}
+                      onNavigate={handleNavigate}
+                      onRemove={handleRemove}
+                    />
+                  </StaggerItem>
                 ))}
-              </div>
+              </StaggerContainer>
             </div>
           )}
         </div>
@@ -140,7 +143,7 @@ function FavoriteCard({
   const isFolder = favorite.item_type === 'folder';
 
   return (
-    <Card className="group hover:shadow-md transition-shadow">
+    <Card className="group transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div

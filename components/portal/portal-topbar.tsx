@@ -21,6 +21,7 @@ import {
 import { Bell, LogOut, User, Sun, Moon, BellRing } from 'lucide-react';
 import { PortalMobileNav } from '@/components/portal/portal-mobile-nav';
 import { PortalCommandSearch } from '@/components/portal/portal-command-search';
+import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { usePortalNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
 import type { PyraClient } from '@/types/database';
 import { useEffect, useState } from 'react';
@@ -72,6 +73,9 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
         {/* Mobile Nav */}
         <PortalMobileNav />
 
+        {/* Breadcrumb */}
+        <Breadcrumb />
+
         {/* Client info */}
         <div className="hidden sm:flex flex-col min-w-0">
           <span className="text-sm font-medium truncate">{client.name}</span>
@@ -93,6 +97,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                   size="icon"
                   className={pushEnabled ? 'text-orange-500' : 'text-muted-foreground'}
                   onClick={handleTogglePush}
+                  aria-label={pushEnabled ? 'إشعارات سطح المكتب مفعّلة' : 'تفعيل إشعارات سطح المكتب'}
                 >
                   <BellRing className="h-4 w-4" />
                 </Button>
@@ -112,6 +117,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                   size="icon"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                   className="text-muted-foreground hover:text-foreground"
+                  aria-label={theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}
                 >
                   {theme === 'dark' ? (
                     <Sun className="h-4 w-4" />
@@ -134,6 +140,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 size="icon"
                 className="relative"
                 onClick={() => router.push('/portal/notifications')}
+                aria-label={unreadCount > 0 ? `${unreadCount} إشعار جديد` : 'الإشعارات'}
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (

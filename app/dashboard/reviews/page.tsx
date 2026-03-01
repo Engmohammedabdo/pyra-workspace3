@@ -3,14 +3,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { MessageSquare, Search, Check, Trash2 } from 'lucide-react';
+import { MessageSquare, Check, Trash2 } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
@@ -94,10 +94,12 @@ export default function ReviewsPage() {
         <p className="text-muted-foreground">مراجعات وتعليقات الملفات</p>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="فلترة حسب مسار الملف..." value={searchPath} onChange={e => setSearchPath(e.target.value)} className="ps-9" dir="ltr" />
-      </div>
+      <SearchInput
+        value={searchPath}
+        onChange={setSearchPath}
+        placeholder="فلترة حسب مسار الملف..."
+        className="max-w-sm"
+      />
 
       {loading ? (
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div>

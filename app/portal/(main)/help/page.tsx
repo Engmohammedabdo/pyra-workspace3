@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import {
   HelpCircle, Search, ArrowRight, BookOpen, Eye, ChevronLeft,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -123,17 +124,13 @@ export default function HelpCenterPage() {
       </div>
 
       {/* Search bar */}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="ابحث في المقالات..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            className="ps-9"
-          />
-        </div>
+      <div className="flex items-center gap-2" onKeyDown={e => e.key === 'Enter' && handleSearch()}>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="ابحث في المقالات..."
+          className="flex-1"
+        />
         <Button onClick={handleSearch} disabled={searching || !searchQuery.trim()}>
           {searching ? 'جارٍ البحث...' : 'بحث'}
         </Button>
@@ -161,7 +158,7 @@ export default function HelpCenterPage() {
               {searchResults.map(article => (
                 <Card
                   key={article.id}
-                  className="cursor-pointer hover:border-orange-300 transition-colors"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/help/${article.id}`)}
                 >
                   <CardContent className="p-4">
@@ -211,7 +208,7 @@ export default function HelpCenterPage() {
               {articles.map(article => (
                 <Card
                   key={article.id}
-                  className="cursor-pointer hover:border-orange-300 transition-colors"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/help/${article.id}`)}
                 >
                   <CardContent className="p-4 flex items-center justify-between">
@@ -242,27 +239,28 @@ export default function HelpCenterPage() {
           ) : categories.length === 0 ? (
             <EmptyState icon={HelpCircle} title="لا توجد مقالات بعد" description="سيتم إضافة مقالات المساعدة قريبًا" />
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map(cat => (
-                <Card
-                  key={cat.id}
-                  className="cursor-pointer hover:border-orange-300 hover:shadow-sm transition-all"
-                  onClick={() => handleSelectCategory(cat)}
-                >
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                        <BookOpen className="h-5 w-5 text-orange-500" />
+                <StaggerItem key={cat.id}>
+                  <Card
+                    className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                    onClick={() => handleSelectCategory(cat)}
+                  >
+                    <CardContent className="p-5">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                          <BookOpen className="h-5 w-5 text-orange-500" />
+                        </div>
+                        <h3 className="font-semibold">{cat.name}</h3>
                       </div>
-                      <h3 className="font-semibold">{cat.name}</h3>
-                    </div>
-                    {cat.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2">{cat.description}</p>
-                    )}
-                  </CardContent>
-                </Card>
+                      {cat.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">{cat.description}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                </StaggerItem>
               ))}
-            </div>
+            </StaggerContainer>
           )}
         </div>
       )}

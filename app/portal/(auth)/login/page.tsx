@@ -14,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Loader2, LogIn, Eye, EyeOff, Building2 } from 'lucide-react';
+import { Loader2, LogIn, Eye, EyeOff, Building2, AlertCircle } from 'lucide-react';
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -98,7 +98,7 @@ export default function PortalLoginPage() {
       </div>
 
       {/* Form Side */}
-      <Card className="border-0 rounded-none lg:rounded-none shadow-none">
+      <Card className="border-0 rounded-none lg:rounded-none shadow-none animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
         <CardHeader className="space-y-3 pt-12 pb-6 px-8 lg:px-12">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-4">
@@ -191,8 +191,9 @@ export default function PortalLoginPage() {
 
             {/* Error message */}
             {error && (
-              <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20">
-                {error}
+              <div className="flex items-center gap-2 bg-destructive/10 text-destructive text-sm p-3 rounded-lg border border-destructive/20 animate-in fade-in-0 slide-in-from-top-2 duration-300">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{error}</span>
               </div>
             )}
 

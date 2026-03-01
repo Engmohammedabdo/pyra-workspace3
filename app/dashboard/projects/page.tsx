@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,7 +17,8 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Briefcase, Plus, Search, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2, Eye } from 'lucide-react';
+import { Briefcase, Plus, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2, Eye } from 'lucide-react';
+import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { ProjectKanban } from '@/components/projects/project-kanban';
 import { toast } from 'sonner';
@@ -164,7 +166,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Briefcase className="h-6 w-6" /> المشاريع</h1>
@@ -176,10 +178,12 @@ export default function ProjectsPage() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث عن مشروع..." value={search} onChange={e => setSearch(e.target.value)} className="ps-9" />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="بحث عن مشروع..."
+          className="flex-1 max-w-sm"
+        />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -321,10 +325,10 @@ export default function ProjectsPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader><DialogTitle>مشروع جديد</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>اسم المشروع</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>الوصف</Label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel required>اسم المشروع</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel>الوصف</FormLabel><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
             <div className="space-y-2">
-              <Label>شركة العميل</Label>
+              <FormLabel required>شركة العميل</FormLabel>
               <Select value={form.client_company} onValueChange={v => setForm(p => ({ ...p, client_company: v }))}>
                 <SelectTrigger><SelectValue placeholder="اختر شركة..." /></SelectTrigger>
                 <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
@@ -343,10 +347,10 @@ export default function ProjectsPage() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader><DialogTitle>تعديل — {selected?.name}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2"><Label>اسم المشروع</Label><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>الوصف</Label><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel required>اسم المشروع</FormLabel><Input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+            <div className="space-y-2"><FormLabel>الوصف</FormLabel><Input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
             <div className="space-y-2">
-              <Label>الحالة</Label>
+              <FormLabel>الحالة</FormLabel>
               <Select value={form.status} onValueChange={v => setForm(p => ({ ...p, status: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -359,7 +363,7 @@ export default function ProjectsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>شركة العميل</Label>
+              <FormLabel required>شركة العميل</FormLabel>
               <Select value={form.client_company} onValueChange={v => setForm(p => ({ ...p, client_company: v }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>

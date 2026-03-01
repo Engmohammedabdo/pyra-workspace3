@@ -10,14 +10,14 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   FolderKanban,
-  Search,
   FolderOpen,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
+import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 // ---------- Types ----------
 
@@ -131,7 +131,7 @@ export default function PortalProjectsPage() {
   // ---------- Render ----------
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">المشاريع</h1>
@@ -152,60 +152,58 @@ export default function PortalProjectsPage() {
           </TabsList>
         </Tabs>
 
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="ابحث عن مشروع..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="ps-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="ابحث عن مشروع..."
+          className="w-full sm:w-72"
+        />
       </div>
 
       {/* Projects Grid */}
       {filtered.length === 0 ? (
         <EmptyState icon={FolderKanban} title="لا توجد مشاريع" description="لا توجد مشاريع تطابق معايير البحث الحالية" />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((project) => {
             const status = statusConfig[project.status] ?? statusConfig.active;
             return (
-              <Card
-                key={project.id}
-                className="cursor-pointer hover:border-orange-500/30 hover:shadow-md transition-all"
-                onClick={() => router.push(`/portal/projects/${project.id}`)}
-              >
-                <CardContent className="pt-5 pb-4 space-y-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-semibold text-sm line-clamp-1">
-                      {project.name}
-                    </h3>
-                    <Badge className={cn('shrink-0', status.className)}>
-                      {status.label}
-                    </Badge>
-                  </div>
-
-                  {project.description && (
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                      {project.description}
-                    </p>
-                  )}
-
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <FolderOpen className="h-3.5 w-3.5" />
-                      <span>{project.filesCount} ملف</span>
+              <StaggerItem key={project.id}>
+                <Card
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  onClick={() => router.push(`/portal/projects/${project.id}`)}
+                >
+                  <CardContent className="pt-5 pb-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="font-semibold text-sm line-clamp-1">
+                        {project.name}
+                      </h3>
+                      <Badge className={cn('shrink-0', status.className)}>
+                        {status.label}
+                      </Badge>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelativeDate(project.updated_at)}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+
+                    {project.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {project.description}
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <FolderOpen className="h-3.5 w-3.5" />
+                        <span>{project.filesCount} ملف</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeDate(project.updated_at)}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
             );
           })}
-        </div>
+        </StaggerContainer>
       )}
     </div>
   );
