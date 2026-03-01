@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import {
   HelpCircle, Search, ArrowRight, BookOpen, Eye, ChevronLeft,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -154,13 +155,7 @@ export default function HelpCenterPage() {
               ))}
             </div>
           ) : searchResults.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <Search className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">لا توجد نتائج</p>
-                <p className="text-xs text-muted-foreground mt-1">جرّب كلمات بحث مختلفة</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={Search} title="لا توجد نتائج" description="جرّب كلمات بحث مختلفة" />
           ) : (
             <div className="space-y-2">
               {searchResults.map(article => (
@@ -210,12 +205,7 @@ export default function HelpCenterPage() {
               ))}
             </div>
           ) : articles.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <BookOpen className="h-10 w-10 text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">لا توجد مقالات في هذا التصنيف</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={BookOpen} title="لا توجد مقالات" description="لا توجد مقالات في هذا التصنيف" />
           ) : (
             <div className="space-y-2">
               {articles.map(article => (
@@ -250,15 +240,7 @@ export default function HelpCenterPage() {
               ))}
             </div>
           ) : categories.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-5">
-                  <HelpCircle className="h-8 w-8 text-orange-500" />
-                </div>
-                <h2 className="text-xl font-semibold mb-2">لا توجد مقالات بعد</h2>
-                <p className="text-muted-foreground text-sm">سيتم إضافة مقالات المساعدة قريبًا</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={HelpCircle} title="لا توجد مقالات بعد" description="سيتم إضافة مقالات المساعدة قريبًا" />
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map(cat => (

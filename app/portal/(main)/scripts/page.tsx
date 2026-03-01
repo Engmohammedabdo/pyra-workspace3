@@ -21,6 +21,7 @@ import {
   Send, Shield, User, Info, MessageSquare,
 } from 'lucide-react';
 import type { PyraScriptReview, PyraScriptReviewReply } from '@/types/database';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -507,17 +508,7 @@ export default function EtmamScriptsPage() {
 
       {/* ── Empty state ── */}
       {videoGroups.length === 0 ? (
-        <Card className="border-[#e6dfd7]">
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-[#e6dfd7] flex items-center justify-center mb-4">
-              <FileText className="h-8 w-8 text-[#003866]" />
-            </div>
-            <h2 className="text-lg font-bold text-[#003866] mb-2">لا توجد سكريبتات</h2>
-            <p className="text-sm text-muted-foreground">
-              لم يتم رفع أي سكريبتات بعد. سيتم إشعارك عند توفرها.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={FileText} title="لا توجد سكريبتات" description="لم يتم رفع أي سكريبتات بعد. سيتم إشعارك عند توفرها." />
       ) : (
         /* ── Split Panel Layout ── */
         <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">

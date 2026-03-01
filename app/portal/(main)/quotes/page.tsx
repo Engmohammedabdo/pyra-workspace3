@@ -15,6 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { FileText, Eye, PenTool, ChevronRight } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
@@ -306,15 +307,7 @@ export default function PortalQuotesPage() {
       ) : loadingDetail ? (
         <div className="space-y-3"><Skeleton className="h-[400px]" /></div>
       ) : quotes.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-full bg-orange-500/10 flex items-center justify-center mb-5">
-              <FileText className="h-8 w-8 text-orange-500" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">لا توجد عروض أسعار</h2>
-            <p className="text-muted-foreground text-sm">لم يتم إرسال عروض أسعار إليك بعد</p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={FileText} title="لا توجد عروض أسعار" description="لم يتم إرسال عروض أسعار إليك بعد" />
       ) : (
         <div className="space-y-3">
           {quotes.map(q => {

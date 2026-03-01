@@ -17,6 +17,7 @@ import {
   Search,
   FolderOpen,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // ---------- Types ----------
 
@@ -164,17 +165,7 @@ export default function PortalProjectsPage() {
 
       {/* Projects Grid */}
       {filtered.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
-              <FolderKanban className="h-7 w-7 text-orange-500" />
-            </div>
-            <h2 className="text-lg font-semibold mb-2">لا توجد مشاريع</h2>
-            <p className="text-muted-foreground text-sm max-w-md">
-              لا توجد مشاريع تطابق معايير البحث الحالية
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={FolderKanban} title="لا توجد مشاريع" description="لا توجد مشاريع تطابق معايير البحث الحالية" />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((project) => {

@@ -4,6 +4,7 @@ import { PortalSidebar } from '@/components/portal/portal-sidebar';
 import { PortalTopbar } from '@/components/portal/portal-topbar';
 import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 import { PortalBrandingWrapper } from '@/components/portal/PortalBrandingWrapper';
+import { PageTransition } from '@/components/layout/page-transition';
 
 export default async function PortalMainLayout({
   children,
@@ -30,7 +31,9 @@ export default async function PortalMainLayout({
             }}
           />
           <main className="p-4 lg:p-6">
-            <ErrorBoundaryWrapper>{children}</ErrorBoundaryWrapper>
+            <ErrorBoundaryWrapper>
+              <PageTransition>{children}</PageTransition>
+            </ErrorBoundaryWrapper>
           </main>
         </div>
       </div>

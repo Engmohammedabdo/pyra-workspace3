@@ -55,6 +55,7 @@ import {
 } from 'lucide-react';
 import { usePortalFavorites } from '@/hooks/usePortalFavorites';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PdfThumbnail } from '@/components/portal/pdf-thumbnail';
 import { resolveMimeType } from '@/lib/utils/mime';
 
@@ -908,17 +909,7 @@ export default function PortalFilesPage() {
 
       {/* Content */}
       {filteredFiles.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 rounded-full bg-orange-500/10 flex items-center justify-center mb-4">
-              <FolderOpen className="h-7 w-7 text-orange-500" />
-            </div>
-            <h2 className="text-lg font-semibold mb-2">لا توجد ملفات</h2>
-            <p className="text-muted-foreground text-sm max-w-md">
-              لا توجد ملفات تطابق معايير البحث الحالية
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState icon={FolderOpen} title="لا توجد ملفات" description="لا توجد ملفات تطابق معايير البحث الحالية" />
       ) : totalFolders === 0 && totalFilesAtLevel === 0 ? (
         /* ── Empty level (no folders or files at this depth) ── */
         <Card>

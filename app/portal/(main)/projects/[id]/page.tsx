@@ -47,6 +47,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { MentionTextarea } from '@/components/portal/mention-textarea';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 
 // ---------- Types ----------
@@ -475,16 +476,7 @@ export default function PortalProjectDetailPage() {
         {/* ---- FILES TAB ---- */}
         <TabsContent value="files" className="mt-4">
           {project.files.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-                  <FileIcon className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  لا توجد ملفات في هذا المشروع
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={FileIcon} title="لا توجد ملفات" description="لا توجد ملفات في هذا المشروع" />
           ) : (
             <div className="space-y-3">
               {project.files.map((file) => {
@@ -945,14 +937,7 @@ function FilteredComments({
 
   if (comments.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <MessageSquare className="h-8 w-8 text-muted-foreground/40 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            لا توجد تعليقات حتى الآن. كن أول من يعلق!
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState icon={MessageSquare} title="لا توجد تعليقات" description="كن أول من يعلق على هذا المشروع!" />
     );
   }
 
@@ -1096,14 +1081,7 @@ function ActivityTimeline({ project }: { project: ProjectDetail }) {
 
   if (events.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-          <History className="h-8 w-8 text-muted-foreground/40 mb-3" />
-          <p className="text-sm text-muted-foreground">
-            لا توجد أنشطة مسجلة حتى الآن
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState icon={History} title="لا توجد أنشطة" description="لا توجد أنشطة مسجلة حتى الآن" />
     );
   }
 
