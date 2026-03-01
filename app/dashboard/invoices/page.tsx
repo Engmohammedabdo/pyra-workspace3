@@ -25,6 +25,7 @@ import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
 import { ExportButton } from '@/components/reports/ExportButton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -303,10 +304,8 @@ export default function InvoicesPage() {
                   ))
                 ) : invoices.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="p-12 text-center text-muted-foreground">
-                      <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <p>لا توجد فواتير</p>
-                      <p className="text-xs mt-1">أنشئ فاتورة جديدة للبدء</p>
+                    <td colSpan={9}>
+                      <EmptyState icon={FileText} title="لا توجد فواتير" description="أنشئ فاتورة جديدة للبدء" />
                     </td>
                   </tr>
                 ) : (

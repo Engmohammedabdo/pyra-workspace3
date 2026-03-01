@@ -17,6 +17,7 @@ import {
 import { Building2, Plus, Search, MoreHorizontal, Pencil, Trash2, Mail, Phone } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Client {
   id: string;
@@ -144,7 +145,7 @@ export default function ClientsClient() {
                 {loading ? Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b">{Array.from({ length: 6 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
                 )) : clients.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">لا يوجد عملاء</td></tr>
+                  <tr><td colSpan={6}><EmptyState icon={Building2} title="لا يوجد عملاء" description="أضف عميل جديد للبدء في إدارة الحسابات" /></td></tr>
                 ) : clients.map(c => (
                   <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3">

@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Bell, CheckCheck, Mail, MailOpen, ExternalLink } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Notification {
   id: string;
@@ -140,10 +141,7 @@ export default function NotificationsPage() {
             {loading ? Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="p-4 border-b"><Skeleton className="h-12 w-full" /></div>
             )) : notifications.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">
-                <Bell className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
-                لا توجد إشعارات
-              </div>
+              <EmptyState icon={Bell} title="لا توجد إشعارات" description="ستظهر هنا الإشعارات والتنبيهات الجديدة" />
             ) : notifications.map(n => {
               const targetLink = resolveTargetLink(n.type, n.target_path);
               return (

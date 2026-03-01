@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowRight, RefreshCw, Plus, Pencil, Trash2, Search, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Subscription {
   id: string; name: string; provider: string | null; cost: number; currency: string;
@@ -147,7 +148,7 @@ export default function SubscriptionsPage() {
                   <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>
                 ))}</tr>
               )) : subs.length === 0 ? (
-                <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد اشتراكات</td></tr>
+                <tr><td colSpan={8}><EmptyState icon={RefreshCw} title="لا توجد اشتراكات" description="أضف اشتراك جديد لتتبع التكاليف الشهرية" /></td></tr>
               ) : subs.map(s => (
                 <tr key={s.id} className="border-b hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-medium">{s.name}</td>

@@ -17,6 +17,7 @@ import {
 import { ArrowRight, CreditCard, Plus, Pencil, Trash2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface CardItem {
   id: string;
@@ -158,13 +159,13 @@ export default function CardsPage() {
           ))}
         </div>
       ) : cards.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center text-muted-foreground">
-            <CreditCard className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>لا توجد بطاقات</p>
-            <p className="text-sm mt-1">أضف بطاقة لربطها بالاشتراكات</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={CreditCard}
+          title="لا توجد بطاقات"
+          description="أضف بطاقة لربطها بالاشتراكات"
+          actionLabel="إضافة بطاقة"
+          onAction={openNew}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {cards.map(c => (

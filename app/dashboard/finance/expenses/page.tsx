@@ -17,6 +17,7 @@ import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2, Search } from 'lucid
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Expense {
   id: string;
@@ -191,7 +192,7 @@ export default function ExpensesPage() {
                   <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>
                 ))}</tr>
               )) : expenses.length === 0 ? (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">لا توجد مصاريف</td></tr>
+                <tr><td colSpan={6}><EmptyState icon={ArrowDownCircle} title="لا توجد مصاريف" description="أضف مصروف جديد لتتبع النفقات" /></td></tr>
               ) : expenses.map(exp => (
                 <tr key={exp.id} className="border-b hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-medium">{exp.description || '—'}</td>

@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Quote {
   id: string;
@@ -179,10 +180,8 @@ export default function QuotesPage() {
                   <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
                 )) : quotes.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-muted-foreground">
-                      <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <p>لا توجد عروض أسعار</p>
-                      <p className="text-xs mt-1">أنشئ عرض سعر جديد للبدء</p>
+                    <td colSpan={7}>
+                      <EmptyState icon={FileText} title="لا توجد عروض أسعار" description="أنشئ عرض سعر جديد للبدء" />
                     </td>
                   </tr>
                 ) : quotes.map(q => {

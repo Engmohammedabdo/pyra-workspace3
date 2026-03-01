@@ -2,6 +2,7 @@ import { requireAuth } from '@/lib/auth/guards';
 import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
+import { PageTransition } from '@/components/layout/page-transition';
 
 export default async function DashboardLayout({
   children,
@@ -17,7 +18,9 @@ export default async function DashboardLayout({
         <Topbar user={session.pyraUser} />
         <main className="p-4 lg:p-6">
           <ErrorBoundaryWrapper>
-            {children}
+            <PageTransition>
+              {children}
+            </PageTransition>
           </ErrorBoundaryWrapper>
         </main>
       </div>

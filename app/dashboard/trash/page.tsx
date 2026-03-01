@@ -11,6 +11,7 @@ import {
 import { Trash2, RotateCcw, AlertTriangle, XCircle, Clock } from 'lucide-react';
 import { formatFileSize, formatDate, formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface TrashItem {
   id: string;
@@ -28,6 +29,7 @@ export default function TrashPage() {
   const [loading, setLoading] = useState(true);
   const [showPurge, setShowPurge] = useState(false);
   const [showEmptyAll, setShowEmptyAll] = useState(false);
+  const [showPurgeExpired, setShowPurgeExpired] = useState(false);
   const [selected, setSelected] = useState<TrashItem | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -87,6 +89,7 @@ export default function TrashPage() {
       const purged = json.data?.purged || 0;
       if (purged === 0) { toast.info('لا توجد ملفات منتهية الصلاحية'); }
       else { toast.success(`تم حذف ${purged} ملف منتهي الصلاحية`); }
+      setShowPurgeExpired(false);
       fetchTrash();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
@@ -100,7 +103,7 @@ export default function TrashPage() {
         </div>
         {items.length > 0 && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={purgeExpired} disabled={saving}>
+            <Button variant="outline" size="sm" onClick={() => setShowPurgeExpired(true)} disabled={saving}>
               <Clock className="h-4 w-4 me-1" /> حذف المنتهية
             </Button>
             <Button variant="destructive" size="sm" onClick={() => setShowEmptyAll(true)} disabled={saving}>
@@ -129,7 +132,7 @@ export default function TrashPage() {
                 {loading ? Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
                 )) : items.length === 0 ? (
-                  <tr><td colSpan={7} className="p-12 text-center text-muted-foreground">سلة المحذوفات فارغة</td></tr>
+                  <tr><td colSpan={7}><EmptyState icon={Trash2} title="سلة المحذوفات فارغة" description="الملفات المحذوفة ستظهر هنا" /></td></tr>
                 ) : items.map(item => (
                   <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3 font-medium">{item.file_name}</td>
@@ -178,6 +181,21 @@ export default function TrashPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPurge(false)}>إلغاء</Button>
             <Button variant="destructive" onClick={purge} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف نهائي'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Purge Expired Dialog */}
+      <Dialog open={showPurgeExpired} onOpenChange={setShowPurgeExpired}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-orange-500" /> حذف الملفات المنتهية</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground py-4">
+            سيتم حذف جميع الملفات التي تجاوزت مدة 30 يوماً في السلة نهائياً.<br />
+            <span className="text-destructive">هذا الإجراء لا يمكن التراجع عنه.</span>
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPurgeExpired(false)}>إلغاء</Button>
+            <Button variant="destructive" onClick={purgeExpired} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف المنتهية'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

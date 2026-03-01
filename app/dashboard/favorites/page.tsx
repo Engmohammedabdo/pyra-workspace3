@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Star, FolderOpen, FileText, Trash2, ExternalLink } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { FavoriteItem } from '@/hooks/useFavorites';
 
 export default function FavoritesPage() {
@@ -77,15 +78,11 @@ export default function FavoritesPage() {
           ))}
         </div>
       ) : favorites.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 flex flex-col items-center justify-center text-muted-foreground">
-            <Star className="h-12 w-12 mb-4 opacity-30" />
-            <p className="text-base font-medium mb-1">لا توجد عناصر مفضلة</p>
-            <p className="text-sm">
-              أضف الملفات والمجلدات للمفضلة من قائمة الملفات بالنقر على ⋮ ثم &quot;إضافة للمفضلة&quot;
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Star}
+          title="لا توجد عناصر مفضلة"
+          description="أضف الملفات والمجلدات للمفضلة من قائمة الملفات"
+        />
       ) : (
         <div className="space-y-6">
           {/* Favorite Folders */}

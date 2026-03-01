@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
@@ -45,6 +45,7 @@ import {
   AlertTriangle,
   Target,
   PieChart,
+  ChevronDown,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -138,10 +139,58 @@ const navGroups: NavGroup[] = [
   },
 ];
 
+const STORAGE_KEY = 'pyra-sidebar-collapsed-groups';
+
+function loadCollapsedGroups(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? new Set(JSON.parse(stored)) : new Set();
+  } catch { return new Set(); }
+}
+
+function saveCollapsedGroups(groups: Set<string>) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...groups])); } catch {}
+}
+
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const isAdmin = user.role === 'admin';
+
+  // Load collapsed groups from localStorage on mount
+  useEffect(() => {
+    setCollapsedGroups(loadCollapsedGroups());
+  }, []);
+
+  // Auto-expand the group containing the active page
+  useEffect(() => {
+    const activeGroup = navGroups.find(g =>
+      g.items.some(item =>
+        pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+      )
+    );
+    if (activeGroup && collapsedGroups.has(activeGroup.titleEn)) {
+      setCollapsedGroups(prev => {
+        const next = new Set(prev);
+        next.delete(activeGroup.titleEn);
+        saveCollapsedGroups(next);
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const toggleGroup = useCallback((groupKey: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupKey)) next.delete(groupKey);
+      else next.add(groupKey);
+      saveCollapsedGroups(next);
+      return next;
+    });
+  }, []);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -174,15 +223,31 @@ export function Sidebar({ user }: SidebarProps) {
               const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
               if (visibleItems.length === 0) return null;
 
+              const isGroupCollapsed = collapsedGroups.has(group.titleEn);
+
               return (
                 <div key={group.titleEn} className="mb-3">
                   {!collapsed && (
-                    <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                      {group.title}
-                    </div>
+                    <button
+                      onClick={() => toggleGroup(group.titleEn)}
+                      className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors group/section"
+                    >
+                      <span>{group.title}</span>
+                      <ChevronDown className={cn(
+                        'h-3 w-3 opacity-0 group-hover/section:opacity-100 transition-all duration-200',
+                        isGroupCollapsed && '-rotate-90'
+                      )} />
+                    </button>
                   )}
                   {collapsed && <div className="my-1 mx-2 border-t border-border/40" />}
-                  <div className="space-y-0.5">
+                  <div
+                    className={cn(
+                      'space-y-0.5 overflow-hidden transition-all duration-200',
+                      !collapsed && isGroupCollapsed && 'max-h-0 opacity-0',
+                      (!collapsed && !isGroupCollapsed) && 'max-h-[500px] opacity-100',
+                      collapsed && 'max-h-[500px] opacity-100'
+                    )}
+                  >
                     {visibleItems.map((item) => {
                       const isActive = pathname === item.href ||
                         (item.href !== '/dashboard' && pathname.startsWith(item.href));

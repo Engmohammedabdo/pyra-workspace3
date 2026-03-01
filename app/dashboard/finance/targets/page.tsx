@@ -19,6 +19,7 @@ import { ArrowRight, Target, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface RevenueTarget {
   id: string;
@@ -197,13 +198,13 @@ export default function RevenueTargetsPage() {
           ))}
         </div>
       ) : targets.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center text-muted-foreground">
-            <Target className="h-12 w-12 mx-auto mb-4 opacity-30" />
-            <p>لا توجد أهداف إيرادات</p>
-            <p className="text-sm mt-1">أضف هدفاً لتتبع الإيرادات</p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Target}
+          title="لا توجد أهداف إيرادات"
+          description="أضف هدفاً لتتبع الإيرادات"
+          actionLabel="إضافة هدف"
+          onAction={openNew}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {targets.map(t => {
