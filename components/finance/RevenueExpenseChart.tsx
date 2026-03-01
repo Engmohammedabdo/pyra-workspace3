@@ -32,7 +32,7 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
 
   return (
     <ResponsiveContainer width="100%" height={350}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
         <defs>
           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
@@ -46,11 +46,11 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="month"
-          tick={{ fontSize: 10 }}
-          angle={-35}
+          tick={{ fontSize: 9 }}
+          angle={-45}
           textAnchor="end"
-          height={60}
-          interval={0}
+          height={70}
+          interval={data.length > 6 ? 1 : 0}
           className="text-muted-foreground"
         />
         <YAxis

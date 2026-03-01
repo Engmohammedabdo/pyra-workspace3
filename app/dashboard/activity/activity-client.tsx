@@ -30,10 +30,23 @@ const ACTION_LABELS: Record<string, string> = {
   file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',
   file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',
   user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',
-  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', share_created: 'رابط مشاركة',
+  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', project_deleted: 'حذف مشروع',
+  share_created: 'رابط مشاركة',
   review_added: 'مراجعة', settings_updated: 'تحديث إعدادات', file_restored: 'استعادة ملف',
   file_purged: 'حذف نهائي', login: 'تسجيل دخول', logout: 'تسجيل خروج',
   password_changed: 'تغيير كلمة مرور',
+  upload: 'رفع ملف', upload_deletion: 'حذف ملف مرفوع',
+  version_restore: 'استعادة نسخة', version_delete: 'حذف نسخة',
+  trash_empty: 'تفريغ السلة', trash_purge: 'حذف منتهية',
+  // Finance actions
+  create_expense: 'إنشاء مصروف', update_expense: 'تحديث مصروف', delete_expense: 'حذف مصروف',
+  create_subscription: 'إنشاء اشتراك', update_subscription: 'تحديث اشتراك', delete_subscription: 'حذف اشتراك',
+  payment_recorded: 'تسجيل دفعة', invoice_sent: 'إرسال فاتورة', invoice_created: 'إنشاء فاتورة',
+  milestone_invoice_generated: 'فاتورة مرحلة',
+  quote_sent: 'إرسال عرض سعر',
+  create_card: 'إضافة بطاقة', update_card: 'تحديث بطاقة', delete_card: 'حذف بطاقة',
+  create_contract: 'إنشاء عقد', update_contract: 'تحديث عقد',
+  create_target: 'إنشاء هدف', update_target: 'تحديث هدف',
   // Portal client actions
   portal_login: 'دخول عميل', portal_logout: 'خروج عميل',
   portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)',
@@ -140,6 +153,12 @@ export default function ActivityClient() {
             <SelectItem value="user_deleted">حذف مستخدم</SelectItem>
             <SelectItem value="team_created">فريق</SelectItem>
             <SelectItem value="settings_updated">إعدادات</SelectItem>
+            <SelectItem value="_divider_finance" disabled>── أنشطة مالية ──</SelectItem>
+            <SelectItem value="create_expense">إنشاء مصروف</SelectItem>
+            <SelectItem value="create_subscription">إنشاء اشتراك</SelectItem>
+            <SelectItem value="payment_recorded">تسجيل دفعة</SelectItem>
+            <SelectItem value="invoice_created">إنشاء فاتورة</SelectItem>
+            <SelectItem value="invoice_sent">إرسال فاتورة</SelectItem>
             <SelectItem value="_divider" disabled>── أنشطة العملاء ──</SelectItem>
             <SelectItem value="portal_login">دخول عميل</SelectItem>
             <SelectItem value="portal_logout">خروج عميل</SelectItem>
