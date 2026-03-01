@@ -98,6 +98,10 @@ export default function NewInvoicePage() {
       toast.error('يجب إضافة بند واحد على الأقل مع وصف');
       return;
     }
+    if (validItems.some(item => item.quantity <= 0 || item.rate <= 0)) {
+      toast.error('الكمية والسعر يجب أن يكونا أكبر من صفر');
+      return;
+    }
 
     setSaving(true);
     setSendAfterSave(shouldSend);

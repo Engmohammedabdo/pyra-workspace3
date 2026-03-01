@@ -219,32 +219,32 @@ export default function DashboardPage() {
           icon={FolderOpen}
         />
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/projects"
             title="المشاريع"
-            value={data!.total_projects}
-            subtitle={`${data!.active_projects} نشط · ${data!.completed_projects} مكتمل`}
+            value={data.total_projects ?? 0}
+            subtitle={`${data.active_projects ?? 0} نشط · ${data.completed_projects ?? 0} مكتمل`}
             icon={Briefcase}
           />
         )}
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/clients"
             title="العملاء"
-            value={data!.total_clients}
+            value={data.total_clients ?? 0}
             subtitle="عميل مسجل"
             icon={Building2}
           />
         )}
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/users"
             title="المستخدمون"
-            value={data!.total_users}
-            subtitle={`${data!.total_teams} فريق`}
+            value={data.total_users ?? 0}
+            subtitle={`${data.total_teams ?? 0} فريق`}
             icon={Users}
           />
         )}
@@ -258,32 +258,32 @@ export default function DashboardPage() {
           accent={data?.unread_notifications ? 'text-orange-500' : undefined}
         />
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/quotes"
             title="عروض الأسعار"
-            value={data!.total_quotes}
-            subtitle={`${data!.signed_quotes} موقّعة`}
+            value={data.total_quotes ?? 0}
+            subtitle={`${data.signed_quotes ?? 0} موقّعة`}
             icon={FileText}
           />
         )}
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/projects"
             title="الموافقات المعلقة"
-            value={data!.pending_approvals}
+            value={data.pending_approvals ?? 0}
             subtitle="بانتظار الموافقة"
             icon={Clock}
-            accent={data!.pending_approvals > 0 ? 'text-yellow-500' : undefined}
+            accent={(data.pending_approvals ?? 0) > 0 ? 'text-yellow-500' : undefined}
           />
         )}
 
-        {isAdmin && (
+        {isAdmin && data && (
           <StatCard
             href="/dashboard/files"
             title="التخزين"
-            value={formatFileSize(data!.storage_used)}
+            value={formatFileSize(data.storage_used ?? 0)}
             subtitle="مساحة مستخدمة"
             icon={HardDrive}
           />
@@ -363,7 +363,7 @@ export default function DashboardPage() {
         {/* Sidebar: Storage + Quick Stats + Quick Actions */}
         <div className="space-y-4">
           {/* Storage Card */}
-          {isAdmin && (
+          {isAdmin && data && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -371,13 +371,13 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <StorageBar used={data!.storage_used} maxGb={data!.max_storage_gb} />
+                <StorageBar used={data.storage_used ?? 0} maxGb={data.max_storage_gb ?? 50} />
               </CardContent>
             </Card>
           )}
 
           {/* Quick Stats */}
-          {isAdmin && (
+          {isAdmin && data && (
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">إحصائيات سريعة</CardTitle>
@@ -385,25 +385,25 @@ export default function DashboardPage() {
               <CardContent className="divide-y">
                 <MiniStat
                   label="روابط مشاركة نشطة"
-                  value={data!.active_shares}
+                  value={data.active_shares ?? 0}
                   icon={Link2}
                   accent="bg-blue-100 dark:bg-blue-900/30"
                 />
                 <MiniStat
                   label="سلة المحذوفات"
-                  value={data!.trash_count}
+                  value={data.trash_count ?? 0}
                   icon={Trash2}
                   accent="bg-red-100 dark:bg-red-900/30"
                 />
                 <MiniStat
                   label="موافقات معلقة"
-                  value={data!.pending_approvals}
+                  value={data.pending_approvals ?? 0}
                   icon={Shield}
                   accent="bg-yellow-100 dark:bg-yellow-900/30"
                 />
                 <MiniStat
                   label="عروض موقّعة"
-                  value={data!.signed_quotes}
+                  value={data.signed_quotes ?? 0}
                   icon={CheckCircle}
                   accent="bg-green-100 dark:bg-green-900/30"
                 />

@@ -369,10 +369,10 @@ export default function InvoicesPage() {
           <Button
             variant="outline"
             size="icon"
-            disabled={page <= 1}
-            onClick={() => setPage(p => p - 1)}
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
           >
-            <ChevronRight className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground px-3">
             صفحة {page} من {totalPages}
@@ -380,10 +380,10 @@ export default function InvoicesPage() {
           <Button
             variant="outline"
             size="icon"
-            disabled={page >= totalPages}
-            onClick={() => setPage(p => p + 1)}
+            disabled={page <= 1}
+            onClick={() => setPage(p => p - 1)}
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
       )}

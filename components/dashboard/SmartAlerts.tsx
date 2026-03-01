@@ -41,8 +41,8 @@ export function SmartAlerts() {
       const res = await fetch('/api/dashboard/kpis/alerts');
       const json = await res.json();
       if (json.data) setAlerts(json.data);
-    } catch (err) {
-      console.error('SmartAlerts fetch error:', err);
+    } catch {
+      // Silently fail - alerts are non-critical
     } finally {
       setLoading(false);
     }

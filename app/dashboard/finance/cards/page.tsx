@@ -171,8 +171,8 @@ export default function CardsPage() {
             <Card key={c.id} className={cn('relative overflow-hidden', c.is_default && 'ring-2 ring-primary')}>
               <CardContent className="p-6">
                 {c.is_default && (
-                  <div className="absolute top-3 left-3">
-                    <Badge variant="default" className="text-xs"><Star className="h-3 w-3 ml-1" /> افتراضية</Badge>
+                  <div className="absolute top-3 start-3">
+                    <Badge variant="default" className="text-xs"><Star className="h-3 w-3 ms-1" /> افتراضية</Badge>
                   </div>
                 )}
                 <div className="flex items-start justify-between">

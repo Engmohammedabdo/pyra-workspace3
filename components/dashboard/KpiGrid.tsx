@@ -18,14 +18,16 @@ interface KpiData {
 export function KpiGrid() {
   const [data, setData] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       const res = await fetch('/api/dashboard/kpis');
       const json = await res.json();
-      if (json.data) setData(json.data);
+      if (json.data) { setData(json.data); setError(false); }
     } catch (err) {
       console.error('KpiGrid fetch error:', err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -47,7 +49,7 @@ export function KpiGrid() {
     );
   }
 
-  if (!data) return null;
+  if (error || !data) return null;
 
   const revenueTrend = getTrend(data.revenue.change_percent);
   const projectsTrend = getTrend(data.active_projects.change_percent);

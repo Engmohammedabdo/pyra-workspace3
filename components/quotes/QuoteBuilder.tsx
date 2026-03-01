@@ -435,9 +435,9 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
           <div className="text-[10px] text-muted-foreground">
             <p className="font-semibold mb-1">الشروط والأحكام</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <p>1. Quotation valid for 30 days from the date of issue.</p>
-              <p>2. 50% advance payment required to commence work.</p>
-              <p>3. Balance payment due upon project completion.</p>
+              <p>1. عرض السعر صالح لمدة 30 يوماً من تاريخ الإصدار.</p>
+              <p>2. يُطلب دفع 50% مقدماً لبدء العمل.</p>
+              <p>3. يُستحق باقي المبلغ عند اكتمال المشروع.</p>
             </div>
           </div>
         </CardContent>

@@ -176,6 +176,14 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => { fetchInvoice(); }, [fetchInvoice]);
 
+  /* ── warn before leaving with unsaved edits ── */
+  useEffect(() => {
+    if (!editing) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [editing]);
+
   /* ── enter edit mode ── */
   const startEditing = () => {
     if (!invoice) return;
@@ -281,9 +289,14 @@ export default function InvoiceDetailPage() {
 
   /* ── record payment ── */
   const handleRecordPayment = async () => {
+    if (!invoice) return;
     const amount = parseFloat(payAmount);
     if (!amount || amount <= 0) {
       toast.error('المبلغ يجب أن يكون أكبر من صفر');
+      return;
+    }
+    if (amount > invoice.amount_due) {
+      toast.error(`المبلغ يتجاوز المتبقي (${formatCurrency(invoice.amount_due, invoice.currency)})`);
       return;
     }
 
@@ -855,6 +868,7 @@ export default function InvoiceDetailPage() {
               <Input
                 type="number"
                 min={0.01}
+                max={invoice.amount_due}
                 step={0.01}
                 value={payAmount}
                 onChange={e => setPayAmount(e.target.value)}
