@@ -253,7 +253,7 @@ export default function PortalProjectDetailPage() {
         });
       }
     } catch {
-      // silently fail
+      toast.error('فشل في تحميل تفاصيل المشروع');
     } finally {
       setLoading(false);
     }

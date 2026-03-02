@@ -89,7 +89,7 @@ export default function PortalQuotesPage() {
       const res = await fetch(`/api/portal/quotes?${params}`);
       const json = await res.json();
       if (json.data) setQuotes(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch { toast.error('فشل في تحميل عروض الأسعار'); } finally { setLoading(false); }
   }, [statusFilter]);
 
   useEffect(() => { fetchQuotes(); }, [fetchQuotes]);
@@ -100,7 +100,7 @@ export default function PortalQuotesPage() {
       const res = await fetch(`/api/portal/quotes/${id}`);
       const json = await res.json();
       if (json.data) setDetail(json.data);
-    } catch (err) { console.error(err); } finally { setLoadingDetail(false); }
+    } catch { toast.error('فشل في تحميل تفاصيل العرض'); } finally { setLoadingDetail(false); }
   };
 
   const handleSign = async () => {
@@ -120,7 +120,7 @@ export default function PortalQuotesPage() {
       setShowSign(false);
       setDetail(prev => prev ? { ...prev, status: 'signed', signed_by: signName.trim(), signed_at: new Date().toISOString(), signature_data: signData } : null);
       fetchQuotes();
-    } catch (err) { console.error(err); } finally { setSigning(false); }
+    } catch { toast.error('حدث خطأ أثناء التوقيع'); } finally { setSigning(false); }
   };
 
   // Detail view

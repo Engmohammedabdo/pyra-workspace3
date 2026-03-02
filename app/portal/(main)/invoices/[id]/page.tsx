@@ -116,8 +116,8 @@ export default function PortalInvoiceDetailPage() {
         const res = await fetch(`/api/portal/invoices/${params.id}`);
         const json = await res.json();
         if (json.data) setInvoice(json.data);
-      } catch (err) {
-        console.error(err);
+      } catch {
+        toast.error('فشل في تحميل تفاصيل الفاتورة');
       } finally {
         setLoading(false);
       }
@@ -168,11 +168,11 @@ export default function PortalInvoiceDetailPage() {
       if (json.data?.checkout_url) {
         window.location.href = json.data.checkout_url;
       } else {
-        alert(json.error || 'حدث خطأ أثناء إنشاء جلسة الدفع');
+        toast.error(json.error || 'حدث خطأ أثناء إنشاء جلسة الدفع');
         setPaying(false);
       }
     } catch {
-      alert('حدث خطأ في الاتصال');
+      toast.error('حدث خطأ في الاتصال');
       setPaying(false);
     }
   };

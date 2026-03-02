@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowRight, Eye, Calendar, User } from 'lucide-react';
+import { ArrowRight, Eye, Calendar, User, AlertCircle } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -49,7 +50,10 @@ export default function HelpArticlePage() {
           setNotFound(true);
         }
       })
-      .catch(() => setNotFound(true))
+      .catch(() => {
+        setNotFound(true);
+        toast.error('فشل في تحميل المقالة');
+      })
       .finally(() => setLoading(false));
   }, [articleId]);
 

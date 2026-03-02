@@ -19,6 +19,7 @@ export function formatRelativeDate(date: string | Date): string {
 }
 
 export function formatCurrency(amount: number, currency: string = 'AED'): string {
+  if (!Number.isFinite(amount)) amount = 0;
   const formatted = new Intl.NumberFormat('en-AE', {
     style: 'currency',
     currency,

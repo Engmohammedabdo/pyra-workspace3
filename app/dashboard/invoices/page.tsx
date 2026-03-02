@@ -383,20 +383,9 @@ export default function InvoicesPage() {
         </CardContent>
       </Card>
 
-      {/* Pagination */}
+      {/* Pagination — RTL: prev (right) first, next (left) second */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            disabled={page >= totalPages}
-            onClick={() => setPage(p => p + 1)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground px-3">
-            صفحة {page} من {totalPages}
-          </span>
           <Button
             variant="outline"
             size="icon"
@@ -404,6 +393,17 @@ export default function InvoicesPage() {
             onClick={() => setPage(p => p - 1)}
           >
             <ChevronRight className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground px-3">
+            صفحة {page} من {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            disabled={page >= totalPages}
+            onClick={() => setPage(p => p + 1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
       )}

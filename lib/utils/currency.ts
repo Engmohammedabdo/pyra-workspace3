@@ -16,13 +16,16 @@ const EXCHANGE_RATES: Record<string, number> = {
 /**
  * Convert an amount to AED using fixed exchange rates.
  * If the currency is already AED or unknown, returns the amount as-is.
+ * Rounds to 2 decimal places for financial precision.
  */
 export function toAED(amount: number, currency?: string | null): number {
+  if (!Number.isFinite(amount)) return 0;
   if (!currency || currency === 'AED') return amount;
   const rate = EXCHANGE_RATES[currency.toUpperCase()];
   if (!rate) {
     console.warn(`toAED: unknown currency "${currency}", returning amount as-is`);
     return amount;
   }
-  return amount * rate;
+  // Round to 2 decimal places to avoid floating-point precision issues
+  return Math.round(amount * rate * 100) / 100;
 }

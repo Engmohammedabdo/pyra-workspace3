@@ -69,7 +69,7 @@ export default function PortalProfilePage() {
           setCompany(data.company);
         }
       } catch {
-        // silently fail
+        toast.error('فشل في تحميل بيانات الملف الشخصي');
       } finally {
         setLoading(false);
       }

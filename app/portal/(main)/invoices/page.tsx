@@ -12,6 +12,7 @@ import { FileText } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface PortalInvoice {
   id: string;
@@ -48,8 +49,8 @@ export default function PortalInvoicesPage() {
       const res = await fetch(`/api/portal/invoices?${params}`);
       const json = await res.json();
       if (json.data) setInvoices(json.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      toast.error('فشل في تحميل الفواتير');
     } finally {
       setLoading(false);
     }

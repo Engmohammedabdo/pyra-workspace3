@@ -103,7 +103,7 @@ export default function PortalNotificationsPage() {
         setNotifications(json.data);
       }
     } catch {
-      // silently fail
+      toast.error('فشل في تحميل الإشعارات');
     } finally {
       setLoading(false);
     }

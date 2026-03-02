@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
+import { toast } from 'sonner';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -59,7 +60,7 @@ export default function HelpCenterPage() {
       .then(json => {
         if (json.data) setCategories(json.data);
       })
-      .catch(() => {})
+      .catch(() => { toast.error('فشل في تحميل التصنيفات'); })
       .finally(() => setLoadingCategories(false));
   }, []);
 
@@ -72,6 +73,7 @@ export default function HelpCenterPage() {
       if (json.data) setArticles(json.data);
     } catch {
       setArticles([]);
+      toast.error('فشل في تحميل المقالات');
     } finally {
       setLoadingArticles(false);
     }
@@ -89,6 +91,7 @@ export default function HelpCenterPage() {
       if (json.data) setSearchResults(json.data);
     } catch {
       setSearchResults([]);
+      toast.error('فشل في البحث');
     } finally {
       setSearching(false);
     }

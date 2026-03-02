@@ -46,6 +46,7 @@ import {
   ArrowLeftRight,
   RefreshCw,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ---------- Types ----------
 
@@ -274,7 +275,7 @@ export default function PortalDashboardPage() {
         setData(json.data);
       }
     } catch {
-      // silently fail -- skeleton remains
+      toast.error('فشل في تحميل لوحة المعلومات');
     } finally {
       setLoading(false);
     }

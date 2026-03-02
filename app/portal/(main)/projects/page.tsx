@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
+import { toast } from 'sonner';
 
 // ---------- Types ----------
 
@@ -89,7 +90,7 @@ export default function PortalProjectsPage() {
           setProjects(mapped);
         }
       } catch {
-        // silently fail
+        toast.error('فشل في تحميل المشاريع');
       } finally {
         setLoading(false);
       }
