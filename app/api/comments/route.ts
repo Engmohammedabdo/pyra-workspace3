@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { getApiAuth, requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
@@ -18,8 +18,8 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('projects.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const projectId = searchParams.get('project_id');
@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('projects.view');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { project_id, text, file_id, parent_id, attachments } = body;

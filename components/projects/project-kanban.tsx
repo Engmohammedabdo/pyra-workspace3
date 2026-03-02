@@ -58,7 +58,7 @@ interface ProjectKanbanProps {
   projects: Project[];
   onEdit?: (project: Project) => void;
   onDelete?: (project: Project) => void;
-  onStatusChange: (projectId: string, newStatus: string) => void;
+  onStatusChange?: (projectId: string, newStatus: string) => void;
 }
 
 const COLUMNS = [
@@ -95,8 +95,8 @@ export function ProjectKanban({ projects, onEdit, onDelete, onStatusChange }: Pr
     const project = projects.find((p) => p.id === projectId);
     if (!project) return;
 
-    // Only update if status actually changed
-    if (project.status !== targetColumn && COLUMNS.some((c) => c.id === targetColumn)) {
+    // Only update if status actually changed and user has permission
+    if (onStatusChange && project.status !== targetColumn && COLUMNS.some((c) => c.id === targetColumn)) {
       onStatusChange(projectId, targetColumn);
     }
   }, [projects, onStatusChange]);

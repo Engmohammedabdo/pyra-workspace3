@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 
 export async function GET(
   _request: Request,
@@ -63,7 +64,20 @@ export async function PATCH(
   // For system roles, only allow name_ar/description/color/icon changes
   if (!currentRole.is_system) {
     if (body.name !== undefined) update.name = body.name;
-    if (body.permissions !== undefined) update.permissions = body.permissions;
+    if (body.permissions !== undefined) {
+      // Prevent privilege escalation: user cannot grant permissions they don't have
+      const userPerms = auth.pyraUser.rolePermissions;
+      if (!userPerms.includes('*')) {
+        const unauthorized = (body.permissions as string[]).filter((p: string) => !hasPermission(userPerms, p));
+        if (unauthorized.length > 0) {
+          return NextResponse.json(
+            { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+            { status: 403 }
+          );
+        }
+      }
+      update.permissions = body.permissions;
+    }
   }
 
   const { data: role, error } = await supabase

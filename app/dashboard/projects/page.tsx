@@ -226,7 +226,7 @@ export default function ProjectsPage() {
           projects={projects}
           onEdit={canEdit ? openEdit : undefined}
           onDelete={canDelete ? openDelete : undefined}
-          onStatusChange={handleStatusChange}
+          onStatusChange={canEdit ? handleStatusChange : undefined}
         />
       ) : (
       <Card>

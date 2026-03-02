@@ -75,7 +75,20 @@ export async function POST(req: NextRequest) {
       // 3. Calculate payment amount
       const paymentAmount = (session.amount_total || 0) / 100;
 
-      // 4. Insert payment record
+      // 4. Idempotency check — prevent duplicate payment records on webhook replay
+      const { data: existingPayment } = await supabase
+        .from('pyra_payments')
+        .select('id')
+        .eq('invoice_id', invoiceId)
+        .eq('reference', paymentIntentId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        console.log(`[Stripe Webhook] Payment already recorded for intent=${paymentIntentId}, skipping`);
+        return NextResponse.json({ received: true });
+      }
+
+      // 5. Insert payment record
       await supabase.from('pyra_payments').insert({
         id: generateId('pay'),
         invoice_id: invoiceId,
@@ -87,7 +100,7 @@ export async function POST(req: NextRequest) {
         recorded_by: 'system',
       });
 
-      // 5. Sum ALL payments for this invoice (race-condition safe)
+      // 6. Sum ALL payments for this invoice (race-condition safe)
       const { data: allPayments } = await supabase
         .from('pyra_payments')
         .select('amount')

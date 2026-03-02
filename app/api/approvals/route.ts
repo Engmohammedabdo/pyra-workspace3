@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { getApiAuth, requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiUnauthorized,
@@ -19,8 +19,8 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.edit');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { file_id } = body;

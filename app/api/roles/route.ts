@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 
 export async function GET() {
   const auth = await requireApiPermission('roles.view');
@@ -52,6 +53,18 @@ export async function POST(request: Request) {
 
   if (!permissions || !Array.isArray(permissions) || permissions.length === 0) {
     return NextResponse.json({ error: 'يجب تحديد صلاحية واحدة على الأقل' }, { status: 400 });
+  }
+
+  // Prevent privilege escalation: user cannot grant permissions they don't have
+  const userPerms = auth.pyraUser.rolePermissions;
+  if (!userPerms.includes('*')) {
+    const unauthorized = permissions.filter((p: string) => !hasPermission(userPerms, p));
+    if (unauthorized.length > 0) {
+      return NextResponse.json(
+        { error: `لا يمكنك منح صلاحيات لا تملكها: ${unauthorized.join(', ')}` },
+        { status: 403 }
+      );
+    }
   }
 
   const supabase = await createServerSupabaseClient();

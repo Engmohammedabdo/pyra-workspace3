@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
 import { escapePostgrestValue } from '@/lib/utils/path';
+import { hasPermission } from '@/lib/auth/rbac';
 
 /** Record login attempt (fire-and-forget, never blocks the response) */
 function recordLoginAttempt(
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If has role but no dashboard.view permission, deny access
-    if (pyraUser.role_id && !rolePermissions.includes('*') && !rolePermissions.includes('dashboard.view')) {
+    if (pyraUser.role_id && !hasPermission(rolePermissions, 'dashboard.view')) {
       await supabase.auth.signOut();
       recordLoginAttempt(pyraUser.username, ip, false);
       return NextResponse.json(
