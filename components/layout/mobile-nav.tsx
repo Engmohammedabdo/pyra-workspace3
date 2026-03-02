@@ -33,8 +33,10 @@ import {
   Repeat,
   PieChart,
   Target,
+  HelpCircle,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/auth/rbac';
+import { MODULE_GUIDES } from '@/lib/config/module-guide';
 
 interface MobileNavProps {
   user: {
@@ -72,6 +74,7 @@ const navItems = [
   { href: '/dashboard/sessions', label: 'الجلسات', icon: Monitor, permission: 'sessions.view' },
   { href: '/dashboard/profile', label: 'الملف الشخصي', icon: UserCircle },
   { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, permission: 'settings.view' },
+  { href: '/dashboard/guide', label: 'دليل الاستخدام', icon: HelpCircle },
 ];
 
 export function MobileNav({ user }: MobileNavProps) {
@@ -105,6 +108,7 @@ export function MobileNav({ user }: MobileNavProps) {
               const isActive = pathname === item.href ||
                 (item.href !== '/dashboard' && pathname.startsWith(item.href));
               const Icon = item.icon;
+              const guideDesc = MODULE_GUIDES[item.href]?.description;
 
               return (
                 <Link
@@ -118,8 +122,15 @@ export function MobileNav({ user }: MobileNavProps) {
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
                 >
-                  <Icon className={cn('h-5 w-5', isActive && 'text-orange-500')} />
-                  <span>{item.label}</span>
+                  <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-orange-500')} />
+                  <div className="min-w-0">
+                    <span className="block truncate">{item.label}</span>
+                    {guideDesc && (
+                      <span className="block text-[10px] text-muted-foreground/60 truncate leading-tight">
+                        {guideDesc}
+                      </span>
+                    )}
+                  </div>
                 </Link>
               );
             })}

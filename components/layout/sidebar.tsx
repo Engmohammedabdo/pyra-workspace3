@@ -13,6 +13,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { hasPermission } from '@/lib/auth/rbac';
+import { MODULE_GUIDES } from '@/lib/config/module-guide';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -47,6 +48,7 @@ import {
   Target,
   PieChart,
   ChevronDown,
+  HelpCircle,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -255,6 +257,7 @@ export function Sidebar({ user }: SidebarProps) {
                       const isActive = pathname === item.href ||
                         (item.href !== '/dashboard' && pathname.startsWith(item.href));
                       const Icon = item.icon;
+                      const guideDesc = MODULE_GUIDES[item.href]?.description;
 
                       const link = (
                         <Link
@@ -276,20 +279,28 @@ export function Sidebar({ user }: SidebarProps) {
                         </Link>
                       );
 
-                      if (collapsed) {
-                        return (
-                          <Tooltip key={item.href}>
-                            <TooltipTrigger asChild>
-                              {link}
-                            </TooltipTrigger>
-                            <TooltipContent side="left" className="font-medium">
-                              {item.label}
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      }
-
-                      return <div key={item.href}>{link}</div>;
+                      // Always show tooltip (collapsed = label + desc, expanded = desc only)
+                      return (
+                        <Tooltip key={item.href}>
+                          <TooltipTrigger asChild>
+                            {link}
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="left"
+                            className="max-w-[220px] text-right"
+                          >
+                            {collapsed && <p className="font-semibold text-xs">{item.label}</p>}
+                            {guideDesc && (
+                              <p className={cn(
+                                'text-[11px] leading-relaxed',
+                                collapsed ? 'text-muted-foreground mt-0.5' : 'font-medium'
+                              )}>
+                                {guideDesc}
+                              </p>
+                            )}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
                     })}
                   </div>
                 </div>
@@ -298,8 +309,28 @@ export function Sidebar({ user }: SidebarProps) {
           </nav>
         </ScrollArea>
 
-        {/* Collapse Toggle */}
-        <div className="border-t p-3">
+        {/* Guide + Collapse Toggle */}
+        <div className="border-t p-3 space-y-1">
+          {/* Quick Guide Access */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/dashboard/guide"
+                className={cn(
+                  'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-400 transition-colors',
+                  collapsed && 'justify-center px-2',
+                  pathname === '/dashboard/guide' && 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                )}
+              >
+                <HelpCircle className="h-4 w-4 shrink-0" />
+                {!collapsed && <span className="text-xs">دليل الاستخدام</span>}
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="left" className="font-medium text-xs">
+              {collapsed ? 'دليل الاستخدام' : 'شرح جميع وحدات النظام ونصائح الاستخدام'}
+            </TooltipContent>
+          </Tooltip>
+
           <Button
             variant="ghost"
             size="sm"

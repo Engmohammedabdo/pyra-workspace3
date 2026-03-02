@@ -24,6 +24,7 @@ import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { MobileNav } from '@/components/layout/mobile-nav';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { CommandPalette, SearchTrigger } from '@/components/layout/CommandPalette';
+import { PageGuide } from '@/components/ui/page-guide';
 
 interface TopbarProps {
   user: {
@@ -60,6 +61,9 @@ export function Topbar({ user }: TopbarProps) {
 
       {/* Breadcrumb */}
       <Breadcrumb />
+
+      {/* Page Guide — contextual help for current page */}
+      <PageGuide />
 
       <div className="ms-auto flex items-center gap-2">
         {/* Command Palette (Ctrl+K) */}
