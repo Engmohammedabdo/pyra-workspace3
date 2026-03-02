@@ -27,6 +27,19 @@ export async function GET(req: NextRequest) {
       return apiSuccess({ projects: [], totals: { revenue: 0, expenses: 0, profit: 0, margin: 0 } });
     }
 
+    // 1b. Fetch client names for display
+    const clientIds = [...new Set(allProjects.map((p) => p.client_id).filter(Boolean))];
+    const clientMap = new Map<string, string>();
+    if (clientIds.length > 0) {
+      const { data: clients } = await supabase
+        .from('pyra_clients')
+        .select('id, name')
+        .in('id', clientIds);
+      for (const c of clients || []) {
+        clientMap.set(c.id, c.name);
+      }
+    }
+
     // 2. Fetch expenses (optionally date-filtered)
     let expQuery = supabase
       .from('pyra_expenses')
@@ -74,6 +87,7 @@ export async function GET(req: NextRequest) {
     const projectResults: {
       project_id: string;
       project_name: string;
+      client_name: string | null;
       budget: number | null;
       revenue: number;
       expenses: number;
@@ -105,6 +119,7 @@ export async function GET(req: NextRequest) {
       projectResults.push({
         project_id: proj.id,
         project_name: proj.name,
+        client_name: proj.client_id ? clientMap.get(proj.client_id) || null : null,
         budget,
         revenue: Math.round(projRevenue * 100) / 100,
         expenses: Math.round(projExpenses * 100) / 100,

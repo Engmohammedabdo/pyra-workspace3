@@ -87,11 +87,12 @@ interface ProjectProfitability {
   project_id: string;
   project_name: string;
   client_name: string | null;
-  budget: number;
+  budget: number | null;
   revenue: number;
   expenses: number;
   profit: number;
-  budget_usage: number;
+  margin: number;
+  budget_utilization: number | null;
 }
 
 /* ══════════════════════════════════════════════════════
@@ -669,9 +670,13 @@ function ProjectProfitabilityTab() {
     fetch(`/api/finance/reports/project-profitability?from=${from}&to=${to}`)
       .then((r) => r.json())
       .then((res) => {
-        if (res.data) setData(res.data);
+        if (res.data?.projects) setData(res.data.projects);
+        else setData([]);
       })
-      .catch(() => toast.error('فشل في تحميل تقرير ربحية المشاريع'))
+      .catch(() => {
+        toast.error('فشل في تحميل تقرير ربحية المشاريع');
+        setData([]);
+      })
       .finally(() => setLoading(false));
   }, [from, to]);
 
@@ -732,7 +737,7 @@ function ProjectProfitabilityTab() {
                         )}
                       </td>
                       <td className="py-3 px-2 font-mono">
-                        {formatCurrency(p.budget)}
+                        {p.budget != null ? formatCurrency(p.budget) : <span className="text-muted-foreground">—</span>}
                       </td>
                       <td className="py-3 px-2 font-mono text-green-600">
                         {formatCurrency(p.revenue)}
@@ -748,31 +753,35 @@ function ProjectProfitabilityTab() {
                         {formatCurrency(p.profit)}
                       </td>
                       <td className="py-3 px-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                p.budget_usage > 100
-                                  ? 'bg-red-500'
-                                  : p.budget_usage > 80
-                                    ? 'bg-orange-500'
-                                    : 'bg-green-500'
+                        {p.budget_utilization != null ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${
+                                  p.budget_utilization > 100
+                                    ? 'bg-red-500'
+                                    : p.budget_utilization > 80
+                                      ? 'bg-orange-500'
+                                      : 'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(p.budget_utilization, 100)}%` }}
+                              />
+                            </div>
+                            <span
+                              className={`text-xs font-mono font-medium ${
+                                p.budget_utilization > 100
+                                  ? 'text-red-600'
+                                  : p.budget_utilization > 80
+                                    ? 'text-orange-600'
+                                    : 'text-green-600'
                               }`}
-                              style={{ width: `${Math.min(p.budget_usage, 100)}%` }}
-                            />
+                            >
+                              {p.budget_utilization}%
+                            </span>
                           </div>
-                          <span
-                            className={`text-xs font-mono font-medium ${
-                              p.budget_usage > 100
-                                ? 'text-red-600'
-                                : p.budget_usage > 80
-                                  ? 'text-orange-600'
-                                  : 'text-green-600'
-                            }`}
-                          >
-                            {p.budget_usage}%
-                          </span>
-                        </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </td>
                     </tr>
                   ))}
