@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiValidationError,
   apiServerError,
@@ -16,8 +15,8 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('notifications.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const unreadOnly = searchParams.get('unread_only') === 'true';
@@ -66,8 +65,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('notifications.view');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { recipient_username, type, title, message, target_path } = body;
@@ -98,8 +97,8 @@ export async function POST(request: NextRequest) {
         type: type.trim(),
         title: title.trim(),
         message: message.trim(),
-        source_username: admin.pyraUser.username,
-        source_display_name: admin.pyraUser.display_name,
+        source_username: auth.pyraUser.username,
+        source_display_name: auth.pyraUser.display_name,
         target_path: target_path?.trim() || null,
         is_read: false,
       })

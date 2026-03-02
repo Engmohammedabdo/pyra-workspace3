@@ -40,6 +40,7 @@ import {
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
+import { usePermission } from '@/hooks/usePermission';
 
 interface PyraUser {
   id: number;
@@ -51,6 +52,7 @@ interface PyraUser {
 }
 
 export default function UsersClient() {
+  const canManage = usePermission('users.manage');
   const [users, setUsers] = useState<PyraUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -175,13 +177,15 @@ export default function UsersClient() {
           </h1>
           <p className="text-muted-foreground">إدارة حسابات المستخدمين والصلاحيات</p>
         </div>
-        <Button onClick={() => {
-          setFormData({ username: '', display_name: '', password: '', role: 'employee' });
-          setShowCreateDialog(true);
-        }}>
-          <Plus className="h-4 w-4 me-2" />
-          إضافة مستخدم
-        </Button>
+        {canManage && (
+          <Button onClick={() => {
+            setFormData({ username: '', display_name: '', password: '', role: 'employee' });
+            setShowCreateDialog(true);
+          }}>
+            <Plus className="h-4 w-4 me-2" />
+            إضافة مستخدم
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -242,6 +246,7 @@ export default function UsersClient() {
                       </Badge>
                     </td>
                     <td className="p-3 text-muted-foreground text-xs">{formatDate(user.created_at)}</td>
+                    {canManage && (
                     <td className="p-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -260,6 +265,7 @@ export default function UsersClient() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -1,5 +1,5 @@
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { getFinanceAlerts } from '@/lib/finance/alerts';
 
 /**
@@ -8,8 +8,8 @@ import { getFinanceAlerts } from '@/lib/finance/alerts';
  * Admin only.
  */
 export async function GET() {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   try {
     const result = await getFinanceAlerts();

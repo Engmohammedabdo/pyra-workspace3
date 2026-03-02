@@ -56,8 +56,8 @@ interface Project {
 
 interface ProjectKanbanProps {
   projects: Project[];
-  onEdit: (project: Project) => void;
-  onDelete: (project: Project) => void;
+  onEdit?: (project: Project) => void;
+  onDelete?: (project: Project) => void;
   onStatusChange: (projectId: string, newStatus: string) => void;
 }
 
@@ -143,8 +143,8 @@ function KanbanColumn({
 }: {
   column: (typeof COLUMNS)[number];
   projects: Project[];
-  onEdit: (p: Project) => void;
-  onDelete: (p: Project) => void;
+  onEdit?: (p: Project) => void;
+  onDelete?: (p: Project) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -194,8 +194,8 @@ function DraggableProjectCard({
   onDelete,
 }: {
   project: Project;
-  onEdit: (p: Project) => void;
-  onDelete: (p: Project) => void;
+  onEdit?: (p: Project) => void;
+  onDelete?: (p: Project) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -230,8 +230,8 @@ function ProjectCard({
   dragHandleProps,
 }: {
   project: Project;
-  onEdit: (p: Project) => void;
-  onDelete: (p: Project) => void;
+  onEdit?: (p: Project) => void;
+  onDelete?: (p: Project) => void;
   isDragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
 }) {
@@ -258,24 +258,30 @@ function ProjectCard({
             <p className="text-[11px] text-muted-foreground truncate">{project.client_company}</p>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
-              <MoreHorizontal className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(project)}>
-              <Pencil className="h-4 w-4 me-2" /> تعديل
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => onDelete(project)}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="h-4 w-4 me-2" /> حذف
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {(onEdit || onDelete) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0">
+                <MoreHorizontal className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {onEdit && (
+                <DropdownMenuItem onClick={() => onEdit(project)}>
+                  <Pencil className="h-4 w-4 me-2" /> تعديل
+                </DropdownMenuItem>
+              )}
+              {onDelete && (
+                <DropdownMenuItem
+                  onClick={() => onDelete(project)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 me-2" /> حذف
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       {/* Description */}

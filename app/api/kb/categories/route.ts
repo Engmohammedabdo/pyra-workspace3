@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { generateSlug } from '@/lib/utils/slug';
 
@@ -11,8 +11,8 @@ import { generateSlug } from '@/lib/utils/slug';
  */
 export async function GET() {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
@@ -38,8 +38,8 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.manage');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { name, description, icon, sort_order, is_public } = body;
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         icon: icon || null,
         sort_order: sort_order ?? 0,
         is_public: is_public ?? true,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select('id, name, slug, description, icon, sort_order, is_public, created_by, created_at, updated_at')
       .single();

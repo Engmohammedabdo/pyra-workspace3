@@ -28,6 +28,7 @@ import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
+import { usePermission } from '@/hooks/usePermission';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -70,6 +71,8 @@ const PAGE_SIZE = 20;
 
 export default function InvoicesPage() {
   const router = useRouter();
+  const canCreate = usePermission('invoices.create');
+  const canDelete = usePermission('invoices.delete');
 
   /* ── list state ── */
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -202,11 +205,13 @@ export default function InvoicesPage() {
             from={new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]}
             to={new Date().toISOString().split('T')[0]}
           />
-          <Link href="/dashboard/invoices/new">
-            <Button className="bg-orange-500 hover:bg-orange-600">
-              <Plus className="h-4 w-4 me-2" /> فاتورة جديدة
-            </Button>
-          </Link>
+          {canCreate && (
+            <Link href="/dashboard/invoices/new">
+              <Button className="bg-orange-500 hover:bg-orange-600">
+                <Plus className="h-4 w-4 me-2" /> فاتورة جديدة
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -357,7 +362,7 @@ export default function InvoicesPage() {
                               <DropdownMenuItem onClick={() => handleDownloadPDF(inv.id)}>
                                 <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
                               </DropdownMenuItem>
-                              {inv.status === 'draft' && (
+                              {canDelete && inv.status === 'draft' && (
                                 <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => { setSelected(inv); setShowDelete(true); }}

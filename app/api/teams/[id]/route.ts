@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -18,8 +16,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('teams.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -66,8 +64,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('teams.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const body = await request.json();
@@ -124,8 +122,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('teams.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();

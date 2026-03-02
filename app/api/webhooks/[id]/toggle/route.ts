@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -17,8 +16,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 // =============================================================
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('integrations.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -57,8 +56,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: newEnabled ? 'webhook_enabled' : 'webhook_disabled',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: id,
       details: { webhook_name: existing.name, is_enabled: newEnabled },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',

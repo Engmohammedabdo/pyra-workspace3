@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -18,8 +17,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 // =============================================================
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('automations.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -59,8 +58,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 // =============================================================
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('automations.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const body = await request.json();
@@ -139,8 +138,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'automation_rule_updated',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: id,
       details: {
         updated_fields: Object.keys(updates).filter((k) => k !== 'updated_at'),
@@ -161,8 +160,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 // =============================================================
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('automations.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -199,8 +198,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'automation_rule_deleted',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: id,
       details: { rule_name: existing.name },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',

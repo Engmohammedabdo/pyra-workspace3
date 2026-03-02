@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -19,8 +17,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('quotes.create');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -78,7 +76,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         signed_ip: null,
         sent_at: null,
         viewed_at: null,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select('id, quote_number, status, total, created_at')
       .single();

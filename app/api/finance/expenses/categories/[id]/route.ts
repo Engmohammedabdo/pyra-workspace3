@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { EXPENSE_CATEGORY_FIELDS } from '@/lib/supabase/fields';
 
@@ -8,8 +8,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await params;
   const supabase = createServiceRoleClient();
@@ -34,8 +34,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await params;
   const supabase = createServiceRoleClient();

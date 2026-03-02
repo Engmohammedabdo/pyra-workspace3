@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -20,8 +18,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('teams.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -64,8 +62,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('teams.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const body = await request.json();
@@ -108,7 +106,7 @@ export async function POST(
         id: memberId,
         team_id: id,
         username: username.trim(),
-        added_by: admin.pyraUser.username,
+        added_by: auth.pyraUser.username,
       })
       .select()
       .single();
@@ -135,8 +133,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('teams.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const username = request.nextUrl.searchParams.get('username')?.trim();

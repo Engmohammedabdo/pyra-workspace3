@@ -20,6 +20,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { usePermission } from '@/hooks/usePermission';
 
 interface Client {
   id: string;
@@ -32,6 +33,9 @@ interface Client {
 }
 
 export default function ClientsClient() {
+  const canCreate = usePermission('clients.create');
+  const canEdit = usePermission('clients.edit');
+  const canDelete = usePermission('clients.delete');
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -119,9 +123,11 @@ export default function ClientsClient() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6" /> العملاء</h1>
           <p className="text-muted-foreground">إدارة حسابات العملاء</p>
         </div>
-        <Button onClick={() => { setForm({ name: '', email: '', phone: '', company: '', password: '', is_active: true }); setShowCreate(true); }}>
-          <Plus className="h-4 w-4 me-2" /> إضافة عميل
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { setForm({ name: '', email: '', phone: '', company: '', password: '', is_active: true }); setShowCreate(true); }}>
+            <Plus className="h-4 w-4 me-2" /> إضافة عميل
+          </Button>
+        )}
       </div>
 
       <SearchInput
@@ -167,15 +173,17 @@ export default function ClientsClient() {
                     </td>
                     <td className="p-3"><Badge variant={c.is_active ? 'default' : 'secondary'}>{c.is_active ? 'نشط' : 'معطل'}</Badge></td>
                     <td className="p-3 text-muted-foreground text-xs">{formatDate(c.created_at)}</td>
+                    {(canEdit || canDelete) && (
                     <td className="p-3">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(c)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => { setSelected(c); setShowDelete(true); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+                          {canEdit && <DropdownMenuItem onClick={() => openEdit(c)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>}
+                          {canDelete && <DropdownMenuItem onClick={() => { setSelected(c); setShowDelete(true); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

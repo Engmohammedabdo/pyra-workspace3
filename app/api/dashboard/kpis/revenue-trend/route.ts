@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiServerError } from '@/lib/api/response';
 
 const MONTH_LABELS = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -15,8 +15,8 @@ const MONTH_LABELS = [
 // =============================================================
 export async function GET(_request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('dashboard.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
 

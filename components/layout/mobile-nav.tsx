@@ -34,49 +34,51 @@ import {
   PieChart,
   Target,
 } from 'lucide-react';
+import { hasPermission } from '@/lib/auth/rbac';
 
 interface MobileNavProps {
   user: {
     username: string;
     role: string;
     display_name: string;
+    rolePermissions?: string[];
   };
 }
 
 const navItems = [
   { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
-  { href: '/dashboard/files', label: 'الملفات', icon: FolderOpen },
-  { href: '/dashboard/projects', label: 'المشاريع', icon: Briefcase },
-  { href: '/dashboard/clients', label: 'العملاء', icon: Building2, adminOnly: true },
-  { href: '/dashboard/users', label: 'المستخدمون', icon: Users, adminOnly: true },
-  { href: '/dashboard/teams', label: 'الفرق', icon: Building2 },
-  { href: '/dashboard/permissions', label: 'الصلاحيات', icon: Shield, adminOnly: true },
-  { href: '/dashboard/quotes', label: 'عروض الأسعار', icon: FileText },
-  { href: '/dashboard/invoices', label: 'الفواتير', icon: FileText, adminOnly: true },
-  { href: '/dashboard/reviews', label: 'المراجعات', icon: CheckSquare },
-  { href: '/dashboard/favorites', label: 'المفضلة', icon: Star },
-  { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell },
-  { href: '/dashboard/finance', label: 'الإدارة المالية', icon: Wallet, adminOnly: true },
-  { href: '/dashboard/finance/expenses', label: 'المصاريف', icon: ArrowDownCircle, adminOnly: true },
-  { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', icon: RefreshCw, adminOnly: true },
-  { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, adminOnly: true },
-  { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, adminOnly: true },
-  { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', icon: Repeat, adminOnly: true },
-  { href: '/dashboard/finance/reports', label: 'التقارير المالية', icon: PieChart, adminOnly: true },
-  { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', icon: Target, adminOnly: true },
-  { href: '/dashboard/activity', label: 'النشاط', icon: Activity },
-  { href: '/dashboard/trash', label: 'المحذوفات', icon: Trash2 },
-  { href: '/dashboard/login-history', label: 'سجل الدخول', icon: History, adminOnly: true },
-  { href: '/dashboard/sessions', label: 'الجلسات', icon: Monitor, adminOnly: true },
+  { href: '/dashboard/files', label: 'الملفات', icon: FolderOpen, permission: 'files.view' },
+  { href: '/dashboard/projects', label: 'المشاريع', icon: Briefcase, permission: 'projects.view' },
+  { href: '/dashboard/clients', label: 'العملاء', icon: Building2, permission: 'clients.view' },
+  { href: '/dashboard/users', label: 'المستخدمون', icon: Users, permission: 'users.view' },
+  { href: '/dashboard/teams', label: 'الفرق', icon: Building2, permission: 'teams.view' },
+  { href: '/dashboard/roles', label: 'الأدوار', icon: Shield, permission: 'roles.view' },
+  { href: '/dashboard/quotes', label: 'عروض الأسعار', icon: FileText, permission: 'quotes.view' },
+  { href: '/dashboard/invoices', label: 'الفواتير', icon: FileText, permission: 'invoices.view' },
+  { href: '/dashboard/reviews', label: 'المراجعات', icon: CheckSquare, permission: 'reviews.view' },
+  { href: '/dashboard/favorites', label: 'المفضلة', icon: Star, permission: 'favorites.view' },
+  { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell, permission: 'notifications.view' },
+  { href: '/dashboard/finance', label: 'الإدارة المالية', icon: Wallet, permission: 'finance.view' },
+  { href: '/dashboard/finance/expenses', label: 'المصاريف', icon: ArrowDownCircle, permission: 'finance.view' },
+  { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', icon: RefreshCw, permission: 'finance.view' },
+  { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, permission: 'finance.view' },
+  { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, permission: 'finance.view' },
+  { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', icon: Repeat, permission: 'finance.view' },
+  { href: '/dashboard/finance/reports', label: 'التقارير المالية', icon: PieChart, permission: 'finance.view' },
+  { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', icon: Target, permission: 'finance.view' },
+  { href: '/dashboard/activity', label: 'النشاط', icon: Activity, permission: 'activity.view' },
+  { href: '/dashboard/trash', label: 'المحذوفات', icon: Trash2, permission: 'trash.view' },
+  { href: '/dashboard/login-history', label: 'سجل الدخول', icon: History, permission: 'sessions.view' },
+  { href: '/dashboard/sessions', label: 'الجلسات', icon: Monitor, permission: 'sessions.view' },
   { href: '/dashboard/profile', label: 'الملف الشخصي', icon: UserCircle },
-  { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, adminOnly: true },
+  { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, permission: 'settings.view' },
 ];
 
 export function MobileNav({ user }: MobileNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isAdmin = user.role === 'admin';
-  const filteredItems = navItems.filter(item => !item.adminOnly || isAdmin);
+  const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view', 'files.view']);
+  const filteredItems = navItems.filter(item => !item.permission || hasPermission(userPerms, item.permission));
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>

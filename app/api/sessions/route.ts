@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,8 +12,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // =============================================================
 export async function GET(_request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('sessions.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = await createServerSupabaseClient();
 
@@ -43,8 +41,8 @@ export async function GET(_request: NextRequest) {
 // =============================================================
 export async function DELETE(_request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('sessions.manage');
+    if (isApiError(auth)) return auth;
 
     const supabase = await createServerSupabaseClient();
 
@@ -53,7 +51,7 @@ export async function DELETE(_request: NextRequest) {
       .from('pyra_sessions')
       .delete()
       .not('user_agent', 'eq', 'reset_token')
-      .neq('username', admin.pyraUser.username);
+      .neq('username', auth.pyraUser.username);
 
     if (error) {
       console.error('Sessions terminate all error:', error);

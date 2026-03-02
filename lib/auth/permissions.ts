@@ -22,6 +22,9 @@ export async function checkPathAccess(
   }
 }
 
+/**
+ * @deprecated Use hasPermission() from '@/lib/auth/rbac' instead
+ */
 export function isAdmin(role: string): boolean {
   return role === 'admin';
 }

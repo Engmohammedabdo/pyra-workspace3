@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { REVENUE_TARGET_FIELDS } from '@/lib/supabase/fields';
 
 export async function GET(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
   const url = req.nextUrl.searchParams;
@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
 
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         target_amount,
         currency: currency || 'AED',
         notes: notes || null,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select(REVENUE_TARGET_FIELDS)
       .single();
@@ -115,8 +115,8 @@ export async function POST(req: NextRequest) {
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'create_revenue_target',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/revenue-targets/${data.id}`,
       details: { period_type, target_amount, currency: currency || 'AED' },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));

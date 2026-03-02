@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/guards';
+import { requirePermission } from '@/lib/auth/guards';
 import SessionsClient from './sessions-client';
 
 export const metadata = {
@@ -6,6 +6,6 @@ export const metadata = {
 };
 
 export default async function SessionsPage() {
-  await requireAdmin();
+  await requirePermission('sessions.view');
   return <SessionsClient />;
 }

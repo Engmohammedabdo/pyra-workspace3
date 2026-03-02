@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { API_KEY_FIELDS } from '@/lib/supabase/fields';
@@ -14,8 +14,8 @@ import crypto from 'crypto';
  */
 export async function GET() {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
 
@@ -42,8 +42,8 @@ export async function GET() {
  */
 export async function POST(req: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.manage');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
     const body = await req.json();
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         permissions,
         is_active: true,
         expires_at: expires_at || null,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select(API_KEY_FIELDS)
       .single();
@@ -85,8 +85,8 @@ export async function POST(req: NextRequest) {
     supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'create_api_key',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/settings/api-keys/${apiKeyId}`,
       details: { name: name.trim(), permissions },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',

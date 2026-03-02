@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/guards';
+import { requirePermission } from '@/lib/auth/guards';
 import LoginHistoryClient from './login-history-client';
 
 export const metadata = {
@@ -6,6 +6,6 @@ export const metadata = {
 };
 
 export default async function LoginHistoryPage() {
-  await requireAdmin();
+  await requirePermission('sessions.view');
   return <LoginHistoryClient />;
 }

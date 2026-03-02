@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiError,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -23,8 +22,8 @@ export async function PATCH(
   req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id, milestoneId } = await context.params;
   const supabase = createServiceRoleClient();
@@ -79,8 +78,8 @@ export async function PATCH(
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'update_milestone',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/contracts/${id}`,
       details: { milestone_id: milestoneId, changes: Object.keys(update) },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));
@@ -99,8 +98,8 @@ export async function DELETE(
   _req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id, milestoneId } = await context.params;
   const supabase = createServiceRoleClient();
@@ -132,8 +131,8 @@ export async function DELETE(
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'delete_milestone',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/contracts/${id}`,
       details: { milestone_id: milestoneId, title: existing.title },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));

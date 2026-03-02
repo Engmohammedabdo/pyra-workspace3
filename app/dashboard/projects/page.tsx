@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { usePermission } from '@/hooks/usePermission';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,9 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 
 export default function ProjectsPage() {
   const router = useRouter();
+  const canCreate = usePermission('projects.create');
+  const canEdit = usePermission('projects.edit');
+  const canDelete = usePermission('projects.delete');
   const [projects, setProjects] = useState<Project[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,9 +176,11 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Briefcase className="h-6 w-6" /> المشاريع</h1>
           <p className="text-muted-foreground">إدارة مشاريع العملاء</p>
         </div>
-        <Button onClick={() => { setForm({ name: '', description: '', client_company: '', status: 'active' }); setShowCreate(true); }}>
-          <Plus className="h-4 w-4 me-2" /> مشروع جديد
-        </Button>
+        {canCreate && (
+          <Button onClick={() => { setForm({ name: '', description: '', client_company: '', status: 'active' }); setShowCreate(true); }}>
+            <Plus className="h-4 w-4 me-2" /> مشروع جديد
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -218,8 +224,8 @@ export default function ProjectsPage() {
       {viewMode === 'kanban' ? (
         <ProjectKanban
           projects={projects}
-          onEdit={openEdit}
-          onDelete={openDelete}
+          onEdit={canEdit ? openEdit : undefined}
+          onDelete={canDelete ? openDelete : undefined}
           onStatusChange={handleStatusChange}
         />
       ) : (
@@ -305,8 +311,12 @@ export default function ProjectsPage() {
                           <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => router.push(`/dashboard/projects/${p.id}`)}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
+                            )}
+                            {canDelete && (
+                              <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>

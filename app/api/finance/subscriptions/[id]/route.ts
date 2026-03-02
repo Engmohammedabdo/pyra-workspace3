@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
@@ -9,8 +9,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   const { id } = await params;
   const supabase = createServiceRoleClient();
@@ -33,8 +33,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await params;
   const supabase = createServiceRoleClient();
@@ -61,8 +61,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await params;
   const supabase = createServiceRoleClient();
@@ -78,8 +78,8 @@ export async function DELETE(
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'delete_subscription',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/subscriptions/${id}`,
       details: { subscription_id: id },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));

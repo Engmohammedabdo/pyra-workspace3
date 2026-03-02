@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiNotFound,
   apiServerError,
@@ -18,8 +17,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('notifications.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -67,8 +66,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('notifications.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();

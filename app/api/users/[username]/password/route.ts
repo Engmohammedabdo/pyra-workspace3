@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -27,17 +25,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const limited = checkRateLimit(userPasswordChangeLimiter, request);
     if (limited) return limited;
 
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('users.manage');
+    if (isApiError(auth)) return auth;
 
     const { username } = await params;
-    const isAdmin = auth.pyraUser.role === 'admin';
     const isSelf = auth.pyraUser.username === username;
-
-    // Non-admin users can only change their own password
-    if (!isAdmin && !isSelf) {
-      return apiForbidden('لا تملك صلاحية تغيير كلمة مرور هذا المستخدم');
-    }
 
     const body = await request.json();
     const { password, current_password } = body;
@@ -71,9 +63,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return apiServerError('لم يتم العثور على ربط حساب المصادقة');
     }
 
-    // For self-change by non-admin, verify current password
+    // For self-change, verify current password
     const serviceClient = createServiceRoleClient();
-    if (isSelf && !isAdmin) {
+    if (isSelf) {
       if (!current_password) {
         return apiValidationError('كلمة المرور الحالية مطلوبة');
       }

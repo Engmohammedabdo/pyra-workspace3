@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -27,8 +25,8 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
  */
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('clients.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
     const searchParams = request.nextUrl.searchParams;
@@ -89,8 +87,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('clients.create');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { name, email, phone, company, password } = body;
@@ -157,7 +155,7 @@ export async function POST(request: NextRequest) {
         role: 'client',
         status: 'active',
         language: 'ar',
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
         is_active: true,
       })
       .select(CLIENT_FIELDS)
@@ -207,8 +205,8 @@ export async function POST(request: NextRequest) {
     void supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'client_created',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/clients/${clientId}`,
       details: {
         client_id: clientId,

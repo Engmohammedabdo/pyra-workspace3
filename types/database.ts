@@ -9,10 +9,33 @@ export interface PyraUser {
   id: number;
   username: string;
   auth_user_id: string;
-  role: 'admin' | 'employee';
+  role: string;
+  role_id: string | null;
   display_name: string;
   permissions: UserPermissions;
   created_at: string;
+  // Joined from pyra_roles
+  role_name?: string;
+  role_name_ar?: string;
+  role_permissions?: string[];
+  role_color?: string;
+  role_icon?: string;
+}
+
+export interface PyraRole {
+  id: string;
+  name: string;
+  name_ar: string;
+  description: string | null;
+  permissions: string[];
+  is_system: boolean;
+  color: string;
+  icon: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  member_count?: number;
 }
 
 export interface UserPermissions {

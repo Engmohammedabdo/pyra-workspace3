@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -17,8 +16,8 @@ import { hashPassword } from '@/lib/utils/password';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('users.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const search = searchParams.get('search') || '';
@@ -69,8 +68,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('users.manage');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { username, password, role, display_name, permissions } = body;
@@ -160,8 +159,8 @@ export async function POST(request: NextRequest) {
     await serviceClient.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_created',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: cleanUsername,
       details: {
         created_username: cleanUsername,

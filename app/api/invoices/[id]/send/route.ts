@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -21,8 +20,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('invoices.edit');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -69,8 +68,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'invoice_sent',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/invoices/${id}`,
       details: { invoice_number: invoice.invoice_number, client_name: invoice.client_name },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',

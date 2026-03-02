@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiUnauthorized, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 // =============================================================
@@ -9,13 +9,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAdmin();
-    if (!auth) {
-      const { getApiAuth } = await import('@/lib/api/auth');
-      const basicAuth = await getApiAuth();
-      if (!basicAuth) return apiUnauthorized();
-      return apiForbidden();
-    }
+    const auth = await requireApiPermission('activity.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const from = searchParams.get('from');

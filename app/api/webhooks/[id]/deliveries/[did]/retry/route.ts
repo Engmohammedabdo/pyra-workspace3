@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiError,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -19,8 +18,8 @@ type RouteContext = { params: Promise<{ id: string; did: string }> };
 // =============================================================
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('integrations.manage');
+    if (isApiError(auth)) return auth;
 
     const { id, did } = await context.params;
     const supabase = createServiceRoleClient();

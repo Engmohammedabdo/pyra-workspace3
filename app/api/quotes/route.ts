@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -20,8 +18,8 @@ import { QUOTE_FIELDS } from '@/lib/supabase/fields';
  */
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('quotes.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();
     const sp = request.nextUrl.searchParams;
@@ -75,8 +73,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('quotes.create');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const {
@@ -221,7 +219,7 @@ export async function POST(request: NextRequest) {
         company_name: companyMap.company_name || null,
         company_logo: companyMap.company_logo || null,
         ...clientData,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select(QUOTE_FIELDS)
       .single();
@@ -256,8 +254,8 @@ export async function POST(request: NextRequest) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'quote_created',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/quotes/${quoteId}`,
       details: { quote_number: quoteNumber, total },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',

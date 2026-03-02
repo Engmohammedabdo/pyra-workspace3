@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 
 type RouteContext = { params: Promise<{ clientId: string }> };
@@ -9,8 +9,8 @@ export async function GET(
   _req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   const { clientId } = await context.params;
   const supabase = createServiceRoleClient();

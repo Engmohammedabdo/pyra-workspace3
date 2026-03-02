@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -19,8 +18,8 @@ type RouteParams = { params: Promise<{ username: string }> };
 // =============================================================
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('users.view');
+    if (isApiError(auth)) return auth;
 
     const { username } = await params;
 
@@ -49,8 +48,8 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // =============================================================
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('users.manage');
+    if (isApiError(auth)) return auth;
 
     const { username } = await params;
     const body = await request.json();
@@ -83,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return apiValidationError('الدور يجب أن يكون admin أو employee');
       }
       // Prevent admin from changing their own role (could lock themselves out)
-      if (username === admin.pyraUser.username) {
+      if (username === auth.pyraUser.username) {
         return apiError('لا يمكنك تغيير دورك الخاص', 400);
       }
       // Prevent demoting the last admin
@@ -147,8 +146,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_updated',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: username,
       details: {
         updated_fields: Object.keys(updateData),
@@ -170,13 +169,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // =============================================================
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('users.manage');
+    if (isApiError(auth)) return auth;
 
     const { username } = await params;
 
     // Prevent deleting own account
-    if (username === admin.pyraUser.username) {
+    if (username === auth.pyraUser.username) {
       return apiError('لا يمكنك حذف حسابك الخاص', 400);
     }
 
@@ -226,8 +225,8 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_deleted',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: username,
       details: {
         deleted_username: existingUser.username,

@@ -1,14 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { RECURRING_INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike } from '@/lib/utils/path';
 
 export async function GET(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
   const url = req.nextUrl.searchParams;
@@ -76,8 +76,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
 
@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         next_generation_date,
         status: 'active',
         auto_send: auto_send || false,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select(RECURRING_INVOICE_FIELDS)
       .single();
@@ -117,8 +117,8 @@ export async function POST(req: NextRequest) {
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'create_recurring_invoice',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/recurring/${data.id}`,
       details: { title, billing_cycle, client_id },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));

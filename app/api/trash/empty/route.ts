@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
@@ -17,8 +15,8 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('trash.purge');
+    if (isApiError(auth)) return auth;
 
     const supabase = await createServerSupabaseClient();
     const storage = createServiceRoleClient();
@@ -72,8 +70,8 @@ export async function POST(request: NextRequest) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'trash_empty',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: '/trash',
       details: {
         purged_count: allItems.length,

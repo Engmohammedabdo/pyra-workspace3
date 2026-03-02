@@ -12,6 +12,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { hasPermission } from '@/lib/auth/rbac';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -53,6 +54,7 @@ interface SidebarProps {
     username: string;
     role: string;
     display_name: string;
+    rolePermissions?: string[];
   };
 }
 
@@ -61,7 +63,7 @@ interface NavItem {
   label: string;
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
+  permission?: string;
 }
 
 interface NavGroup {
@@ -76,65 +78,65 @@ const navGroups: NavGroup[] = [
     titleEn: 'General',
     items: [
       { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell },
+      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view' },
     ],
   },
   {
     title: 'إدارة الملفات',
     titleEn: 'File Management',
     items: [
-      { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen },
-      { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star },
-      { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare },
-      { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2 },
+      { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen, permission: 'files.view' },
+      { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star, permission: 'favorites.view' },
+      { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare, permission: 'reviews.view' },
+      { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2, permission: 'trash.view' },
     ],
   },
   {
     title: 'العمل',
     titleEn: 'Work',
     items: [
-      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase },
-      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText },
-      { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, adminOnly: true },
-      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, adminOnly: true },
-      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText },
+      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
+      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
+      { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view' },
+      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
+      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
     ],
   },
   {
     title: 'المالية',
     titleEn: 'Finance',
     items: [
-      { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, adminOnly: true },
-      { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, adminOnly: true },
-      { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', labelEn: 'Subscriptions', icon: RefreshCw, adminOnly: true },
-      { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, adminOnly: true },
-      { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, adminOnly: true },
-      { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, adminOnly: true },
-      { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, adminOnly: true },
-      { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, adminOnly: true },
+      { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, permission: 'finance.view' },
+      { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, permission: 'finance.view' },
+      { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', labelEn: 'Subscriptions', icon: RefreshCw, permission: 'finance.view' },
+      { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, permission: 'finance.view' },
+      { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, permission: 'finance.view' },
+      { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, permission: 'finance.view' },
+      { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, permission: 'finance.view' },
+      { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, permission: 'finance.view' },
     ],
   },
   {
     title: 'الفريق',
     titleEn: 'Team',
     items: [
-      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2 },
-      { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, adminOnly: true },
-      { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: Shield, adminOnly: true },
+      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
+      { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, permission: 'users.view' },
+      { href: '/dashboard/roles', label: 'الأدوار', labelEn: 'Roles', icon: Shield, permission: 'roles.view' },
     ],
   },
   {
     title: 'النظام',
     titleEn: 'System',
     items: [
-      { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, adminOnly: true },
-      { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, adminOnly: true },
-      { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', labelEn: 'Knowledge Base', icon: BookOpen, adminOnly: true },
-      { href: '/dashboard/integrations', label: 'التكاملات', labelEn: 'Integrations', icon: Webhook, adminOnly: true },
-      { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity },
-      { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, adminOnly: true },
-      { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, adminOnly: true },
-      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, adminOnly: true },
+      { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, permission: 'reports.view' },
+      { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, permission: 'automations.view' },
+      { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', labelEn: 'Knowledge Base', icon: BookOpen, permission: 'knowledge_base.view' },
+      { href: '/dashboard/integrations', label: 'التكاملات', labelEn: 'Integrations', icon: Webhook, permission: 'integrations.view' },
+      { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity, permission: 'activity.view' },
+      { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, permission: 'sessions.view' },
+      { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, permission: 'sessions.view' },
+      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
     ],
   },
 ];
@@ -157,7 +159,7 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const isAdmin = user.role === 'admin';
+  const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view', 'files.view']);
 
   // Load collapsed groups from localStorage on mount
   useEffect(() => {
@@ -221,7 +223,7 @@ export function Sidebar({ user }: SidebarProps) {
         <ScrollArea className="flex-1 py-2">
           <nav className="px-3">
             {navGroups.map((group) => {
-              const visibleItems = group.items.filter(item => !item.adminOnly || isAdmin);
+              const visibleItems = group.items.filter(item => !item.permission || hasPermission(userPerms, item.permission));
               if (visibleItems.length === 0) return null;
 
               const isGroupCollapsed = collapsedGroups.has(group.titleEn);

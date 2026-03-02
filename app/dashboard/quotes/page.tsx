@@ -21,6 +21,7 @@ import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { usePermission } from '@/hooks/usePermission';
 
 interface Quote {
   id: string;
@@ -47,6 +48,9 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 
 export default function QuotesPage() {
   const router = useRouter();
+  const canCreate = usePermission('quotes.create');
+  const canEdit = usePermission('quotes.edit');
+  const canDelete = usePermission('quotes.delete');
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -136,9 +140,11 @@ export default function QuotesPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" /> عروض الأسعار</h1>
           <p className="text-muted-foreground">إدارة عروض الأسعار والفواتير</p>
         </div>
-        <Button onClick={() => router.push('/dashboard/quotes/new')} className="bg-orange-500 hover:bg-orange-600">
-          <Plus className="h-4 w-4 me-2" /> إنشاء عرض سعر
-        </Button>
+        {canCreate && (
+          <Button onClick={() => router.push('/dashboard/quotes/new')} className="bg-orange-500 hover:bg-orange-600">
+            <Plus className="h-4 w-4 me-2" /> إنشاء عرض سعر
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -204,23 +210,29 @@ export default function QuotesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
-                              <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
-                              <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
-                            </DropdownMenuItem>
+                            {canEdit && (
+                              <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
+                                <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
+                              </DropdownMenuItem>
+                            )}
+                            {canCreate && (
+                              <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
+                                <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
                               <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
                             </DropdownMenuItem>
-                            {q.status === 'draft' && (
+                            {canEdit && q.status === 'draft' && (
                               <DropdownMenuItem onClick={() => handleSend(q.id)}>
                                 <Send className="h-3.5 w-3.5 me-2" /> إرسال
                               </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
-                              <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
-                            </DropdownMenuItem>
+                            {canDelete && (
+                              <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
+                                <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </td>

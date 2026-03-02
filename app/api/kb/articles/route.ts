@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { generateSlug } from '@/lib/utils/slug';
 import { escapeLike } from '@/lib/utils/path';
@@ -15,8 +15,8 @@ const ARTICLE_FIELDS = 'id, category_id, title, slug, excerpt, is_public, sort_o
  */
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.view');
+    if (isApiError(auth)) return auth;
 
     const sp = request.nextUrl.searchParams;
     const categoryId = sp.get('category_id')?.trim() || '';
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.manage');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { category_id, title, content, excerpt, is_public, sort_order } = body;
@@ -93,8 +93,8 @@ export async function POST(request: NextRequest) {
         is_public: is_public ?? true,
         sort_order: sort_order ?? 0,
         view_count: 0,
-        author: admin.pyraUser.username,
-        author_display_name: admin.pyraUser.display_name,
+        author: auth.pyraUser.username,
+        author_display_name: auth.pyraUser.display_name,
       })
       .select('id, category_id, title, slug, excerpt, is_public, sort_order, view_count, author, author_display_name, created_at, updated_at')
       .single();

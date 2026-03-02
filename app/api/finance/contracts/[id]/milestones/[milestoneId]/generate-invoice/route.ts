@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiError,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -22,8 +21,8 @@ export async function POST(
   req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id, milestoneId } = await context.params;
   const supabase = createServiceRoleClient();
@@ -154,7 +153,7 @@ export async function POST(
         company_logo: settingsMap.company_logo || null,
         milestone_type: null,
         parent_invoice_id: null,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
         ...clientData,
       })
       .select(INVOICE_FIELDS)
@@ -214,8 +213,8 @@ export async function POST(
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'milestone_invoice_generated',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/invoices/${invoiceId}`,
       details: {
         contract_id: id,

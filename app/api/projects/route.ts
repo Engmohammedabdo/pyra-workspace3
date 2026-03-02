@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -20,8 +18,8 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('projects.view');
+    if (isApiError(auth)) return auth;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');
@@ -109,12 +107,8 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAdmin();
-    if (!auth) {
-      const basicAuth = await getApiAuth();
-      if (!basicAuth) return apiUnauthorized();
-      return apiForbidden();
-    }
+    const auth = await requireApiPermission('projects.create');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { name, description, client_company, client_id, team_id, status } = body;

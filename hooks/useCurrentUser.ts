@@ -5,9 +5,14 @@ import type { UserPermissions } from '@/types/database';
 
 interface CurrentUser {
   username: string;
-  role: 'admin' | 'employee';
+  role: string;
+  role_id: string | null;
   display_name: string;
   permissions: UserPermissions;
+  rolePermissions: string[];
+  role_name_ar: string;
+  role_color: string;
+  role_icon: string;
 }
 
 // ============================================================

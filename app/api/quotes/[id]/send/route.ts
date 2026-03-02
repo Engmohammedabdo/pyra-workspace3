@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -19,8 +17,8 @@ type RouteContext = { params: Promise<{ id: string }> };
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('quotes.edit');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
@@ -70,8 +68,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'quote_sent',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/quotes/${id}`,
       details: { quote_number: quote.quote_number },
       ip_address: 'server',

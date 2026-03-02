@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Settings, Save, Key, Copy, Trash2, Plus, Shield, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { usePermission } from '@/hooks/usePermission';
 
 interface SettingsMap {
   [key: string]: string;
@@ -380,6 +381,7 @@ function ApiKeysSection() {
 }
 
 export default function SettingsClient() {
+  const canManage = usePermission('settings.manage');
   const [settings, setSettings] = useState<SettingsMap>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -426,10 +428,12 @@ export default function SettingsClient() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Settings className="h-6 w-6" /> الإعدادات</h1>
           <p className="text-muted-foreground">إعدادات النظام والتكوين</p>
         </div>
-        <Button onClick={handleSave} disabled={saving}>
-          <Save className="h-4 w-4 me-2" />
-          {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
-        </Button>
+        {canManage && (
+          <Button onClick={handleSave} disabled={saving}>
+            <Save className="h-4 w-4 me-2" />
+            {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
+          </Button>
+        )}
       </div>
 
       {GROUPS.map(group => {

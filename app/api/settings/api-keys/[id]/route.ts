@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { API_KEY_FIELDS } from '@/lib/supabase/fields';
@@ -15,8 +15,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -41,8 +41,8 @@ export async function PATCH(
     supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'update_api_key',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/settings/api-keys/${id}`,
       details: { updates },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
@@ -64,8 +64,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -90,8 +90,8 @@ export async function DELETE(
     supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'delete_api_key',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/settings/api-keys/${id}`,
       details: { api_key_name: existing.name },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',

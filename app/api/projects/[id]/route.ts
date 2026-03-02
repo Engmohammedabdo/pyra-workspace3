@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiNotFound,
   apiValidationError,
@@ -19,8 +18,8 @@ type RouteContext = { params: Promise<{ id: string }> };
 // =============================================================
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('projects.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
 
@@ -92,12 +91,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
 // =============================================================
 export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
-    const auth = await getApiAdmin();
-    if (!auth) {
-      const basicAuth = await getApiAuth();
-      if (!basicAuth) return apiUnauthorized();
-      return apiForbidden();
-    }
+    const auth = await requireApiPermission('projects.edit');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
     const body = await request.json();
@@ -186,12 +181,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 // =============================================================
 export async function DELETE(request: NextRequest, context: RouteContext) {
   try {
-    const auth = await getApiAdmin();
-    if (!auth) {
-      const basicAuth = await getApiAuth();
-      if (!basicAuth) return apiUnauthorized();
-      return apiForbidden();
-    }
+    const auth = await requireApiPermission('projects.delete');
+    if (isApiError(auth)) return auth;
 
     const { id } = await context.params;
 

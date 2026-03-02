@@ -27,7 +27,11 @@ yarn-error.log*
 .env*.local
 
 # local scripts with secrets
-_db_schema.js
+_*.js
+nul
+
+# claude
+.claude/
 
 # typescript
 *.tsbuildinfo

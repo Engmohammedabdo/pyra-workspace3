@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 
@@ -86,8 +86,8 @@ function buildQuarterlyPeriods(from: string, to: string) {
 /* ── GET /api/finance/reports/pnl ──────────────────── */
 
 export async function GET(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.view');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
   const params = req.nextUrl.searchParams;

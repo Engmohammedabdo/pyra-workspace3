@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { getApiAuth } from '@/lib/api/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import {
   apiSuccess,
   apiUnauthorized,
@@ -37,12 +38,12 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return apiNotFound('التعليق غير موجود');
     }
 
-    // Authorization: only the author (by username match) or admin can delete
+    // Authorization: only the author (by username match) or user with files.edit permission can delete
     const isAuthor = comment.author_id === auth.pyraUser.username ||
       comment.author_name === auth.pyraUser.display_name; // fallback for legacy comments without author_id
-    const isAdmin = auth.pyraUser.role === 'admin';
+    const canManage = hasPermission(auth.pyraUser.rolePermissions, 'files.edit');
 
-    if (!isAuthor && !isAdmin) {
+    if (!isAuthor && !canManage) {
       return apiForbidden('لا يمكنك حذف هذا التعليق');
     }
 

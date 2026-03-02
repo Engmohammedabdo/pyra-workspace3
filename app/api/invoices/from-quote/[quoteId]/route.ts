@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -21,8 +20,8 @@ type RouteContext = { params: Promise<{ quoteId: string }> };
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('invoices.create');
+    if (isApiError(auth)) return auth;
 
     const { quoteId } = await context.params;
     const supabase = createServiceRoleClient();
@@ -89,7 +88,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         client_company: quote.client_company,
         client_phone: quote.client_phone,
         client_address: quote.client_address,
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select(INVOICE_FIELDS)
       .single();
@@ -123,8 +122,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'invoice_from_quote',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/invoices/${invoiceId}`,
       details: {
         invoice_number: invoiceNumber,

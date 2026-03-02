@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
@@ -42,8 +42,8 @@ function calculateNextDate(currentDate: string, billingCycle: string): string {
  * Admin only.
  */
 export async function POST(req: NextRequest) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const supabase = createServiceRoleClient();
 
@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
             bank_details: bankDetails,
             company_name: settingsMap.company_name || null,
             company_logo: settingsMap.company_logo || null,
-            created_by: admin.pyraUser.username,
+            created_by: auth.pyraUser.username,
             ...clientData,
           })
           .select(INVOICE_FIELDS)
@@ -223,8 +223,8 @@ export async function POST(req: NextRequest) {
         supabase.from('pyra_activity_log').insert({
           id: generateId('al'),
           action_type: 'generate_recurring_invoice',
-          username: admin.pyraUser.username,
-          display_name: admin.pyraUser.display_name,
+          username: auth.pyraUser.username,
+          display_name: auth.pyraUser.display_name,
           target_path: `/dashboard/invoices/${invoiceId}`,
           details: {
             template_id: template.id,

@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -60,8 +59,8 @@ const ALLOWED_KEYS = new Set([
 // =============================================================
 export async function GET(_request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = await createServerSupabaseClient();
 
@@ -94,8 +93,8 @@ export async function GET(_request: NextRequest) {
 // =============================================================
 export async function PATCH(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('settings.manage');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
 

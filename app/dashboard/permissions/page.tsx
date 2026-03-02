@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/guards';
+import { requirePermission } from '@/lib/auth/guards';
 import PermissionsClient from './permissions-client';
 
 export const metadata = {
@@ -6,6 +6,6 @@ export const metadata = {
 };
 
 export default async function PermissionsPage() {
-  await requireAdmin();
+  await requirePermission('users.manage');
   return <PermissionsClient />;
 }

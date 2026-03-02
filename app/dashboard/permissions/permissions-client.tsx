@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Shield, Plus, Trash2, FolderLock } from 'lucide-react';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface Permission {
   id: string;
@@ -174,11 +175,13 @@ export default function PermissionsClient() {
       {loading ? (
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
       ) : permissions.length === 0 ? (
-        <Card><CardContent className="p-12 text-center text-muted-foreground">
-          <FolderLock className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-          <p>لا توجد صلاحيات مخصصة</p>
-          <p className="text-xs mt-1">أضف صلاحيات للمستخدمين أو الفرق للتحكم في الوصول</p>
-        </CardContent></Card>
+        <EmptyState
+          icon={FolderLock}
+          title="لا توجد صلاحيات مخصصة"
+          description="أضف صلاحيات للمستخدمين أو الفرق للتحكم في الوصول"
+          actionLabel="صلاحية جديدة"
+          onAction={() => setShowCreate(true)}
+        />
       ) : (
         <Card>
           <CardContent className="p-0">

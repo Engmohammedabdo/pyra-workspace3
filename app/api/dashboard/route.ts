@@ -18,9 +18,11 @@ export async function GET(_request: NextRequest) {
     if (!auth) return apiUnauthorized();
 
     const supabase = await createServerSupabaseClient();
-    const isAdmin = auth.pyraUser.role === 'admin';
+    const { hasPermission } = await import('@/lib/auth/rbac');
+    const canViewAll = hasPermission(auth.pyraUser.rolePermissions, 'dashboard.view') &&
+      (hasPermission(auth.pyraUser.rolePermissions, 'users.view') || auth.pyraUser.role === 'admin');
 
-    if (isAdmin) {
+    if (canViewAll) {
       return await getAdminDashboard(supabase, auth.pyraUser.username);
     } else {
       return await getEmployeeDashboard(supabase, auth.pyraUser);

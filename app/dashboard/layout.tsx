@@ -10,12 +10,19 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const session = await requireAuth();
+  const layoutUser = {
+    username: session.pyraUser.username,
+    role: session.pyraUser.role,
+    display_name: session.pyraUser.display_name,
+    rolePermissions: session.pyraUser.rolePermissions,
+    role_name_ar: session.pyraUser.role_name_ar,
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar user={session.pyraUser} />
+      <Sidebar user={layoutUser} />
       <div className="lg:ps-[280px] transition-all duration-300">
-        <Topbar user={session.pyraUser} />
+        <Topbar user={layoutUser} />
         <main className="p-4 lg:p-6">
           <ErrorBoundaryWrapper>
             <PageTransition>

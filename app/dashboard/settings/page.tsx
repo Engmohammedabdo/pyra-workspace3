@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/guards';
+import { requirePermission } from '@/lib/auth/guards';
 import SettingsClient from './settings-client';
 
 export const metadata = {
@@ -6,6 +6,6 @@ export const metadata = {
 };
 
 export default async function SettingsPage() {
-  await requireAdmin();
+  await requirePermission('settings.view');
   return <SettingsClient />;
 }

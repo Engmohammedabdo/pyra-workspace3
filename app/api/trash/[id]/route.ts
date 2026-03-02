@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -21,8 +19,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('trash.restore');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -83,8 +81,8 @@ export async function POST(
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'trash_restore',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: trashItem.original_path,
       details: {
         file_name: trashItem.file_name,
@@ -112,8 +110,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('trash.purge');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
@@ -155,8 +153,8 @@ export async function DELETE(
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'trash_permanent_delete',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: trashItem.original_path,
       details: {
         file_name: trashItem.file_name,

@@ -1,4 +1,4 @@
-import { requireAdmin } from '@/lib/auth/guards';
+import { requirePermission } from '@/lib/auth/guards';
 import ClientsClient from './clients-client';
 
 export const metadata = {
@@ -6,6 +6,6 @@ export const metadata = {
 };
 
 export default async function ClientsPage() {
-  await requireAdmin();
+  await requirePermission('clients.view');
   return <ClientsClient />;
 }

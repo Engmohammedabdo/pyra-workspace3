@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -16,8 +14,8 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(_request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('teams.view');
+    if (isApiError(auth)) return auth;
 
     const supabase = await createServerSupabaseClient();
 
@@ -45,8 +43,8 @@ export async function GET(_request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('teams.manage');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { name, description, permissions } = body;
@@ -67,7 +65,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         description: description?.trim() || null,
         permissions: permissions || {},
-        created_by: admin.pyraUser.username,
+        created_by: auth.pyraUser.username,
       })
       .select()
       .single();

@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Verify user has admin/employee role in pyra_users ──
+    // ── Verify user exists in pyra_users with a valid role ──
     const username = data.user.user_metadata?.username || data.user.email;
     const { data: pyraUser, error: pyraErr } = await supabase
       .from('pyra_users')
-      .select('role, username, display_name')
+      .select('role, role_id, username, display_name, pyra_roles!left(name, name_ar, permissions, color, icon)')
       .or(`username.eq.${escapePostgrestValue(username)},email.eq.${escapePostgrestValue(email)}`)
       .limit(1)
       .maybeSingle();
@@ -74,9 +74,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['admin', 'employee'].includes(pyraUser.role)) {
+    // Check role permissions - user must have dashboard.view permission
+    const roleData = pyraUser.pyra_roles as unknown;
+    const role = (Array.isArray(roleData) ? roleData[0] : roleData) as { name: string; name_ar: string; permissions: string[]; color: string; icon: string } | null;
+    const rolePermissions: string[] = role?.permissions ?? [];
+
+    // If no role assigned and legacy role is not admin/employee, deny access
+    if (!pyraUser.role_id && !['admin', 'employee'].includes(pyraUser.role)) {
       await supabase.auth.signOut();
-      // ── Record failed attempt (wrong role) ──
+      recordLoginAttempt(pyraUser.username, ip, false);
+      return NextResponse.json(
+        { error: 'لا تملك صلاحية الدخول للوحة الإدارة' },
+        { status: 403 }
+      );
+    }
+
+    // If has role but no dashboard.view permission, deny access
+    if (pyraUser.role_id && !rolePermissions.includes('*') && !rolePermissions.includes('dashboard.view')) {
+      await supabase.auth.signOut();
       recordLoginAttempt(pyraUser.username, ip, false);
       return NextResponse.json(
         { error: 'لا تملك صلاحية الدخول للوحة الإدارة' },
@@ -93,7 +108,10 @@ export async function POST(request: NextRequest) {
         id: data.user.id,
         email: data.user.email,
         role: pyraUser.role,
+        role_id: pyraUser.role_id,
         username: pyraUser.username,
+        role_name_ar: role?.name_ar,
+        rolePermissions,
       },
     });
   } catch {

@@ -1,9 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
-  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient, createServerSupabaseClient } from '@/lib/supabase/server';
@@ -29,8 +27,8 @@ export async function POST(request: NextRequest) {
     const limited = checkRateLimit(reindexLimiter, request);
     if (limited) return limited;
 
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('files.edit');
+    if (isApiError(auth)) return auth;
 
     const storage = createServiceRoleClient();
     const supabase = await createServerSupabaseClient();

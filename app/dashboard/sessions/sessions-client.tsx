@@ -11,6 +11,7 @@ import {
 import { Monitor, Wifi, WifiOff, Trash2, AlertTriangle } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { usePermission } from '@/hooks/usePermission';
 
 interface Session {
   id: string;
@@ -36,6 +37,7 @@ function isActive(lastActivity: string): boolean {
 }
 
 export default function SessionsClient() {
+  const canManage = usePermission('sessions.manage');
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTerminateAll, setShowTerminateAll] = useState(false);
@@ -100,7 +102,7 @@ export default function SessionsClient() {
           </h1>
           <p className="text-muted-foreground">الجلسات النشطة للعملاء على البورتال</p>
         </div>
-        {sessions.length > 0 && (
+        {canManage && sessions.length > 0 && (
           <Button variant="destructive" size="sm" onClick={() => setShowTerminateAll(true)} disabled={saving}>
             <Trash2 className="h-4 w-4 me-1" /> إنهاء الكل
           </Button>
@@ -172,6 +174,7 @@ export default function SessionsClient() {
                     </td>
                     <td className="p-3 text-muted-foreground text-xs">{formatRelativeDate(session.last_activity)}</td>
                     <td className="p-3 text-muted-foreground text-xs">{formatRelativeDate(session.created_at)}</td>
+                    {canManage && (
                     <td className="p-3">
                       <Button
                         variant="ghost"
@@ -184,6 +187,7 @@ export default function SessionsClient() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

@@ -30,6 +30,7 @@ interface TopbarProps {
     username: string;
     role: string;
     display_name: string;
+    role_name_ar?: string;
   };
 }
 
@@ -101,7 +102,7 @@ export function Topbar({ user }: TopbarProps) {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user.display_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {user.role === 'admin' ? 'مسؤول' : 'موظف'} · @{user.username}
+                  {user.role_name_ar ?? (user.role === 'admin' ? 'مسؤول' : 'موظف')} · @{user.username}
                 </p>
               </div>
             </DropdownMenuLabel>

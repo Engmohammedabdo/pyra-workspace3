@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
-import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { REVENUE_TARGET_FIELDS } from '@/lib/supabase/fields';
@@ -11,8 +11,8 @@ export async function PATCH(
   req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await context.params;
   const supabase = createServiceRoleClient();
@@ -45,8 +45,8 @@ export async function DELETE(
   _req: NextRequest,
   context: RouteContext
 ) {
-  const admin = await getApiAdmin();
-  if (!admin) return apiForbidden();
+  const auth = await requireApiPermission('finance.manage');
+  if (isApiError(auth)) return auth;
 
   const { id } = await context.params;
   const supabase = createServiceRoleClient();
@@ -63,8 +63,8 @@ export async function DELETE(
     supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'delete_revenue_target',
-      username: admin.pyraUser.username,
-      display_name: admin.pyraUser.display_name,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
       target_path: `/finance/revenue-targets/${id}`,
       details: { target_id: id },
     }).then(null, (e: unknown) => console.error('Activity log error:', e));

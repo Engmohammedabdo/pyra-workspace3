@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAdmin } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { apiSuccess, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateSlug } from '@/lib/utils/slug';
 
 const ARTICLE_FULL_FIELDS = 'id, category_id, title, slug, content, excerpt, is_public, sort_order, view_count, author, author_display_name, created_at, updated_at';
@@ -15,8 +15,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
@@ -48,8 +48,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const body = await request.json();
@@ -96,8 +96,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getApiAdmin();
-    if (!admin) return apiForbidden();
+    const auth = await requireApiPermission('knowledge_base.manage');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const supabase = createServiceRoleClient();
