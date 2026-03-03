@@ -42,7 +42,7 @@ const SECTIONS = [
     icon: FolderOpen,
     color: 'text-purple-600 dark:text-purple-400',
     bgColor: 'bg-purple-500/10',
-    hrefs: ['/dashboard/files', '/dashboard/favorites', '/dashboard/reviews', '/dashboard/trash'],
+    hrefs: ['/dashboard/files', '/dashboard/favorites', '/dashboard/reviews', '/dashboard/trash', '/dashboard/storage'],
   },
   {
     key: 'work',
