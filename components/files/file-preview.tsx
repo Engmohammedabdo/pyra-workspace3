@@ -33,6 +33,7 @@ import type { FileListItem } from '@/types/database';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
+import { useTheme } from 'next-themes';
 
 interface FilePreviewProps {
   file: FileListItem | null;
@@ -72,6 +73,13 @@ function isDocx(name: string) {
   const lower = name.toLowerCase();
   return lower.endsWith('.docx') || lower.endsWith('.doc');
 }
+function isSpreadsheet(name: string) {
+  const lower = name.toLowerCase();
+  return lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv');
+}
+function isCsv(name: string) {
+  return name.toLowerCase().endsWith('.csv');
+}
 
 // Detect if text is predominantly RTL (Arabic, Hebrew, etc.)
 function detectDirection(text: string): 'rtl' | 'ltr' {
@@ -86,6 +94,7 @@ function getFileTypeInfo(mime: string, name: string) {
   if (isImage(mime)) return { icon: FileImage, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'صورة' };
   if (isVideo(mime)) return { icon: Film, color: 'text-purple-500', bg: 'bg-purple-500/10', label: 'فيديو' };
   if (isAudio(mime)) return { icon: Music, color: 'text-pink-500', bg: 'bg-pink-500/10', label: 'صوت' };
+  if (isSpreadsheet(name)) return { icon: FileText, color: 'text-green-600', bg: 'bg-green-600/10', label: 'جدول' };
   if (isDocx(name)) return { icon: FileText, color: 'text-blue-600', bg: 'bg-blue-600/10', label: 'Word' };
   if (isMarkdown(name)) return { icon: FileText, color: 'text-green-500', bg: 'bg-green-500/10', label: 'Markdown' };
   if (isText(mime)) return { icon: Code, color: 'text-emerald-500', bg: 'bg-emerald-500/10', label: 'نص' };
@@ -150,9 +159,10 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
     }
   };
 
-  // Determine if this file is markdown or docx by name
+  // Determine if this file is markdown, docx, or spreadsheet by name
   const isMarkdownFile = !file.isFolder && isMarkdown(decodedName);
   const isDocxFile = !file.isFolder && isDocx(decodedName);
+  const isSpreadsheetFile = !file.isFolder && isSpreadsheet(decodedName);
 
   // Full-screen for media-heavy files (PDF, images, video)
   const isFullViewer = isPdf(file.mimeType) || isImage(file.mimeType) || isVideo(file.mimeType);
@@ -264,6 +274,10 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
               <VideoPreview url={signedUrl} />
             ) : isAudio(file.mimeType) ? (
               <AudioPreview url={signedUrl} name={decodedName} />
+            ) : isSpreadsheetFile ? (
+              <div className="max-w-6xl mx-auto p-6">
+                <SpreadsheetPreview url={signedUrl} fileName={decodedName} />
+              </div>
             ) : isDocxFile ? (
               <div className="max-w-4xl mx-auto p-6">
                 <DocxViewer url={signedUrl} />
@@ -525,9 +539,51 @@ function MarkdownPreview({ url }: { url: string }) {
 }
 
 // =================== TEXT PREVIEW ===================
+const MAX_CODE_CHARS = 20000;
+
+/** Map file extensions to shiki language IDs */
+function getShikiLang(fileName: string): string | null {
+  const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
+  const map: Record<string, string> = {
+    '.js': 'javascript', '.mjs': 'javascript', '.cjs': 'javascript',
+    '.ts': 'typescript', '.mts': 'typescript', '.cts': 'typescript',
+    '.jsx': 'jsx', '.tsx': 'tsx',
+    '.css': 'css', '.scss': 'scss', '.less': 'less',
+    '.html': 'html', '.htm': 'html', '.vue': 'vue', '.svelte': 'svelte',
+    '.xml': 'xml', '.svg': 'xml',
+    '.json': 'json', '.jsonc': 'jsonc',
+    '.py': 'python', '.pyw': 'python',
+    '.java': 'java', '.kt': 'kotlin', '.kts': 'kotlin',
+    '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp', '.cc': 'cpp',
+    '.cs': 'csharp',
+    '.rs': 'rust',
+    '.go': 'go',
+    '.rb': 'ruby',
+    '.php': 'php',
+    '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
+    '.ps1': 'powershell',
+    '.yaml': 'yaml', '.yml': 'yaml',
+    '.toml': 'toml',
+    '.sql': 'sql',
+    '.md': 'markdown', '.mdx': 'mdx',
+    '.graphql': 'graphql', '.gql': 'graphql',
+    '.dockerfile': 'dockerfile',
+    '.r': 'r',
+    '.swift': 'swift',
+    '.dart': 'dart',
+    '.lua': 'lua',
+    '.env': 'dotenv',
+    '.ini': 'ini', '.cfg': 'ini',
+    '.prisma': 'prisma',
+  };
+  return map[ext] || null;
+}
+
 function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
   const [content, setContent] = useState<string | null>(null);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
   const [error, setError] = useState(false);
+  const { theme } = useTheme();
 
   useEffect(() => {
     fetch(url)
@@ -536,11 +592,40 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
       .catch(() => setError(true));
   }, [url]);
 
+  // Syntax highlighting with shiki
+  useEffect(() => {
+    if (!content || !fileName) return;
+    const lang = getShikiLang(fileName);
+    if (!lang) {
+      setHighlighted(null);
+      return;
+    }
+
+    const codeToHighlight = content.slice(0, MAX_CODE_CHARS);
+    let cancelled = false;
+
+    import('shiki')
+      .then(({ codeToHtml }) =>
+        codeToHtml(codeToHighlight, {
+          lang,
+          theme: theme === 'dark' ? 'github-dark' : 'github-light',
+        })
+      )
+      .then((html) => {
+        if (!cancelled) setHighlighted(html);
+      })
+      .catch(() => {
+        if (!cancelled) setHighlighted(null);
+      });
+
+    return () => { cancelled = true; };
+  }, [content, fileName, theme]);
+
   if (error) return <PreviewError />;
   if (content === null) return <PreviewLoading />;
 
-  const isCode = fileName && /\.(js|ts|jsx|tsx|css|html|xml|json|py|java|c|cpp|rs|go|rb|php|sh|yaml|yml|toml|sql)$/i.test(fileName);
   const lineCount = content.split('\n').length;
+  const truncated = content.length > MAX_CODE_CHARS;
 
   return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
@@ -549,13 +634,33 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
         <div className="flex items-center gap-2">
           <Code className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium">{fileName}</span>
+          {getShikiLang(fileName || '') && (
+            <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              {getShikiLang(fileName || '')}
+            </Badge>
+          )}
         </div>
-        <span className="text-[10px] text-muted-foreground">{lineCount} سطر</span>
+        <div className="flex items-center gap-2">
+          {truncated && (
+            <span className="text-[10px] text-amber-600 dark:text-amber-400">
+              أول {MAX_CODE_CHARS.toLocaleString()} حرف
+            </span>
+          )}
+          <span className="text-[10px] text-muted-foreground">{lineCount} سطر</span>
+        </div>
       </div>
       <div className="overflow-auto max-h-[70vh]">
-        <pre className={`p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed ${isCode ? 'text-foreground' : ''}`} dir="ltr">
-          {content}
-        </pre>
+        {highlighted ? (
+          <div
+            className="shiki-preview text-xs leading-relaxed [&_pre]:!p-4 [&_pre]:!m-0 [&_pre]:!bg-transparent [&_code]:!text-xs [&_code]:!leading-relaxed"
+            dir="ltr"
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
+        ) : (
+          <pre className="p-4 text-xs font-mono whitespace-pre-wrap break-all leading-relaxed" dir="ltr">
+            {content}
+          </pre>
+        )}
       </div>
     </div>
   );
@@ -577,6 +682,199 @@ function GenericPreview({ file }: { file: FileListItem }) {
       </p>
     </div>
   );
+}
+
+// =================== SPREADSHEET PREVIEW ===================
+const MAX_PREVIEW_ROWS = 500;
+
+function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }) {
+  const [sheets, setSheets] = useState<{ name: string; data: string[][] }[]>([]);
+  const [activeSheet, setActiveSheet] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [totalRows, setTotalRows] = useState(0);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+
+    if (isCsv(fileName)) {
+      // CSV: fetch as text and parse manually
+      fetch(url)
+        .then((res) => res.text())
+        .then((text) => {
+          const rows = parseCsv(text);
+          setTotalRows(rows.length);
+          setSheets([{ name: 'Sheet1', data: rows.slice(0, MAX_PREVIEW_ROWS + 1) }]);
+          setActiveSheet(0);
+          setLoading(false);
+        })
+        .catch(() => {
+          setError(true);
+          setLoading(false);
+        });
+    } else {
+      // Excel: fetch as ArrayBuffer and parse with xlsx
+      fetch(url)
+        .then((res) => res.arrayBuffer())
+        .then(async (buffer) => {
+          const XLSX = (await import('xlsx')).default;
+          const wb = XLSX.read(buffer, { type: 'array' });
+          const parsed = wb.SheetNames.map((name) => {
+            const sheet = wb.Sheets[name];
+            const json: string[][] = XLSX.utils.sheet_to_json(sheet, {
+              header: 1,
+              defval: '',
+            });
+            return { name, data: json };
+          });
+          if (parsed.length > 0) {
+            setTotalRows(parsed[0].data.length);
+          }
+          // Cap rows per sheet
+          const capped = parsed.map((s) => ({
+            ...s,
+            data: s.data.slice(0, MAX_PREVIEW_ROWS + 1),
+          }));
+          setSheets(capped);
+          setActiveSheet(0);
+          setLoading(false);
+        })
+        .catch(() => {
+          setError(true);
+          setLoading(false);
+        });
+    }
+  }, [url, fileName]);
+
+  if (loading) return <PreviewLoading />;
+  if (error || sheets.length === 0) return <PreviewError />;
+
+  const current = sheets[activeSheet];
+  const headerRow = current.data[0] || [];
+  const bodyRows = current.data.slice(1);
+
+  return (
+    <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      {/* Sheet tabs (for multi-sheet Excel files) */}
+      {sheets.length > 1 && (
+        <div className="flex items-center gap-1 px-4 py-2 border-b bg-muted/30 overflow-x-auto">
+          {sheets.map((sheet, idx) => (
+            <button
+              key={sheet.name}
+              onClick={() => {
+                setActiveSheet(idx);
+                setTotalRows(sheets[idx].data.length);
+              }}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${
+                idx === activeSheet
+                  ? 'bg-pyra-orange text-white font-medium'
+                  : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {sheet.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Row count notice */}
+      <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/20">
+        <span className="text-xs text-muted-foreground">
+          {bodyRows.length} صف{totalRows > MAX_PREVIEW_ROWS && ` (من أصل ${totalRows - 1})`} · {headerRow.length} عمود
+        </span>
+        {totalRows > MAX_PREVIEW_ROWS && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            يتم عرض أول {MAX_PREVIEW_ROWS} صف فقط
+          </span>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="overflow-auto max-h-[65vh]">
+        <table className="w-full text-xs border-collapse" dir="auto">
+          <thead className="sticky top-0 z-10">
+            <tr className="bg-muted/80 backdrop-blur-sm">
+              <th className="px-3 py-2 text-center text-muted-foreground font-medium border-b border-e w-10">
+                #
+              </th>
+              {headerRow.map((cell, i) => (
+                <th
+                  key={i}
+                  className="px-3 py-2 text-start font-semibold border-b border-e whitespace-nowrap"
+                >
+                  {String(cell)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {bodyRows.map((row, rowIdx) => (
+              <tr
+                key={rowIdx}
+                className="hover:bg-accent/30 transition-colors"
+              >
+                <td className="px-3 py-1.5 text-center text-muted-foreground border-e tabular-nums">
+                  {rowIdx + 1}
+                </td>
+                {headerRow.map((_, colIdx) => (
+                  <td
+                    key={colIdx}
+                    className="px-3 py-1.5 border-e whitespace-nowrap max-w-[300px] truncate"
+                  >
+                    {String(row[colIdx] ?? '')}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Simple CSV parser that handles quoted fields */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let current: string[] = [];
+  let cell = '';
+  let inQuote = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else {
+          inQuote = false;
+        }
+      } else {
+        cell += ch;
+      }
+    } else {
+      if (ch === '"') {
+        inQuote = true;
+      } else if (ch === ',' || ch === '\t' || ch === ';') {
+        current.push(cell);
+        cell = '';
+      } else if (ch === '\n') {
+        current.push(cell);
+        cell = '';
+        if (current.some((c) => c !== '')) rows.push(current);
+        current = [];
+      } else if (ch !== '\r') {
+        cell += ch;
+      }
+    }
+  }
+  // Last cell/row
+  current.push(cell);
+  if (current.some((c) => c !== '')) rows.push(current);
+
+  return rows;
 }
 
 // =================== FILE COMMENTS SECTION ===================

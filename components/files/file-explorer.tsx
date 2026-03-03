@@ -153,18 +153,43 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     [router]
   );
 
-  // Selection
-  const handleSelect = useCallback((path: string, multi: boolean) => {
-    setSelectedFiles((prev) => {
-      const next = new Set(multi ? prev : []);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
-      return next;
-    });
-  }, []);
+  // Selection with Shift+click range support
+  const lastSelectedIndexRef = useRef<number>(-1);
+
+  const handleSelect = useCallback((path: string, multi: boolean, shiftKey?: boolean) => {
+    const currentIndex = processedFiles.findIndex((f) => f.path === path);
+
+    if (shiftKey && lastSelectedIndexRef.current >= 0 && currentIndex >= 0) {
+      // Shift+click: range select from last selected to current
+      const start = Math.min(lastSelectedIndexRef.current, currentIndex);
+      const end = Math.max(lastSelectedIndexRef.current, currentIndex);
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        for (let i = start; i <= end; i++) {
+          next.add(processedFiles[i].path);
+        }
+        return next;
+      });
+    } else if (multi) {
+      // Ctrl/Meta+click: toggle individual item
+      setSelectedFiles((prev) => {
+        const next = new Set(prev);
+        if (next.has(path)) {
+          next.delete(path);
+        } else {
+          next.add(path);
+        }
+        return next;
+      });
+    } else {
+      // Plain click: single select
+      setSelectedFiles(new Set([path]));
+    }
+
+    if (currentIndex >= 0) {
+      lastSelectedIndexRef.current = currentIndex;
+    }
+  }, [processedFiles]);
 
   // Create folder
   const handleCreateFolder = useCallback(

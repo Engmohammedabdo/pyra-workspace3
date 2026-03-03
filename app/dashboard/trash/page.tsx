@@ -1,14 +1,23 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
-import { Trash2, RotateCcw, AlertTriangle, XCircle, Clock } from 'lucide-react';
+import { Trash2, RotateCcw, AlertTriangle, XCircle, Clock, Search, Filter } from 'lucide-react';
 import { formatFileSize, formatDate, formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -32,6 +41,9 @@ export default function TrashPage() {
   const [showPurgeExpired, setShowPurgeExpired] = useState(false);
   const [selected, setSelected] = useState<TrashItem | null>(null);
   const [saving, setSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
   const fetchTrash = useCallback(async () => {
     setLoading(true);
@@ -80,6 +92,78 @@ export default function TrashPage() {
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
+  // Filter items based on search and type
+  const filteredItems = useMemo(() => {
+    let result = items;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (item) =>
+          item.file_name.toLowerCase().includes(q) ||
+          item.original_path.toLowerCase().includes(q)
+      );
+    }
+
+    // Type filter
+    if (typeFilter !== 'all') {
+      result = result.filter((item) => {
+        const mime = item.mime_type || '';
+        switch (typeFilter) {
+          case 'image': return mime.startsWith('image/');
+          case 'video': return mime.startsWith('video/');
+          case 'document': return mime.startsWith('text/') || mime === 'application/pdf' || mime.includes('document') || mime.includes('spreadsheet');
+          case 'archive': return mime.includes('zip') || mime.includes('rar') || mime.includes('tar') || mime.includes('compress');
+          default: return true;
+        }
+      });
+    }
+
+    return result;
+  }, [items, searchQuery, typeFilter]);
+
+  // Toggle single checkbox
+  const toggleCheck = (id: string) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // Toggle select all filtered
+  const toggleSelectAll = () => {
+    if (checkedIds.size === filteredItems.length) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(filteredItems.map((i) => i.id)));
+    }
+  };
+
+  // Batch restore
+  const batchRestore = async () => {
+    if (checkedIds.size === 0) return;
+    setSaving(true);
+    let successCount = 0;
+    try {
+      for (const id of checkedIds) {
+        const res = await fetch(`/api/trash/${id}`, { method: 'POST' });
+        const json = await res.json();
+        if (!json.error) successCount++;
+      }
+      toast.success(`تم استعادة ${successCount} ملف`);
+      setCheckedIds(new Set());
+      fetchTrash();
+    } catch (err) {
+      console.error(err);
+      toast.error('حدث خطأ أثناء الاستعادة');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const purgeExpired = async () => {
     setSaving(true);
     try {
@@ -113,12 +197,55 @@ export default function TrashPage() {
         )}
       </div>
 
+      {/* Search + Filter Bar */}
+      {items.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث بالاسم أو المسار..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="ps-9"
+            />
+          </div>
+          <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <SelectTrigger className="w-[150px]">
+              <Filter className="h-4 w-4 me-2 text-muted-foreground" />
+              <SelectValue placeholder="النوع" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">الكل</SelectItem>
+              <SelectItem value="image">صور</SelectItem>
+              <SelectItem value="video">فيديو</SelectItem>
+              <SelectItem value="document">مستندات</SelectItem>
+              <SelectItem value="archive">أرشيف</SelectItem>
+            </SelectContent>
+          </Select>
+          {checkedIds.size > 0 && (
+            <Button variant="outline" size="sm" onClick={batchRestore} disabled={saving}>
+              <RotateCcw className="h-4 w-4 me-1" />
+              استعادة المحدد ({checkedIds.size})
+            </Button>
+          )}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
+                  <th className="p-3 w-10">
+                    {filteredItems.length > 0 && (
+                      <Checkbox
+                        checked={checkedIds.size === filteredItems.length && filteredItems.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                        aria-label="تحديد الكل"
+                      />
+                    )}
+                  </th>
                   <th className="text-start p-3 font-medium">الملف</th>
                   <th className="text-start p-3 font-medium">المسار الأصلي</th>
                   <th className="text-start p-3 font-medium">الحجم</th>
@@ -130,11 +257,24 @@ export default function TrashPage() {
               </thead>
               <tbody>
                 {loading ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
-                )) : items.length === 0 ? (
-                  <tr><td colSpan={7}><EmptyState icon={Trash2} title="سلة المحذوفات فارغة" description="الملفات المحذوفة ستظهر هنا" /></td></tr>
-                ) : items.map(item => (
+                  <tr key={i} className="border-b">{Array.from({ length: 8 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
+                )) : filteredItems.length === 0 ? (
+                  <tr><td colSpan={8}>
+                    <EmptyState
+                      icon={Trash2}
+                      title={items.length === 0 ? 'سلة المحذوفات فارغة' : 'لا توجد نتائج'}
+                      description={items.length === 0 ? 'الملفات المحذوفة ستظهر هنا' : 'جرّب تغيير كلمة البحث أو الفلتر'}
+                    />
+                  </td></tr>
+                ) : filteredItems.map(item => (
                   <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
+                    <td className="p-3">
+                      <Checkbox
+                        checked={checkedIds.has(item.id)}
+                        onCheckedChange={() => toggleCheck(item.id)}
+                        aria-label={`تحديد ${item.file_name}`}
+                      />
+                    </td>
                     <td className="p-3 font-medium">{item.file_name}</td>
                     <td className="p-3 text-muted-foreground text-xs font-mono truncate max-w-[200px]">{item.original_path}</td>
                     <td className="p-3 text-muted-foreground">{formatFileSize(item.file_size)}</td>

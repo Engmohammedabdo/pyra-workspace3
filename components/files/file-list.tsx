@@ -15,7 +15,7 @@ interface FileListProps {
   files: FileListItem[];
   onNavigate: (file: FileListItem) => void;
   selectedFiles: Set<string>;
-  onSelect: (path: string, multi: boolean) => void;
+  onSelect: (path: string, multi: boolean, shiftKey?: boolean) => void;
   onPreview: (file: FileListItem) => void;
   onDownload: (file: FileListItem) => void;
   onRename: (file: FileListItem, newName: string) => void;
@@ -131,7 +131,9 @@ export function FileList({
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, file)}
               onClick={(e) => {
-                if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
+                  onSelect(file.path, true, true);
+                } else if (e.ctrlKey || e.metaKey) {
                   onSelect(file.path, true);
                 } else {
                   onSelect(file.path, false);

@@ -19,6 +19,9 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // Maximum upload size: 1 GB
 const MAX_FILE_SIZE = 1 * 1024 * 1024 * 1024;
 
+// Maximum number of versions to keep per file
+const MAX_VERSIONS = 20;
+
 // Blocked file extensions
 const BLOCKED_EXTENSIONS = new Set([
   '.exe', '.msi', '.bat', '.cmd', '.com', '.scr', '.pif',
@@ -128,6 +131,29 @@ export async function POST(request: NextRequest) {
             created_by: auth.pyraUser.username,
             created_at: new Date().toISOString(),
           });
+
+          // ── Version cap enforcement: keep only latest MAX_VERSIONS ──
+          if (nextVersionNum > MAX_VERSIONS) {
+            const { data: allVersions } = await supabase
+              .from('pyra_file_versions')
+              .select('id, version_path')
+              .eq('file_path', storagePath)
+              .order('version_number', { ascending: false });
+
+            if (allVersions && allVersions.length > MAX_VERSIONS) {
+              const excess = allVersions.slice(MAX_VERSIONS);
+              const excessIds = excess.map((v) => v.id);
+              const excessPaths = excess.map((v) => v.version_path);
+
+              // Delete from storage
+              await storage.storage.from(BUCKET).remove(excessPaths);
+              // Delete from database
+              await supabase
+                .from('pyra_file_versions')
+                .delete()
+                .in('id', excessIds);
+            }
+          }
         } else {
           console.warn('Version copy warning:', copyError.message);
         }

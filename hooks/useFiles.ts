@@ -104,18 +104,19 @@ export function useCreateFolder() {
 export interface UploadProgress {
   /** Total files count */
   totalFiles: number;
-  /** Current file index (1-based) */
-  currentFile: number;
-  /** Current file name */
-  currentFileName: string;
-  /** Percentage done (0-100) for XMLHttpRequest progress */
-  percentage: number;
+  /** Completed files count */
+  completedFiles: number;
+  /** Currently uploading file names */
+  activeFiles: string[];
   /** Overall percentage across all files */
   overallPercentage: number;
 }
 
+// Maximum concurrent uploads
+const MAX_CONCURRENT_UPLOADS = 3;
+
 // ============================================================
-// Hook: Upload files with progress tracking (XHR-based)
+// Hook: Upload files with parallel progress tracking (XHR-based)
 // ============================================================
 export function useUploadFiles() {
   const queryClient = useQueryClient();
@@ -133,41 +134,62 @@ export function useUploadFiles() {
       const results: string[] = [];
       const errors: string[] = [];
 
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const currentFile = i + 1;
+      // Track per-file progress for overall calculation
+      const fileProgress = new Map<number, number>();
+      const activeFileNames = new Set<string>();
 
+      const updateProgress = () => {
+        let totalPct = 0;
+        for (const pct of fileProgress.values()) {
+          totalPct += pct;
+        }
         setUploadProgress({
           totalFiles,
-          currentFile,
-          currentFileName: file.name,
-          percentage: 0,
-          overallPercentage: Math.round((i / totalFiles) * 100),
+          completedFiles: results.length + errors.length,
+          activeFiles: Array.from(activeFileNames),
+          overallPercentage: Math.round((totalPct / totalFiles) * 100),
         });
+      };
 
-        try {
-          const uploadedPath = await uploadSingleFile(
-            file,
-            parentPath,
-            (pct) => {
-              setUploadProgress({
-                totalFiles,
-                currentFile,
-                currentFileName: file.name,
-                percentage: pct,
-                overallPercentage: Math.round(
-                  ((i + pct / 100) / totalFiles) * 100
-                ),
-              });
-            }
-          );
-          results.push(uploadedPath);
-        } catch (err) {
-          errors.push(
-            `فشل رفع "${file.name}": ${err instanceof Error ? err.message : 'خطأ غير معروف'}`
-          );
+      // Create a queue of file indices
+      const queue = files.map((_, i) => i);
+      let queueIndex = 0;
+
+      const worker = async () => {
+        while (queueIndex < queue.length) {
+          const idx = queueIndex++;
+          const file = files[idx];
+
+          fileProgress.set(idx, 0);
+          activeFileNames.add(file.name);
+          updateProgress();
+
+          try {
+            const uploadedPath = await uploadSingleFile(
+              file,
+              parentPath,
+              (pct) => {
+                fileProgress.set(idx, pct / 100);
+                updateProgress();
+              }
+            );
+            results.push(uploadedPath);
+            fileProgress.set(idx, 1);
+          } catch (err) {
+            errors.push(
+              `فشل رفع "${file.name}": ${err instanceof Error ? err.message : 'خطأ غير معروف'}`
+            );
+            fileProgress.set(idx, 1);
+          } finally {
+            activeFileNames.delete(file.name);
+            updateProgress();
+          }
         }
-      }
+      };
+
+      // Launch concurrent workers
+      const workerCount = Math.min(MAX_CONCURRENT_UPLOADS, totalFiles);
+      await Promise.all(Array.from({ length: workerCount }, () => worker()));
 
       setUploadProgress(null);
 

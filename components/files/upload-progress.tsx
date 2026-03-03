@@ -11,7 +11,7 @@ interface UploadProgressBarProps {
 export function UploadProgressBar({ progress }: UploadProgressBarProps) {
   if (!progress) return null;
 
-  const { totalFiles, currentFile, currentFileName, percentage, overallPercentage } = progress;
+  const { totalFiles, completedFiles, activeFiles, overallPercentage } = progress;
 
   return (
     <div className="bg-card border border-border rounded-lg p-4 space-y-3 animate-in slide-in-from-top-2 duration-300">
@@ -23,10 +23,14 @@ export function UploadProgressBar({ progress }: UploadProgressBarProps) {
           </div>
           <div className="min-w-0">
             <p className="truncate">
-              جاري رفع: <span className="text-muted-foreground">{currentFileName}</span>
+              جاري رفع:{' '}
+              <span className="text-muted-foreground">
+                {activeFiles.length > 0 ? activeFiles.join('، ') : '...'}
+              </span>
             </p>
             <p className="text-xs text-muted-foreground">
-              ملف {currentFile} من {totalFiles}
+              {completedFiles} من {totalFiles} مكتمل
+              {activeFiles.length > 1 && ` · ${activeFiles.length} متزامن`}
             </p>
           </div>
         </div>
@@ -36,23 +40,11 @@ export function UploadProgressBar({ progress }: UploadProgressBarProps) {
       </div>
 
       {/* Overall progress bar */}
-      <div className="space-y-1.5">
-        <div className="h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-pyra-orange rounded-full transition-all duration-300 ease-out"
-            style={{ width: `${overallPercentage}%` }}
-          />
-        </div>
-
-        {/* Per-file progress (only for multi-file uploads) */}
-        {totalFiles > 1 && (
-          <div className="h-1 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-pyra-orange/50 rounded-full transition-all duration-200 ease-out"
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
-        )}
+      <div className="h-2 bg-muted rounded-full overflow-hidden">
+        <div
+          className="h-full bg-pyra-orange rounded-full transition-all duration-300 ease-out"
+          style={{ width: `${overallPercentage}%` }}
+        />
       </div>
     </div>
   );
