@@ -1,19 +1,30 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { FileListItem } from '@/types/database';
 
 // ============================================================
-// Hook: List files in a directory (via API route)
+// Hook: List files in a directory with infinite scroll pagination
 // ============================================================
+
+const FILES_PAGE_SIZE = 100;
+
+interface FilesPage {
+  items: FileListItem[];
+  nextOffset: number | null;
+}
+
 export function useFiles(path: string = '') {
-  return useQuery<FileListItem[]>({
+  const infiniteQuery = useInfiniteQuery<FilesPage>({
     queryKey: ['files', path],
-    queryFn: async () => {
+    queryFn: async ({ pageParam }) => {
+      const offset = pageParam as number;
       const cleanPath = path.replace(/^\/+/, '').replace(/\/+$/, '');
       const params = new URLSearchParams();
       if (cleanPath) params.set('path', cleanPath);
+      params.set('limit', String(FILES_PAGE_SIZE));
+      params.set('offset', String(offset));
 
       const res = await fetch(`/api/files?${params.toString()}`);
       if (!res.ok) {
@@ -22,11 +33,36 @@ export function useFiles(path: string = '') {
       }
 
       const json = await res.json();
-      return (json.data || []) as FileListItem[];
+      const items = (json.data || []) as FileListItem[];
+      const hasMore = json.meta?.hasMore === true;
+
+      return {
+        items,
+        nextOffset: hasMore ? offset + FILES_PAGE_SIZE : null,
+      };
     },
-    staleTime: 30_000, // 30 seconds
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+
+  // Flatten all pages into a single array for consumers
+  const data = useMemo(() => {
+    if (!infiniteQuery.data) return [];
+    return infiniteQuery.data.pages.flatMap((page) => page.items);
+  }, [infiniteQuery.data]);
+
+  return {
+    data,
+    isLoading: infiniteQuery.isLoading,
+    isFetchingNextPage: infiniteQuery.isFetchingNextPage,
+    hasNextPage: infiniteQuery.hasNextPage,
+    fetchNextPage: infiniteQuery.fetchNextPage,
+    refetch: infiniteQuery.refetch,
+    error: infiniteQuery.error,
+    isError: infiniteQuery.isError,
+  };
 }
 
 // ============================================================

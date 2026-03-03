@@ -10,6 +10,7 @@ import {
 import { createServiceRoleClient, createServerSupabaseClient } from '@/lib/supabase/server';
 import { sanitizePath, sanitizeFileName, joinPath } from '@/lib/utils/path';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { generateId } from '@/lib/utils/id';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,6 +90,52 @@ export async function POST(request: NextRequest) {
     }
 
     const storage = createServiceRoleClient();
+    const supabase = await createServerSupabaseClient();
+
+    // ── Pre-upload versioning: backup existing file BEFORE overwrite ──
+    try {
+      const { data: existingFile } = await supabase
+        .from('pyra_file_index')
+        .select('file_size, mime_type')
+        .eq('file_path', storagePath)
+        .single();
+
+      if (existingFile) {
+        // File already exists — use storage.copy() to create a version backup
+        const { data: latestVersions } = await supabase
+          .from('pyra_file_versions')
+          .select('version_number')
+          .eq('file_path', storagePath)
+          .order('version_number', { ascending: false })
+          .limit(1);
+
+        const nextVersionNum = ((latestVersions?.[0]?.version_number) || 0) + 1;
+        const versionPath = `.versions/${storagePath}_v${nextVersionNum}`;
+
+        // Server-side copy — no download/reupload needed
+        const { error: copyError } = await storage.storage
+          .from(BUCKET)
+          .copy(storagePath, versionPath);
+
+        if (!copyError) {
+          await supabase.from('pyra_file_versions').insert({
+            id: generateId('fv'),
+            file_path: storagePath,
+            version_path: versionPath,
+            version_number: nextVersionNum,
+            file_size: existingFile.file_size || 0,
+            mime_type: existingFile.mime_type || 'application/octet-stream',
+            created_by: auth.pyraUser.username,
+            created_at: new Date().toISOString(),
+          });
+        } else {
+          console.warn('Version copy warning:', copyError.message);
+        }
+      }
+    } catch (versionErr) {
+      // Versioning is non-critical — log and continue with upload
+      console.warn('Pre-upload versioning warning:', versionErr);
+    }
 
     // Create a signed upload URL (valid for 2 minutes)
     const { data, error } = await storage.storage

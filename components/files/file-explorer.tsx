@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FileToolbar, type ViewMode, type SortField, type SortOrder, type FileTypeFilter } from './file-toolbar';
@@ -15,6 +15,8 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { FilePermissionsDialog } from './file-permissions-dialog';
 import type { FileListItem } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface FileExplorerProps {
   initialPath?: string;
@@ -81,7 +83,7 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const [isBatchDownloading, setIsBatchDownloading] = useState(false);
 
   // Data hooks
-  const { data: files = [], isLoading, refetch } = useFiles(currentPath);
+  const { data: files = [], isLoading, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useFiles(currentPath);
   const createFolder = useCreateFolder();
   const uploadFiles = useUploadFiles();
   const deleteFiles = useDeleteFiles();
@@ -387,6 +389,25 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     setSortOrder(order);
   }, []);
 
+  // Infinite scroll sentinel
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -507,6 +528,28 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
             onSelect={handleSelect}
             {...fileActions}
           />
+        )}
+
+        {/* Infinite scroll sentinel + load more */}
+        {!isLoading && (hasNextPage || isFetchingNextPage) && (
+          <div className="flex flex-col items-center gap-2 py-4">
+            {isFetchingNextPage ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>جاري تحميل المزيد...</span>
+              </div>
+            ) : hasNextPage ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fetchNextPage()}
+                className="text-xs"
+              >
+                تحميل المزيد
+              </Button>
+            ) : null}
+            <div ref={sentinelRef} className="h-1" />
+          </div>
         )}
       </div>
 

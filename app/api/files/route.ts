@@ -122,14 +122,19 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const rawPath = searchParams.get('path') || '';
     const path = sanitizePath(rawPath);
+    const limit = Math.min(
+      Math.max(parseInt(searchParams.get('limit') || '100', 10) || 100, 1),
+      500
+    );
+    const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
     const storage = createServiceRoleClient();
 
     const { data, error } = await storage.storage
       .from(BUCKET)
       .list(path, {
-        limit: 500,
-        offset: 0,
+        limit,
+        offset,
         sortBy: { column: 'name', order: 'asc' },
       });
 
@@ -162,7 +167,10 @@ export async function GET(request: NextRequest) {
       return a.name.localeCompare(b.name, 'ar');
     });
 
-    return apiSuccess(items, { path, count: items.length });
+    // Determine if there are more items to load
+    const hasMore = (data || []).length === limit;
+
+    return apiSuccess(items, { path, count: items.length, offset, limit, hasMore });
   } catch (err) {
     console.error('Files GET error:', err);
     return apiServerError();

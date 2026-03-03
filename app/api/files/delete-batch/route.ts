@@ -72,40 +72,21 @@ export async function POST(request: NextRequest) {
         const mimeType =
           fileMeta?.metadata?.mimetype || 'application/octet-stream';
 
-        // Download the file
-        const { data: fileData, error: downloadError } = await storage.storage
-          .from(BUCKET)
-          .download(filePath);
-
-        if (downloadError || !fileData) {
-          errors.push({ path: filePath, error: 'الملف غير موجود' });
-          continue;
-        }
-
-        // Copy to trash storage
+        // Move file to trash using storage.move() — atomic, no download needed
         const trashId = generateId('tr');
         const trashStoragePath = `.trash/${trashId}/${fileName}`;
 
-        const arrayBuffer = await fileData.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-
-        const { error: trashUploadError } = await storage.storage
+        const { error: moveError } = await storage.storage
           .from(BUCKET)
-          .upload(trashStoragePath, buffer, {
-            contentType: mimeType,
-            upsert: false,
-          });
+          .move(filePath, trashStoragePath);
 
-        if (trashUploadError) {
+        if (moveError) {
           errors.push({
             path: filePath,
             error: 'فشل في نقل إلى سلة المحذوفات',
           });
           continue;
         }
-
-        // Delete original from storage
-        await storage.storage.from(BUCKET).remove([filePath]);
 
         // Insert trash record
         await supabase.from('pyra_trash').insert({

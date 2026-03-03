@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
+import { hasPermission } from '@/lib/auth/rbac';
 import {
   apiSuccess,
   apiUnauthorized,
@@ -11,7 +12,7 @@ import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
 // GET /api/files/search?q=search_term&limit=50&offset=0
-// Search files in pyra_file_index
+// Search files in pyra_file_index — respects user permissions
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
@@ -34,11 +35,38 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const searchTerm = escapeLike(query.toLowerCase());
 
-    // Search by file_name_lower using ilike for partial matching
-    const { data, error, count } = await supabase
+    // Determine if user has full access or restricted path access
+    const isFullAccess = hasPermission(auth.pyraUser.rolePermissions, '*')
+      || auth.pyraUser.role === 'admin';
+
+    // Build the base query
+    let dbQuery = supabase
       .from('pyra_file_index')
       .select('*', { count: 'exact' })
-      .ilike('file_name_lower', `%${searchTerm}%`)
+      .ilike('file_name_lower', `%${searchTerm}%`);
+
+    // Apply path restrictions for non-admin users
+    if (!isFullAccess) {
+      const permissions = auth.pyraUser.permissions as Record<string, unknown> | null;
+      const allowedPaths: string[] = (permissions as { allowed_paths?: string[] })?.allowed_paths || [];
+      const pathKeys = (permissions as { paths?: Record<string, unknown> })?.paths
+        ? Object.keys((permissions as { paths: Record<string, unknown> }).paths)
+        : [];
+      const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
+
+      if (allPaths.length > 0) {
+        // Filter to only files under allowed paths
+        const pathFilters = allPaths
+          .map((p) => `file_path.like.${p}%`)
+          .join(',');
+        dbQuery = dbQuery.or(pathFilters);
+      } else {
+        // No paths allowed — return empty result
+        return apiSuccess([], { query, total: 0, limit, offset, hasMore: false });
+      }
+    }
+
+    const { data, error, count } = await dbQuery
       .order('indexed_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

@@ -145,66 +145,30 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       return apiValidationError('المسار الجديد مطابق للمسار الحالي');
     }
 
-    // Download the original file
-    const { data: fileData, error: downloadError } = await storage.storage
+    // Use storage.move() — atomic, no download/reupload needed
+    const { error: moveError } = await storage.storage
       .from(BUCKET)
-      .download(filePath);
+      .move(filePath, destinationPath);
 
-    if (downloadError || !fileData) {
-      console.error('Download for copy error:', downloadError);
-      return apiNotFound('الملف غير موجود');
-    }
-
-    // Upload to new location
-    const arrayBuffer = await fileData.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const { error: uploadError } = await storage.storage
-      .from(BUCKET)
-      .upload(destinationPath, buffer, {
-        contentType: fileData.type || 'application/octet-stream',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error('Upload to new path error:', uploadError);
+    if (moveError) {
+      console.error('Storage move error:', moveError);
       return apiServerError('فشل في نقل الملف');
     }
 
-    // Delete original
-    const { error: deleteError } = await storage.storage
-      .from(BUCKET)
-      .remove([filePath]);
-
-    if (deleteError) {
-      console.error('Delete original error:', deleteError);
-      // File was copied but original not deleted — non-fatal
-    }
-
-    // Update file index: remove old entry
-    await supabase
-      .from('pyra_file_index')
-      .delete()
-      .eq('file_path', filePath);
-
-    // Insert new file index entry
+    // Update file index: rename old entry to new path
     const newFileName = getFileName(destinationPath);
     const newParentPath = getParentPath(destinationPath);
 
-    await supabase.from('pyra_file_index').upsert(
-      {
-        id: generateId('fi'),
+    await supabase
+      .from('pyra_file_index')
+      .update({
         file_path: destinationPath,
         file_name: newFileName,
         file_name_lower: newFileName.toLowerCase(),
-        file_size: buffer.byteLength,
-        mime_type: fileData.type || 'application/octet-stream',
-        is_folder: false,
         parent_path: newParentPath,
         indexed_at: new Date().toISOString(),
-      },
-      { onConflict: 'file_path' }
-    );
+      })
+      .eq('file_path', filePath);
 
     // Log activity
     await supabase.from('pyra_activity_log').insert({
@@ -265,43 +229,17 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const fileSize = fileMeta?.metadata?.size || 0;
     const mimeType = fileMeta?.metadata?.mimetype || 'application/octet-stream';
 
-    // Download the file for copying to trash
-    const { data: fileData, error: downloadError } = await storage.storage
-      .from(BUCKET)
-      .download(filePath);
-
-    if (downloadError || !fileData) {
-      console.error('Download for trash error:', downloadError);
-      return apiNotFound('الملف غير موجود');
-    }
-
-    // Generate a unique trash path
+    // Move file to trash using storage.move() — atomic, no download needed
     const trashId = generateId('tr');
     const trashStoragePath = `.trash/${trashId}/${fileName}`;
 
-    // Copy to trash location in storage
-    const arrayBuffer = await fileData.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const { error: trashUploadError } = await storage.storage
+    const { error: moveError } = await storage.storage
       .from(BUCKET)
-      .upload(trashStoragePath, buffer, {
-        contentType: mimeType,
-        upsert: false,
-      });
+      .move(filePath, trashStoragePath);
 
-    if (trashUploadError) {
-      console.error('Trash upload error:', trashUploadError);
+    if (moveError) {
+      console.error('Trash move error:', moveError);
       return apiServerError('فشل في نقل الملف إلى سلة المحذوفات');
-    }
-
-    // Delete original from storage
-    const { error: deleteError } = await storage.storage
-      .from(BUCKET)
-      .remove([filePath]);
-
-    if (deleteError) {
-      console.error('Delete original error:', deleteError);
     }
 
     // Insert trash record

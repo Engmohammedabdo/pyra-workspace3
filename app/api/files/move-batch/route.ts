@@ -133,8 +133,7 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Move a single file: download → upload to new path → delete original → update index.
- * With rollback: if delete original fails, remove the copy at new path.
+ * Move a single file using storage.move() — atomic, no download/reupload needed.
  */
 async function moveSingleFile(
   storage: ReturnType<typeof createServiceRoleClient>,
@@ -142,55 +141,28 @@ async function moveSingleFile(
   sourcePath: string,
   destPath: string
 ) {
-  // Download original
-  const { data: fileData, error: dlError } = await storage.storage
+  const { error: moveError } = await storage.storage
     .from(BUCKET)
-    .download(sourcePath);
+    .move(sourcePath, destPath);
 
-  if (dlError || !fileData) {
-    throw new Error('الملف غير موجود');
+  if (moveError) {
+    throw new Error('فشل نقل الملف');
   }
 
-  // Upload to new location
-  const buffer = Buffer.from(await fileData.arrayBuffer());
-  const { error: upError } = await storage.storage
-    .from(BUCKET)
-    .upload(destPath, buffer, {
-      contentType: fileData.type || 'application/octet-stream',
-      upsert: true,
-    });
-
-  if (upError) {
-    throw new Error('فشل الرفع إلى المسار الجديد');
-  }
-
-  // Delete original — if this fails, rollback the upload
-  const { error: delError } = await storage.storage.from(BUCKET).remove([sourcePath]);
-  if (delError) {
-    // Rollback: remove the copy we just uploaded
-    await storage.storage.from(BUCKET).remove([destPath]);
-    throw new Error('فشل حذف الملف الأصلي — تم التراجع');
-  }
-
-  // Update file index — delete old, insert new
-  await supabase.from('pyra_file_index').delete().eq('file_path', sourcePath);
-
+  // Update file index
   const newFileName = getFileName(destPath);
   const newParentPath = getParentPath(destPath);
-  await supabase.from('pyra_file_index').upsert(
-    {
-      id: generateId('fi'),
+
+  await supabase
+    .from('pyra_file_index')
+    .update({
       file_path: destPath,
       file_name: newFileName,
       file_name_lower: newFileName.toLowerCase(),
-      file_size: buffer.byteLength,
-      mime_type: fileData.type || 'application/octet-stream',
-      is_folder: false,
       parent_path: newParentPath,
       indexed_at: new Date().toISOString(),
-    },
-    { onConflict: 'file_path' }
-  );
+    })
+    .eq('file_path', sourcePath);
 }
 
 /**
@@ -218,16 +190,11 @@ async function moveFolderRecursive(
   }
 
   if (!items || items.length === 0) {
-    // Empty folder — just create placeholder at destination
-    await storage.storage.from(BUCKET).upload(
-      `${destFolderPath}/.emptyFolderPlaceholder`,
-      Buffer.from(''),
-      { contentType: 'text/plain', upsert: true }
+    // Empty folder — move placeholder to destination
+    await storage.storage.from(BUCKET).move(
+      `${sourceFolderPath}/.emptyFolderPlaceholder`,
+      `${destFolderPath}/.emptyFolderPlaceholder`
     );
-    // Remove old placeholder
-    await storage.storage
-      .from(BUCKET)
-      .remove([`${sourceFolderPath}/.emptyFolderPlaceholder`]);
     return;
   }
 
@@ -242,12 +209,7 @@ async function moveFolderRecursive(
       // This is a file → move it
       if (item.name === '.emptyFolderPlaceholder') {
         // Move placeholder too
-        await storage.storage.from(BUCKET).upload(
-          childDestPath,
-          Buffer.from(''),
-          { contentType: 'text/plain', upsert: true }
-        );
-        await storage.storage.from(BUCKET).remove([childSourcePath]);
+        await storage.storage.from(BUCKET).move(childSourcePath, childDestPath);
       } else {
         await moveSingleFile(storage, supabase, childSourcePath, childDestPath);
       }
