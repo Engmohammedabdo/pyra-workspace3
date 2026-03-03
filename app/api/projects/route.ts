@@ -66,7 +66,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Apply filters
-    if (status) {
+    if (status === 'overdue') {
+      // Virtual filter: projects past deadline that are not completed/archived
+      query = query
+        .lt('deadline', new Date().toISOString())
+        .not('status', 'in', '("completed","archived")');
+    } else if (status) {
       query = query.eq('status', status);
     }
 

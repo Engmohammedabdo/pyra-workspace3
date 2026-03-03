@@ -18,12 +18,13 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Briefcase, Plus, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2, Eye } from 'lucide-react';
+import { Briefcase, Plus, MoreHorizontal, Pencil, Trash2, FileText, MessageSquare, CheckCircle, Clock, AlertTriangle, HardDrive, LayoutGrid, Table2, Eye, CalendarDays } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatFileSize } from '@/lib/utils/format';
+import { cn } from '@/lib/utils/cn';
 import { ProjectKanban } from '@/components/projects/project-kanban';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Project {
   id: string;
@@ -33,6 +34,8 @@ interface Project {
   status: string;
   created_by: string;
   created_at: string;
+  deadline?: string | null;
+  start_date?: string | null;
   // Enriched fields from v_project_summary
   file_count?: number;
   comment_count?: number;
@@ -43,7 +46,7 @@ interface Project {
   unread_team_comments?: number;
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' }> = {
+const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   active: { label: 'نشط', variant: 'default' },
   in_progress: { label: 'قيد التنفيذ', variant: 'default' },
   review: { label: 'مراجعة', variant: 'outline' },
@@ -51,8 +54,16 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
   archived: { label: 'مؤرشف', variant: 'secondary' },
 };
 
+/** Check if a project is overdue (deadline passed + not completed/archived) */
+function isProjectOverdue(p: Project): boolean {
+  if (!p.deadline) return false;
+  if (p.status === 'completed' || p.status === 'archived') return false;
+  return new Date(p.deadline) < new Date();
+}
+
 export default function ProjectsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const canCreate = usePermission('projects.create');
   const canEdit = usePermission('projects.edit');
   const canDelete = usePermission('projects.delete');
@@ -61,7 +72,11 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(() => {
+    const urlStatus = searchParams.get('status');
+    return urlStatus || 'all';
+  });
+  const [highlightId] = useState(() => searchParams.get('highlight'));
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -197,6 +212,7 @@ export default function ProjectsPage() {
             <SelectItem value="active">نشط</SelectItem>
             <SelectItem value="in_progress">قيد التنفيذ</SelectItem>
             <SelectItem value="review">مراجعة</SelectItem>
+            <SelectItem value="overdue">متأخر</SelectItem>
             <SelectItem value="completed">مكتمل</SelectItem>
             <SelectItem value="archived">مؤرشف</SelectItem>
           </SelectContent>
@@ -240,19 +256,25 @@ export default function ProjectsPage() {
                   <th className="text-start p-3 font-medium">الملفات</th>
                   <th className="text-start p-3 font-medium">الموافقات</th>
                   <th className="text-start p-3 font-medium">الحالة</th>
+                  <th className="text-start p-3 font-medium">الموعد النهائي</th>
                   <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
                   <th className="text-start p-3 font-medium w-[60px]"></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
+                  <tr key={i} className="border-b">{Array.from({ length: 8 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
                 )) : projects.length === 0 ? (
-                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد مشاريع</td></tr>
+                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد مشاريع</td></tr>
                 ) : projects.map(p => {
                   const s = STATUS_MAP[p.status] || { label: p.status, variant: 'secondary' as const };
+                  const overdue = isProjectOverdue(p);
+                  const isHighlighted = highlightId === p.id;
                   return (
-                    <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
+                    <tr key={p.id} className={cn(
+                      'border-b hover:bg-muted/30 transition-colors',
+                      isHighlighted && 'animate-pulse bg-orange-50 dark:bg-orange-950/20',
+                    )}>
                       <td className="p-3">
                         <div className="font-medium text-primary hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>{p.name}</div>
                         {p.description && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{p.description}</div>}
@@ -304,7 +326,29 @@ export default function ProjectsPage() {
                           )}
                         </div>
                       </td>
-                      <td className="p-3"><Badge variant={s.variant}>{s.label}</Badge></td>
+                      <td className="p-3">
+                        <div className="flex items-center gap-1">
+                          <Badge variant={s.variant}>{s.label}</Badge>
+                          {overdue && (
+                            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+                              <AlertTriangle className="h-3 w-3 me-0.5" /> متأخر
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-3">
+                        {p.deadline ? (
+                          <div className={cn(
+                            'flex items-center gap-1 text-xs',
+                            overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground',
+                          )}>
+                            <CalendarDays className="h-3 w-3 shrink-0" />
+                            <span>{formatDate(p.deadline)}</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="p-3 text-muted-foreground text-xs">{formatDate(p.created_at)}</td>
                       <td className="p-3">
                         <DropdownMenu>
