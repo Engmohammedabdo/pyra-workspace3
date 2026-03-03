@@ -23,6 +23,7 @@ import { PortalMobileNav } from '@/components/portal/portal-mobile-nav';
 import { PortalCommandSearch } from '@/components/portal/portal-command-search';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { usePortalNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
+import { useBranding } from '@/components/portal/BrandingProvider';
 import type { PyraClient } from '@/types/database';
 import { useEffect, useState } from 'react';
 
@@ -34,8 +35,11 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { unreadCount } = usePortalNotifications();
+  const branding = useBranding();
   const [pushEnabled, setPushEnabled] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const primaryColor = branding.primary_color || '#f97316';
 
   // Avoid hydration mismatch
   useEffect(() => {
@@ -95,7 +99,8 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className={pushEnabled ? 'text-orange-500' : 'text-muted-foreground'}
+                  className={pushEnabled ? '' : 'text-muted-foreground'}
+                  style={pushEnabled ? { color: primaryColor } : undefined}
                   onClick={handleTogglePush}
                   aria-label={pushEnabled ? 'إشعارات سطح المكتب مفعّلة' : 'تفعيل إشعارات سطح المكتب'}
                 >
@@ -144,7 +149,10 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white animate-in zoom-in-50 duration-200">
+                  <span
+                    className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white animate-in zoom-in-50 duration-200"
+                    style={{ backgroundColor: primaryColor }}
+                  >
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -163,7 +171,10 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 className="relative h-9 w-9 rounded-full"
               >
                 <Avatar className="h-9 w-9">
-                  <AvatarFallback className="bg-orange-500/10 text-orange-600 text-xs font-semibold">
+                  <AvatarFallback
+                    className="text-xs font-semibold"
+                    style={{ backgroundColor: primaryColor + '1a', color: primaryColor }}
+                  >
                     {initials}
                   </AvatarFallback>
                 </Avatar>

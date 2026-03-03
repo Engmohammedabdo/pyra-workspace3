@@ -21,6 +21,7 @@ import {
   User,
   ScrollText,
 } from 'lucide-react';
+import { useBranding } from '@/components/portal/BrandingProvider';
 
 const portalNavItems = [
   {
@@ -58,6 +59,12 @@ const portalNavItems = [
 export function PortalMobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const branding = useBranding();
+
+  const primaryColor = branding.primary_color || '#f97316';
+  const displayName = branding.company_name_display || 'PYRAMEDIA X';
+  const logoUrl = branding.logo_url;
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -72,11 +79,22 @@ export function PortalMobileNav() {
 
         {/* Logo header */}
         <div className="flex items-center h-16 border-b px-4 gap-3">
-          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm">
-            P
-          </div>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={displayName}
+              className="w-8 h-8 rounded-lg object-contain"
+            />
+          ) : (
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+              style={{ backgroundColor: primaryColor }}
+            >
+              {initial}
+            </div>
+          )}
           <div className="flex flex-col">
-            <span className="font-bold text-sm">PYRAMEDIA X</span>
+            <span className="font-bold text-sm">{displayName}</span>
             <span className="text-[10px] text-muted-foreground">
               بوابة العملاء
             </span>
@@ -99,17 +117,16 @@ export function PortalMobileNav() {
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                      ? 'text-foreground'
                       : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                   )}
+                  style={isActive ? { backgroundColor: primaryColor + '1a' } : undefined}
                 >
                   <Icon
-                    className={cn(
-                      'h-5 w-5',
-                      isActive && 'text-orange-500'
-                    )}
+                    className="h-5 w-5"
+                    style={isActive ? { color: primaryColor } : undefined}
                   />
-                  <span>{item.label}</span>
+                  <span style={isActive ? { color: primaryColor } : undefined}>{item.label}</span>
                 </Link>
               );
             })}

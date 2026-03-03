@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useBranding } from '@/components/portal/BrandingProvider';
 import {
   FolderKanban,
   FolderOpen,
@@ -60,16 +61,33 @@ const portalNavItems = [
 
 export function PortalSidebar() {
   const pathname = usePathname();
+  const branding = useBranding();
+
+  const primaryColor = branding.primary_color || '#f97316';
+  const displayName = branding.company_name_display || 'PYRAMEDIA X';
+  const logoUrl = branding.logo_url;
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <aside aria-label="قائمة بوابة العملاء" className="fixed inset-y-0 start-0 z-40 hidden lg:flex w-[240px] flex-col border-e bg-sidebar transition-all duration-300">
       {/* Logo */}
       <div className="flex items-center h-16 border-b px-4 gap-3">
-        <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
-          P
-        </div>
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={displayName}
+            className="w-8 h-8 rounded-lg object-contain shrink-0"
+          />
+        ) : (
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0"
+            style={{ backgroundColor: primaryColor }}
+          >
+            {initial}
+          </div>
+        )}
         <div className="flex flex-col min-w-0">
-          <span className="font-bold text-sm truncate">PYRAMEDIA X</span>
+          <span className="font-bold text-sm truncate">{displayName}</span>
           <span className="text-[10px] text-muted-foreground truncate">
             بوابة العملاء
           </span>
@@ -91,19 +109,21 @@ export function PortalSidebar() {
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
                   isActive
-                    ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+                    ? 'text-sidebar-foreground'
                     : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
                 )}
+                style={isActive ? { backgroundColor: primaryColor + '1a' } : undefined}
               >
                 <Icon
-                  className={cn(
-                    'h-5 w-5 shrink-0',
-                    isActive && 'text-orange-500'
-                  )}
+                  className="h-5 w-5 shrink-0"
+                  style={isActive ? { color: primaryColor } : undefined}
                 />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate" style={isActive ? { color: primaryColor } : undefined}>{item.label}</span>
                 {isActive && (
-                  <div className="ms-auto w-1.5 h-1.5 rounded-full bg-orange-500" />
+                  <div
+                    className="ms-auto w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: primaryColor }}
+                  />
                 )}
               </Link>
             );
@@ -114,7 +134,7 @@ export function PortalSidebar() {
       {/* Footer */}
       <div className="border-t p-4">
         <p className="text-[10px] text-muted-foreground text-center">
-          &copy; {new Date().getFullYear()} PYRAMEDIA X
+          &copy; {new Date().getFullYear()} {displayName}
         </p>
       </div>
     </aside>

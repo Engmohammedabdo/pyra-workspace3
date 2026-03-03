@@ -199,16 +199,60 @@ const TAG_COLOR_MAP: Record<string, string> = {
 };
 
 const ACTIVITY_LABELS: Record<string, string> = {
+  // Client actions
   client_created: 'تم إنشاء الحساب',
   client_updated: 'تم تحديث البيانات',
+  update_client: 'تم تحديث بيانات العميل',
   client_deleted: 'تم حذف العميل',
   client_note_added: 'تمت إضافة ملاحظة',
   client_note_deleted: 'تم حذف ملاحظة',
+  // Project actions
   project_created: 'تم إنشاء مشروع',
+  project_updated: 'تم تحديث مشروع',
+  project_deleted: 'تم حذف مشروع',
+  project_files_synced: 'تمت مزامنة ملفات المشروع',
+  // Invoice actions
   invoice_created: 'تم إنشاء فاتورة',
+  invoice_updated: 'تم تحديث فاتورة',
+  invoice_deleted: 'تم حذف فاتورة',
+  invoice_sent: 'تم إرسال فاتورة',
+  invoice_paid: 'تم دفع فاتورة',
+  // Quote actions
   quote_created: 'تم إنشاء عرض سعر',
+  create_quote: 'تم إنشاء عرض سعر',
+  quote_updated: 'تم تحديث عرض سعر',
+  quote_deleted: 'تم حذف عرض سعر',
+  delete_quote: 'تم حذف عرض سعر',
+  quote_sent: 'تم إرسال عرض سعر',
+  quote_accepted: 'تم قبول عرض سعر',
+  quote_rejected: 'تم رفض عرض سعر',
+  // File actions
   upload: 'تم رفع ملف',
   download: 'تم تحميل ملف',
+  rename: 'تم إعادة تسمية ملف',
+  move: 'تم نقل ملف',
+  delete: 'تم حذف ملف',
+  restore: 'تم استعادة ملف',
+  share: 'تم مشاركة ملف',
+  copy: 'تم نسخ ملف',
+  // Portal actions
+  portal_login: 'تسجيل دخول للبوابة',
+  portal_download: 'تحميل ملف من البوابة',
+  portal_preview: 'معاينة ملف من البوابة',
+  portal_view: 'عرض صفحة في البوابة',
+  // Finance actions
+  create_expense: 'تم إنشاء مصروف',
+  expense_created: 'تم إنشاء مصروف',
+  create_subscription: 'تم إنشاء اشتراك',
+  contract_created: 'تم إنشاء عقد',
+  contract_updated: 'تم تحديث عقد',
+  payment_received: 'تم استلام دفعة',
+  // Review actions
+  review_added: 'تمت إضافة مراجعة',
+  review_updated: 'تم تحديث مراجعة',
+  // Settings
+  settings_updated: 'تم تحديث الإعدادات',
+  branding_updated: 'تم تحديث الهوية البصرية',
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -220,19 +264,59 @@ function getActivityIcon(actionType: string) {
     case 'client_created':
     case 'client_updated':
     case 'client_deleted':
+    case 'update_client':
       return <Users className="h-3.5 w-3.5" />;
     case 'client_note_added':
     case 'client_note_deleted':
       return <StickyNote className="h-3.5 w-3.5" />;
     case 'project_created':
+    case 'project_updated':
+    case 'project_deleted':
+    case 'project_files_synced':
       return <Briefcase className="h-3.5 w-3.5" />;
     case 'invoice_created':
+    case 'invoice_updated':
+    case 'invoice_deleted':
+    case 'invoice_sent':
+    case 'invoice_paid':
+    case 'payment_received':
       return <Receipt className="h-3.5 w-3.5" />;
     case 'quote_created':
+    case 'create_quote':
+    case 'quote_updated':
+    case 'quote_deleted':
+    case 'delete_quote':
+    case 'quote_sent':
+    case 'quote_accepted':
+    case 'quote_rejected':
       return <Quote className="h-3.5 w-3.5" />;
     case 'upload':
     case 'download':
+    case 'rename':
+    case 'move':
+    case 'delete':
+    case 'restore':
+    case 'share':
+    case 'copy':
       return <FileText className="h-3.5 w-3.5" />;
+    case 'portal_login':
+    case 'portal_download':
+    case 'portal_preview':
+    case 'portal_view':
+      return <Globe className="h-3.5 w-3.5" />;
+    case 'create_expense':
+    case 'expense_created':
+    case 'create_subscription':
+      return <DollarSign className="h-3.5 w-3.5" />;
+    case 'contract_created':
+    case 'contract_updated':
+      return <FileText className="h-3.5 w-3.5" />;
+    case 'review_added':
+    case 'review_updated':
+      return <Edit className="h-3.5 w-3.5" />;
+    case 'settings_updated':
+    case 'branding_updated':
+      return <Palette className="h-3.5 w-3.5" />;
     default:
       return <Activity className="h-3.5 w-3.5" />;
   }

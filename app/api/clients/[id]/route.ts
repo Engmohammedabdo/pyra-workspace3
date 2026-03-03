@@ -89,7 +89,7 @@ export async function GET(
       supabase
         .from('pyra_activity_log')
         .select('id, action_type, username, display_name, details, created_at')
-        .or(`target_path.like./clients/${id}%,details->client_id.eq.${id}`)
+        .or(`target_path.like./clients/${id}%,details->>client_id.eq.${id}`)
         .order('created_at', { ascending: false })
         .limit(10),
     ]);

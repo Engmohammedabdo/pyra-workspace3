@@ -41,8 +41,10 @@ export async function GET(
     // ── Build activity query with .or() filter ──────
     // Match activity that:
     //   1. Has target_path starting with /clients/{id} (direct client actions)
-    //   2. Has details->client_id = id (invoice/quote created for this client)
-    //   3. Has details->company = client.company (project activity for this company)
+    //   2. Has details->>client_id = id (invoice/quote/portal activity for this client)
+    //   3. Has details->>client_company = client.company (project activity for this company)
+    //
+    // IMPORTANT: Use ->> (text extraction) not -> (JSON extraction) for string comparison
     const pathPattern = escapePostgrestValue(`/clients/${id}%`);
     const safeCompany = escapePostgrestValue(client.company);
 
@@ -50,7 +52,7 @@ export async function GET(
       .from('pyra_activity_log')
       .select('id, action_type, username, display_name, target_path, details, created_at')
       .or(
-        `target_path.like.${pathPattern},details->client_id.eq.${id},details->>company.eq.${safeCompany}`
+        `target_path.like.${pathPattern},details->>client_id.eq.${id},details->>client_company.eq.${safeCompany},details->>company.eq.${safeCompany}`
       )
       .order('created_at', { ascending: false })
       .limit(50);
