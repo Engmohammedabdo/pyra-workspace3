@@ -10,7 +10,7 @@ import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
 
 // Fields to select — everything EXCEPT auth_user_id
-const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
+const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at';
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
 /**
@@ -22,6 +22,9 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
  *   ?search=  — filter by name, email, or company (ilike)
  *   ?company= — exact match on company
  *   ?active=  — "true" or "false"
+ *   ?tag=     — filter by tag ID
+ *   ?sort=    — sort field: name, company, created_at (default: created_at)
+ *   ?order=   — asc or desc (default: desc)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -34,13 +37,34 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')?.trim() || '';
     const company = searchParams.get('company')?.trim() || '';
     const active = searchParams.get('active')?.trim() || '';
+    const tagFilter = searchParams.get('tag')?.trim() || '';
+    const sortField = searchParams.get('sort')?.trim() || 'created_at';
+    const sortOrder = searchParams.get('order')?.trim() || 'desc';
+
+    // ── Tag filter: get client IDs first ────────────
+    let tagClientIds: string[] | null = null;
+    if (tagFilter) {
+      const { data: tagAssignments } = await supabase
+        .from('pyra_client_tag_assignments')
+        .select('client_id')
+        .eq('tag_id', tagFilter);
+
+      tagClientIds = (tagAssignments || []).map((a) => a.client_id);
+      if (tagClientIds.length === 0) {
+        return apiSuccess([], { total: 0 });
+      }
+    }
 
     let query = supabase
       .from('pyra_clients')
       .select(CLIENT_FIELDS, { count: 'exact' });
 
+    // Tag filter — scope to matched client IDs
+    if (tagClientIds) {
+      query = query.in('id', tagClientIds);
+    }
+
     // Search filter — match name, email, or company
-    // Use escapePostgrestValue to wrap the LIKE pattern and prevent filter injection
     if (search) {
       const escaped = escapeLike(search);
       const safeVal = escapePostgrestValue(`%${escaped}%`);
@@ -61,8 +85,10 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_active', false);
     }
 
-    // Order by newest first, with limit to prevent unbounded results
-    query = query.order('created_at', { ascending: false }).limit(500);
+    // Sorting
+    const validSortFields = ['name', 'company', 'created_at'];
+    const actualSort = validSortFields.includes(sortField) ? sortField : 'created_at';
+    query = query.order(actualSort, { ascending: sortOrder === 'asc' }).limit(500);
 
     const { data: clients, count, error } = await query;
 
@@ -71,7 +97,70 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(clients || [], { total: count ?? 0 });
+    // ── Enrich with tags + project counts + invoice totals ──
+    const clientList = clients || [];
+    if (clientList.length === 0) {
+      return apiSuccess([], { total: count ?? 0 });
+    }
+
+    const clientIds = clientList.map((c) => c.id);
+    const companies = [...new Set(clientList.map((c) => c.company))];
+
+    // Fetch tags, project counts, and invoice totals in parallel
+    const [tagsRes, projectsRes, invoicesRes] = await Promise.all([
+      // Tags for all clients
+      supabase
+        .from('pyra_client_tag_assignments')
+        .select('client_id, tag_id, pyra_client_tags(id, name, color)')
+        .in('client_id', clientIds),
+
+      // Project counts per company
+      supabase
+        .from('pyra_projects')
+        .select('client_company, id')
+        .in('client_company', companies),
+
+      // Invoice totals per client
+      supabase
+        .from('pyra_invoices')
+        .select('client_id, total, status')
+        .in('client_id', clientIds),
+    ]);
+
+    // Build tags map: client_id → tags[]
+    const tagsMap: Record<string, { id: string; name: string; color: string }[]> = {};
+    for (const assignment of tagsRes.data || []) {
+      const tag = assignment.pyra_client_tags as unknown as { id: string; name: string; color: string } | null;
+      if (!tag) continue;
+      if (!tagsMap[assignment.client_id]) tagsMap[assignment.client_id] = [];
+      tagsMap[assignment.client_id].push(tag);
+    }
+
+    // Build project count map: company → count
+    const projectCountMap: Record<string, number> = {};
+    for (const proj of projectsRes.data || []) {
+      projectCountMap[proj.client_company] = (projectCountMap[proj.client_company] || 0) + 1;
+    }
+
+    // Build invoice totals map: client_id → { total, paid }
+    const invoiceMap: Record<string, { total: number; paid: number }> = {};
+    for (const inv of invoicesRes.data || []) {
+      if (!inv.client_id) continue;
+      if (!invoiceMap[inv.client_id]) invoiceMap[inv.client_id] = { total: 0, paid: 0 };
+      invoiceMap[inv.client_id].total += inv.total || 0;
+      if (inv.status === 'paid') invoiceMap[inv.client_id].paid += inv.total || 0;
+    }
+
+    // Enrich clients
+    const enriched = clientList.map((c) => ({
+      ...c,
+      tags: tagsMap[c.id] || [],
+      projects_count: projectCountMap[c.company] || 0,
+      invoices_total: invoiceMap[c.id]?.total || 0,
+      invoices_paid: invoiceMap[c.id]?.paid || 0,
+    }));
+
+    return apiSuccess(enriched, { total: count ?? 0 });
   } catch (err) {
     console.error('GET /api/clients error:', err);
     return apiServerError();
@@ -83,7 +172,7 @@ export async function GET(request: NextRequest) {
  * Create a new client.
  * Admin only.
  *
- * Body: { name, email, phone?, company, password }
+ * Body: { name, email, phone?, company, password, address?, source? }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -91,7 +180,7 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { name, email, phone, company, password } = body;
+    const { name, email, phone, company, password, address, source } = body;
 
     // ── Validation ───────────────────────────────────
     if (!name?.trim()) return apiValidationError('الاسم مطلوب');
@@ -150,6 +239,8 @@ export async function POST(request: NextRequest) {
         email: email.trim().toLowerCase(),
         phone: phone?.trim() || null,
         company: company.trim(),
+        address: address?.trim() || null,
+        source: source || 'manual',
         auth_user_id: authUser.user.id,
         password_hash: 'supabase_auth_managed',
         role: 'client',

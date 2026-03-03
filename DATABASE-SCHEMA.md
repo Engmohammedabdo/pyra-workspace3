@@ -2,7 +2,7 @@
 
 > Auto-documented from live Supabase database on 2026-02-16
 > Host: `pyraworkspacedb.pyramedia.cloud`
-> 26 tables in `public` schema (prefix: `pyra_`)
+> 29 tables in `public` schema (prefix: `pyra_`)
 
 ---
 
@@ -12,28 +12,31 @@
 2. [pyra_auth_mapping](#pyra_auth_mapping) — Supabase Auth ↔ pyra_users mapping
 3. [pyra_blocked_logs](#pyra_blocked_logs) — Blocked AI response logs
 4. [pyra_client_comments](#pyra_client_comments) — Client–team project comments
-5. [pyra_client_notifications](#pyra_client_notifications) — Portal client notifications
-6. [pyra_client_password_resets](#pyra_client_password_resets) — Client password reset tokens
-7. [pyra_clients](#pyra_clients) — Client accounts (portal users)
-8. [pyra_favorites](#pyra_favorites) — User file/folder favorites
-9. [pyra_file_approvals](#pyra_file_approvals) — File approval workflow
-10. [pyra_file_index](#pyra_file_index) — File search index
-11. [pyra_file_permissions](#pyra_file_permissions) — Per-file access rules
-12. [pyra_file_versions](#pyra_file_versions) — File version history
-13. [pyra_login_attempts](#pyra_login_attempts) — Login attempt tracking
-14. [pyra_notifications](#pyra_notifications) — Internal team notifications
-15. [pyra_project_files](#pyra_project_files) — Files linked to projects
-16. [pyra_projects](#pyra_projects) — Project management
-17. [pyra_quote_items](#pyra_quote_items) — Quote line items
-18. [pyra_quotes](#pyra_quotes) — Financial quotes/invoices
-19. [pyra_reviews](#pyra_reviews) — File review comments
-20. [pyra_sessions](#pyra_sessions) — User sessions (cookie-based)
-21. [pyra_settings](#pyra_settings) — System settings (key-value)
-22. [pyra_share_links](#pyra_share_links) — Public file share links
-23. [pyra_team_members](#pyra_team_members) — Team membership
-24. [pyra_teams](#pyra_teams) — Teams/departments
-25. [pyra_trash](#pyra_trash) — Soft-deleted files (30-day retention)
-26. [pyra_users](#pyra_users) — Employee/admin accounts
+5. [pyra_client_notes](#pyra_client_notes) — Client relationship notes
+6. [pyra_client_notifications](#pyra_client_notifications) — Portal client notifications
+7. [pyra_client_password_resets](#pyra_client_password_resets) — Client password reset tokens
+8. [pyra_client_tag_assignments](#pyra_client_tag_assignments) — Client–tag junction table
+9. [pyra_client_tags](#pyra_client_tags) — Client classification tags
+10. [pyra_clients](#pyra_clients) — Client accounts (portal users)
+11. [pyra_favorites](#pyra_favorites) — User file/folder favorites
+12. [pyra_file_approvals](#pyra_file_approvals) — File approval workflow
+13. [pyra_file_index](#pyra_file_index) — File search index
+14. [pyra_file_permissions](#pyra_file_permissions) — Per-file access rules
+15. [pyra_file_versions](#pyra_file_versions) — File version history
+16. [pyra_login_attempts](#pyra_login_attempts) — Login attempt tracking
+17. [pyra_notifications](#pyra_notifications) — Internal team notifications
+18. [pyra_project_files](#pyra_project_files) — Files linked to projects
+19. [pyra_projects](#pyra_projects) — Project management
+20. [pyra_quote_items](#pyra_quote_items) — Quote line items
+21. [pyra_quotes](#pyra_quotes) — Financial quotes/invoices
+22. [pyra_reviews](#pyra_reviews) — File review comments
+23. [pyra_sessions](#pyra_sessions) — User sessions (cookie-based)
+24. [pyra_settings](#pyra_settings) — System settings (key-value)
+25. [pyra_share_links](#pyra_share_links) — Public file share links
+26. [pyra_team_members](#pyra_team_members) — Team membership
+27. [pyra_teams](#pyra_teams) — Teams/departments
+28. [pyra_trash](#pyra_trash) — Soft-deleted files (30-day retention)
+29. [pyra_users](#pyra_users) — Employee/admin accounts
 
 ---
 
@@ -105,6 +108,24 @@ Bidirectional comments between clients (portal) and team members on projects.
 
 ---
 
+## pyra_client_notes
+
+Notes attached to clients for relationship management (meetings, decisions, follow-ups).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — |
+| client_id | text | NOT NULL | FK → pyra_clients(id) ON DELETE CASCADE |
+| content | text | NOT NULL | — |
+| is_pinned | boolean | YES | `false` |
+| created_by | text | NOT NULL | — |
+| created_at | timestamptz | YES | `now()` |
+| updated_at | timestamptz | YES | `now()` |
+
+**Indexes:** `idx_client_notes_client` on `client_id`
+
+---
+
 ## pyra_client_notifications
 
 Notifications shown in the client portal (file approvals, status updates).
@@ -138,6 +159,36 @@ Password reset tokens for portal clients. Tokens expire and can only be used onc
 
 ---
 
+## pyra_client_tag_assignments
+
+Junction table linking clients to tags (many-to-many).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **client_id** | text | NOT NULL | FK → pyra_clients(id) ON DELETE CASCADE |
+| **tag_id** | text | NOT NULL | FK → pyra_client_tags(id) ON DELETE CASCADE |
+
+**Primary Key:** `(client_id, tag_id)`
+
+---
+
+## pyra_client_tags
+
+Classification tags for organizing clients (e.g., VIP, New, Priority).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | text | NOT NULL | — |
+| name | text | NOT NULL | — |
+| color | text | NOT NULL | `'blue'` |
+| created_at | timestamptz | YES | `now()` |
+
+**Unique indexes:** `idx_client_tags_name` on `name`
+
+**Available colors:** `orange`, `red`, `green`, `blue`, `purple`, `pink`, `teal`, `amber`, `gray`
+
+---
+
 ## pyra_clients
 
 Client accounts for the portal. Supports both Supabase Auth (new) and legacy bcrypt passwords.
@@ -160,11 +211,20 @@ Client accounts for the portal. Supports both Supabase Auth (new) and legacy bcr
 | updated_at | timestamptz | YES | `now()` |
 | auth_user_id | uuid | YES | — |
 | is_active | boolean | YES | `true` |
+| address | text | YES | — |
+| source | text | YES | `'manual'` |
 
 **Notes:**
 - `auth_user_id`: Set for clients using Supabase Auth. NULL for legacy bcrypt-only clients.
 - `password_hash`: Set to `'supabase_auth_managed'` for Supabase Auth clients.
 - `is_active`: Derived from `status = 'active'` for legacy rows.
+- `source`: How the client was acquired. Values: `'manual'`, `'referral'`, `'website'`, `'social'`.
+
+**Migration:**
+```sql
+ALTER TABLE pyra_clients ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE pyra_clients ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manual';
+```
 
 ---
 
@@ -564,6 +624,10 @@ pyra_teams.id ← pyra_projects.team_id
 pyra_clients.id ← pyra_projects.client_id
 pyra_clients.id ← pyra_client_notifications.client_id
 pyra_clients.id ← pyra_client_password_resets.client_id
+pyra_clients.id ← pyra_client_notes.client_id
+pyra_clients.id ← pyra_client_tag_assignments.client_id
+
+pyra_client_tags.id ← pyra_client_tag_assignments.tag_id
 
 pyra_projects.id ← pyra_project_files.project_id
 pyra_projects.id ← pyra_client_comments.project_id
@@ -586,7 +650,9 @@ All `varchar` IDs use the format: `{prefix}_{unix_timestamp}_{random}`
 | `al` | pyra_activity_log |
 | `am` | pyra_auth_mapping |
 | `cn` | pyra_client_notifications |
+| `cno` | pyra_client_notes |
 | `cc` | pyra_client_comments |
+| `ct` | pyra_client_tags |
 | `fa` | pyra_file_approvals |
 | `fi` | pyra_file_index |
 | `fp` | pyra_file_permissions |

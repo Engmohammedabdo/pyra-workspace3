@@ -1,15 +1,175 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Palette, Loader2, Save } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import { Palette, Loader2, Save, Upload, X, Image as ImageIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
   clientId: string;
+}
+
+interface UploadDropzoneProps {
+  label: string;
+  currentUrl: string;
+  onUrlChange: (url: string) => void;
+  accept?: string;
+  previewHeight?: string;
+  clientId: string;
+  field: string;
+}
+
+function UploadDropzone({
+  label,
+  currentUrl,
+  onUrlChange,
+  accept = 'image/*',
+  previewHeight = 'h-12',
+  clientId,
+  field,
+}: UploadDropzoneProps) {
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('الرجاء اختيار ملف صورة');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('حجم الملف يجب أن يكون أقل من 5 ميجابايت');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('field', field);
+
+      const res = await fetch(`/api/clients/${clientId}/branding/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error || 'فشل في رفع الملف');
+        return;
+      }
+
+      const json = await res.json();
+      if (json.data?.url) {
+        onUrlChange(json.data.url);
+        toast.success('تم رفع الملف بنجاح');
+      }
+    } catch {
+      toast.error('فشل في رفع الملف');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleUpload(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleUpload(file);
+    // Reset input so same file can be selected again
+    e.target.value = '';
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {currentUrl ? (
+        <div className="relative group">
+          <div className="border rounded-lg p-3 bg-muted/30">
+            <img
+              src={currentUrl}
+              alt={label}
+              className={cn('object-contain rounded', previewHeight)}
+            />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="h-3.5 w-3.5 me-1.5 animate-spin" />
+              ) : (
+                <Upload className="h-3.5 w-3.5 me-1.5" />
+              )}
+              تغيير
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onUrlChange('')}
+              className="text-destructive hover:text-destructive"
+            >
+              <X className="h-3.5 w-3.5 me-1.5" />
+              حذف
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            'border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors',
+            dragOver
+              ? 'border-orange-400 bg-orange-50 dark:bg-orange-950/20'
+              : 'border-muted-foreground/25 hover:border-orange-400 hover:bg-muted/30',
+          )}
+          onClick={() => inputRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
+          {uploading ? (
+            <Loader2 className="h-6 w-6 mx-auto mb-2 animate-spin text-muted-foreground" />
+          ) : (
+            <ImageIcon className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+          )}
+          <p className="text-xs text-muted-foreground">
+            {uploading ? 'جارٍ الرفع...' : 'اسحب الملف هنا أو انقر للاختيار'}
+          </p>
+          <p className="text-[10px] text-muted-foreground mt-1">PNG, JPG, SVG — حد أقصى 5 MB</p>
+        </div>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept={accept}
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      {/* Fallback: manual URL input */}
+      <Input
+        value={currentUrl}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUrlChange(e.target.value)}
+        placeholder="أو أدخل رابط الصورة مباشرة"
+        dir="ltr"
+        className="text-xs"
+      />
+    </div>
+  );
 }
 
 export function BrandingEditor({ clientId }: Props) {
@@ -60,10 +220,10 @@ export function BrandingEditor({ clientId }: Props) {
           login_background_url: loginBg || null,
         }),
       });
-      if (res.ok) toast.success('\u062a\u0645 \u062d\u0641\u0638 \u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0644\u0639\u0644\u0627\u0645\u0629 \u0627\u0644\u062a\u062c\u0627\u0631\u064a\u0629');
-      else toast.error('\u0641\u0634\u0644 \u0641\u064a \u0627\u0644\u062d\u0641\u0638');
+      if (res.ok) toast.success('تم حفظ إعدادات العلامة التجارية');
+      else toast.error('فشل في الحفظ');
     } catch {
-      toast.error('\u0641\u0634\u0644 \u0641\u064a \u0627\u0644\u062d\u0641\u0638');
+      toast.error('فشل في الحفظ');
     } finally {
       setSaving(false);
     }
@@ -72,7 +232,9 @@ export function BrandingEditor({ clientId }: Props) {
   if (loading)
     return (
       <Card>
-        <CardContent className="p-6">{'\u062c\u0627\u0631\u064d \u0627\u0644\u062a\u062d\u0645\u064a\u0644...'}</CardContent>
+        <CardContent className="p-6 text-center text-muted-foreground">
+          جارٍ التحميل...
+        </CardContent>
       </Card>
     );
 
@@ -81,13 +243,14 @@ export function BrandingEditor({ clientId }: Props) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Palette className="h-5 w-5" />
-          {'\u0627\u0644\u0639\u0644\u0627\u0645\u0629 \u0627\u0644\u062a\u062c\u0627\u0631\u064a\u0629'}
+          العلامة التجارية
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
+        {/* Colors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>{'\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u0623\u0633\u0627\u0633\u064a'}</Label>
+            <Label>اللون الأساسي</Label>
             <div className="flex gap-2 items-center">
               <input
                 type="color"
@@ -108,7 +271,7 @@ export function BrandingEditor({ clientId }: Props) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label>{'\u0627\u0644\u0644\u0648\u0646 \u0627\u0644\u062b\u0627\u0646\u0648\u064a'}</Label>
+            <Label>اللون الثانوي</Label>
             <div className="flex gap-2 items-center">
               <input
                 type="color"
@@ -130,76 +293,57 @@ export function BrandingEditor({ clientId }: Props) {
           </div>
         </div>
 
+        {/* Company Name */}
         <div className="space-y-2">
-          <Label>{'\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629 (\u0627\u0644\u0639\u0631\u0636)'}</Label>
+          <Label>اسم الشركة (العرض)</Label>
           <Input
             value={companyName}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               setCompanyName(e.target.value)
             }
-            placeholder={'\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629 \u0627\u0644\u0645\u0639\u0631\u0648\u0636 \u0641\u064a \u0627\u0644\u0628\u0648\u0631\u062a\u0627\u0644'}
+            placeholder="اسم الشركة المعروض في البورتال"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>{'\u0631\u0627\u0628\u0637 \u0627\u0644\u0634\u0639\u0627\u0631 (Logo URL)'}</Label>
-          <Input
-            value={logoUrl}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setLogoUrl(e.target.value)
-            }
-            placeholder="https://..."
-            dir="ltr"
+        {/* File Uploads */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <UploadDropzone
+            label="الشعار (Logo)"
+            currentUrl={logoUrl}
+            onUrlChange={setLogoUrl}
+            clientId={clientId}
+            field="logo"
+            previewHeight="h-12"
           />
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt="Logo preview"
-              className="h-12 mt-1 object-contain"
-            />
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label>{'\u0631\u0627\u0628\u0637 \u0627\u0644\u0623\u064a\u0642\u0648\u0646\u0629 (Favicon URL)'}</Label>
-          <Input
-            value={faviconUrl}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setFaviconUrl(e.target.value)
-            }
-            placeholder="https://..."
-            dir="ltr"
+          <UploadDropzone
+            label="الأيقونة (Favicon)"
+            currentUrl={faviconUrl}
+            onUrlChange={setFaviconUrl}
+            clientId={clientId}
+            field="favicon"
+            previewHeight="h-8"
+            accept="image/png,image/x-icon,image/svg+xml"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label>{'\u062e\u0644\u0641\u064a\u0629 \u0635\u0641\u062d\u0629 \u0627\u0644\u062f\u062e\u0648\u0644 (URL)'}</Label>
-          <Input
-            value={loginBg}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setLoginBg(e.target.value)
-            }
-            placeholder="https://..."
-            dir="ltr"
-          />
-          {loginBg && (
-            <img
-              src={loginBg}
-              alt="Background preview"
-              className="h-24 mt-1 rounded object-cover"
-            />
-          )}
-        </div>
+        <UploadDropzone
+          label="خلفية صفحة الدخول"
+          currentUrl={loginBg}
+          onUrlChange={setLoginBg}
+          clientId={clientId}
+          field="login_background"
+          previewHeight="h-24"
+        />
 
         {/* Live Preview Box */}
-        <div className="border rounded-lg p-4 space-y-2">
-          <p className="text-sm text-muted-foreground">{'\u0645\u0639\u0627\u064a\u0646\u0629'}</p>
+        <div className="border rounded-lg p-4 space-y-3">
+          <p className="text-sm font-medium text-muted-foreground">معاينة</p>
           <div
             className="flex items-center gap-3 p-3 rounded"
             style={{ backgroundColor: primaryColor + '15' }}
           >
             {logoUrl ? (
-              <img src={logoUrl} alt="" className="h-8" />
+              <img src={logoUrl} alt="" className="h-8 object-contain" />
             ) : (
               <div
                 className="h-8 w-8 rounded"
@@ -207,7 +351,7 @@ export function BrandingEditor({ clientId }: Props) {
               />
             )}
             <span className="font-bold" style={{ color: primaryColor }}>
-              {companyName || '\u0627\u0633\u0645 \u0627\u0644\u0634\u0631\u0643\u0629'}
+              {companyName || 'اسم الشركة'}
             </span>
           </div>
           <div className="flex gap-2">
@@ -215,13 +359,13 @@ export function BrandingEditor({ clientId }: Props) {
               className="h-8 w-20 rounded text-white text-xs flex items-center justify-center"
               style={{ backgroundColor: primaryColor }}
             >
-              {'\u0632\u0631 \u0623\u0633\u0627\u0633\u064a'}
+              زر أساسي
             </div>
             <div
               className="h-8 w-20 rounded text-white text-xs flex items-center justify-center"
               style={{ backgroundColor: secondaryColor }}
             >
-              {'\u0632\u0631 \u062b\u0627\u0646\u0648\u064a'}
+              زر ثانوي
             </div>
           </div>
         </div>
@@ -236,7 +380,7 @@ export function BrandingEditor({ clientId }: Props) {
           ) : (
             <Save className="h-4 w-4 me-1" />
           )}
-          {'\u062d\u0641\u0638 \u0627\u0644\u062a\u063a\u064a\u064a\u0631\u0627\u062a'}
+          حفظ التغييرات
         </Button>
       </CardContent>
     </Card>

@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
 
     const status = sp.get('status')?.trim() || '';
     const search = sp.get('search')?.trim() || '';
+    const clientId = sp.get('client_id')?.trim() || '';
     const page = Math.max(1, parseInt(sp.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') || '20')));
     const offset = (page - 1) * limit;
@@ -36,6 +37,10 @@ export async function GET(request: NextRequest) {
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
+    }
+
+    if (clientId) {
+      query = query.eq('client_id', clientId);
     }
 
     if (search) {

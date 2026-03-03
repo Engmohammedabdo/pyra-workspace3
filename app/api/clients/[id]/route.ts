@@ -10,13 +10,13 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
 // Fields to select — everything EXCEPT auth_user_id
-const CLIENT_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
+const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at';
 
 /**
  * GET /api/clients/[id]
  * Get a single client by ID.
  * Admin only.
- * Returns client details + projects count + quotes count.
+ * Returns client details + financials + tags + related counts + recent activity.
  */
 export async function GET(
   request: NextRequest,
@@ -45,22 +45,89 @@ export async function GET(
       return apiNotFound('العميل غير موجود');
     }
 
-    // ── Count related projects ───────────────────────
-    const { count: projectsCount } = await supabase
-      .from('pyra_projects')
-      .select('id', { count: 'exact', head: true })
-      .eq('client_company', client.company);
+    // ── Fetch all related data in parallel ────────────
+    const [
+      projectsRes,
+      quotesRes,
+      invoicesRes,
+      contractsRes,
+      tagsRes,
+      activityRes,
+    ] = await Promise.all([
+      // Projects count (total + active)
+      supabase
+        .from('pyra_projects')
+        .select('id, status')
+        .eq('client_company', client.company),
 
-    // ── Count related quotes ─────────────────────────
-    const { count: quotesCount } = await supabase
-      .from('pyra_quotes')
-      .select('id', { count: 'exact', head: true })
-      .eq('client_id', id);
+      // Quotes count + total
+      supabase
+        .from('pyra_quotes')
+        .select('id, total')
+        .eq('client_id', id),
+
+      // Invoices: total, paid, outstanding
+      supabase
+        .from('pyra_invoices')
+        .select('id, total, status')
+        .eq('client_id', id),
+
+      // Contracts count (table may not exist)
+      supabase
+        .from('pyra_contracts')
+        .select('id', { count: 'exact', head: true })
+        .eq('client_id', id)
+        .then((res) => (res.error ? { count: 0, data: null, error: null } : res)),
+
+      // Tags
+      supabase
+        .from('pyra_client_tag_assignments')
+        .select('tag_id, pyra_client_tags(id, name, color)')
+        .eq('client_id', id),
+
+      // Recent activity (last 10)
+      supabase
+        .from('pyra_activity_log')
+        .select('id, action_type, username, display_name, details, created_at')
+        .or(`target_path.like./clients/${id}%,details->client_id.eq.${id}`)
+        .order('created_at', { ascending: false })
+        .limit(10),
+    ]);
+
+    // ── Compute project stats ─────────────────────────
+    const projects = projectsRes.data || [];
+    const activeProjects = projects.filter(
+      (p) => !['completed', 'archived'].includes(p.status)
+    );
+
+    // ── Compute financial stats ───────────────────────
+    const invoices = invoicesRes.data || [];
+    const totalInvoiced = invoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
+    const totalPaid = invoices
+      .filter((inv) => inv.status === 'paid')
+      .reduce((sum, inv) => sum + (inv.total || 0), 0);
+
+    const quotes = quotesRes.data || [];
+    const quotesTotal = quotes.reduce((sum, q) => sum + (q.total || 0), 0);
+
+    // ── Extract tags ──────────────────────────────────
+    const tags = (tagsRes.data || [])
+      .map((a) => a.pyra_client_tags as unknown as { id: string; name: string; color: string })
+      .filter(Boolean);
 
     return apiSuccess({
       ...client,
-      projects_count: projectsCount ?? 0,
-      quotes_count: quotesCount ?? 0,
+      tags,
+      projects_count: projects.length,
+      active_projects_count: activeProjects.length,
+      quotes_count: quotes.length,
+      quotes_total: quotesTotal,
+      invoices_count: invoices.length,
+      total_invoiced: totalInvoiced,
+      total_paid: totalPaid,
+      outstanding: totalInvoiced - totalPaid,
+      contracts_count: contractsRes.count ?? 0,
+      recent_activity: activityRes.data || [],
     });
   } catch (err) {
     console.error('GET /api/clients/[id] error:', err);
@@ -143,6 +210,18 @@ export async function PATCH(
 
     if (body.is_active !== undefined) {
       updates.is_active = Boolean(body.is_active);
+    }
+
+    if (body.address !== undefined) {
+      updates.address = body.address?.trim() || null;
+    }
+
+    if (body.source !== undefined) {
+      const validSources = ['manual', 'referral', 'website', 'social'];
+      if (body.source && !validSources.includes(body.source)) {
+        return apiValidationError(`مصدر غير صالح. المصادر المسموحة: ${validSources.join(', ')}`);
+      }
+      updates.source = body.source || 'manual';
     }
 
     // Nothing to update
