@@ -133,7 +133,7 @@ export default function PortalQuotesPage() {
 
         <Card className="max-w-[800px] mx-auto">
           <CardHeader className="text-center border-b">
-            <CardTitle className="text-xl text-orange-600">{detail.company_name || 'PYRAMEDIA X'}</CardTitle>
+            <CardTitle className="text-xl text-portal">{detail.company_name || 'PYRAMEDIA X'}</CardTitle>
             <p className="text-xs text-muted-foreground">FOR AI SOLUTIONS</p>
           </CardHeader>
           <CardContent className="p-6 space-y-6">
@@ -163,7 +163,7 @@ export default function PortalQuotesPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-orange-500 text-white">
+                  <tr className="bg-portal text-white">
                     <th className="p-2 text-start w-10">#</th>
                     <th className="p-2 text-start">الوصف</th>
                     <th className="p-2 text-start w-16">الكمية</th>
@@ -199,7 +199,7 @@ export default function PortalQuotesPage() {
                 <Separator />
                 <div className="flex justify-between font-bold">
                   <span>الإجمالي</span>
-                  <span className="font-mono text-orange-600" dir="ltr">{fmtNum(detail.total)} {detail.currency}</span>
+                  <span className="font-mono text-portal" dir="ltr">{fmtNum(detail.total)} {detail.currency}</span>
                 </div>
               </div>
             </div>
@@ -237,7 +237,7 @@ export default function PortalQuotesPage() {
               </div>
             ) : (detail.status !== 'expired' && detail.status !== 'cancelled') && (
               <div className="flex justify-center">
-                <Button onClick={() => setShowSign(true)} className="bg-orange-500 hover:bg-orange-600">
+                <Button onClick={() => setShowSign(true)} className="bg-portal hover:bg-portal-secondary">
                   <PenTool className="h-4 w-4 me-2" /> توقيع العرض
                 </Button>
               </div>
@@ -272,7 +272,7 @@ export default function PortalQuotesPage() {
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowSign(false)}>إلغاء</Button>
-              <Button onClick={handleSign} disabled={signing || !signData || !signName.trim()} className="bg-orange-500 hover:bg-orange-600">
+              <Button onClick={handleSign} disabled={signing || !signData || !signName.trim()} className="bg-portal hover:bg-portal-secondary">
                 {signing ? 'جارٍ التوقيع...' : 'تأكيد التوقيع'}
               </Button>
             </DialogFooter>
@@ -315,7 +315,7 @@ export default function PortalQuotesPage() {
             const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
             return (
               <StaggerItem key={q.id}>
-                <Card className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5" onClick={() => openDetail(q.id)}>
+                <Card className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5" onClick={() => openDetail(q.id)}>
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -326,7 +326,7 @@ export default function PortalQuotesPage() {
                       <p className="text-xs text-muted-foreground">{formatDate(q.estimate_date, 'dd-MM-yyyy')}</p>
                     </div>
                     <div className="text-end">
-                      <p className="font-mono font-bold text-orange-600">{formatCurrency(q.total, q.currency)}</p>
+                      <p className="font-mono font-bold text-portal">{formatCurrency(q.total, q.currency)}</p>
                       <Eye className="h-4 w-4 text-muted-foreground mt-1 ms-auto" />
                     </div>
                   </CardContent>

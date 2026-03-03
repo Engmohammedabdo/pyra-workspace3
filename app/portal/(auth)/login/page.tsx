@@ -61,7 +61,7 @@ export default function PortalLoginPage() {
   return (
     <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl">
       {/* Branding Side */}
-      <div className="hidden lg:flex flex-col items-center justify-center bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 p-12 text-white relative overflow-hidden">
+      <div className="hidden lg:flex flex-col items-center justify-center bg-gradient-to-br from-portal via-portal-secondary to-portal-secondary p-12 text-white relative overflow-hidden">
         {/* Background decorations */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-10 start-10 w-40 h-40 border border-white/30 rounded-full" />
@@ -76,7 +76,7 @@ export default function PortalLoginPage() {
             <h1 className="text-4xl font-bold tracking-tight">
               PYRAMEDIA X
             </h1>
-            <p className="text-orange-100 text-lg">FOR AI SOLUTIONS</p>
+            <p className="text-white/80 text-lg">FOR AI SOLUTIONS</p>
           </div>
 
           <div className="w-16 h-[2px] bg-white/60 mx-auto" />
@@ -89,11 +89,11 @@ export default function PortalLoginPage() {
             </span>
           </div>
 
-          <p className="text-orange-50/80 text-sm max-w-[280px] leading-relaxed mx-auto">
+          <p className="text-white/60 text-sm max-w-[280px] leading-relaxed mx-auto">
             تابع مشاريعك، استعرض الملفات، وتواصل مع فريق العمل بسهولة
           </p>
 
-          <p className="text-orange-100/40 text-xs">v3.0</p>
+          <p className="text-white/40 text-xs">v3.0</p>
         </div>
       </div>
 
@@ -102,9 +102,9 @@ export default function PortalLoginPage() {
         <CardHeader className="space-y-3 pt-12 pb-6 px-8 lg:px-12">
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-4">
-            <h2 className="text-2xl font-bold text-orange-500">PYRAMEDIA X</h2>
+            <h2 className="text-2xl font-bold text-portal">PYRAMEDIA X</h2>
             <p className="text-xs text-muted-foreground">FOR AI SOLUTIONS</p>
-            <div className="inline-flex items-center gap-1.5 mt-3 bg-orange-500/10 text-orange-600 rounded-full px-4 py-1.5 text-sm font-medium">
+            <div className="inline-flex items-center gap-1.5 mt-3 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">
               <Building2 className="h-4 w-4" />
               بوابة العملاء
             </div>
@@ -183,7 +183,7 @@ export default function PortalLoginPage() {
               </div>
               <Link
                 href="/portal/forgot-password"
-                className="text-sm text-orange-600 hover:text-orange-700 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                className="text-sm text-portal hover:text-portal-secondary dark:text-portal dark:hover:text-portal transition-colors"
               >
                 نسيت كلمة المرور؟
               </Link>
@@ -200,7 +200,7 @@ export default function PortalLoginPage() {
             {/* Submit */}
             <Button
               type="submit"
-              className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white"
+              className="w-full h-11 bg-portal hover:bg-portal-secondary text-white"
               disabled={loading}
             >
               {loading ? (

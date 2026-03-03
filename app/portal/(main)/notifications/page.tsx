@@ -78,7 +78,7 @@ function getNotificationIconColor(type: string) {
     case 'new_comment':
       return 'text-blue-500 bg-blue-500/10';
     case 'project_update':
-      return 'text-orange-500 bg-orange-500/10';
+      return 'text-portal bg-portal/10';
     case 'script_reply':
       return 'text-indigo-500 bg-indigo-500/10';
     default:
@@ -216,7 +216,7 @@ export default function PortalNotificationsPage() {
             <TabsTrigger value="unread">
               غير مقروء
               {unreadCount > 0 && (
-                <span className="ms-1.5 text-[10px] bg-orange-500 text-white rounded-full px-1.5 py-0.5 leading-none">
+                <span className="ms-1.5 text-[10px] bg-portal text-white rounded-full px-1.5 py-0.5 leading-none">
                   {unreadCount}
                 </span>
               )}
@@ -259,8 +259,8 @@ export default function PortalNotificationsPage() {
               <StaggerItem key={notif.id}>
                 <Card
                   className={cn(
-                    'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5',
-                    !notif.is_read && 'bg-orange-500/5 border-orange-500/20'
+                    'cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5',
+                    !notif.is_read && 'bg-portal/5 border-portal/20'
                   )}
                   onClick={() => !notif.is_read && markAsRead(notif.id)}
                 >
@@ -292,7 +292,7 @@ export default function PortalNotificationsPage() {
 
                   {/* Unread indicator */}
                   {!notif.is_read && (
-                    <div className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0 mt-2" />
+                    <div className="w-2.5 h-2.5 rounded-full bg-portal shrink-0 mt-2" />
                   )}
                 </CardContent>
               </Card>

@@ -203,7 +203,7 @@ export default function PortalInvoiceDetailPage() {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={invoice.company_logo} alt="Logo" className="h-12 mx-auto mb-2 object-contain" />
           )}
-          <CardTitle className="text-xl text-orange-600">{invoice.company_name || 'PYRAMEDIA X'}</CardTitle>
+          <CardTitle className="text-xl text-portal">{invoice.company_name || 'PYRAMEDIA X'}</CardTitle>
           <p className="text-xs text-muted-foreground">FOR AI SOLUTIONS</p>
         </CardHeader>
 
@@ -253,7 +253,7 @@ export default function PortalInvoiceDetailPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-orange-500 text-white">
+                <tr className="bg-portal text-white">
                   <th className="p-2 text-start w-10">#</th>
                   <th className="p-2 text-start">الوصف</th>
                   <th className="p-2 text-start w-16">الكمية</th>
@@ -291,7 +291,7 @@ export default function PortalInvoiceDetailPage() {
               <Separator />
               <div className="flex justify-between font-bold">
                 <span>الإجمالي</span>
-                <span className="font-mono text-orange-600" dir="ltr">{fmtNum(invoice.total)} {invoice.currency}</span>
+                <span className="font-mono text-portal" dir="ltr">{fmtNum(invoice.total)} {invoice.currency}</span>
               </div>
               <Separator />
               <div className="flex justify-between text-sm">
@@ -364,8 +364,8 @@ export default function PortalInvoiceDetailPage() {
           {invoice.contract_summary && (
             <>
               <Separator />
-              <div className="border border-orange-200 rounded-lg p-4 bg-orange-50/50 dark:bg-orange-950/10 dark:border-orange-900/30">
-                <p className="text-sm font-semibold mb-3 text-orange-700 dark:text-orange-400">
+              <div className="border border-portal/20 rounded-lg p-4 bg-portal/5 dark:bg-portal/10 dark:border-portal/20">
+                <p className="text-sm font-semibold mb-3 text-portal-secondary dark:text-portal">
                   ملخص العقد: {invoice.contract_summary.contract_title}
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
@@ -389,7 +389,7 @@ export default function PortalInvoiceDetailPage() {
                   </div>
                   <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
                     <p className="text-[10px] text-muted-foreground mb-0.5">المتبقي</p>
-                    <p className={`text-sm font-bold font-mono ${invoice.contract_summary.remaining > 0 ? 'text-orange-600' : 'text-green-600'}`} dir="ltr">
+                    <p className={`text-sm font-bold font-mono ${invoice.contract_summary.remaining > 0 ? 'text-portal' : 'text-green-600'}`} dir="ltr">
                       {fmtNum(invoice.contract_summary.remaining)} {invoice.contract_summary.contract_currency}
                     </p>
                   </div>
@@ -406,7 +406,7 @@ export default function PortalInvoiceDetailPage() {
                           key={ms.id}
                           className={`flex items-center justify-between text-xs p-2 rounded ${
                             isCurrentInvoice
-                              ? 'bg-orange-100 dark:bg-orange-900/20 border border-orange-300 dark:border-orange-800'
+                              ? 'bg-portal/10 dark:bg-portal/20 border border-portal/30 dark:border-portal/20'
                               : 'bg-white dark:bg-background border'
                           }`}
                         >
@@ -422,7 +422,7 @@ export default function PortalInvoiceDetailPage() {
                             />
                             <span className={isCurrentInvoice ? 'font-semibold' : ''}>{ms.title}</span>
                             {isCurrentInvoice && (
-                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-orange-400 text-orange-600">
+                              <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-portal text-portal">
                                 الفاتورة الحالية
                               </Badge>
                             )}

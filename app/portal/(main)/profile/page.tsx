@@ -182,8 +182,8 @@ export default function PortalProfilePage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <User className="h-5 w-5 text-orange-500" />
+            <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-portal" />
             </div>
             <div>
               <CardTitle className="text-base">البيانات الشخصية</CardTitle>
@@ -253,7 +253,7 @@ export default function PortalProfilePage() {
               <Button
                 type="submit"
                 disabled={profileSaving}
-                className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                className="gap-2 bg-portal hover:bg-portal-secondary text-white"
               >
                 {profileSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -271,8 +271,8 @@ export default function PortalProfilePage() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-              <Lock className="h-5 w-5 text-orange-500" />
+            <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center">
+              <Lock className="h-5 w-5 text-portal" />
             </div>
             <div>
               <CardTitle className="text-base">تغيير كلمة المرور</CardTitle>
@@ -392,7 +392,7 @@ export default function PortalProfilePage() {
                   !newPassword ||
                   !confirmPassword
                 }
-                className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                className="gap-2 bg-portal hover:bg-portal-secondary text-white"
               >
                 {passwordSaving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

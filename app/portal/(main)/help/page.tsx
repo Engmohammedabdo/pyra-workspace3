@@ -161,7 +161,7 @@ export default function HelpCenterPage() {
               {searchResults.map(article => (
                 <Card
                   key={article.id}
-                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/help/${article.id}`)}
                 >
                   <CardContent className="p-4">
@@ -211,7 +211,7 @@ export default function HelpCenterPage() {
               {articles.map(article => (
                 <Card
                   key={article.id}
-                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/help/${article.id}`)}
                 >
                   <CardContent className="p-4 flex items-center justify-between">
@@ -246,13 +246,13 @@ export default function HelpCenterPage() {
               {categories.map(cat => (
                 <StaggerItem key={cat.id}>
                   <Card
-                    className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                    className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5"
                     onClick={() => handleSelectCategory(cat)}
                   >
                     <CardContent className="p-5">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
-                          <BookOpen className="h-5 w-5 text-orange-500" />
+                        <div className="h-10 w-10 rounded-lg bg-portal/10 flex items-center justify-center">
+                          <BookOpen className="h-5 w-5 text-portal" />
                         </div>
                         <h3 className="font-semibold">{cat.name}</h3>
                       </div>

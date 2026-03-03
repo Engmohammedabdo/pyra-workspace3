@@ -171,7 +171,7 @@ export default function PortalProjectsPage() {
             return (
               <StaggerItem key={project.id}>
                 <Card
-                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/projects/${project.id}`)}
                 >
                   <CardContent className="pt-5 pb-4 space-y-3">

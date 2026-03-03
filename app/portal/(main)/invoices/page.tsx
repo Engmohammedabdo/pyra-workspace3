@@ -95,7 +95,7 @@ export default function PortalInvoicesPage() {
             return (
               <StaggerItem key={inv.id}>
                 <Card
-                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5"
+                  className="cursor-pointer transition-all duration-200 hover:shadow-md hover:border-portal/30 hover:-translate-y-0.5"
                   onClick={() => router.push(`/portal/invoices/${inv.id}`)}
                 >
                   <CardContent className="p-4 flex items-center justify-between">
@@ -111,7 +111,7 @@ export default function PortalInvoicesPage() {
                       </p>
                     </div>
                     <div className="text-end space-y-1">
-                      <p className="font-mono font-bold text-orange-600">{formatCurrency(inv.total, inv.currency)}</p>
+                      <p className="font-mono font-bold text-portal">{formatCurrency(inv.total, inv.currency)}</p>
                       {inv.amount_due > 0 && inv.amount_due < inv.total && (
                         <p className="text-xs text-muted-foreground">
                           المتبقي: {formatCurrency(inv.amount_due, inv.currency)}

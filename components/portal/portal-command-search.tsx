@@ -125,7 +125,7 @@ export function PortalCommandSearch() {
   function ResultIcon({ type }: { type: SearchResult['type'] }) {
     const cls = 'h-4 w-4 shrink-0';
     if (type === 'file') return <FileText className={`${cls} text-blue-500`} />;
-    if (type === 'project') return <FolderKanban className={`${cls} text-orange-500`} />;
+    if (type === 'project') return <FolderKanban className={`${cls} text-portal`} />;
     return <Receipt className={`${cls} text-emerald-500`} />;
   }
 
@@ -134,7 +134,7 @@ export function PortalCommandSearch() {
       {/* ── Search trigger button (topbar) ─────────────────── */}
       <button
         onClick={() => setOpen(true)}
-        className="hidden sm:flex items-center gap-2 h-9 rounded-lg border border-border/60 bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/40 min-w-[180px] lg:min-w-[240px]"
+        className="hidden sm:flex items-center gap-2 h-9 rounded-lg border border-border/60 bg-muted/40 px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-portal/40 min-w-[180px] lg:min-w-[240px]"
       >
         <Search className="h-3.5 w-3.5 shrink-0" />
         <span className="flex-1 text-start truncate">بحث...</span>
@@ -184,7 +184,7 @@ export function PortalCommandSearch() {
                   {/* ── Input area ─────────────────────────── */}
                   <div className="flex items-center gap-2 border-b border-border/60 px-4">
                     {loading ? (
-                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-orange-500" />
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-portal" />
                     ) : (
                       <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                     )}
@@ -232,7 +232,7 @@ export function PortalCommandSearch() {
                             key={`file-${item.id}`}
                             value={`file-${item.id}-${item.name}`}
                             onSelect={() => handleSelect(item)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-orange-500/10 data-[selected=true]:text-foreground hover:bg-muted/60"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-portal/10 data-[selected=true]:text-foreground hover:bg-muted/60"
                           >
                             <ResultIcon type="file" />
                             <div className="flex-1 min-w-0">
@@ -259,7 +259,7 @@ export function PortalCommandSearch() {
                             key={`project-${item.id}`}
                             value={`project-${item.id}-${item.name}`}
                             onSelect={() => handleSelect(item)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-orange-500/10 data-[selected=true]:text-foreground hover:bg-muted/60"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-portal/10 data-[selected=true]:text-foreground hover:bg-muted/60"
                           >
                             <ResultIcon type="project" />
                             <div className="flex-1 min-w-0">
@@ -286,7 +286,7 @@ export function PortalCommandSearch() {
                             key={`quote-${item.id}`}
                             value={`quote-${item.id}-${item.name}`}
                             onSelect={() => handleSelect(item)}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-orange-500/10 data-[selected=true]:text-foreground hover:bg-muted/60"
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm cursor-pointer transition-colors data-[selected=true]:bg-portal/10 data-[selected=true]:text-foreground hover:bg-muted/60"
                           >
                             <ResultIcon type="quote" />
                             <div className="flex-1 min-w-0">

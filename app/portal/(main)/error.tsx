@@ -18,9 +18,9 @@ export default function PortalError({
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
       <div className="relative">
-        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-orange-500/20 to-orange-600/5 blur-xl scale-150" />
-        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-orange-500/15 to-orange-600/5 border border-orange-500/10 flex items-center justify-center">
-          <AlertTriangle className="h-9 w-9 text-orange-500" />
+        <div className="absolute inset-0 rounded-full bg-gradient-to-br from-portal/20 to-portal/5 blur-xl scale-150" />
+        <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-portal/15 to-portal/5 border border-portal/10 flex items-center justify-center">
+          <AlertTriangle className="h-9 w-9 text-portal" />
         </div>
       </div>
 
@@ -38,7 +38,7 @@ export default function PortalError({
         </Button>
         <Button
           onClick={() => (window.location.href = '/portal')}
-          className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+          className="gap-2 bg-portal hover:bg-portal-secondary text-white"
         >
           <Home className="h-4 w-4" />
           الرئيسية

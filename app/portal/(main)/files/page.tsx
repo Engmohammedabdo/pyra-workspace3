@@ -245,8 +245,8 @@ function FolderCard({
       onClick={onClick}
       className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 hover:shadow-md transition-all duration-200 text-start min-w-[180px] max-w-[240px] shrink-0 group"
     >
-      <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center shrink-0 group-hover:bg-orange-200 transition-colors">
-        <Folder className="h-5 w-5 text-orange-600" />
+      <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center shrink-0 group-hover:bg-portal/20 transition-colors">
+        <Folder className="h-5 w-5 text-portal" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-semibold truncate">{folder.label}</p>
@@ -289,7 +289,7 @@ function FileCard({
 
   return (
     <div
-      className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-orange-200 transition-all duration-200 cursor-pointer"
+      className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-portal/20 transition-all duration-200 cursor-pointer"
       onClick={onPreview}
     >
       {/* Thumbnail / Icon Area */}
@@ -374,7 +374,7 @@ function FileCard({
         {/* Top badges */}
         <div className="absolute top-2 start-2 flex items-center gap-1">
           {isNewFile(file.added_at) && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shadow-sm">
+            <Badge className="text-[9px] px-1.5 py-0 bg-portal text-white border-0 shadow-sm">
               جديد
             </Badge>
           )}
@@ -431,13 +431,13 @@ function FileRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span
-            className="text-sm truncate cursor-pointer hover:text-orange-500 transition-colors"
+            className="text-sm truncate cursor-pointer hover:text-portal transition-colors"
             onClick={onPreview}
           >
             {file.file_name}
           </span>
           {isNewFile(file.added_at) && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 shrink-0">
+            <Badge className="text-[9px] px-1.5 py-0 bg-portal text-white border-0 shrink-0">
               جديد
             </Badge>
           )}
@@ -457,7 +457,7 @@ function FileRow({
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
-        <Button variant="ghost" size="sm" onClick={onPreview} className="h-8 w-8 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10" title="معاينة">
+        <Button variant="ghost" size="sm" onClick={onPreview} className="h-8 w-8 p-0 text-portal hover:text-portal-secondary hover:bg-portal/10" title="معاينة">
           <Eye className="h-4 w-4" />
         </Button>
         <Button variant="ghost" size="sm" onClick={onDownload} className="h-8 w-8 p-0" title="تحميل">
@@ -887,7 +887,7 @@ export default function PortalFilesPage() {
         <div className="flex items-center gap-1.5 text-sm flex-wrap">
           <button
             onClick={() => setCurrentPath([])}
-            className="flex items-center gap-1 text-orange-600 hover:text-orange-700 transition-colors font-medium"
+            className="flex items-center gap-1 text-portal hover:text-portal-secondary transition-colors font-medium"
           >
             <Home className="h-3.5 w-3.5" />
             الكل
@@ -904,7 +904,7 @@ export default function PortalFilesPage() {
                 ) : (
                   <button
                     onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))}
-                    className="text-orange-600 hover:text-orange-700 transition-colors font-medium"
+                    className="text-portal hover:text-portal-secondary transition-colors font-medium"
                   >
                     {formatSegmentName(segment)}
                   </button>
@@ -930,7 +930,7 @@ export default function PortalFilesPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                className="mt-3 text-orange-600 hover:text-orange-700"
+                className="mt-3 text-portal hover:text-portal-secondary"
                 onClick={() => setCurrentPath(currentPath.slice(0, -1))}
               >
                 <ChevronRight className="h-4 w-4 me-1" />

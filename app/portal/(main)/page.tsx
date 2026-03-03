@@ -161,7 +161,7 @@ function getActionColor(actionType: string): string {
     case 'quote_viewed':
       return 'bg-amber-500';
     case 'quote_signed':
-      return 'bg-orange-500';
+      return 'bg-portal';
     case 'file_approved':
       return 'bg-emerald-500';
     case 'file_rejected':
@@ -373,9 +373,9 @@ export default function PortalDashboardPage() {
       label: 'إشعارات غير مقروءة',
       value: stats.unreadNotifications,
       icon: Bell,
-      color: 'text-orange-500',
-      bg: 'bg-orange-500/10',
-      iconBg: 'bg-orange-500/15',
+      color: 'text-portal',
+      bg: 'bg-portal/10',
+      iconBg: 'bg-portal/15',
     },
     {
       label: 'إجمالي الملفات',
@@ -421,13 +421,13 @@ export default function PortalDashboardPage() {
     >
       {/* ── Welcome Banner ──────────────────────────────── */}
       <motion.div variants={itemVariants}>
-        <Card className="overflow-hidden border-orange-500/20">
-          <div className="relative bg-gradient-to-l from-orange-500/10 via-orange-400/5 to-transparent">
+        <Card className="overflow-hidden border-portal/20">
+          <div className="relative bg-gradient-to-l from-portal/10 via-portal/5 to-transparent">
             {/* Decorative circles */}
-            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-orange-500/5 blur-2xl" />
-            <div className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-orange-400/5 blur-2xl" />
+            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-portal/5 blur-2xl" />
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-portal/5 blur-2xl" />
             <CardContent className="relative flex items-center gap-4 py-8 px-6">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shrink-0 shadow-lg shadow-orange-500/20">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-portal to-portal-secondary flex items-center justify-center shrink-0 shadow-lg shadow-portal/20">
                 <LayoutDashboard className="h-7 w-7 text-white" />
               </div>
               <div className="min-w-0 flex-1">
@@ -467,7 +467,7 @@ export default function PortalDashboardPage() {
           const Icon = item.icon;
           return (
             <motion.div key={item.label} variants={itemVariants}>
-              <Card className="group hover:shadow-md hover:border-orange-500/20 transition-all duration-300 cursor-default">
+              <Card className="group hover:shadow-md hover:border-portal/20 transition-all duration-300 cursor-default">
                 <CardContent className="flex items-center gap-4 py-5">
                   <div
                     className={cn(
@@ -501,10 +501,10 @@ export default function PortalDashboardPage() {
               <button
                 key={action.href}
                 onClick={() => router.push(action.href)}
-                className="flex flex-col items-center justify-center gap-2.5 rounded-xl border bg-card p-5 hover:shadow-md hover:border-orange-300 dark:hover:border-orange-500/40 transition-all duration-200 group"
+                className="flex flex-col items-center justify-center gap-2.5 rounded-xl border bg-card p-5 hover:shadow-md hover:border-portal/30 dark:hover:border-portal/40 transition-all duration-200 group"
               >
-                <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-                  <Icon className="h-5 w-5 text-orange-500" />
+                <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center group-hover:bg-portal/20 transition-colors">
+                  <Icon className="h-5 w-5 text-portal" />
                 </div>
                 <span className="text-sm font-medium text-foreground">
                   {action.label}
@@ -522,7 +522,7 @@ export default function PortalDashboardPage() {
           <Card className="h-full">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-orange-500" />
+                <Activity className="h-4 w-4 text-portal" />
                 النشاط الأسبوعي
               </CardTitle>
             </CardHeader>
@@ -551,7 +551,7 @@ export default function PortalDashboardPage() {
                       />
                       <Bar
                         dataKey="count"
-                        fill="#f97316"
+                        fill="var(--portal-primary, #f97316)"
                         radius={[6, 6, 0, 0]}
                         maxBarSize={40}
                       />
@@ -572,12 +572,12 @@ export default function PortalDashboardPage() {
           <Card className="h-full">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-orange-500" />
+                <TrendingUp className="h-4 w-4 text-portal" />
                 تقدم المشاريع
               </CardTitle>
               <button
                 onClick={() => router.push('/portal/projects')}
-                className="text-xs text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors"
+                className="text-xs text-portal hover:text-portal-secondary flex items-center gap-1 transition-colors"
               >
                 عرض الكل
                 <ChevronLeft className="h-3 w-3" />
@@ -601,7 +601,7 @@ export default function PortalDashboardPage() {
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
                         <motion.div
-                          className="h-full rounded-full bg-gradient-to-l from-orange-500 to-orange-400"
+                          className="h-full rounded-full bg-gradient-to-l from-portal to-portal"
                           initial={{ width: 0 }}
                           animate={{ width: `${project.progress}%` }}
                           transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
@@ -630,7 +630,7 @@ export default function PortalDashboardPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Activity className="h-4 w-4 text-orange-500" />
+                <Activity className="h-4 w-4 text-portal" />
                 آخر النشاطات
               </CardTitle>
             </CardHeader>
@@ -693,12 +693,12 @@ export default function PortalDashboardPage() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Bell className="h-4 w-4 text-orange-500" />
+                <Bell className="h-4 w-4 text-portal" />
                 آخر الإشعارات
               </CardTitle>
               <button
                 onClick={() => router.push('/portal/notifications')}
-                className="text-xs text-orange-500 hover:text-orange-600 flex items-center gap-1 transition-colors"
+                className="text-xs text-portal hover:text-portal-secondary flex items-center gap-1 transition-colors"
               >
                 عرض الكل
                 <ChevronLeft className="h-3 w-3" />
@@ -719,7 +719,7 @@ export default function PortalDashboardPage() {
                       className={cn(
                         'w-full flex items-start gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-all duration-200 text-start',
                         !notif.is_read &&
-                          'bg-orange-500/5 border-orange-500/20 hover:bg-orange-500/10'
+                          'bg-portal/5 border-portal/20 hover:bg-portal/10'
                       )}
                     >
                       <div
@@ -727,7 +727,7 @@ export default function PortalDashboardPage() {
                           'w-9 h-9 rounded-full flex items-center justify-center shrink-0 mt-0.5',
                           notif.is_read
                             ? 'bg-muted'
-                            : 'bg-orange-500/10'
+                            : 'bg-portal/10'
                         )}
                       >
                         <NotifIcon
@@ -735,7 +735,7 @@ export default function PortalDashboardPage() {
                             'h-4 w-4',
                             notif.is_read
                               ? 'text-muted-foreground'
-                              : 'text-orange-500'
+                              : 'text-portal'
                           )}
                         />
                       </div>
@@ -746,7 +746,7 @@ export default function PortalDashboardPage() {
                         </p>
                       </div>
                       {!notif.is_read && (
-                        <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0 mt-2 animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-portal shrink-0 mt-2 animate-pulse" />
                       )}
                     </button>
                   );

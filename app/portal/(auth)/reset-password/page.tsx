@@ -185,7 +185,7 @@ function ResetPasswordForm() {
 
       <Button
         type="submit"
-        className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white"
+        className="w-full h-11 bg-portal hover:bg-portal-secondary text-white"
         disabled={loading}
       >
         {loading ? (
@@ -218,14 +218,14 @@ export default function PortalResetPasswordPage() {
         <CardHeader className="space-y-3 pt-8 pb-4 px-8 text-center">
           {/* Logo */}
           <div className="mx-auto mb-2">
-            <div className="inline-flex items-center gap-1.5 bg-orange-500/10 text-orange-600 rounded-full px-4 py-1.5 text-sm font-medium">
+            <div className="inline-flex items-center gap-1.5 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">
               <Building2 className="h-4 w-4" />
               بوابة العملاء
             </div>
           </div>
 
-          <div className="mx-auto w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-            <KeyRound className="h-6 w-6 text-orange-600" />
+          <div className="mx-auto w-12 h-12 rounded-full bg-portal/10 flex items-center justify-center">
+            <KeyRound className="h-6 w-6 text-portal" />
           </div>
 
           <CardTitle className="text-xl font-bold">
@@ -240,7 +240,7 @@ export default function PortalResetPasswordPage() {
           <Suspense
             fallback={
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+                <Loader2 className="h-6 w-6 animate-spin text-portal" />
               </div>
             }
           >

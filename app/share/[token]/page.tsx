@@ -195,11 +195,11 @@ export default function ShareDownloadPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white dark:from-neutral-950 dark:to-neutral-900 flex items-center justify-center p-4 font-sans" dir="rtl">
+    <div className="min-h-screen bg-gradient-to-b from-portal/5 to-white dark:from-neutral-950 dark:to-neutral-900 flex items-center justify-center p-4 font-sans" dir="rtl">
       <div className="w-full max-w-md">
         {/* Logo / Brand */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-2 text-orange-600 dark:text-orange-400 font-bold text-xl">
+          <div className="inline-flex items-center gap-2 text-portal dark:text-portal font-bold text-xl">
             <Shield className="h-6 w-6" />
             <span>Pyra Workspace</span>
           </div>
@@ -211,7 +211,7 @@ export default function ShareDownloadPage() {
           {/* ── Loading ── */}
           {state.status === 'loading' && (
             <div className="flex flex-col items-center justify-center py-16 px-6">
-              <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
+              <Loader2 className="h-10 w-10 animate-spin text-portal mb-4" />
               <p className="text-muted-foreground">جاري التحقق من الرابط...</p>
             </div>
           )}
@@ -233,8 +233,8 @@ export default function ShareDownloadPage() {
           {state.status === 'password_required' && (
             <div className="py-10 px-6">
               <div className="flex flex-col items-center mb-6">
-                <div className="h-16 w-16 rounded-full bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center mb-3">
-                  <Lock className="h-8 w-8 text-orange-500" />
+                <div className="h-16 w-16 rounded-full bg-portal/10 dark:bg-portal/20 flex items-center justify-center mb-3">
+                  <Lock className="h-8 w-8 text-portal" />
                 </div>
                 <h2 className="text-lg font-semibold">ملف محمي بكلمة مرور</h2>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -250,7 +250,7 @@ export default function ShareDownloadPage() {
                     onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
                     onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
                     placeholder="كلمة المرور"
-                    className="w-full h-11 px-4 pe-10 rounded-xl border bg-neutral-50 dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full h-11 px-4 pe-10 rounded-xl border bg-neutral-50 dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-portal"
                     autoFocus
                   />
                   <button
@@ -269,7 +269,7 @@ export default function ShareDownloadPage() {
                 <button
                   onClick={handlePasswordSubmit}
                   disabled={!password.trim() || verifying}
-                  className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                  className="w-full h-11 rounded-xl bg-portal hover:bg-portal-secondary disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
                 >
                   {verifying ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -294,10 +294,10 @@ export default function ShareDownloadPage() {
             <>
               {/* File icon + ext badge */}
               <div className="flex flex-col items-center pt-8 pb-4 px-6">
-                <div className="h-20 w-20 rounded-2xl bg-orange-50 dark:bg-orange-950/30 flex items-center justify-center text-orange-500 mb-3 relative">
+                <div className="h-20 w-20 rounded-2xl bg-portal/5 dark:bg-portal/20 flex items-center justify-center text-portal mb-3 relative">
                   {getFileIcon(state.info.mime_type)}
                   {getFileExtension(state.info.file_name) && (
-                    <span className="absolute -bottom-1 -left-1 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    <span className="absolute -bottom-1 -left-1 bg-portal text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
                       {getFileExtension(state.info.file_name)}
                     </span>
                   )}
@@ -359,7 +359,7 @@ export default function ShareDownloadPage() {
                 ) : (
                   <button
                     onClick={handleDownload}
-                    className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium text-base transition-colors flex items-center justify-center gap-2"
+                    className="w-full h-12 rounded-xl bg-portal hover:bg-portal-secondary text-white font-medium text-base transition-colors flex items-center justify-center gap-2"
                   >
                     <Download className="h-5 w-5" />
                     تحميل الملف
@@ -372,7 +372,7 @@ export default function ShareDownloadPage() {
           {/* ── Downloading ── */}
           {state.status === 'downloading' && (
             <div className="flex flex-col items-center justify-center py-16 px-6">
-              <Loader2 className="h-10 w-10 animate-spin text-orange-500 mb-4" />
+              <Loader2 className="h-10 w-10 animate-spin text-portal mb-4" />
               <p className="text-muted-foreground">جاري تحميل الملف...</p>
             </div>
           )}

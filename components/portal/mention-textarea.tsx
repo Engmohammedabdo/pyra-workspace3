@@ -220,7 +220,7 @@ export function MentionTextarea({
         >
           {membersLoading ? (
             <div className="flex items-center justify-center py-4 gap-2 text-xs text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-orange-500" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-portal" />
               <span>جاري تحميل الأعضاء...</span>
             </div>
           ) : filteredMembers.length === 0 ? (
@@ -246,12 +246,12 @@ export function MentionTextarea({
                   className={cn(
                     'w-full text-start px-3 py-2 text-sm rounded-lg transition-colors flex items-center gap-2',
                     index === selectedIndex
-                      ? 'bg-orange-500/10 text-orange-600'
+                      ? 'bg-portal/10 text-portal'
                       : 'hover:bg-muted'
                   )}
                 >
-                  <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center shrink-0">
-                    <span className="text-[10px] font-bold text-orange-600">
+                  <div className="w-6 h-6 rounded-full bg-portal/20 flex items-center justify-center shrink-0">
+                    <span className="text-[10px] font-bold text-portal">
                       {member.display_name.charAt(0)}
                     </span>
                   </div>

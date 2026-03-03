@@ -14,11 +14,11 @@ export default function PaymentCancelPage() {
       <Card className="w-full max-w-md text-center">
         <CardContent className="pt-8 pb-8 space-y-6">
           <div className="flex justify-center">
-            <XCircle className="text-orange-500" size={64} />
+            <XCircle className="text-portal" size={64} />
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-orange-700">
+            <h1 className="text-2xl font-bold text-portal-secondary">
               تم إلغاء الدفع
             </h1>
             <p className="text-muted-foreground">

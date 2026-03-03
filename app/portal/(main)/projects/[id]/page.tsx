@@ -159,7 +159,7 @@ function renderTextWithMentions(text: string) {
     parts.push(
       <span
         key={match.index}
-        className="text-orange-600 font-semibold"
+        className="text-portal font-semibold"
       >
         @{match[1]}
       </span>
@@ -498,13 +498,13 @@ export default function PortalProjectDetailPage() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <p
-                            className="text-sm font-medium truncate cursor-pointer hover:text-orange-500 transition-colors"
+                            className="text-sm font-medium truncate cursor-pointer hover:text-portal transition-colors"
                             onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
                           >
                             {file.file_name}
                           </p>
                           {isNewFile(file.added_at) && (
-                            <Badge className="text-[9px] px-1.5 py-0 bg-orange-500 text-white border-0 animate-pulse">
+                            <Badge className="text-[9px] px-1.5 py-0 bg-portal text-white border-0 animate-pulse">
                               جديد
                             </Badge>
                           )}
@@ -552,7 +552,7 @@ export default function PortalProjectDetailPage() {
                           variant="outline"
                           size="sm"
                           onClick={() => { setPreviewFile(file); setPreviewOpen(true); }}
-                          className="gap-1.5 text-orange-500 hover:text-orange-600 border-orange-500/30 hover:bg-orange-500/10"
+                          className="gap-1.5 text-portal hover:text-portal-secondary border-portal/30 hover:bg-portal/10"
                         >
                           <Eye className="h-3.5 w-3.5" />
                           <span className="hidden sm:inline">معاينة</span>
@@ -696,7 +696,7 @@ export default function PortalProjectDetailPage() {
                   <Button
                     type="submit"
                     disabled={commentLoading || !newComment.trim()}
-                    className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                    className="gap-2 bg-portal hover:bg-portal-secondary text-white"
                   >
                     {commentLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -850,7 +850,7 @@ export default function PortalProjectDetailPage() {
             <Button
               onClick={handleFileCommentSubmit}
               disabled={fileCommentLoading || !fileCommentText.trim()}
-              className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+              className="gap-2 bg-portal hover:bg-portal-secondary text-white"
             >
               {fileCommentLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -977,7 +977,7 @@ function FilteredComments({
                     'text-[10px] px-2 py-0',
                     isTeam
                       ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                      : 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+                      : 'bg-portal/10 text-portal border-portal/20'
                   )}
                 >
                   {isTeam ? 'فريق العمل' : 'العميل'}
@@ -1068,7 +1068,7 @@ function ActivityTimeline({ project }: { project: ProjectDetail }) {
         description: c.text.length > 80 ? c.text.slice(0, 80) + '...' : c.text,
         date: c.created_at,
         icon: c.author_type === 'team' ? '💬' : '🗨️',
-        color: c.author_type === 'team' ? 'border-blue-400' : 'border-orange-400',
+        color: c.author_type === 'team' ? 'border-blue-400' : 'border-portal',
       });
     });
 

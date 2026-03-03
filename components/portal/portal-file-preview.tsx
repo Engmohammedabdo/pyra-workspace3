@@ -280,8 +280,8 @@ function PreviewLoading() {
         transition={{ type: 'spring', damping: 15 }}
         className="relative"
       >
-        <div className="absolute inset-0 rounded-2xl bg-orange-500/20 animate-ping" />
-        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/25">
+        <div className="absolute inset-0 rounded-2xl bg-portal/20 animate-ping" />
+        <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-portal to-amber-500 flex items-center justify-center shadow-lg shadow-portal/25">
           <Loader2 className="h-8 w-8 text-white animate-spin" />
         </div>
       </motion.div>
@@ -341,7 +341,7 @@ function GenericPreview({
           لا تتوفر معاينة لهذا النوع من الملفات
         </p>
       </div>
-      <Button onClick={onDownload} className="gap-2 bg-orange-500 hover:bg-orange-600 text-white">
+      <Button onClick={onDownload} className="gap-2 bg-portal hover:bg-portal-secondary text-white">
         <Download className="h-4 w-4" />
         تحميل الملف
       </Button>
@@ -397,7 +397,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
       <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-[repeating-conic-gradient(#0001_0%_25%,transparent_0%_50%)] dark:bg-[repeating-conic-gradient(#fff1_0%_25%,transparent_0%_50%)] bg-[length:20px_20px]">
         {!loaded && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-portal" />
           </div>
         )}
         <motion.img
@@ -468,9 +468,9 @@ function AudioPreview({ url, name }: { url: string; name: string }) {
         className="relative"
       >
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 blur-3xl opacity-20 animate-pulse" />
-        <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-orange-500 via-amber-500 to-orange-600 flex items-center justify-center shadow-2xl shadow-orange-500/20">
+        <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-portal via-amber-500 to-portal-secondary flex items-center justify-center shadow-2xl shadow-portal/20">
           <div className="w-32 h-32 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center">
-            <Music className="h-12 w-12 text-orange-500" />
+            <Music className="h-12 w-12 text-portal" />
           </div>
         </div>
       </motion.div>
@@ -585,8 +585,8 @@ function MarkdownRenderer({ content }: { content: string }) {
             key={idx}
             className={
               isOrdered
-                ? 'text-sm leading-relaxed text-foreground/80 marker:text-orange-500 marker:font-semibold'
-                : 'text-sm leading-relaxed text-foreground/80 relative ps-4 before:content-[""] before:absolute before:start-0 before:top-[9px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-gradient-to-br before:from-orange-400 before:to-amber-500'
+                ? 'text-sm leading-relaxed text-foreground/80 marker:text-portal marker:font-semibold'
+                : 'text-sm leading-relaxed text-foreground/80 relative ps-4 before:content-[""] before:absolute before:start-0 before:top-[9px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-gradient-to-br before:from-portal before:to-amber-500'
             }
           >
             <InlineMarkdown text={item.text} />
@@ -686,7 +686,7 @@ function MarkdownRenderer({ content }: { content: string }) {
       const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
       const styles: Record<number, string> = {
         1: 'text-2xl font-bold mt-8 mb-4 pb-3 border-b border-border/40 bg-gradient-to-l from-foreground to-foreground/70 bg-clip-text',
-        2: 'text-xl font-bold mt-7 mb-3 flex items-center gap-2 before:content-[""] before:w-1 before:h-6 before:rounded-full before:bg-gradient-to-b before:from-orange-500 before:to-amber-500',
+        2: 'text-xl font-bold mt-7 mb-3 flex items-center gap-2 before:content-[""] before:w-1 before:h-6 before:rounded-full before:bg-gradient-to-b before:from-portal before:to-amber-500',
         3: 'text-lg font-semibold mt-5 mb-2.5 text-foreground/90',
         4: 'text-base font-semibold mt-4 mb-2 text-foreground/85',
         5: 'text-sm font-semibold mt-3 mb-1.5 text-foreground/80 uppercase tracking-wide',
@@ -708,9 +708,9 @@ function MarkdownRenderer({ content }: { content: string }) {
         <div key={`hr-${elements.length}`} className="my-6 flex items-center gap-3">
           <div className="flex-1 h-px bg-gradient-to-l from-transparent via-border to-transparent" />
           <div className="flex gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/40" />
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/60" />
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-400/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-portal/40" />
+            <div className="w-1.5 h-1.5 rounded-full bg-portal/60" />
+            <div className="w-1.5 h-1.5 rounded-full bg-portal/40" />
           </div>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
         </div>
@@ -730,11 +730,11 @@ function MarkdownRenderer({ content }: { content: string }) {
       elements.push(
         <blockquote
           key={`bq-${elements.length}`}
-          className="my-4 relative rounded-lg bg-gradient-to-l from-amber-500/5 to-orange-500/5 border border-orange-500/10"
+          className="my-4 relative rounded-lg bg-gradient-to-l from-amber-500/5 to-portal/5 border border-portal/10"
         >
-          <div className="absolute top-0 bottom-0 start-0 w-1 rounded-s-lg bg-gradient-to-b from-orange-500 to-amber-400" />
+          <div className="absolute top-0 bottom-0 start-0 w-1 rounded-s-lg bg-gradient-to-b from-portal to-amber-400" />
           <div className="ps-5 pe-4 py-3">
-            <div className="text-orange-500/60 text-2xl leading-none mb-1">&ldquo;</div>
+            <div className="text-portal/60 text-2xl leading-none mb-1">&ldquo;</div>
             {quoteLines.map((ql, qi) => (
               <p key={qi} className="text-sm leading-relaxed text-foreground/70 italic">
                 <InlineMarkdown text={ql} />
@@ -812,7 +812,7 @@ function InlineMarkdown({ text }: { text: string }) {
       parts.push(
         <code
           key={match.index}
-          className="text-[13px] font-mono text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 px-1.5 py-0.5 rounded-md border border-orange-200/30 dark:border-orange-800/30"
+          className="text-[13px] font-mono text-portal dark:text-portal bg-portal/5 dark:bg-portal/10 px-1.5 py-0.5 rounded-md border border-portal/20 dark:border-portal/20"
         >
           {match[8]}
         </code>
@@ -825,7 +825,7 @@ function InlineMarkdown({ text }: { text: string }) {
           href={match[11]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-orange-500 hover:text-orange-600 underline underline-offset-2 decoration-orange-500/30 hover:decoration-orange-500/60 transition-colors"
+          className="text-portal hover:text-portal-secondary underline underline-offset-2 decoration-portal/30 hover:decoration-portal/60 transition-colors"
         >
           {match[10]}
         </a>

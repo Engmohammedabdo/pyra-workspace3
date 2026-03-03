@@ -29,6 +29,12 @@ const config: Config = {
           gray: '#666666',
           'light-gray': '#999999',
         },
+        // Portal dynamic branding — uses CSS variables injected by BrandingProvider
+        // Supports opacity modifiers: bg-portal/10, text-portal/80, etc.
+        portal: {
+          DEFAULT: 'rgb(var(--portal-primary-rgb, 249 115 22) / <alpha-value>)',
+          secondary: 'rgb(var(--portal-secondary-rgb, 234 88 12) / <alpha-value>)',
+        },
         // shadcn/ui compatible color system
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
