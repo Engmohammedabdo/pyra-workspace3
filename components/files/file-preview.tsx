@@ -19,6 +19,7 @@ import {
   FileType,
   ZoomIn,
   ZoomOut,
+  Clock,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -319,6 +320,11 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
                   <FileCommentsSection projectId={projectId} fileId={fileId} />
                 </div>
               )}
+
+              {/* Activity Timeline */}
+              <div className="pt-4 border-t">
+                <ActivityTimeline filePath={file.path} />
+              </div>
             </div>
           )}
         </div>
@@ -1040,5 +1046,101 @@ function renderTextWithMentions(text: string) {
     ) : (
       <span key={i}>{part}</span>
     )
+  );
+}
+
+// ── Activity Timeline Component ───────────────────────────
+
+const ACTION_LABELS: Record<string, string> = {
+  upload: 'رفع',
+  download: 'تنزيل',
+  rename: 'إعادة تسمية',
+  move: 'نقل',
+  delete: 'حذف',
+  restore: 'استعادة',
+  copy: 'نسخ',
+  share: 'مشاركة',
+  version: 'نسخة جديدة',
+};
+
+interface ActivityEvent {
+  id: string;
+  action_type: string;
+  display_name: string;
+  created_at: string;
+  details?: Record<string, unknown>;
+}
+
+function ActivityTimeline({ filePath }: { filePath: string }) {
+  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/activity?target_path=${encodeURIComponent(filePath)}&limit=20`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data) setEvents(json.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [filePath]);
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full text-sm font-semibold hover:text-foreground transition-colors"
+      >
+        <Clock className="h-4 w-4 text-muted-foreground" />
+        <span>سجل النشاط</span>
+        {events.length > 0 && (
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+            {events.length}
+          </Badge>
+        )}
+        <span className="ms-auto text-xs text-muted-foreground">
+          {expanded ? '▲' : '▼'}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-0">
+          {loading ? (
+            <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
+          ) : events.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">لا يوجد نشاط مسجل</p>
+          ) : (
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute start-[5px] top-2 bottom-2 w-px bg-orange-200 dark:bg-orange-900" />
+
+              <div className="space-y-3">
+                {events.map((event) => (
+                  <div key={event.id} className="flex items-start gap-3 relative">
+                    {/* Dot */}
+                    <div className="w-[11px] h-[11px] rounded-full bg-orange-500 border-2 border-background shrink-0 mt-0.5 z-10" />
+                    {/* Content */}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs leading-snug">
+                        <span className="font-medium">{event.display_name}</span>
+                        {' '}
+                        <span className="text-muted-foreground">
+                          {ACTION_LABELS[event.action_type] || event.action_type}
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {formatRelativeDate(event.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

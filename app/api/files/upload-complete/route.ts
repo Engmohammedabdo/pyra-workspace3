@@ -103,6 +103,13 @@ export async function POST(request: NextRequest) {
       return apiServerError(`فشل فهرسة الملف: ${indexError.message}`);
     }
 
+    // Auto-tag by MIME type and folder (non-blocking)
+    void autoTagFile(supabase, {
+      storagePath,
+      mimeType: mimeType || 'application/octet-stream',
+      username: auth.pyraUser.username,
+    });
+
     // Auto-link to project if file is inside a project folder
     void autoLinkFileToProject(supabase, {
       filePath: storagePath,
@@ -134,6 +141,65 @@ export async function POST(request: NextRequest) {
     return apiServerError(
       `خطأ في تسجيل الرفع: ${err instanceof Error ? err.message : String(err)}`
     );
+  }
+}
+
+/**
+ * Auto-tag file by MIME type and parent folder.
+ * Non-blocking — upload succeeds even if tagging fails.
+ */
+async function autoTagFile(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  { storagePath, mimeType, username }: { storagePath: string; mimeType: string; username: string }
+) {
+  try {
+    const tags: { name: string; color: string }[] = [];
+
+    // Tag by MIME type
+    if (mimeType.startsWith('image/')) tags.push({ name: 'صورة', color: '#3b82f6' });
+    else if (mimeType.startsWith('video/')) tags.push({ name: 'فيديو', color: '#8b5cf6' });
+    else if (mimeType.startsWith('audio/')) tags.push({ name: 'صوت', color: '#ec4899' });
+    else if (mimeType === 'application/pdf') tags.push({ name: 'PDF', color: '#ef4444' });
+    else if (
+      mimeType.includes('spreadsheet') ||
+      mimeType.includes('excel') ||
+      mimeType === 'text/csv'
+    ) tags.push({ name: 'جدول', color: '#22c55e' });
+    else if (
+      mimeType.includes('document') ||
+      mimeType.includes('msword') ||
+      mimeType === 'text/plain'
+    ) tags.push({ name: 'مستند', color: '#f59e0b' });
+    else if (
+      mimeType.includes('zip') ||
+      mimeType.includes('rar') ||
+      mimeType.includes('tar') ||
+      mimeType.includes('compress')
+    ) tags.push({ name: 'أرشيف', color: '#6b7280' });
+
+    // Tag by parent folder (e.g., projects/ProjectName → "ProjectName")
+    const parts = storagePath.split('/');
+    if (parts.length >= 3 && parts[0] === 'projects') {
+      tags.push({ name: decodeURIComponent(parts[1]), color: '#f97316' });
+    }
+
+    if (tags.length === 0) return;
+
+    // Upsert all tags (fire-and-forget per tag)
+    for (const tag of tags) {
+      await supabase.from('pyra_file_tags').upsert(
+        {
+          id: generateId('tg'),
+          file_path: storagePath,
+          tag_name: tag.name,
+          color: tag.color,
+          created_by: username,
+        },
+        { onConflict: 'file_path,tag_name' }
+      );
+    }
+  } catch (err) {
+    console.error('[AutoTag] Error:', err);
   }
 }
 

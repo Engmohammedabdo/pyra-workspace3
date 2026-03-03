@@ -13,6 +13,7 @@ import { UploadProgressBar } from './upload-progress';
 import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl, useMoveFiles } from '@/hooks/useFiles';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { FilePermissionsDialog } from './file-permissions-dialog';
+import { BulkActionsBar } from './bulk-actions-bar';
 import type { FileListItem } from '@/types/database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Loader2 } from 'lucide-react';
@@ -614,6 +615,32 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
           onOpenChange={setPermissionsOpen}
         />
       )}
+
+      {/* Bulk Actions Floating Bar */}
+      <BulkActionsBar
+        selectedCount={selectedFiles.size}
+        selectedPaths={Array.from(selectedFiles)}
+        onClearSelection={() => setSelectedFiles(new Set())}
+        onDeleteSelected={handleDeleteSelected}
+        onBatchDownload={handleBatchDownload}
+        onMoveSelected={(dest) => {
+          const paths = Array.from(selectedFiles);
+          moveFiles.mutate(
+            { sourcePaths: paths, destinationFolder: dest },
+            {
+              onSuccess: () => {
+                toast.success(`تم نقل ${paths.length} عنصر بنجاح`);
+                setSelectedFiles(new Set());
+              },
+              onError: (err) => {
+                toast.error(`فشل في النقل: ${err.message}`);
+              },
+            }
+          );
+        }}
+        isBatchDownloading={isBatchDownloading}
+        currentPath={currentPath}
+      />
     </FileDropZone>
   );
 }

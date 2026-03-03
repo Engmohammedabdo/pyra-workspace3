@@ -49,6 +49,7 @@ import {
   PieChart,
   ChevronDown,
   HelpCircle,
+  HardDrive,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -91,6 +92,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star, permission: 'favorites.view' },
       { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare, permission: 'reviews.view' },
       { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2, permission: 'trash.view' },
+      { href: '/dashboard/storage', label: 'التخزين', labelEn: 'Storage', icon: HardDrive, permission: 'files.view' },
     ],
   },
   {
