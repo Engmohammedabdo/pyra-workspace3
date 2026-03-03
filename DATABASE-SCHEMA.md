@@ -455,7 +455,15 @@ Public share links for files with expiry and access limits.
 | access_count | integer | YES | `0` |
 | max_access | integer | YES | `0` (0 = unlimited) |
 | is_active | boolean | YES | `true` |
+| password_hash | text | YES | `NULL` |
+| notification_email | text | YES | `NULL` |
 | created_at | timestamptz | YES | `now()` |
+
+**Migration:**
+```sql
+ALTER TABLE pyra_share_links ADD COLUMN password_hash TEXT;
+ALTER TABLE pyra_share_links ADD COLUMN notification_email TEXT;
+```
 
 ---
 

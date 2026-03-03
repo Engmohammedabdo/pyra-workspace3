@@ -16,6 +16,9 @@ import {
   CheckCircle2,
   Loader2,
   Shield,
+  Lock,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────
@@ -27,10 +30,12 @@ interface ShareInfo {
   created_at: string;
   expires_at: string | null;
   downloads_remaining: number | null;
+  requiresPassword?: boolean;
 }
 
 type PageState =
   | { status: 'loading' }
+  | { status: 'password_required'; info: ShareInfo }
   | { status: 'ready'; info: ShareInfo }
   | { status: 'downloading' }
   | { status: 'downloaded'; info: ShareInfo }
@@ -85,6 +90,12 @@ export default function ShareDownloadPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
   const [state, setState] = useState<PageState>({ status: 'loading' });
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  // Store verified password for download
+  const [verifiedPassword, setVerifiedPassword] = useState('');
 
   // Verify token on mount
   useEffect(() => {
@@ -101,22 +112,62 @@ export default function ShareDownloadPage() {
           });
           return;
         }
-        setState({ status: 'ready', info: json.data });
+        if (json.data.requiresPassword) {
+          setState({ status: 'password_required', info: json.data });
+        } else {
+          setState({ status: 'ready', info: json.data });
+        }
       })
       .catch(() => {
         setState({ status: 'error', message: 'حدث خطأ في الاتصال بالخادم' });
       });
   }, [token]);
 
+  // Password verification handler
+  const handlePasswordSubmit = async () => {
+    if (!password.trim()) return;
+    setVerifying(true);
+    setPasswordError('');
+
+    try {
+      const res = await fetch(`/api/shares/verify/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        setPasswordError(json.error || 'كلمة المرور غير صحيحة');
+        return;
+      }
+
+      setVerifiedPassword(password);
+      if (state.status === 'password_required') {
+        setState({ status: 'ready', info: state.info });
+      }
+    } catch {
+      setPasswordError('حدث خطأ في الاتصال بالخادم');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
   // Download handler
   const handleDownload = async () => {
     if (state.status !== 'ready' && state.status !== 'downloaded') return;
-    const info = state.status === 'ready' ? state.info : state.info;
+    const info = state.info;
 
     setState({ status: 'downloading' });
 
     try {
-      const res = await fetch(`/api/shares/download/${token}`);
+      // Include password in download URL if it was verified
+      let downloadUrl = `/api/shares/download/${token}`;
+      if (verifiedPassword) {
+        downloadUrl += `?password=${encodeURIComponent(verifiedPassword)}`;
+      }
+
+      const res = await fetch(downloadUrl);
       if (!res.ok) {
         const json = await res.json().catch(() => null);
         setState({
@@ -175,6 +226,66 @@ export default function ShareDownloadPage() {
                 {state.code === 410 ? 'رابط منتهي الصلاحية' : 'رابط غير صالح'}
               </h2>
               <p className="text-sm text-muted-foreground">{state.message}</p>
+            </div>
+          )}
+
+          {/* ── Password Required ── */}
+          {state.status === 'password_required' && (
+            <div className="py-10 px-6">
+              <div className="flex flex-col items-center mb-6">
+                <div className="h-16 w-16 rounded-full bg-orange-100 dark:bg-orange-950/30 flex items-center justify-center mb-3">
+                  <Lock className="h-8 w-8 text-orange-500" />
+                </div>
+                <h2 className="text-lg font-semibold">ملف محمي بكلمة مرور</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  أدخل كلمة المرور للوصول إلى الملف
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handlePasswordSubmit(); }}
+                    placeholder="كلمة المرور"
+                    className="w-full h-11 px-4 pe-10 rounded-xl border bg-neutral-50 dark:bg-neutral-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                {passwordError && (
+                  <p className="text-sm text-red-500 text-center">{passwordError}</p>
+                )}
+
+                <button
+                  onClick={handlePasswordSubmit}
+                  disabled={!password.trim() || verifying}
+                  className="w-full h-11 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-sm transition-colors flex items-center justify-center gap-2"
+                >
+                  {verifying ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Lock className="h-4 w-4" />
+                  )}
+                  {verifying ? 'جاري التحقق...' : 'فتح الملف'}
+                </button>
+              </div>
+
+              {/* Shared by info */}
+              <div className="mt-6 pt-4 border-t text-center">
+                <p className="text-xs text-muted-foreground">
+                  تمت المشاركة بواسطة <strong>{state.info.shared_by}</strong>
+                </p>
+              </div>
             </div>
           )}
 

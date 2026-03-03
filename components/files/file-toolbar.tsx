@@ -89,6 +89,7 @@ export function FileToolbar({
   const [folderName, setFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   const handleCreateFolder = () => {
     const name = folderName.trim();
@@ -132,19 +133,32 @@ export function FileToolbar({
           <span>مجلد جديد</span>
         </button>
 
-        {/* Upload */}
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          className={cn(
-            'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-            'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-            'disabled:opacity-50 disabled:cursor-not-allowed'
-          )}
-        >
-          <Upload size={16} />
-          <span>{isUploading ? 'جاري الرفع...' : 'رفع ملفات'}</span>
-        </button>
+        {/* Upload (files or folder) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              disabled={isUploading}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                'bg-secondary text-secondary-foreground hover:bg-secondary/80',
+                'disabled:opacity-50 disabled:cursor-not-allowed'
+              )}
+            >
+              <Upload size={16} />
+              <span>{isUploading ? 'جاري الرفع...' : 'رفع'}</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+              <Upload size={14} className="me-2" />
+              رفع ملفات
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => folderInputRef.current?.click()}>
+              <FolderPlus size={14} className="me-2" />
+              رفع مجلد
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <input
           ref={fileInputRef}
@@ -152,6 +166,13 @@ export function FileToolbar({
           multiple
           className="hidden"
           onChange={handleFileSelect}
+        />
+        <input
+          ref={folderInputRef}
+          type="file"
+          className="hidden"
+          onChange={handleFileSelect}
+          {...{ webkitdirectory: '' } as React.InputHTMLAttributes<HTMLInputElement>}
         />
 
         {/* Batch Download */}

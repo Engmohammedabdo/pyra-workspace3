@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileIcon } from './file-icon';
 import { FileActionButton } from './file-context-menu';
 import { FileTagsBadges } from './file-tags';
+import { FileHoverPreview } from './file-hover-preview';
 import { formatFileSize } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -111,8 +112,8 @@ export function FileGrid({
         const isDragging = draggingPath === file.path;
 
         return (
+          <FileHoverPreview key={file.path} file={file}>
           <div
-            key={file.path}
             draggable
             onDragStart={(e) => handleDragStart(e, file)}
             onDragEnd={handleDragEnd}
@@ -203,6 +204,7 @@ export function FileGrid({
               </div>
             )}
           </div>
+          </FileHoverPreview>
         );
       })}
     </div>

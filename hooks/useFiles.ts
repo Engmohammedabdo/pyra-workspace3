@@ -165,9 +165,18 @@ export function useUploadFiles() {
           updateProgress();
 
           try {
+            // If file has webkitRelativePath (folder upload), preserve directory structure
+            let effectivePath = parentPath;
+            const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath;
+            if (relativePath && relativePath.includes('/')) {
+              // e.g. "myFolder/sub/file.txt" → append "myFolder/sub" to parentPath
+              const relativeDir = relativePath.substring(0, relativePath.lastIndexOf('/'));
+              effectivePath = parentPath ? `${parentPath}/${relativeDir}` : relativeDir;
+            }
+
             const uploadedPath = await uploadSingleFile(
               file,
-              parentPath,
+              effectivePath,
               (pct) => {
                 fileProgress.set(idx, pct / 100);
                 updateProgress();
@@ -199,8 +208,9 @@ export function useUploadFiles() {
 
       return { uploaded: results, errors };
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['files', variables.parentPath] });
+    onSuccess: () => {
+      // Invalidate all file queries (folder uploads may create new subdirectories)
+      queryClient.invalidateQueries({ queryKey: ['files'] });
     },
     onError: () => {
       setUploadProgress(null);

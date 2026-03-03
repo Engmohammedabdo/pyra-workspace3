@@ -156,6 +156,21 @@ export const emailTemplates = {
       <a href="${escapeHtml(data.loginUrl)}" class="btn">تسجيل الدخول</a>
     `),
 
+  /** Share link file downloaded */
+  shareDownloaded: (data: { fileName: string; sharedBy: string; downloadedAt: string }) => {
+    const date = new Date(data.downloadedAt);
+    const formattedDate = date.toLocaleDateString('ar-SA', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return baseLayout(`
+      <h2>تم تحميل ملفك المشارك</h2>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">اسم الملف:</span> <strong>${escapeHtml(data.fileName)}</strong></div>
+        <div class="detail-row"><span class="detail-label">تمت المشاركة بواسطة:</span> <strong>${escapeHtml(data.sharedBy)}</strong></div>
+        <div class="detail-row"><span class="detail-label">وقت التحميل:</span> <strong>${formattedDate}</strong></div>
+      </div>
+      <p style="font-size: 13px; color: #71717a;">هذا إشعار تلقائي — تم تحميل الملف من رابط المشاركة الخاص بك.</p>
+    `);
+  },
+
   /** Project status changed */
   projectStatusChanged: (data: { projectName: string; oldStatus: string; newStatus: string; changedBy: string; projectUrl: string }) => {
     const statusLabels: Record<string, string> = {

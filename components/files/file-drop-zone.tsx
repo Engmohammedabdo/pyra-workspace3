@@ -51,7 +51,7 @@ export function FileDropZone({ onDrop, disabled, children }: FileDropZoneProps) 
   );
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragOver(false);
@@ -62,9 +62,66 @@ export function FileDropZone({ onDrop, disabled, children }: FileDropZoneProps) 
       // Ignore internal drag operations (file moving within explorer)
       if (e.dataTransfer.types.includes('application/x-pyra-file-path')) return;
 
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length > 0) {
-        onDrop(files);
+      // Try to read entries for folder support
+      const items = e.dataTransfer.items;
+      const hasEntries = items && items.length > 0 && typeof items[0].webkitGetAsEntry === 'function';
+
+      if (hasEntries) {
+        const allFiles: File[] = [];
+        const entries: FileSystemEntry[] = [];
+
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry();
+          if (entry) entries.push(entry);
+        }
+
+        // Recursively read all files from directory entries
+        const readEntry = async (entry: FileSystemEntry, path: string): Promise<void> => {
+          if (entry.isFile) {
+            const fileEntry = entry as FileSystemFileEntry;
+            const file = await new Promise<File>((resolve, reject) => {
+              fileEntry.file(resolve, reject);
+            });
+            // Create a new File with the relative path preserved
+            const fileWithPath = new File([file], file.name, { type: file.type, lastModified: file.lastModified });
+            Object.defineProperty(fileWithPath, 'webkitRelativePath', { value: path + file.name, writable: false });
+            allFiles.push(fileWithPath);
+          } else if (entry.isDirectory) {
+            const dirEntry = entry as FileSystemDirectoryEntry;
+            const reader = dirEntry.createReader();
+            const childEntries = await new Promise<FileSystemEntry[]>((resolve, reject) => {
+              const all: FileSystemEntry[] = [];
+              const readBatch = () => {
+                reader.readEntries((results) => {
+                  if (results.length === 0) {
+                    resolve(all);
+                  } else {
+                    all.push(...results);
+                    readBatch();
+                  }
+                }, reject);
+              };
+              readBatch();
+            });
+            for (const child of childEntries) {
+              await readEntry(child, path + entry.name + '/');
+            }
+          }
+        };
+
+        for (const entry of entries) {
+          await readEntry(entry, '');
+        }
+
+        if (allFiles.length > 0) {
+          onDrop(allFiles);
+        }
+      } else {
+        // Fallback: plain file drop
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+          onDrop(files);
+        }
       }
     },
     [disabled, onDrop]

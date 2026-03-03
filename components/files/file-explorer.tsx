@@ -81,6 +81,7 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   const [permissionsFile, setPermissionsFile] = useState<FileListItem | null>(null);
   const [permissionsOpen, setPermissionsOpen] = useState(false);
   const [isBatchDownloading, setIsBatchDownloading] = useState(false);
+  const [previewProjectInfo, setPreviewProjectInfo] = useState<{ projectId: string; fileId: string } | null>(null);
 
   // Data hooks
   const { data: files = [], isLoading, refetch, hasNextPage, fetchNextPage, isFetchingNextPage } = useFiles(currentPath);
@@ -476,6 +477,24 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [processedFiles, selectedFiles, handleDeleteSelected, handlePreview, previewOpen]);
 
+  // Look up project association when a file is previewed
+  useEffect(() => {
+    if (!previewFile || !previewOpen || previewFile.isFolder) {
+      setPreviewProjectInfo(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/dashboard/project-files?file_path=${encodeURIComponent(previewFile.path)}`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((json) => {
+        if (!cancelled && json?.data?.project_id && json?.data?.id) {
+          setPreviewProjectInfo({ projectId: json.data.project_id, fileId: json.data.id });
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [previewFile, previewOpen]);
+
   // File action props shared between grid and list
   const fileActions = {
     onPreview: handlePreview,
@@ -583,6 +602,8 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
         file={previewFile}
         open={previewOpen}
         onOpenChange={setPreviewOpen}
+        projectId={previewProjectInfo?.projectId}
+        fileId={previewProjectInfo?.fileId}
       />
 
       {/* File Permissions Dialog (admin only) */}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FileIcon } from './file-icon';
 import { FileActionButton } from './file-context-menu';
 import { FileTagsBadges } from './file-tags';
+import { FileHoverPreview } from './file-hover-preview';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { FileListItem } from '@/types/database';
@@ -120,8 +121,8 @@ export function FileList({
           const isDragging = draggingPath === file.path;
 
           return (
+            <FileHoverPreview key={file.path} file={file}>
             <div
-              key={file.path}
               role="button"
               tabIndex={0}
               draggable
@@ -195,6 +196,7 @@ export function FileList({
                 />
               </div>
             </div>
+            </FileHoverPreview>
           );
         })}
       </div>

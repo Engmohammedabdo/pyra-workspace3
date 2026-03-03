@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import bcrypt from 'bcryptjs';
 // =============================================================
 // GET /api/shares
 // List share links for a file (excludes token from response)
@@ -27,9 +28,10 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
 
     // Note: token excluded from select to prevent exposure in list response
+    // password_hash is replaced with has_password boolean in response
     const { data: links, error } = await supabase
       .from('pyra_share_links')
-      .select('id, file_path, file_name, created_by, created_by_display, expires_at, max_access, access_count, is_active, created_at')
+      .select('id, file_path, file_name, created_by, created_by_display, expires_at, max_access, access_count, is_active, created_at, password_hash, notification_email')
       .eq('file_path', filePath)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
@@ -40,7 +42,13 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(links || []);
+    // Map password_hash to has_password boolean (don't expose hash)
+    const safeLinks = (links || []).map(({ password_hash, ...rest }) => ({
+      ...rest,
+      has_password: !!password_hash,
+    }));
+
+    return apiSuccess(safeLinks);
   } catch (err) {
     console.error('GET /api/shares error:', err);
     return apiServerError();
@@ -50,7 +58,7 @@ export async function GET(request: NextRequest) {
 // =============================================================
 // POST /api/shares
 // Create a share link
-// Body: { file_path, expires_in_hours?, max_downloads? }
+// Body: { file_path, expires_in_hours?, max_downloads?, password?, notification_email? }
 // Returns: full share link data including token (only on creation)
 // =============================================================
 export async function POST(request: NextRequest) {
@@ -59,7 +67,7 @@ export async function POST(request: NextRequest) {
     if (!auth) return apiUnauthorized();
 
     const body = await request.json();
-    const { file_path, expires_in_hours, max_downloads } = body;
+    const { file_path, expires_in_hours, max_downloads, password, notification_email } = body;
 
     // Validation
     if (!file_path?.trim()) {
@@ -86,6 +94,15 @@ export async function POST(request: NextRequest) {
     defaultExpiry.setDate(defaultExpiry.getDate() + 7);
     const finalExpiresAt = expiresAt || defaultExpiry.toISOString();
 
+    // Hash password if provided
+    let passwordHash: string | null = null;
+    if (password && typeof password === 'string' && password.trim()) {
+      passwordHash = await bcrypt.hash(password.trim(), 10);
+    }
+
+    // Validate notification email if provided
+    const notifEmail = notification_email?.trim() || null;
+
     const { data: shareLink, error } = await supabase
       .from('pyra_share_links')
       .insert({
@@ -99,6 +116,8 @@ export async function POST(request: NextRequest) {
         max_access: max_downloads ? Number(max_downloads) : 0,
         access_count: 0,
         is_active: true,
+        password_hash: passwordHash,
+        notification_email: notifEmail,
       })
       .select()
       .single();
