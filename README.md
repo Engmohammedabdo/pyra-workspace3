@@ -1,6 +1,6 @@
 # Pyra Workspace 3.0
 
-**Pyramedia's Digital Workspace** — File management, client portal, project tracking, quotations, and team collaboration platform.
+**Pyramedia's Digital Workspace** — File management, client portal, project tracking, quotations, invoicing, and team collaboration platform with white-label portal branding.
 
 Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hosted) + **shadcn/ui**.
 
@@ -15,13 +15,15 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 | Framework | Next.js 15 (App Router, Turbopack) |
 | Language | TypeScript (strict mode) |
 | Database | PostgreSQL via Supabase (self-hosted) |
-| Storage | Supabase Storage |
-| Auth | Supabase Auth + cookie-based portal sessions |
+| Storage | Supabase Storage (S3-compatible) |
+| Auth | Supabase Auth (admin) + cookie-based sessions (portal) |
 | UI | shadcn/ui + Radix UI + Tailwind CSS 3.4 |
 | State | TanStack React Query v5 |
 | Realtime | Supabase Realtime (WebSocket) + polling fallback |
 | Charts | Recharts |
-| PDF | jsPDF |
+| Animations | framer-motion |
+| PDF | jsPDF + Amiri font (Arabic RTL support) |
+| Payments | Stripe |
 | Package Manager | pnpm |
 
 ---
@@ -31,25 +33,37 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 ### Admin Dashboard (`/dashboard`)
 - **File Explorer** — Grid/list views, upload, drag-drop, preview panel, sort/filter, bulk operations, keyboard shortcuts, context menu
 - **User Management** — CRUD with role-based access (admin/employee), path-based permissions
-- **Client Management** — CRUD with status toggle, linked project/quote checks
+- **Client Management** — Full CRM: detail pages, notes, tags, activity tracking, branding editor, CSV/PDF export ([docs](./docs/CLIENT-MANAGEMENT.md))
 - **Project Management** — CRUD with team scoping, file assignment, approval workflow
 - **Team Management** — CRUD with member add/remove
-- **Quotations** — Full quote builder, auto-numbering (QT-XXXX), VAT calculation, PDF generation, status flow (draft > sent > viewed > signed)
+- **Invoicing** — Invoice builder, auto-numbering, status flow (draft > sent > paid > overdue), PDF generation
+- **Quotations** — Full quote builder, auto-numbering (QT-XXXX), VAT calculation, PDF generation, electronic signatures
+- **Contracts** — Contract management with client linking
+- **Expenses & Subscriptions** — Expense tracking and recurring subscription management
+- **Finance Reports** — Revenue, clients, projects, team, and storage analytics with charts
+- **Smart Alerts** — Expandable alert cards for overdue invoices, expiring quotes, stalled projects
 - **Notifications** — Realtime bell with unread badge, notification list, mark read
-- **Activity Log** — Filterable audit trail of all system actions
+- **Activity Log** — Filterable audit trail of all system actions (40+ action types)
 - **Trash** — Soft delete with 30-day auto-purge, restore capability
 - **Reviews** — File review system grouped by path
-- **Permissions** — Path-based permission management per user
+- **Script Reviews** — Script content review workflow
+- **Sessions** — Active session management
+- **Permissions & Roles** — RBAC with `module.action` format
 - **Settings** — Company, quotes, bank, storage configuration
+- **Module Guide** — Contextual help on every page with searchable guide directory
 - **Command Palette** — Ctrl+K global search across all pages
 
 ### Client Portal (`/portal`)
-- **Dashboard** — Welcome card, stats, recent projects/notifications
+- **Dashboard** — Welcome card, stats overview, recent activity, quick actions
 - **Projects** — Project list with status tabs, detail view with files + comments
-- **Files** — All files across projects with approve/request-revision workflow
+- **Files** — All files across projects with preview, approve/request-revision workflow
 - **Quotes** — View quotes, electronic signature via canvas
-- **Notifications** — Notification list with read/unread filters
+- **Invoices** — Invoice list, detail view, Stripe payment integration
+- **Scripts** — Script viewing and commenting
+- **Help Center** — Searchable help articles
+- **Notifications** — Push notifications, notification list with read/unread filters
 - **Profile** — Personal info editor, password change
+- **Dynamic Branding** — Per-client white-label theming (colors, logo, favicon) ([docs](./docs/PORTAL-BRANDING.md))
 
 ### Security
 - CSRF protection (Origin header validation)
@@ -60,6 +74,19 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - HSTS + security headers
 - IDOR protection on portal routes
 - Error boundaries with Arabic UI
+- RBAC permission system
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, component structure, API patterns |
+| [`docs/PORTAL-BRANDING.md`](./docs/PORTAL-BRANDING.md) | Dynamic portal branding system (CSS vars, Tailwind integration) |
+| [`docs/CLIENT-MANAGEMENT.md`](./docs/CLIENT-MANAGEMENT.md) | Client CRM system (notes, tags, activity, branding) |
+| [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md) | Full database schema (29 tables) |
+| [`CLAUDE.md`](./CLAUDE.md) | Development guide, coding conventions, mandatory checklists |
 
 ---
 
@@ -67,46 +94,61 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 
 ```
 app/
-  api/                    # 40+ API route handlers
+  api/                    # 60+ API route handlers
     files/                # File CRUD, search, folders, batch delete
     users/                # User CRUD, password management
-    clients/              # Client CRUD
+    clients/              # Client CRUD, notes, tags, branding, activity
     projects/             # Project CRUD, file assignment
     approvals/            # Submit, approve/reject
     quotes/               # Quote CRUD, duplicate, send
+    invoices/             # Invoice CRUD, payments
     notifications/        # List, mark read
     teams/                # Team CRUD, members
     shares/               # Share links, public download
     trash/                # Restore, permanent delete
-    portal/               # Client portal endpoints (12 routes)
+    portal/               # Client portal endpoints (15+ routes)
     dashboard/            # Stats API
     activity/             # Audit log
     settings/             # Config get/update
-  dashboard/              # Admin pages (12 pages)
-  portal/                 # Client portal pages (7 pages)
+  dashboard/              # Admin pages (20+ pages)
+  portal/                 # Client portal pages (10+ pages)
+  share/                  # Public share download page
 components/
-  ui/                     # shadcn/ui components (20+)
-  layout/                 # Sidebar, topbar, notification bell, command palette
+  ui/                     # shadcn/ui components (25+) + custom (empty-state, page-guide)
+  layout/                 # Sidebar, topbar, breadcrumb, page-transition
+  portal/                 # Portal sidebar, topbar, mobile nav, branding, file preview
+  clients/                # Client notes, branding editor
   files/                  # File explorer, grid, list, preview, context menu, drop zone
   quotes/                 # QuoteBuilder, SignaturePad
-  portal/                 # Portal sidebar, topbar, mobile nav
-hooks/                    # React hooks (files, notifications, realtime, debounce)
+  finance/                # Finance charts, revenue reports
+  projects/               # Project components
+  dashboard/              # Dashboard widgets
+  reports/                # Report components
+  auth/                   # Auth components
+  providers/              # Context providers (theme, auth)
+hooks/                    # React hooks (files, notifications, realtime, debounce, permissions)
 lib/
   api/                    # Auth helpers, response helpers
-  auth/                   # Guards, middleware utilities
-  portal/                 # Portal session management
+  auth/                   # Guards, RBAC, middleware utilities
+  config/                 # Module guide config
+  portal/                 # Portal session management, branding types
   supabase/               # Supabase client factories (server, client, middleware, service role)
-  utils/                  # Path sanitization, rate limiting, ID generation
-  pdf/                    # PDF generation engine
+  utils/                  # Path sanitization, rate limiting, ID generation, formatting
+  pdf/                    # PDF generators (Arabic support via Amiri font)
+  email/                  # SMTP mailer, notification templates
+  finance/                # Finance alerts engine
+  automation/             # Workflow automation
+  webhooks/               # Webhook dispatcher
+docs/                     # Technical documentation
 ```
 
 ---
 
 ## Database
 
-26 PostgreSQL tables with `pyra_` prefix + 1 view (`v_project_summary`).
+29 PostgreSQL tables with `pyra_` prefix + 1 view (`v_project_summary`).
 
-Key tables: `pyra_users`, `pyra_clients`, `pyra_projects`, `pyra_project_files`, `pyra_teams`, `pyra_quotes`, `pyra_quote_items`, `pyra_notifications`, `pyra_file_index`, `pyra_trash`, `pyra_activity_log`, `pyra_settings`.
+Key tables: `pyra_users`, `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding`, `pyra_projects`, `pyra_project_files`, `pyra_teams`, `pyra_quotes`, `pyra_quote_items`, `pyra_invoices`, `pyra_invoice_items`, `pyra_notifications`, `pyra_file_index`, `pyra_trash`, `pyra_activity_log`, `pyra_settings`.
 
 Full schema documentation: [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md)
 
@@ -167,13 +209,14 @@ pnpm lint         # ESLint
 | 4.1 | Security Fixes + Broken Pages | Done |
 | 4.2 | High Priority Security (IDOR, passwords, permissions) | Done |
 | 4.3 | Medium Priority (CSRF, LIKE escaping, error boundaries) | Done |
-| 5 | Admin Dashboard Pages (12 pages) | Done |
+| 5 | Admin Dashboard Pages (20+ pages) | Done |
 | 6 | Quotes & Contracts (PDF, signatures, status flow) | Done |
 | 7 | Realtime & Notifications (WebSocket + polling) | Done |
 | 8 | Advanced File Features (preview, context menu, drag-drop) | Done |
-| 9 | Docker & Deployment | Pending |
-
-Full build log: [`PROGRESS.md`](./PROGRESS.md)
+| 9 | Finance Module (invoices, expenses, subscriptions, reports) | Done |
+| 10 | Client Management Overhaul (detail pages, notes, tags, branding) | Done |
+| 11 | Dynamic Portal Branding (white-label theming system) | Done |
+| 12 | Docker & Deployment | Pending |
 
 ---
 
@@ -183,15 +226,16 @@ Full build log: [`PROGRESS.md`](./PROGRESS.md)
 |-------|--------|-------------|
 | `/api/files` | 6 | File CRUD, search, folders, batch delete |
 | `/api/users` | 4 | User CRUD, password change |
-| `/api/clients` | 2 | Client CRUD |
+| `/api/clients` | 17 | Client CRUD, notes, tags, branding, activity |
 | `/api/projects` | 3 | Project CRUD, file assignment |
 | `/api/approvals` | 2 | Submit, approve/reject |
 | `/api/quotes` | 7 | Quote CRUD, duplicate, send |
+| `/api/invoices` | 5 | Invoice CRUD, payments |
 | `/api/notifications` | 3 | List, mark read, mark all read |
 | `/api/teams` | 3 | Team CRUD, member management |
 | `/api/shares` | 3 | Create share links, public download |
 | `/api/trash` | 2 | Restore, permanent delete |
-| `/api/portal/*` | 12 | Client portal endpoints |
+| `/api/portal/*` | 15 | Client portal endpoints |
 | `/api/dashboard` | 1 | Role-based stats |
 | `/api/activity` | 1 | Filtered audit log |
 | `/api/settings` | 1 | Config get/update |
@@ -201,7 +245,7 @@ Full build log: [`PROGRESS.md`](./PROGRESS.md)
 
 ## RTL Support
 
-The entire UI is RTL-first (Arabic), with automatic LTR detection for English content. All layouts, navigation, and components are designed for right-to-left reading direction.
+The entire UI is RTL-first (Arabic), with automatic LTR detection for English content. All layouts, navigation, and components are designed for right-to-left reading direction. Tailwind logical properties (`ms-`, `me-`, `ps-`, `pe-`) are used throughout.
 
 ---
 
