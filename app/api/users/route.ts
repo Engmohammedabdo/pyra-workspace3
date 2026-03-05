@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, pyra_roles!left(name, name_ar, color, icon)');
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (role === 'admin' || role === 'employee') {

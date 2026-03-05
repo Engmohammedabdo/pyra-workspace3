@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, avatar_url, status, created_at, pyra_roles!left(name, name_ar, color, icon)')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', username)
       .single();
 
@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Verify user exists
     const { data: existingUser, error: findError } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
       .eq('username', username)
       .single();
 
@@ -153,6 +153,84 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.status = body.status;
     }
 
+    // --- Employment classification fields ---
+    if (body.employment_type !== undefined) {
+      const validTypes = ['full_time', 'part_time', 'contractor', 'freelancer'];
+      if (body.employment_type !== null && !validTypes.includes(body.employment_type)) {
+        return apiValidationError('نوع التوظيف غير صالح');
+      }
+      updateData.employment_type = body.employment_type;
+    }
+
+    if (body.work_location !== undefined) {
+      const validLocations = ['remote', 'onsite', 'hybrid'];
+      if (body.work_location !== null && !validLocations.includes(body.work_location)) {
+        return apiValidationError('موقع العمل غير صالح');
+      }
+      updateData.work_location = body.work_location;
+    }
+
+    if (body.payment_type !== undefined) {
+      const validPaymentTypes = ['monthly_salary', 'per_task', 'hourly'];
+      if (body.payment_type !== null && !validPaymentTypes.includes(body.payment_type)) {
+        return apiValidationError('نوع الدفع غير صالح');
+      }
+      updateData.payment_type = body.payment_type;
+    }
+
+    if (body.salary !== undefined) {
+      if (body.salary !== null && (typeof body.salary !== 'number' || body.salary < 0)) {
+        return apiValidationError('الراتب يجب أن يكون رقم موجب');
+      }
+      updateData.salary = body.salary;
+    }
+
+    if (body.hourly_rate !== undefined) {
+      if (body.hourly_rate !== null && (typeof body.hourly_rate !== 'number' || body.hourly_rate < 0)) {
+        return apiValidationError('أجر الساعة يجب أن يكون رقم موجب');
+      }
+      updateData.hourly_rate = body.hourly_rate;
+    }
+
+    if (body.hire_date !== undefined) {
+      if (body.hire_date !== null && typeof body.hire_date !== 'string') {
+        return apiValidationError('تاريخ التعيين غير صالح');
+      }
+      updateData.hire_date = body.hire_date;
+    }
+
+    if (body.department !== undefined) {
+      if (body.department !== null && typeof body.department !== 'string') {
+        return apiValidationError('القسم غير صالح');
+      }
+      updateData.department = body.department ? body.department.trim() : null;
+    }
+
+    // --- manager_username (direct manager) ---
+    if (body.manager_username !== undefined) {
+      if (body.manager_username === null) {
+        updateData.manager_username = null;
+      } else {
+        if (typeof body.manager_username !== 'string') {
+          return apiValidationError('اسم المدير المباشر غير صالح');
+        }
+        // Prevent setting self as own manager
+        if (body.manager_username === username) {
+          return apiError('لا يمكن تعيين المستخدم كمدير لنفسه', 400);
+        }
+        // Validate that the manager exists
+        const { data: managerExists, error: managerError } = await supabase
+          .from('pyra_users')
+          .select('username')
+          .eq('username', body.manager_username)
+          .single();
+        if (managerError || !managerExists) {
+          return apiValidationError('المدير المباشر المحدد غير موجود');
+        }
+        updateData.manager_username = body.manager_username;
+      }
+    }
+
     if (Object.keys(updateData).length === 0) {
       return apiValidationError('لا توجد بيانات للتحديث');
     }
@@ -162,7 +240,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
       .single();
 
     if (updateError) {

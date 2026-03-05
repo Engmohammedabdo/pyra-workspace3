@@ -52,6 +52,7 @@ export async function PATCH(
     'title', 'description', 'column_id', 'position', 'priority',
     'due_date', 'start_date', 'estimated_hours', 'actual_hours',
     'cover_image', 'is_archived',
+    'payment_amount', 'payment_currency', 'payment_status', 'task_hourly_rate',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {

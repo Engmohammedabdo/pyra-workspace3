@@ -57,6 +57,12 @@ import {
   Megaphone,
   Contact,
   CalendarOff,
+  Timer,
+  Banknote,
+  Network,
+  Clapperboard,
+  Award,
+  Settings2,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -98,6 +104,8 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/profile', label: 'ملفي الشخصي', labelEn: 'My Profile', icon: UserCircle },
       { href: '/dashboard/my-tasks', label: 'مهامي', labelEn: 'My Tasks', icon: CheckSquare },
       { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
+      { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
+      { href: '/dashboard/my-payslips', label: 'كشف راتبي', labelEn: 'My Payslips', icon: Receipt, permission: 'payroll.view' },
     ],
   },
   {
@@ -120,6 +128,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view' },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
       { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
+      { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', labelEn: 'Content Pipeline', icon: Clapperboard, permission: 'script_reviews.view' },
     ],
   },
   {
@@ -130,6 +139,9 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
       { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
+      { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
+      { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
+      { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
     ],
   },
   {
@@ -144,6 +156,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, permission: 'finance.view' },
       { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, permission: 'finance.view' },
       { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, permission: 'finance.view' },
+      { href: '/dashboard/payroll', label: 'الرواتب', labelEn: 'Payroll', icon: Banknote, permission: 'payroll.manage' },
     ],
   },
   {

@@ -9,7 +9,7 @@ export async function GET() {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from('pyra_users')
-    .select('id, username, display_name, email, role, role_id, phone, job_title, avatar_url, bio, status, created_at, pyra_roles!left(name, name_ar, color, icon)')
+    .select('id, username, display_name, email, role, role_id, phone, job_title, avatar_url, bio, status, created_at, manager_username, employment_type, work_location, department, pyra_roles!left(name, name_ar, color, icon)')
     .neq('status', 'suspended')
     .order('display_name');
 

@@ -297,6 +297,10 @@ BEGIN
     END LOOP;
 
     -- 3) Check file-specific permissions
+    -- NOTE: pyra_file_permissions was renamed to pyra_file_permissions_archived
+    -- in ERP migration (002_erp_features.sql, Wave 1C).
+    -- This RPC function should be recreated without this block once the migration runs.
+    -- File access is now controlled via team → project → storage_path chain + RBAC.
     SELECT * INTO v_file_perm
     FROM pyra_file_permissions
     WHERE file_path = p_path

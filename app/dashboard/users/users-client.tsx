@@ -63,7 +63,15 @@ interface PyraUser {
   status: string;
   permissions: Record<string, unknown>;
   created_at: string;
+  manager_username: string | null;
   pyra_roles: PyraRole | null;
+  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  work_location?: 'remote' | 'onsite' | 'hybrid';
+  payment_type?: 'monthly_salary' | 'per_task' | 'hourly';
+  salary?: number;
+  hourly_rate?: number;
+  hire_date?: string;
+  department?: string;
 }
 
 interface RoleOption {
@@ -98,6 +106,14 @@ export default function UsersClient() {
     role_id: '' as string,
     job_title: '',
     phone: '',
+    manager_username: '' as string,
+    employment_type: '' as string,
+    work_location: '' as string,
+    payment_type: '' as string,
+    salary: '' as string | number,
+    hourly_rate: '' as string | number,
+    hire_date: '',
+    department: '',
   });
   const [newPassword, setNewPassword] = useState('');
 
@@ -156,6 +172,14 @@ export default function UsersClient() {
       role_id: '',
       job_title: '',
       phone: '',
+      manager_username: '',
+      employment_type: '',
+      work_location: '',
+      payment_type: '',
+      salary: '',
+      hourly_rate: '',
+      hire_date: '',
+      department: '',
     });
   };
 
@@ -194,7 +218,15 @@ export default function UsersClient() {
           role_id: formData.role_id || null,
           phone: formData.phone || null,
           job_title: formData.job_title || null,
+          manager_username: formData.manager_username || null,
           status: editStatus,
+          employment_type: formData.employment_type || null,
+          work_location: formData.work_location || null,
+          payment_type: formData.payment_type || null,
+          salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
+          hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
+          hire_date: formData.hire_date || null,
+          department: formData.department || null,
         }),
       });
       const json = await res.json();
@@ -245,6 +277,14 @@ export default function UsersClient() {
       role_id: user.role_id || '',
       job_title: user.job_title || '',
       phone: user.phone || '',
+      manager_username: user.manager_username || '',
+      employment_type: user.employment_type || '',
+      work_location: user.work_location || '',
+      payment_type: user.payment_type || '',
+      salary: user.salary ?? '',
+      hourly_rate: user.hourly_rate ?? '',
+      hire_date: user.hire_date || '',
+      department: user.department || '',
     });
     setEditStatus(user.status || 'active');
     setShowEditDialog(true);
@@ -480,7 +520,7 @@ export default function UsersClient() {
 
       {/* Edit User */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>تعديل المستخدم — @{selectedUser?.username}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             {/* Section 1: Basic Info */}
@@ -553,6 +593,114 @@ export default function UsersClient() {
                     dir="ltr"
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <FormLabel>المدير المباشر</FormLabel>
+                <Select
+                  value={formData.manager_username || '__none__'}
+                  onValueChange={v => setFormData(p => ({ ...p, manager_username: v === '__none__' ? '' : v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="— بدون مدير —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— بدون مدير —</SelectItem>
+                    {users
+                      .filter(u => u.username !== selectedUser?.username)
+                      .map(u => (
+                        <SelectItem key={u.username} value={u.username}>
+                          {u.display_name} (@{u.username})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Section 3: Employment Data */}
+            <div className="space-y-4 border-t pt-4">
+              <Label className="text-sm font-semibold text-muted-foreground">بيانات التوظيف</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>نوع التوظيف</FormLabel>
+                  <Select value={formData.employment_type} onValueChange={v => setFormData(p => ({ ...p, employment_type: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="اختر نوع التوظيف" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">غير محدد</SelectItem>
+                      <SelectItem value="full_time">دوام كامل</SelectItem>
+                      <SelectItem value="part_time">دوام جزئي</SelectItem>
+                      <SelectItem value="contractor">متعاقد</SelectItem>
+                      <SelectItem value="freelancer">مستقل</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>مكان العمل</FormLabel>
+                  <Select value={formData.work_location} onValueChange={v => setFormData(p => ({ ...p, work_location: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="اختر مكان العمل" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">غير محدد</SelectItem>
+                      <SelectItem value="remote">عن بعد</SelectItem>
+                      <SelectItem value="onsite">حضوري</SelectItem>
+                      <SelectItem value="hybrid">هجين</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>نوع الدفع</FormLabel>
+                  <Select value={formData.payment_type} onValueChange={v => setFormData(p => ({ ...p, payment_type: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="اختر نوع الدفع" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">غير محدد</SelectItem>
+                      <SelectItem value="monthly_salary">راتب شهري</SelectItem>
+                      <SelectItem value="per_task">بالمهمة</SelectItem>
+                      <SelectItem value="hourly">بالساعة</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>القسم</FormLabel>
+                  <Input
+                    value={formData.department}
+                    onChange={e => setFormData(p => ({ ...p, department: e.target.value }))}
+                    placeholder="مثال: التطوير"
+                  />
+                </div>
+              </div>
+              {formData.payment_type === 'monthly_salary' && (
+                <div className="space-y-2">
+                  <FormLabel>الراتب الشهري AED</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.salary}
+                    onChange={e => setFormData(p => ({ ...p, salary: e.target.value }))}
+                    placeholder="0.00"
+                    dir="ltr"
+                    min={0}
+                  />
+                </div>
+              )}
+              {formData.payment_type === 'hourly' && (
+                <div className="space-y-2">
+                  <FormLabel>سعر الساعة AED</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.hourly_rate}
+                    onChange={e => setFormData(p => ({ ...p, hourly_rate: e.target.value }))}
+                    placeholder="0.00"
+                    dir="ltr"
+                    min={0}
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <FormLabel>تاريخ التعيين</FormLabel>
+                <Input
+                  type="date"
+                  value={formData.hire_date}
+                  onChange={e => setFormData(p => ({ ...p, hire_date: e.target.value }))}
+                  dir="ltr"
+                />
               </div>
             </div>
           </div>

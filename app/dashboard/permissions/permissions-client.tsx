@@ -14,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Shield, Plus, Trash2, FolderLock } from 'lucide-react';
+import { Shield, Plus, Trash2, FolderLock, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 
@@ -162,6 +162,27 @@ export default function PermissionsClient() {
 
   return (
     <div className="space-y-6">
+      {/* Deprecation banner — pyra_file_permissions table archived in ERP migration (002_erp_features.sql Wave 1C) */}
+      <Card className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
+        <CardContent className="flex items-start gap-3 p-4">
+          <AlertTriangle className="h-5 w-5 text-orange-600 dark:text-orange-400 mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="font-semibold text-orange-800 dark:text-orange-300">
+              هذه الصفحة مؤرشفة (Legacy)
+            </p>
+            <p className="text-sm text-orange-700 dark:text-orange-400/80">
+              تم أرشفة جدول صلاحيات الملفات القديم (<code className="text-xs">pyra_file_permissions</code>).
+              يتم التحكم بالوصول الآن عبر سلسلة الفريق &rarr; المشروع &rarr; مسار التخزين + نظام RBAC.
+              هذه الصفحة تعرض فقط صلاحيات المسارات المحفوظة في بيانات المستخدمين.
+            </p>
+            <p className="text-xs text-orange-600/70 dark:text-orange-400/60">
+              File access is now controlled via Team &rarr; Project &rarr; Storage Path chain + RBAC roles.
+              The old <code>pyra_file_permissions</code> table has been renamed to <code>pyra_file_permissions_archived</code>.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" /> الصلاحيات</h1>

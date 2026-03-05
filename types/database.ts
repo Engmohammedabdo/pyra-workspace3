@@ -14,6 +14,26 @@ export interface PyraUser {
   display_name: string;
   permissions: UserPermissions;
   created_at: string;
+  // Employee classification
+  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  work_location?: 'remote' | 'onsite' | 'hybrid';
+  payment_type?: 'monthly_salary' | 'per_task' | 'hourly';
+  salary?: number;
+  hourly_rate?: number;
+  hire_date?: string;
+  national_id?: string;
+  bank_details?: { bank?: string; iban?: string; account_name?: string; account_no?: string };
+  department?: string;
+  // Manager hierarchy
+  manager_username?: string | null;
+  // Work schedule
+  work_schedule_id?: string | null;
+  // Extended profile fields
+  phone?: string;
+  job_title?: string;
+  avatar_url?: string;
+  bio?: string;
+  status?: 'active' | 'inactive' | 'suspended';
   // Joined from pyra_roles
   role_name?: string;
   role_name_ar?: string;
@@ -132,6 +152,7 @@ export interface PyraTeamMember {
   added_at: string;
 }
 
+/** @deprecated Legacy table — archived. File access controlled via team→project→storage_path chain + RBAC. */
 export interface PyraFilePermission {
   id: string;
   file_path: string;
@@ -787,4 +808,247 @@ export interface FileListItem {
   mimeType: string;
   updatedAt: string | null;
   originalName?: string;
+}
+
+// ==========================================
+// ERP Feature Tables
+// ==========================================
+
+// Leave Types (dynamic, replaces hardcoded types)
+export interface PyraLeaveType {
+  id: string;
+  name: string;
+  name_ar: string;
+  icon: string;
+  color: string;
+  default_days: number;
+  max_carry_over: number;
+  requires_attachment: boolean;
+  is_paid: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+// Dynamic Leave Balances (v2)
+export interface PyraLeaveBalanceV2 {
+  id: string;
+  username: string;
+  year: number;
+  leave_type_id: string;
+  total_days: number;
+  used_days: number;
+  carried_over: number;
+  // Joined
+  leave_type?: PyraLeaveType;
+}
+
+// Work Schedules
+export interface PyraWorkSchedule {
+  id: string;
+  name: string;
+  name_ar: string;
+  work_days: number[];
+  start_time: string;
+  end_time: string;
+  break_minutes: number;
+  daily_hours: number;
+  overtime_multiplier: number;
+  weekend_multiplier: number;
+  is_default: boolean;
+  created_at: string;
+}
+
+// Attendance
+export interface PyraAttendance {
+  id: string;
+  username: string;
+  date: string;
+  clock_in: string | null;
+  clock_out: string | null;
+  total_hours: number;
+  status: 'present' | 'absent' | 'late' | 'early_leave' | 'holiday' | 'weekend';
+  notes: string | null;
+  ip_address: string | null;
+  created_at: string;
+  // Joined
+  display_name?: string;
+}
+
+// Timesheet Periods
+export interface PyraTimesheetPeriod {
+  id: string;
+  username: string;
+  period_type: 'weekly' | 'biweekly' | 'monthly';
+  start_date: string;
+  end_date: string;
+  total_hours: number;
+  status: 'open' | 'submitted' | 'approved' | 'rejected';
+  submitted_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_note: string | null;
+  created_at: string;
+}
+
+// Employee Payments
+export interface PyraEmployeePayment {
+  id: string;
+  username: string;
+  source_type: 'task' | 'overtime' | 'bonus' | 'deduction';
+  source_id: string | null;
+  description: string | null;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'approved' | 'paid';
+  payroll_id: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  created_at: string;
+  // Joined
+  display_name?: string;
+}
+
+// Payroll Runs
+export interface PyraPayrollRun {
+  id: string;
+  month: number;
+  year: number;
+  status: 'draft' | 'calculated' | 'approved' | 'paid';
+  total_amount: number;
+  currency: string;
+  employee_count: number;
+  calculated_at: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+}
+
+// Payroll Items (per employee per run)
+export interface PyraPayrollItem {
+  id: string;
+  payroll_id: string;
+  username: string;
+  base_salary: number;
+  task_payments: number;
+  overtime_amount: number;
+  bonus: number;
+  deductions: number;
+  deduction_details: Array<{ reason: string; amount: number }>;
+  net_pay: number;
+  status: 'pending' | 'approved' | 'paid';
+  created_at: string;
+  // Joined
+  display_name?: string;
+  department?: string;
+}
+
+// Evaluation Periods
+export interface PyraEvaluationPeriod {
+  id: string;
+  name: string;
+  name_ar: string;
+  start_date: string;
+  end_date: string;
+  status: 'draft' | 'active' | 'closed';
+  created_by: string;
+  created_at: string;
+}
+
+// Evaluations
+export interface PyraEvaluation {
+  id: string;
+  period_id: string;
+  employee_username: string;
+  evaluator_username: string;
+  evaluation_type: 'manager' | 'self' | 'peer';
+  overall_rating: number | null;
+  status: 'draft' | 'submitted' | 'acknowledged';
+  comments: string | null;
+  strengths: string | null;
+  improvements: string | null;
+  submitted_at: string | null;
+  acknowledged_at: string | null;
+  created_at: string;
+  // Joined
+  employee_display_name?: string;
+  evaluator_display_name?: string;
+  period_name?: string;
+  scores?: PyraEvaluationScore[];
+}
+
+// Evaluation Criteria
+export interface PyraEvaluationCriteria {
+  id: string;
+  name: string;
+  name_ar: string;
+  description: string | null;
+  weight: number;
+  category: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+// Evaluation Scores
+export interface PyraEvaluationScore {
+  id: string;
+  evaluation_id: string;
+  criteria_id: string;
+  score: number;
+  comment: string | null;
+  // Joined
+  criteria_name?: string;
+  criteria_name_ar?: string;
+}
+
+// KPI Targets
+export interface PyraKpiTarget {
+  id: string;
+  username: string;
+  period_id: string | null;
+  title: string;
+  target_value: number | null;
+  actual_value: number;
+  unit: string | null;
+  status: 'active' | 'achieved' | 'missed';
+  created_at: string;
+}
+
+// Content Pipeline
+export interface PyraContentPipeline {
+  id: string;
+  project_id: string | null;
+  title: string;
+  content_type: 'video' | 'reel' | 'podcast' | 'article' | 'social_post';
+  current_stage: string;
+  assigned_to: string | null;
+  script_review_id: string | null;
+  deadline: string | null;
+  notes: string | null;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  project_name?: string;
+  assigned_display_name?: string;
+  stages?: PyraPipelineStage[];
+}
+
+// Pipeline Stages
+export interface PyraPipelineStage {
+  id: string;
+  pipeline_id: string;
+  stage: 'scripting' | 'review' | 'revision' | 'filming' | 'editing' | 'client_review' | 'delivery';
+  status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  assigned_to: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
 }

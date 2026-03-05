@@ -1,8 +1,10 @@
 # Pyra Workspace 3.0 — Database Schema
 
-> Auto-documented from live Supabase database on 2026-03-04
+> Auto-documented from live Supabase database on 2026-03-05
 > Host: `pyraworkspacedb.pyramedia.cloud`
-> 69 tables in `public` schema (prefix: `pyra_`)
+> 84 tables in `public` schema (prefix: `pyra_`)
+> Includes 15 new ERP tables from `002_erp_features.sql` migration
+> `pyra_file_permissions` renamed to `pyra_file_permissions_archived`
 
 ---
 
@@ -21,7 +23,7 @@
 11. [pyra_favorites](#pyra_favorites) — User file/folder favorites
 12. [pyra_file_approvals](#pyra_file_approvals) — File approval workflow
 13. [pyra_file_index](#pyra_file_index) — File search index
-14. [pyra_file_permissions](#pyra_file_permissions) — Per-file access rules
+14. [pyra_file_permissions_archived](#pyra_file_permissions_archived) — ~~Per-file access rules~~ **(ARCHIVED — renamed in ERP migration)**
 15. [pyra_file_versions](#pyra_file_versions) — File version history
 16. [pyra_login_attempts](#pyra_login_attempts) — Login attempt tracking
 17. [pyra_notifications](#pyra_notifications) — Internal team notifications
@@ -77,6 +79,24 @@
 67. [pyra_stripe_payments](#pyra_stripe_payments) — Stripe payment records
 68. [pyra_api_keys](#pyra_api_keys) — API key management
 69. [pyra_approvals](#pyra_approvals) — Approval workflows
+
+### ERP Migration Tables (002_erp_features.sql)
+
+70. [pyra_leave_types](#pyra_leave_types) — Custom leave type definitions
+71. [pyra_leave_balances_v2](#pyra_leave_balances_v2) — Dynamic leave balances (per type/year)
+72. [pyra_work_schedules](#pyra_work_schedules) — Work schedule definitions
+73. [pyra_attendance](#pyra_attendance) — Daily clock-in/out records
+74. [pyra_timesheet_periods](#pyra_timesheet_periods) — Timesheet submission periods
+75. [pyra_employee_payments](#pyra_employee_payments) — Employee payment ledger
+76. [pyra_payroll_runs](#pyra_payroll_runs) — Monthly payroll runs
+77. [pyra_payroll_items](#pyra_payroll_items) — Per-employee payroll line items
+78. [pyra_evaluation_periods](#pyra_evaluation_periods) — Performance evaluation periods
+79. [pyra_evaluation_criteria](#pyra_evaluation_criteria) — Evaluation scoring criteria
+80. [pyra_evaluations](#pyra_evaluations) — Individual evaluations
+81. [pyra_evaluation_scores](#pyra_evaluation_scores) — Per-criteria scores
+82. [pyra_kpi_targets](#pyra_kpi_targets) — KPI targets per employee
+83. [pyra_content_pipeline](#pyra_content_pipeline) — Content production pipeline
+84. [pyra_pipeline_stages](#pyra_pipeline_stages) — Pipeline stage tracking
 
 ---
 
@@ -327,9 +347,14 @@ Search index for all files in storage. Maintained on upload/delete/rename.
 
 ---
 
-## pyra_file_permissions
+## pyra_file_permissions_archived
 
-Per-file/folder access permissions for specific users.
+> **ARCHIVED**: This table was renamed from `pyra_file_permissions` to `pyra_file_permissions_archived`
+> in the ERP migration (`supabase/migrations/002_erp_features.sql`, Wave 1C).
+> File access is now controlled via Team -> Project -> Storage Path chain + RBAC roles.
+> The table is retained for historical reference only and is no longer written to by application code.
+
+~~Per-file/folder access permissions for specific users.~~
 
 | Column | Type | Nullable | Default |
 |--------|------|----------|---------|
@@ -695,7 +720,7 @@ All `varchar` IDs use the format: `{prefix}_{unix_timestamp}_{random}`
 | `ct` | pyra_client_tags |
 | `fa` | pyra_file_approvals |
 | `fi` | pyra_file_index |
-| `fp` | pyra_file_permissions |
+| `fp` | pyra_file_permissions_archived *(legacy, no longer used)* |
 | `fv` | pyra_file_versions |
 | `n` | pyra_notifications |
 | `pf` | pyra_project_files |
@@ -1594,3 +1619,406 @@ Approval workflow records. Used for tracking pending approval counts in the KPI 
 | status | varchar | NOT NULL | 'pending' |
 
 **Note**: Minimal columns confirmed from code. This table is primarily queried via count with `status = 'pending'` filter in the KPI alerts endpoint. Additional columns may exist in the database but are not referenced in the application code.
+
+---
+
+# ERP Migration Tables
+
+> Added by `supabase/migrations/002_erp_features.sql`.
+> These tables support the Employee Experience & HR Management features.
+
+---
+
+## pyra_users — ERP Columns Added (Wave 1A/1B)
+
+The following columns were added to `pyra_users` by the ERP migration:
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| employment_type | varchar(30) | YES | `'full_time'` | `full_time`, `part_time`, `contractor`, `freelance`, `intern` |
+| work_location | varchar(20) | YES | `'onsite'` | `onsite`, `remote`, `hybrid` |
+| payment_type | varchar(30) | YES | `'monthly_salary'` | `monthly_salary`, `hourly`, `per_task`, `commission` |
+| salary | numeric(12,2) | YES | `0` | Base monthly salary |
+| hourly_rate | numeric(8,2) | YES | `0` | Hourly rate (for hourly workers) |
+| hire_date | date | YES | — | Employment start date |
+| national_id | text | YES | — | National/Emirates ID |
+| bank_details | jsonb | YES | `'{}'` | Bank account info (encrypted at rest) |
+| department | varchar(100) | YES | — | Department name |
+| manager_username | varchar | YES | — | Reporting manager (self-referencing) |
+| work_schedule_id | varchar(20) | YES | — | FK to `pyra_work_schedules(id)` |
+
+**Index**: `idx_users_manager` on `manager_username`
+
+---
+
+## 70. pyra_leave_types
+
+Custom leave type definitions. Seeded with Annual, Sick, and Personal types.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| name | varchar(100) | NOT NULL | — |
+| name_ar | varchar(100) | NOT NULL | — |
+| icon | varchar(50) | YES | `'CalendarOff'` |
+| color | varchar(20) | YES | `'gray'` |
+| default_days | integer | NOT NULL | `0` |
+| max_carry_over | integer | YES | `0` |
+| requires_attachment | boolean | YES | `false` |
+| is_paid | boolean | YES | `true` |
+| is_active | boolean | YES | `true` |
+| sort_order | integer | YES | `0` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+---
+
+## 71. pyra_leave_balances_v2
+
+Dynamic leave balances per employee, per year, per leave type. Replaces the static `pyra_leave_balances` table.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| year | integer | NOT NULL | — |
+| leave_type_id | varchar(20) | NOT NULL | — |
+| total_days | integer | NOT NULL | `0` |
+| used_days | integer | NOT NULL | `0` |
+| carried_over | integer | NOT NULL | `0` |
+
+**PK**: `id`
+**FK**: `leave_type_id` -> `pyra_leave_types(id)`
+**Unique**: `(username, year, leave_type_id)`
+**Index**: `idx_leave_bal_v2_user` on `(username, year)`
+
+---
+
+## 72. pyra_work_schedules
+
+Work schedule templates. Seeded with UAE Standard (Sun-Thu, 09:00-18:00).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| name | varchar(100) | NOT NULL | — |
+| name_ar | varchar(100) | NOT NULL | — |
+| work_days | jsonb | NOT NULL | `'[0,1,2,3,4]'` |
+| start_time | time | NOT NULL | `'09:00'` |
+| end_time | time | NOT NULL | `'18:00'` |
+| break_minutes | integer | YES | `60` |
+| daily_hours | numeric(4,2) | YES | `8` |
+| overtime_multiplier | numeric(3,2) | YES | `1.5` |
+| weekend_multiplier | numeric(3,2) | YES | `2.0` |
+| is_default | boolean | YES | `false` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+---
+
+## 73. pyra_attendance
+
+Daily attendance records with clock-in/out times.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| date | date | NOT NULL | — |
+| clock_in | timestamptz | YES | — |
+| clock_out | timestamptz | YES | — |
+| total_hours | numeric(5,2) | YES | `0` |
+| status | varchar(20) | YES | `'present'` |
+| notes | text | YES | — |
+| ip_address | varchar(45) | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**Unique**: `(username, date)`
+**Index**: `idx_attendance_user_date` on `(username, date)`
+
+---
+
+## 74. pyra_timesheet_periods
+
+Timesheet submission periods (weekly/biweekly) with approval workflow.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| period_type | varchar(20) | NOT NULL | `'weekly'` |
+| start_date | date | NOT NULL | — |
+| end_date | date | NOT NULL | — |
+| total_hours | numeric(6,2) | YES | `0` |
+| status | varchar(20) | YES | `'open'` |
+| submitted_at | timestamptz | YES | — |
+| approved_by | varchar | YES | — |
+| approved_at | timestamptz | YES | — |
+| rejection_note | text | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**Index**: `idx_ts_period_user` on `(username, start_date)`
+
+---
+
+## pyra_timesheets — ERP Columns Added (Wave 3B/3C)
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| period_id | varchar(20) | — | FK to `pyra_timesheet_periods(id)` |
+| is_overtime | boolean | `false` | Whether entry is overtime |
+| overtime_multiplier | numeric(3,2) | `1.5` | Overtime pay multiplier |
+
+---
+
+## pyra_tasks — ERP Columns Added (Wave 4A)
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| payment_amount | numeric(10,2) | `0` | Per-task payment amount |
+| payment_currency | varchar(3) | `'AED'` | Payment currency |
+| payment_status | varchar(20) | `'unpaid'` | `unpaid`, `pending`, `paid` |
+| task_hourly_rate | numeric(8,2) | — | Task-specific hourly rate override |
+
+---
+
+## pyra_leave_requests — ERP Columns Added (Wave 2B)
+
+| Column | Type | Default | Description |
+|--------|------|---------|-------------|
+| cancelled_at | timestamptz | — | When the leave was cancelled |
+| cancelled_by | varchar | — | Who cancelled the leave |
+| cancellation_reason | text | — | Reason for cancellation |
+
+---
+
+## 75. pyra_employee_payments
+
+Employee payment ledger tracking all payment sources (salary, tasks, overtime, bonuses).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| source_type | varchar(30) | NOT NULL | — |
+| source_id | varchar(20) | YES | — |
+| description | text | YES | — |
+| amount | numeric(10,2) | NOT NULL | — |
+| currency | varchar(3) | YES | `'AED'` |
+| status | varchar(20) | YES | `'pending'` |
+| payroll_id | varchar(20) | YES | — |
+| approved_by | varchar | YES | — |
+| approved_at | timestamptz | YES | — |
+| paid_at | timestamptz | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**Index**: `idx_emp_payments_user` on `username`, `idx_emp_payments_payroll` on `payroll_id`
+
+---
+
+## 76. pyra_payroll_runs
+
+Monthly payroll runs with approval workflow.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| month | integer | NOT NULL | — |
+| year | integer | NOT NULL | — |
+| status | varchar(20) | YES | `'draft'` |
+| total_amount | numeric(14,2) | YES | `0` |
+| currency | varchar(3) | YES | `'AED'` |
+| employee_count | integer | YES | `0` |
+| calculated_at | timestamptz | YES | — |
+| approved_by | varchar | YES | — |
+| approved_at | timestamptz | YES | — |
+| paid_at | timestamptz | YES | — |
+| notes | text | YES | — |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**Unique**: `(month, year)`
+
+---
+
+## 77. pyra_payroll_items
+
+Per-employee payroll line items within a payroll run.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| payroll_id | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| base_salary | numeric(12,2) | YES | `0` |
+| task_payments | numeric(12,2) | YES | `0` |
+| overtime_amount | numeric(12,2) | YES | `0` |
+| bonus | numeric(12,2) | YES | `0` |
+| deductions | numeric(12,2) | YES | `0` |
+| deduction_details | jsonb | YES | `'[]'` |
+| net_pay | numeric(12,2) | YES | `0` |
+| status | varchar(20) | YES | `'pending'` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `payroll_id` -> `pyra_payroll_runs(id)`
+**Index**: `idx_payroll_items_run` on `payroll_id`, `idx_payroll_items_user` on `username`
+
+---
+
+## 78. pyra_evaluation_periods
+
+Performance evaluation periods (e.g., Q1 2026, Annual 2026).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| name | varchar(200) | NOT NULL | — |
+| name_ar | varchar(200) | NOT NULL | — |
+| start_date | date | NOT NULL | — |
+| end_date | date | NOT NULL | — |
+| status | varchar(20) | YES | `'draft'` |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+---
+
+## 79. pyra_evaluation_criteria
+
+Evaluation criteria definitions with weights and categories.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| name | varchar(200) | NOT NULL | — |
+| name_ar | varchar(200) | NOT NULL | — |
+| description | text | YES | — |
+| weight | numeric(5,2) | YES | `1.0` |
+| category | varchar(50) | YES | — |
+| is_active | boolean | YES | `true` |
+| sort_order | integer | YES | `0` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+---
+
+## 80. pyra_evaluations
+
+Individual employee evaluations within a period.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| period_id | varchar(20) | NOT NULL | — |
+| employee_username | varchar | NOT NULL | — |
+| evaluator_username | varchar | NOT NULL | — |
+| evaluation_type | varchar(30) | YES | `'manager'` |
+| overall_rating | numeric(3,1) | YES | — |
+| status | varchar(20) | YES | `'draft'` |
+| comments | text | YES | — |
+| strengths | text | YES | — |
+| improvements | text | YES | — |
+| submitted_at | timestamptz | YES | — |
+| acknowledged_at | timestamptz | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `period_id` -> `pyra_evaluation_periods(id)`
+**Index**: `idx_evaluations_period` on `period_id`, `idx_evaluations_employee` on `employee_username`
+
+---
+
+## 81. pyra_evaluation_scores
+
+Per-criteria scores within an evaluation.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| evaluation_id | varchar(20) | NOT NULL | — |
+| criteria_id | varchar(20) | NOT NULL | — |
+| score | numeric(3,1) | NOT NULL | — |
+| comment | text | YES | — |
+
+**PK**: `id`
+**FK**: `evaluation_id` -> `pyra_evaluations(id)` ON DELETE CASCADE, `criteria_id` -> `pyra_evaluation_criteria(id)`
+**Unique**: `(evaluation_id, criteria_id)`
+
+---
+
+## 82. pyra_kpi_targets
+
+KPI targets per employee, optionally linked to an evaluation period.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| period_id | varchar(20) | YES | — |
+| title | varchar(300) | NOT NULL | — |
+| target_value | numeric(12,2) | YES | — |
+| actual_value | numeric(12,2) | YES | `0` |
+| unit | varchar(50) | YES | — |
+| status | varchar(20) | YES | `'active'` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `period_id` -> `pyra_evaluation_periods(id)`
+**Index**: `idx_kpi_user` on `username`
+
+---
+
+## 83. pyra_content_pipeline
+
+Content production pipeline items linked to projects.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| project_id | varchar(20) | YES | — |
+| title | varchar(500) | NOT NULL | — |
+| content_type | varchar(50) | YES | `'video'` |
+| current_stage | varchar(50) | YES | `'scripting'` |
+| assigned_to | varchar | YES | — |
+| script_review_id | varchar(20) | YES | — |
+| deadline | date | YES | — |
+| notes | text | YES | — |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | YES | `now()` |
+| updated_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `project_id` -> `pyra_projects(id)`
+**Index**: `idx_pipeline_project` on `project_id`
+
+---
+
+## 84. pyra_pipeline_stages
+
+Individual stage tracking within a content pipeline item.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| pipeline_id | varchar(20) | NOT NULL | — |
+| stage | varchar(50) | NOT NULL | — |
+| status | varchar(20) | YES | `'pending'` |
+| assigned_to | varchar | YES | — |
+| started_at | timestamptz | YES | — |
+| completed_at | timestamptz | YES | — |
+| notes | text | YES | — |
+| sort_order | integer | YES | `0` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `pipeline_id` -> `pyra_content_pipeline(id)` ON DELETE CASCADE
+**Index**: `idx_pipeline_stages` on `pipeline_id`

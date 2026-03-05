@@ -32,11 +32,27 @@ interface DirectoryUser {
     color: string;
     icon: string;
   } | null;
+  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  work_location?: 'remote' | 'onsite' | 'hybrid';
+  department?: string;
 }
 
 interface DirectoryClientProps {
   session: AuthSession;
 }
+
+const EMPLOYMENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  full_time: { label: 'دوام كامل', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+  part_time: { label: 'دوام جزئي', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  contractor: { label: 'متعاقد', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  freelancer: { label: 'مستقل', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+};
+
+const WORK_LOCATION_LABELS: Record<string, string> = {
+  remote: 'عن بعد',
+  onsite: 'حضوري',
+  hybrid: 'هجين',
+};
 
 export default function DirectoryClient({ session }: DirectoryClientProps) {
   const [users, setUsers] = useState<DirectoryUser[]>([]);
@@ -127,6 +143,23 @@ export default function DirectoryClient({ session }: DirectoryClientProps) {
                   <Badge variant="outline" className={`text-[10px] ${getRoleColorClasses(role?.color || 'gray')}`}>
                     {role?.name_ar || (user.role === 'admin' ? 'مسؤول' : 'موظف')}
                   </Badge>
+                  <div className="flex flex-wrap items-center justify-center gap-1">
+                    {user.employment_type && EMPLOYMENT_TYPE_LABELS[user.employment_type] && (
+                      <Badge className={`text-[10px] border-0 ${EMPLOYMENT_TYPE_LABELS[user.employment_type].color}`}>
+                        {EMPLOYMENT_TYPE_LABELS[user.employment_type].label}
+                      </Badge>
+                    )}
+                    {user.work_location && WORK_LOCATION_LABELS[user.work_location] && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {WORK_LOCATION_LABELS[user.work_location]}
+                      </Badge>
+                    )}
+                    {user.department && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {user.department}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="space-y-1 text-xs text-muted-foreground">
                     {user.email && (
                       <p className="flex items-center justify-center gap-1 truncate">

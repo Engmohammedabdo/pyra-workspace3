@@ -59,6 +59,7 @@ const SECTIONS = [
       '/dashboard/clients',
       '/dashboard/clients/[id]',
       '/dashboard/script-reviews',
+      '/dashboard/content-pipeline',
     ],
   },
   {
@@ -79,6 +80,7 @@ const SECTIONS = [
       '/dashboard/finance/recurring',
       '/dashboard/finance/reports',
       '/dashboard/finance/targets',
+      '/dashboard/payroll',
     ],
   },
   {
@@ -96,6 +98,12 @@ const SECTIONS = [
       '/dashboard/timesheet',
       '/dashboard/announcements',
       '/dashboard/leave',
+      '/dashboard/leave/settings',
+      '/dashboard/attendance',
+      '/dashboard/org-chart',
+      '/dashboard/my-payslips',
+      '/dashboard/evaluations',
+      '/dashboard/evaluations/settings',
     ],
   },
   {

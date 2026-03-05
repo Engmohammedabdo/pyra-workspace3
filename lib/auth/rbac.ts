@@ -128,6 +128,18 @@ export const PERMISSIONS = {
   LEAVE_VIEW: 'leave.view',
   LEAVE_MANAGE: 'leave.manage',
   LEAVE_APPROVE: 'leave.approve',
+
+  // Attendance
+  ATTENDANCE_VIEW: 'attendance.view',
+  ATTENDANCE_MANAGE: 'attendance.manage',
+
+  // Payroll
+  PAYROLL_VIEW: 'payroll.view',
+  PAYROLL_MANAGE: 'payroll.manage',
+
+  // Evaluations
+  EVALUATIONS_VIEW: 'evaluations.view',
+  EVALUATIONS_MANAGE: 'evaluations.manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -406,6 +418,33 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'leave.approve', label: 'Approve Leave', labelAr: 'اعتماد الإجازات' },
     ],
   },
+  {
+    key: 'attendance',
+    label: 'Attendance',
+    labelAr: 'الحضور والانصراف',
+    permissions: [
+      { key: 'attendance.view', label: 'View Attendance', labelAr: 'عرض الحضور' },
+      { key: 'attendance.manage', label: 'Manage Attendance', labelAr: 'إدارة الحضور' },
+    ],
+  },
+  {
+    key: 'payroll',
+    label: 'Payroll',
+    labelAr: 'الرواتب',
+    permissions: [
+      { key: 'payroll.view', label: 'View Payroll', labelAr: 'عرض الرواتب' },
+      { key: 'payroll.manage', label: 'Manage Payroll', labelAr: 'إدارة الرواتب' },
+    ],
+  },
+  {
+    key: 'evaluations',
+    label: 'Evaluations',
+    labelAr: 'تقييم الأداء',
+    permissions: [
+      { key: 'evaluations.view', label: 'View Evaluations', labelAr: 'عرض التقييمات' },
+      { key: 'evaluations.manage', label: 'Manage Evaluations', labelAr: 'إدارة التقييمات' },
+    ],
+  },
 ];
 
 // ============================================================
@@ -476,6 +515,9 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
         'timesheet.view',
         'announcements.view',
         'leave.view',
+        'attendance.view',
+        'payroll.view',
+        'evaluations.view',
       ];
     case 'client':
     default:
