@@ -198,6 +198,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     keywords: ['scripts', 'سكريبتات', 'محتوى', 'مراجعة'],
   },
 
+  /* ═══════════════ الدليل ═══════════════ */
+  '/dashboard/guide': {
+    href: '/dashboard/guide',
+    description: 'دليل شامل لجميع وحدات النظام',
+    descriptionEn: 'Comprehensive guide to all system modules',
+    goal: 'دليل مرجعي يشرح جميع وحدات النظام مع النصائح والأهداف. استخدم البحث للعثور على أي وحدة بسرعة.',
+    tips: [
+      'استخدم البحث للعثور على أي وحدة بالعربي أو الإنجليزي',
+      'انقر على أي بطاقة لعرض نصائح الاستخدام',
+      'انقر على أيقونة الرابط للانتقال مباشرة للوحدة',
+    ],
+    keywords: ['دليل', 'guide', 'مساعدة', 'help', 'شرح'],
+  },
+
   /* ═══════════════ شخصي + سير العمل ═══════════════ */
   '/dashboard/profile': {
     href: '/dashboard/profile',
@@ -318,6 +332,30 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['expenses', 'مصاريف', 'إنفاق', 'ضريبة'],
   },
+  '/dashboard/finance/expenses/categories': {
+    href: '/dashboard/finance/expenses/categories',
+    description: 'إدارة تصنيفات المصاريف',
+    descriptionEn: 'Manage expense categories',
+    goal: 'أنشئ وعدّل تصنيفات المصاريف لتنظيم الإنفاق وتحليله بشكل أفضل.',
+    tips: [
+      'أنشئ تصنيفات تناسب طبيعة عملك',
+      'التصنيفات تستخدم في إنشاء المصاريف وفي التقارير',
+      'يمكنك تعديل أو حذف أي تصنيف',
+    ],
+    keywords: ['تصنيفات', 'categories', 'مصاريف', 'فئات'],
+  },
+  '/dashboard/finance/client-statement': {
+    href: '/dashboard/finance/client-statement',
+    description: 'كشف حساب العميل المالي',
+    descriptionEn: 'Client financial statement',
+    goal: 'عرض كشف حساب مفصّل لكل عميل يشمل الفواتير والمدفوعات والرصيد المتبقي.',
+    tips: [
+      'اختر العميل لعرض كشف حسابه',
+      'الكشف يشمل الفواتير والمدفوعات والرصيد',
+      'يمكنك تصدير الكشف كملف',
+    ],
+    keywords: ['كشف حساب', 'statement', 'عميل', 'رصيد', 'مالي'],
+  },
   '/dashboard/finance/subscriptions': {
     href: '/dashboard/finance/subscriptions',
     description: 'تتبع الاشتراكات الشهرية والسنوية',
@@ -433,6 +471,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'تغيير صلاحيات الدور يؤثر فوراً على جميع المستخدمين بهذا الدور',
     ],
     keywords: ['roles', 'أدوار', 'صلاحيات', 'RBAC'],
+  },
+
+  '/dashboard/permissions': {
+    href: '/dashboard/permissions',
+    description: 'إدارة صلاحيات الملفات والمجلدات',
+    descriptionEn: 'Manage file and folder permissions',
+    goal: 'تحكم في من يمكنه الوصول لملفات ومجلدات محددة. عيّن صلاحيات قراءة، كتابة، حذف، ومشاركة لكل مستخدم أو فريق.',
+    tips: [
+      'عيّن صلاحيات لمستخدم أو فريق على مجلد محدد',
+      'يمكنك تحديد تاريخ انتهاء للصلاحية المؤقتة',
+      'الصلاحيات: قراءة، كتابة، حذف، مشاركة',
+      'احذف صلاحية لإزالة وصول مستخدم لمجلد معين',
+    ],
+    keywords: ['صلاحيات', 'permissions', 'وصول', 'ملفات', 'أمان'],
   },
 
   /* ═══════════════ النظام ═══════════════ */

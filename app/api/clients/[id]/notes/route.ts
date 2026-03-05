@@ -91,7 +91,7 @@ export async function POST(
     }
 
     // ── Insert note ──────────────────────────────────
-    const noteId = generateId('cn');
+    const noteId = generateId('cno');
 
     const { data: note, error } = await supabase
       .from('pyra_client_notes')

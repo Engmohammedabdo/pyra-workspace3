@@ -8,7 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Shield, CheckCircle, XCircle, Monitor, ChevronLeft, ChevronRight } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { toast } from 'sonner';
 
 interface LoginAttempt {
   id: number;
@@ -53,6 +55,7 @@ export default function LoginHistoryClient() {
       if (json.meta?.total !== undefined) setTotal(json.meta.total);
     } catch (err) {
       console.error(err);
+      toast.error('فشل في جلب سجل الدخول');
     } finally {
       setLoading(false);
     }
@@ -164,7 +167,13 @@ export default function LoginHistoryClient() {
                     ))}
                   </tr>
                 )) : attempts.length === 0 ? (
-                  <tr><td colSpan={4} className="p-12 text-center text-muted-foreground">لا توجد محاولات دخول</td></tr>
+                  <tr><td colSpan={4} className="p-8">
+                    <EmptyState
+                      icon={Shield}
+                      title="لا توجد محاولات دخول"
+                      description="لم يتم تسجيل أي محاولات دخول بعد أو لا توجد نتائج مطابقة للفلاتر"
+                    />
+                  </td></tr>
                 ) : attempts.map(attempt => (
                   <tr key={attempt.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3 font-medium">

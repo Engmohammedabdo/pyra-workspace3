@@ -2,7 +2,7 @@
 
 > Auto-documented from live Supabase database on 2026-03-04
 > Host: `pyraworkspacedb.pyramedia.cloud`
-> 44 tables in `public` schema (prefix: `pyra_`)
+> 69 tables in `public` schema (prefix: `pyra_`)
 
 ---
 
@@ -52,6 +52,31 @@
 42. [pyra_announcement_reads](#pyra_announcement_reads) — Announcement read tracking
 43. [pyra_leave_requests](#pyra_leave_requests) — Leave/vacation requests
 44. [pyra_leave_balances](#pyra_leave_balances) — Annual leave balances
+45. [pyra_roles](#pyra_roles) — User role definitions with permissions
+46. [pyra_invoices](#pyra_invoices) — Invoice management
+47. [pyra_invoice_items](#pyra_invoice_items) — Line items for invoices
+48. [pyra_payments](#pyra_payments) — Payment records
+49. [pyra_expenses](#pyra_expenses) — Expense tracking
+50. [pyra_expense_categories](#pyra_expense_categories) — Expense categories
+51. [pyra_subscriptions](#pyra_subscriptions) — Subscription management
+52. [pyra_contracts](#pyra_contracts) — Contract management
+53. [pyra_contract_milestones](#pyra_contract_milestones) — Contract milestones
+54. [pyra_cards](#pyra_cards) — Company payment cards
+55. [pyra_recurring_invoices](#pyra_recurring_invoices) — Recurring invoice templates
+56. [pyra_revenue_targets](#pyra_revenue_targets) — Revenue goals
+57. [pyra_automation_rules](#pyra_automation_rules) — Automation workflow rules
+58. [pyra_automation_log](#pyra_automation_log) — Automation execution logs
+59. [pyra_webhooks](#pyra_webhooks) — Webhook configurations
+60. [pyra_webhook_deliveries](#pyra_webhook_deliveries) — Webhook delivery logs
+61. [pyra_kb_articles](#pyra_kb_articles) — Knowledge base articles
+62. [pyra_kb_categories](#pyra_kb_categories) — Knowledge base categories
+63. [pyra_script_reviews](#pyra_script_reviews) — Script review submissions
+64. [pyra_script_review_replies](#pyra_script_review_replies) — Replies to script reviews
+65. [pyra_file_tags](#pyra_file_tags) — File tags
+66. [pyra_client_branding](#pyra_client_branding) — Client portal branding
+67. [pyra_stripe_payments](#pyra_stripe_payments) — Stripe payment records
+68. [pyra_api_keys](#pyra_api_keys) — API key management
+69. [pyra_approvals](#pyra_approvals) — Approval workflows
 
 ---
 
@@ -1014,3 +1039,558 @@ The following columns were added to `pyra_users` for the Employee System:
 | avatar_url | text | NULL | — |
 | bio | text | NULL | — |
 | status | text | NULL | 'active' |
+
+---
+
+## 45. pyra_roles
+
+Defines user roles with associated permissions, color/icon for display, and system-role protection.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | uuid | NOT NULL | gen_random_uuid() |
+| name | varchar | NOT NULL | — |
+| name_ar | varchar | NOT NULL | — |
+| description | text | NULL | — |
+| permissions | jsonb (text[]) | NOT NULL | '[]' |
+| color | varchar | NOT NULL | 'gray' |
+| icon | varchar | NOT NULL | 'Shield' |
+| is_system | boolean | NOT NULL | false |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Unique constraint**: `name`
+
+---
+
+## 46. pyra_invoices
+
+Stores invoice records with client snapshot data, financial totals, milestone tracking, and parent-invoice linking.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| invoice_number | varchar | NOT NULL | — |
+| quote_id | varchar | NULL | — |
+| client_id | varchar | NULL | — |
+| project_name | text | NULL | — |
+| status | varchar | NOT NULL | 'draft' |
+| issue_date | date | NOT NULL | — |
+| due_date | date | NOT NULL | — |
+| currency | varchar | NOT NULL | 'AED' |
+| subtotal | numeric | NOT NULL | 0 |
+| tax_rate | numeric | NOT NULL | 0 |
+| tax_amount | numeric | NOT NULL | 0 |
+| total | numeric | NOT NULL | 0 |
+| amount_paid | numeric | NOT NULL | 0 |
+| amount_due | numeric | NOT NULL | 0 |
+| notes | text | NULL | — |
+| terms_conditions | text | NULL | — |
+| bank_details | text | NULL | — |
+| company_name | varchar | NULL | — |
+| company_logo | text | NULL | — |
+| client_name | varchar | NULL | — |
+| client_email | varchar | NULL | — |
+| client_company | varchar | NULL | — |
+| client_phone | varchar | NULL | — |
+| client_address | text | NULL | — |
+| milestone_type | varchar | NULL | — |
+| parent_invoice_id | varchar | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Unique constraint**: `invoice_number`
+
+---
+
+## 47. pyra_invoice_items
+
+Line items belonging to an invoice, with sort ordering and computed amounts.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| invoice_id | varchar | NOT NULL | — |
+| sort_order | integer | NOT NULL | 0 |
+| description | text | NOT NULL | — |
+| quantity | numeric | NOT NULL | 1 |
+| rate | numeric | NOT NULL | 0 |
+| amount | numeric | NOT NULL | 0 |
+| created_at | timestamptz | NOT NULL | now() |
+
+**FK**: `invoice_id` → `pyra_invoices.id`
+
+---
+
+## 48. pyra_payments
+
+Payment records against invoices, tracking method, reference, and who recorded the payment.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| invoice_id | varchar | NOT NULL | — |
+| amount | numeric | NOT NULL | — |
+| payment_date | date | NOT NULL | — |
+| method | varchar | NULL | — |
+| reference | varchar | NULL | — |
+| notes | text | NULL | — |
+| recorded_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+
+**FK**: `invoice_id` → `pyra_invoices.id`
+
+---
+
+## 49. pyra_expenses
+
+Individual expense entries linked to categories, projects, or subscriptions. Supports VAT and recurring flags.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| category_id | varchar | NULL | — |
+| project_id | varchar | NULL | — |
+| subscription_id | varchar | NULL | — |
+| description | text | NOT NULL | — |
+| amount | numeric | NOT NULL | — |
+| currency | varchar | NOT NULL | 'AED' |
+| vat_rate | numeric | NOT NULL | 0 |
+| vat_amount | numeric | NOT NULL | 0 |
+| expense_date | date | NOT NULL | — |
+| vendor | varchar | NULL | — |
+| payment_method | varchar | NULL | — |
+| receipt_url | text | NULL | — |
+| notes | text | NULL | — |
+| is_recurring | boolean | NOT NULL | false |
+| recurring_period | varchar | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `category_id` → `pyra_expense_categories.id`, `project_id` → `pyra_projects.id`
+
+---
+
+## 50. pyra_expense_categories
+
+Categorization for expenses with Arabic names, icons, and custom colors.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| name_ar | varchar | NOT NULL | — |
+| icon | varchar | NULL | — |
+| color | varchar | NULL | — |
+| is_default | boolean | NOT NULL | false |
+| sort_order | integer | NOT NULL | 0 |
+| created_at | timestamptz | NOT NULL | now() |
+
+---
+
+## 51. pyra_subscriptions
+
+Tracks recurring subscriptions with renewal dates, billing cycles, and linked payment cards.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| provider | varchar | NULL | — |
+| cost | numeric | NOT NULL | — |
+| currency | varchar | NOT NULL | 'AED' |
+| billing_cycle | varchar | NOT NULL | 'monthly' |
+| next_renewal_date | date | NULL | — |
+| card_id | varchar | NULL | — |
+| category | varchar | NULL | — |
+| status | varchar | NOT NULL | 'active' |
+| url | text | NULL | — |
+| notes | text | NULL | — |
+| auto_renew | boolean | NOT NULL | true |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `card_id` → `pyra_cards.id`
+
+---
+
+## 52. pyra_contracts
+
+Client contracts with value tracking, billing structures, and milestone-based invoicing.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| client_id | varchar | NULL | — |
+| project_id | varchar | NULL | — |
+| title | varchar | NOT NULL | — |
+| description | text | NULL | — |
+| contract_type | varchar | NOT NULL | — |
+| total_value | numeric | NOT NULL | 0 |
+| currency | varchar | NOT NULL | 'AED' |
+| vat_rate | numeric | NOT NULL | 0 |
+| billing_structure | varchar | NULL | — |
+| start_date | date | NULL | — |
+| end_date | date | NULL | — |
+| status | varchar | NOT NULL | 'draft' |
+| amount_billed | numeric | NOT NULL | 0 |
+| amount_collected | numeric | NOT NULL | 0 |
+| notes | text | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `client_id` → `pyra_clients.id`, `project_id` → `pyra_projects.id`
+
+---
+
+## 53. pyra_contract_milestones
+
+Individual milestones within a contract, tracking completion, percentage, and linked invoices.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| contract_id | varchar | NOT NULL | — |
+| title | varchar | NOT NULL | — |
+| description | text | NULL | — |
+| percentage | numeric | NOT NULL | 0 |
+| amount | numeric | NOT NULL | 0 |
+| due_date | date | NULL | — |
+| status | varchar | NOT NULL | 'pending' |
+| invoice_id | varchar | NULL | — |
+| sort_order | integer | NOT NULL | 0 |
+| completed_at | timestamptz | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `contract_id` → `pyra_contracts.id`, `invoice_id` → `pyra_invoices.id`
+
+---
+
+## 54. pyra_cards
+
+Payment card references (no full card numbers stored) used for linking to subscriptions.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| card_name | varchar | NOT NULL | — |
+| bank_name | varchar | NULL | — |
+| last_four | varchar(4) | NULL | — |
+| card_type | varchar | NULL | — |
+| expiry_month | integer | NULL | — |
+| expiry_year | integer | NULL | — |
+| is_default | boolean | NOT NULL | false |
+| notes | text | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+---
+
+## 55. pyra_recurring_invoices
+
+Templates for auto-generating invoices on a schedule, linked to contracts and clients.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| contract_id | varchar | NULL | — |
+| client_id | varchar | NULL | — |
+| title | varchar | NOT NULL | — |
+| items | jsonb | NOT NULL | '[]' |
+| currency | varchar | NOT NULL | 'AED' |
+| billing_cycle | varchar | NOT NULL | 'monthly' |
+| next_generation_date | date | NULL | — |
+| last_generated_at | timestamptz | NULL | — |
+| status | varchar | NOT NULL | 'active' |
+| auto_send | boolean | NOT NULL | false |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `contract_id` → `pyra_contracts.id`, `client_id` → `pyra_clients.id`
+
+---
+
+## 56. pyra_revenue_targets
+
+Revenue goals per period (monthly/quarterly/yearly) with actual revenue calculated at query time from paid invoices.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| period_type | varchar | NOT NULL | — |
+| period_start | date | NOT NULL | — |
+| period_end | date | NOT NULL | — |
+| target_amount | numeric | NOT NULL | — |
+| currency | varchar | NOT NULL | 'AED' |
+| notes | text | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Note**: `period_type` accepts `monthly`, `quarterly`, or `yearly`.
+
+---
+
+## 57. pyra_automation_rules
+
+Workflow automation rule definitions with trigger events, conditions, and action configurations.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| description | text | NULL | — |
+| trigger_event | varchar | NOT NULL | — |
+| conditions | jsonb | NOT NULL | '{}' |
+| actions | jsonb | NOT NULL | '[]' |
+| is_enabled | boolean | NOT NULL | true |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+---
+
+## 58. pyra_automation_log
+
+Execution log for automation rules, recording trigger data, actions taken, and any errors.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| rule_id | varchar | NOT NULL | — |
+| rule_name | varchar | NULL | — |
+| trigger_event | varchar | NOT NULL | — |
+| trigger_data | jsonb | NULL | — |
+| actions_executed | jsonb | NULL | — |
+| status | varchar | NOT NULL | — |
+| error_message | text | NULL | — |
+| executed_at | timestamptz | NOT NULL | now() |
+
+**FK**: `rule_id` → `pyra_automation_rules.id`
+
+---
+
+## 59. pyra_webhooks
+
+Webhook endpoint configurations with event subscriptions, secrets, and enable/disable state.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| url | text | NOT NULL | — |
+| secret | varchar | NULL | — |
+| events | jsonb (text[]) | NOT NULL | '[]' |
+| is_enabled | boolean | NOT NULL | true |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+---
+
+## 60. pyra_webhook_deliveries
+
+Delivery attempts for webhook events, with retry tracking and response logging.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| webhook_id | varchar | NOT NULL | — |
+| event | varchar | NOT NULL | — |
+| payload | jsonb | NOT NULL | — |
+| response_status | integer | NULL | — |
+| response_body | text | NULL | — |
+| attempt_count | integer | NOT NULL | 1 |
+| max_attempts | integer | NOT NULL | 3 |
+| status | varchar | NOT NULL | 'pending' |
+| next_retry_at | timestamptz | NULL | — |
+| error_message | text | NULL | — |
+| delivered_at | timestamptz | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+
+**FK**: `webhook_id` → `pyra_webhooks.id`
+
+---
+
+## 61. pyra_kb_articles
+
+Knowledge base articles with slugs, public/private visibility, and view tracking.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| category_id | varchar | NULL | — |
+| title | varchar | NOT NULL | — |
+| slug | varchar | NOT NULL | — |
+| content | text | NULL | — |
+| excerpt | text | NULL | — |
+| is_public | boolean | NOT NULL | true |
+| sort_order | integer | NOT NULL | 0 |
+| view_count | integer | NOT NULL | 0 |
+| author | varchar | NULL | — |
+| author_display_name | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Unique constraint**: `slug`
+**FK**: `category_id` → `pyra_kb_categories.id`
+
+---
+
+## 62. pyra_kb_categories
+
+Categories for organizing knowledge base articles, with slug-based routing and visibility control.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| slug | varchar | NOT NULL | — |
+| description | text | NULL | — |
+| icon | varchar | NULL | — |
+| sort_order | integer | NOT NULL | 0 |
+| is_public | boolean | NOT NULL | true |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Unique constraint**: `slug`
+
+---
+
+## 63. pyra_script_reviews
+
+Client script review submissions from the portal, tracking version, status, and reviewer info.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| filename | varchar | NOT NULL | — |
+| video_number | varchar | NULL | — |
+| version | integer | NOT NULL | 1 |
+| status | varchar | NOT NULL | 'pending' |
+| comment | text | NULL | — |
+| client_id | varchar | NOT NULL | — |
+| client_name | varchar | NULL | — |
+| reviewed_at | timestamptz | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `client_id` → `pyra_clients.id`
+
+---
+
+## 64. pyra_script_review_replies
+
+Threaded replies on script reviews, supporting both admin and client sender types.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| review_id | varchar | NOT NULL | — |
+| sender_type | varchar | NOT NULL | — |
+| sender_name | varchar | NULL | — |
+| message | text | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+
+**FK**: `review_id` → `pyra_script_reviews.id`
+**Note**: `sender_type` is either `admin` or `client`.
+
+---
+
+## 65. pyra_file_tags
+
+Tags applied to files, supporting batch tagging with upsert on unique constraint.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| file_path | text | NOT NULL | — |
+| tag_name | varchar | NOT NULL | — |
+| color | varchar | NULL | — |
+| created_by | varchar | NULL | — |
+
+**Unique constraint**: `(file_path, tag_name)`
+
+---
+
+## 66. pyra_client_branding
+
+Per-client portal branding overrides including colors, logos, and custom display names.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| client_id | varchar | NOT NULL | — |
+| primary_color | varchar | NULL | — |
+| secondary_color | varchar | NULL | — |
+| logo_url | text | NULL | — |
+| favicon_url | text | NULL | — |
+| company_name_display | varchar | NULL | — |
+| login_background_url | text | NULL | — |
+
+**FK**: `client_id` → `pyra_clients.id`
+**Unique constraint**: `client_id`
+
+---
+
+## 67. pyra_stripe_payments
+
+Stripe checkout session and payment intent records linked to invoices for online payment tracking.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| invoice_id | varchar | NOT NULL | — |
+| stripe_session_id | varchar | NULL | — |
+| stripe_payment_intent_id | varchar | NULL | — |
+| amount | numeric | NOT NULL | — |
+| currency | varchar | NOT NULL | 'AED' |
+| status | varchar | NOT NULL | 'pending' |
+| client_id | varchar | NULL | — |
+| metadata | jsonb | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `invoice_id` → `pyra_invoices.id`, `client_id` → `pyra_clients.id`
+
+---
+
+## 68. pyra_api_keys
+
+API key management with SHA-256 hashed keys, prefix display, permission scoping, and expiration.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| key_hash | varchar | NOT NULL | — |
+| key_prefix | varchar | NOT NULL | — |
+| permissions | jsonb (text[]) | NOT NULL | '[]' |
+| is_active | boolean | NOT NULL | true |
+| last_used_at | timestamptz | NULL | — |
+| expires_at | timestamptz | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**Note**: Full key is only returned once at creation time. Only `key_prefix` and `key_hash` are stored.
+
+---
+
+## 69. pyra_approvals
+
+Approval workflow records. Used for tracking pending approval counts in the KPI dashboard.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| status | varchar | NOT NULL | 'pending' |
+
+**Note**: Minimal columns confirmed from code. This table is primarily queried via count with `status = 'pending'` filter in the KPI alerts endpoint. Additional columns may exist in the database but are not referenced in the application code.

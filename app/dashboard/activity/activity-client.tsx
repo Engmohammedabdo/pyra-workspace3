@@ -11,6 +11,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Activity, ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
@@ -85,7 +86,10 @@ export default function ActivityClient() {
       const json = await res.json();
       if (json.data) setItems(json.data);
       if (json.meta?.total) setTotal(json.meta.total);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
+    } catch (err) {
+      console.error(err);
+      toast.error('فشل في جلب سجل النشاط');
+    } finally { setLoading(false); }
   }, [typeFilter, page, dateFrom, dateTo]);
 
   useEffect(() => { fetchActivity(); }, [fetchActivity]);
@@ -204,7 +208,13 @@ export default function ActivityClient() {
             {loading ? Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="p-4 border-b"><Skeleton className="h-12 w-full" /></div>
             )) : items.length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground">لا توجد نشاطات</div>
+              <div className="p-8">
+                <EmptyState
+                  icon={Activity}
+                  title="لا توجد نشاطات"
+                  description="لم يتم تسجيل أي نشاط بعد أو لا توجد نتائج مطابقة للفلاتر المحددة"
+                />
+              </div>
             ) : items.map(item => (
               <div key={item.id} className="flex items-start gap-3 p-4 border-b">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/10 mt-0.5">

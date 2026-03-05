@@ -153,6 +153,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
       { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, permission: 'users.view' },
       { href: '/dashboard/roles', label: 'الأدوار', labelEn: 'Roles', icon: Shield, permission: 'roles.view' },
+      { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: KeyRound, permission: 'users.manage' },
     ],
   },
   {

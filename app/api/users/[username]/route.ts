@@ -240,8 +240,34 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return apiNotFound('المستخدم غير موجود');
     }
 
-    // Step 1: Delete from pyra_users
-    const { error: deleteError } = await supabase
+    // Use service-role client to bypass RLS for cleanup
+    const serviceClient = createServiceRoleClient();
+
+    // Step 1: Clean up related records (cascade cleanup)
+    // These tables reference username but may not have FK CASCADE
+    const cleanupTables = [
+      { table: 'pyra_timesheets', column: 'username' },
+      { table: 'pyra_leave_requests', column: 'username' },
+      { table: 'pyra_leave_balances', column: 'username' },
+      { table: 'pyra_task_assignees', column: 'username' },
+      { table: 'pyra_task_comments', column: 'author_username' },
+      { table: 'pyra_task_activity', column: 'username' },
+      { table: 'pyra_announcement_reads', column: 'username' },
+      { table: 'pyra_sessions', column: 'username' },
+      { table: 'pyra_notifications', column: 'username' },
+    ];
+
+    for (const { table, column } of cleanupTables) {
+      try {
+        await serviceClient.from(table).delete().eq(column, username);
+      } catch {
+        // Table may not exist yet — safe to ignore
+        console.warn(`Cleanup: skipped ${table} (may not exist)`);
+      }
+    }
+
+    // Step 2: Delete from pyra_users
+    const { error: deleteError } = await serviceClient
       .from('pyra_users')
       .delete()
       .eq('username', username);
@@ -251,7 +277,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return apiServerError('فشل في حذف المستخدم');
     }
 
-    // Step 2: Find and delete Supabase Auth user
+    // Step 3: Find and delete Supabase Auth user
     const { data: mapping } = await supabase
       .from('pyra_auth_mapping')
       .select('auth_user_id')
@@ -259,17 +285,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (mapping) {
-      const serviceClient = createServiceRoleClient();
       await serviceClient.auth.admin.deleteUser(mapping.auth_user_id);
 
       // Clean up the mapping record
-      await supabase
+      await serviceClient
         .from('pyra_auth_mapping')
         .delete()
         .eq('pyra_username', username);
     }
 
-    // Step 3: Log the activity
+    // Step 4: Log the activity
     await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_deleted',

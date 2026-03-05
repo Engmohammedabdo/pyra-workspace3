@@ -34,7 +34,7 @@ const SECTIONS = [
     icon: LayoutDashboard,
     color: 'text-blue-600 dark:text-blue-400',
     bgColor: 'bg-blue-500/10',
-    hrefs: ['/dashboard', '/dashboard/notifications'],
+    hrefs: ['/dashboard', '/dashboard/notifications', '/dashboard/guide'],
   },
   {
     key: 'files',
@@ -71,6 +71,8 @@ const SECTIONS = [
     hrefs: [
       '/dashboard/finance',
       '/dashboard/finance/expenses',
+      '/dashboard/finance/expenses/categories',
+      '/dashboard/finance/client-statement',
       '/dashboard/finance/subscriptions',
       '/dashboard/finance/cards',
       '/dashboard/finance/contracts',
@@ -103,7 +105,7 @@ const SECTIONS = [
     icon: Users,
     color: 'text-cyan-600 dark:text-cyan-400',
     bgColor: 'bg-cyan-500/10',
-    hrefs: ['/dashboard/teams', '/dashboard/users', '/dashboard/roles'],
+    hrefs: ['/dashboard/teams', '/dashboard/users', '/dashboard/roles', '/dashboard/permissions'],
   },
   {
     key: 'system',
