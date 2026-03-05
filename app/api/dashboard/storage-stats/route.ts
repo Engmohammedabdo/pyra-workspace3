@@ -30,7 +30,7 @@ export async function GET(_request: NextRequest) {
     // For non-admin users, filter files to only their allowed paths
     let allFiles = files || [];
     if (!isFileAdmin(auth)) {
-      const allowedPaths = getUserAllowedPaths(auth);
+      const allowedPaths = await getUserAllowedPaths(auth);
       if (allowedPaths.length === 0) {
         return apiSuccess({
           totalSize: 0,

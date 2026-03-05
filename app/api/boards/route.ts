@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/respon
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getBoardTemplate } from '@/lib/config/board-templates';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/boards
@@ -16,6 +17,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const projectId = searchParams.get('project_id');
 
+  // Resolve employee scope for non-admin filtering
+  const scope = await resolveUserScope(auth);
+
   const supabase = await createServerSupabaseClient();
   let query = supabase
     .from('pyra_boards')
@@ -24,6 +28,14 @@ export async function GET(req: NextRequest) {
 
   if (projectId) {
     query = query.eq('project_id', projectId);
+  }
+
+  // Non-admin employees: only show boards they have access to
+  if (!scope.isAdmin) {
+    if (scope.boardIds.length === 0) {
+      return apiSuccess([]);
+    }
+    query = query.in('id', scope.boardIds);
   }
 
   const { data, error } = await query;

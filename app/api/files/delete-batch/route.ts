@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Enforce path-based access control on all paths
     const sanitizedPaths = paths.map(p => sanitizePath(p));
-    const { allowed, deniedPaths } = canAccessAllPaths(auth, sanitizedPaths);
+    const { allowed, deniedPaths } = await canAccessAllPaths(auth, sanitizedPaths);
     if (!allowed) {
       return apiForbidden(`لا تملك صلاحية حذف الملفات في: ${deniedPaths.join(', ')}`);
     }

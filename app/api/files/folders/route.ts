@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Enforce path-based access control
-    if (!canAccessPath(auth, folderPath)) {
+    if (!(await canAccessPath(auth, folderPath))) {
       return apiForbidden();
     }
 

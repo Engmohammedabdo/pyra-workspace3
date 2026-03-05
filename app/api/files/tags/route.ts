@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Path-based access control
-    if (!canAccessPath(auth, file_path)) {
+    if (!(await canAccessPath(auth, file_path))) {
       return apiForbidden();
     }
 
@@ -153,7 +153,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Path-based access control
-    if (!canAccessPath(auth, file_path)) {
+    if (!(await canAccessPath(auth, file_path))) {
       return apiForbidden();
     }
 

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Path-based access control
-    if (!canAccessPath(auth, filePath)) {
+    if (!(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Path-based access control
-    if (!canAccessPath(auth, file_path.trim())) {
+    if (!(await canAccessPath(auth, file_path.trim()))) {
       return apiForbidden();
     }
     if (!type || !['comment', 'approval'].includes(type)) {

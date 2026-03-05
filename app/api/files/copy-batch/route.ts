@@ -39,13 +39,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Path-based access control: check source paths
-    const { allowed, deniedPaths } = canAccessAllPaths(auth, paths);
+    const { allowed, deniedPaths } = await canAccessAllPaths(auth, paths);
     if (!allowed) {
       return apiForbidden(`لا تملك صلاحية الوصول إلى: ${deniedPaths.join(', ')}`);
     }
 
     // Path-based access control: check destination
-    if (!canAccessPath(auth, destination)) {
+    if (!(await canAccessPath(auth, destination))) {
       return apiForbidden('لا تملك صلاحية النسخ إلى هذا المسار');
     }
 

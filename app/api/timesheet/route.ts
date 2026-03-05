@@ -20,11 +20,18 @@ export async function GET(req: NextRequest) {
     .select('*, pyra_projects!left(id, name)')
     .order('date', { ascending: false });
 
-  // If user can manage, they can see all; otherwise only own
-  const canManage = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.manage');
+  // Users with manage or approve permissions can see all; otherwise only own entries
+  const perms = auth.pyraUser.rolePermissions;
+  const canManage =
+    hasPermission(perms, 'timesheet.manage') ||
+    hasPermission(perms, 'timesheet.approve') ||
+    hasPermission(perms, '*') ||
+    auth.pyraUser.role === 'admin';
+
   if (username && canManage) {
     query = query.eq('username', username);
   } else if (!canManage) {
+    // Non-admin employees: only see their own timesheet entries
     query = query.eq('username', auth.pyraUser.username);
   }
 

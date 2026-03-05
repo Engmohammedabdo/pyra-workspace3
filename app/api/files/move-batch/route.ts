@@ -47,11 +47,11 @@ export async function POST(request: NextRequest) {
     // Enforce path-based access control on source and destination
     const sanitizedSources = sourcePaths.map(p => sanitizePath(p));
     const sanitizedDest = sanitizePath(destinationFolder);
-    const { allowed: srcAllowed, deniedPaths } = canAccessAllPaths(auth, sanitizedSources);
+    const { allowed: srcAllowed, deniedPaths } = await canAccessAllPaths(auth, sanitizedSources);
     if (!srcAllowed) {
       return apiForbidden(`لا تملك صلاحية نقل: ${deniedPaths.join(', ')}`);
     }
-    if (!canAccessPath(auth, sanitizedDest)) {
+    if (!(await canAccessPath(auth, sanitizedDest))) {
       return apiForbidden('لا تملك صلاحية النقل إلى هذا المجلد');
     }
 

@@ -8,6 +8,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 // Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at';
@@ -33,6 +34,14 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
     const searchParams = request.nextUrl.searchParams;
+
+    // Resolve employee scope for non-admin filtering
+    const scope = await resolveUserScope(auth);
+
+    // Non-admin employees: only show clients connected to their projects
+    if (!scope.isAdmin && scope.clientIds.length === 0) {
+      return apiSuccess([], { total: 0 });
+    }
 
     const search = searchParams.get('search')?.trim() || '';
     const company = searchParams.get('company')?.trim() || '';
@@ -62,6 +71,11 @@ export async function GET(request: NextRequest) {
     // Tag filter — scope to matched client IDs
     if (tagClientIds) {
       query = query.in('id', tagClientIds);
+    }
+
+    // Non-admin employees: only show clients connected to their projects
+    if (!scope.isAdmin) {
+      query = query.in('id', scope.clientIds);
     }
 
     // Search filter — match name, email, or company

@@ -13,7 +13,12 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status');
 
   const supabase = await createServerSupabaseClient();
-  const canManage = hasPermission(auth.pyraUser.rolePermissions, 'leave.manage');
+  const perms = auth.pyraUser.rolePermissions;
+  const canManage =
+    hasPermission(perms, 'leave.manage') ||
+    hasPermission(perms, 'leave.approve') ||
+    hasPermission(perms, '*') ||
+    auth.pyraUser.role === 'admin';
 
   let query = supabase
     .from('pyra_leave_requests')
@@ -21,6 +26,7 @@ export async function GET(req: NextRequest) {
     .order('created_at', { ascending: false });
 
   if (!canManage) {
+    // Non-admin employees: only see their own leave requests
     query = query.eq('username', auth.pyraUser.username);
   }
   if (status) query = query.eq('status', status);

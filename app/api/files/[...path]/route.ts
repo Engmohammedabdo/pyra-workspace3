@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Enforce path-based access control
-    if (!canAccessPath(auth, filePath)) {
+    if (!(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 
@@ -118,7 +118,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Enforce path-based access control on source path
-    if (!canAccessPath(auth, filePath)) {
+    if (!(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 
@@ -158,7 +158,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Enforce path-based access control on destination path
-    if (!canAccessPath(auth, destinationPath)) {
+    if (!(await canAccessPath(auth, destinationPath))) {
       return apiForbidden();
     }
 
@@ -232,7 +232,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Enforce path-based access control
-    if (!canAccessPath(auth, filePath)) {
+    if (!(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 

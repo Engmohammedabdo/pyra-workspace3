@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     const storagePath = joinPath(prefix, safeName);
 
     // ── Path-based access control ─────────────
-    if (!canAccessPath(auth, prefix)) {
+    if (!(await canAccessPath(auth, prefix))) {
       return apiForbidden('لا تملك صلاحية الرفع في هذا المسار');
     }
 

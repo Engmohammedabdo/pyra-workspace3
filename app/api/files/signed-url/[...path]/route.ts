@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Path-based access control
-    if (!canAccessPath(auth, filePath)) {
+    if (!(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 
