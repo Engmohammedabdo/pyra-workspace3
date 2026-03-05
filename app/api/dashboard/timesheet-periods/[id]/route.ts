@@ -52,6 +52,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return apiError('لا يمكن اعتماد فترة لم يتم إرسالها', 400);
     }
     updates.status = 'approved';
+    // NOTE: approved_by/approved_at are used for both approvals and rejections
+    // A future migration will rename these to reviewed_by/reviewed_at
     updates.approved_by = auth.pyraUser.username;
     updates.approved_at = new Date().toISOString();
   } else if (action === 'reject') {

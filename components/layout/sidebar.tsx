@@ -44,7 +44,6 @@ import {
   CreditCard,
   FileSignature,
   Repeat,
-  AlertTriangle,
   Target,
   PieChart,
   ChevronDown,

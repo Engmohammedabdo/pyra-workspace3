@@ -57,6 +57,18 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
       return apiError('لا يوجد موظفون نشطون', 400);
     }
 
+    // Filter out employees with no meaningful compensation
+    const activeEmployees = employees.filter((e: { payment_type: string | null; salary: number | null; hourly_rate: number | null }) =>
+      (e.payment_type === 'monthly_salary' && (e.salary || 0) > 0) ||
+      (e.payment_type === 'hourly' && (e.hourly_rate || 0) > 0) ||
+      e.payment_type === 'per_task' ||
+      e.payment_type === 'commission'
+    );
+
+    if (activeEmployees.length === 0) {
+      return apiError('لا يوجد موظفون بتعويضات فعّالة', 400);
+    }
+
     // Build date range for this month
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
@@ -110,7 +122,7 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
     const linkedPaymentIds: string[] = [];
     let totalAmount = 0;
 
-    for (const emp of employees) {
+    for (const emp of activeEmployees) {
       const baseSalary = Number(emp.salary) || 0;
       const hourlyRate = Number(emp.hourly_rate) || 0;
       const userPayments = paymentsByUser[emp.username] || [];

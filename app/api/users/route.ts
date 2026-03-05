@@ -72,7 +72,10 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { username, password, role, display_name, permissions, role_id, phone, job_title } = body;
+    const {
+      username, password, role, display_name, permissions, role_id, phone, job_title,
+      employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, manager_username, email,
+    } = body;
 
     // --- Validation ---
     if (!username || typeof username !== 'string' || username.trim().length < 3) {
@@ -96,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const email = `${cleanUsername}@pyra.local`;
+    const authEmail = `${cleanUsername}@pyra.local`;
 
     // Use service-role client for admin write operations
     const serviceClient = createServiceRoleClient();
@@ -114,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     // Step 1: Create Supabase Auth user
     const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
-      email,
+      email: authEmail,
       password,
       email_confirm: true,
       user_metadata: {
@@ -142,6 +145,15 @@ export async function POST(request: NextRequest) {
         role_id: role_id || null,
         phone: phone ? String(phone).trim() : null,
         job_title: job_title ? String(job_title).trim() : null,
+        employment_type: employment_type || 'full_time',
+        work_location: work_location || 'onsite',
+        payment_type: payment_type || 'monthly_salary',
+        salary: salary || 0,
+        hourly_rate: hourly_rate || 0,
+        hire_date: hire_date || null,
+        department: department || null,
+        manager_username: manager_username || null,
+        email: email || null,
       })
       .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
       .single();
@@ -165,6 +177,8 @@ export async function POST(request: NextRequest) {
     // Step 3.5: Initialize leave balances for employees
     if (role === 'employee') {
       const currentYear = new Date().getFullYear();
+
+      // v1 balance
       await serviceClient.from('pyra_leave_balances').insert({
         username: cleanUsername,
         year: currentYear,
@@ -175,6 +189,29 @@ export async function POST(request: NextRequest) {
         personal_total: 5,
         personal_used: 0,
       });
+
+      // v2 balances — create one record per active leave type
+      try {
+        const { data: activeLeaveTypes } = await serviceClient
+          .from('pyra_leave_types')
+          .select('id, default_days')
+          .eq('is_active', true);
+
+        if (activeLeaveTypes && activeLeaveTypes.length > 0) {
+          const v2Records = activeLeaveTypes.map((lt) => ({
+            id: generateId('lb'),
+            username: cleanUsername,
+            year: currentYear,
+            leave_type_id: lt.id,
+            total_days: lt.default_days,
+            used_days: 0,
+          }));
+
+          await serviceClient.from('pyra_leave_balances_v2').insert(v2Records);
+        }
+      } catch {
+        // v2 tables may not exist yet — skip silently
+      }
     }
 
     // Step 4: Log the activity

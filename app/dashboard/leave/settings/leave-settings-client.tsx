@@ -31,6 +31,14 @@ import {
   ArrowLeftRight,
   CalendarOff,
   Loader2,
+  Sun,
+  Stethoscope,
+  UserCircle,
+  Heart,
+  Baby,
+  Plane,
+  Briefcase,
+  GraduationCap,
 } from 'lucide-react';
 import type { PyraLeaveType } from '@/types/database';
 
@@ -56,6 +64,32 @@ const COLOR_OPTIONS = [
   { value: 'pink', label: 'وردي' },
   { value: 'cyan', label: 'سماوي' },
 ];
+
+// Static color mapping — Tailwind cannot resolve dynamic class names at build time
+const colorMap: Record<string, { bg: string; text: string; dot: string }> = {
+  orange: { bg: 'bg-orange-500/10', text: 'text-orange-500', dot: 'bg-orange-500' },
+  blue: { bg: 'bg-blue-500/10', text: 'text-blue-500', dot: 'bg-blue-500' },
+  purple: { bg: 'bg-purple-500/10', text: 'text-purple-500', dot: 'bg-purple-500' },
+  green: { bg: 'bg-green-500/10', text: 'text-green-500', dot: 'bg-green-500' },
+  red: { bg: 'bg-red-500/10', text: 'text-red-500', dot: 'bg-red-500' },
+  yellow: { bg: 'bg-yellow-500/10', text: 'text-yellow-500', dot: 'bg-yellow-500' },
+  pink: { bg: 'bg-pink-500/10', text: 'text-pink-500', dot: 'bg-pink-500' },
+  cyan: { bg: 'bg-cyan-500/10', text: 'text-cyan-500', dot: 'bg-cyan-500' },
+  gray: { bg: 'bg-gray-500/10', text: 'text-gray-500', dot: 'bg-gray-500' },
+};
+
+// Icon mapping — resolves stored icon name to actual component
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Sun,
+  Stethoscope,
+  UserCircle,
+  CalendarOff,
+  Heart,
+  Baby,
+  Plane,
+  Briefcase,
+  GraduationCap,
+};
 
 interface LeaveTypeForm {
   name: string;
@@ -355,16 +389,18 @@ export default function LeaveSettingsClient() {
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
-              {leaveTypes.map((lt) => (
+              {leaveTypes.map((lt) => {
+                const LeaveIcon = iconMap[lt.icon] || CalendarOff;
+                return (
                 <div
                   key={lt.id}
                   className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`h-10 w-10 rounded-lg bg-${lt.color}-500/10 flex items-center justify-center`}
+                      className={`h-10 w-10 rounded-lg ${colorMap[lt.color]?.bg || 'bg-gray-500/10'} flex items-center justify-center`}
                     >
-                      <CalendarOff className={`h-5 w-5 text-${lt.color}-500`} />
+                      <LeaveIcon className={`h-5 w-5 ${colorMap[lt.color]?.text || 'text-gray-500'}`} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -417,7 +453,8 @@ export default function LeaveSettingsClient() {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -484,7 +521,7 @@ export default function LeaveSettingsClient() {
                     {COLOR_OPTIONS.map((opt) => (
                       <SelectItem key={opt.value} value={opt.value}>
                         <div className="flex items-center gap-2">
-                          <div className={`h-3 w-3 rounded-full bg-${opt.value}-500`} />
+                          <div className={`h-3 w-3 rounded-full ${colorMap[opt.value]?.dot || 'bg-gray-500'}`} />
                           {opt.label}
                         </div>
                       </SelectItem>

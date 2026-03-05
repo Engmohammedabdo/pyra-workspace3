@@ -210,6 +210,7 @@ export default function ContentPipelineClient() {
   // ─── Fetch projects and users for dropdowns ─────────
   const fetchDropdownData = useCallback(async () => {
     try {
+      // NOTE: /api/projects is a root-level endpoint (not under /api/dashboard/)
       const [projRes, userRes] = await Promise.all([
         fetch('/api/projects'),
         fetch('/api/directory'),
@@ -255,8 +256,8 @@ export default function ContentPipelineClient() {
         body: JSON.stringify({
           title: newTitle,
           content_type: newType,
-          project_id: newProject || null,
-          assigned_to: newAssigned || null,
+          project_id: newProject && newProject !== 'none' ? newProject : null,
+          assigned_to: newAssigned && newAssigned !== 'none' ? newAssigned : null,
           deadline: newDeadline || null,
           notes: newNotes || null,
         }),

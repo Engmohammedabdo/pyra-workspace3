@@ -54,11 +54,7 @@ export async function POST(req: NextRequest) {
     };
 
     // Append notes if provided
-    if (notes) {
-      updatePayload.notes = existing.clock_out
-        ? notes
-        : notes; // Just set notes directly
-    }
+    if (notes) updatePayload.notes = notes;
 
     const { data, error } = await supabase
       .from('pyra_attendance')

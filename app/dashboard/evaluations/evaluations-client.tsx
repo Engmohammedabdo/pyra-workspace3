@@ -303,6 +303,24 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     }
   };
 
+  // Re-fetch expanded data without collapsing/expanding (replaces toggleExpand+setTimeout hack)
+  const refreshExpanded = async (evalId: string) => {
+    try {
+      const res = await fetch(`/api/dashboard/evaluations/${evalId}`);
+      const json = await res.json();
+      if (json.data) {
+        setExpandedData(json.data);
+        setEditComments({
+          comments: json.data.comments || '',
+          strengths: json.data.strengths || '',
+          improvements: json.data.improvements || '',
+        });
+      }
+    } catch {
+      // Silently fail — the list refresh will still run
+    }
+  };
+
   const handleCreate = async () => {
     if (!newEval.period_id || !newEval.employee_username || !newEval.evaluator_username) {
       toast.error('جميع الحقول مطلوبة');
@@ -374,8 +392,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
         setScoreOpen(false);
         // Refresh expanded data
         if (expandedId === scoreEvalId) {
-          toggleExpand(scoreEvalId);
-          setTimeout(() => toggleExpand(scoreEvalId), 200);
+          refreshExpanded(scoreEvalId);
         }
         fetchData();
       }
@@ -400,8 +417,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
         toast.success('تم تقديم التقييم بنجاح');
         fetchData();
         if (expandedId === evalId) {
-          toggleExpand(evalId);
-          setTimeout(() => toggleExpand(evalId), 200);
+          refreshExpanded(evalId);
         }
       }
     } catch {
@@ -423,8 +439,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
         toast.success('تم الاعتراف بالتقييم بنجاح');
         fetchData();
         if (expandedId === evalId) {
-          toggleExpand(evalId);
-          setTimeout(() => toggleExpand(evalId), 200);
+          refreshExpanded(evalId);
         }
       }
     } catch {

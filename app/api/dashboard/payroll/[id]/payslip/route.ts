@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
+import { hasPermission } from '@/lib/auth/rbac';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -17,6 +18,12 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const username = searchParams.get('username');
+
+    // Access control: non-managers can only view their own payslip
+    const canManage = hasPermission(auth.pyraUser.rolePermissions, 'payroll.manage');
+    if (!canManage && username !== auth.pyraUser.username) {
+      return apiError('لا يمكنك عرض بيانات موظف آخر', 403);
+    }
 
     if (!username) {
       return apiValidationError('اسم المستخدم مطلوب');
@@ -75,7 +82,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         net_pay: item.net_pay,
         status: item.status,
       },
-      company_name: 'Pyra Workspace',
+      company_name: 'Pyramedia X',
     });
   } catch (err) {
     console.error('GET /api/dashboard/payroll/[id]/payslip error:', err);

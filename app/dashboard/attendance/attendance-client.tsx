@@ -129,6 +129,8 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
   const [clockingOut, setClockingOut] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [workSchedule, setWorkSchedule] = useState<any>(null);
 
   // Month navigation
   const now = new Date();
@@ -141,6 +143,23 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Fetch work schedule for dynamic weekend detection
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/dashboard/work-schedules');
+        if (res.ok) {
+          const { data } = await res.json();
+          // Use the default schedule, or fall back to the first one
+          const schedule = (data || []).find((s: { is_default: boolean }) => s.is_default) || (data || [])[0] || null;
+          setWorkSchedule(schedule);
+        }
+      } catch {
+        // Fall back to default work days if fetch fails
+      }
+    })();
   }, []);
 
   // Fetch attendance data
@@ -280,7 +299,9 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayDate = new Date(selectedYear, selectedMonth - 1, d);
       const dayOfWeek = dayDate.getDay();
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6; // Friday, Saturday
+      // Use work schedule for dynamic weekend detection; default to Sun-Thu (0-4) if no schedule
+      const scheduledWorkDays: number[] = workSchedule?.work_days ?? [0, 1, 2, 3, 4];
+      const isWeekend = !scheduledWorkDays.includes(dayOfWeek);
 
       let status: string | undefined = recordMap.get(dateStr);
       if (!status && isWeekend) {

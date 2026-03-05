@@ -67,7 +67,15 @@ export async function GET(req: NextRequest) {
     const { data, error } = await query;
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data || []);
+
+    // Flatten nested pyra_users join so client gets flat display_name
+    const flattened = (data || []).map((p: Record<string, unknown>) => ({
+      ...p,
+      display_name: (p as { pyra_users?: { display_name?: string } }).pyra_users?.display_name || null,
+      pyra_users: undefined,
+    }));
+
+    return apiSuccess(flattened);
   } catch (err) {
     console.error('GET /api/dashboard/employee-payments error:', err);
     return apiServerError();
@@ -119,7 +127,15 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data, undefined, 201);
+
+    // Flatten nested pyra_users join for POST response too
+    const flatData = data ? {
+      ...data,
+      display_name: (data as { pyra_users?: { display_name?: string } }).pyra_users?.display_name || null,
+      pyra_users: undefined,
+    } : data;
+
+    return apiSuccess(flatData, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/employee-payments error:', err);
     return apiServerError();

@@ -126,9 +126,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Determine status based on clock_in vs schedule start_time
+    // Determine status based on clock_in vs schedule start_time using numeric comparison
     const clockInTime = uaeNow.toTimeString().slice(0, 5); // HH:MM
-    const status = clockInTime > scheduleStartTime ? 'late' : 'present';
+    const [sh, sm] = scheduleStartTime.split(':').map(Number);
+    const [ch, cm] = clockInTime.split(':').map(Number);
+    const isLate = ch * 60 + cm > sh * 60 + sm;
+    const status = isLate ? 'late' : 'present';
 
     // Get IP address from headers
     const forwarded = req.headers.get('x-forwarded-for');

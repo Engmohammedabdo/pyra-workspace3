@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
       .select('sort_order')
       .order('sort_order', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const nextSortOrder = (maxRow?.sort_order || 0) + 1;
 

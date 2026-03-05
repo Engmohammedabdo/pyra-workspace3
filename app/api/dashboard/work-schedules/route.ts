@@ -56,6 +56,17 @@ export async function POST(req: NextRequest) {
       return apiValidationError('الاسم والاسم العربي مطلوبان');
     }
 
+    // Validate work_days, start_time, end_time
+    if (work_days && (!Array.isArray(work_days) || work_days.some((d: number) => d < 0 || d > 6))) {
+      return apiValidationError('أيام العمل غير صالحة');
+    }
+    if (start_time && !/^\d{2}:\d{2}$/.test(start_time)) {
+      return apiValidationError('صيغة وقت البداية غير صالحة');
+    }
+    if (end_time && !/^\d{2}:\d{2}$/.test(end_time)) {
+      return apiValidationError('صيغة وقت النهاية غير صالحة');
+    }
+
     const supabase = createServiceRoleClient();
     const id = generateId('ws');
 

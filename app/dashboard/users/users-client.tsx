@@ -65,9 +65,9 @@ interface PyraUser {
   created_at: string;
   manager_username: string | null;
   pyra_roles: PyraRole | null;
-  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  employment_type?: 'full_time' | 'part_time' | 'contract' | 'freelance' | 'intern';
   work_location?: 'remote' | 'onsite' | 'hybrid';
-  payment_type?: 'monthly_salary' | 'per_task' | 'hourly';
+  payment_type?: 'monthly_salary' | 'hourly' | 'per_task' | 'commission';
   salary?: number;
   hourly_rate?: number;
   hire_date?: string;
@@ -627,8 +627,9 @@ export default function UsersClient() {
                       <SelectItem value="__none__">غير محدد</SelectItem>
                       <SelectItem value="full_time">دوام كامل</SelectItem>
                       <SelectItem value="part_time">دوام جزئي</SelectItem>
-                      <SelectItem value="contractor">متعاقد</SelectItem>
-                      <SelectItem value="freelancer">مستقل</SelectItem>
+                      <SelectItem value="contract">متعاقد</SelectItem>
+                      <SelectItem value="freelance">مستقل</SelectItem>
+                      <SelectItem value="intern">متدرب</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -653,8 +654,9 @@ export default function UsersClient() {
                     <SelectContent>
                       <SelectItem value="__none__">غير محدد</SelectItem>
                       <SelectItem value="monthly_salary">راتب شهري</SelectItem>
-                      <SelectItem value="per_task">بالمهمة</SelectItem>
                       <SelectItem value="hourly">بالساعة</SelectItem>
+                      <SelectItem value="per_task">بالمهمة</SelectItem>
+                      <SelectItem value="commission">عمولة</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

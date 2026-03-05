@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -124,8 +124,8 @@ export async function PATCH(
   { params }: RouteParams
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiError('غير مصرح', 401);
+    const auth = await requireApiPermission('evaluations.view');
+    if (isApiError(auth)) return auth;
 
     const { id } = await params;
     const body = await req.json().catch(() => ({}));

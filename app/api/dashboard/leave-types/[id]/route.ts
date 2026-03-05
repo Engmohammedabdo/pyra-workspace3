@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { apiSuccess, apiServerError, apiNotFound } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
 
 // =============================================================
 // PATCH /api/dashboard/leave-types/[id]
@@ -32,7 +32,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return apiNotFound('لا توجد حقول لتحديثها');
+      return apiValidationError('لا توجد حقول لتحديثها');
     }
 
     const supabase = createServiceRoleClient();

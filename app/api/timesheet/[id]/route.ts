@@ -38,6 +38,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (!hasPermission(auth.pyraUser.rolePermissions, 'timesheet.approve')) {
       return apiError('غير مصرح بالاعتماد', 403);
     }
+    // Prevent self-approval
+    if (body.status === 'approved' && existing.username === auth.pyraUser.username) {
+      return apiError('لا يمكنك اعتماد إدخالاتك الخاصة', 403);
+    }
     updates.approved_by = auth.pyraUser.username;
     updates.approved_at = new Date().toISOString();
   }

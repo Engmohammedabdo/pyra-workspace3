@@ -2,14 +2,18 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { hasPermission } from '@/lib/auth/rbac';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('timesheet.view');
   if (isApiError(auth)) return auth;
 
   const { searchParams } = new URL(req.url);
-  const username = searchParams.get('username');
   const month = searchParams.get('month'); // YYYY-MM
+
+  // User-scoping: non-managers can only see their own overtime summary
+  const canManage = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.manage');
+  const username = canManage ? searchParams.get('username') : null;
 
   if (!month) {
     return apiValidationError('الشهر مطلوب بصيغة YYYY-MM');

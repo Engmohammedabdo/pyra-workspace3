@@ -85,7 +85,7 @@ interface EmployeePayment {
   amount: number;
   status: string;
   payroll_id: string | null;
-  notes: string | null;
+  description: string | null;
   created_at: string;
 }
 

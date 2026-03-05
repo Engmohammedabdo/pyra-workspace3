@@ -155,7 +155,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // --- Employment classification fields ---
     if (body.employment_type !== undefined) {
-      const validTypes = ['full_time', 'part_time', 'contractor', 'freelancer'];
+      const validTypes = ['full_time', 'part_time', 'contract', 'freelance', 'intern'];
       if (body.employment_type !== null && !validTypes.includes(body.employment_type)) {
         return apiValidationError('نوع التوظيف غير صالح');
       }
@@ -171,7 +171,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (body.payment_type !== undefined) {
-      const validPaymentTypes = ['monthly_salary', 'per_task', 'hourly'];
+      const validPaymentTypes = ['monthly_salary', 'hourly', 'per_task', 'commission'];
       if (body.payment_type !== null && !validPaymentTypes.includes(body.payment_type)) {
         return apiValidationError('نوع الدفع غير صالح');
       }
@@ -327,6 +327,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { table: 'pyra_timesheets', column: 'username' },
       { table: 'pyra_leave_requests', column: 'username' },
       { table: 'pyra_leave_balances', column: 'username' },
+      { table: 'pyra_leave_balances_v2', column: 'username' },
+      { table: 'pyra_attendance', column: 'username' },
+      { table: 'pyra_timesheet_periods', column: 'username' },
+      { table: 'pyra_employee_payments', column: 'username' },
+      { table: 'pyra_evaluations', column: 'employee_username' },
+      { table: 'pyra_kpi_targets', column: 'username' },
       { table: 'pyra_task_assignees', column: 'username' },
       { table: 'pyra_task_comments', column: 'author_username' },
       { table: 'pyra_task_activity', column: 'username' },

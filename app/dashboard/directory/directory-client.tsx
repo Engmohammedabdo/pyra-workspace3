@@ -32,7 +32,7 @@ interface DirectoryUser {
     color: string;
     icon: string;
   } | null;
-  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  employment_type?: 'full_time' | 'part_time' | 'contract' | 'freelance' | 'intern';
   work_location?: 'remote' | 'onsite' | 'hybrid';
   department?: string;
 }
@@ -44,8 +44,9 @@ interface DirectoryClientProps {
 const EMPLOYMENT_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   full_time: { label: 'دوام كامل', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   part_time: { label: 'دوام جزئي', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  contractor: { label: 'متعاقد', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
-  freelancer: { label: 'مستقل', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  contract: { label: 'متعاقد', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' },
+  freelance: { label: 'مستقل', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+  intern: { label: 'متدرب', color: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
 };
 
 const WORK_LOCATION_LABELS: Record<string, string> = {

@@ -14,10 +14,11 @@ export interface PyraUser {
   display_name: string;
   permissions: UserPermissions;
   created_at: string;
+  email?: string;
   // Employee classification
-  employment_type?: 'full_time' | 'part_time' | 'contractor' | 'freelancer';
+  employment_type?: 'full_time' | 'part_time' | 'contract' | 'freelance' | 'intern';
   work_location?: 'remote' | 'onsite' | 'hybrid';
-  payment_type?: 'monthly_salary' | 'per_task' | 'hourly';
+  payment_type?: 'monthly_salary' | 'hourly' | 'per_task' | 'commission';
   salary?: number;
   hourly_rate?: number;
   hire_date?: string;

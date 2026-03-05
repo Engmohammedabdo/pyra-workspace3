@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth, requireApiPermission, isApiError } from '@/lib/api/auth';
+import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 
@@ -101,6 +101,7 @@ async function detectOvertime(
   }
 
   // Check if total hours for this day exceed daily_hours
+  // Query only EXISTING entries (before the new entry is inserted) to avoid double-counting
   const { data: dayEntries } = await supabase
     .from('pyra_timesheets')
     .select('hours')
@@ -128,7 +129,26 @@ export async function POST(req: NextRequest) {
 
   const supabase = await createServerSupabaseClient();
 
-  // Insert the timesheet entry
+  // Detect overtime BEFORE inserting so the DB query won't include the new entry
+  let is_overtime = false;
+  let overtime_multiplier = 1;
+  try {
+    const overtimeResult = await detectOvertime(
+      supabase,
+      auth.pyraUser.username,
+      date,
+      hours,
+      auth.pyraUser.work_schedule_id,
+    );
+    if (overtimeResult) {
+      is_overtime = overtimeResult.is_overtime;
+      overtime_multiplier = overtimeResult.overtime_multiplier;
+    }
+  } catch {
+    // If overtime detection fails, default to non-overtime
+  }
+
+  // Insert the timesheet entry with overtime info already calculated
   const { data, error } = await supabase
     .from('pyra_timesheets')
     .insert({
@@ -141,41 +161,13 @@ export async function POST(req: NextRequest) {
       description: description || null,
       status: 'draft',
       period_id: period_id || null,
+      is_overtime,
+      overtime_multiplier,
     })
     .select('*, pyra_projects!left(id, name)')
     .single();
 
   if (error) return apiServerError(error.message);
-
-  // Auto-detect overtime after creation
-  try {
-    const overtimeResult = await detectOvertime(
-      supabase,
-      auth.pyraUser.username,
-      date,
-      hours,
-      auth.pyraUser.work_schedule_id,
-    );
-
-    if (overtimeResult) {
-      const serviceClient = createServiceRoleClient();
-      const { data: updated } = await serviceClient
-        .from('pyra_timesheets')
-        .update({
-          is_overtime: overtimeResult.is_overtime,
-          overtime_multiplier: overtimeResult.overtime_multiplier,
-        })
-        .eq('id', data.id)
-        .select('*, pyra_projects!left(id, name)')
-        .single();
-
-      if (updated) {
-        return apiSuccess(updated, undefined, 201);
-      }
-    }
-  } catch {
-    // If overtime detection fails, still return the created entry
-  }
 
   return apiSuccess(data, undefined, 201);
 }

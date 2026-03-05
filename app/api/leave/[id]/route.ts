@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { generateId } from '@/lib/utils/id';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -31,12 +32,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { data, error } = await supabase.from('pyra_leave_requests').update(updates).eq('id', id).select().single();
     if (error) return apiServerError(error.message);
 
-    // If approved, update leave balance
+    // If approved, update leave balance (v1 + v2)
     if (body.status === 'approved') {
       const year = new Date(existing.start_date).getFullYear();
       const usedKey = `${existing.type}_used`;
+      const serviceSupabase = createServiceRoleClient();
 
-      // Upsert balance
+      // ── v1 balance update ──
       const { data: balance } = await supabase
         .from('pyra_leave_balances')
         .select('*')
@@ -59,16 +61,118 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
             [usedKey]: existing.days_count,
           });
       }
+
+      // ── v2 balance update ──
+      try {
+        const { data: leaveType } = await serviceSupabase
+          .from('pyra_leave_types')
+          .select('id, default_days')
+          .eq('name', existing.type)
+          .single();
+
+        if (leaveType) {
+          const { data: v2Balance } = await serviceSupabase
+            .from('pyra_leave_balances_v2')
+            .select('id, used_days')
+            .eq('username', existing.username)
+            .eq('year', year)
+            .eq('leave_type_id', leaveType.id)
+            .single();
+
+          if (v2Balance) {
+            await serviceSupabase
+              .from('pyra_leave_balances_v2')
+              .update({ used_days: v2Balance.used_days + existing.days_count })
+              .eq('id', v2Balance.id);
+          } else {
+            // Upsert: create v2 record if it doesn't exist
+            await serviceSupabase
+              .from('pyra_leave_balances_v2')
+              .insert({
+                id: generateId('lb'),
+                username: existing.username,
+                year,
+                leave_type_id: leaveType.id,
+                total_days: leaveType.default_days,
+                used_days: existing.days_count,
+              });
+          }
+        }
+      } catch {
+        // v2 tables may not exist — skip silently
+      }
     }
 
     return apiSuccess(data);
   }
 
-  // Cancel own pending request (legacy — simple delete)
+  // Cancel own pending request (legacy path — soft-cancel)
   if (body.status === 'cancelled' && existing.username === auth.pyraUser.username && existing.status === 'pending') {
-    const { error } = await supabase.from('pyra_leave_requests').delete().eq('id', id);
+    const { data: cancelled, error } = await supabase
+      .from('pyra_leave_requests')
+      .update({
+        status: 'cancelled',
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: auth.pyraUser.username,
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
     if (error) return apiServerError(error.message);
-    return apiSuccess({ deleted: true });
+
+    // Restore balance in v1 (pending requests may have been pre-deducted)
+    const year = new Date(existing.start_date).getFullYear();
+    const usedKey = `${existing.type}_used`;
+
+    const { data: balance } = await supabase
+      .from('pyra_leave_balances')
+      .select('*')
+      .eq('username', existing.username)
+      .eq('year', year)
+      .single();
+
+    if (balance) {
+      const currentUsed = ((balance as Record<string, unknown>)[usedKey] as number) || 0;
+      if (currentUsed > 0) {
+        await supabase
+          .from('pyra_leave_balances')
+          .update({ [usedKey]: Math.max(0, currentUsed - existing.days_count) })
+          .eq('username', existing.username)
+          .eq('year', year);
+      }
+    }
+
+    // Restore balance in v2
+    try {
+      const serviceSupabase = createServiceRoleClient();
+      const { data: leaveType } = await serviceSupabase
+        .from('pyra_leave_types')
+        .select('id')
+        .eq('name', existing.type)
+        .single();
+
+      if (leaveType) {
+        const { data: balV2 } = await serviceSupabase
+          .from('pyra_leave_balances_v2')
+          .select('id, used_days')
+          .eq('username', existing.username)
+          .eq('year', year)
+          .eq('leave_type_id', leaveType.id)
+          .single();
+
+        if (balV2 && balV2.used_days > 0) {
+          await serviceSupabase
+            .from('pyra_leave_balances_v2')
+            .update({ used_days: Math.max(0, balV2.used_days - existing.days_count) })
+            .eq('id', balV2.id);
+        }
+      }
+    } catch {
+      // v2 tables may not exist — skip silently
+    }
+
+    return apiSuccess(cancelled);
   }
 
   // ─── Cancel action (with reason, supports approved + pending) ───
@@ -130,21 +234,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
 
       // Also try pyra_leave_balances_v2
-      // Map type to leave_type_id: annual → lt_annual, sick → lt_sick, personal → lt_personal
-      const leaveTypeId = `lt_${existing.type}`;
-      const { data: balV2 } = await supabase
-        .from('pyra_leave_balances_v2')
-        .select('id, used_days')
-        .eq('username', existing.username)
-        .eq('year', year)
-        .eq('leave_type_id', leaveTypeId)
-        .single();
+      // Look up actual leave_type_id from pyra_leave_types (custom types have random IDs)
+      try {
+        const serviceSupabase = createServiceRoleClient();
+        const { data: leaveType } = await serviceSupabase
+          .from('pyra_leave_types')
+          .select('id')
+          .eq('name', existing.type)
+          .single();
 
-      if (balV2) {
-        await supabase
-          .from('pyra_leave_balances_v2')
-          .update({ used_days: Math.max(0, balV2.used_days - existing.days_count) })
-          .eq('id', balV2.id);
+        if (leaveType) {
+          const { data: balV2 } = await serviceSupabase
+            .from('pyra_leave_balances_v2')
+            .select('id, used_days')
+            .eq('username', existing.username)
+            .eq('year', year)
+            .eq('leave_type_id', leaveType.id)
+            .single();
+
+          if (balV2) {
+            await serviceSupabase
+              .from('pyra_leave_balances_v2')
+              .update({ used_days: Math.max(0, balV2.used_days - existing.days_count) })
+              .eq('id', balV2.id);
+          }
+        }
+      } catch {
+        // v2 tables may not exist — skip silently
       }
     }
 

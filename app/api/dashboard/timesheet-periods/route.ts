@@ -3,14 +3,19 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { hasPermission } from '@/lib/auth/rbac';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('timesheet.view');
   if (isApiError(auth)) return auth;
 
   const { searchParams } = new URL(req.url);
-  const username = searchParams.get('username');
   const status = searchParams.get('status');
+
+  // User-scoping: non-managers can only see their own timesheet periods
+  const canManage = hasPermission(auth.pyraUser.rolePermissions, 'timesheet.manage');
+  let targetUsername = searchParams.get('username');
+  if (!canManage) targetUsername = auth.pyraUser.username;
 
   const supabase = await createServerSupabaseClient();
   let query = supabase
@@ -18,8 +23,8 @@ export async function GET(req: NextRequest) {
     .select('*')
     .order('start_date', { ascending: false });
 
-  if (username) {
-    query = query.eq('username', username);
+  if (targetUsername) {
+    query = query.eq('username', targetUsername);
   }
 
   if (status) {
