@@ -36,24 +36,48 @@ import {
   Trash2,
   Key,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
 import { usePermission } from '@/hooks/usePermission';
+import { cn } from '@/lib/utils/cn';
+import { getRoleColorClasses } from '@/lib/auth/rbac';
+
+interface PyraRole {
+  name: string;
+  name_ar: string;
+  color: string;
+  icon: string;
+}
 
 interface PyraUser {
   id: number;
   username: string;
   role: 'admin' | 'employee';
+  role_id: string | null;
   display_name: string;
+  phone: string | null;
+  job_title: string | null;
+  status: string;
   permissions: Record<string, unknown>;
   created_at: string;
+  pyra_roles: PyraRole | null;
+}
+
+interface RoleOption {
+  id: string;
+  name: string;
+  name_ar: string;
+  color: string;
+  icon: string;
 }
 
 export default function UsersClient() {
   const canManage = usePermission('users.manage');
   const [users, setUsers] = useState<PyraUser[]>([]);
+  const [roles, setRoles] = useState<RoleOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -64,12 +88,16 @@ export default function UsersClient() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PyraUser | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editStatus, setEditStatus] = useState('active');
 
   const [formData, setFormData] = useState({
     username: '',
     display_name: '',
     password: '',
     role: 'employee' as 'admin' | 'employee',
+    role_id: '' as string,
+    job_title: '',
+    phone: '',
   });
   const [newPassword, setNewPassword] = useState('');
 
@@ -78,6 +106,28 @@ export default function UsersClient() {
     const timer = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // Fetch roles list on mount
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const res = await fetch('/api/roles');
+        const json = await res.json();
+        if (json.data) {
+          setRoles(json.data.map((r: RoleOption & Record<string, unknown>) => ({
+            id: r.id,
+            name: r.name,
+            name_ar: r.name_ar,
+            color: r.color,
+            icon: r.icon,
+          })));
+        }
+      } catch (err) {
+        console.error('Error fetching roles:', err);
+      }
+    };
+    fetchRoles();
+  }, []);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -97,18 +147,35 @@ export default function UsersClient() {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
+  const resetFormData = () => {
+    setFormData({
+      username: '',
+      display_name: '',
+      password: '',
+      role: 'employee',
+      role_id: '',
+      job_title: '',
+      phone: '',
+    });
+  };
+
   const handleCreate = async () => {
     setSaving(true);
     try {
       const res = await fetch('/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          role_id: formData.role_id || null,
+          phone: formData.phone || null,
+          job_title: formData.job_title || null,
+        }),
       });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
       setShowCreateDialog(false);
-      setFormData({ username: '', display_name: '', password: '', role: 'employee' });
+      resetFormData();
       toast.success('تم إنشاء المستخدم بنجاح');
       fetchUsers();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
@@ -121,7 +188,14 @@ export default function UsersClient() {
       const res = await fetch(`/api/users/${selectedUser.username}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ display_name: formData.display_name, role: formData.role }),
+        body: JSON.stringify({
+          display_name: formData.display_name,
+          role: formData.role,
+          role_id: formData.role_id || null,
+          phone: formData.phone || null,
+          job_title: formData.job_title || null,
+          status: editStatus,
+        }),
       });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
@@ -163,7 +237,16 @@ export default function UsersClient() {
 
   const openEdit = (user: PyraUser) => {
     setSelectedUser(user);
-    setFormData({ username: user.username, display_name: user.display_name, password: '', role: user.role });
+    setFormData({
+      username: user.username,
+      display_name: user.display_name,
+      password: '',
+      role: user.role,
+      role_id: user.role_id || '',
+      job_title: user.job_title || '',
+      phone: user.phone || '',
+    });
+    setEditStatus(user.status || 'active');
     setShowEditDialog(true);
   };
 
@@ -179,7 +262,7 @@ export default function UsersClient() {
         </div>
         {canManage && (
           <Button onClick={() => {
-            setFormData({ username: '', display_name: '', password: '', role: 'employee' });
+            resetFormData();
             setShowCreateDialog(true);
           }}>
             <Plus className="h-4 w-4 me-2" />
@@ -214,6 +297,8 @@ export default function UsersClient() {
                   <th className="text-start p-3 font-medium">المستخدم</th>
                   <th className="text-start p-3 font-medium">اسم العرض</th>
                   <th className="text-start p-3 font-medium">الدور</th>
+                  <th className="text-start p-3 font-medium">المسمى الوظيفي</th>
+                  <th className="text-start p-3 font-medium">الحالة</th>
                   <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
                   <th className="text-start p-3 font-medium w-[60px]"></th>
                 </tr>
@@ -223,12 +308,14 @@ export default function UsersClient() {
                   <tr key={i} className="border-b">
                     <td className="p-3"><Skeleton className="h-5 w-24" /></td>
                     <td className="p-3"><Skeleton className="h-5 w-32" /></td>
+                    <td className="p-3"><Skeleton className="h-5 w-20" /></td>
+                    <td className="p-3"><Skeleton className="h-5 w-24" /></td>
                     <td className="p-3"><Skeleton className="h-5 w-16" /></td>
                     <td className="p-3"><Skeleton className="h-5 w-20" /></td>
                     <td className="p-3"><Skeleton className="h-5 w-8" /></td>
                   </tr>
                 )) : users.length === 0 ? (
-                  <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا يوجد مستخدمون</td></tr>
                 ) : users.map(user => (
                   <tr key={user.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="p-3">
@@ -241,9 +328,30 @@ export default function UsersClient() {
                     </td>
                     <td className="p-3 font-medium">{user.display_name}</td>
                     <td className="p-3">
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : 'موظف'}
-                      </Badge>
+                      {user.pyra_roles ? (
+                        <Badge variant="outline" className={getRoleColorClasses(user.pyra_roles.color)}>
+                          {user.pyra_roles.name_ar}
+                        </Badge>
+                      ) : (
+                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : 'موظف'}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="p-3 text-muted-foreground text-xs">
+                      {user.job_title || '—'}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1.5">
+                        <div className={cn('h-2 w-2 rounded-full', {
+                          'bg-green-500': user.status === 'active',
+                          'bg-yellow-500': user.status === 'inactive',
+                          'bg-red-500': user.status === 'suspended',
+                        })} />
+                        <span className="text-xs">
+                          {user.status === 'active' ? 'نشط' : user.status === 'inactive' ? 'غير نشط' : 'معلق'}
+                        </span>
+                      </div>
                     </td>
                     <td className="p-3 text-muted-foreground text-xs">{formatDate(user.created_at)}</td>
                     {canManage && (
@@ -276,62 +384,183 @@ export default function UsersClient() {
 
       {/* Create User */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader><DialogTitle>إضافة مستخدم جديد</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <FormLabel required>اسم المستخدم</FormLabel>
-              <Input value={formData.username} onChange={e => setFormData(p => ({ ...p, username: e.target.value }))} placeholder="username" dir="ltr" />
+          <div className="space-y-6 py-4">
+            {/* Section 1: Account Info */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-muted-foreground">معلومات الحساب</Label>
+              <div className="space-y-2">
+                <FormLabel required>اسم المستخدم</FormLabel>
+                <Input
+                  value={formData.username}
+                  onChange={e => setFormData(p => ({ ...p, username: e.target.value }))}
+                  placeholder="username"
+                  dir="ltr"
+                />
+              </div>
+              <div className="space-y-2">
+                <FormLabel required>اسم العرض</FormLabel>
+                <Input
+                  value={formData.display_name}
+                  onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
+                  placeholder="الاسم الكامل"
+                />
+              </div>
+              <div className="space-y-2">
+                <FormLabel required>كلمة المرور</FormLabel>
+                <Input
+                  type="password"
+                  value={formData.password}
+                  onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
+                  placeholder="12 حرف على الأقل"
+                  dir="ltr"
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <FormLabel required>اسم العرض</FormLabel>
-              <Input value={formData.display_name} onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))} placeholder="الاسم الكامل" />
-            </div>
-            <div className="space-y-2">
-              <FormLabel required>كلمة المرور</FormLabel>
-              <Input type="password" value={formData.password} onChange={e => setFormData(p => ({ ...p, password: e.target.value }))} placeholder="12 حرف على الأقل" dir="ltr" />
-            </div>
-            <div className="space-y-2">
-              <FormLabel required>الدور</FormLabel>
-              <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">موظف</SelectItem>
-                  <SelectItem value="admin">مسؤول</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Section 2: Employee Info */}
+            <div className="space-y-4 border-t pt-4">
+              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel required>نوع الحساب</FormLabel>
+                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">موظف</SelectItem>
+                      <SelectItem value="admin">مسؤول</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>الدور الوظيفي</FormLabel>
+                  <Select value={formData.role_id} onValueChange={v => setFormData(p => ({ ...p, role_id: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name_ar}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>المسمى الوظيفي</FormLabel>
+                  <Input
+                    value={formData.job_title}
+                    onChange={e => setFormData(p => ({ ...p, job_title: e.target.value }))}
+                    placeholder="مثال: مطور برمجيات"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>رقم الهاتف</FormLabel>
+                  <Input
+                    value={formData.phone}
+                    onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="+971 50 000 0000"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)}>إلغاء</Button>
-            <Button onClick={handleCreate} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'إنشاء'}</Button>
+            <Button onClick={handleCreate} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'إنشاء'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit User */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[550px]">
           <DialogHeader><DialogTitle>تعديل المستخدم — @{selectedUser?.username}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <FormLabel required>اسم العرض</FormLabel>
-              <Input value={formData.display_name} onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))} />
+          <div className="space-y-6 py-4">
+            {/* Section 1: Basic Info */}
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-muted-foreground">المعلومات الأساسية</Label>
+              <div className="space-y-2">
+                <FormLabel required>اسم العرض</FormLabel>
+                <Input
+                  value={formData.display_name}
+                  onChange={e => setFormData(p => ({ ...p, display_name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <FormLabel required>الحالة</FormLabel>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">نشط</SelectItem>
+                    <SelectItem value="inactive">غير نشط</SelectItem>
+                    <SelectItem value="suspended">معلق</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <FormLabel required>الدور</FormLabel>
-              <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employee">موظف</SelectItem>
-                  <SelectItem value="admin">مسؤول</SelectItem>
-                </SelectContent>
-              </Select>
+
+            {/* Section 2: Employee Info */}
+            <div className="space-y-4 border-t pt-4">
+              <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel required>نوع الحساب</FormLabel>
+                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">موظف</SelectItem>
+                      <SelectItem value="admin">مسؤول</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>الدور الوظيفي</FormLabel>
+                  <Select value={formData.role_id} onValueChange={v => setFormData(p => ({ ...p, role_id: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger><SelectValue placeholder="بدون دور محدد" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">بدون دور محدد</SelectItem>
+                      {roles.map(role => (
+                        <SelectItem key={role.id} value={role.id}>
+                          {role.name_ar}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>المسمى الوظيفي</FormLabel>
+                  <Input
+                    value={formData.job_title}
+                    onChange={e => setFormData(p => ({ ...p, job_title: e.target.value }))}
+                    placeholder="مثال: مطور برمجيات"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>رقم الهاتف</FormLabel>
+                  <Input
+                    value={formData.phone}
+                    onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
+                    placeholder="+971 50 000 0000"
+                    dir="ltr"
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>إلغاء</Button>
-            <Button onClick={handleEdit} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</Button>
+            <Button onClick={handleEdit} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'حفظ التغييرات'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -348,7 +577,9 @@ export default function UsersClient() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>
-            <Button onClick={handlePasswordChange} disabled={saving}>{saving ? 'جارٍ الحفظ...' : 'تغيير'}</Button>
+            <Button onClick={handlePasswordChange} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'تغيير'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -362,7 +593,9 @@ export default function UsersClient() {
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف'}</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={saving}>
+              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحذف...</> : 'حذف'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

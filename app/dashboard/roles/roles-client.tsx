@@ -41,6 +41,8 @@ import {
   Eye,
   ChevronDown,
   Loader2,
+  UserPlus,
+  UserMinus,
 } from 'lucide-react';
 import { PERMISSION_MODULES, ROLE_COLORS, getRoleColorClasses } from '@/lib/auth/rbac';
 import { usePermission } from '@/hooks/usePermission';
@@ -80,6 +82,12 @@ export default function RolesClient() {
   const [fallbackRoleId, setFallbackRoleId] = useState('');
   const [formData, setFormData] = useState<RoleFormData>(EMPTY_FORM);
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const [membersDialogOpen, setMembersDialogOpen] = useState(false);
+  const [membersRole, setMembersRole] = useState<PyraRole | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [addUserSearch, setAddUserSearch] = useState('');
 
   // Fetch roles
   const { data: roles = [], isLoading } = useQuery<PyraRole[]>({
@@ -254,6 +262,60 @@ export default function RolesClient() {
     }
   }
 
+  async function fetchRoleMembers(roleId: string) {
+    setMembersLoading(true);
+    try {
+      const res = await fetch('/api/users');
+      const json = await res.json();
+      if (json.data) {
+        setMembers(json.data.filter((u: any) => u.role_id === roleId));
+        setAllUsers(json.data);
+      }
+    } catch {
+      toast.error('فشل في جلب الأعضاء');
+    } finally {
+      setMembersLoading(false);
+    }
+  }
+
+  async function assignUserToRole(username: string, roleId: string) {
+    try {
+      const res = await fetch(`/api/users/${username}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_id: roleId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error);
+      }
+      toast.success('تم تعيين المستخدم للدور');
+      fetchRoleMembers(roleId);
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+    } catch (err: any) {
+      toast.error(err.message || 'فشل في تعيين المستخدم');
+    }
+  }
+
+  async function unassignUserFromRole(username: string, roleId: string) {
+    try {
+      const res = await fetch(`/api/users/${username}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role_id: null }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error);
+      }
+      toast.success('تم إزالة المستخدم من الدور');
+      fetchRoleMembers(roleId);
+      queryClient.invalidateQueries({ queryKey: ['roles'] });
+    } catch (err: any) {
+      toast.error(err.message || 'فشل في إزالة المستخدم');
+    }
+  }
+
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   if (isLoading) {
@@ -324,10 +386,17 @@ export default function RolesClient() {
                     <p className="text-sm text-muted-foreground">{role.description}</p>
                   )}
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <button
+                      onClick={() => {
+                        setMembersRole(role);
+                        setMembersDialogOpen(true);
+                        fetchRoleMembers(role.id);
+                      }}
+                      className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
                       <Users className="h-4 w-4" />
                       <span>{role.member_count ?? 0} مستخدم</span>
-                    </div>
+                    </button>
                     <Badge variant="secondary" className="text-[10px]">
                       {isSuperAdmin ? 'جميع الصلاحيات' : `${role.permissions.length} صلاحية`}
                     </Badge>
@@ -557,6 +626,101 @@ export default function RolesClient() {
               حذف الدور
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Members Dialog */}
+      <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>أعضاء دور &quot;{membersRole?.name_ar}&quot;</DialogTitle>
+            <DialogDescription>
+              إدارة المستخدمين المعينين لهذا الدور
+            </DialogDescription>
+          </DialogHeader>
+
+          {membersLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Current Members */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">الأعضاء الحاليون ({members.length})</Label>
+                {members.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">لا يوجد أعضاء معينون لهذا الدور</p>
+                ) : (
+                  <div className="space-y-2">
+                    {members.map((user: any) => (
+                      <div key={user.username} className="flex items-center justify-between p-2 rounded-lg border bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <div className="h-8 w-8 rounded-full bg-orange-500/10 flex items-center justify-center text-xs font-bold text-orange-600">
+                            {user.display_name?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{user.display_name}</p>
+                            <p className="text-xs text-muted-foreground">@{user.username}</p>
+                          </div>
+                        </div>
+                        {canManage && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => membersRole && unassignUserFromRole(user.username, membersRole.id)}
+                          >
+                            <UserMinus className="h-4 w-4 me-1" />
+                            إزالة
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Add User */}
+              {canManage && (
+                <div className="space-y-2 border-t pt-4">
+                  <Label className="text-sm font-medium">إضافة عضو</Label>
+                  <Input
+                    value={addUserSearch}
+                    onChange={(e) => setAddUserSearch(e.target.value)}
+                    placeholder="بحث عن مستخدم..."
+                    className="mb-2"
+                  />
+                  <div className="max-h-[200px] overflow-y-auto space-y-1">
+                    {allUsers
+                      .filter(u =>
+                        u.role_id !== membersRole?.id &&
+                        (u.display_name?.toLowerCase().includes(addUserSearch.toLowerCase()) ||
+                         u.username?.toLowerCase().includes(addUserSearch.toLowerCase()))
+                      )
+                      .slice(0, 10)
+                      .map((user: any) => (
+                        <button
+                          key={user.username}
+                          onClick={() => membersRole && assignUserToRole(user.username, membersRole.id)}
+                          className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-accent/50 transition-colors text-start"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold">
+                              {user.display_name?.charAt(0) || '?'}
+                            </div>
+                            <div>
+                              <p className="text-sm">{user.display_name}</p>
+                              <p className="text-xs text-muted-foreground">@{user.username}</p>
+                            </div>
+                          </div>
+                          <UserPlus className="h-4 w-4 text-muted-foreground" />
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

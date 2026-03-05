@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, created_at');
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (role === 'admin' || role === 'employee') {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { username, password, role, display_name, permissions } = body;
+    const { username, password, role, display_name, permissions, role_id, phone, job_title } = body;
 
     // --- Validation ---
     if (!username || typeof username !== 'string' || username.trim().length < 3) {
@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
 
     if (!display_name || typeof display_name !== 'string' || display_name.trim().length === 0) {
       return apiValidationError('اسم العرض مطلوب');
+    }
+
+    if (role_id !== undefined && role_id !== null && typeof role_id !== 'string') {
+      return apiValidationError('معرّف الدور الوظيفي غير صالح');
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -135,8 +139,11 @@ export async function POST(request: NextRequest) {
         role,
         display_name: display_name.trim(),
         permissions: permissions || {},
+        role_id: role_id || null,
+        phone: phone ? String(phone).trim() : null,
+        job_title: job_title ? String(job_title).trim() : null,
       })
-      .select('id, username, role, display_name, permissions, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
       .single();
 
     if (insertError) {
@@ -154,6 +161,21 @@ export async function POST(request: NextRequest) {
       auth_user_id: authData.user.id,
       pyra_username: cleanUsername,
     });
+
+    // Step 3.5: Initialize leave balances for employees
+    if (role === 'employee') {
+      const currentYear = new Date().getFullYear();
+      await serviceClient.from('pyra_leave_balances').insert({
+        username: cleanUsername,
+        year: currentYear,
+        annual_total: 30,
+        annual_used: 0,
+        sick_total: 15,
+        sick_used: 0,
+        personal_total: 5,
+        personal_used: 0,
+      });
+    }
 
     // Step 4: Log the activity
     await serviceClient.from('pyra_activity_log').insert({

@@ -26,7 +26,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, avatar_url, status, created_at, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', username)
       .single();
 
@@ -44,7 +44,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 // =============================================================
 // PATCH /api/users/[username]
 // Update a user (admin only).
-// Body can include: { display_name?, role?, permissions? }
+// Body can include: { display_name?, role?, permissions?, role_id?, phone?, job_title?, status? }
 // =============================================================
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
@@ -59,7 +59,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Verify user exists
     const { data: existingUser, error: findError } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
       .eq('username', username)
       .single();
 
@@ -105,6 +105,54 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.permissions = body.permissions;
     }
 
+    // --- role_id (RBAC role assignment) ---
+    if (body.role_id !== undefined) {
+      if (body.role_id === null) {
+        // Unassign role
+        updateData.role_id = null;
+      } else {
+        if (typeof body.role_id !== 'string') {
+          return apiValidationError('معرّف الدور الوظيفي غير صالح');
+        }
+        // Validate that the role exists using service role client
+        const serviceClient = createServiceRoleClient();
+        const { data: roleExists, error: roleError } = await serviceClient
+          .from('pyra_roles')
+          .select('id')
+          .eq('id', body.role_id)
+          .single();
+        if (roleError || !roleExists) {
+          return apiValidationError('الدور الوظيفي المحدد غير موجود');
+        }
+        updateData.role_id = body.role_id;
+      }
+    }
+
+    // --- phone ---
+    if (body.phone !== undefined) {
+      if (body.phone !== null && typeof body.phone !== 'string') {
+        return apiValidationError('رقم الهاتف غير صالح');
+      }
+      updateData.phone = body.phone ? body.phone.trim() : null;
+    }
+
+    // --- job_title ---
+    if (body.job_title !== undefined) {
+      if (body.job_title !== null && typeof body.job_title !== 'string') {
+        return apiValidationError('المسمى الوظيفي غير صالح');
+      }
+      updateData.job_title = body.job_title ? body.job_title.trim() : null;
+    }
+
+    // --- status ---
+    if (body.status !== undefined) {
+      const validStatuses = ['active', 'inactive', 'suspended'];
+      if (!validStatuses.includes(body.status)) {
+        return apiValidationError('الحالة يجب أن تكون active أو inactive أو suspended');
+      }
+      updateData.status = body.status;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return apiValidationError('لا توجد بيانات للتحديث');
     }
@@ -114,7 +162,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)
-      .select('id, username, role, display_name, permissions, created_at')
+      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
       .single();
 
     if (updateError) {
