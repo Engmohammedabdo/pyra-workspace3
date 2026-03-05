@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient, createServerSupabaseClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
+import { canAccessAllPaths, canAccessPath } from '@/lib/auth/file-access';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -18,8 +19,9 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.edit');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { paths, destination } = body;
@@ -34,6 +36,17 @@ export async function POST(request: NextRequest) {
 
     if (!isPathSafe(destination)) {
       return apiValidationError('مسار الوجهة غير صالح');
+    }
+
+    // Path-based access control: check source paths
+    const { allowed, deniedPaths } = canAccessAllPaths(auth, paths);
+    if (!allowed) {
+      return apiForbidden(`لا تملك صلاحية الوصول إلى: ${deniedPaths.join(', ')}`);
+    }
+
+    // Path-based access control: check destination
+    if (!canAccessPath(auth, destination)) {
+      return apiForbidden('لا تملك صلاحية النسخ إلى هذا المسار');
     }
 
     const storage = createServiceRoleClient();

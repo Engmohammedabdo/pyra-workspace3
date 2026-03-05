@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { isFileAdmin, getUserAllowedPaths } from '@/lib/auth/file-access';
 import {
   apiSuccess,
   apiServerError,
@@ -21,10 +22,19 @@ export async function GET(_request: NextRequest) {
 
     const supabase = await createServerSupabaseClient();
 
-    const { data: trashItems, count, error } = await supabase
+    // Admins see all trash; non-admins only see trash items they deleted
+    // or items from paths they have access to
+    let query = supabase
       .from('pyra_trash')
       .select('*', { count: 'exact' })
       .order('deleted_at', { ascending: false });
+
+    if (!isFileAdmin(auth)) {
+      // Non-admin: only show their own deleted items
+      query = query.eq('deleted_by', auth.pyraUser.username);
+    }
+
+    const { data: trashItems, count, error } = await query;
 
     if (error) {
       console.error('Trash list error:', error);

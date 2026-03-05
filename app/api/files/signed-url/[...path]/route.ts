@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
-import { apiUnauthorized, apiNotFound, apiValidationError, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiForbidden, apiNotFound, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { sanitizePath } from '@/lib/utils/path';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -17,8 +18,9 @@ interface RouteParams {
 // =============================================================
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const { path: pathSegments } = await params;
     const rawPath = pathSegments.join('/');
@@ -26,6 +28,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (!filePath) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const storage = createServiceRoleClient();

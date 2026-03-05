@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiValidationError,
   apiServerError,
@@ -11,6 +10,7 @@ import { createServiceRoleClient, createServerSupabaseClient } from '@/lib/supab
 import { sanitizePath, sanitizeFileName, joinPath } from '@/lib/utils/path';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 import { generateId } from '@/lib/utils/id';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,8 +48,9 @@ export async function POST(request: NextRequest) {
     const limited = checkRateLimit(uploadLimiter, request);
     if (limited) return limited;
 
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.upload');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { fileName, fileSize, mimeType, prefix: rawPrefix } = body as {
@@ -84,12 +85,9 @@ export async function POST(request: NextRequest) {
     const safeName = sanitizeFileName(fileName);
     const storagePath = joinPath(prefix, safeName);
 
-    // ── Path ownership check for employees ─────────────
-    if (auth.pyraUser.role === 'employee') {
-      const hasAccess = await verifyPathAccess(auth.pyraUser, prefix);
-      if (!hasAccess) {
-        return apiForbidden('لا تملك صلاحية الرفع في هذا المسار');
-      }
+    // ── Path-based access control ─────────────
+    if (!canAccessPath(auth, prefix)) {
+      return apiForbidden('لا تملك صلاحية الرفع في هذا المسار');
     }
 
     const storage = createServiceRoleClient();
@@ -187,34 +185,4 @@ export async function POST(request: NextRequest) {
       `خطأ في إنشاء رابط الرفع: ${err instanceof Error ? err.message : String(err)}`
     );
   }
-}
-
-/**
- * Verify that an employee has access to a given path.
- * Checks allowed_paths and paths map from user permissions.
- */
-async function verifyPathAccess(
-  pyraUser: { username: string; permissions: { allowed_paths?: string[]; paths?: Record<string, string> } },
-  targetPath: string
-): Promise<boolean> {
-  const permissions = pyraUser.permissions;
-
-  if (!permissions) return false;
-
-  const allowedPaths = permissions.allowed_paths || [];
-  const pathKeys = permissions.paths ? Object.keys(permissions.paths) : [];
-  const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
-
-  // If no paths configured, deny access
-  if (allPaths.length === 0) return false;
-
-  // Check if the target path starts with any allowed path
-  const normalizedTarget = targetPath.replace(/\/+$/, '');
-  return allPaths.some((allowed) => {
-    const normalizedAllowed = allowed.replace(/\/+$/, '');
-    return (
-      normalizedTarget === normalizedAllowed ||
-      normalizedTarget.startsWith(normalizedAllowed + '/')
-    );
-  });
 }

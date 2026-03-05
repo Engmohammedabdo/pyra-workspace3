@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { isFileAdmin, getUserAllowedPaths } from '@/lib/auth/file-access';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 
@@ -26,7 +27,27 @@ export async function GET(_request: NextRequest) {
       return apiServerError('فشل في جلب إحصائيات التخزين');
     }
 
-    const allFiles = files || [];
+    // For non-admin users, filter files to only their allowed paths
+    let allFiles = files || [];
+    if (!isFileAdmin(auth)) {
+      const allowedPaths = getUserAllowedPaths(auth);
+      if (allowedPaths.length === 0) {
+        return apiSuccess({
+          totalSize: 0,
+          totalFiles: 0,
+          typeBreakdown: [],
+          topFolders: [],
+          largestFiles: [],
+        });
+      }
+      allFiles = allFiles.filter((f) => {
+        const fp = f.file_path.replace(/^\/+/, '');
+        return allowedPaths.some((ap) => {
+          const nap = ap.replace(/^\/+/, '').replace(/\/+$/, '');
+          return fp === nap || fp.startsWith(nap + '/');
+        });
+      });
+    }
 
     // Total size
     const totalSize = allFiles.reduce((sum, f) => sum + (f.file_size || 0), 0);

@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { canAccessAllPaths } from '@/lib/auth/file-access';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -28,14 +29,21 @@ export async function POST(request: NextRequest) {
     const limited = checkRateLimit(apiWriteLimiter, request);
     if (limited) return limited;
 
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.delete');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { paths } = body as { paths: string[] };
 
     if (!paths || !Array.isArray(paths) || paths.length === 0) {
       return apiValidationError('يجب تحديد ملف واحد على الأقل للحذف');
+    }
+
+    // Enforce path-based access control on all paths
+    const sanitizedPaths = paths.map(p => sanitizePath(p));
+    const { allowed, deniedPaths } = canAccessAllPaths(auth, sanitizedPaths);
+    if (!allowed) {
+      return apiForbidden(`لا تملك صلاحية حذف الملفات في: ${deniedPaths.join(', ')}`);
     }
 
     if (paths.length > MAX_BATCH_SIZE) {

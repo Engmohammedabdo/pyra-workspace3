@@ -1,9 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiServerError,
 } from '@/lib/api/response';
 
@@ -15,8 +14,8 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('script_reviews.view');
+    if (isApiError(authResult)) return authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const status = searchParams.get('status');

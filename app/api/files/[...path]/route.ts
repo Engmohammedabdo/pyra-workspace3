@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { canAccessPath } from '@/lib/auth/file-access';
 import {
   apiSuccess,
   apiUnauthorized,
   apiNotFound,
   apiValidationError,
   apiServerError,
+  apiForbidden,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -33,8 +35,8 @@ interface RouteParams {
 // =============================================================
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.view');
+    if (isApiError(auth)) return auth;
 
     const { path: pathSegments } = await params;
     const rawPath = pathSegments.join('/');
@@ -42,6 +44,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     if (!filePath) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Enforce path-based access control
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const storage = createServiceRoleClient();
@@ -99,8 +106,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // =============================================================
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.edit');
+    if (isApiError(auth)) return auth;
 
     const { path: pathSegments } = await params;
     const rawPath = pathSegments.join('/');
@@ -108,6 +115,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (!filePath) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Enforce path-based access control on source path
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const body = await request.json();
@@ -143,6 +155,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     if (destinationPath === filePath) {
       return apiValidationError('المسار الجديد مطابق للمسار الحالي');
+    }
+
+    // Enforce path-based access control on destination path
+    if (!canAccessPath(auth, destinationPath)) {
+      return apiForbidden();
     }
 
     // Use storage.move() — atomic, no download/reupload needed
@@ -203,8 +220,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 // =============================================================
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.delete');
+    if (isApiError(auth)) return auth;
 
     const { path: pathSegments } = await params;
     const rawPath = pathSegments.join('/');
@@ -212,6 +229,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     if (!filePath) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Enforce path-based access control
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const storage = createServiceRoleClient();

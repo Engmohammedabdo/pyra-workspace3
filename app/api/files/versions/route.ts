@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,12 +18,18 @@ export const dynamic = 'force-dynamic';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const filePath = request.nextUrl.searchParams.get('file_path');
     if (!filePath || !isPathSafe(filePath)) {
       return apiValidationError('مسار الملف غير صالح');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const supabase = await createServerSupabaseClient();

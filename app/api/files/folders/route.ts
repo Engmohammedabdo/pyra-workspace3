@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { canAccessPath } from '@/lib/auth/file-access';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -25,8 +26,8 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.upload');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { path: rawPath, name: rawName } = body as {
@@ -44,6 +45,11 @@ export async function POST(request: NextRequest) {
 
     if (!safeName) {
       return apiValidationError('اسم المجلد غير صالح');
+    }
+
+    // Enforce path-based access control
+    if (!canAccessPath(auth, folderPath)) {
+      return apiForbidden();
     }
 
     const storage = createServiceRoleClient();

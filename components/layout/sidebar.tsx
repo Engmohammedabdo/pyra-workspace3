@@ -190,7 +190,7 @@ export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view', 'files.view']);
+  const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view']);
 
   // Load collapsed groups from localStorage on mount
   useEffect(() => {

@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 // =============================================================
 // GET /api/files/tags?file_path=... — Get tags for a file
@@ -15,8 +16,9 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const filePath = searchParams.get('file_path');
@@ -72,14 +74,20 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.edit');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { file_path, tag_name, color } = body;
 
     if (!file_path || typeof file_path !== 'string') {
       return apiValidationError('file_path مطلوب');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, file_path)) {
+      return apiForbidden();
     }
 
     if (!tag_name || typeof tag_name !== 'string' || tag_name.trim().length === 0) {
@@ -133,14 +141,20 @@ export async function POST(request: NextRequest) {
 // =============================================================
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.edit');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { file_path, tag_name } = body;
 
     if (!file_path || !tag_name) {
       return apiValidationError('file_path و tag_name مطلوبان');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, file_path)) {
+      return apiForbidden();
     }
 
     const supabase = await createServerSupabaseClient();

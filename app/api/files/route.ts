@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -18,6 +18,7 @@ import {
 import { generateId } from '@/lib/utils/id';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 import { autoLinkFileToProject } from '@/lib/utils/project-files';
+import { canAccessPath } from '@/lib/auth/file-access';
 import type { FileListItem } from '@/types/database';
 
 // ── Route Segment Config: allow large file uploads ──
@@ -116,8 +117,9 @@ function isAllowedFileType(fileName: string, mimeType: string): boolean {
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const rawPath = searchParams.get('path') || '';
@@ -303,12 +305,18 @@ export async function POST(request: NextRequest) {
     const limited = checkRateLimit(uploadLimiter, request);
     if (limited) return limited;
 
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.upload');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const formData = await request.formData();
     const rawPrefix = (formData.get('prefix') as string) || '';
     const prefix = sanitizePath(rawPrefix);
+
+    // Path-based access control
+    if (!canAccessPath(auth, prefix)) {
+      return apiForbidden('لا تملك صلاحية الرفع في هذا المسار');
+    }
 
     // Collect all files from formData
     const files: File[] = [];

@@ -466,24 +466,20 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
     case 'admin':
       return ['*'];
     case 'employee':
+      // Employees get MINIMAL permissions by default.
+      // All module access must be granted explicitly via a role assignment.
+      // They can only see the dashboard, their own profile, their tasks, and basic personal tools.
       return [
         'dashboard.view',
-        'files.view',
-        'projects.view',
-        'boards.view',
-        'tasks.view',
-        'tasks.create',
+        'notifications.view',
         'directory.view',
         'timesheet.view',
         'announcements.view',
         'leave.view',
-        'notifications.view',
-        'favorites.view',
-        'favorites.manage',
       ];
     case 'client':
     default:
-      return ['dashboard.view', 'files.view', 'projects.view', 'notifications.view', 'favorites.view', 'favorites.manage'];
+      return ['dashboard.view', 'notifications.view'];
   }
 }
 

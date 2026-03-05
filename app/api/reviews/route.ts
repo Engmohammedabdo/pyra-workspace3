@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 // =============================================================
 // GET /api/reviews
@@ -16,13 +17,19 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('reviews.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const filePath = request.nextUrl.searchParams.get('path')?.trim();
 
     if (!filePath) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, filePath)) {
+      return apiForbidden();
     }
 
     const supabase = await createServerSupabaseClient();
@@ -54,8 +61,9 @@ export async function GET(request: NextRequest) {
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('reviews.manage');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { file_path, type, text, parent_id } = body;
@@ -63,6 +71,11 @@ export async function POST(request: NextRequest) {
     // Validation
     if (!file_path?.trim()) {
       return apiValidationError('مسار الملف مطلوب');
+    }
+
+    // Path-based access control
+    if (!canAccessPath(auth, file_path.trim())) {
+      return apiForbidden();
     }
     if (!type || !['comment', 'approval'].includes(type)) {
       return apiValidationError('نوع المراجعة يجب أن يكون comment أو approval');

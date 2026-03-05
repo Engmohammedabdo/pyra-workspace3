@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { canAccessPath, canAccessAllPaths } from '@/lib/auth/file-access';
 
 export const maxDuration = 120; // seconds — moving folders can take time
 export const dynamic = 'force-dynamic';
 
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -34,14 +35,25 @@ const MAX_FOLDER_DEPTH = 15;
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const auth = await requireApiPermission('files.edit');
+    if (isApiError(auth)) return auth;
 
     const body = await request.json();
     const { sourcePaths, destinationFolder } = body as {
       sourcePaths: string[];
       destinationFolder: string;
     };
+
+    // Enforce path-based access control on source and destination
+    const sanitizedSources = sourcePaths.map(p => sanitizePath(p));
+    const sanitizedDest = sanitizePath(destinationFolder);
+    const { allowed: srcAllowed, deniedPaths } = canAccessAllPaths(auth, sanitizedSources);
+    if (!srcAllowed) {
+      return apiForbidden(`لا تملك صلاحية نقل: ${deniedPaths.join(', ')}`);
+    }
+    if (!canAccessPath(auth, sanitizedDest)) {
+      return apiForbidden('لا تملك صلاحية النقل إلى هذا المجلد');
+    }
 
     if (!Array.isArray(sourcePaths) || sourcePaths.length === 0) {
       return apiValidationError('يجب تحديد ملف واحد على الأقل للنقل');
