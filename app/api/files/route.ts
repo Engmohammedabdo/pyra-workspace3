@@ -112,7 +112,7 @@ function isAllowedFileType(fileName: string, mimeType: string): boolean {
 
 // =============================================================
 // GET /api/files?path=some/folder
-// List files in a folder
+// List files in a folder — with role-based access control
 // =============================================================
 export async function GET(request: NextRequest) {
   try {
@@ -128,6 +128,81 @@ export async function GET(request: NextRequest) {
     );
     const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
+    // ── Access control: check if user can view all files ──
+    const { hasPermission: checkPerm } = await import('@/lib/auth/rbac');
+    const isAdmin =
+      checkPerm(auth.pyraUser.rolePermissions, 'files.manage') ||
+      checkPerm(auth.pyraUser.rolePermissions, '*') ||
+      auth.pyraUser.role === 'admin';
+
+    // For non-admin users, enforce path-based access control
+    if (!isAdmin) {
+      const userPerms = (auth.pyraUser as unknown as Record<string, unknown>).permissions as {
+        allowed_paths?: string[];
+        paths?: Record<string, string>;
+      } | null;
+
+      const allowedPaths = userPerms?.allowed_paths || [];
+      const pathKeys = userPerms?.paths ? Object.keys(userPerms.paths) : [];
+      const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
+
+      if (allPaths.length === 0) {
+        // No file permissions at all — return empty
+        return apiSuccess([], { path, count: 0, offset: 0, limit, hasMore: false });
+      }
+
+      // Check if the requested path is accessible
+      const canAccessPath = allPaths.some((allowedPath) => {
+        // Direct access: path equals or is inside an allowed path
+        if (path === allowedPath || path.startsWith(allowedPath + '/')) return true;
+        // Parent browsing: an allowed path is inside the requested path
+        if (allowedPath.startsWith(path ? path + '/' : '')) return true;
+        return false;
+      });
+
+      if (!canAccessPath) {
+        return apiSuccess([], { path, count: 0, offset: 0, limit, hasMore: false });
+      }
+
+      // If browsing a parent folder of allowed paths (not directly within an allowed path),
+      // show ONLY the subfolders that lead to allowed paths — not actual storage listing
+      const isDirectlyAllowed = allPaths.some(
+        (ap) => path === ap || path.startsWith(ap + '/')
+      );
+
+      if (!isDirectlyAllowed) {
+        const prefix = path ? path + '/' : '';
+        const relevantFolders = new Set<string>();
+
+        allPaths.forEach((ap) => {
+          if (ap.startsWith(prefix)) {
+            const remainder = ap.slice(prefix.length);
+            const nextSegment = remainder.split('/')[0];
+            if (nextSegment) relevantFolders.add(nextSegment);
+          }
+        });
+
+        const items: FileListItem[] = Array.from(relevantFolders).map((name) => ({
+          name,
+          path: path ? `${path}/${name}` : name,
+          isFolder: true,
+          size: 0,
+          mimeType: 'folder',
+          updatedAt: null,
+        }));
+
+        items.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        return apiSuccess(items, {
+          path,
+          count: items.length,
+          offset: 0,
+          limit,
+          hasMore: false,
+        });
+      }
+    }
+
+    // ── Standard storage listing (admin or employee with direct access) ──
     const storage = createServiceRoleClient();
 
     const { data, error } = await storage.storage
@@ -159,6 +234,47 @@ export async function GET(request: NextRequest) {
         (f.id === null ? 'folder' : 'application/octet-stream'),
       updatedAt: f.updated_at || f.created_at || null,
     }));
+
+    // For employees with direct access, filter out subfolders they can't access
+    // (e.g., if they have access to projects/project-a but not projects/project-b)
+    if (!isAdmin) {
+      const userPerms2 = (auth.pyraUser as unknown as Record<string, unknown>).permissions as {
+        allowed_paths?: string[];
+        paths?: Record<string, string>;
+      } | null;
+      const allowedPaths = userPerms2?.allowed_paths || [];
+      const pathKeys = userPerms2?.paths ? Object.keys(userPerms2.paths) : [];
+      const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
+
+      // Keep files (they're in an allowed directory) but filter folders
+      // that might contain paths the user doesn't have access to
+      const filteredItems = items.filter((item) => {
+        if (!item.isFolder) return true; // files within allowed path are always visible
+        // Check if this subfolder is within any allowed path or leads to one
+        return allPaths.some((ap) => {
+          return (
+            item.path === ap ||
+            item.path.startsWith(ap + '/') ||
+            ap.startsWith(item.path + '/')
+          );
+        });
+      });
+
+      filteredItems.sort((a, b) => {
+        if (a.isFolder && !b.isFolder) return -1;
+        if (!a.isFolder && b.isFolder) return 1;
+        return a.name.localeCompare(b.name, 'ar');
+      });
+
+      const hasMore = (data || []).length === limit;
+      return apiSuccess(filteredItems, {
+        path,
+        count: filteredItems.length,
+        offset,
+        limit,
+        hasMore,
+      });
+    }
 
     // Sort: folders first, then files alphabetically
     items.sort((a, b) => {

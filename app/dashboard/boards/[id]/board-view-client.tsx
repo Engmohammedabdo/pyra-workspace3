@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -10,6 +10,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -22,14 +23,35 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
-  Plus, ArrowRight, Calendar, MessageSquare,
-  CheckSquare, GripVertical,
+  Plus,
+  ArrowRight,
+  Calendar,
+  MessageSquare,
+  CheckSquare,
+  GripVertical,
+  Trash2,
+  UserPlus,
+  X,
+  Send,
+  AlertTriangle,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -46,10 +68,27 @@ interface Task {
   position: number;
   priority: string;
   due_date?: string;
-  pyra_task_assignees?: { username: string }[];
-  pyra_task_labels?: { pyra_board_labels: { name: string; color: string } }[];
-  pyra_task_checklist?: { id: string; title: string; is_checked: boolean }[];
-  pyra_task_comments?: { id: string; author_name: string; content: string; created_at: string }[];
+  start_date?: string;
+  estimated_hours?: number;
+  actual_hours?: number;
+  pyra_task_assignees?: { id?: string; username: string }[];
+  pyra_task_labels?: {
+    label_id?: string;
+    pyra_board_labels: { name: string; color: string };
+  }[];
+  pyra_task_checklist?: {
+    id: string;
+    title: string;
+    is_checked: boolean;
+    position?: number;
+  }[];
+  pyra_task_comments?: {
+    id: string;
+    author_username?: string;
+    author_name: string;
+    content: string;
+    created_at: string;
+  }[];
 }
 
 interface Column {
@@ -79,10 +118,10 @@ const PRIORITY_COLORS: Record<string, string> = {
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
-  urgent: '\u0639\u0627\u062C\u0644',
-  high: '\u0645\u0631\u062A\u0641\u0639',
-  medium: '\u0645\u062A\u0648\u0633\u0637',
-  low: '\u0645\u0646\u062E\u0641\u0636',
+  urgent: 'عاجل',
+  high: 'مرتفع',
+  medium: 'متوسط',
+  low: 'منخفض',
 };
 
 const COLUMN_COLORS: Record<string, string> = {
@@ -133,6 +172,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const checked = checklist.filter((c) => c.is_checked).length;
   const labels = task.pyra_task_labels || [];
   const assignees = task.pyra_task_assignees || [];
+  const comments = task.pyra_task_comments || [];
   const isOverdue = task.due_date && new Date(task.due_date) < new Date();
 
   return (
@@ -151,7 +191,8 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
                 <span
                   key={i}
                   className={`h-1.5 w-8 rounded-full inline-block ${
-                    LABEL_BG_COLORS[l.pyra_board_labels?.color || 'gray'] || LABEL_BG_COLORS.gray
+                    LABEL_BG_COLORS[l.pyra_board_labels?.color || 'gray'] ||
+                    LABEL_BG_COLORS.gray
                   }`}
                 />
               ))}
@@ -167,7 +208,9 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
             >
               <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <p className="text-sm font-medium flex-1 line-clamp-2">{task.title}</p>
+            <p className="text-sm font-medium flex-1 line-clamp-2">
+              {task.title}
+            </p>
           </div>
 
           {/* Meta row */}
@@ -189,6 +232,12 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
               <span className="flex items-center gap-0.5">
                 <CheckSquare className="h-3 w-3" />
                 {checked}/{checklist.length}
+              </span>
+            )}
+            {comments.length > 0 && (
+              <span className="flex items-center gap-0.5">
+                <MessageSquare className="h-3 w-3" />
+                {comments.length}
               </span>
             )}
           </div>
@@ -217,10 +266,10 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
 }
 
 // ============================================================
-// KanbanColumn Component
+// DroppableColumn — wraps column with useDroppable for empty drops
 // ============================================================
 
-function KanbanColumn({
+function DroppableColumn({
   column,
   tasks,
   onAddTask,
@@ -231,8 +280,17 @@ function KanbanColumn({
   onAddTask: (columnId: string) => void;
   onTaskClick: (task: Task) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+
   return (
-    <div className="flex-shrink-0 w-[300px] bg-muted/50 rounded-xl p-3 flex flex-col max-h-[calc(100vh-200px)]">
+    <div
+      ref={setNodeRef}
+      className={`flex-shrink-0 w-[300px] rounded-xl p-3 flex flex-col max-h-[calc(100vh-200px)] transition-colors ${
+        isOver
+          ? 'bg-orange-500/10 ring-2 ring-orange-500/30'
+          : 'bg-muted/50'
+      }`}
+    >
       {/* Column Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -273,6 +331,11 @@ function KanbanColumn({
                 onClick={() => onTaskClick(task)}
               />
             ))}
+            {tasks.length === 0 && (
+              <div className="text-center text-xs text-muted-foreground py-8 border-2 border-dashed rounded-lg">
+                اسحب مهمة هنا
+              </div>
+            )}
           </div>
         </SortableContext>
       </ScrollArea>
@@ -281,13 +344,14 @@ function KanbanColumn({
 }
 
 // ============================================================
-// TaskDetailDialog Component
+// TaskDetailDialog — complete task management dialog
 // ============================================================
 
 function TaskDetailDialog({
   task,
   onClose,
   onUpdate,
+  session,
 }: {
   task: Task;
   onClose: () => void;
@@ -296,166 +360,707 @@ function TaskDetailDialog({
 }) {
   const [detail, setDetail] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Editable fields
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description || '');
+  const [priority, setPriority] = useState(task.priority || 'medium');
+  const [dueDate, setDueDate] = useState(task.due_date || '');
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editingDesc, setEditingDesc] = useState(false);
 
-  useEffect(() => {
-    fetch(`/api/tasks/${task.id}`)
-      .then((r) => r.json())
-      .then(({ data }) => {
+  // Assignee management
+  const [newAssignee, setNewAssignee] = useState('');
+  const [addingAssignee, setAddingAssignee] = useState(false);
+
+  // Comment creation
+  const [newComment, setNewComment] = useState('');
+  const [sendingComment, setSendingComment] = useState(false);
+
+  // Checklist
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [showChecklistInput, setShowChecklistInput] = useState(false);
+
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const canManage = hasPermission(
+    session.pyraUser.rolePermissions,
+    'tasks.create'
+  );
+  const canDelete = hasPermission(
+    session.pyraUser.rolePermissions,
+    'tasks.manage'
+  );
+
+  const fetchDetail = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`);
+      const { data } = await res.json();
+      if (data) {
         setDetail(data);
         setTitle(data.title);
         setDescription(data.description || '');
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+        setPriority(data.priority || 'medium');
+        setDueDate(data.due_date || '');
+      }
+    } catch {
+      toast.error('فشل في تحميل تفاصيل المهمة');
+    } finally {
+      setLoading(false);
+    }
   }, [task.id]);
 
-  const saveChanges = async () => {
+  useEffect(() => {
+    fetchDetail();
+  }, [fetchDetail]);
+
+  // ── Save title/description ──
+  const saveBasicFields = async () => {
+    setSaving(true);
     try {
-      await fetch(`/api/tasks/${task.id}`, {
+      const res = await fetch(`/api/tasks/${task.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, description }),
       });
-      toast.success('\u062A\u0645 \u062D\u0641\u0638 \u0627\u0644\u062A\u063A\u064A\u064A\u0631\u0627\u062A');
-      setEditing(false);
+      if (!res.ok) throw new Error();
+      toast.success('تم حفظ التغييرات');
+      setEditingTitle(false);
+      setEditingDesc(false);
       onUpdate();
     } catch {
-      toast.error('\u0641\u0634\u0644 \u0627\u0644\u062D\u0641\u0638');
+      toast.error('فشل الحفظ');
+    } finally {
+      setSaving(false);
     }
   };
 
+  // ── Save priority ──
+  const savePriority = async (newPriority: string) => {
+    setPriority(newPriority);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('تم تحديث الأولوية');
+      onUpdate();
+    } catch {
+      toast.error('فشل تحديث الأولوية');
+    }
+  };
+
+  // ── Save due date ──
+  const saveDueDate = async (newDate: string) => {
+    setDueDate(newDate);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_date: newDate || null }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('تم تحديث الموعد');
+      onUpdate();
+    } catch {
+      toast.error('فشل تحديث الموعد');
+    }
+  };
+
+  // ── Add assignee ──
+  const addAssignee = async () => {
+    if (!newAssignee.trim()) return;
+    setAddingAssignee(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/assignees`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usernames: [newAssignee.trim()] }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'فشل');
+      }
+      toast.success('تم تعيين المستخدم');
+      setNewAssignee('');
+      fetchDetail();
+      onUpdate();
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'فشل إضافة المستخدم'
+      );
+    } finally {
+      setAddingAssignee(false);
+    }
+  };
+
+  // ── Remove assignee ──
+  const removeAssignee = async (username: string) => {
+    try {
+      const res = await fetch(
+        `/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) throw new Error();
+      toast.success('تم إزالة المستخدم');
+      fetchDetail();
+      onUpdate();
+    } catch {
+      toast.error('فشل إزالة المستخدم');
+    }
+  };
+
+  // ── Toggle checklist item ──
+  const toggleChecklistItem = async (
+    itemId: string,
+    currentState: boolean
+  ) => {
+    // Optimistic update
+    setDetail((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        pyra_task_checklist: prev.pyra_task_checklist?.map((item) =>
+          item.id === itemId
+            ? { ...item, is_checked: !currentState }
+            : item
+        ),
+      };
+    });
+
+    try {
+      const res = await fetch(
+        `/api/tasks/${task.id}/checklist?itemId=${itemId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_checked: !currentState }),
+        }
+      );
+      if (!res.ok) throw new Error();
+      onUpdate();
+    } catch {
+      toast.error('فشل تحديث العنصر');
+      fetchDetail(); // Revert on error
+    }
+  };
+
+  // ── Add checklist item ──
+  const addChecklistItem = async () => {
+    if (!newChecklistItem.trim()) return;
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/checklist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: newChecklistItem.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      setNewChecklistItem('');
+      setShowChecklistInput(false);
+      fetchDetail();
+      onUpdate();
+    } catch {
+      toast.error('فشل إضافة العنصر');
+    }
+  };
+
+  // ── Delete checklist item ──
+  const deleteChecklistItem = async (itemId: string) => {
+    try {
+      const res = await fetch(
+        `/api/tasks/${task.id}/checklist?itemId=${itemId}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) throw new Error();
+      fetchDetail();
+      onUpdate();
+    } catch {
+      toast.error('فشل حذف العنصر');
+    }
+  };
+
+  // ── Add comment ──
+  const addComment = async () => {
+    if (!newComment.trim()) return;
+    setSendingComment(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('تم إضافة التعليق');
+      setNewComment('');
+      fetchDetail();
+    } catch {
+      toast.error('فشل إضافة التعليق');
+    } finally {
+      setSendingComment(false);
+    }
+  };
+
+  // ── Delete task ──
+  const deleteTask = async () => {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error();
+      toast.success('تم حذف المهمة');
+      onClose();
+      onUpdate();
+    } catch {
+      toast.error('فشل حذف المهمة');
+    }
+  };
+
+  const checklist = detail?.pyra_task_checklist || [];
+  const checkedCount = checklist.filter((c) => c.is_checked).length;
+  const comments = detail?.pyra_task_comments || [];
+  const assignees = detail?.pyra_task_assignees || [];
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-start">
-            {editing ? (
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="text-lg font-bold"
-              />
+            {editingTitle ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  className="text-lg font-bold"
+                  onKeyDown={(e) => e.key === 'Enter' && saveBasicFields()}
+                  autoFocus
+                />
+                <Button
+                  size="sm"
+                  onClick={saveBasicFields}
+                  disabled={saving}
+                  className="bg-orange-500 hover:bg-orange-600 text-white shrink-0"
+                >
+                  حفظ
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setEditingTitle(false);
+                    setTitle(detail?.title || task.title);
+                  }}
+                >
+                  إلغاء
+                </Button>
+              </div>
             ) : (
               <span
-                onClick={() => setEditing(true)}
-                className="cursor-pointer hover:text-orange-500 transition-colors"
+                onClick={() => canManage && setEditingTitle(true)}
+                className={
+                  canManage
+                    ? 'cursor-pointer hover:text-orange-500 transition-colors'
+                    : ''
+                }
               >
                 {title}
               </span>
             )}
           </DialogTitle>
         </DialogHeader>
+
         {loading ? (
           <div className="space-y-3">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-32 w-full" />
           </div>
         ) : detail ? (
-          <div className="space-y-4">
-            {/* Description */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                {'\u0627\u0644\u0648\u0635\u0641'}
-              </label>
-              {editing ? (
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  placeholder={'\u0623\u0636\u0641 \u0648\u0635\u0641\u0627\u064B \u0644\u0644\u0645\u0647\u0645\u0629...'}
+          <div className="space-y-5">
+            {/* ── Properties Row ── */}
+            <div className="flex gap-3 flex-wrap items-center">
+              {/* Priority */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">
+                  الأولوية
+                </label>
+                <Select
+                  value={priority}
+                  onValueChange={savePriority}
+                  disabled={!canManage}
+                >
+                  <SelectTrigger className="w-[120px] h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">عاجل</SelectItem>
+                    <SelectItem value="high">مرتفع</SelectItem>
+                    <SelectItem value="medium">متوسط</SelectItem>
+                    <SelectItem value="low">منخفض</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Due Date */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">
+                  تاريخ التسليم
+                </label>
+                <Input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => saveDueDate(e.target.value)}
+                  disabled={!canManage}
+                  className="w-[150px] h-8 text-xs"
                 />
+              </div>
+
+              {/* Priority badge visual */}
+              <Badge
+                variant="outline"
+                className={`border-s-4 mt-4 ${
+                  PRIORITY_COLORS[priority] || PRIORITY_COLORS.medium
+                }`}
+              >
+                {PRIORITY_LABELS[priority] || PRIORITY_LABELS.medium}
+              </Badge>
+            </div>
+
+            {/* ── Description ── */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                الوصف
+              </label>
+              {editingDesc ? (
+                <div className="space-y-2">
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    placeholder="أضف وصفاً للمهمة..."
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingDesc(false);
+                        setDescription(detail.description || '');
+                      }}
+                    >
+                      إلغاء
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={saveBasicFields}
+                      disabled={saving}
+                      className="bg-orange-500 hover:bg-orange-600 text-white"
+                    >
+                      حفظ
+                    </Button>
+                  </div>
+                </div>
               ) : (
                 <p
-                  className="text-sm text-muted-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/50 p-2 rounded"
-                  onClick={() => setEditing(true)}
+                  className={`text-sm whitespace-pre-wrap p-2 rounded border border-transparent ${
+                    canManage
+                      ? 'cursor-pointer hover:bg-muted/50 hover:border-border'
+                      : ''
+                  } ${description ? 'text-foreground' : 'text-muted-foreground italic'}`}
+                  onClick={() => canManage && setEditingDesc(true)}
                 >
-                  {description || '\u0627\u0646\u0642\u0631 \u0644\u0625\u0636\u0627\u0641\u0629 \u0648\u0635\u0641...'}
+                  {description || 'انقر لإضافة وصف...'}
                 </p>
               )}
             </div>
 
-            {/* Priority & Due Date */}
-            <div className="flex gap-4 flex-wrap">
-              <Badge
-                variant="outline"
-                className={`border-s-4 ${
-                  PRIORITY_COLORS[detail.priority] || PRIORITY_COLORS.medium
-                }`}
-              >
-                {PRIORITY_LABELS[detail.priority] || PRIORITY_LABELS.medium}
-              </Badge>
-              {detail.due_date && (
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {new Date(detail.due_date).toLocaleDateString('ar-EG')}
-                </span>
+            {/* ── Assignees ── */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <UserPlus className="h-3.5 w-3.5" />
+                المعيّنون ({assignees.length})
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {assignees.map((a) => (
+                  <Badge
+                    key={a.username}
+                    variant="secondary"
+                    className="flex items-center gap-1 pe-1"
+                  >
+                    <Avatar className="h-4 w-4">
+                      <AvatarFallback className="text-[7px] bg-orange-500/10 text-orange-600">
+                        {a.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs">{a.username}</span>
+                    {canManage && (
+                      <button
+                        onClick={() => removeAssignee(a.username)}
+                        className="hover:text-red-500 transition-colors ms-1"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </Badge>
+                ))}
+                {assignees.length === 0 && (
+                  <span className="text-xs text-muted-foreground italic">
+                    لا يوجد معيّنون
+                  </span>
+                )}
+              </div>
+              {canManage && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newAssignee}
+                    onChange={(e) => setNewAssignee(e.target.value)}
+                    placeholder="اسم المستخدم..."
+                    className="h-8 text-xs flex-1"
+                    onKeyDown={(e) => e.key === 'Enter' && addAssignee()}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={addAssignee}
+                    disabled={!newAssignee.trim() || addingAssignee}
+                    className="h-8 bg-orange-500 hover:bg-orange-600 text-white"
+                  >
+                    <UserPlus className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               )}
             </div>
 
-            {/* Checklist */}
-            {detail.pyra_task_checklist && detail.pyra_task_checklist.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">
-                  {'\u0642\u0627\u0626\u0645\u0629 \u0627\u0644\u0645\u0647\u0627\u0645 \u0627\u0644\u0641\u0631\u0639\u064A\u0629'}
-                </h4>
-                {detail.pyra_task_checklist.map((item) => (
-                  <label key={item.id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={item.is_checked}
-                      readOnly
-                      className="rounded"
-                    />
-                    <span
-                      className={
-                        item.is_checked
-                          ? 'line-through text-muted-foreground'
-                          : ''
-                      }
-                    >
-                      {item.title}
+            {/* ── Checklist ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  قائمة المهام الفرعية
+                  {checklist.length > 0 && (
+                    <span className="text-[10px]">
+                      ({checkedCount}/{checklist.length})
                     </span>
-                  </label>
-                ))}
+                  )}
+                </label>
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs"
+                    onClick={() => setShowChecklistInput(true)}
+                  >
+                    <Plus className="h-3 w-3 me-1" />
+                    إضافة
+                  </Button>
+                )}
               </div>
-            )}
 
-            {/* Comments */}
-            {detail.pyra_task_comments && detail.pyra_task_comments.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium flex items-center gap-1">
-                  <MessageSquare className="h-4 w-4" />
-                  {'\u0627\u0644\u062A\u0639\u0644\u064A\u0642\u0627\u062A'} ({detail.pyra_task_comments.length})
-                </h4>
-                {detail.pyra_task_comments.map((c) => (
-                  <div key={c.id} className="bg-muted/50 rounded-lg p-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-medium">{c.author_name}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(c.created_at).toLocaleDateString('ar-EG')}
+              {/* Progress bar */}
+              {checklist.length > 0 && (
+                <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-green-500 rounded-full transition-all"
+                    style={{
+                      width: `${
+                        checklist.length > 0
+                          ? (checkedCount / checklist.length) * 100
+                          : 0
+                      }%`,
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                {checklist
+                  .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                  .map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 group/item py-1"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.is_checked}
+                        onChange={() =>
+                          toggleChecklistItem(item.id, item.is_checked)
+                        }
+                        className="rounded accent-orange-500 cursor-pointer"
+                      />
+                      <span
+                        className={`text-sm flex-1 ${
+                          item.is_checked
+                            ? 'line-through text-muted-foreground'
+                            : ''
+                        }`}
+                      >
+                        {item.title}
                       </span>
+                      {canManage && (
+                        <button
+                          onClick={() => deleteChecklistItem(item.id)}
+                          className="opacity-0 group-hover/item:opacity-100 text-muted-foreground hover:text-red-500 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
-                    <p className="text-sm">{c.content}</p>
-                  </div>
-                ))}
+                  ))}
               </div>
-            )}
 
-            {/* Actions */}
-            {editing && (
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setEditing(false)}>
-                  {'\u0625\u0644\u063A\u0627\u0621'}
-                </Button>
+              {showChecklistInput && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={newChecklistItem}
+                    onChange={(e) => setNewChecklistItem(e.target.value)}
+                    placeholder="عنصر جديد..."
+                    className="h-8 text-xs flex-1"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') addChecklistItem();
+                      if (e.key === 'Escape') setShowChecklistInput(false);
+                    }}
+                    autoFocus
+                  />
+                  <Button
+                    size="sm"
+                    className="h-8 bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={addChecklistItem}
+                    disabled={!newChecklistItem.trim()}
+                  >
+                    إضافة
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8"
+                    onClick={() => {
+                      setShowChecklistInput(false);
+                      setNewChecklistItem('');
+                    }}
+                  >
+                    إلغاء
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* ── Comments ── */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <MessageSquare className="h-3.5 w-3.5" />
+                التعليقات ({comments.length})
+              </label>
+
+              {/* Comment list */}
+              {comments.length > 0 && (
+                <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                  {comments.map((c) => (
+                    <div
+                      key={c.id}
+                      className="bg-muted/50 rounded-lg p-3"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[7px] bg-orange-500/10 text-orange-600">
+                            {(c.author_name || '??')
+                              .slice(0, 2)
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs font-medium">
+                          {c.author_name}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(c.created_at).toLocaleDateString(
+                            'ar-EG',
+                            {
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <p className="text-sm whitespace-pre-wrap">
+                        {c.content}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* New comment input */}
+              <div className="flex items-start gap-2">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="اكتب تعليقاً..."
+                  className="flex-1 min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      addComment();
+                    }
+                  }}
+                />
                 <Button
-                  onClick={saveChanges}
-                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  size="sm"
+                  onClick={addComment}
+                  disabled={!newComment.trim() || sendingComment}
+                  className="h-8 bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {'\u062D\u0641\u0638'}
+                  <Send className="h-3.5 w-3.5" />
                 </Button>
+              </div>
+            </div>
+
+            {/* ── Delete Section ── */}
+            {canDelete && (
+              <div className="pt-3 border-t">
+                {showDeleteConfirm ? (
+                  <div className="flex items-center gap-3 p-3 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-800">
+                    <AlertTriangle className="h-5 w-5 text-red-500 shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-red-800 dark:text-red-300">
+                        هل أنت متأكد من حذف هذه المهمة؟
+                      </p>
+                      <p className="text-xs text-red-600/70 dark:text-red-400/70">
+                        لا يمكن التراجع عن هذا الإجراء
+                      </p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setShowDeleteConfirm(false)}
+                      >
+                        إلغاء
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={deleteTask}
+                      >
+                        حذف
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                    onClick={() => setShowDeleteConfirm(true)}
+                  >
+                    <Trash2 className="h-4 w-4 me-2" />
+                    حذف المهمة
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -481,11 +1086,20 @@ export default function BoardViewClient({
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Add task dialog state
   const [showAddTask, setShowAddTask] = useState(false);
   const [addToColumn, setAddToColumn] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const canCreate = hasPermission(session.pyraUser.rolePermissions, 'tasks.create');
+  const [newTaskPriority, setNewTaskPriority] = useState('medium');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [newTaskAssignees, setNewTaskAssignees] = useState('');
+
+  const canCreate = hasPermission(
+    session.pyraUser.rolePermissions,
+    'tasks.create'
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -500,13 +1114,17 @@ export default function BoardViewClient({
       if (boardRes.ok) {
         const { data } = await boardRes.json();
         setBoard(data);
+      } else {
+        toast.error('فشل تحميل اللوحة');
       }
       if (tasksRes.ok) {
         const { data } = await tasksRes.json();
         setTasks(data || []);
+      } else {
+        toast.error('فشل تحميل المهام');
       }
     } catch {
-      // silent
+      toast.error('حدث خطأ في الاتصال');
     } finally {
       setLoading(false);
     }
@@ -523,46 +1141,73 @@ export default function BoardViewClient({
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    if (!over || active.id === over.id) {
-      setActiveTask(null);
-      return;
-    }
+    setActiveTask(null);
+
+    if (!over) return;
+    if (active.id === over.id) return;
 
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
 
-    // Determine target column: if we dropped over another task, use its column_id
-    let targetColumnId = over.id as string;
-    const overTask = tasks.find((t) => t.id === over.id);
-    if (overTask) {
+    const columns: Column[] = board?.pyra_board_columns || [];
+
+    // Determine target column and position
+    let targetColumnId: string;
+    let targetPosition: number;
+
+    // Check if dropped directly on a column (empty column or column header)
+    const droppedOnColumn = columns.find((c) => c.id === over.id);
+    if (droppedOnColumn) {
+      targetColumnId = droppedOnColumn.id;
+      // Place at end of column
+      const columnTasks = tasks.filter(
+        (t) => t.column_id === targetColumnId && t.id !== taskId
+      );
+      targetPosition = columnTasks.length;
+    } else {
+      // Dropped on another task — find its column
+      const overTask = tasks.find((t) => t.id === over.id);
+      if (!overTask) return;
       targetColumnId = overTask.column_id;
+      targetPosition = overTask.position;
     }
 
-    // Check if target is actually a valid column
-    const columns: Column[] = (board?.pyra_board_columns || []);
-    const isColumn = columns.some((c) => c.id === targetColumnId);
-    if (!isColumn) {
-      setActiveTask(null);
+    // Validate target column exists
+    const isValidColumn = columns.some((c) => c.id === targetColumnId);
+    if (!isValidColumn) return;
+
+    // Skip if same position in same column
+    if (
+      task.column_id === targetColumnId &&
+      task.position === targetPosition
+    ) {
       return;
     }
 
     // Optimistic update
     setTasks((prev) =>
       prev.map((t) =>
-        t.id === taskId ? { ...t, column_id: targetColumnId } : t
+        t.id === taskId
+          ? { ...t, column_id: targetColumnId, position: targetPosition }
+          : t
       )
     );
-    setActiveTask(null);
 
     // API call
     try {
-      await fetch(`/api/tasks/${taskId}/move`, {
+      const res = await fetch(`/api/tasks/${taskId}/move`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: targetColumnId, position: 0 }),
+        body: JSON.stringify({
+          column_id: targetColumnId,
+          position: targetPosition,
+        }),
       });
+      if (!res.ok) throw new Error();
+      toast.success('تم نقل المهمة');
     } catch {
+      toast.error('فشل نقل المهمة');
       fetchBoard(); // Revert on error
     }
   };
@@ -570,29 +1215,51 @@ export default function BoardViewClient({
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     try {
+      const body: Record<string, unknown> = {
+        title: newTaskTitle,
+        column_id: addToColumn,
+        priority: newTaskPriority,
+      };
+      if (newTaskDueDate) body.due_date = newTaskDueDate;
+      if (newTaskAssignees.trim()) {
+        body.assignees = newTaskAssignees
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
       const res = await fetch(`/api/boards/${boardId}/tasks`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTaskTitle, column_id: addToColumn }),
+        body: JSON.stringify(body),
       });
       if (res.ok) {
-        toast.success('\u062A\u0645 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0647\u0645\u0629');
+        toast.success('تم إضافة المهمة');
         setNewTaskTitle('');
+        setNewTaskPriority('medium');
+        setNewTaskDueDate('');
+        setNewTaskAssignees('');
         setShowAddTask(false);
         fetchBoard();
+      } else {
+        const err = await res.json();
+        toast.error(err.error || 'فشل إضافة المهمة');
       }
     } catch {
-      toast.error('\u0641\u0634\u0644 \u0625\u0636\u0627\u0641\u0629 \u0627\u0644\u0645\u0647\u0645\u0629');
+      toast.error('فشل إضافة المهمة');
     }
   };
 
   const openAddTask = (columnId: string) => {
     setAddToColumn(columnId);
-    setShowAddTask(true);
     setNewTaskTitle('');
+    setNewTaskPriority('medium');
+    setNewTaskDueDate('');
+    setNewTaskAssignees('');
+    setShowAddTask(true);
   };
 
-  // Loading state
+  // ── Loading state ──
   if (loading) {
     return (
       <div className="p-6 space-y-4">
@@ -609,11 +1276,9 @@ export default function BoardViewClient({
   if (!board) {
     return (
       <div className="p-6 flex flex-col items-center justify-center py-20 text-center">
-        <h2 className="text-lg font-semibold">
-          {'\u0627\u0644\u0644\u0648\u062D\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629'}
-        </h2>
+        <h2 className="text-lg font-semibold">اللوحة غير موجودة</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          {'\u0642\u062F \u064A\u0643\u0648\u0646 \u062A\u0645 \u062D\u0630\u0641\u0647\u0627 \u0623\u0648 \u0644\u0627 \u062A\u0645\u0644\u0643 \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u0648\u0635\u0648\u0644'}
+          قد يكون تم حذفها أو لا تملك صلاحية الوصول
         </p>
         <Button
           variant="outline"
@@ -621,7 +1286,7 @@ export default function BoardViewClient({
           onClick={() => router.push('/dashboard/boards')}
         >
           <ArrowRight className="h-4 w-4 me-2" />
-          {'\u0627\u0644\u0631\u062C\u0648\u0639 \u0644\u0644\u0648\u062D\u0627\u062A'}
+          الرجوع للوحات
         </Button>
       </div>
     );
@@ -646,9 +1311,16 @@ export default function BoardViewClient({
           <div>
             <h1 className="text-2xl font-bold">{board.name}</h1>
             {board.description && (
-              <p className="text-sm text-muted-foreground">{board.description}</p>
+              <p className="text-sm text-muted-foreground">
+                {board.description}
+              </p>
             )}
           </div>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <span>{tasks.length} مهمة</span>
+          <span>·</span>
+          <span>{columns.length} أعمدة</span>
         </div>
       </div>
 
@@ -661,7 +1333,7 @@ export default function BoardViewClient({
       >
         <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
           {columns.map((col) => (
-            <KanbanColumn
+            <DroppableColumn
               key={col.id}
               column={col}
               tasks={tasks
@@ -677,37 +1349,107 @@ export default function BoardViewClient({
           {activeTask ? (
             <Card
               className={`w-[280px] border-s-4 ${
-                PRIORITY_COLORS[activeTask.priority] || PRIORITY_COLORS.medium
-              } shadow-lg`}
+                PRIORITY_COLORS[activeTask.priority] ||
+                PRIORITY_COLORS.medium
+              } shadow-xl rotate-2`}
             >
-              <CardContent className="p-3">
+              <CardContent className="p-3 space-y-1">
                 <p className="text-sm font-medium">{activeTask.title}</p>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <Badge variant="outline" className="text-[9px] h-4">
+                    {PRIORITY_LABELS[activeTask.priority] ||
+                      PRIORITY_LABELS.medium}
+                  </Badge>
+                  {activeTask.due_date && (
+                    <span className="flex items-center gap-0.5">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(activeTask.due_date).toLocaleDateString(
+                        'ar-EG',
+                        { month: 'short', day: 'numeric' }
+                      )}
+                    </span>
+                  )}
+                </div>
+                {(activeTask.pyra_task_assignees?.length ?? 0) > 0 && (
+                  <div className="flex items-center gap-1">
+                    {activeTask.pyra_task_assignees?.slice(0, 3).map((a, i) => (
+                      <Avatar key={i} className="h-4 w-4 border">
+                        <AvatarFallback className="text-[6px] bg-orange-500/10 text-orange-600">
+                          {a.username.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : null}
         </DragOverlay>
       </DndContext>
 
-      {/* Add Task Dialog */}
+      {/* Enhanced Add Task Dialog */}
       <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{'\u0625\u0636\u0627\u0641\u0629 \u0645\u0647\u0645\u0629 \u062C\u062F\u064A\u062F\u0629'}</DialogTitle>
+            <DialogTitle>إضافة مهمة جديدة</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
-            <Input
-              value={newTaskTitle}
-              onChange={(e) => setNewTaskTitle(e.target.value)}
-              placeholder={'\u0639\u0646\u0648\u0627\u0646 \u0627\u0644\u0645\u0647\u0645\u0629...'}
-              onKeyDown={(e) => e.key === 'Enter' && addTask()}
-              autoFocus
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-medium">عنوان المهمة</label>
+              <Input
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                placeholder="عنوان المهمة..."
+                onKeyDown={(e) => e.key === 'Enter' && addTask()}
+                autoFocus
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">الأولوية</label>
+                <Select
+                  value={newTaskPriority}
+                  onValueChange={setNewTaskPriority}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="urgent">عاجل</SelectItem>
+                    <SelectItem value="high">مرتفع</SelectItem>
+                    <SelectItem value="medium">متوسط</SelectItem>
+                    <SelectItem value="low">منخفض</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">تاريخ التسليم</label>
+                <Input
+                  type="date"
+                  value={newTaskDueDate}
+                  onChange={(e) => setNewTaskDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                المعيّنون (أسماء مستخدمين مفصولة بفاصلة)
+              </label>
+              <Input
+                value={newTaskAssignees}
+                onChange={(e) => setNewTaskAssignees(e.target.value)}
+                placeholder="مثال: ahmed, sara, ali"
+              />
+            </div>
+
             <Button
               onClick={addTask}
               disabled={!newTaskTitle.trim()}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {'\u0625\u0636\u0627\u0641\u0629'}
+              إضافة
             </Button>
           </div>
         </DialogContent>
