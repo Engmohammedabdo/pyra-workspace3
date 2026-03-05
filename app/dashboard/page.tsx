@@ -27,6 +27,11 @@ import {
   FolderPlus,
   UserPlus,
   RefreshCw,
+  CheckSquare,
+  AlertTriangle,
+  Megaphone,
+  CalendarDays,
+  Kanban,
 } from 'lucide-react';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
@@ -40,18 +45,22 @@ import { TeamWorkloadChart } from '@/components/dashboard/TeamWorkloadChart';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
 interface DashboardData {
-  total_files: number;
-  total_users: number;
-  total_clients: number;
-  total_projects: number;
-  active_projects: number;
-  completed_projects: number;
-  total_teams: number;
-  total_quotes: number;
-  signed_quotes: number;
-  pending_approvals: number;
-  trash_count: number;
-  active_shares: number;
+  // Admin fields (only present for admin role)
+  total_files?: number;
+  total_users?: number;
+  total_clients?: number;
+  total_projects?: number;
+  active_projects?: number;
+  completed_projects?: number;
+  total_teams?: number;
+  total_quotes?: number;
+  signed_quotes?: number;
+  pending_approvals?: number;
+  trash_count?: number;
+  active_shares?: number;
+  storage_used?: number;
+  max_storage_gb?: number;
+  // Shared fields
   recent_activity: Array<{
     id: string;
     action_type: string;
@@ -61,11 +70,19 @@ interface DashboardData {
     created_at: string;
   }>;
   unread_notifications: number;
-  storage_used: number;
-  max_storage_gb?: number;
   // Employee fields
   accessible_files?: number;
   permitted_paths?: string[];
+  my_tasks_count?: number;
+  my_tasks_overdue?: number;
+  my_hours_this_week?: number;
+  unread_announcements?: number;
+  leave_balance?: {
+    annual_remaining: number;
+    sick_remaining: number;
+    personal_remaining: number;
+  };
+  pending_leave_count?: number;
 }
 
 const ACTION_LABELS: Record<string, string> = {
@@ -363,6 +380,79 @@ export default function DashboardPage() {
         )}
       </StaggerContainer>
 
+      {/* ═══ Employee Stats Grid ═══ */}
+      {!isAdmin && data && (
+        <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/my-tasks"
+              title="مهامي"
+              value={data.my_tasks_count ?? 0}
+              subtitle={
+                (data.my_tasks_overdue ?? 0) > 0
+                  ? `${data.my_tasks_overdue} متأخرة`
+                  : 'لا توجد مهام متأخرة'
+              }
+              icon={CheckSquare}
+              accent={(data.my_tasks_overdue ?? 0) > 0 ? 'text-red-500' : undefined}
+            />
+          </StaggerItem>
+
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/timesheet"
+              title="ساعات هذا الأسبوع"
+              value={data.my_hours_this_week ?? 0}
+              subtitle="ساعة مسجلة"
+              icon={Clock}
+            />
+          </StaggerItem>
+
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/announcements"
+              title="الإعلانات"
+              value={data.unread_announcements ?? 0}
+              subtitle="غير مقروءة"
+              icon={Megaphone}
+              accent={(data.unread_announcements ?? 0) > 0 ? 'text-blue-500' : undefined}
+            />
+          </StaggerItem>
+
+          <StaggerItem>
+            <StatCard
+              href="/dashboard/leave"
+              title="الإجازات المتبقية"
+              value={data.leave_balance?.annual_remaining ?? 30}
+              subtitle={`${data.leave_balance?.sick_remaining ?? 15} مرضية · ${data.leave_balance?.personal_remaining ?? 5} شخصية`}
+              icon={CalendarDays}
+            />
+          </StaggerItem>
+        </StaggerContainer>
+      )}
+
+      {/* ═══ Employee Overdue Alert ═══ */}
+      {!isAdmin && data && (data.my_tasks_overdue ?? 0) > 0 && (
+        <Link href="/dashboard/my-tasks" className="block">
+          <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20 hover:border-red-500/50 transition-colors">
+            <CardContent className="flex items-center gap-3 py-3">
+              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-red-800 dark:text-red-300">
+                  لديك {data.my_tasks_overdue} مهام متأخرة
+                </p>
+                <p className="text-xs text-red-600/70 dark:text-red-400/70">
+                  يرجى مراجعة المهام المتأخرة واتخاذ الإجراء المناسب
+                </p>
+              </div>
+              <ArrowLeft className="h-5 w-5 text-red-400" />
+            </CardContent>
+          </Card>
+        </Link>
+      )}
+
       {/* ═══ Charts Section (Admin) ═══ */}
       {isAdmin && <DashboardCharts />}
 
@@ -495,13 +585,13 @@ export default function DashboardPage() {
                   <Upload className="h-4 w-4 me-2" /> رفع ملفات
                 </Button>
               </Link>
-              <Link href="/dashboard/files" className="block">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <FolderPlus className="h-4 w-4 me-2" /> مجلد جديد
-                </Button>
-              </Link>
               {isAdmin && (
                 <>
+                  <Link href="/dashboard/files" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <FolderPlus className="h-4 w-4 me-2" /> مجلد جديد
+                    </Button>
+                  </Link>
                   <Link href="/dashboard/projects" className="block">
                     <Button variant="outline" size="sm" className="w-full justify-start">
                       <Plus className="h-4 w-4 me-2" /> مشروع جديد
@@ -514,8 +604,67 @@ export default function DashboardPage() {
                   </Link>
                 </>
               )}
+              {!isAdmin && (
+                <>
+                  <Link href="/dashboard/my-tasks" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <CheckSquare className="h-4 w-4 me-2" /> مهامي
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/boards" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Kanban className="h-4 w-4 me-2" /> لوحات العمل
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/timesheet" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Clock className="h-4 w-4 me-2" /> تسجيل ساعات
+                    </Button>
+                  </Link>
+                </>
+              )}
             </CardContent>
           </Card>
+
+          {/* Employee Leave Summary */}
+          {!isAdmin && data?.leave_balance && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" /> رصيد الإجازات
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="divide-y">
+                <MiniStat
+                  label="سنوية"
+                  value={data.leave_balance.annual_remaining}
+                  icon={CalendarDays}
+                  accent="bg-orange-100 dark:bg-orange-900/30"
+                />
+                <MiniStat
+                  label="مرضية"
+                  value={data.leave_balance.sick_remaining}
+                  icon={CalendarDays}
+                  accent="bg-blue-100 dark:bg-blue-900/30"
+                />
+                <MiniStat
+                  label="شخصية"
+                  value={data.leave_balance.personal_remaining}
+                  icon={CalendarDays}
+                  accent="bg-purple-100 dark:bg-purple-900/30"
+                />
+                {(data.pending_leave_count ?? 0) > 0 && (
+                  <div className="pt-2 mt-2">
+                    <Link href="/dashboard/leave">
+                      <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                        {data.pending_leave_count} طلب معلق
+                      </Badge>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>

@@ -102,6 +102,32 @@ export const PERMISSIONS = {
   // Script Reviews
   SCRIPT_REVIEWS_VIEW: 'script_reviews.view',
   SCRIPT_REVIEWS_MANAGE: 'script_reviews.manage',
+
+  // Boards
+  BOARDS_VIEW: 'boards.view',
+  BOARDS_MANAGE: 'boards.manage',
+
+  // Tasks
+  TASKS_VIEW: 'tasks.view',
+  TASKS_CREATE: 'tasks.create',
+  TASKS_MANAGE: 'tasks.manage',
+
+  // Directory
+  DIRECTORY_VIEW: 'directory.view',
+
+  // Timesheets
+  TIMESHEET_VIEW: 'timesheet.view',
+  TIMESHEET_MANAGE: 'timesheet.manage',
+  TIMESHEET_APPROVE: 'timesheet.approve',
+
+  // Announcements
+  ANNOUNCEMENTS_VIEW: 'announcements.view',
+  ANNOUNCEMENTS_MANAGE: 'announcements.manage',
+
+  // Leave
+  LEAVE_VIEW: 'leave.view',
+  LEAVE_MANAGE: 'leave.manage',
+  LEAVE_APPROVE: 'leave.approve',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -324,6 +350,62 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'script_reviews.manage', label: 'Manage Script Reviews', labelAr: 'إدارة مراجعات السكريبتات' },
     ],
   },
+  {
+    key: 'boards',
+    label: 'Boards',
+    labelAr: 'لوحات العمل',
+    permissions: [
+      { key: 'boards.view', label: 'View Boards', labelAr: 'عرض لوحات العمل' },
+      { key: 'boards.manage', label: 'Manage Boards', labelAr: 'إدارة لوحات العمل' },
+    ],
+  },
+  {
+    key: 'tasks',
+    label: 'Tasks',
+    labelAr: 'المهام',
+    permissions: [
+      { key: 'tasks.view', label: 'View Tasks', labelAr: 'عرض المهام' },
+      { key: 'tasks.create', label: 'Create Tasks', labelAr: 'إنشاء مهام' },
+      { key: 'tasks.manage', label: 'Manage Tasks', labelAr: 'إدارة المهام' },
+    ],
+  },
+  {
+    key: 'directory',
+    label: 'Directory',
+    labelAr: 'دليل الفريق',
+    permissions: [
+      { key: 'directory.view', label: 'View Directory', labelAr: 'عرض دليل الفريق' },
+    ],
+  },
+  {
+    key: 'timesheet',
+    label: 'Timesheets',
+    labelAr: 'سجل الساعات',
+    permissions: [
+      { key: 'timesheet.view', label: 'View Timesheets', labelAr: 'عرض سجل الساعات' },
+      { key: 'timesheet.manage', label: 'Manage Timesheets', labelAr: 'إدارة سجل الساعات' },
+      { key: 'timesheet.approve', label: 'Approve Timesheets', labelAr: 'اعتماد سجل الساعات' },
+    ],
+  },
+  {
+    key: 'announcements',
+    label: 'Announcements',
+    labelAr: 'الإعلانات',
+    permissions: [
+      { key: 'announcements.view', label: 'View Announcements', labelAr: 'عرض الإعلانات' },
+      { key: 'announcements.manage', label: 'Manage Announcements', labelAr: 'إدارة الإعلانات' },
+    ],
+  },
+  {
+    key: 'leave',
+    label: 'Leave',
+    labelAr: 'الإجازات',
+    permissions: [
+      { key: 'leave.view', label: 'View Leave', labelAr: 'عرض الإجازات' },
+      { key: 'leave.manage', label: 'Manage Leave', labelAr: 'إدارة الإجازات' },
+      { key: 'leave.approve', label: 'Approve Leave', labelAr: 'اعتماد الإجازات' },
+    ],
+  },
 ];
 
 // ============================================================
@@ -384,6 +466,21 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
     case 'admin':
       return ['*'];
     case 'employee':
+      return [
+        'dashboard.view',
+        'files.view',
+        'projects.view',
+        'boards.view',
+        'tasks.view',
+        'tasks.create',
+        'directory.view',
+        'timesheet.view',
+        'announcements.view',
+        'leave.view',
+        'notifications.view',
+        'favorites.view',
+        'favorites.manage',
+      ];
     case 'client':
     default:
       return ['dashboard.view', 'files.view', 'projects.view', 'notifications.view', 'favorites.view', 'favorites.manage'];

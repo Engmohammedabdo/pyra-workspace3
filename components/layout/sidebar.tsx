@@ -50,6 +50,13 @@ import {
   ChevronDown,
   HelpCircle,
   HardDrive,
+  UserCircle,
+  CheckSquare,
+  Clock,
+  Kanban,
+  Megaphone,
+  Contact,
+  CalendarOff,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -85,6 +92,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: 'شخصي',
+    titleEn: 'Personal',
+    items: [
+      { href: '/dashboard/profile', label: 'ملفي الشخصي', labelEn: 'My Profile', icon: UserCircle },
+      { href: '/dashboard/my-tasks', label: 'مهامي', labelEn: 'My Tasks', icon: CheckSquare },
+      { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
+    ],
+  },
+  {
     title: 'إدارة الملفات',
     titleEn: 'File Management',
     items: [
@@ -104,6 +120,16 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view' },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
       { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
+    ],
+  },
+  {
+    title: 'سير العمل',
+    titleEn: 'Workflow',
+    items: [
+      { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
+      { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
+      { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
+      { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
     ],
   },
   {

@@ -1,8 +1,8 @@
 # Pyra Workspace 3.0 — Database Schema
 
-> Auto-documented from live Supabase database on 2026-02-16
+> Auto-documented from live Supabase database on 2026-03-04
 > Host: `pyraworkspacedb.pyramedia.cloud`
-> 29 tables in `public` schema (prefix: `pyra_`)
+> 44 tables in `public` schema (prefix: `pyra_`)
 
 ---
 
@@ -37,6 +37,21 @@
 27. [pyra_teams](#pyra_teams) — Teams/departments
 28. [pyra_trash](#pyra_trash) — Soft-deleted files (30-day retention)
 29. [pyra_users](#pyra_users) — Employee/admin accounts
+30. [pyra_boards](#pyra_boards) — Kanban boards
+31. [pyra_board_columns](#pyra_board_columns) — Kanban board columns
+32. [pyra_board_labels](#pyra_board_labels) — Board label definitions
+33. [pyra_tasks](#pyra_tasks) — Task cards
+34. [pyra_task_assignees](#pyra_task_assignees) — Task–user assignments
+35. [pyra_task_labels](#pyra_task_labels) — Task–label junction
+36. [pyra_task_checklist](#pyra_task_checklist) — Task checklist items
+37. [pyra_task_comments](#pyra_task_comments) — Task comments
+38. [pyra_task_attachments](#pyra_task_attachments) — Task file attachments
+39. [pyra_task_activity](#pyra_task_activity) — Task activity log
+40. [pyra_timesheets](#pyra_timesheets) — Employee time tracking
+41. [pyra_announcements](#pyra_announcements) — Company announcements
+42. [pyra_announcement_reads](#pyra_announcement_reads) — Announcement read tracking
+43. [pyra_leave_requests](#pyra_leave_requests) — Leave/vacation requests
+44. [pyra_leave_balances](#pyra_leave_balances) — Annual leave balances
 
 ---
 
@@ -663,3 +678,339 @@ All `varchar` IDs use the format: `{prefix}_{unix_timestamp}_{random}`
 | `sl` | pyra_share_links |
 | `tm` | pyra_team_members |
 | `tr` | pyra_trash |
+| `brd` | pyra_boards |
+| `col` | pyra_board_columns |
+| `lbl` | pyra_board_labels |
+| `tsk` | pyra_tasks |
+| `ta` | pyra_task_assignees |
+| `chk` | pyra_task_checklist |
+| `tc` | pyra_task_comments |
+| `tatt` | pyra_task_attachments |
+| `tact` | pyra_task_activity |
+| `ts` | pyra_timesheets |
+| `ann` | pyra_announcements |
+| `lr` | pyra_leave_requests |
+
+---
+
+## pyra_boards
+
+Kanban boards linked to projects. Supports templates for quick setup.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| project_id | varchar(20) | NULL | — |
+| name | varchar(255) | NOT NULL | — |
+| description | text | NULL | — |
+| template | text | NULL | — |
+| is_default | boolean | NULL | false |
+| position | integer | NULL | 0 |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+| updated_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `project_id` → `pyra_projects(id)` ON DELETE CASCADE
+**Index**: `idx_boards_project` on `project_id`
+
+---
+
+## pyra_board_columns
+
+Columns within a Kanban board (e.g., "To Do", "In Progress", "Done").
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| board_id | varchar(20) | NOT NULL | — |
+| name | varchar(255) | NOT NULL | — |
+| color | varchar(20) | NULL | 'gray' |
+| position | integer | NULL | 0 |
+| wip_limit | integer | NULL | — |
+| is_done_column | boolean | NULL | false |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `board_id` → `pyra_boards(id)` ON DELETE CASCADE
+**Index**: `idx_columns_board` on `board_id`
+
+---
+
+## pyra_board_labels
+
+Label definitions per board for categorizing tasks.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| board_id | varchar(20) | NOT NULL | — |
+| name | varchar(100) | NOT NULL | — |
+| color | varchar(20) | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `board_id` → `pyra_boards(id)` ON DELETE CASCADE
+
+---
+
+## pyra_tasks
+
+Task cards on Kanban boards with priority, dates, and hour tracking.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| board_id | varchar(20) | NOT NULL | — |
+| column_id | varchar(20) | NOT NULL | — |
+| title | varchar(500) | NOT NULL | — |
+| description | text | NULL | — |
+| position | integer | NULL | 0 |
+| priority | varchar(20) | NULL | 'medium' |
+| due_date | date | NULL | — |
+| start_date | date | NULL | — |
+| estimated_hours | numeric(6,2) | NULL | — |
+| actual_hours | numeric(6,2) | NULL | 0 |
+| cover_image | text | NULL | — |
+| is_archived | boolean | NULL | false |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+| updated_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `board_id` → `pyra_boards(id)` ON DELETE CASCADE, `column_id` → `pyra_board_columns(id)`
+**Indexes**: `idx_tasks_board`, `idx_tasks_column`, `idx_tasks_due` (partial, where due_date IS NOT NULL)
+
+---
+
+## pyra_task_assignees
+
+Junction table for task–user assignments.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| assigned_by | varchar | NOT NULL | — |
+| assigned_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
+**Unique**: `(task_id, username)`
+**Indexes**: `idx_assignees_task`, `idx_assignees_user`
+
+---
+
+## pyra_task_labels
+
+Junction table linking tasks to board labels.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **task_id** | varchar(20) | NOT NULL | — |
+| **label_id** | varchar(20) | NOT NULL | — |
+
+**PK**: `(task_id, label_id)`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE, `label_id` → `pyra_board_labels(id)` ON DELETE CASCADE
+
+---
+
+## pyra_task_checklist
+
+Checklist items within a task card.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| title | text | NOT NULL | — |
+| is_checked | boolean | NULL | false |
+| position | integer | NULL | 0 |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
+**Index**: `idx_checklist_task`
+
+---
+
+## pyra_task_comments
+
+Comments on task cards.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| author_username | varchar | NOT NULL | — |
+| author_name | varchar | NOT NULL | — |
+| content | text | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+| updated_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
+**Index**: `idx_task_comments`
+
+---
+
+## pyra_task_attachments
+
+Files attached to task cards.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| file_id | varchar(20) | NULL | — |
+| file_name | varchar | NOT NULL | — |
+| file_url | text | NOT NULL | — |
+| file_size | bigint | NULL | 0 |
+| uploaded_by | varchar | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
+
+---
+
+## pyra_task_activity
+
+Activity log for task-level events (moved, assigned, edited, etc.).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| task_id | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| display_name | varchar | NOT NULL | — |
+| action | varchar(50) | NOT NULL | — |
+| details | jsonb | NULL | '{}' |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `task_id` → `pyra_tasks(id)` ON DELETE CASCADE
+**Index**: `idx_task_activity`
+
+---
+
+## pyra_timesheets
+
+Employee time entries for tracking work hours per project/task.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| project_id | varchar(20) | NULL | — |
+| task_id | varchar(20) | NULL | — |
+| date | date | NOT NULL | — |
+| hours | numeric(4,2) | NOT NULL | — |
+| description | text | NULL | — |
+| status | varchar(20) | NULL | 'draft' |
+| approved_by | varchar | NULL | — |
+| approved_at | timestamptz | NULL | — |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**FK**: `project_id` → `pyra_projects(id)`, `task_id` → `pyra_tasks(id)`
+**Check**: `hours > 0 AND hours <= 24`
+**Indexes**: `idx_timesheet_user`, `idx_timesheet_date`
+**Status values**: `draft`, `submitted`, `approved`, `rejected`
+
+---
+
+## pyra_announcements
+
+Company-wide announcements with priority and pin support.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| title | varchar(500) | NOT NULL | — |
+| content | text | NOT NULL | — |
+| priority | varchar(20) | NULL | 'normal' |
+| is_pinned | boolean | NULL | false |
+| target_teams | jsonb | NULL | '[]' |
+| created_by | varchar | NOT NULL | — |
+| created_at | timestamptz | NULL | now() |
+| updated_at | timestamptz | NULL | now() |
+| expires_at | timestamptz | NULL | — |
+
+**PK**: `id`
+**Priority values**: `normal`, `important`, `urgent`
+
+---
+
+## pyra_announcement_reads
+
+Tracks which users have read which announcements.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **announcement_id** | varchar(20) | NOT NULL | — |
+| **username** | varchar | NOT NULL | — |
+| read_at | timestamptz | NULL | now() |
+
+**PK**: `(announcement_id, username)`
+**FK**: `announcement_id` → `pyra_announcements(id)` ON DELETE CASCADE
+
+---
+
+## pyra_leave_requests
+
+Employee leave/vacation requests with approval workflow.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| type | varchar(30) | NOT NULL | — |
+| start_date | date | NOT NULL | — |
+| end_date | date | NOT NULL | — |
+| days_count | integer | NOT NULL | — |
+| reason | text | NULL | — |
+| status | varchar(20) | NULL | 'pending' |
+| reviewed_by | varchar | NULL | — |
+| reviewed_at | timestamptz | NULL | — |
+| review_note | text | NULL | — |
+| created_at | timestamptz | NULL | now() |
+
+**PK**: `id`
+**Index**: `idx_leave_user`
+**Type values**: `annual`, `sick`, `personal`
+**Status values**: `pending`, `approved`, `rejected`
+
+---
+
+## pyra_leave_balances
+
+Annual leave balance per employee per year.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **username** | varchar | NOT NULL | — |
+| **year** | integer | NOT NULL | — |
+| annual_total | integer | NULL | 30 |
+| annual_used | integer | NULL | 0 |
+| sick_total | integer | NULL | 15 |
+| sick_used | integer | NULL | 0 |
+| personal_total | integer | NULL | 5 |
+| personal_used | integer | NULL | 0 |
+
+**PK**: `(username, year)`
+
+---
+
+## pyra_users — Additional Columns (Employee System)
+
+The following columns were added to `pyra_users` for the Employee System:
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| phone | text | NULL | — |
+| job_title | text | NULL | — |
+| avatar_url | text | NULL | — |
+| bio | text | NULL | — |
+| status | text | NULL | 'active' |

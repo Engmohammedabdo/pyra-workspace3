@@ -13,10 +13,10 @@ export async function GET() {
 
     const supabase = await createServerSupabaseClient();
 
-    // Get user with extra stats
+    // Get user with role join
     const { data: user } = await supabase
       .from('pyra_users')
-      .select('*')
+      .select('*, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', auth.pyraUser.username)
       .single();
 
@@ -49,6 +49,7 @@ export async function GET() {
 
 // =============================================================
 // PATCH /api/profile — Update current user profile
+// Allowed fields: display_name, email, phone, job_title, bio
 // =============================================================
 export async function PATCH(request: NextRequest) {
   try {
@@ -56,30 +57,43 @@ export async function PATCH(request: NextRequest) {
     if (!auth) return apiUnauthorized();
 
     const body = await request.json();
-    const { display_name, email, phone } = body;
 
-    if (!display_name?.trim()) {
+    // Whitelist of allowed fields
+    const allowed = ['display_name', 'email', 'phone', 'job_title', 'bio'];
+    const updates: Record<string, any> = {};
+    for (const key of allowed) {
+      if (key in body) {
+        updates[key] = typeof body[key] === 'string' ? body[key].trim() || null : body[key];
+      }
+    }
+
+    // display_name is required if provided
+    if ('display_name' in updates && !updates.display_name) {
       return apiValidationError('الاسم مطلوب');
     }
 
+    // Bio max length
+    if (updates.bio && updates.bio.length > 280) {
+      return apiValidationError('النبذة التعريفية يجب أن تكون أقل من 280 حرف');
+    }
+
+    updates.updated_at = new Date().toISOString();
+
     const supabase = await createServerSupabaseClient();
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('pyra_users')
-      .update({
-        display_name: display_name.trim(),
-        email: email?.trim() || null,
-        phone: phone?.trim() || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('username', auth.pyraUser.username);
+      .update(updates)
+      .eq('username', auth.pyraUser.username)
+      .select()
+      .single();
 
     if (error) {
       console.error('Profile update error:', error);
       return apiServerError('فشل في تحديث الملف الشخصي');
     }
 
-    return apiSuccess({ message: 'تم تحديث الملف الشخصي' });
+    return apiSuccess(data);
   } catch (err) {
     console.error('Profile PATCH error:', err);
     return apiServerError();

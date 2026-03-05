@@ -18,6 +18,7 @@ import {
   Settings,
   ArrowRight,
   ExternalLink,
+  Kanban,
 } from 'lucide-react';
 import { MODULE_GUIDES, searchModuleGuides } from '@/lib/config/module-guide';
 import type { ModuleGuide } from '@/lib/config/module-guide';
@@ -76,6 +77,23 @@ const SECTIONS = [
       '/dashboard/finance/recurring',
       '/dashboard/finance/reports',
       '/dashboard/finance/targets',
+    ],
+  },
+  {
+    key: 'workflow',
+    title: 'سير العمل',
+    titleEn: 'Workflow',
+    icon: Kanban,
+    color: 'text-indigo-600 dark:text-indigo-400',
+    bgColor: 'bg-indigo-500/10',
+    hrefs: [
+      '/dashboard/profile',
+      '/dashboard/my-tasks',
+      '/dashboard/boards',
+      '/dashboard/directory',
+      '/dashboard/timesheet',
+      '/dashboard/announcements',
+      '/dashboard/leave',
     ],
   },
   {
