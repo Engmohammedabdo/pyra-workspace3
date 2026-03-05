@@ -4,7 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/respon
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getBoardTemplate } from '@/lib/config/board-templates';
-import { resolveUserScope } from '@/lib/auth/scope';
+import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/boards
@@ -100,6 +100,22 @@ export async function POST(req: NextRequest) {
       color: l.color,
     }));
     await supabase.from('pyra_board_labels').insert(labelInserts);
+  }
+
+  // Invalidate scope cache for team members when board is created under a project
+  if (project_id) {
+    const { data: project } = await supabase
+      .from('pyra_projects')
+      .select('team_id')
+      .eq('id', project_id)
+      .single();
+    if (project?.team_id) {
+      const { data: teamMembers } = await supabase
+        .from('pyra_team_members')
+        .select('username')
+        .eq('team_id', project.team_id);
+      teamMembers?.forEach(m => invalidateScopeCache(m.username));
+    }
   }
 
   // Fetch created board with columns

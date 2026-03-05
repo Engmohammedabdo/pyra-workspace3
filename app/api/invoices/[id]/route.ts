@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -9,6 +10,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -21,6 +23,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('invoices.view');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
@@ -35,6 +38,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return apiServerError();
     }
     if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+
+    // Scope check: non-admins can only view invoices for their accessible clients
+    if (!scope.isAdmin) {
+      if (!invoice.client_id || !scope.clientIds.includes(invoice.client_id)) {
+        return apiForbidden();
+      }
+    }
 
     // Get items
     const { data: items } = await supabase
@@ -127,6 +137,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('invoices.edit');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const body = await request.json();
     const supabase = createServiceRoleClient();
@@ -134,11 +145,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_invoices')
-      .select('id, status, tax_rate, amount_paid')
+      .select('id, status, tax_rate, amount_paid, client_id')
       .eq('id', id)
       .maybeSingle();
 
     if (!existing) return apiNotFound('الفاتورة غير موجودة');
+
+    // Scope check: non-admins can only edit invoices for their accessible clients
+    if (!scope.isAdmin) {
+      if (!existing.client_id || !scope.clientIds.includes(existing.client_id)) {
+        return apiForbidden();
+      }
+    }
 
     // Only draft invoices can be fully edited
     if (existing.status !== 'draft') {
@@ -257,16 +275,25 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('invoices.delete');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
     const { data: existing } = await supabase
       .from('pyra_invoices')
-      .select('id, status, invoice_number')
+      .select('id, status, invoice_number, client_id')
       .eq('id', id)
       .maybeSingle();
 
     if (!existing) return apiNotFound('الفاتورة غير موجودة');
+
+    // Scope check: non-admins can only delete invoices for their accessible clients
+    if (!scope.isAdmin) {
+      if (!existing.client_id || !scope.clientIds.includes(existing.client_id)) {
+        return apiForbidden();
+      }
+    }
+
     if (existing.status !== 'draft') {
       return apiValidationError('لا يمكن حذف فاتورة غير مسودة');
     }

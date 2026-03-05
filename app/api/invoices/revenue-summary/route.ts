@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 /**
  * GET /api/invoices/revenue-summary
@@ -13,12 +14,33 @@ export async function GET(_request: NextRequest) {
     const auth = await requireApiPermission('finance.view');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
+
+    // Non-admin with no accessible clients → empty revenue summary
+    if (!scope.isAdmin && scope.clientIds.length === 0) {
+      return apiSuccess({
+        total_revenue: 0,
+        total_outstanding: 0,
+        total_overdue: 0,
+        revenue_this_month: 0,
+        total_invoices: 0,
+        paid_invoices: 0,
+        overdue_invoices: 0,
+      });
+    }
+
     const supabase = createServiceRoleClient();
 
-    // Get all invoices for aggregation
-    const { data: invoices, error } = await supabase
+    // Get invoices for aggregation (scoped for non-admins)
+    let query = supabase
       .from('pyra_invoices')
       .select('status, total, amount_paid, amount_due, created_at, updated_at');
+
+    if (!scope.isAdmin) {
+      query = query.in('client_id', scope.clientIds);
+    }
+
+    const { data: invoices, error } = await query;
 
     if (error) {
       console.error('Revenue summary error:', error);

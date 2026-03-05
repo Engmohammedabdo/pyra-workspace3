@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiForbidden,
   apiNotFound,
   apiValidationError,
   apiServerError,
@@ -9,6 +10,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('invoices.edit');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
     const body = await request.json();
@@ -41,6 +44,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+
+    // Scope check: non-admins can only record payments for their accessible clients
+    if (!scope.isAdmin) {
+      if (!invoice.client_id || !scope.clientIds.includes(invoice.client_id)) {
+        return apiForbidden();
+      }
+    }
+
     if (['draft', 'cancelled'].includes(invoice.status)) {
       return apiValidationError('لا يمكن تسجيل دفعة لهذه الفاتورة');
     }

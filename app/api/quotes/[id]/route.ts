@@ -3,9 +3,11 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiNotFound,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
@@ -21,6 +23,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('quotes.view');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
@@ -35,6 +38,11 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return apiServerError();
     }
     if (!quote) return apiNotFound('عرض السعر غير موجود');
+
+    // Scope check: non-admins can only view quotes for their own clients
+    if (!scope.isAdmin && !scope.clientIds.includes(quote.client_id)) {
+      return apiForbidden();
+    }
 
     // Get items
     const { data: items } = await supabase
@@ -59,6 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('quotes.edit');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const body = await request.json();
     const supabase = createServiceRoleClient();
@@ -66,11 +75,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_quotes')
-      .select('id, status')
+      .select('id, status, client_id')
       .eq('id', id)
       .maybeSingle();
 
     if (!existing) return apiNotFound('عرض السعر غير موجود');
+
+    // Scope check: non-admins can only edit quotes for their own clients
+    if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {
+      return apiForbidden();
+    }
 
     const {
       client_id,
@@ -217,8 +231,23 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('quotes.delete');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
+
+    // Fetch quote for scope check
+    const { data: existing } = await supabase
+      .from('pyra_quotes')
+      .select('id, client_id')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) return apiNotFound('عرض السعر غير موجود');
+
+    // Scope check: non-admins can only delete quotes for their own clients
+    if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {
+      return apiForbidden();
+    }
 
     // Delete items first
     const { error: itemsDelErr } = await supabase.from('pyra_quote_items').delete().eq('quote_id', id);

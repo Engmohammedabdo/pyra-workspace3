@@ -1,16 +1,19 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { toAED } from '@/lib/utils/currency';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
+
+  const scope = await resolveUserScope(auth);
 
   const supabase = createServiceRoleClient();
   const url = req.nextUrl.searchParams;
@@ -42,6 +45,12 @@ export async function GET(req: NextRequest) {
     }
     if (to) {
       query = query.lte('expense_date', to);
+    }
+
+    // Scope filtering for non-admins
+    if (!scope.isAdmin) {
+      if (scope.projectIds.length === 0) return apiSuccess([], { total: 0, page, pageSize, hasMore: false, summary: { total_amount: 0, total_vat: 0, total_count: 0 } });
+      query = query.in('project_id', scope.projectIds);
     }
 
     const { data, error, count } = await query
@@ -93,6 +102,7 @@ export async function GET(req: NextRequest) {
     if (projectId) summaryQuery = summaryQuery.eq('project_id', projectId);
     if (from) summaryQuery = summaryQuery.gte('expense_date', from);
     if (to) summaryQuery = summaryQuery.lte('expense_date', to);
+    if (!scope.isAdmin) summaryQuery = summaryQuery.in('project_id', scope.projectIds);
     const { data: allExpenses } = await summaryQuery;
 
     const totalAmount = (allExpenses || []).reduce((sum: number, e: { amount: number; currency: string }) => sum + toAED(Number(e.amount), e.currency), 0);
@@ -118,6 +128,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
+  const scope = await resolveUserScope(auth);
   const supabase = createServiceRoleClient();
 
   try {
@@ -125,6 +136,11 @@ export async function POST(req: NextRequest) {
     const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, project_id, receipt_url, notes, is_recurring, recurring_period } = body;
 
     if (!amount || amount <= 0) return apiError('المبلغ مطلوب', 422);
+
+    // Scope check: non-admins can only create expenses for their projects
+    if (!scope.isAdmin && project_id && !scope.projectIds.includes(project_id)) {
+      return apiForbidden('لا تملك صلاحية إنشاء مصروف لهذا المشروع');
+    }
 
     const vat_amount = vat_rate ? (amount * vat_rate / 100) : 0;
 

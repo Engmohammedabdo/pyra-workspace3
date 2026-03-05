@@ -1,15 +1,18 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 export async function GET(req: NextRequest) {
   try {
     const auth = await requireApiPermission('finance.view');
     if (isApiError(auth)) return auth;
+
+    const scope = await resolveUserScope(auth);
 
     const supabase = createServiceRoleClient();
     const url = req.nextUrl.searchParams;
@@ -25,6 +28,12 @@ export async function GET(req: NextRequest) {
     if (status) query = query.eq('status', status);
     if (client_id) query = query.eq('client_id', client_id);
     if (search) { const ss = `%${escapeLike(search)}%`; query = query.or(`title.ilike.${escapePostgrestValue(ss)},description.ilike.${escapePostgrestValue(ss)}`); }
+
+    // Scope filtering for non-admins
+    if (!scope.isAdmin) {
+      if (scope.clientIds.length === 0) return apiSuccess([], { total: 0, page, pageSize, hasMore: false });
+      query = query.in('client_id', scope.clientIds);
+    }
 
     const { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -82,6 +91,7 @@ export async function POST(req: NextRequest) {
     const auth = await requireApiPermission('finance.manage');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const supabase = createServiceRoleClient();
     const body = await req.json();
     const {
@@ -91,6 +101,11 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!title) return apiError('عنوان العقد مطلوب', 422);
+
+    // Scope check: non-admins can only create contracts for their clients
+    if (!scope.isAdmin && client_id && !scope.clientIds.includes(Number(client_id))) {
+      return apiForbidden('لا تملك صلاحية إنشاء عقد لهذا العميل');
+    }
 
     const { data, error } = await supabase
       .from('pyra_contracts')

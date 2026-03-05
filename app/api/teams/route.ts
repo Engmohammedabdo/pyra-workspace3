@@ -7,6 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/teams
@@ -17,13 +18,26 @@ export async function GET(_request: NextRequest) {
     const auth = await requireApiPermission('teams.view');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
+
+    // Non-admins can only see teams they belong to
+    if (!scope.isAdmin) {
+      if (scope.teamIds.length === 0) return apiSuccess([]);
+    }
+
     const supabase = await createServerSupabaseClient();
 
-    const { data: teams, error } = await supabase
+    let query = supabase
       .from('pyra_teams')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
+
+    if (!scope.isAdmin) {
+      query = query.in('id', scope.teamIds);
+    }
+
+    const { data: teams, error } = await query;
 
     if (error) {
       console.error('Teams list error:', error);

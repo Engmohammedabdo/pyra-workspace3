@@ -2,14 +2,33 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 export async function GET() {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const scope = await resolveUserScope(auth);
+
   const supabase = createServiceRoleClient();
 
   try {
+    // Non-admin with no scope at all — return empty dashboard
+    if (!scope.isAdmin && scope.clientIds.length === 0 && scope.projectIds.length === 0) {
+      return apiSuccess({
+        summary: {
+          revenue_mtd: 0, revenue_ytd: 0,
+          expenses_mtd: 0, expenses_ytd: 0,
+          profit_mtd: 0, profit_ytd: 0,
+          outstanding: 0, overdue: 0,
+          monthly_subs_cost: 0, active_contracts: 0,
+        },
+        monthly_chart: [],
+        expense_pie: [],
+        upcoming_renewals: [],
+      });
+    }
+
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
     const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
@@ -17,86 +36,101 @@ export async function GET() {
     const in7Days = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
     // Revenue MTD — from paid invoices
-    const { data: revenueMtd } = await supabase
+    let revenueMtdQuery = supabase
       .from('pyra_invoices')
       .select('amount_paid')
       .gte('issue_date', startOfMonth)
       .lte('issue_date', today)
       .in('status', ['paid', 'partially_paid']);
+    if (!scope.isAdmin) revenueMtdQuery = revenueMtdQuery.in('client_id', scope.clientIds);
+    const { data: revenueMtd } = await revenueMtdQuery;
 
     const totalRevenueMtd = (revenueMtd || []).reduce(
       (sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid || 0), 0
     );
 
     // Revenue YTD
-    const { data: revenueYtd } = await supabase
+    let revenueYtdQuery = supabase
       .from('pyra_invoices')
       .select('amount_paid')
       .gte('issue_date', startOfYear)
       .lte('issue_date', today)
       .in('status', ['paid', 'partially_paid']);
+    if (!scope.isAdmin) revenueYtdQuery = revenueYtdQuery.in('client_id', scope.clientIds);
+    const { data: revenueYtd } = await revenueYtdQuery;
 
     const totalRevenueYtd = (revenueYtd || []).reduce(
       (sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid || 0), 0
     );
 
     // Expenses MTD
-    const { data: expensesMtd } = await supabase
+    let expensesMtdQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency')
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
+    if (!scope.isAdmin) expensesMtdQuery = expensesMtdQuery.in('project_id', scope.projectIds);
+    const { data: expensesMtd } = await expensesMtdQuery;
 
     const totalExpensesMtd = (expensesMtd || []).reduce(
       (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
     // Expenses YTD
-    const { data: expensesYtd } = await supabase
+    let expensesYtdQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency')
       .gte('expense_date', startOfYear)
       .lte('expense_date', today);
+    if (!scope.isAdmin) expensesYtdQuery = expensesYtdQuery.in('project_id', scope.projectIds);
+    const { data: expensesYtd } = await expensesYtdQuery;
 
     const totalExpensesYtd = (expensesYtd || []).reduce(
       (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
     // Outstanding invoices
-    const { data: outstanding } = await supabase
+    let outstandingQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
       .in('status', ['sent', 'partially_paid', 'overdue']);
+    if (!scope.isAdmin) outstandingQuery = outstandingQuery.in('client_id', scope.clientIds);
+    const { data: outstanding } = await outstandingQuery;
 
     const totalOutstanding = (outstanding || []).reduce(
       (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
     );
 
     // Overdue invoices
-    const { data: overdue } = await supabase
+    let overdueQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
       .eq('status', 'overdue');
+    if (!scope.isAdmin) overdueQuery = overdueQuery.in('client_id', scope.clientIds);
+    const { data: overdue } = await overdueQuery;
 
     const totalOverdue = (overdue || []).reduce(
       (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
     );
 
-    // Upcoming renewals (next 7 days)
-    const { data: renewals } = await supabase
-      .from('pyra_subscriptions')
-      .select('id, name, provider, cost, currency, next_renewal_date')
-      .eq('status', 'active')
-      .gte('next_renewal_date', today)
-      .lte('next_renewal_date', in7Days)
-      .order('next_renewal_date', { ascending: true });
+    // Upcoming renewals (next 7 days) — subscriptions have no client/project relation
+    // Non-admins should not see company-wide subscription data
+    let renewals: Array<{ id: string; name: string; provider: string; cost: number; currency: string; next_renewal_date: string }> | null = null;
+    if (scope.isAdmin) {
+      const { data: renewalData } = await supabase
+        .from('pyra_subscriptions')
+        .select('id, name, provider, cost, currency, next_renewal_date')
+        .eq('status', 'active')
+        .gte('next_renewal_date', today)
+        .lte('next_renewal_date', in7Days)
+        .order('next_renewal_date', { ascending: true });
+      renewals = renewalData;
+    }
 
     // Monthly revenue vs expenses (last 12 months)
     const monthlyData: Array<{ month: string; revenue: number; expenses: number }> = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthStart = d.toISOString().split('T')[0];
-      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().split('T')[0];
       const monthLabel = d.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' });
 
       monthlyData.push({ month: monthLabel, revenue: 0, expenses: 0 });
@@ -104,12 +138,14 @@ export async function GET() {
 
     // Get all invoices for last 12 months
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split('T')[0];
-    const { data: invoices12m } = await supabase
+    let invoices12mQuery = supabase
       .from('pyra_invoices')
       .select('amount_paid, issue_date')
       .gte('issue_date', twelveMonthsAgo)
       .lte('issue_date', today)
       .in('status', ['paid', 'partially_paid']);
+    if (!scope.isAdmin) invoices12mQuery = invoices12mQuery.in('client_id', scope.clientIds);
+    const { data: invoices12m } = await invoices12mQuery;
 
     (invoices12m || []).forEach((inv: { amount_paid: number; issue_date: string }) => {
       const invDate = new Date(inv.issue_date);
@@ -120,11 +156,13 @@ export async function GET() {
     });
 
     // Get all expenses for last 12 months
-    const { data: expenses12m } = await supabase
+    let expenses12mQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency, expense_date')
       .gte('expense_date', twelveMonthsAgo)
       .lte('expense_date', today);
+    if (!scope.isAdmin) expenses12mQuery = expenses12mQuery.in('project_id', scope.projectIds);
+    const { data: expenses12m } = await expenses12mQuery;
 
     (expenses12m || []).forEach((e: { amount: number; vat_amount: number; currency: string; expense_date: string }) => {
       const eDate = new Date(e.expense_date);
@@ -135,11 +173,13 @@ export async function GET() {
     });
 
     // Expense breakdown by category (current month)
-    const { data: expensesByCategory } = await supabase
+    let expenseByCatQuery = supabase
       .from('pyra_expenses')
       .select('category_id, amount, currency')
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
+    if (!scope.isAdmin) expenseByCatQuery = expenseByCatQuery.in('project_id', scope.projectIds);
+    const { data: expensesByCategory } = await expenseByCatQuery;
 
     const categoryTotals: Record<string, number> = {};
     (expensesByCategory || []).forEach((e: { category_id: string | null; amount: number; currency: string }) => {
@@ -168,26 +208,31 @@ export async function GET() {
       color: id === 'uncategorized' ? '#9ca3af' : (categoryNames[id]?.color || '#6b7280'),
     }));
 
-    // Active subscriptions monthly cost
-    const { data: activeSubs } = await supabase
-      .from('pyra_subscriptions')
-      .select('cost, currency, billing_cycle')
-      .eq('status', 'active');
+    // Active subscriptions monthly cost — non-admins should not see company-wide costs
+    let monthlySubsCost = 0;
+    if (scope.isAdmin) {
+      const { data: activeSubs } = await supabase
+        .from('pyra_subscriptions')
+        .select('cost, currency, billing_cycle')
+        .eq('status', 'active');
 
-    const monthlySubsCost = (activeSubs || []).reduce(
-      (sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
-        const cost = toAED(Number(s.cost), s.currency);
-        if (s.billing_cycle === 'yearly') return sum + cost / 12;
-        if (s.billing_cycle === 'quarterly') return sum + cost / 3;
-        return sum + cost;
-      }, 0
-    );
+      monthlySubsCost = (activeSubs || []).reduce(
+        (sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
+          const cost = toAED(Number(s.cost), s.currency);
+          if (s.billing_cycle === 'yearly') return sum + cost / 12;
+          if (s.billing_cycle === 'quarterly') return sum + cost / 3;
+          return sum + cost;
+        }, 0
+      );
+    }
 
     // Active contracts count
-    const { count: activeContracts } = await supabase
+    let activeContractsQuery = supabase
       .from('pyra_contracts')
       .select('id', { count: 'exact', head: true })
       .in('status', ['active', 'in_progress']);
+    if (!scope.isAdmin) activeContractsQuery = activeContractsQuery.in('client_id', scope.clientIds);
+    const { count: activeContracts } = await activeContractsQuery;
 
     return apiSuccess({
       summary: {

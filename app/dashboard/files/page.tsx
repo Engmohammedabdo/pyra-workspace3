@@ -1,10 +1,12 @@
+import { requirePermission } from '@/lib/auth/guards';
 import { FileExplorer } from '@/components/files/file-explorer';
 
 export const metadata = {
   title: 'الملفات | Pyra Workspace',
 };
 
-export default function FilesPage() {
+export default async function FilesPage() {
+  await requirePermission('files.view');
   return (
     <div className="space-y-6">
       {/* Page header */}

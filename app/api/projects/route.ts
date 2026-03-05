@@ -8,6 +8,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
+import { invalidateScopeCache } from '@/lib/auth/scope';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -228,6 +229,15 @@ export async function POST(request: NextRequest) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
     if (logErr) console.error('Activity log insert error:', logErr);
+
+    // Invalidate scope cache for all team members when project is created
+    if (team_id) {
+      const { data: teamMembers } = await supabase
+        .from('pyra_team_members')
+        .select('username')
+        .eq('team_id', team_id);
+      teamMembers?.forEach(m => invalidateScopeCache(m.username));
+    }
 
     return apiSuccess({ ...project, folder_path: storagePath }, undefined, 201);
   } catch (err) {

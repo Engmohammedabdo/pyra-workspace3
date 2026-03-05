@@ -19,6 +19,7 @@ import { generateId } from '@/lib/utils/id';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 import { autoLinkFileToProject } from '@/lib/utils/project-files';
 import { canAccessPath } from '@/lib/auth/file-access';
+import { resolveUserScope } from '@/lib/auth/scope';
 import type { FileListItem } from '@/types/database';
 
 // ── Route Segment Config: allow large file uploads ──
@@ -130,23 +131,13 @@ export async function GET(request: NextRequest) {
     );
     const offset = Math.max(parseInt(searchParams.get('offset') || '0', 10) || 0, 0);
 
-    // ── Access control: check if user can view all files ──
-    const { hasPermission: checkPerm } = await import('@/lib/auth/rbac');
-    const isAdmin =
-      checkPerm(auth.pyraUser.rolePermissions, 'files.manage') ||
-      checkPerm(auth.pyraUser.rolePermissions, '*') ||
-      auth.pyraUser.role === 'admin';
+    // ── Access control: resolve dynamic scope ──
+    const scope = await resolveUserScope(auth);
+    const isAdmin = scope.isAdmin;
 
-    // For non-admin users, enforce path-based access control
+    // For non-admin users, enforce path-based access control via dynamic scope
     if (!isAdmin) {
-      const userPerms = (auth.pyraUser as unknown as Record<string, unknown>).permissions as {
-        allowed_paths?: string[];
-        paths?: Record<string, string>;
-      } | null;
-
-      const allowedPaths = userPerms?.allowed_paths || [];
-      const pathKeys = userPerms?.paths ? Object.keys(userPerms.paths) : [];
-      const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
+      const allPaths = scope.storagePaths;
 
       if (allPaths.length === 0) {
         // No file permissions at all — return empty
@@ -154,7 +145,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Check if the requested path is accessible
-      const canAccessPath = allPaths.some((allowedPath) => {
+      const canAccessScopePath = allPaths.some((allowedPath) => {
         // Direct access: path equals or is inside an allowed path
         if (path === allowedPath || path.startsWith(allowedPath + '/')) return true;
         // Parent browsing: an allowed path is inside the requested path
@@ -162,7 +153,7 @@ export async function GET(request: NextRequest) {
         return false;
       });
 
-      if (!canAccessPath) {
+      if (!canAccessScopePath) {
         return apiSuccess([], { path, count: 0, offset: 0, limit, hasMore: false });
       }
 
@@ -240,13 +231,7 @@ export async function GET(request: NextRequest) {
     // For employees with direct access, filter out subfolders they can't access
     // (e.g., if they have access to projects/project-a but not projects/project-b)
     if (!isAdmin) {
-      const userPerms2 = (auth.pyraUser as unknown as Record<string, unknown>).permissions as {
-        allowed_paths?: string[];
-        paths?: Record<string, string>;
-      } | null;
-      const allowedPaths = userPerms2?.allowed_paths || [];
-      const pathKeys = userPerms2?.paths ? Object.keys(userPerms2.paths) : [];
-      const allPaths = [...new Set([...allowedPaths, ...pathKeys])];
+      const allPaths = scope.storagePaths;
 
       // Keep files (they're in an allowed directory) but filter folders
       // that might contain paths the user doesn't have access to

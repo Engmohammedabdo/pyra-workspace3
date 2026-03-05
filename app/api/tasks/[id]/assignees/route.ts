@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { invalidateScopeCache } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/tasks/[id]/assignees
@@ -70,6 +71,8 @@ export async function POST(
   const { error } = await supabase.from('pyra_task_assignees').insert(inserts);
   if (error) return apiServerError(error.message);
 
+  newUsernames.forEach((u: string) => invalidateScopeCache(u));
+
   // Log activity
   await supabase.from('pyra_task_activity').insert({
     id: generateId('tl'),
@@ -107,6 +110,8 @@ export async function DELETE(
     .eq('username', username);
 
   if (error) return apiServerError(error.message);
+
+  invalidateScopeCache(username);
 
   // Log activity
   await supabase.from('pyra_task_activity').insert({

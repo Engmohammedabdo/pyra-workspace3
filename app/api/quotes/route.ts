@@ -2,9 +2,11 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
@@ -21,6 +23,13 @@ export async function GET(request: NextRequest) {
     const auth = await requireApiPermission('quotes.view');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
+
+    // Non-admin with no linked clients → empty result
+    if (!scope.isAdmin && scope.clientIds.length === 0) {
+      return apiSuccess([], { total: 0, page: 1, limit: 20 });
+    }
+
     const supabase = createServiceRoleClient();
     const sp = request.nextUrl.searchParams;
 
@@ -34,6 +43,11 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('pyra_quotes')
       .select(QUOTE_FIELDS, { count: 'exact' });
+
+    // Scope-based filtering: non-admins only see quotes for their clients
+    if (!scope.isAdmin) {
+      query = query.in('client_id', scope.clientIds);
+    }
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
@@ -81,6 +95,8 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
+
     const body = await request.json();
     const {
       client_id,
@@ -90,6 +106,11 @@ export async function POST(request: NextRequest) {
       notes,
       items,
     } = body;
+
+    // Scope check: non-admins can only create quotes for their own clients
+    if (!scope.isAdmin && client_id && !scope.clientIds.includes(client_id)) {
+      return apiForbidden();
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return apiValidationError('يجب إضافة عنصر واحد على الأقل');

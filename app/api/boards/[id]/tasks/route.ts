@@ -3,7 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { resolveUserScope } from '@/lib/auth/scope';
+import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/boards/[id]/tasks
@@ -101,6 +101,11 @@ export async function POST(
       assigned_by: auth.pyraUser.username,
     }));
     await supabase.from('pyra_task_assignees').insert(assigneeInserts);
+
+    assignees.forEach((a: any) => {
+      const uname = typeof a === 'string' ? a : a.username;
+      if (uname) invalidateScopeCache(uname);
+    });
   }
 
   return apiSuccess(data, undefined, 201);

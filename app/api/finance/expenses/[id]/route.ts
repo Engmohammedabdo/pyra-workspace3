@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 export async function GET(
   _req: NextRequest,
@@ -12,6 +13,7 @@ export async function GET(
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const scope = await resolveUserScope(auth);
   const { id } = await params;
   const supabase = createServiceRoleClient();
 
@@ -23,6 +25,12 @@ export async function GET(
       .single();
 
     if (error || !data) return apiNotFound();
+
+    // Scope check: non-admins can only view expenses for their projects
+    if (!scope.isAdmin && data.project_id && !scope.projectIds.includes(data.project_id)) {
+      return apiForbidden();
+    }
+
     return apiSuccess(data);
   } catch {
     return apiServerError();
@@ -36,10 +44,24 @@ export async function PATCH(
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
+  const scope = await resolveUserScope(auth);
   const { id } = await params;
   const supabase = createServiceRoleClient();
 
   try {
+    // Scope check: verify the expense belongs to a project in scope
+    if (!scope.isAdmin) {
+      const { data: existing } = await supabase
+        .from('pyra_expenses')
+        .select('project_id')
+        .eq('id', id)
+        .single();
+      if (!existing) return apiNotFound();
+      if (existing.project_id && !scope.projectIds.includes(existing.project_id)) {
+        return apiForbidden();
+      }
+    }
+
     const body = await req.json();
 
     // Allowlist fields to prevent mass assignment
@@ -90,10 +112,24 @@ export async function DELETE(
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
+  const scope = await resolveUserScope(auth);
   const { id } = await params;
   const supabase = createServiceRoleClient();
 
   try {
+    // Scope check: verify the expense belongs to a project in scope
+    if (!scope.isAdmin) {
+      const { data: existing } = await supabase
+        .from('pyra_expenses')
+        .select('project_id')
+        .eq('id', id)
+        .single();
+      if (!existing) return apiNotFound();
+      if (existing.project_id && !scope.projectIds.includes(existing.project_id)) {
+        return apiForbidden();
+      }
+    }
+
     const { error } = await supabase
       .from('pyra_expenses')
       .delete()

@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -11,6 +12,7 @@ import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 /**
  * GET /api/invoices
@@ -21,6 +23,13 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requireApiPermission('invoices.view');
     if (isApiError(auth)) return auth;
+
+    const scope = await resolveUserScope(auth);
+
+    // Non-admin with no accessible clients → empty result
+    if (!scope.isAdmin && scope.clientIds.length === 0) {
+      return apiSuccess([], { total: 0, page: 1, limit: 20 });
+    }
 
     const supabase = createServiceRoleClient();
     const sp = request.nextUrl.searchParams;
@@ -35,6 +44,11 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('pyra_invoices')
       .select(INVOICE_FIELDS, { count: 'exact' });
+
+    // Scope filtering: non-admins only see invoices for their accessible clients
+    if (!scope.isAdmin) {
+      query = query.in('client_id', scope.clientIds);
+    }
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
@@ -83,6 +97,8 @@ export async function POST(request: NextRequest) {
     const auth = await requireApiPermission('invoices.create');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
+
     const body = await request.json();
     const {
       client_id,
@@ -94,6 +110,13 @@ export async function POST(request: NextRequest) {
       milestone_type,
       parent_invoice_id,
     } = body;
+
+    // Scope check: non-admins can only create invoices for their accessible clients
+    if (!scope.isAdmin && client_id) {
+      if (!scope.clientIds.includes(Number(client_id))) {
+        return apiForbidden();
+      }
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return apiValidationError('يجب إضافة بند واحد على الأقل');

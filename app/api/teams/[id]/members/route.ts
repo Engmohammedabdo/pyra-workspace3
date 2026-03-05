@@ -3,11 +3,13 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiNotFound,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/teams/[id]/members
@@ -22,6 +24,13 @@ export async function GET(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    // Scope check: non-admins can only view members of teams they belong to
+    const scope = await resolveUserScope(auth);
+    if (!scope.isAdmin && !scope.teamIds.includes(id)) {
+      return apiForbidden();
+    }
+
     const supabase = await createServerSupabaseClient();
 
     // Verify team exists
@@ -66,6 +75,13 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    // Scope check: non-admins can only manage members of teams they belong to
+    const postScope = await resolveUserScope(auth);
+    if (!postScope.isAdmin && !postScope.teamIds.includes(id)) {
+      return apiForbidden();
+    }
+
     const body = await request.json();
     const { username } = body;
 
@@ -116,6 +132,8 @@ export async function POST(
       return apiServerError();
     }
 
+    invalidateScopeCache(username.trim());
+
     return apiSuccess(member, undefined, 201);
   } catch (err) {
     console.error('POST /api/teams/[id]/members error:', err);
@@ -137,6 +155,13 @@ export async function DELETE(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    // Scope check: non-admins can only manage members of teams they belong to
+    const deleteScope = await resolveUserScope(auth);
+    if (!deleteScope.isAdmin && !deleteScope.teamIds.includes(id)) {
+      return apiForbidden();
+    }
+
     const username = request.nextUrl.searchParams.get('username')?.trim();
 
     if (!username) {
@@ -167,6 +192,8 @@ export async function DELETE(
       console.error('Team member remove error:', error);
       return apiServerError();
     }
+
+    invalidateScopeCache(username);
 
     return apiSuccess({ removed: true, username });
   } catch (err) {
