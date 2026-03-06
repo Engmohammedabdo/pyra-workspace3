@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiError } from '@/lib/api/response';
+import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // POST /api/dashboard/attendance/clock-out
@@ -10,7 +11,7 @@ import { apiSuccess, apiServerError, apiError } from '@/lib/api/response';
 // =============================================================
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireApiPermission('attendance.view');
+    const auth = await requireApiPermission('attendance.manage');
     if (isApiError(auth)) return auth;
 
     const body = await req.json().catch(() => ({}));
@@ -64,6 +65,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'attendance_clock_out',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/attendance',
+      details: { date: today, total_hours: totalHours },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(data);
   } catch (err) {
     console.error('POST /api/dashboard/attendance/clock-out error:', err);

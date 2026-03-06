@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { generateId } from '@/lib/utils/id';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -54,6 +55,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const serviceClient = createServiceRoleClient();
+  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'timesheet_entry_updated',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/timesheet',
+    details: { entry_id: id },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
+
   return apiSuccess(data);
 }
 
@@ -75,5 +90,19 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { error } = await supabase.from('pyra_timesheets').delete().eq('id', id);
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const serviceClient = createServiceRoleClient();
+  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'timesheet_entry_deleted',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/timesheet',
+    details: { entry_id: id },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
+
   return apiSuccess({ deleted: true });
 }

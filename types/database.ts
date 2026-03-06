@@ -1053,3 +1053,76 @@ export interface PyraPipelineStage {
   sort_order: number;
   created_at: string;
 }
+
+// Leave Requests
+export interface PyraLeaveRequest {
+  id: string;
+  username: string;
+  leave_type: string;
+  leave_type_id: string | null;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  reason: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  approved_by: string | null;
+  approved_at: string | null;
+  rejection_reason: string | null;
+  attachment_url: string | null;
+  created_at: string;
+  // Joined
+  display_name?: string;
+  leave_type_name?: string;
+  leave_type_name_ar?: string;
+}
+
+// Timesheet Entries
+export interface PyraTimesheet {
+  id: string;
+  username: string;
+  period_id: string | null;
+  date: string;
+  hours: number;
+  description: string | null;
+  project_id: string | null;
+  task_id: string | null;
+  is_overtime: boolean;
+  overtime_multiplier: number;
+  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  created_at: string;
+  // Joined
+  display_name?: string;
+  project_name?: string;
+}
+
+// Announcements
+export interface PyraAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  target_roles: string[];
+  is_pinned: boolean;
+  published_at: string | null;
+  expires_at: string | null;
+  created_by: string;
+  created_at: string;
+  // Joined
+  author_display_name?: string;
+}
+
+// Leave Balances (v1 - legacy)
+export interface PyraLeaveBalance {
+  id: string;
+  username: string;
+  year: number;
+  annual: number;
+  sick: number;
+  personal: number;
+  unpaid: number;
+  used_annual: number;
+  used_sick: number;
+  used_personal: number;
+  used_unpaid: number;
+  created_at: string;
+}

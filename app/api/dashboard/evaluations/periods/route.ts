@@ -67,6 +67,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'evaluation_period_created',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/evaluations',
+      details: { period_id: id, name },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/evaluations/periods error:', err);

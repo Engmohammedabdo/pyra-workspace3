@@ -10,7 +10,7 @@ type RouteParams = { params: Promise<{ id: string }> };
 // POST /api/dashboard/payroll/[id]/calculate
 // Calculate all payroll items for a given run.
 // =============================================================
-export async function POST(_req: NextRequest, { params }: RouteParams) {
+export async function POST(req: NextRequest, { params }: RouteParams) {
   try {
     const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
@@ -34,13 +34,22 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
     const { month, year } = run;
 
-    // 2. Delete any existing items for this payroll_id
+    // 2. Backup existing items for rollback, then delete
+    const { data: existingItems } = await supabase
+      .from('pyra_payroll_items')
+      .select('*')
+      .eq('payroll_id', id);
+
+    const { data: existingLinkedPayments } = await supabase
+      .from('pyra_employee_payments')
+      .select('id')
+      .eq('payroll_id', id);
+
     await supabase
       .from('pyra_payroll_items')
       .delete()
       .eq('payroll_id', id);
 
-    // Also unlink any previously linked employee_payments
     await supabase
       .from('pyra_employee_payments')
       .update({ payroll_id: null })
@@ -179,7 +188,18 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
         .from('pyra_payroll_items')
         .insert(payrollItems);
 
-      if (insertError) return apiServerError(insertError.message);
+      if (insertError) {
+        // Rollback: restore old items
+        if (existingItems && existingItems.length > 0) {
+          await supabase.from('pyra_payroll_items').insert(existingItems);
+        }
+        if (existingLinkedPayments && existingLinkedPayments.length > 0) {
+          await supabase.from('pyra_employee_payments')
+            .update({ payroll_id: id })
+            .in('id', existingLinkedPayments.map((p: { id: string }) => p.id));
+        }
+        return apiServerError(insertError.message);
+      }
     }
 
     // 8. Update the payroll run
@@ -195,7 +215,19 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
       .select()
       .single();
 
-    if (updateError) return apiServerError(updateError.message);
+    if (updateError) {
+      // Rollback: delete new items, restore old
+      await supabase.from('pyra_payroll_items').delete().eq('payroll_id', id);
+      if (existingItems && existingItems.length > 0) {
+        await supabase.from('pyra_payroll_items').insert(existingItems);
+      }
+      if (existingLinkedPayments && existingLinkedPayments.length > 0) {
+        await supabase.from('pyra_employee_payments')
+          .update({ payroll_id: id })
+          .in('id', existingLinkedPayments.map((p: { id: string }) => p.id));
+      }
+      return apiServerError(updateError.message);
+    }
 
     // 9. Link employee_payments to this payroll
     if (linkedPaymentIds.length > 0) {
@@ -237,6 +269,18 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
       display_name: usersMap[item.username as string]?.display_name || item.username,
       department: usersMap[item.username as string]?.department || null,
     }));
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'payroll_calculated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/payroll',
+      details: { payroll_id: id, total_amount: totalAmount, employee_count: payrollItems.length },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
 
     return apiSuccess({ ...updatedRun, items: enrichedItems });
   } catch (err) {

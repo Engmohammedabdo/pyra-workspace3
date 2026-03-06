@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // PATCH /api/dashboard/evaluations/periods/[id]
@@ -62,6 +63,19 @@ export async function PATCH(
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'evaluation_period_updated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/evaluations',
+      details: { period_id: id, status: body.status || data?.status },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(data);
   } catch (err) {
     console.error('PATCH /api/dashboard/evaluations/periods/[id] error:', err);

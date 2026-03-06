@@ -135,6 +135,18 @@ export async function POST(req: NextRequest) {
       pyra_users: undefined,
     } : data;
 
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'employee_payment_created',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/payroll',
+      details: { payment_id: paymentId, username: username, source_type, amount: Number(amount) },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(flatData, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/employee-payments error:', err);

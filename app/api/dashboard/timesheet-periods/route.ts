@@ -68,5 +68,18 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'timesheet_period_created',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/timesheet',
+    details: { period_id: data?.id, period_type: period_type || 'weekly', start_date, end_date },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
+
   return apiSuccess(data, undefined, 201);
 }

@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
 // =============================================================
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireApiPermission('attendance.view');
+    const auth = await requireApiPermission('attendance.manage');
     if (isApiError(auth)) return auth;
 
     const body = await req.json().catch(() => ({}));
@@ -156,6 +156,19 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'attendance_clock_in',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/attendance',
+      details: { date: today, status },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/attendance error:', err);

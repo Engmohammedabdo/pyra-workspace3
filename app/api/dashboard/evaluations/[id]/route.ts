@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { generateId } from '@/lib/utils/id';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -165,6 +166,19 @@ export async function PATCH(
         .single();
 
       if (error) return apiServerError(error.message);
+
+      // Activity log
+      const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'evaluation_updated',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: '/dashboard/evaluations',
+        details: { evaluation_id: id, status: 'submitted' },
+        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+      });
+      if (logErr) console.error('Activity log error:', logErr);
+
       return apiSuccess(data);
     }
 
@@ -188,6 +202,19 @@ export async function PATCH(
         .single();
 
       if (error) return apiServerError(error.message);
+
+      // Activity log
+      const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'evaluation_updated',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: '/dashboard/evaluations',
+        details: { evaluation_id: id, status: 'acknowledged' },
+        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+      });
+      if (logErr2) console.error('Activity log error:', logErr2);
+
       return apiSuccess(data);
     }
 
@@ -214,6 +241,19 @@ export async function PATCH(
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Activity log
+    const { error: logErr3 } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'evaluation_updated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/evaluations',
+      details: { evaluation_id: id, status: evaluation.status },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr3) console.error('Activity log error:', logErr3);
+
     return apiSuccess(data);
   } catch (err) {
     console.error('PATCH /api/dashboard/evaluations/[id] error:', err);

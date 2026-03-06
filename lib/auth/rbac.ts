@@ -140,6 +140,26 @@ export const PERMISSIONS = {
   // Evaluations
   EVALUATIONS_VIEW: 'evaluations.view',
   EVALUATIONS_MANAGE: 'evaluations.manage',
+
+  // Overtime
+  OVERTIME_VIEW: 'overtime.view',
+  OVERTIME_MANAGE: 'overtime.manage',
+
+  // Work Schedules
+  WORK_SCHEDULES_VIEW: 'work_schedules.view',
+  WORK_SCHEDULES_MANAGE: 'work_schedules.manage',
+
+  // Leave Types
+  LEAVE_TYPES_VIEW: 'leave_types.view',
+  LEAVE_TYPES_MANAGE: 'leave_types.manage',
+
+  // Employee Payments
+  EMPLOYEE_PAYMENTS_VIEW: 'employee_payments.view',
+  EMPLOYEE_PAYMENTS_MANAGE: 'employee_payments.manage',
+
+  // Content Pipeline
+  CONTENT_PIPELINE_VIEW: 'content_pipeline.view',
+  CONTENT_PIPELINE_MANAGE: 'content_pipeline.manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -445,6 +465,51 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'evaluations.manage', label: 'Manage Evaluations', labelAr: 'إدارة التقييمات' },
     ],
   },
+  {
+    key: 'overtime',
+    label: 'Overtime',
+    labelAr: 'العمل الإضافي',
+    permissions: [
+      { key: 'overtime.view', label: 'View Overtime', labelAr: 'عرض العمل الإضافي' },
+      { key: 'overtime.manage', label: 'Manage Overtime', labelAr: 'إدارة العمل الإضافي' },
+    ],
+  },
+  {
+    key: 'work_schedules',
+    label: 'Work Schedules',
+    labelAr: 'جداول العمل',
+    permissions: [
+      { key: 'work_schedules.view', label: 'View Work Schedules', labelAr: 'عرض جداول العمل' },
+      { key: 'work_schedules.manage', label: 'Manage Work Schedules', labelAr: 'إدارة جداول العمل' },
+    ],
+  },
+  {
+    key: 'leave_types',
+    label: 'Leave Types',
+    labelAr: 'أنواع الإجازات',
+    permissions: [
+      { key: 'leave_types.view', label: 'View Leave Types', labelAr: 'عرض أنواع الإجازات' },
+      { key: 'leave_types.manage', label: 'Manage Leave Types', labelAr: 'إدارة أنواع الإجازات' },
+    ],
+  },
+  {
+    key: 'employee_payments',
+    label: 'Employee Payments',
+    labelAr: 'مدفوعات الموظفين',
+    permissions: [
+      { key: 'employee_payments.view', label: 'View Employee Payments', labelAr: 'عرض مدفوعات الموظفين' },
+      { key: 'employee_payments.manage', label: 'Manage Employee Payments', labelAr: 'إدارة مدفوعات الموظفين' },
+    ],
+  },
+  {
+    key: 'content_pipeline',
+    label: 'Content Pipeline',
+    labelAr: 'خط المحتوى',
+    permissions: [
+      { key: 'content_pipeline.view', label: 'View Content Pipeline', labelAr: 'عرض خط المحتوى' },
+      { key: 'content_pipeline.manage', label: 'Manage Content Pipeline', labelAr: 'إدارة خط المحتوى' },
+    ],
+  },
 ];
 
 // ============================================================
@@ -513,11 +578,15 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
         'notifications.view',
         'directory.view',
         'timesheet.view',
+        'timesheet.manage',
         'announcements.view',
         'leave.view',
+        'leave.manage',
         'attendance.view',
+        'attendance.manage',
         'payroll.view',
         'evaluations.view',
+        'overtime.view',
       ];
     case 'client':
     default:

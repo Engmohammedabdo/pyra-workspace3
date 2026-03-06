@@ -63,13 +63,7 @@ export async function POST(
       }
     }
 
-    // Delete existing scores for this evaluation
-    await supabase
-      .from('pyra_evaluation_scores')
-      .delete()
-      .eq('evaluation_id', id);
-
-    // Insert new scores
+    // Build new score rows
     const scoreRows = scores.map((s: { criteria_id: string; score: number; comment?: string }) => ({
       id: generateId('evs'),
       evaluation_id: id,
@@ -78,11 +72,30 @@ export async function POST(
       comment: s.comment || null,
     }));
 
+    // Backup existing scores before deletion (for rollback)
+    const { data: existingScores } = await supabase
+      .from('pyra_evaluation_scores')
+      .select('*')
+      .eq('evaluation_id', id);
+
+    // Delete existing scores
+    await supabase
+      .from('pyra_evaluation_scores')
+      .delete()
+      .eq('evaluation_id', id);
+
+    // Insert new scores — rollback on failure
     const { error: insertError } = await supabase
       .from('pyra_evaluation_scores')
       .insert(scoreRows);
 
-    if (insertError) return apiServerError(insertError.message);
+    if (insertError) {
+      // Rollback: restore old scores
+      if (existingScores && existingScores.length > 0) {
+        await supabase.from('pyra_evaluation_scores').insert(existingScores);
+      }
+      return apiServerError(insertError.message);
+    }
 
     // Fetch criteria weights to calculate overall_rating
     const criteriaIds = scores.map((s: { criteria_id: string }) => s.criteria_id);
@@ -113,6 +126,18 @@ export async function POST(
       .single();
 
     if (updateError) return apiServerError(updateError.message);
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'evaluation_scores_saved',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/evaluations',
+      details: { evaluation_id: id, overall_rating: overallRating, score_count: scoreRows.length },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
 
     return apiSuccess({ evaluation: updated, scores: scoreRows, overall_rating: overallRating });
   } catch (err) {

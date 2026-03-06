@@ -8,6 +8,7 @@ import {
   apiError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -61,6 +62,19 @@ export async function PATCH(
         .single();
 
       if (error) return apiServerError(error.message);
+
+      // Activity log
+      const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'employee_payment_updated',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: '/dashboard/payroll',
+        details: { payment_id: id, status: 'approved' },
+        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+      });
+      if (logErr) console.error('Activity log error:', logErr);
+
       return apiSuccess(data);
     }
 
@@ -81,6 +95,19 @@ export async function PATCH(
         .single();
 
       if (error) return apiServerError(error.message);
+
+      // Activity log
+      const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'employee_payment_updated',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: '/dashboard/payroll',
+        details: { payment_id: id, status: 'paid' },
+        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+      });
+      if (logErr2) console.error('Activity log error:', logErr2);
+
       return apiSuccess(data);
     }
 

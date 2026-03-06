@@ -103,6 +103,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    // Activity log
+    const serviceForLog = createServiceRoleClient();
+    const { error: logErr } = await serviceForLog.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'leave_request_updated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/leave',
+      details: { leave_id: id, action: body.status === 'approved' ? 'approve' : 'reject' },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
     return apiSuccess(data);
   }
 
@@ -171,6 +184,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     } catch {
       // v2 tables may not exist — skip silently
     }
+
+    // Activity log
+    const serviceForLog2 = createServiceRoleClient();
+    const { error: logErr2 } = await serviceForLog2.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'leave_request_updated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/leave',
+      details: { leave_id: id, action: 'cancel' },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr2) console.error('Activity log error:', logErr2);
 
     return apiSuccess(cancelled);
   }
@@ -263,6 +289,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         // v2 tables may not exist — skip silently
       }
     }
+
+    // Activity log
+    const serviceForLog3 = createServiceRoleClient();
+    const { error: logErr3 } = await serviceForLog3.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'leave_request_updated',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/leave',
+      details: { leave_id: id, action: 'cancel' },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr3) console.error('Activity log error:', logErr3);
 
     return apiSuccess(updated);
   }

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 
@@ -168,6 +168,19 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const serviceClient = createServiceRoleClient();
+  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'timesheet_entry_created',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/timesheet',
+    details: { entry_id: data?.id, date, hours },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
 
   return apiSuccess(data, undefined, 201);
 }

@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { generateId } from '@/lib/utils/id';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -87,5 +88,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'timesheet_period_updated',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/timesheet',
+    details: { period_id: id, status: action },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
+
   return apiSuccess(data);
 }

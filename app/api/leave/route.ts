@@ -123,5 +123,18 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Activity log
+  const { error: logErr } = await serviceSupabase.from('pyra_activity_log').insert({
+    id: generateId('al'),
+    action_type: 'leave_request_created',
+    username: auth.pyraUser.username,
+    display_name: auth.pyraUser.display_name,
+    target_path: '/dashboard/leave',
+    details: { leave_id: data?.id, leave_type: type, start_date, end_date, total_days: days_count },
+    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+  });
+  if (logErr) console.error('Activity log error:', logErr);
+
   return apiSuccess(data, undefined, 201);
 }
