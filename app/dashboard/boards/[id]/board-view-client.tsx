@@ -55,6 +55,8 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { renderTextWithMentions } from '@/lib/utils/mentions';
 
 // ============================================================
 // Types
@@ -987,7 +989,7 @@ function TaskDetailDialog({
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">
-                        {c.content}
+                        {renderTextWithMentions(c.content, 'dashboard')}
                       </p>
                     </div>
                   ))}
@@ -996,11 +998,14 @@ function TaskDetailDialog({
 
               {/* New comment input */}
               <div className="flex items-start gap-2">
-                <textarea
+                <MentionTextarea
                   value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  placeholder="اكتب تعليقاً..."
-                  className="flex-1 min-h-[60px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+                  onChange={setNewComment}
+                  taskId={task.id}
+                  variant="dashboard"
+                  placeholder="اكتب تعليقاً... (استخدم @ للإشارة)"
+                  rows={2}
+                  className="flex-1"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();

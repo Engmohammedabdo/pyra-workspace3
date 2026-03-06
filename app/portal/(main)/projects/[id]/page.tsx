@@ -46,7 +46,8 @@ import {
   History,
   Filter,
 } from 'lucide-react';
-import { MentionTextarea } from '@/components/portal/mention-textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
 
@@ -141,38 +142,6 @@ function getFileIcon(fileType: string) {
   if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css'))
     return FileCode;
   return FileIcon;
-}
-
-/** Render comment text with @mentions highlighted in orange. */
-function renderTextWithMentions(text: string) {
-  const mentionRegex = /@([\w\u0600-\u06FF]+)/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = mentionRegex.exec(text)) !== null) {
-    // Push text before the mention
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    // Push highlighted mention
-    parts.push(
-      <span
-        key={match.index}
-        className="text-portal font-semibold"
-      >
-        @{match[1]}
-      </span>
-    );
-    lastIndex = mentionRegex.lastIndex;
-  }
-
-  // Push remaining text
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length > 0 ? parts : text;
 }
 
 // ---------- Component ----------
@@ -675,7 +644,7 @@ export default function PortalProjectDetailPage() {
             search={commentSearch}
             authorFilter={commentAuthorFilter}
             fileFilter={commentFileFilter}
-            renderTextWithMentions={renderTextWithMentions}
+            renderTextWithMentions={(text: string) => renderTextWithMentions(text, 'portal')}
           />
 
           {/* New Comment Form */}
@@ -689,6 +658,7 @@ export default function PortalProjectDetailPage() {
                   value={newComment}
                   onChange={setNewComment}
                   projectId={projectId}
+                  variant="portal"
                   placeholder="اكتب تعليقك هنا... (استخدم @ لذكر شخص من فريق العمل)"
                   required
                 />
@@ -831,6 +801,7 @@ export default function PortalProjectDetailPage() {
               value={fileCommentText}
               onChange={setFileCommentText}
               projectId={projectId}
+              variant="portal"
               placeholder="اكتب تعليقك هنا... (مثال: @أحمد الرجاء مراجعة التصميم)"
               rows={4}
               required

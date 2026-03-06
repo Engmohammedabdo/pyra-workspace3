@@ -35,6 +35,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { renderTextWithMentions } from '@/lib/utils/mentions';
 
 interface FilePreviewProps {
   file: FileListItem | null;
@@ -1002,7 +1004,7 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
                     </span>
                   </div>
                   <p className="leading-relaxed text-foreground/80 whitespace-pre-line">
-                    {renderTextWithMentions(c.text)}
+                    {renderTextWithMentions(c.text, 'dashboard')}
                   </p>
                 </div>
               );
@@ -1013,12 +1015,14 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
 
       {/* New comment form */}
       <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-3">
-        <textarea
+        <MentionTextarea
           value={newText}
-          onChange={(e) => setNewText(e.target.value)}
-          placeholder="اكتب تعليق..."
+          onChange={setNewText}
+          projectId={projectId}
+          variant="dashboard"
+          placeholder="اكتب تعليق... (استخدم @ للإشارة)"
           rows={2}
-          className="flex-1 min-h-[48px] max-h-24 rounded-lg border border-input bg-background px-3 py-2 text-xs ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+          className="flex-1 min-h-[48px] max-h-24 text-xs"
         />
         <Button
           type="submit"
@@ -1034,18 +1038,6 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
         </Button>
       </form>
     </div>
-  );
-}
-
-/** Render text with @mentions highlighted */
-function renderTextWithMentions(text: string) {
-  const parts = text.split(/(@[\w\u0600-\u06FF]+)/g);
-  return parts.map((part, i) =>
-    part.startsWith('@') ? (
-      <span key={i} className="text-orange-500 font-medium">{part}</span>
-    ) : (
-      <span key={i}>{part}</span>
-    )
   );
 }
 

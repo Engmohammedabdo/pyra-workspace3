@@ -143,33 +143,49 @@ export async function POST(request: NextRequest) {
     let validMentions: string[] = [];
     let mentionedUsernames: string[] = [];
 
-    if (rawMentions.length > 0 && project.team_id) {
-      const { data: teamMembers } = await supabase
-        .from('pyra_team_members')
-        .select('username')
-        .eq('team_id', project.team_id);
+    if (rawMentions.length > 0) {
+      const nameToUsername = new Map<string, string>();
 
-      const memberUsernames = (teamMembers || []).map((m: { username: string }) => m.username);
-      if (memberUsernames.length > 0) {
-        const { data: users } = await supabase
-          .from('pyra_users')
-          .select('username, display_name')
-          .in('username', memberUsernames);
+      // 1. Always include admins
+      const { data: admins } = await supabase
+        .from('pyra_users')
+        .select('username, display_name')
+        .eq('role', 'admin');
 
-        const nameToUsername = new Map<string, string>();
-        (users || []).forEach((u: { username: string; display_name: string }) => {
-          nameToUsername.set(u.username.toLowerCase(), u.username);
-          nameToUsername.set(u.display_name.toLowerCase(), u.username);
-        });
+      (admins || []).forEach((u: { username: string; display_name: string }) => {
+        nameToUsername.set(u.username.toLowerCase(), u.username);
+        nameToUsername.set(u.display_name.toLowerCase(), u.username);
+      });
 
-        const seenUsernames = new Set<string>();
-        for (const m of rawMentions) {
-          const uname = nameToUsername.get(m.toLowerCase());
-          if (uname && !seenUsernames.has(uname) && uname !== auth.pyraUser.username) {
-            seenUsernames.add(uname);
-            validMentions.push(m);
-            mentionedUsernames.push(uname);
-          }
+      // 2. Include team members if project has a team
+      if (project.team_id) {
+        const { data: teamMembers } = await supabase
+          .from('pyra_team_members')
+          .select('username')
+          .eq('team_id', project.team_id);
+
+        const memberUsernames = (teamMembers || []).map((m: { username: string }) => m.username);
+        if (memberUsernames.length > 0) {
+          const { data: users } = await supabase
+            .from('pyra_users')
+            .select('username, display_name')
+            .in('username', memberUsernames);
+
+          (users || []).forEach((u: { username: string; display_name: string }) => {
+            nameToUsername.set(u.username.toLowerCase(), u.username);
+            nameToUsername.set(u.display_name.toLowerCase(), u.username);
+          });
+        }
+      }
+
+      // 3. Validate mentions
+      const seenUsernames = new Set<string>();
+      for (const m of rawMentions) {
+        const uname = nameToUsername.get(m.toLowerCase());
+        if (uname && !seenUsernames.has(uname) && uname !== auth.pyraUser.username) {
+          seenUsernames.add(uname);
+          validMentions.push(m);
+          mentionedUsernames.push(uname);
         }
       }
     }

@@ -50,6 +50,8 @@ import {
   ChevronDown,
   ChevronLeft,
 } from 'lucide-react';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
+import { renderTextWithMentions } from '@/lib/utils/mentions';
 
 // ---------- Types ----------
 
@@ -153,32 +155,6 @@ function groupFilesByFolder(files: ProjectFile[]): Record<string, ProjectFile[]>
     sorted[key] = groups[key].sort((a, b) => a.file_name.localeCompare(b.file_name));
   }
   return sorted;
-}
-
-/** Render comment text with @mentions highlighted */
-function renderTextWithMentions(text: string) {
-  const mentionRegex = /@([\w\u0600-\u06FF]+)/g;
-  const parts: React.ReactNode[] = [];
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  while ((match = mentionRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
-    }
-    parts.push(
-      <span key={match.index} className="text-orange-600 font-semibold">
-        @{match[1]}
-      </span>
-    );
-    lastIndex = mentionRegex.lastIndex;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
-  }
-
-  return parts.length > 0 ? parts : text;
 }
 
 // ---------- Component ----------
@@ -840,7 +816,7 @@ export default function ProjectDetailPage() {
                               </span>
                             </div>
                             <p className="text-sm leading-relaxed text-foreground/80">
-                              {renderTextWithMentions(comment.text)}
+                              {renderTextWithMentions(comment.text, 'dashboard')}
                             </p>
                           </div>
                         );
@@ -852,12 +828,14 @@ export default function ProjectDetailPage() {
                 {/* New Comment Form */}
                 <div className="border-t p-3">
                   <form onSubmit={handleSubmitComment} className="space-y-2">
-                    <textarea
+                    <MentionTextarea
                       value={newComment}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewComment(e.target.value)}
-                      placeholder="اكتب ردك هنا..."
+                      onChange={setNewComment}
+                      projectId={project?.id || projectId}
+                      variant="dashboard"
+                      placeholder="اكتب ردك هنا... (استخدم @ للإشارة)"
                       rows={2}
-                      className="w-full resize-none rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="w-full"
                     />
                     <div className="flex justify-end">
                       <Button
