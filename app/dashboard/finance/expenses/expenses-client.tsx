@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
-import { EmptyState } from '@/components/ui/empty-state';
+import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 
 interface Expense {
   id: string;
@@ -54,6 +54,7 @@ export default function ExpensesClient() {
   const [summary, setSummary] = useState({ total_amount: 0, total_vat: 0, total_count: 0 });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   // Fetch categories
   useEffect(() => {
@@ -110,6 +111,89 @@ export default function ExpensesClient() {
 
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);
+
+  /* ── sort handler ── */
+  const handleSortChange = useCallback((key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
+    });
+  }, []);
+
+  /* ── sorted expenses ── */
+  const sortedExpenses = useMemo(() => {
+    if (!sortConfig) return expenses;
+    return [...expenses].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortConfig.key) {
+        case 'amount': aVal = a.amount; bVal = b.amount; break;
+        case 'expense_date': aVal = a.expense_date || ''; bVal = b.expense_date || ''; break;
+        case 'vendor': aVal = a.vendor || ''; bVal = b.vendor || ''; break;
+        default: return 0;
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return sortConfig.direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'ar')
+        : String(bVal).localeCompare(String(aVal), 'ar');
+    });
+  }, [expenses, sortConfig]);
+
+  /* ── column definitions ── */
+  const columns: ColumnDef<Expense>[] = useMemo(() => [
+    {
+      key: 'description',
+      header: 'الوصف',
+      render: (exp) => <span className="font-medium">{exp.description || '—'}</span>,
+    },
+    {
+      key: 'amount',
+      header: 'المبلغ',
+      sortable: true,
+      render: (exp) => <span className="text-red-600 font-mono">{formatCurrency(exp.amount, exp.currency)}</span>,
+    },
+    {
+      key: 'category',
+      header: 'التصنيف',
+      render: (exp) => exp.category_name_ar ? (
+        <Badge variant="secondary" style={{ backgroundColor: exp.category_color ? `${exp.category_color}20` : undefined, color: exp.category_color || undefined }}>
+          {exp.category_name_ar}
+        </Badge>
+      ) : <span className="text-muted-foreground">—</span>,
+    },
+    {
+      key: 'expense_date',
+      header: 'التاريخ',
+      sortable: true,
+      className: 'text-muted-foreground',
+      render: (exp) => exp.expense_date ? formatDate(exp.expense_date) : '—',
+    },
+    {
+      key: 'vendor',
+      header: 'المورد',
+      sortable: true,
+      className: 'text-muted-foreground',
+      render: (exp) => exp.vendor || '—',
+    },
+    {
+      key: 'actions',
+      header: 'الإجراءات',
+      render: (exp) => (
+        <div className="flex items-center gap-1" data-no-row-click>
+          <Link href={`/dashboard/finance/expenses/${exp.id}`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+          </Link>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(exp.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ], []);
 
   return (
     <div className="space-y-6">
@@ -176,55 +260,30 @@ export default function ExpensesClient() {
       </div>
 
       {/* Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-start p-3 font-medium">الوصف</th>
-                <th className="text-start p-3 font-medium">المبلغ</th>
-                <th className="text-start p-3 font-medium">التصنيف</th>
-                <th className="text-start p-3 font-medium">التاريخ</th>
-                <th className="text-start p-3 font-medium">المورد</th>
-                <th className="text-start p-3 font-medium">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b">{Array.from({ length: 6 }).map((_, j) => (
-                  <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>
-                ))}</tr>
-              )) : expenses.length === 0 ? (
-                <tr><td colSpan={6}><EmptyState icon={ArrowDownCircle} title="لا توجد مصاريف" description="أضف مصروف جديد لتتبع النفقات" /></td></tr>
-              ) : expenses.map(exp => (
-                <tr key={exp.id} className="border-b hover:bg-muted/30 transition-colors">
-                  <td className="p-3 font-medium">{exp.description || '—'}</td>
-                  <td className="p-3 text-red-600 font-mono">{formatCurrency(exp.amount, exp.currency)}</td>
-                  <td className="p-3">
-                    {exp.category_name_ar ? (
-                      <Badge variant="secondary" style={{ backgroundColor: exp.category_color ? `${exp.category_color}20` : undefined, color: exp.category_color || undefined }}>
-                        {exp.category_name_ar}
-                      </Badge>
-                    ) : <span className="text-muted-foreground">—</span>}
-                  </td>
-                  <td className="p-3 text-muted-foreground">{exp.expense_date ? formatDate(exp.expense_date) : '—'}</td>
-                  <td className="p-3 text-muted-foreground">{exp.vendor || '—'}</td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-1">
-                      <Link href={`/dashboard/finance/expenses/${exp.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
-                      </Link>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(exp.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={sortedExpenses}
+        loading={loading}
+        emptyState={{
+          icon: ArrowDownCircle,
+          title: 'لا توجد مصاريف',
+          description: 'أضف مصروف جديد لتتبع النفقات',
+        }}
+        selectable
+        getRowId={(exp) => exp.id}
+        sortConfig={sortConfig}
+        onSortChange={handleSortChange}
+        bulkActions={[
+          {
+            label: 'حذف المحدد',
+            icon: Trash2,
+            variant: 'destructive',
+            onClick: (ids) => {
+              if (ids.length > 0) setDeleteId(ids[0]);
+            },
+          },
+        ]}
+      />
 
       {/* Pagination */}
       {totalPages > 1 && (

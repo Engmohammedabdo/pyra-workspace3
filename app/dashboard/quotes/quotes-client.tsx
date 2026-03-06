@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -20,8 +18,8 @@ import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
-import { EmptyState } from '@/components/ui/empty-state';
 import { usePermission } from '@/hooks/usePermission';
+import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 
 interface Quote {
   id: string;
@@ -59,6 +57,7 @@ export default function QuotesClient() {
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Quote | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -133,6 +132,123 @@ export default function QuotesClient() {
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setDeleting(false); }
   };
 
+  /* ── sort handler ── */
+  const handleSortChange = useCallback((key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
+    });
+  }, []);
+
+  /* ── sorted quotes ── */
+  const sortedQuotes = useMemo(() => {
+    if (!sortConfig) return quotes;
+    const sorted = [...quotes].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortConfig.key) {
+        case 'quote_number': aVal = a.quote_number; bVal = b.quote_number; break;
+        case 'client': aVal = a.client_name || ''; bVal = b.client_name || ''; break;
+        case 'total': aVal = a.total; bVal = b.total; break;
+        case 'estimate_date': aVal = a.estimate_date; bVal = b.estimate_date; break;
+        default: return 0;
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return sortConfig.direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'ar')
+        : String(bVal).localeCompare(String(aVal), 'ar');
+    });
+    return sorted;
+  }, [quotes, sortConfig]);
+
+  /* ── column definitions ── */
+  const columns: ColumnDef<Quote>[] = useMemo(() => [
+    {
+      key: 'quote_number',
+      header: 'رقم العرض',
+      sortable: true,
+      render: (q) => <span className="font-mono">{q.quote_number}</span>,
+    },
+    {
+      key: 'client',
+      header: 'العميل',
+      sortable: true,
+      render: (q) => q.client_name || q.client_company || '—',
+    },
+    {
+      key: 'project',
+      header: 'المشروع',
+      className: 'text-muted-foreground',
+      render: (q) => q.project_name || '—',
+    },
+    {
+      key: 'total',
+      header: 'المبلغ',
+      sortable: true,
+      render: (q) => <span className="font-mono">{formatCurrency(q.total, q.currency)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'الحالة',
+      render: (q) => {
+        const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
+        return <Badge variant={s.variant}>{s.label}</Badge>;
+      },
+    },
+    {
+      key: 'estimate_date',
+      header: 'التاريخ',
+      sortable: true,
+      className: 'text-muted-foreground text-xs',
+      render: (q) => formatDate(q.estimate_date),
+    },
+    {
+      key: 'actions',
+      header: '',
+      headerClassName: 'w-[60px]',
+      render: (q) => (
+        <div data-no-row-click>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canEdit && (
+                <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
+                  <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
+                </DropdownMenuItem>
+              )}
+              {canCreate && (
+                <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
+                  <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
+                <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
+              </DropdownMenuItem>
+              {canEdit && q.status === 'draft' && (
+                <DropdownMenuItem onClick={() => handleSend(q.id)}>
+                  <Send className="h-3.5 w-3.5 me-2" /> إرسال
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
+                  <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ], [canEdit, canCreate, canDelete, router, handleDuplicate, handleSend, handleDownloadPDF]);
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
@@ -168,82 +284,34 @@ export default function QuotesClient() {
         </Select>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-start p-3 font-medium">رقم العرض</th>
-                  <th className="text-start p-3 font-medium">العميل</th>
-                  <th className="text-start p-3 font-medium">المشروع</th>
-                  <th className="text-start p-3 font-medium">المبلغ</th>
-                  <th className="text-start p-3 font-medium">الحالة</th>
-                  <th className="text-start p-3 font-medium">التاريخ</th>
-                  <th className="text-start p-3 font-medium w-[60px]" />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? Array.from({ length: 3 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 7 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>)}</tr>
-                )) : quotes.length === 0 ? (
-                  <tr>
-                    <td colSpan={7}>
-                      <EmptyState icon={FileText} title="لا توجد عروض أسعار" description="أنشئ عرض سعر جديد للبدء" />
-                    </td>
-                  </tr>
-                ) : quotes.map(q => {
-                  const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
-                  return (
-                    <tr key={q.id} className="border-b hover:bg-muted/30 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
-                      <td className="p-3 font-mono">{q.quote_number}</td>
-                      <td className="p-3">{q.client_name || q.client_company || '—'}</td>
-                      <td className="p-3 text-muted-foreground">{q.project_name || '—'}</td>
-                      <td className="p-3 font-mono">{formatCurrency(q.total, q.currency)}</td>
-                      <td className="p-3"><Badge variant={s.variant}>{s.label}</Badge></td>
-                      <td className="p-3 text-muted-foreground text-xs">{formatDate(q.estimate_date)}</td>
-                      <td className="p-3" onClick={e => e.stopPropagation()}>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            {canEdit && (
-                              <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
-                                <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
-                              </DropdownMenuItem>
-                            )}
-                            {canCreate && (
-                              <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
-                                <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
-                              <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
-                            </DropdownMenuItem>
-                            {canEdit && q.status === 'draft' && (
-                              <DropdownMenuItem onClick={() => handleSend(q.id)}>
-                                <Send className="h-3.5 w-3.5 me-2" /> إرسال
-                              </DropdownMenuItem>
-                            )}
-                            {canDelete && (
-                              <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
-                                <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Table */}
+      <DataTable
+        columns={columns}
+        data={sortedQuotes}
+        loading={loading}
+        emptyState={{
+          icon: FileText,
+          title: 'لا توجد عروض أسعار',
+          description: 'أنشئ عرض سعر جديد للبدء',
+        }}
+        selectable
+        getRowId={(q) => q.id}
+        sortConfig={sortConfig}
+        onSortChange={handleSortChange}
+        onRowClick={(q) => router.push(`/dashboard/quotes/${q.id}`)}
+        skeletonRows={3}
+        bulkActions={canDelete ? [
+          {
+            label: 'حذف المحدد',
+            icon: Trash2,
+            variant: 'destructive',
+            onClick: (ids) => {
+              const q = quotes.find((q) => ids.includes(q.id));
+              if (q) { setSelected(q); setShowDelete(true); }
+            },
+          },
+        ] : []}
+      />
 
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="sm:max-w-[425px]">

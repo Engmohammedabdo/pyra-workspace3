@@ -3,6 +3,7 @@ import { Sidebar } from '@/components/layout/sidebar';
 import { Topbar } from '@/components/layout/topbar';
 import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 import { PageTransition } from '@/components/layout/page-transition';
+import { BreadcrumbProvider } from '@/components/layout/breadcrumb-context';
 
 export default async function DashboardLayout({
   children,
@@ -19,18 +20,20 @@ export default async function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Sidebar user={layoutUser} />
-      <div className="lg:ps-[280px] transition-all duration-300">
-        <Topbar user={layoutUser} />
-        <main className="p-4 lg:p-6">
-          <ErrorBoundaryWrapper>
-            <PageTransition>
-              {children}
-            </PageTransition>
-          </ErrorBoundaryWrapper>
-        </main>
+    <BreadcrumbProvider>
+      <div className="min-h-screen bg-background">
+        <Sidebar user={layoutUser} />
+        <div className="lg:ps-[280px] transition-all duration-300">
+          <Topbar user={layoutUser} />
+          <main className="p-4 lg:p-6">
+            <ErrorBoundaryWrapper>
+              <PageTransition>
+                {children}
+              </PageTransition>
+            </ErrorBoundaryWrapper>
+          </main>
+        </div>
       </div>
-    </div>
+    </BreadcrumbProvider>
   );
 }

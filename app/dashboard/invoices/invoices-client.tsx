@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -89,6 +90,9 @@ export default function InvoicesClient() {
 
   /* ── revenue summary ── */
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
+
+  /* ── sort state ── */
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   /* ── delete dialog ── */
   const [showDelete, setShowDelete] = useState(false);
@@ -180,6 +184,128 @@ export default function InvoicesClient() {
   };
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  /* ── sort handler ── */
+  const handleSortChange = useCallback((key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
+    });
+  }, []);
+
+  /* ── sorted invoices ── */
+  const sortedInvoices = useMemo(() => {
+    if (!sortConfig) return invoices;
+    const sorted = [...invoices].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortConfig.key) {
+        case 'invoice_number': aVal = a.invoice_number; bVal = b.invoice_number; break;
+        case 'client': aVal = a.client_name || ''; bVal = b.client_name || ''; break;
+        case 'total': aVal = a.total; bVal = b.total; break;
+        case 'amount_paid': aVal = a.amount_paid; bVal = b.amount_paid; break;
+        case 'amount_due': aVal = a.amount_due; bVal = b.amount_due; break;
+        case 'issue_date': aVal = a.issue_date; bVal = b.issue_date; break;
+        default: return 0;
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return sortConfig.direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'ar')
+        : String(bVal).localeCompare(String(aVal), 'ar');
+    });
+    return sorted;
+  }, [invoices, sortConfig]);
+
+  /* ── column definitions ── */
+  const columns: ColumnDef<Invoice>[] = useMemo(() => [
+    {
+      key: 'invoice_number',
+      header: 'رقم الفاتورة',
+      sortable: true,
+      render: (inv) => <span className="font-mono">{inv.invoice_number}</span>,
+    },
+    {
+      key: 'client',
+      header: 'العميل',
+      sortable: true,
+      render: (inv) => inv.client_name || inv.client_company || '—',
+    },
+    {
+      key: 'project',
+      header: 'المشروع',
+      className: 'text-muted-foreground',
+      render: (inv) => inv.project_name || '—',
+    },
+    {
+      key: 'total',
+      header: 'الإجمالي',
+      sortable: true,
+      render: (inv) => <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>,
+    },
+    {
+      key: 'amount_paid',
+      header: 'المدفوع',
+      sortable: true,
+      render: (inv) => <span className="font-mono text-green-600">{formatCurrency(inv.amount_paid, inv.currency)}</span>,
+    },
+    {
+      key: 'amount_due',
+      header: 'المتبقي',
+      sortable: true,
+      render: (inv) => <span className="font-mono text-orange-600">{formatCurrency(inv.amount_due, inv.currency)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'الحالة',
+      render: (inv) => {
+        const s = STATUS_MAP[inv.status] || { label: inv.status, color: 'bg-gray-100 text-gray-700' };
+        return <Badge variant="outline" className={s.color}>{s.label}</Badge>;
+      },
+    },
+    {
+      key: 'issue_date',
+      header: 'التاريخ',
+      sortable: true,
+      className: 'text-muted-foreground text-xs',
+      render: (inv) => formatDate(inv.issue_date),
+    },
+    {
+      key: 'actions',
+      header: '',
+      headerClassName: 'w-[60px]',
+      render: (inv) => (
+        <div data-no-row-click>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>
+                <Eye className="h-3.5 w-3.5 me-2" /> عرض
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleDownloadPDF(inv.id)}>
+                <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
+              </DropdownMenuItem>
+              {canDelete && inv.status === 'draft' && (
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => { setSelected(inv); setShowDelete(true); }}
+                >
+                  <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ], [canDelete, router, handleDownloadPDF]);
 
   /* ──────────────────────── Render ─────────────────────── */
   return (
@@ -301,91 +427,33 @@ export default function InvoicesClient() {
       </div>
 
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-start p-3 font-medium">رقم الفاتورة</th>
-                  <th className="text-start p-3 font-medium">العميل</th>
-                  <th className="text-start p-3 font-medium">المشروع</th>
-                  <th className="text-start p-3 font-medium">الإجمالي</th>
-                  <th className="text-start p-3 font-medium">المدفوع</th>
-                  <th className="text-start p-3 font-medium">المتبقي</th>
-                  <th className="text-start p-3 font-medium">الحالة</th>
-                  <th className="text-start p-3 font-medium">التاريخ</th>
-                  <th className="text-start p-3 font-medium w-[60px]" />
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <tr key={i} className="border-b">
-                      {Array.from({ length: 9 }).map((_, j) => (
-                        <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>
-                      ))}
-                    </tr>
-                  ))
-                ) : invoices.length === 0 ? (
-                  <tr>
-                    <td colSpan={9}>
-                      <EmptyState icon={FileText} title="لا توجد فواتير" description="أنشئ فاتورة جديدة للبدء" />
-                    </td>
-                  </tr>
-                ) : (
-                  invoices.map(inv => {
-                    const s = STATUS_MAP[inv.status] || { label: inv.status, color: 'bg-gray-100 text-gray-700' };
-                    return (
-                      <tr
-                        key={inv.id}
-                        className="border-b hover:bg-muted/30 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}
-                      >
-                        <td className="p-3 font-mono">{inv.invoice_number}</td>
-                        <td className="p-3">{inv.client_name || inv.client_company || '—'}</td>
-                        <td className="p-3 text-muted-foreground">{inv.project_name || '—'}</td>
-                        <td className="p-3 font-mono">{formatCurrency(inv.total, inv.currency)}</td>
-                        <td className="p-3 font-mono text-green-600">{formatCurrency(inv.amount_paid, inv.currency)}</td>
-                        <td className="p-3 font-mono text-orange-600">{formatCurrency(inv.amount_due, inv.currency)}</td>
-                        <td className="p-3">
-                          <Badge variant="outline" className={s.color}>{s.label}</Badge>
-                        </td>
-                        <td className="p-3 text-muted-foreground text-xs">{formatDate(inv.issue_date)}</td>
-                        <td className="p-3" onClick={e => e.stopPropagation()}>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>
-                                <Eye className="h-3.5 w-3.5 me-2" /> عرض
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDownloadPDF(inv.id)}>
-                                <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
-                              </DropdownMenuItem>
-                              {canDelete && inv.status === 'draft' && (
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => { setSelected(inv); setShowDelete(true); }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={sortedInvoices}
+        loading={loading}
+        emptyState={{
+          icon: FileText,
+          title: 'لا توجد فواتير',
+          description: 'أنشئ فاتورة جديدة للبدء',
+        }}
+        selectable
+        getRowId={(inv) => inv.id}
+        sortConfig={sortConfig}
+        onSortChange={handleSortChange}
+        onRowClick={(inv) => router.push(`/dashboard/invoices/${inv.id}`)}
+        bulkActions={canDelete ? [
+          {
+            label: 'حذف المحدد',
+            icon: Trash2,
+            variant: 'destructive',
+            onClick: (ids) => {
+              const inv = invoices.find((i) => ids.includes(i.id) && i.status === 'draft');
+              if (inv) { setSelected(inv); setShowDelete(true); }
+              else toast.error('يمكن حذف المسودات فقط');
+            },
+          },
+        ] : []}
+      />
 
       {/* Pagination — RTL: prev (right) first, next (left) second */}
       {totalPages > 1 && (

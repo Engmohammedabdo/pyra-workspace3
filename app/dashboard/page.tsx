@@ -13,15 +13,10 @@ import {
   Building2,
   Briefcase,
   Bell,
-  HardDrive,
   Activity,
   ArrowLeft,
   FileText,
-  CheckCircle,
   Clock,
-  Trash2,
-  Link2,
-  Shield,
   Plus,
   Upload,
   FolderPlus,
@@ -32,8 +27,10 @@ import {
   Megaphone,
   CalendarDays,
   Kanban,
+  Sparkles,
+  Receipt,
 } from 'lucide-react';
-import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
+import { formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { DashboardCharts } from '@/components/dashboard/charts';
 import { KpiGrid } from '@/components/dashboard/KpiGrid';
@@ -110,7 +107,6 @@ const ACTION_LABELS: Record<string, string> = {
   trash_empty: 'تفريغ السلة',
   trash_purge: 'حذف منتهية',
   password_changed: 'تغيير كلمة مرور',
-  // Finance actions
   create_expense: 'إنشاء مصروف',
   update_expense: 'تحديث مصروف',
   delete_expense: 'حذف مصروف',
@@ -131,7 +127,6 @@ const ACTION_LABELS: Record<string, string> = {
   quote_sent: 'إرسال عرض سعر',
   quote_signed: 'توقيع عرض سعر',
   quote_viewed: 'مشاهدة عرض سعر',
-  // Portal actions
   portal_login: 'دخول عميل',
   portal_logout: 'خروج عميل',
   portal_download: 'تحميل ملف (عميل)',
@@ -192,29 +187,6 @@ function MiniStat({ label, value, icon: Icon, accent }: {
   );
 }
 
-/* ── Storage bar ─────────────────────────── */
-function StorageBar({ used, maxGb = 50 }: { used: number; maxGb?: number }) {
-  const usedGB = used / (1024 * 1024 * 1024);
-  const percent = Math.min((usedGB / maxGb) * 100, 100);
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">مساحة التخزين</span>
-        <span className="font-mono font-medium">{formatFileSize(used)} / {maxGb} GB</span>
-      </div>
-      <div className="h-2.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${
-            percent > 80 ? 'bg-red-500' : percent > 50 ? 'bg-yellow-500' : 'bg-green-500'
-          }`}
-          style={{ width: `${Math.max(percent, 1)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -237,12 +209,13 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-28" />
+        <Skeleton className="h-24 rounded-xl" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24" />
           ))}
         </div>
+        <Skeleton className="h-72" />
         <div className="grid gap-4 lg:grid-cols-3">
           <Skeleton className="h-64 lg:col-span-2" />
           <Skeleton className="h-64" />
@@ -253,136 +226,59 @@ export default function DashboardPage() {
 
   const isAdmin = !!(data && 'total_users' in data);
 
+  const today = new Date().toLocaleDateString('ar-SA', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div>
-            <h1 className="text-2xl font-bold">لوحة التحكم</h1>
-            <p className="text-muted-foreground">
-              نظرة عامة على Pyra Workspace
-            </p>
+      {/* ═══ Zone 1: Welcome Card + SmartAlerts ═══ */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-l from-orange-500/10 via-orange-500/5 to-transparent border p-5">
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
+              <Sparkles className="h-6 w-6 text-orange-500" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold">مرحباً بك في Pyra Workspace</h1>
+              <p className="text-sm text-muted-foreground">{today}</p>
+            </div>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-9 w-9 shrink-0"
             onClick={loadDashboard}
-            aria-label="تحديث"
+            aria-label="تحديث البيانات"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
         </div>
+        {/* Decorative elements */}
+        <div className="absolute end-0 top-0 w-32 h-32 rounded-full bg-orange-500/5 -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute end-16 bottom-0 w-20 h-20 rounded-full bg-orange-500/5 translate-y-1/2" />
       </div>
 
-      {/* ═══ KPI Section (Admin) ═══ */}
-      {isAdmin && (
-        <>
-          <SmartAlerts />
-          <KpiGrid />
-        </>
-      )}
+      {isAdmin && <SmartAlerts />}
 
-      {/* ═══ Primary Stats Grid ═══ */}
-      <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StaggerItem>
-          <StatCard
-            href="/dashboard/files"
-            title="الملفات"
-            value={data?.total_files ?? data?.accessible_files ?? 0}
-            subtitle={isAdmin ? 'إجمالي الملفات في النظام' : 'ملفات متاحة لك'}
-            icon={FolderOpen}
-          />
-        </StaggerItem>
+      {/* ═══ Zone 2: KPI Grid (Admin) ═══ */}
+      {isAdmin && <KpiGrid />}
 
-        {isAdmin && data && (
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/projects"
-              title="المشاريع"
-              value={data.total_projects ?? 0}
-              subtitle={`${data.active_projects ?? 0} نشط · ${data.completed_projects ?? 0} مكتمل`}
-              icon={Briefcase}
-            />
-          </StaggerItem>
-        )}
-
-        {isAdmin && data && (
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/clients"
-              title="العملاء"
-              value={data.total_clients ?? 0}
-              subtitle="عميل مسجل"
-              icon={Building2}
-            />
-          </StaggerItem>
-        )}
-
-        {isAdmin && data && (
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/users"
-              title="المستخدمون"
-              value={data.total_users ?? 0}
-              subtitle={`${data.total_teams ?? 0} فريق`}
-              icon={Users}
-            />
-          </StaggerItem>
-        )}
-
-        <StaggerItem>
-          <StatCard
-            href="/dashboard/notifications"
-            title="الإشعارات"
-            value={data?.unread_notifications ?? 0}
-            subtitle="غير مقروءة"
-            icon={Bell}
-            accent={data?.unread_notifications ? 'text-orange-500' : undefined}
-          />
-        </StaggerItem>
-
-        {isAdmin && data && (
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/quotes"
-              title="عروض الأسعار"
-              value={data.total_quotes ?? 0}
-              subtitle={`${data.signed_quotes ?? 0} موقّعة`}
-              icon={FileText}
-            />
-          </StaggerItem>
-        )}
-
-        {isAdmin && data && (
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/projects"
-              title="الموافقات المعلقة"
-              value={data.pending_approvals ?? 0}
-              subtitle="بانتظار الموافقة"
-              icon={Clock}
-              accent={(data.pending_approvals ?? 0) > 0 ? 'text-yellow-500' : undefined}
-            />
-          </StaggerItem>
-        )}
-
-        {isAdmin && data && (
+      {/* ═══ Zone 2b: Employee Stats Grid ═══ */}
+      {!isAdmin && data && (
+        <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StaggerItem>
             <StatCard
               href="/dashboard/files"
-              title="التخزين"
-              value={formatFileSize(data.storage_used ?? 0)}
-              subtitle="مساحة مستخدمة"
-              icon={HardDrive}
+              title="الملفات"
+              value={data.accessible_files ?? 0}
+              subtitle="ملفات متاحة لك"
+              icon={FolderOpen}
             />
           </StaggerItem>
-        )}
-      </StaggerContainer>
-
-      {/* ═══ Employee Stats Grid ═══ */}
-      {!isAdmin && data && (
-        <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StaggerItem>
             <StatCard
               href="/dashboard/my-tasks"
@@ -397,7 +293,6 @@ export default function DashboardPage() {
               accent={(data.my_tasks_overdue ?? 0) > 0 ? 'text-red-500' : undefined}
             />
           </StaggerItem>
-
           <StaggerItem>
             <StatCard
               href="/dashboard/timesheet"
@@ -407,25 +302,14 @@ export default function DashboardPage() {
               icon={Clock}
             />
           </StaggerItem>
-
           <StaggerItem>
             <StatCard
-              href="/dashboard/announcements"
-              title="الإعلانات"
-              value={data.unread_announcements ?? 0}
+              href="/dashboard/notifications"
+              title="الإشعارات"
+              value={data.unread_notifications ?? 0}
               subtitle="غير مقروءة"
-              icon={Megaphone}
-              accent={(data.unread_announcements ?? 0) > 0 ? 'text-blue-500' : undefined}
-            />
-          </StaggerItem>
-
-          <StaggerItem>
-            <StatCard
-              href="/dashboard/leave"
-              title="الإجازات المتبقية"
-              value={data.leave_balance?.annual_remaining ?? 30}
-              subtitle={`${data.leave_balance?.sick_remaining ?? 15} مرضية · ${data.leave_balance?.personal_remaining ?? 5} شخصية`}
-              icon={CalendarDays}
+              icon={Bell}
+              accent={data.unread_notifications ? 'text-orange-500' : undefined}
             />
           </StaggerItem>
         </StaggerContainer>
@@ -453,24 +337,25 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* ═══ Charts Section (Admin) ═══ */}
-      {isAdmin && <DashboardCharts />}
-
-      {/* ═══ KPI Charts (Admin) ═══ */}
+      {/* ═══ Zone 3: Charts (Admin) ═══ */}
       {isAdmin && (
         <>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <RevenueTrendChart />
+          {/* Revenue Chart — full width */}
+          <RevenueTrendChart />
+
+          {/* Secondary Charts — 3 columns */}
+          <div className="grid gap-4 lg:grid-cols-3">
             <ProjectPipelineChart />
-          </div>
-          <div className="grid gap-4 lg:grid-cols-2">
             <ClientDistributionChart />
             <TeamWorkloadChart />
           </div>
+
+          {/* Historical Charts */}
+          <DashboardCharts />
         </>
       )}
 
-      {/* ═══ Two-column: Activity + Sidebar ═══ */}
+      {/* ═══ Zone 4: Two-column — Activity + Quick Actions ═══ */}
       <div className="grid gap-4 lg:grid-cols-3">
         {/* Recent Activity */}
         <Card className="lg:col-span-2">
@@ -523,88 +408,43 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Sidebar: Storage + Quick Stats + Quick Actions */}
+        {/* Quick Actions + Leave Summary */}
         <div className="space-y-4">
-          {/* Storage Card */}
-          {isAdmin && data && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <HardDrive className="h-4 w-4" /> التخزين
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <StorageBar used={data.storage_used ?? 0} maxGb={data.max_storage_gb ?? 50} />
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Quick Stats */}
-          {isAdmin && data && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">إحصائيات سريعة</CardTitle>
-              </CardHeader>
-              <CardContent className="divide-y">
-                <MiniStat
-                  label="روابط مشاركة نشطة"
-                  value={data.active_shares ?? 0}
-                  icon={Link2}
-                  accent="bg-blue-100 dark:bg-blue-900/30"
-                />
-                <MiniStat
-                  label="سلة المحذوفات"
-                  value={data.trash_count ?? 0}
-                  icon={Trash2}
-                  accent="bg-red-100 dark:bg-red-900/30"
-                />
-                <MiniStat
-                  label="موافقات معلقة"
-                  value={data.pending_approvals ?? 0}
-                  icon={Shield}
-                  accent="bg-yellow-100 dark:bg-yellow-900/30"
-                />
-                <MiniStat
-                  label="عروض موقّعة"
-                  value={data.signed_quotes ?? 0}
-                  icon={CheckCircle}
-                  accent="bg-green-100 dark:bg-green-900/30"
-                />
-              </CardContent>
-            </Card>
-          )}
-
           {/* Quick Actions */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">إجراءات سريعة</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Link href="/dashboard/files" className="block">
-                <Button variant="outline" size="sm" className="w-full justify-start">
-                  <Upload className="h-4 w-4 me-2" /> رفع ملفات
-                </Button>
-              </Link>
-              {isAdmin && (
+              {isAdmin ? (
                 <>
-                  <Link href="/dashboard/files" className="block">
+                  <Link href="/dashboard/invoices/new" className="block">
                     <Button variant="outline" size="sm" className="w-full justify-start">
-                      <FolderPlus className="h-4 w-4 me-2" /> مجلد جديد
+                      <Receipt className="h-4 w-4 me-2" /> فاتورة جديدة
                     </Button>
                   </Link>
-                  <Link href="/dashboard/projects" className="block">
+                  <Link href="/dashboard/quotes/new" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <FileText className="h-4 w-4 me-2" /> عرض سعر جديد
+                    </Button>
+                  </Link>
+                  <Link href="/dashboard/projects?action=new" className="block">
                     <Button variant="outline" size="sm" className="w-full justify-start">
                       <Plus className="h-4 w-4 me-2" /> مشروع جديد
                     </Button>
                   </Link>
-                  <Link href="/dashboard/clients" className="block">
+                  <Link href="/dashboard/clients?action=new" className="block">
                     <Button variant="outline" size="sm" className="w-full justify-start">
                       <UserPlus className="h-4 w-4 me-2" /> عميل جديد
                     </Button>
                   </Link>
+                  <Link href="/dashboard/files" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Upload className="h-4 w-4 me-2" /> رفع ملفات
+                    </Button>
+                  </Link>
                 </>
-              )}
-              {!isAdmin && (
+              ) : (
                 <>
                   <Link href="/dashboard/my-tasks" className="block">
                     <Button variant="outline" size="sm" className="w-full justify-start">
@@ -621,12 +461,17 @@ export default function DashboardPage() {
                       <Clock className="h-4 w-4 me-2" /> تسجيل ساعات
                     </Button>
                   </Link>
+                  <Link href="/dashboard/files" className="block">
+                    <Button variant="outline" size="sm" className="w-full justify-start">
+                      <Upload className="h-4 w-4 me-2" /> رفع ملفات
+                    </Button>
+                  </Link>
                 </>
               )}
             </CardContent>
           </Card>
 
-          {/* Employee Leave Summary */}
+          {/* Employee: Leave Summary */}
           {!isAdmin && data?.leave_balance && (
             <Card>
               <CardHeader className="pb-2">
@@ -664,6 +509,24 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {/* Employee: Announcements */}
+          {!isAdmin && data && (data.unread_announcements ?? 0) > 0 && (
+            <Link href="/dashboard/announcements" className="block">
+              <Card className="border-blue-500/20 hover:border-blue-500/40 transition-colors">
+                <CardContent className="flex items-center gap-3 py-3">
+                  <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                    <Megaphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">{data.unread_announcements} إعلانات جديدة</p>
+                    <p className="text-[10px] text-muted-foreground">اضغط لقراءة الإعلانات</p>
+                  </div>
+                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
+                </CardContent>
+              </Card>
+            </Link>
           )}
         </div>
       </div>

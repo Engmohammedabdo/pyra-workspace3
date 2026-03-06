@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -15,7 +13,8 @@ import {
 } from '@/components/ui/dialog';
 import { ArrowRight, FileSignature, Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
-import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { formatCurrency } from '@/lib/utils/format';
+import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 
 interface Contract {
   id: string;
@@ -59,6 +58,7 @@ export default function ContractsClient() {
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   const fetchContracts = useCallback(async () => {
     setLoading(true);
@@ -104,6 +104,112 @@ export default function ContractsClient() {
 
   const totalPages = Math.ceil(total / 20);
 
+  /* ── sort handler ── */
+  const handleSortChange = useCallback((key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
+    });
+  }, []);
+
+  /* ── sorted contracts ── */
+  const sortedContracts = useMemo(() => {
+    if (!sortConfig) return contracts;
+    return [...contracts].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortConfig.key) {
+        case 'title': aVal = a.title || ''; bVal = b.title || ''; break;
+        case 'client': aVal = a.client_company || a.client_name || ''; bVal = b.client_company || b.client_name || ''; break;
+        case 'total_value': aVal = a.total_value; bVal = b.total_value; break;
+        case 'collection': aVal = a.total_value > 0 ? a.amount_collected / a.total_value : 0; bVal = b.total_value > 0 ? b.amount_collected / b.total_value : 0; break;
+        default: return 0;
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return sortConfig.direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'ar')
+        : String(bVal).localeCompare(String(aVal), 'ar');
+    });
+  }, [contracts, sortConfig]);
+
+  /* ── column definitions ── */
+  const columns: ColumnDef<Contract>[] = useMemo(() => [
+    {
+      key: 'title',
+      header: 'العنوان',
+      sortable: true,
+      render: (c) => <span className="font-medium">{c.title || '—'}</span>,
+    },
+    {
+      key: 'client',
+      header: 'العميل',
+      sortable: true,
+      className: 'text-muted-foreground',
+      render: (c) => c.client_company || c.client_name || '—',
+    },
+    {
+      key: 'type',
+      header: 'النوع',
+      className: 'text-muted-foreground',
+      render: (c) => c.contract_type ? TYPE_MAP[c.contract_type] || c.contract_type : '—',
+    },
+    {
+      key: 'total_value',
+      header: 'القيمة',
+      sortable: true,
+      render: (c) => <span className="font-mono">{formatCurrency(c.total_value, c.currency)}</span>,
+    },
+    {
+      key: 'collection',
+      header: 'التحصيل',
+      sortable: true,
+      render: (c) => {
+        const progress = c.total_value > 0 ? Math.round((c.amount_collected / c.total_value) * 100) : 0;
+        return (
+          <div className="space-y-1 min-w-[120px]">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">{formatCurrency(c.amount_collected, c.currency)}</span>
+              <span className="font-mono">{progress}%</span>
+            </div>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-green-500 rounded-full transition-all"
+                style={{ width: `${Math.min(progress, 100)}%` }}
+              />
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: 'status',
+      header: 'الحالة',
+      render: (c) => (
+        <Badge variant={STATUS_MAP[c.status]?.variant || 'outline'}>
+          {STATUS_MAP[c.status]?.label || c.status}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'الإجراءات',
+      render: (c) => (
+        <div className="flex items-center gap-1" data-no-row-click>
+          <Link href={`/dashboard/finance/contracts/${c.id}`}>
+            <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+          </Link>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ),
+    },
+  ], []);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -140,75 +246,30 @@ export default function ContractsClient() {
       </div>
 
       {/* Table */}
-      <Card>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="text-start p-3 font-medium">العنوان</th>
-                <th className="text-start p-3 font-medium">العميل</th>
-                <th className="text-start p-3 font-medium">النوع</th>
-                <th className="text-start p-3 font-medium">القيمة</th>
-                <th className="text-start p-3 font-medium">التحصيل</th>
-                <th className="text-start p-3 font-medium">الحالة</th>
-                <th className="text-start p-3 font-medium">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b">
-                  {Array.from({ length: 7 }).map((_, j) => (
-                    <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>
-                  ))}
-                </tr>
-              )) : contracts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد عقود</td>
-                </tr>
-              ) : contracts.map(c => {
-                const progress = c.total_value > 0 ? Math.round((c.amount_collected / c.total_value) * 100) : 0;
-                return (
-                  <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors">
-                    <td className="p-3 font-medium">{c.title || '—'}</td>
-                    <td className="p-3 text-muted-foreground">{c.client_company || c.client_name || '—'}</td>
-                    <td className="p-3 text-muted-foreground">{c.contract_type ? TYPE_MAP[c.contract_type] || c.contract_type : '—'}</td>
-                    <td className="p-3 font-mono">{formatCurrency(c.total_value, c.currency)}</td>
-                    <td className="p-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{formatCurrency(c.amount_collected, c.currency)}</span>
-                          <span className="font-mono">{progress}%</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-green-500 rounded-full transition-all"
-                            style={{ width: `${Math.min(progress, 100)}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={STATUS_MAP[c.status]?.variant || 'outline'}>
-                        {STATUS_MAP[c.status]?.label || c.status}
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <div className="flex items-center gap-1">
-                        <Link href={`/dashboard/finance/contracts/${c.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
-                        </Link>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      <DataTable
+        columns={columns}
+        data={sortedContracts}
+        loading={loading}
+        emptyState={{
+          icon: FileSignature,
+          title: 'لا توجد عقود',
+          description: 'أنشئ عقد جديد للبدء',
+        }}
+        selectable
+        getRowId={(c) => c.id}
+        sortConfig={sortConfig}
+        onSortChange={handleSortChange}
+        bulkActions={[
+          {
+            label: 'حذف المحدد',
+            icon: Trash2,
+            variant: 'destructive',
+            onClick: (ids) => {
+              if (ids.length > 0) setDeleteId(ids[0]);
+            },
+          },
+        ]}
+      />
 
       {/* Pagination */}
       {totalPages > 1 && (

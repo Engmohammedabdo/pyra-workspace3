@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBranding } from '@/components/portal/BrandingProvider';
+import { usePortalNotifications } from '@/hooks/useNotifications';
 import {
   FolderKanban,
   FolderOpen,
@@ -21,47 +22,56 @@ const portalNavItems = [
     href: '/portal/projects',
     label: 'المشاريع',
     icon: FolderKanban,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/files',
     label: 'الملفات',
     icon: FolderOpen,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/quotes',
     label: 'عروض الأسعار',
     icon: FileText,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/invoices',
     label: 'الفواتير',
     icon: Receipt,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/scripts',
     label: 'السكريبتات',
     icon: ScrollText,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/help',
     label: 'مركز المساعدة',
     icon: HelpCircle,
+    badgeKey: null as 'notifications' | null,
   },
   {
     href: '/portal/notifications',
     label: 'الإشعارات',
     icon: Bell,
+    badgeKey: 'notifications' as 'notifications' | null,
   },
   {
     href: '/portal/profile',
     label: 'الملف الشخصي',
     icon: User,
+    badgeKey: null as 'notifications' | null,
   },
 ];
 
 export function PortalSidebar() {
   const pathname = usePathname();
   const branding = useBranding();
+  const { unreadCount } = usePortalNotifications();
 
   const primaryColor = branding.primary_color || '#f97316';
   const displayName = branding.company_name_display || 'PYRAMEDIA X';
@@ -119,12 +129,20 @@ export function PortalSidebar() {
                   style={isActive ? { color: primaryColor } : undefined}
                 />
                 <span className="truncate" style={isActive ? { color: primaryColor } : undefined}>{item.label}</span>
-                {isActive && (
+                {/* Badge count */}
+                {item.badgeKey === 'notifications' && unreadCount > 0 ? (
+                  <span
+                    className="ms-auto inline-flex items-center justify-center rounded-full px-1.5 min-w-[20px] h-5 text-[10px] font-bold text-white shrink-0"
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                ) : isActive ? (
                   <div
                     className="ms-auto w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: primaryColor }}
                   />
-                )}
+                ) : null}
               </Link>
             );
           })}

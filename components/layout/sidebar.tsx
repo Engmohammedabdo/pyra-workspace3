@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/tooltip';
 import { hasPermission } from '@/lib/auth/rbac';
 import { MODULE_GUIDES } from '@/lib/config/module-guide';
+import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import {
   LayoutDashboard,
   FolderOpen,
@@ -62,6 +63,8 @@ import {
   Clapperboard,
   Award,
   Settings2,
+  Pin,
+  PinOff,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -79,6 +82,7 @@ interface NavItem {
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
+  badgeKey?: 'notifications' | 'overdue_invoices';
 }
 
 interface NavGroup {
@@ -87,30 +91,31 @@ interface NavGroup {
   items: NavItem[];
 }
 
+// ═══════════════════════════════════════════════
+//  5 Reorganized Groups (was 8)
+// ═══════════════════════════════════════════════
 const navGroups: NavGroup[] = [
   {
-    title: 'عام',
-    titleEn: 'General',
+    title: 'الرئيسية',
+    titleEn: 'Main',
     items: [
       { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view' },
-    ],
-  },
-  {
-    title: 'شخصي',
-    titleEn: 'Personal',
-    items: [
+      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view', badgeKey: 'notifications' },
       { href: '/dashboard/profile', label: 'ملفي الشخصي', labelEn: 'My Profile', icon: UserCircle },
       { href: '/dashboard/my-tasks', label: 'مهامي', labelEn: 'My Tasks', icon: CheckSquare },
-      { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
-      { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
-      { href: '/dashboard/my-payslips', label: 'كشف راتبي', labelEn: 'My Payslips', icon: Receipt, permission: 'payroll.view' },
     ],
   },
   {
-    title: 'إدارة الملفات',
-    titleEn: 'File Management',
+    title: 'العمل',
+    titleEn: 'Work',
     items: [
+      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
+      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
+      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
+      { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view', badgeKey: 'overdue_invoices' },
+      { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
+      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
+      { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', labelEn: 'Content Pipeline', icon: Clapperboard, permission: 'script_reviews.view' },
       { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen, permission: 'files.view' },
       { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star, permission: 'favorites.view' },
       { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare, permission: 'reviews.view' },
@@ -119,26 +124,16 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: 'العمل',
-    titleEn: 'Work',
+    title: 'الموارد البشرية',
+    titleEn: 'HR',
     items: [
-      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
-      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
-      { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view' },
-      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
-      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
-      { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', labelEn: 'Content Pipeline', icon: Clapperboard, permission: 'script_reviews.view' },
-    ],
-  },
-  {
-    title: 'سير العمل',
-    titleEn: 'Workflow',
-    items: [
-      { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
-      { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
-      { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
+      { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
+      { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
       { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
       { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
+      { href: '/dashboard/my-payslips', label: 'كشف راتبي', labelEn: 'My Payslips', icon: Receipt, permission: 'payroll.view' },
+      { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
+      { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
       { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
     ],
@@ -159,19 +154,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: 'الفريق',
-    titleEn: 'Team',
+    title: 'الإدارة',
+    titleEn: 'Admin',
     items: [
-      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
+      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
       { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, permission: 'users.view' },
+      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
       { href: '/dashboard/roles', label: 'الأدوار', labelEn: 'Roles', icon: Shield, permission: 'roles.view' },
       { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: KeyRound, permission: 'users.manage' },
-    ],
-  },
-  {
-    title: 'النظام',
-    titleEn: 'System',
-    items: [
       { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, permission: 'reports.view' },
       { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, permission: 'automations.view' },
       { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', labelEn: 'Knowledge Base', icon: BookOpen, permission: 'knowledge_base.view' },
@@ -179,18 +169,34 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity, permission: 'activity.view' },
       { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, permission: 'sessions.view' },
       { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, permission: 'sessions.view' },
-      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
     ],
   },
 ];
 
+// ═══════════════════════════════════════════════
+//  localStorage helpers
+// ═══════════════════════════════════════════════
 const STORAGE_KEY = 'pyra-sidebar-collapsed-groups';
+const FAVORITES_KEY = 'pyra-sidebar-favorites';
+
+// Old group names from the 8-group layout
+const OLD_GROUP_NAMES = ['General', 'Personal', 'File Management', 'Workflow', 'Team', 'System'];
+const NEW_GROUP_NAMES = navGroups.map(g => g.titleEn);
 
 function loadCollapsedGroups(): Set<string> {
   if (typeof window === 'undefined') return new Set();
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
+    if (!stored) return new Set();
+    const parsed: string[] = JSON.parse(stored);
+    // Migrate: if any old-only group name found, clear and return empty
+    const hasOldNames = parsed.some(n => OLD_GROUP_NAMES.includes(n));
+    if (hasOldNames) {
+      localStorage.removeItem(STORAGE_KEY);
+      return new Set();
+    }
+    // Only keep valid new group names
+    return new Set(parsed.filter(n => NEW_GROUP_NAMES.includes(n)));
   } catch { return new Set(); }
 }
 
@@ -198,15 +204,36 @@ function saveCollapsedGroups(groups: Set<string>) {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify([...groups])); } catch {}
 }
 
+function loadFavorites(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(FAVORITES_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch { return []; }
+}
+
+function saveFavorites(favs: string[]) {
+  try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs)); } catch {}
+}
+
+// All nav items flat — used for favorite pins lookup
+const ALL_NAV_ITEMS: NavItem[] = navGroups.flatMap(g => g.items);
+
+// ═══════════════════════════════════════════════
+//  Sidebar Component
+// ═══════════════════════════════════════════════
 export function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const [favorites, setFavorites] = useState<string[]>([]);
   const userPerms = user.rolePermissions ?? (user.role === 'admin' ? ['*'] : ['dashboard.view']);
+  const badges = useSidebarBadges();
 
-  // Load collapsed groups from localStorage on mount
+  // Load state from localStorage on mount
   useEffect(() => {
     setCollapsedGroups(loadCollapsedGroups());
+    setFavorites(loadFavorites());
   }, []);
 
   // Auto-expand the group containing the active page
@@ -237,6 +264,124 @@ export function Sidebar({ user }: SidebarProps) {
     });
   }, []);
 
+  const toggleFavorite = useCallback((href: string) => {
+    setFavorites(prev => {
+      const next = prev.includes(href)
+        ? prev.filter(f => f !== href)
+        : [...prev, href];
+      saveFavorites(next);
+      return next;
+    });
+  }, []);
+
+  // Compute favorite items (only those the user has permission for)
+  const favoriteItems = favorites
+    .map(href => ALL_NAV_ITEMS.find(n => n.href === href))
+    .filter((item): item is NavItem =>
+      !!item && (!item.permission || hasPermission(userPerms, item.permission))
+    );
+
+  const getBadgeCount = (item: NavItem): number => {
+    if (!item.badgeKey) return 0;
+    return badges[item.badgeKey] ?? 0;
+  };
+
+  // ── Render a single nav item ──
+  const renderNavItem = (item: NavItem, showFavToggle: boolean) => {
+    const isActive = pathname === item.href ||
+      (item.href !== '/dashboard' && pathname.startsWith(item.href));
+    const Icon = item.icon;
+    const guideDesc = MODULE_GUIDES[item.href]?.description;
+    const badgeCount = getBadgeCount(item);
+    const isFav = favorites.includes(item.href);
+
+    const link = (
+      <Link
+        href={item.href}
+        className={cn(
+          'group/item flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors relative',
+          collapsed && 'justify-center px-2',
+          isActive
+            ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+        )}
+      >
+        <span className="relative shrink-0">
+          <Icon className={cn('h-5 w-5', isActive && 'text-orange-500')} />
+          {/* Badge dot when sidebar is collapsed */}
+          {collapsed && badgeCount > 0 && (
+            <span className="absolute -top-1 -end-1 w-2 h-2 rounded-full bg-orange-500" />
+          )}
+        </span>
+
+        {!collapsed && (
+          <>
+            <span className="truncate">{item.label}</span>
+
+            {/* Badge count */}
+            {badgeCount > 0 && (
+              <span className="inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] px-1 ms-auto shrink-0">
+                {badgeCount > 99 ? '99+' : badgeCount}
+              </span>
+            )}
+
+            {/* Active dot (only if no badge) */}
+            {isActive && badgeCount === 0 && (
+              <div className="ms-auto w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />
+            )}
+
+            {/* Favorite toggle (visible on hover, not on collapsed) */}
+            {showFavToggle && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  toggleFavorite(item.href);
+                }}
+                className={cn(
+                  'absolute end-2 top-1/2 -translate-y-1/2 p-1 rounded transition-opacity',
+                  isFav
+                    ? 'opacity-60 hover:opacity-100 text-orange-500'
+                    : 'opacity-0 group-hover/item:opacity-60 hover:!opacity-100 text-muted-foreground'
+                )}
+                aria-label={isFav ? 'إزالة من المثبّتات' : 'تثبيت'}
+              >
+                {isFav ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+              </button>
+            )}
+          </>
+        )}
+      </Link>
+    );
+
+    return (
+      <Tooltip key={item.href}>
+        <TooltipTrigger asChild>
+          {link}
+        </TooltipTrigger>
+        <TooltipContent
+          side="left"
+          className="max-w-[220px] text-right"
+        >
+          {collapsed && <p className="font-semibold text-xs">{item.label}</p>}
+          {guideDesc && (
+            <p className={cn(
+              'text-[11px] leading-relaxed',
+              collapsed ? 'text-muted-foreground mt-0.5' : 'font-medium'
+            )}>
+              {guideDesc}
+            </p>
+          )}
+          {collapsed && badgeCount > 0 && (
+            <p className="text-[10px] text-orange-500 mt-0.5 font-medium">
+              {badgeCount} جديد
+            </p>
+          )}
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -265,6 +410,23 @@ export function Sidebar({ user }: SidebarProps) {
         {/* Navigation */}
         <ScrollArea className="flex-1 py-2">
           <nav className="px-3">
+            {/* ── Pinned Favorites Section ── */}
+            {favoriteItems.length > 0 && (
+              <div className="mb-3">
+                {!collapsed && (
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-orange-500/80 uppercase tracking-wider">
+                    <Pin className="h-3 w-3" />
+                    <span>المثبّتات</span>
+                  </div>
+                )}
+                {collapsed && <div className="my-1 mx-2 border-t border-orange-500/30" />}
+                <div className="space-y-0.5">
+                  {favoriteItems.map(item => renderNavItem(item, true))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Nav Groups ── */}
             {navGroups.map((group) => {
               const visibleItems = group.items.filter(item => !item.permission || hasPermission(userPerms, item.permission));
               if (visibleItems.length === 0) return null;
@@ -290,59 +452,11 @@ export function Sidebar({ user }: SidebarProps) {
                     className={cn(
                       'space-y-0.5 overflow-hidden transition-all duration-200',
                       !collapsed && isGroupCollapsed && 'max-h-0 opacity-0',
-                      (!collapsed && !isGroupCollapsed) && 'max-h-[500px] opacity-100',
-                      collapsed && 'max-h-[500px] opacity-100'
+                      (!collapsed && !isGroupCollapsed) && 'max-h-[800px] opacity-100',
+                      collapsed && 'max-h-[800px] opacity-100'
                     )}
                   >
-                    {visibleItems.map((item) => {
-                      const isActive = pathname === item.href ||
-                        (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                      const Icon = item.icon;
-                      const guideDesc = MODULE_GUIDES[item.href]?.description;
-
-                      const link = (
-                        <Link
-                          key={item.href}
-                          href={item.href}
-                          className={cn(
-                            'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                            collapsed && 'justify-center px-2',
-                            isActive
-                              ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400'
-                              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                          )}
-                        >
-                          <Icon className={cn('h-5 w-5 shrink-0', isActive && 'text-orange-500')} />
-                          {!collapsed && <span className="truncate">{item.label}</span>}
-                          {isActive && !collapsed && (
-                            <div className="ms-auto w-1.5 h-1.5 rounded-full bg-orange-500" />
-                          )}
-                        </Link>
-                      );
-
-                      // Always show tooltip (collapsed = label + desc, expanded = desc only)
-                      return (
-                        <Tooltip key={item.href}>
-                          <TooltipTrigger asChild>
-                            {link}
-                          </TooltipTrigger>
-                          <TooltipContent
-                            side="left"
-                            className="max-w-[220px] text-right"
-                          >
-                            {collapsed && <p className="font-semibold text-xs">{item.label}</p>}
-                            {guideDesc && (
-                              <p className={cn(
-                                'text-[11px] leading-relaxed',
-                                collapsed ? 'text-muted-foreground mt-0.5' : 'font-medium'
-                              )}>
-                                {guideDesc}
-                              </p>
-                            )}
-                          </TooltipContent>
-                        </Tooltip>
-                      );
-                    })}
+                    {visibleItems.map(item => renderNavItem(item, true))}
                   </div>
                 </div>
               );

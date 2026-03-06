@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { usePermission } from '@/hooks/usePermission';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils/cn';
 import { ProjectKanban } from '@/components/projects/project-kanban';
 import { toast } from 'sonner';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 
 interface Project {
   id: string;
@@ -84,6 +85,7 @@ export default function ProjectsClient() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active' });
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
+  const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
   // Debounce search input
   useEffect(() => {
@@ -184,6 +186,180 @@ export default function ProjectsClient() {
     }
   };
 
+  /* ── sort handler ── */
+  const handleSortChange = useCallback((key: string) => {
+    setSortConfig((prev) => {
+      if (prev?.key === key) {
+        return prev.direction === 'asc' ? { key, direction: 'desc' } : null;
+      }
+      return { key, direction: 'asc' };
+    });
+  }, []);
+
+  /* ── sorted projects ── */
+  const sortedProjects = useMemo(() => {
+    if (!sortConfig) return projects;
+    return [...projects].sort((a, b) => {
+      let aVal: string | number = '';
+      let bVal: string | number = '';
+      switch (sortConfig.key) {
+        case 'name': aVal = a.name; bVal = b.name; break;
+        case 'client': aVal = a.client_company; bVal = b.client_company; break;
+        case 'files': aVal = a.file_count ?? 0; bVal = b.file_count ?? 0; break;
+        case 'deadline': aVal = a.deadline || 'zzzz'; bVal = b.deadline || 'zzzz'; break;
+        case 'created_at': aVal = a.created_at; bVal = b.created_at; break;
+        default: return 0;
+      }
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+      }
+      return sortConfig.direction === 'asc'
+        ? String(aVal).localeCompare(String(bVal), 'ar')
+        : String(bVal).localeCompare(String(aVal), 'ar');
+    });
+  }, [projects, sortConfig]);
+
+  /* ── column definitions ── */
+  const projectColumns: ColumnDef<Project>[] = useMemo(() => [
+    {
+      key: 'name',
+      header: 'المشروع',
+      sortable: true,
+      render: (p) => (
+        <div>
+          <div className="font-medium text-primary hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>{p.name}</div>
+          {p.description && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{p.description}</div>}
+          <div className="flex items-center gap-3 mt-1">
+            {(p.comment_count ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <MessageSquare className="h-3 w-3" /> {p.comment_count}
+                {(p.unread_team_comments ?? 0) > 0 && (
+                  <Badge className="text-[9px] px-1 py-0 bg-orange-100 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900/30">
+                    {p.unread_team_comments} جديد
+                  </Badge>
+                )}
+              </span>
+            )}
+            {(p.total_file_size ?? 0) > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <HardDrive className="h-3 w-3" /> {formatFileSize(p.total_file_size || 0)}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'client',
+      header: 'العميل',
+      sortable: true,
+      className: 'text-muted-foreground',
+      render: (p) => p.client_company,
+    },
+    {
+      key: 'files',
+      header: 'الملفات',
+      sortable: true,
+      render: (p) => (
+        <div className="flex items-center gap-1">
+          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-mono text-sm">{p.file_count ?? 0}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'approvals',
+      header: 'الموافقات',
+      render: (p) => (
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {(p.approved_count ?? 0) > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+              <CheckCircle className="h-3 w-3 me-0.5" /> {p.approved_count}
+            </Badge>
+          )}
+          {(p.pending_count ?? 0) > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400">
+              <Clock className="h-3 w-3 me-0.5" /> {p.pending_count}
+            </Badge>
+          )}
+          {(p.revision_count ?? 0) > 0 && (
+            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+              <AlertTriangle className="h-3 w-3 me-0.5" /> {p.revision_count}
+            </Badge>
+          )}
+          {(p.approved_count ?? 0) === 0 && (p.pending_count ?? 0) === 0 && (p.revision_count ?? 0) === 0 && (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'الحالة',
+      render: (p) => {
+        const s = STATUS_MAP[p.status] || { label: p.status, variant: 'secondary' as const };
+        const overdue = isProjectOverdue(p);
+        return (
+          <div className="flex items-center gap-1">
+            <Badge variant={s.variant}>{s.label}</Badge>
+            {overdue && (
+              <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
+                <AlertTriangle className="h-3 w-3 me-0.5" /> متأخر
+              </Badge>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      key: 'deadline',
+      header: 'الموعد النهائي',
+      sortable: true,
+      render: (p) => {
+        const overdue = isProjectOverdue(p);
+        return p.deadline ? (
+          <div className={cn(
+            'flex items-center gap-1 text-xs',
+            overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground',
+          )}>
+            <CalendarDays className="h-3 w-3 shrink-0" />
+            <span>{formatDate(p.deadline)}</span>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        );
+      },
+    },
+    {
+      key: 'created_at',
+      header: 'تاريخ الإنشاء',
+      sortable: true,
+      className: 'text-muted-foreground text-xs',
+      render: (p) => formatDate(p.created_at),
+    },
+    {
+      key: 'actions',
+      header: '',
+      headerClassName: 'w-[60px]',
+      render: (p) => (
+        <div data-no-row-click>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => router.push(`/dashboard/projects/${p.id}`)}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      ),
+    },
+  ], [router, canEdit, canDelete, openEdit, openDelete]);
+
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
@@ -245,133 +421,33 @@ export default function ProjectsClient() {
           onStatusChange={canEdit ? handleStatusChange : undefined}
         />
       ) : (
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="text-start p-3 font-medium">المشروع</th>
-                  <th className="text-start p-3 font-medium">العميل</th>
-                  <th className="text-start p-3 font-medium">الملفات</th>
-                  <th className="text-start p-3 font-medium">الموافقات</th>
-                  <th className="text-start p-3 font-medium">الحالة</th>
-                  <th className="text-start p-3 font-medium">الموعد النهائي</th>
-                  <th className="text-start p-3 font-medium">تاريخ الإنشاء</th>
-                  <th className="text-start p-3 font-medium w-[60px]"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b">{Array.from({ length: 8 }).map((_, j) => <td key={j} className="p-3"><Skeleton className="h-5 w-24" /></td>)}</tr>
-                )) : projects.length === 0 ? (
-                  <tr><td colSpan={8} className="p-8 text-center text-muted-foreground">لا توجد مشاريع</td></tr>
-                ) : projects.map(p => {
-                  const s = STATUS_MAP[p.status] || { label: p.status, variant: 'secondary' as const };
-                  const overdue = isProjectOverdue(p);
-                  const isHighlighted = highlightId === p.id;
-                  return (
-                    <tr key={p.id} className={cn(
-                      'border-b hover:bg-muted/30 transition-colors',
-                      isHighlighted && 'animate-pulse bg-orange-50 dark:bg-orange-950/20',
-                    )}>
-                      <td className="p-3">
-                        <div className="font-medium text-primary hover:underline cursor-pointer" onClick={() => router.push(`/dashboard/projects/${p.id}`)}>{p.name}</div>
-                        {p.description && <div className="text-xs text-muted-foreground truncate max-w-[300px]">{p.description}</div>}
-                        {/* Comments & size mini-stats */}
-                        <div className="flex items-center gap-3 mt-1">
-                          {(p.comment_count ?? 0) > 0 && (
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <MessageSquare className="h-3 w-3" /> {p.comment_count}
-                              {(p.unread_team_comments ?? 0) > 0 && (
-                                <Badge className="text-[9px] px-1 py-0 bg-orange-100 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900/30">
-                                  {p.unread_team_comments} جديد
-                                </Badge>
-                              )}
-                            </span>
-                          )}
-                          {(p.total_file_size ?? 0) > 0 && (
-                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                              <HardDrive className="h-3 w-3" /> {formatFileSize(p.total_file_size || 0)}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3 text-muted-foreground">{p.client_company}</td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="font-mono text-sm">{p.file_count ?? 0}</span>
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {(p.approved_count ?? 0) > 0 && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
-                              <CheckCircle className="h-3 w-3 me-0.5" /> {p.approved_count}
-                            </Badge>
-                          )}
-                          {(p.pending_count ?? 0) > 0 && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400">
-                              <Clock className="h-3 w-3 me-0.5" /> {p.pending_count}
-                            </Badge>
-                          )}
-                          {(p.revision_count ?? 0) > 0 && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-                              <AlertTriangle className="h-3 w-3 me-0.5" /> {p.revision_count}
-                            </Badge>
-                          )}
-                          {(p.approved_count ?? 0) === 0 && (p.pending_count ?? 0) === 0 && (p.revision_count ?? 0) === 0 && (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        <div className="flex items-center gap-1">
-                          <Badge variant={s.variant}>{s.label}</Badge>
-                          {overdue && (
-                            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-                              <AlertTriangle className="h-3 w-3 me-0.5" /> متأخر
-                            </Badge>
-                          )}
-                        </div>
-                      </td>
-                      <td className="p-3">
-                        {p.deadline ? (
-                          <div className={cn(
-                            'flex items-center gap-1 text-xs',
-                            overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground',
-                          )}>
-                            <CalendarDays className="h-3 w-3 shrink-0" />
-                            <span>{formatDate(p.deadline)}</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-muted-foreground text-xs">{formatDate(p.created_at)}</td>
-                      <td className="p-3">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/dashboard/projects/${p.id}`)}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
-                            {canEdit && (
-                              <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
-                            )}
-                            {canDelete && (
-                              <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
-                            )}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <DataTable
+        columns={projectColumns}
+        data={sortedProjects}
+        loading={loading}
+        emptyState={{
+          icon: Briefcase,
+          title: 'لا توجد مشاريع',
+          description: 'أنشئ مشروعاً جديداً للبدء',
+        }}
+        selectable
+        getRowId={(p) => p.id}
+        sortConfig={sortConfig}
+        onSortChange={handleSortChange}
+        onRowClick={(p) => router.push(`/dashboard/projects/${p.id}`)}
+        rowClassName={(p) => highlightId === p.id ? 'animate-pulse bg-orange-50 dark:bg-orange-950/20' : ''}
+        bulkActions={canDelete ? [
+          {
+            label: 'حذف المحدد',
+            icon: Trash2,
+            variant: 'destructive',
+            onClick: (ids) => {
+              const p = projects.find((p) => ids.includes(p.id));
+              if (p) openDelete(p);
+            },
+          },
+        ] : []}
+      />
       )}
 
       {/* Create */}

@@ -124,6 +124,32 @@ export async function GET() {
       });
     }
 
+    // ── Financial summary (invoices) ──────────────────
+    const { data: clientInvoices } = await supabase
+      .from('pyra_invoices')
+      .select('total_amount, amount_paid, status')
+      .eq('client_id', client.id)
+      .neq('status', 'draft');
+
+    const financialSummary = {
+      totalInvoiced: 0,
+      totalPaid: 0,
+      totalRemaining: 0,
+      invoiceCount: (clientInvoices || []).length,
+      pendingCount: 0,
+    };
+
+    for (const inv of clientInvoices || []) {
+      const total = Number(inv.total_amount) || 0;
+      const paid = Number(inv.amount_paid) || 0;
+      financialSummary.totalInvoiced += total;
+      financialSummary.totalPaid += paid;
+      financialSummary.totalRemaining += total - paid;
+      if (inv.status === 'pending' || inv.status === 'sent' || inv.status === 'overdue') {
+        financialSummary.pendingCount++;
+      }
+    }
+
     // ── Project progress (approved / total files) ─────
     const projectProgress: Array<{
       id: string;
@@ -184,6 +210,7 @@ export async function GET() {
         unreadNotifications: unreadNotificationsCount || 0,
         totalFiles: totalFilesCount,
       },
+      financialSummary,
       recentProjects: recentProjects || [],
       recentNotifications: recentNotifications || [],
       recentActivity: recentActivity || [],

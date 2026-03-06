@@ -14,7 +14,7 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
-import { formatRelativeDate, formatDate } from '@/lib/utils/format';
+import { formatRelativeDate, formatDate, formatCurrency } from '@/lib/utils/format';
 import {
   Card,
   CardContent,
@@ -45,6 +45,9 @@ import {
   PenLine,
   ArrowLeftRight,
   RefreshCw,
+  Wallet,
+  CircleDollarSign,
+  CreditCard,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -94,6 +97,14 @@ interface ProjectProgressItem {
   progress: number;
 }
 
+interface FinancialSummary {
+  totalInvoiced: number;
+  totalPaid: number;
+  totalRemaining: number;
+  invoiceCount: number;
+  pendingCount: number;
+}
+
 interface DashboardData {
   client: {
     name: string;
@@ -101,6 +112,7 @@ interface DashboardData {
     last_login_at: string | null;
   };
   stats: DashboardStats;
+  financialSummary?: FinancialSummary;
   recentProjects: DashboardProject[];
   recentNotifications: DashboardNotification[];
   recentActivity: ActivityEntry[];
@@ -492,6 +504,82 @@ export default function PortalDashboardPage() {
         })}
       </motion.div>
 
+      {/* ── Financial Summary ──────────────────────────── */}
+      {data?.financialSummary && data.financialSummary.invoiceCount > 0 && (
+        <motion.div variants={itemVariants}>
+          <Card className="border-portal/10">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-portal" />
+                الملخص المالي
+              </CardTitle>
+              <button
+                onClick={() => router.push('/portal/invoices')}
+                className="text-xs text-portal hover:text-portal-secondary flex items-center gap-1 transition-colors"
+              >
+                عرض الفواتير
+                <ChevronLeft className="h-3 w-3" />
+              </button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Total Invoiced */}
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                      <CreditCard className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">إجمالي الفواتير</span>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums">
+                    {formatCurrency(data.financialSummary.totalInvoiced)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {data.financialSummary.invoiceCount} فاتورة
+                  </p>
+                </div>
+
+                {/* Total Paid */}
+                <div className="rounded-xl border bg-emerald-500/5 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                      <CheckCircle className="h-4 w-4 text-emerald-500" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">المبلغ المدفوع</span>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                    {formatCurrency(data.financialSummary.totalPaid)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {data.financialSummary.totalInvoiced > 0
+                      ? Math.round((data.financialSummary.totalPaid / data.financialSummary.totalInvoiced) * 100)
+                      : 0}% من الإجمالي
+                  </p>
+                </div>
+
+                {/* Remaining */}
+                <div className="rounded-xl border bg-orange-500/5 p-4 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                      <CircleDollarSign className="h-4 w-4 text-orange-500" />
+                    </div>
+                    <span className="text-xs text-muted-foreground">المبلغ المتبقي</span>
+                  </div>
+                  <p className="text-xl font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                    {formatCurrency(data.financialSummary.totalRemaining)}
+                  </p>
+                  {data.financialSummary.pendingCount > 0 && (
+                    <p className="text-[11px] text-muted-foreground">
+                      {data.financialSummary.pendingCount} فاتورة معلقة
+                    </p>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
       {/* ── Quick Actions ──────────────────────────────── */}
       <motion.div variants={itemVariants}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -501,10 +589,10 @@ export default function PortalDashboardPage() {
               <button
                 key={action.href}
                 onClick={() => router.push(action.href)}
-                className="flex flex-col items-center justify-center gap-2.5 rounded-xl border bg-card p-5 hover:shadow-md hover:border-portal/30 dark:hover:border-portal/40 transition-all duration-200 group"
+                className="flex flex-col items-center justify-center gap-3 rounded-xl border bg-card p-6 hover:shadow-md hover:border-portal/30 dark:hover:border-portal/40 transition-all duration-200 group"
               >
-                <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center group-hover:bg-portal/20 transition-colors">
-                  <Icon className="h-5 w-5 text-portal" />
+                <div className="w-12 h-12 rounded-xl bg-portal/10 flex items-center justify-center group-hover:bg-portal/20 group-hover:scale-110 transition-all duration-300">
+                  <Icon className="h-6 w-6 text-portal" />
                 </div>
                 <span className="text-sm font-medium text-foreground">
                   {action.label}

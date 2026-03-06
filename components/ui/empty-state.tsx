@@ -4,12 +4,24 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { Plus } from 'lucide-react';
 
+interface EmptyStateAction {
+  label: string;
+  onClick: () => void;
+  variant?: 'primary' | 'secondary';
+  icon?: React.ComponentType<{ className?: string }>;
+}
+
 interface EmptyStateProps {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   description?: string;
+  /** Single action (backward compatible) */
   actionLabel?: string;
   onAction?: () => void;
+  /** Multiple actions (takes precedence over actionLabel/onAction) */
+  actions?: EmptyStateAction[];
+  /** Onboarding hint for first-time users */
+  hint?: string;
   className?: string;
 }
 
@@ -19,6 +31,8 @@ export function EmptyState({
   description,
   actionLabel,
   onAction,
+  actions,
+  hint,
   className,
 }: EmptyStateProps) {
   return (
@@ -44,8 +58,30 @@ export function EmptyState({
         </p>
       )}
 
-      {/* CTA Button */}
-      {actionLabel && onAction && (
+      {/* Actions */}
+      {actions && actions.length > 0 ? (
+        <div className="flex items-center gap-2 mt-5 flex-wrap justify-center">
+          {actions.map((action, i) => (
+            <Button
+              key={i}
+              onClick={action.onClick}
+              size="sm"
+              variant={action.variant === 'secondary' ? 'outline' : 'default'}
+              className={cn(
+                'gap-1.5',
+                action.variant !== 'secondary' && 'bg-orange-500 hover:bg-orange-600 text-white'
+              )}
+            >
+              {action.icon ? (
+                <action.icon className="h-4 w-4" />
+              ) : action.variant !== 'secondary' ? (
+                <Plus className="h-4 w-4" />
+              ) : null}
+              {action.label}
+            </Button>
+          ))}
+        </div>
+      ) : actionLabel && onAction ? (
         <Button
           onClick={onAction}
           size="sm"
@@ -54,7 +90,16 @@ export function EmptyState({
           <Plus className="h-4 w-4" />
           {actionLabel}
         </Button>
+      ) : null}
+
+      {/* Onboarding hint */}
+      {hint && (
+        <p className="text-xs text-muted-foreground/60 text-center max-w-[320px] mt-3 italic">
+          {hint}
+        </p>
       )}
     </div>
   );
 }
+
+export type { EmptyStateAction, EmptyStateProps };
