@@ -1302,6 +1302,26 @@ Individual milestones within a contract, tracking completion, percentage, and li
 
 ---
 
+## 53b. pyra_contract_items
+
+Structured deliverables / scope of work for contracts. Items are descriptive only (no pricing). Supports one level of nesting via `parent_id`.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| contract_id | varchar | NOT NULL | — |
+| parent_id | varchar | NULL | — |
+| title | text | NOT NULL | — |
+| description | text | NULL | — |
+| sort_order | integer | NOT NULL | 0 |
+| created_at | timestamptz | NOT NULL | now() |
+| updated_at | timestamptz | NOT NULL | now() |
+
+**FK**: `contract_id` → `pyra_contracts.id` (CASCADE), `parent_id` → `pyra_contract_items.id` (CASCADE)
+**Prefix**: `cti`
+
+---
+
 ## 54. pyra_cards
 
 Payment card references (no full card numbers stored) used for linking to subscriptions.

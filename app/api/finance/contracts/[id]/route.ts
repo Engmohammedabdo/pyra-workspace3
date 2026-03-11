@@ -151,12 +151,18 @@ export async function PATCH(
           const billingDay = Number(data.billing_day) || 1;
 
           if (retainerAmount > 0) {
+            // Build recurring invoice title with scope
+            let riTitle = `اشتراك شهري — ${data.title}`;
+            const cycleLabels: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي' };
+            const cycleLabel = cycleLabels[retainerCycle] || 'شهري';
+            riTitle = `اشتراك ${cycleLabel} — ${data.title}`;
+
             const riId = generateId('ri');
             await supabase.from('pyra_recurring_invoices').insert({
               id: riId,
               contract_id: id,
               client_id: data.client_id || null,
-              title: `اشتراك شهري — ${data.title}`,
+              title: riTitle,
               items: [{ description: data.title, quantity: 1, rate: retainerAmount }],
               currency: data.currency || 'AED',
               billing_cycle: retainerCycle,

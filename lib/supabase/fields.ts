@@ -65,6 +65,11 @@ export const CONTRACT_FIELDS = `
   created_by, created_at, updated_at
 `;
 
+export const CONTRACT_ITEM_FIELDS = `
+  id, contract_id, parent_id, title, description,
+  sort_order, created_at, updated_at
+`;
+
 export const MILESTONE_FIELDS = `
   id, contract_id, title, description, percentage,
   amount, due_date, status, invoice_id, sort_order,

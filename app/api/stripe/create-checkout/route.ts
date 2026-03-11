@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Fetch invoice
     const { data: invoice, error: invoiceError } = await supabase
       .from('pyra_invoices')
-      .select('id, invoice_number, amount_due, currency, client_id, status')
+      .select('id, invoice_number, amount_due, currency, client_id, contract_id, status')
       .eq('id', invoice_id)
       .single();
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
       return apiError('Invoice is already paid');
     }
 
-    // Fetch client name if client_id exists
+    // Fetch client name and contract_id for metadata
     let clientName: string | null = null;
     if (invoice.client_id) {
       const { data: client } = await supabase
@@ -50,6 +50,19 @@ export async function POST(req: NextRequest) {
       if (client) {
         clientName = client.name;
       }
+    }
+
+    // Resolve contract_id: from invoice directly, or via milestone link
+    let contractId = '';
+    if (invoice.contract_id) {
+      contractId = invoice.contract_id;
+    } else {
+      const { data: milestone } = await supabase
+        .from('pyra_contract_milestones')
+        .select('contract_id')
+        .eq('invoice_id', invoice.id)
+        .maybeSingle();
+      if (milestone?.contract_id) contractId = milestone.contract_id;
     }
 
     // Create Stripe Checkout session
@@ -73,6 +86,7 @@ export async function POST(req: NextRequest) {
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number,
         client_id: invoice.client_id || '',
+        contract_id: contractId,
       },
     });
 

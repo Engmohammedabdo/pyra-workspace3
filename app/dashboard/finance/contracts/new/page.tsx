@@ -74,8 +74,9 @@ export default function NewContractPage() {
         }),
       });
       if (res.ok) {
-        toast.success('تم إنشاء العقد');
-        router.push('/dashboard/finance/contracts');
+        const json = await res.json();
+        toast.success('تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل');
+        router.push(`/dashboard/finance/contracts/${json.data?.id || ''}`);
       } else {
         const json = await res.json();
         toast.error(json.error || 'فشل في الحفظ');

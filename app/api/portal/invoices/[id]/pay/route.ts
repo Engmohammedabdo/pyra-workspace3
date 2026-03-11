@@ -29,7 +29,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     // 2. Fetch invoice — must belong to this client
     const { data: invoice, error: fetchError } = await supabase
       .from('pyra_invoices')
-      .select('id, invoice_number, total, amount_paid, amount_due, currency, client_id, status')
+      .select('id, invoice_number, total, amount_paid, amount_due, currency, client_id, contract_id, status')
       .eq('id', id)
       .eq('client_id', client.id)
       .maybeSingle();
@@ -50,7 +50,20 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       return apiError('لا يوجد مبلغ مستحق للدفع');
     }
 
-    // 4. Create Stripe Checkout Session
+    // 4. Resolve contract_id for metadata
+    let contractId = '';
+    if (invoice.contract_id) {
+      contractId = invoice.contract_id;
+    } else {
+      const { data: milestone } = await supabase
+        .from('pyra_contract_milestones')
+        .select('contract_id')
+        .eq('invoice_id', id)
+        .maybeSingle();
+      if (milestone?.contract_id) contractId = milestone.contract_id;
+    }
+
+    // 5. Create Stripe Checkout Session
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
     const session = await getStripe().checkout.sessions.create({
@@ -73,11 +86,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       metadata: {
         invoice_id: id,
         client_id: client.id,
+        contract_id: contractId,
       },
       customer_email: client.email,
     });
 
-    // 5. Insert stripe payment record
+    // 6. Insert stripe payment record
     const { error: insertError } = await supabase
       .from('pyra_stripe_payments')
       .insert({
@@ -95,7 +109,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       // Don't fail — the Stripe session is already created
     }
 
-    // 6. Return checkout URL
+    // 7. Return checkout URL
     return apiSuccess({ checkout_url: session.url });
   } catch (err) {
     console.error('POST /api/portal/invoices/[id]/pay error:', err);

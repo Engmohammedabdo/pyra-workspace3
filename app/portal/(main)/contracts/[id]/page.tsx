@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
-  ArrowRight, FileSignature, FileText, Receipt, CalendarClock,
+  ArrowRight, FileSignature, FileText, Receipt, CalendarClock, ListTree,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -29,6 +29,11 @@ interface ContractDetail {
   retainer_cycle: string | null;
   billing_day: number | null;
   notes: string | null;
+  items?: {
+    title: string;
+    description?: string;
+    children?: { title: string; description?: string }[];
+  }[];
   billing_history: {
     recurring_invoice: {
       status: string;
@@ -177,6 +182,55 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
           )}
         </CardContent>
       </Card>
+
+      {/* Scope of Work */}
+      {contract.items && contract.items.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <ListTree className="h-4 w-4 text-orange-500" />
+              نطاق العمل
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {contract.items.map((item, idx) => (
+                <div key={idx} className="space-y-1">
+                  <div className="flex items-start gap-2">
+                    <span className="text-sm font-mono text-muted-foreground shrink-0 pt-0.5">{idx + 1}.</span>
+                    <div>
+                      <p className="text-sm font-medium">{item.title}</p>
+                      {item.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  {item.children && item.children.length > 0 && (
+                    <div className="me-7 space-y-1 border-s-2 border-orange-200 dark:border-orange-900/50 ps-3">
+                      {item.children.map((child, cIdx) => {
+                        const letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
+                        return (
+                          <div key={cIdx} className="flex items-start gap-2">
+                            <span className="text-xs font-mono text-muted-foreground shrink-0 pt-0.5">
+                              {letters[cIdx] || String(cIdx + 1)}.
+                            </span>
+                            <div>
+                              <p className="text-sm">{child.title}</p>
+                              {child.description && (
+                                <p className="text-xs text-muted-foreground">{child.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Retainer billing history */}
       {isRetainer && bh && (

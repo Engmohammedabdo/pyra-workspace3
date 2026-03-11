@@ -148,6 +148,32 @@ export async function POST(req: NextRequest) {
         dueDate.setDate(dueDate.getDate() + paymentTermsDays);
         const dueDateStr = dueDate.toISOString().split('T')[0];
 
+        // 4b. Build scope-of-work notes from contract items (if linked to contract)
+        let scopeNotes = `فاتورة متكررة — ${template.title}`;
+        if (template.contract_id) {
+          const { data: contractItems } = await supabase
+            .from('pyra_contract_items')
+            .select('id, parent_id, title, sort_order')
+            .eq('contract_id', template.contract_id)
+            .order('sort_order', { ascending: true });
+
+          if (contractItems && contractItems.length > 0) {
+            const parents = contractItems.filter((i: { parent_id: string | null }) => !i.parent_id);
+            const lines: string[] = ['نطاق العمل:'];
+            parents.forEach((parent: { id: string; title: string }, idx: number) => {
+              lines.push(`${idx + 1}. ${parent.title}`);
+              const children = contractItems
+                .filter((i: { parent_id: string | null }) => i.parent_id === parent.id)
+                .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
+              const letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
+              children.forEach((child: { title: string }, cIdx: number) => {
+                lines.push(`   ${letters[cIdx] || String(cIdx + 1)}. ${child.title}`);
+              });
+            });
+            scopeNotes = lines.join('\n');
+          }
+        }
+
         // 5. Create invoice
         const invoiceId = generateId('inv');
         const invoiceStatus = template.auto_send ? 'sent' : 'draft';
@@ -169,7 +195,7 @@ export async function POST(req: NextRequest) {
             total,
             amount_paid: 0,
             amount_due: total,
-            notes: `فاتورة متكررة — ${template.title}`,
+            notes: scopeNotes,
             bank_details: bankDetails,
             company_name: settingsMap.company_name || null,
             company_logo: settingsMap.company_logo || null,

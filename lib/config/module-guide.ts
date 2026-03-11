@@ -448,8 +448,9 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'تغيير حالة العقد إلى "نشط" يُفعّل الفوترة التلقائية',
       'إلغاء أو إكمال العقد يوقف الفوترة المتكررة',
       'عقد "مراحل" يتيح إنشاء فواتير لكل مرحلة منجزة',
+      'أضف بنود نطاق العمل من صفحة تعديل العقد — تظهر في الفواتير والبوابة',
     ],
-    keywords: ['contracts', 'عقود', 'retainer', 'اشتراك شهري', 'دفع شهري', 'مراحل'],
+    keywords: ['contracts', 'عقود', 'retainer', 'اشتراك شهري', 'دفع شهري', 'مراحل', 'نطاق العمل', 'بنود', 'scope'],
   },
   '/dashboard/finance/recurring': {
     href: '/dashboard/finance/recurring',

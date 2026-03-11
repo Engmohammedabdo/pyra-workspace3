@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getPortalSession } from '@/lib/portal/auth';
 import { apiSuccess, apiUnauthorized, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { CONTRACT_FIELDS, RECURRING_INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { CONTRACT_FIELDS, CONTRACT_ITEM_FIELDS, RECURRING_INVOICE_FIELDS } from '@/lib/supabase/fields';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -45,7 +45,22 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       if (project) project_name = project.name;
     }
 
-    // 3. For retainer contracts, include billing history
+    // 3. Fetch contract items (scope of work)
+    const { data: allItems } = await supabase
+      .from('pyra_contract_items')
+      .select(CONTRACT_ITEM_FIELDS)
+      .eq('contract_id', id)
+      .order('sort_order', { ascending: true });
+
+    const parentItems = (allItems || []).filter((i: { parent_id: string | null }) => !i.parent_id);
+    const contractItems = parentItems.map((parent: { id: string }) => ({
+      ...parent,
+      children: (allItems || [])
+        .filter((i: { parent_id: string | null }) => i.parent_id === parent.id)
+        .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order),
+    }));
+
+    // 4. For retainer contracts, include billing history
     let billing_history = null;
 
     if (contract.contract_type === 'retainer') {
@@ -85,6 +100,7 @@ export async function GET(_req: NextRequest, context: RouteContext) {
     return apiSuccess({
       ...contract,
       project_name,
+      items: contractItems,
       billing_history,
     });
   } catch {

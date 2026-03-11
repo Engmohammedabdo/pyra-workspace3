@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
+import { ContractItemsEditor } from '@/components/finance/contract-items-editor';
 
 // ==========================================
 // Types
@@ -609,6 +610,11 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
           </CardContent>
         </Card>
       </form>
+
+      {/* ==========================================
+          Contract Items / Scope of Work
+          ========================================== */}
+      <ContractItemsEditor contractId={id} />
 
       {/* ==========================================
           Retainer Billing History Section

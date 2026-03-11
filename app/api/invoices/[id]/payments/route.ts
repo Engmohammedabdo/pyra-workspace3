@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Fetch invoice
     const { data: invoice } = await supabase
       .from('pyra_invoices')
-      .select('id, status, total, amount_paid, amount_due, invoice_number, client_id, client_name')
+      .select('id, status, total, amount_paid, amount_due, invoice_number, client_id, client_name, contract_id')
       .eq('id', id)
       .maybeSingle();
 
@@ -117,7 +117,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
 
-    // Update contract amount_collected if invoice is linked to a milestone
+    // Update contract amount_collected (milestone-linked or retainer direct link)
+    let resolvedContractId: string | null = null;
+
+    // Check milestone link first
     const { data: milestone } = await supabase
       .from('pyra_contract_milestones')
       .select('contract_id')
@@ -125,20 +128,45 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (milestone?.contract_id) {
-      const { data: contract } = await supabase
-        .from('pyra_contracts')
-        .select('amount_collected')
-        .eq('id', milestone.contract_id)
-        .maybeSingle();
+      resolvedContractId = milestone.contract_id;
+    } else if (invoice.contract_id) {
+      // Direct contract_id on invoice (retainer invoices)
+      resolvedContractId = invoice.contract_id;
+    }
 
-      if (contract) {
+    if (resolvedContractId) {
+      // Sum-all approach: gather all invoices for this contract, then sum payments
+      const { data: contractInvoices } = await supabase
+        .from('pyra_invoices')
+        .select('id')
+        .eq('contract_id', resolvedContractId);
+
+      const { data: milestoneInvoices } = await supabase
+        .from('pyra_contract_milestones')
+        .select('invoice_id')
+        .eq('contract_id', resolvedContractId)
+        .not('invoice_id', 'is', null);
+
+      const allInvoiceIds = new Set<string>();
+      (contractInvoices || []).forEach((i: { id: string }) => allInvoiceIds.add(i.id));
+      (milestoneInvoices || []).forEach((m: { invoice_id: string | null }) => {
+        if (m.invoice_id) allInvoiceIds.add(m.invoice_id);
+      });
+
+      if (allInvoiceIds.size > 0) {
+        const { data: allContractPayments } = await supabase
+          .from('pyra_payments')
+          .select('amount')
+          .in('invoice_id', Array.from(allInvoiceIds));
+
+        const totalCollected = (allContractPayments || []).reduce(
+          (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+        );
+
         await supabase
           .from('pyra_contracts')
-          .update({
-            amount_collected: (contract.amount_collected || 0) + amount,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', milestone.contract_id);
+          .update({ amount_collected: totalCollected, updated_at: new Date().toISOString() })
+          .eq('id', resolvedContractId);
       }
     }
 
