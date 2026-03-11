@@ -260,6 +260,124 @@ Already configured in both dashboard and portal layouts via `PageTransition` wra
 
 ---
 
+## HR & Employee System
+
+### Overview
+Full ERP-style HR system integrated into the dashboard with 14 modules:
+- **Attendance**: Clock-in/out with geolocation + IP tracking
+- **Leave Management**: Request/approve leave with balance tracking
+- **Payroll**: Multi-period payroll with auto-calculation (basic + overtime + deductions)
+- **Evaluations**: Performance reviews with criteria scoring
+- **Timesheets**: Period-based time tracking with project linking
+- **Directory**: Employee profiles + org chart visualization
+- **Announcements**: Company-wide announcements with priority & targeting
+- **Work Schedules**: Shift definitions and assignments
+- **Overtime**: Overtime request and approval workflow
+- **Employee Payments**: Advances, bonuses, deductions tracking
+- **Content Pipeline**: Content production workflow management
+
+### HR API Routes
+```
+/api/dashboard/attendance/          → Clock-in (POST)
+/api/dashboard/attendance/clock-out → Clock-out (POST)
+/api/dashboard/payroll/             → CRUD payroll periods
+/api/dashboard/payroll/[id]/calculate → Auto-calculate payroll
+/api/dashboard/evaluations/         → CRUD evaluations
+/api/dashboard/evaluations/periods/ → Evaluation periods
+/api/dashboard/evaluations/[id]/scores → Save evaluation scores
+/api/dashboard/timesheet-periods/   → Timesheet period management
+/api/dashboard/work-schedules/      → Work schedule definitions
+/api/dashboard/employee-payments/   → Employee payment records
+/api/leave/                         → Leave requests (shared)
+/api/timesheet/                     → Timesheet entries (shared)
+```
+
+### HR Activity Logging
+All HR write operations log to `pyra_activity_log` with action types:
+`attendance_clock_in`, `attendance_clock_out`, `payroll_created`, `payroll_calculated`,
+`payroll_status_changed`, `evaluation_created`, `evaluation_updated`, `evaluation_scores_saved`,
+`evaluation_period_created`, `evaluation_period_updated`, `timesheet_period_created`,
+`timesheet_period_updated`, `timesheet_entry_created`, `timesheet_entry_updated`,
+`timesheet_entry_deleted`, `work_schedule_created`, `employee_payment_created`,
+`employee_payment_updated`, `leave_request_created`, `leave_request_updated`
+
+### HR RBAC Permissions
+```
+attendance.view / attendance.manage
+leave.view / leave.manage
+payroll.view / payroll.manage
+evaluations.view / evaluations.manage
+timesheet.view / timesheet.manage
+overtime.view / overtime.manage
+work_schedules.view / work_schedules.manage
+leave_types.view / leave_types.manage
+employee_payments.view / employee_payments.manage
+content_pipeline.view / content_pipeline.manage
+directory.view / directory.manage
+announcements.view / announcements.manage
+```
+
+### Non-Atomic Operation Pattern
+Supabase JS client doesn't support transactions. Use backup-rollback pattern:
+```ts
+// 1. Backup existing data
+const { data: backup } = await supabase.from('table').select('*').eq('parent_id', id);
+// 2. Delete old data
+await supabase.from('table').delete().eq('parent_id', id);
+// 3. Insert new data
+const { error } = await supabase.from('table').insert(newRows);
+// 4. Rollback on failure
+if (error && backup?.length) {
+  await supabase.from('table').insert(backup);
+  return apiServerError(error.message);
+}
+```
+
+### HR TypeScript Types
+Defined in `types/database.ts`:
+- `PyraLeaveRequest` — Leave request with status workflow
+- `PyraTimesheet` — Timesheet entry with overtime support
+- `PyraAnnouncement` — Announcements with priority & targeting
+- `PyraLeaveBalance` — Annual leave balance tracking
+
+---
+
+## Portal Gaps (Pending Implementation)
+
+> **Full details**: `docs/PORTAL-GAPS.md`
+
+### Missing Portal Pages (Priority)
+1. **Contracts** — `pyra_contracts` has `client_id` but no portal page (client can't view contracts)
+2. **Client Statement** — Admin has `/finance/client-statement/[id]` but client has no payment history
+3. **Recurring Invoices** — `pyra_recurring_invoices` has `client_id` but no portal view
+
+### Missing Client Detail Tabs
+Current: Overview, Projects, Invoices, Quotes, Notes, Activity, Branding (7 tabs)
+Missing: Contracts, Payments, Files, Recurring Invoices, Scripts (5 tabs)
+
+### Portal Enhancements
+- Invoice detail: add payment history + remaining balance
+- Project detail: add contract link if project has linked contract
+- Portal dashboard: add financial summary card
+
+---
+
+## Documentation Index
+
+| Document | Path | Description |
+|----------|------|-------------|
+| Architecture | `docs/ARCHITECTURE.md` | System architecture overview |
+| Client Management | `docs/CLIENT-MANAGEMENT.md` | Client system documentation |
+| Employee System | `docs/EMPLOYEE-SYSTEM.md` | HR system documentation |
+| Employee PRD | `docs/PRD-EMPLOYEE-SYSTEM.md` | Employee system requirements |
+| Employee Implementation | `docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md` | Implementation details |
+| Portal Branding | `docs/PORTAL-BRANDING.md` | Portal branding system |
+| Portal Gaps | `docs/PORTAL-GAPS.md` | Missing portal features & plan |
+| Database Schema | `DATABASE-SCHEMA.md` | Full database schema (84 tables) |
+| RBAC Migration | `database/rbac-migration.sql` | Role permissions SQL |
+
+---
+
 ## Deployment
 - Vercel (auto-deploy on push to main)
 - Package manager: **pnpm** (NOT npm)

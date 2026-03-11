@@ -113,7 +113,7 @@ export async function PATCH(
     const allowedFields = [
       'title', 'description', 'client_id', 'project_id', 'status',
       'contract_type', 'start_date', 'end_date', 'total_value', 'currency',
-      'vat_rate', 'payment_terms', 'auto_invoice', 'notes',
+      'vat_rate', 'billing_structure', 'notes',
       'retainer_amount', 'retainer_cycle', 'billing_day',
       'amount_billed', 'amount_collected',
     ];
