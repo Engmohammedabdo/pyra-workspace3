@@ -1122,6 +1122,7 @@ Stores invoice records with client snapshot data, financial totals, milestone tr
 | client_address | text | NULL | — |
 | milestone_type | varchar | NULL | — |
 | parent_invoice_id | varchar | NULL | — |
+| contract_id | varchar | NULL | — |
 | created_by | varchar | NULL | — |
 | created_at | timestamptz | NOT NULL | now() |
 | updated_at | timestamptz | NOT NULL | now() |
@@ -1264,11 +1265,16 @@ Client contracts with value tracking, billing structures, and milestone-based in
 | amount_billed | numeric | NOT NULL | 0 |
 | amount_collected | numeric | NOT NULL | 0 |
 | notes | text | NULL | — |
+| retainer_amount | numeric | NOT NULL | 0 |
+| retainer_cycle | varchar | NOT NULL | 'monthly' |
+| billing_day | integer | NOT NULL | 1 |
 | created_by | varchar | NULL | — |
 | created_at | timestamptz | NOT NULL | now() |
 | updated_at | timestamptz | NOT NULL | now() |
 
 **FK**: `client_id` → `pyra_clients.id`, `project_id` → `pyra_projects.id`
+
+**Retainer fields**: `retainer_amount` is the monthly/periodic billing amount. `retainer_cycle` is `monthly` or `quarterly`. `billing_day` is 1–28.
 
 ---
 

@@ -97,7 +97,8 @@ export async function POST(req: NextRequest) {
     const {
       client_id, project_id, title, description, contract_type,
       total_value, currency, vat_rate, billing_structure,
-      start_date, end_date, notes
+      start_date, end_date, notes,
+      retainer_amount, retainer_cycle, billing_day,
     } = body;
 
     if (!title) return apiError('عنوان العقد مطلوب', 422);
@@ -126,6 +127,9 @@ export async function POST(req: NextRequest) {
         amount_billed: 0,
         amount_collected: 0,
         notes,
+        retainer_amount: retainer_amount || 0,
+        retainer_cycle: retainer_cycle || 'monthly',
+        billing_day: billing_day || 1,
         created_by: auth.pyraUser.username,
       })
       .select(CONTRACT_FIELDS)

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Save } from 'lucide-react';
+import { ArrowRight, Save, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Client { id: string; name: string; company: string; }
@@ -34,6 +34,7 @@ export default function NewContractPage() {
     title: '', description: '', client_id: '', project_id: '',
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
     start_date: '', end_date: '', notes: '',
+    retainer_amount: '', retainer_cycle: 'monthly', billing_day: '1',
   });
 
   // Filter projects by selected client
@@ -67,6 +68,9 @@ export default function NewContractPage() {
           client_id: form.client_id || null,
           project_id: form.project_id || null,
           contract_type: form.contract_type || null,
+          retainer_amount: Number(form.retainer_amount) || 0,
+          retainer_cycle: form.retainer_cycle,
+          billing_day: Number(form.billing_day) || 1,
         }),
       });
       if (res.ok) {
@@ -175,6 +179,49 @@ export default function NewContractPage() {
                 <Input type="date" value={form.end_date} onChange={e => u('end_date', e.target.value)} />
               </div>
             </div>
+
+            {/* Retainer fields — shown only when contract_type === 'retainer' */}
+            {form.contract_type === 'retainer' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg border border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20">
+                <div className="md:col-span-3">
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                    <RefreshCcw className="h-4 w-4" />
+                    إعدادات الدفع الشهري
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>المبلغ الشهري</Label>
+                  <Input
+                    type="number" step="0.01" min="0"
+                    value={form.retainer_amount}
+                    onChange={e => u('retainer_amount', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>دورة الفوترة</Label>
+                  <Select value={form.retainer_cycle} onValueChange={v => u('retainer_cycle', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">شهري</SelectItem>
+                      <SelectItem value="quarterly">ربع سنوي</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>يوم الفوترة</Label>
+                  <Select value={form.billing_day} onValueChange={v => u('billing_day', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>الوصف</Label>
               <Textarea value={form.description} onChange={e => u('description', e.target.value)} rows={3} placeholder="وصف العقد..." />

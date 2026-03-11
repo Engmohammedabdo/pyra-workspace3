@@ -173,6 +173,7 @@ export async function POST(req: NextRequest) {
             bank_details: bankDetails,
             company_name: settingsMap.company_name || null,
             company_logo: settingsMap.company_logo || null,
+            contract_id: template.contract_id || null,
             created_by: auth.pyraUser.username,
             ...clientData,
           })

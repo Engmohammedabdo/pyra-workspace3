@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -19,9 +20,10 @@ import {
 } from '@/components/ui/dialog';
 import {
   ArrowRight, Save, Plus, Pencil, Trash2, CheckCircle2,
-  FileText, Loader2, Receipt,
+  FileText, Loader2, Receipt, RefreshCcw, CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatCurrency } from '@/lib/utils/format';
 
 // ==========================================
 // Types
@@ -53,6 +55,36 @@ interface MilestoneForm {
   due_date: string;
 }
 
+interface BillingInvoice {
+  id: string;
+  invoice_number: string;
+  status: string;
+  issue_date: string | null;
+  due_date: string | null;
+  total: number;
+  amount_paid: number;
+  amount_due: number;
+  currency: string;
+  payments: { amount: number; payment_date: string; method: string | null }[];
+}
+
+interface BillingHistory {
+  recurring_invoice: {
+    id: string;
+    status: string;
+    billing_cycle: string;
+    next_generation_date: string | null;
+  } | null;
+  invoices: BillingInvoice[];
+  summary: {
+    total_billed: number;
+    total_paid: number;
+    total_remaining: number;
+    months_active: number;
+    invoice_count: number;
+  };
+}
+
 // ==========================================
 // Constants
 // ==========================================
@@ -80,6 +112,16 @@ const MILESTONE_STATUS_MAP: Record<string, { label: string; variant: 'secondary'
   invoiced: { label: 'تم الفوترة', variant: 'outline', className: 'border-blue-500 text-blue-700 dark:text-blue-400' },
 };
 
+const INVOICE_STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+  draft: { label: 'مسودة', variant: 'outline' },
+  sent: { label: 'مرسلة', variant: 'default' },
+  viewed: { label: 'مشاهدة', variant: 'default' },
+  paid: { label: 'مدفوعة', variant: 'secondary' },
+  partially_paid: { label: 'مدفوعة جزئياً', variant: 'outline' },
+  overdue: { label: 'متأخرة', variant: 'destructive' },
+  cancelled: { label: 'ملغاة', variant: 'destructive' },
+};
+
 const EMPTY_MILESTONE_FORM: MilestoneForm = { title: '', description: '', percentage: '', due_date: '' };
 
 // ==========================================
@@ -100,6 +142,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
     start_date: '', end_date: '', status: 'draft',
     amount_billed: '', amount_collected: '', notes: '',
+    retainer_amount: '', retainer_cycle: 'monthly', billing_day: '1',
   });
 
   // Milestone state
@@ -110,6 +153,10 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   const [milestoneForm, setMilestoneForm] = useState<MilestoneForm>(EMPTY_MILESTONE_FORM);
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+
+  // Billing history state (retainer)
+  const [billingHistory, setBillingHistory] = useState<BillingHistory | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   // Filter projects by selected client
   const filteredProjects = form.client_id
@@ -127,6 +174,9 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
     ? completedOrInvoiced.reduce((sum, m) => sum + m.percentage, 0)
     : 0;
 
+  const isRetainer = form.contract_type === 'retainer';
+  const isMilestone = form.contract_type === 'milestone';
+
   // ==========================================
   // Data fetching
   // ==========================================
@@ -140,6 +190,19 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       // silent
     } finally {
       setMilestonesLoading(false);
+    }
+  }, [id]);
+
+  const fetchBillingHistory = useCallback(async () => {
+    setBillingLoading(true);
+    try {
+      const res = await fetch(`/api/finance/contracts/${id}/billing-history`);
+      const j = await res.json();
+      if (j.data) setBillingHistory(j.data);
+    } catch {
+      // silent
+    } finally {
+      setBillingLoading(false);
     }
   }, [id]);
 
@@ -172,6 +235,9 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
             amount_billed: String(d.amount_billed || '0'),
             amount_collected: String(d.amount_collected || '0'),
             notes: d.notes || '',
+            retainer_amount: String(d.retainer_amount || ''),
+            retainer_cycle: d.retainer_cycle || 'monthly',
+            billing_day: String(d.billing_day || '1'),
           });
         }
       })
@@ -182,6 +248,13 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   useEffect(() => {
     fetchMilestones();
   }, [fetchMilestones]);
+
+  // Fetch billing history when contract type is retainer
+  useEffect(() => {
+    if (isRetainer && !loading) {
+      fetchBillingHistory();
+    }
+  }, [isRetainer, loading, fetchBillingHistory]);
 
   // ==========================================
   // Contract form handlers
@@ -203,6 +276,9 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
           client_id: form.client_id || null,
           project_id: form.project_id || null,
           contract_type: form.contract_type || null,
+          retainer_amount: Number(form.retainer_amount) || 0,
+          retainer_cycle: form.retainer_cycle,
+          billing_day: Number(form.billing_day) || 1,
         }),
       });
       if (res.ok) {
@@ -471,6 +547,51 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                 <Input type="date" value={form.end_date} onChange={e => u('end_date', e.target.value)} />
               </div>
             </div>
+
+            {/* Retainer fields — shown only when contract_type === 'retainer' */}
+            {isRetainer && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg border border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20">
+                <div className="md:col-span-3">
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-400 flex items-center gap-2">
+                    <RefreshCcw className="h-4 w-4" />
+                    إعدادات الدفع الشهري
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>المبلغ الشهري</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={form.retainer_amount}
+                    onChange={e => u('retainer_amount', e.target.value)}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>دورة الفوترة</Label>
+                  <Select value={form.retainer_cycle} onValueChange={v => u('retainer_cycle', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">شهري</SelectItem>
+                      <SelectItem value="quarterly">ربع سنوي</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>يوم الفوترة</Label>
+                  <Select value={form.billing_day} onValueChange={v => u('billing_day', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map(d => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>الوصف</Label>
               <Textarea value={form.description} onChange={e => u('description', e.target.value)} rows={3} />
@@ -490,150 +611,239 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       </form>
 
       {/* ==========================================
-          Milestones Section
+          Retainer Billing History Section
           ========================================== */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">مراحل العقد</CardTitle>
-            <Button size="sm" onClick={openAddMilestone}>
-              <Plus className="h-4 w-4 ml-1" />
-              إضافة مرحلة
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Progress bar */}
-          {milestones.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>نسبة الإنجاز</span>
-                <span>{Math.min(progressPercentage, 100).toFixed(0)}%</span>
+      {isRetainer && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarClock className="h-4 w-4" />
+                سجل الفوترة الشهرية
+              </CardTitle>
+              {billingHistory?.recurring_invoice && (
+                <Badge variant={billingHistory.recurring_invoice.status === 'active' ? 'default' : 'secondary'}>
+                  {billingHistory.recurring_invoice.status === 'active' ? 'فوترة نشطة' : 'فوترة متوقفة'}
+                </Badge>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {billingLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
               </div>
-              <Progress value={Math.min(progressPercentage, 100)} className="h-2" />
-            </div>
-          )}
+            ) : !billingHistory || billingHistory.invoices.length === 0 ? (
+              <EmptyState
+                icon={Receipt}
+                title="لا توجد فواتير بعد"
+                description={
+                  form.status === 'active'
+                    ? 'ستُولّد الفواتير تلقائياً حسب الجدول الزمني'
+                    : 'فعّل العقد لبدء الفوترة التلقائية'
+                }
+              />
+            ) : (
+              <>
+                {/* Summary stats */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground">إجمالي المفوتر</p>
+                    <p className="text-lg font-bold font-mono">
+                      {formatCurrency(billingHistory.summary.total_billed, form.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground">المدفوع</p>
+                    <p className="text-lg font-bold font-mono text-green-600 dark:text-green-400">
+                      {formatCurrency(billingHistory.summary.total_paid, form.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground">المتبقي</p>
+                    <p className="text-lg font-bold font-mono text-orange-600 dark:text-orange-400">
+                      {formatCurrency(billingHistory.summary.total_remaining, form.currency)}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border p-3 text-center">
+                    <p className="text-xs text-muted-foreground">عدد الأشهر</p>
+                    <p className="text-lg font-bold">{billingHistory.summary.months_active}</p>
+                  </div>
+                </div>
 
-          {/* Milestones list */}
-          {milestonesLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
-            </div>
-          ) : milestones.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Receipt className="h-10 w-10 mx-auto mb-2 opacity-40" />
-              <p>لا توجد مراحل بعد</p>
-              <p className="text-xs mt-1">أضف مراحل لتتبع تقدم العقد وإنشاء الفواتير تلقائياً</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {milestones.map(m => {
-                const statusInfo = MILESTONE_STATUS_MAP[m.status] || MILESTONE_STATUS_MAP.pending;
-                const isGenerating = generatingInvoice === m.id;
+                {/* Next billing date */}
+                {billingHistory.recurring_invoice?.next_generation_date && billingHistory.recurring_invoice.status === 'active' && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg p-3">
+                    <CalendarClock className="h-4 w-4" />
+                    <span>الفاتورة القادمة: {billingHistory.recurring_invoice.next_generation_date}</span>
+                  </div>
+                )}
 
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                  >
-                    {/* Title & info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-medium text-sm truncate">{m.title}</span>
-                        <Badge variant={statusInfo.variant} className={statusInfo.className}>
-                          {statusInfo.label}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                        <span>{m.percentage}%</span>
-                        <span>{m.amount.toLocaleString()} {form.currency}</span>
-                        {m.due_date && <span>{m.due_date}</span>}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      {/* Pending / In Progress: Edit + Mark Complete */}
-                      {(m.status === 'pending' || m.status === 'in_progress') && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => openEditMilestone(m)}
-                            title="تعديل"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                            onClick={() => handleMarkComplete(m)}
-                            title="اكتمل"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </>
-                      )}
-
-                      {/* Completed: Generate Invoice */}
-                      {m.status === 'completed' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
-                          onClick={() => handleGenerateInvoice(m)}
-                          disabled={isGenerating}
-                        >
-                          {isGenerating ? (
-                            <Loader2 className="h-3.5 w-3.5 ml-1 animate-spin" />
-                          ) : (
+                {/* Invoice list */}
+                <div className="space-y-2">
+                  {billingHistory.invoices.map(inv => {
+                    const statusInfo = INVOICE_STATUS_MAP[inv.status] || INVOICE_STATUS_MAP.draft;
+                    return (
+                      <div
+                        key={inv.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-sm font-medium">{inv.invoice_number}</span>
+                            <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {inv.issue_date && <span>{inv.issue_date}</span>}
+                            <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>
+                            {inv.amount_paid > 0 && (
+                              <span className="text-green-600 dark:text-green-400">
+                                مدفوع: {formatCurrency(inv.amount_paid, inv.currency)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Link href={`/dashboard/invoices/${inv.id}`}>
+                          <Button variant="ghost" size="sm" className="h-8 text-xs">
                             <FileText className="h-3.5 w-3.5 ml-1" />
-                          )}
-                          إنشاء فاتورة
-                        </Button>
-                      )}
-
-                      {/* Invoiced: Link to invoice */}
-                      {m.status === 'invoiced' && m.invoice_id && (
-                        <Link href={`/dashboard/invoices/${m.invoice_id}`}>
-                          <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-600 hover:text-blue-700">
-                            <FileText className="h-3.5 w-3.5 ml-1" />
-                            عرض الفاتورة
+                            عرض
                           </Button>
                         </Link>
-                      )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-                      {/* Delete (disabled if invoiced) */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleDeleteMilestone(m)}
-                        disabled={m.status === 'invoiced'}
-                        title={m.status === 'invoiced' ? 'لا يمكن حذف مرحلة تم فوترتها' : 'حذف'}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+      {/* ==========================================
+          Milestones Section (only for milestone contracts)
+          ========================================== */}
+      {isMilestone && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base">مراحل العقد</CardTitle>
+              <Button size="sm" onClick={openAddMilestone}>
+                <Plus className="h-4 w-4 ml-1" />
+                إضافة مرحلة
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Progress bar */}
+            {milestones.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>نسبة الإنجاز</span>
+                  <span>{Math.min(progressPercentage, 100).toFixed(0)}%</span>
+                </div>
+                <Progress value={Math.min(progressPercentage, 100)} className="h-2" />
+              </div>
+            )}
+
+            {/* Milestones list */}
+            {milestonesLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+              </div>
+            ) : milestones.length === 0 ? (
+              <EmptyState
+                icon={Receipt}
+                title="لا توجد مراحل بعد"
+                description="أضف مراحل لتتبع تقدم العقد وإنشاء الفواتير تلقائياً"
+              />
+            ) : (
+              <div className="space-y-2">
+                {milestones.map(m => {
+                  const statusInfo = MILESTONE_STATUS_MAP[m.status] || MILESTONE_STATUS_MAP.pending;
+                  const isGenerating = generatingInvoice === m.id;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Title & info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm truncate">{m.title}</span>
+                          <Badge variant={statusInfo.variant} className={statusInfo.className}>
+                            {statusInfo.label}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                          <span>{m.percentage}%</span>
+                          <span>{m.amount.toLocaleString()} {form.currency}</span>
+                          {m.due_date && <span>{m.due_date}</span>}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {(m.status === 'pending' || m.status === 'in_progress') && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditMilestone(m)} title="تعديل">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost" size="icon"
+                              className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
+                              onClick={() => handleMarkComplete(m)} title="اكتمل"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
+                        )}
+                        {m.status === 'completed' && (
+                          <Button
+                            variant="outline" size="sm"
+                            className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
+                            onClick={() => handleGenerateInvoice(m)} disabled={isGenerating}
+                          >
+                            {isGenerating ? <Loader2 className="h-3.5 w-3.5 ml-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 ml-1" />}
+                            إنشاء فاتورة
+                          </Button>
+                        )}
+                        {m.status === 'invoiced' && m.invoice_id && (
+                          <Link href={`/dashboard/invoices/${m.invoice_id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-600 hover:text-blue-700">
+                              <FileText className="h-3.5 w-3.5 ml-1" />
+                              عرض الفاتورة
+                            </Button>
+                          </Link>
+                        )}
+                        <Button
+                          variant="ghost" size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={() => handleDeleteMilestone(m)}
+                          disabled={m.status === 'invoiced'}
+                          title={m.status === 'invoiced' ? 'لا يمكن حذف مرحلة تم فوترتها' : 'حذف'}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Summary */}
-          {milestones.length > 0 && (
-            <div className="flex items-center justify-between pt-2 border-t text-sm text-muted-foreground">
-              <span>إجمالي النسب: {milestones.reduce((s, m) => s + m.percentage, 0)}%</span>
-              <span>
-                إجمالي المبالغ: {milestones.reduce((s, m) => s + m.amount, 0).toLocaleString()} {form.currency}
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            {/* Summary */}
+            {milestones.length > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t text-sm text-muted-foreground">
+                <span>إجمالي النسب: {milestones.reduce((s, m) => s + m.percentage, 0)}%</span>
+                <span>
+                  إجمالي المبالغ: {milestones.reduce((s, m) => s + m.amount, 0).toLocaleString()} {form.currency}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* ==========================================
           Add/Edit Milestone Dialog
@@ -668,10 +878,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
               <div className="space-y-2">
                 <Label>النسبة (%) *</Label>
                 <Input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max="100"
+                  type="number" step="0.01" min="0.01" max="100"
                   value={milestoneForm.percentage}
                   onChange={e => setMilestoneForm(p => ({ ...p, percentage: e.target.value }))}
                   placeholder="25"
@@ -681,8 +888,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                 <Label>المبلغ المحسوب</Label>
                 <Input
                   value={calculatedAmount > 0 ? calculatedAmount.toLocaleString() : '-'}
-                  disabled
-                  className="bg-muted"
+                  disabled className="bg-muted"
                 />
                 {totalValue > 0 && milestonePercentage > 0 && (
                   <p className="text-xs text-muted-foreground">

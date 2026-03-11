@@ -10,6 +10,7 @@ import {
   FolderKanban,
   FolderOpen,
   FileText,
+  FileSignature,
   Receipt,
   Bell,
   User,
@@ -34,6 +35,12 @@ const portalNavItems = [
     href: '/portal/quotes',
     label: 'عروض الأسعار',
     icon: FileText,
+    badgeKey: null as 'notifications' | null,
+  },
+  {
+    href: '/portal/contracts',
+    label: 'العقود',
+    icon: FileSignature,
     badgeKey: null as 'notifications' | null,
   },
   {
