@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Clock,
   Shield,
+  TrendingUp,
 } from 'lucide-react';
 import { MODULE_GUIDES, searchModuleGuides } from '@/lib/config/module-guide';
 import type { ModuleGuide } from '@/lib/config/module-guide';
@@ -56,6 +57,23 @@ const SECTIONS = [
       '/dashboard/reviews',
       '/dashboard/trash',
       '/dashboard/storage',
+    ],
+  },
+  {
+    key: 'sales',
+    title: 'المبيعات',
+    titleEn: 'Sales',
+    icon: TrendingUp,
+    color: 'text-emerald-600 dark:text-emerald-400',
+    bgColor: 'bg-emerald-500/10',
+    hrefs: [
+      '/dashboard/sales',
+      '/dashboard/sales/leads',
+      '/dashboard/sales/chat',
+      '/dashboard/sales/approvals',
+      '/dashboard/sales/follow-ups',
+      '/dashboard/sales/reports',
+      '/dashboard/sales/settings',
     ],
   },
   {

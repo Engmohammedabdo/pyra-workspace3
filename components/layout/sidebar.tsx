@@ -65,6 +65,10 @@ import {
   Settings2,
   Pin,
   PinOff,
+  TrendingUp,
+  UserPlus,
+  MessageCircle,
+  CheckCircle,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -82,7 +86,7 @@ interface NavItem {
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  badgeKey?: 'notifications' | 'overdue_invoices';
+  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals';
 }
 
 interface NavGroup {
@@ -121,6 +125,19 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare, permission: 'reviews.view' },
       { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2, permission: 'trash.view' },
       { href: '/dashboard/storage', label: 'التخزين', labelEn: 'Storage', icon: HardDrive, permission: 'files.view' },
+    ],
+  },
+  {
+    title: 'المبيعات',
+    titleEn: 'Sales',
+    items: [
+      { href: '/dashboard/sales', label: 'نظرة عامة', labelEn: 'Sales Overview', icon: TrendingUp, permission: 'sales.view' },
+      { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', labelEn: 'Leads', icon: UserPlus, permission: 'sales_leads.view' },
+      { href: '/dashboard/sales/chat', label: 'محادثات واتساب', labelEn: 'WhatsApp Chat', icon: MessageCircle, permission: 'sales_whatsapp.view' },
+      { href: '/dashboard/sales/approvals', label: 'موافقات العروض', labelEn: 'Quote Approvals', icon: CheckCircle, permission: 'quote_approvals.view', badgeKey: 'pending_approvals' },
+      { href: '/dashboard/sales/follow-ups', label: 'المتابعات', labelEn: 'Follow-ups', icon: Clock, permission: 'sales_leads.view' },
+      { href: '/dashboard/sales/reports', label: 'تقارير المبيعات', labelEn: 'Sales Reports', icon: BarChart3, permission: 'sales.view' },
+      { href: '/dashboard/sales/settings', label: 'إعدادات المبيعات', labelEn: 'Sales Settings', icon: Settings2, permission: 'sales_pipeline.manage' },
     ],
   },
   {

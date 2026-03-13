@@ -1111,6 +1111,147 @@ export interface PyraAnnouncement {
   author_display_name?: string;
 }
 
+// ============================================================
+// Sales & Call Center CRM
+// ============================================================
+
+export interface PyraSalesPipelineStage {
+  id: string;
+  name: string;
+  name_ar: string;
+  color: string;
+  sort_order: number;
+  is_default: boolean;
+  created_at: string;
+}
+
+export interface PyraSalesLabel {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  color: string;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PyraSalesLead {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  source: 'whatsapp' | 'website' | 'referral' | 'manual' | 'ad' | 'social';
+  stage_id: string | null;
+  assigned_to: string | null;
+  client_id: string | null;
+  notes: string | null;
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  last_contact_at: string | null;
+  next_follow_up: string | null;
+  converted_at: string | null;
+  is_converted: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  stage_name_ar?: string;
+  stage_color?: string;
+  assigned_display_name?: string;
+  labels?: PyraSalesLabel[];
+}
+
+export interface PyraLeadActivity {
+  id: string;
+  lead_id: string;
+  activity_type: 'note' | 'call' | 'stage_change' | 'label_change' | 'transfer' | 'message' | 'conversion';
+  description: string | null;
+  metadata: Record<string, unknown> | null;
+  created_by: string | null;
+  created_at: string;
+  // Joined
+  created_by_display_name?: string;
+}
+
+export interface PyraLeadTransfer {
+  id: string;
+  lead_id: string;
+  from_agent: string | null;
+  to_agent: string | null;
+  reason: string | null;
+  created_by: string | null;
+  created_at: string;
+  // Joined
+  from_agent_display_name?: string;
+  to_agent_display_name?: string;
+}
+
+export interface PyraWhatsAppInstance {
+  id: string;
+  instance_name: string;
+  agent_username: string | null;
+  phone_number: string | null;
+  status: 'connected' | 'disconnected' | 'pending';
+  api_key: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  agent_display_name?: string;
+}
+
+export interface PyraWhatsAppMessage {
+  id: string;
+  instance_name: string | null;
+  remote_jid: string;
+  lead_id: string | null;
+  client_id: string | null;
+  message_id: string | null;
+  direction: 'incoming' | 'outgoing';
+  message_type: 'text' | 'image' | 'document' | 'audio' | 'video';
+  content: string | null;
+  media_url: string | null;
+  file_name: string | null;
+  status: 'sent' | 'delivered' | 'read' | 'failed';
+  timestamp: string;
+  metadata: Record<string, unknown> | null;
+  created_at: string;
+  // Joined
+  lead_name?: string;
+}
+
+export interface PyraQuoteApproval {
+  id: string;
+  quote_id: string;
+  requested_by: string | null;
+  approved_by: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  comments: string | null;
+  requested_at: string;
+  responded_at: string | null;
+  // Joined
+  requested_by_display_name?: string;
+  approved_by_display_name?: string;
+  quote_number?: string;
+  quote_total?: number;
+  client_name?: string;
+}
+
+export interface PyraSalesFollowUp {
+  id: string;
+  lead_id: string;
+  assigned_to: string | null;
+  due_at: string;
+  title: string | null;
+  notes: string | null;
+  status: 'pending' | 'completed' | 'cancelled';
+  completed_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  // Joined
+  lead_name?: string;
+  assigned_display_name?: string;
+}
+
 // Leave Balances (v1 - legacy)
 export interface PyraLeaveBalance {
   id: string;

@@ -160,6 +160,18 @@ export const PERMISSIONS = {
   // Content Pipeline
   CONTENT_PIPELINE_VIEW: 'content_pipeline.view',
   CONTENT_PIPELINE_MANAGE: 'content_pipeline.manage',
+
+  // Sales & Call Center
+  SALES_VIEW: 'sales.view',
+  SALES_MANAGE: 'sales.manage',
+  SALES_LEADS_VIEW: 'sales_leads.view',
+  SALES_LEADS_CREATE: 'sales_leads.create',
+  SALES_LEADS_MANAGE: 'sales_leads.manage',
+  SALES_WHATSAPP_VIEW: 'sales_whatsapp.view',
+  SALES_WHATSAPP_SEND: 'sales_whatsapp.send',
+  SALES_PIPELINE_MANAGE: 'sales_pipeline.manage',
+  QUOTE_APPROVALS_VIEW: 'quote_approvals.view',
+  QUOTE_APPROVALS_MANAGE: 'quote_approvals.manage',
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -510,6 +522,23 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'content_pipeline.manage', label: 'Manage Content Pipeline', labelAr: 'إدارة خط المحتوى' },
     ],
   },
+  {
+    key: 'sales',
+    label: 'Sales & Call Center',
+    labelAr: 'المبيعات والكول سنتر',
+    permissions: [
+      { key: 'sales.view', label: 'View Sales', labelAr: 'عرض المبيعات' },
+      { key: 'sales.manage', label: 'Manage Sales', labelAr: 'إدارة المبيعات' },
+      { key: 'sales_leads.view', label: 'View Leads', labelAr: 'عرض العملاء المحتملين' },
+      { key: 'sales_leads.create', label: 'Create Leads', labelAr: 'إنشاء عملاء محتملين' },
+      { key: 'sales_leads.manage', label: 'Manage Leads', labelAr: 'إدارة العملاء المحتملين' },
+      { key: 'sales_whatsapp.view', label: 'View WhatsApp', labelAr: 'عرض واتساب' },
+      { key: 'sales_whatsapp.send', label: 'Send WhatsApp', labelAr: 'إرسال واتساب' },
+      { key: 'sales_pipeline.manage', label: 'Manage Pipeline', labelAr: 'إدارة خط المبيعات' },
+      { key: 'quote_approvals.view', label: 'View Quote Approvals', labelAr: 'عرض موافقات العروض' },
+      { key: 'quote_approvals.manage', label: 'Manage Quote Approvals', labelAr: 'إدارة موافقات العروض' },
+    ],
+  },
 ];
 
 // ============================================================
@@ -587,6 +616,22 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
         'payroll.view',
         'evaluations.view',
         'overtime.view',
+      ];
+    case 'sales_agent':
+      // Sales agents: CRM, leads, WhatsApp, create quotes (need approval), view clients
+      return [
+        'dashboard.view',
+        'notifications.view',
+        'sales.view',
+        'sales_leads.view',
+        'sales_leads.create',
+        'sales_leads.manage',
+        'sales_whatsapp.view',
+        'sales_whatsapp.send',
+        'quotes.view',
+        'quotes.create',
+        'quote_approvals.view',
+        'clients.view',
       ];
     case 'client':
     default:

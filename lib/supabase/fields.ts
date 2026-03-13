@@ -99,3 +99,46 @@ export const API_KEY_FIELDS = `
   last_used_at, expires_at, created_by,
   created_at, updated_at
 `;
+
+// ============================================================
+// Sales & Call Center CRM
+// ============================================================
+
+export const LEAD_FIELDS = `
+  id, name, phone, email, company, source, stage_id, assigned_to,
+  client_id, notes, priority, last_contact_at, next_follow_up,
+  converted_at, is_converted, created_by, created_at, updated_at
+`;
+
+export const LEAD_ACTIVITY_FIELDS = `
+  id, lead_id, activity_type, description, metadata, created_by, created_at
+`;
+
+export const FOLLOW_UP_FIELDS = `
+  id, lead_id, assigned_to, due_at, title, notes, status,
+  completed_at, created_by, created_at
+`;
+
+export const WA_INSTANCE_FIELDS = `
+  id, instance_name, agent_username, phone_number, status,
+  api_key, created_by, created_at, updated_at
+`;
+
+export const WA_MESSAGE_FIELDS = `
+  id, instance_name, remote_jid, lead_id, client_id, message_id,
+  direction, message_type, content, media_url, file_name,
+  status, timestamp, metadata, created_at
+`;
+
+export const QUOTE_APPROVAL_FIELDS = `
+  id, quote_id, requested_by, approved_by, status,
+  comments, requested_at, responded_at
+`;
+
+export const PIPELINE_STAGE_FIELDS = `
+  id, name, name_ar, color, sort_order, is_default, created_at
+`;
+
+export const SALES_LABEL_FIELDS = `
+  id, name, name_ar, color, created_by, created_at
+`;

@@ -12,6 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
+import { hasPermission } from '@/lib/auth/rbac';
 
 /**
  * GET /api/quotes
@@ -224,6 +225,10 @@ export async function POST(request: NextRequest) {
       { text: 'Balance payment due upon project completion.' },
     ];
 
+    // Determine status: admins create as draft, sales agents create as pending_approval
+    const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
+    const quoteStatus = canManageApprovals ? 'draft' : 'pending_approval';
+
     const { data: quote, error: insertError } = await supabase
       .from('pyra_quotes')
       .insert({
@@ -231,7 +236,7 @@ export async function POST(request: NextRequest) {
         quote_number: quoteNumber,
         client_id: client_id || null,
         project_name: project_name?.trim() || null,
-        status: 'draft',
+        status: quoteStatus,
         estimate_date: estDate,
         expiry_date: expDate,
         currency: 'AED',
@@ -286,6 +291,16 @@ export async function POST(request: NextRequest) {
       details: { quote_number: quoteNumber, total },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    // If pending approval, create approval record
+    if (quoteStatus === 'pending_approval') {
+      await supabase.from('pyra_quote_approvals').insert({
+        id: generateId('qa'),
+        quote_id: quoteId,
+        requested_by: auth.pyraUser.username,
+        status: 'pending',
+      });
+    }
 
     return apiSuccess(quote, undefined, 201);
   } catch (err) {

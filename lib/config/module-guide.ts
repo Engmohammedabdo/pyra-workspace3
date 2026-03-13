@@ -700,6 +700,94 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['settings', 'إعدادات', 'تخصيص', 'شعار'],
   },
+
+  /* ═══════════════ المبيعات ═══════════════ */
+  '/dashboard/sales': {
+    href: '/dashboard/sales',
+    description: 'نظرة عامة على أداء المبيعات',
+    descriptionEn: 'Sales performance overview dashboard',
+    goal: 'عرض إحصائيات المبيعات: إجمالي العملاء المحتملين، الجدد، المحوّلين، المتابعات المعلقة، وتوزيع خط المبيعات.',
+    tips: [
+      'البطاقات العلوية تعرض ملخص سريع لحالة المبيعات',
+      'خط المبيعات يوضح توزيع العملاء على المراحل',
+      'آخر العملاء المحتملين تعرض أحدث الإضافات',
+    ],
+    keywords: ['sales', 'مبيعات', 'leads', 'عملاء محتملين', 'pipeline'],
+  },
+  '/dashboard/sales/leads': {
+    href: '/dashboard/sales/leads',
+    description: 'إدارة العملاء المحتملين',
+    descriptionEn: 'Manage sales leads with Kanban and table views',
+    goal: 'عرض وإدارة جميع العملاء المحتملين. يمكنك التبديل بين عرض Kanban وعرض الجدول، مع إمكانية السحب والإفلات بين المراحل.',
+    tips: [
+      'استخدم عرض Kanban لسحب العملاء بين المراحل',
+      'فلتر بالأولوية أو المصدر لتضييق النتائج',
+      'انقر على عميل لعرض تفاصيله الكاملة',
+      'أضف عميل جديد من زر "عميل جديد"',
+    ],
+    keywords: ['leads', 'عملاء محتملين', 'kanban', 'pipeline', 'مبيعات'],
+  },
+  '/dashboard/sales/chat': {
+    href: '/dashboard/sales/chat',
+    description: 'محادثات واتساب المدمجة',
+    descriptionEn: 'Embedded WhatsApp chat interface',
+    goal: 'تواصل مع العملاء عبر واتساب مباشرة من النظام. الرسائل تُحفظ محلياً وتُربط تلقائياً بالعملاء المحتملين.',
+    tips: [
+      'اختر محادثة من القائمة لعرض الرسائل',
+      'الرسائل تتحدث تلقائياً كل 5 ثوان',
+      'الرسائل الواردة تُربط تلقائياً بالعميل المحتمل عبر رقم الهاتف',
+    ],
+    keywords: ['chat', 'whatsapp', 'واتساب', 'محادثات', 'رسائل'],
+  },
+  '/dashboard/sales/approvals': {
+    href: '/dashboard/sales/approvals',
+    description: 'موافقات عروض الأسعار',
+    descriptionEn: 'Quote approval workflow management',
+    goal: 'مراجعة والموافقة على عروض الأسعار المقدمة من موظفي المبيعات قبل إرسالها للعملاء.',
+    tips: [
+      'عروض موظفي المبيعات تحتاج موافقة الأدمن قبل الإرسال',
+      'يمكنك إضافة تعليق مع الموافقة أو الرفض',
+      'بعد الموافقة يصبح العرض جاهزاً للإرسال',
+    ],
+    keywords: ['approvals', 'موافقات', 'عروض أسعار', 'quotes', 'مراجعة'],
+  },
+  '/dashboard/sales/follow-ups': {
+    href: '/dashboard/sales/follow-ups',
+    description: 'تذكيرات المتابعة',
+    descriptionEn: 'Follow-up reminders and task tracking',
+    goal: 'تتبع جميع تذكيرات المتابعة مع العملاء المحتملين. تعرض المتأخرة والقادمة والمكتملة.',
+    tips: [
+      'المتابعات المتأخرة تظهر بلون أحمر',
+      'أكمل المتابعة بالنقر على علامة الصح',
+      'أنشئ متابعة جديدة من صفحة تفاصيل العميل المحتمل',
+    ],
+    keywords: ['follow-ups', 'متابعات', 'تذكيرات', 'reminders'],
+  },
+  '/dashboard/sales/reports': {
+    href: '/dashboard/sales/reports',
+    description: 'تقارير وإحصائيات المبيعات',
+    descriptionEn: 'Sales analytics and performance reports',
+    goal: 'تحليل أداء فريق المبيعات: توزيع المصادر، نسب التحويل، أداء كل موظف.',
+    tips: [
+      'نسبة التحويل = عدد المحوّلين / إجمالي العملاء المحتملين',
+      'جدول أداء الموظفين يعرض أداء كل موظف مبيعات',
+      'استخدم التقارير لتحديد أفضل مصادر العملاء',
+    ],
+    keywords: ['reports', 'تقارير', 'إحصائيات', 'أداء', 'analytics'],
+  },
+  '/dashboard/sales/settings': {
+    href: '/dashboard/sales/settings',
+    description: 'إعدادات موديول المبيعات',
+    descriptionEn: 'Sales module settings and configuration',
+    goal: 'إدارة مراحل خط المبيعات، التصنيفات، وربط أرقام واتساب بالموظفين.',
+    tips: [
+      'أضف مراحل جديدة لخط المبيعات مع ألوان مخصصة',
+      'أنشئ تصنيفات لتنظيم العملاء المحتملين',
+      'اربط WhatsApp Instance بكل موظف مبيعات',
+      'استخدم QR Code لربط واتساب',
+    ],
+    keywords: ['settings', 'إعدادات', 'pipeline', 'whatsapp', 'مراحل'],
+  },
 };
 
 /**

@@ -2048,3 +2048,199 @@ Individual stage tracking within a content pipeline item.
 **PK**: `id`
 **FK**: `pipeline_id` -> `pyra_content_pipeline(id)` ON DELETE CASCADE
 **Index**: `idx_pipeline_stages` on `pipeline_id`
+
+---
+
+# Sales & Call Center CRM Tables (Migration 005)
+
+## 85. pyra_sales_pipeline_stages
+
+Configurable sales pipeline stages (funnel steps).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | text | NOT NULL | — |
+| name_ar | text | NOT NULL | — |
+| color | varchar | YES | `'blue'` |
+| sort_order | int | NOT NULL | `0` |
+| is_default | bool | YES | `false` |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+## 86. pyra_sales_labels
+
+Labels/tags for classifying sales leads.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | text | NOT NULL | — |
+| name_ar | text | YES | — |
+| color | varchar | YES | `'gray'` |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+
+## 87. pyra_sales_leads
+
+Potential clients (leads) tracked through the sales pipeline.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | text | NOT NULL | — |
+| phone | text | YES | — |
+| email | text | YES | — |
+| company | text | YES | — |
+| source | varchar | YES | `'manual'` |
+| stage_id | varchar | YES | — |
+| assigned_to | varchar | YES | — |
+| client_id | varchar | YES | — |
+| notes | text | YES | — |
+| priority | varchar | YES | `'medium'` |
+| last_contact_at | timestamptz | YES | — |
+| next_follow_up | timestamptz | YES | — |
+| converted_at | timestamptz | YES | — |
+| is_converted | bool | YES | `false` |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+| updated_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `stage_id` -> `pyra_sales_pipeline_stages(id)`, `client_id` -> `pyra_clients(id)`
+**Indexes**: `idx_leads_assigned`, `idx_leads_stage`, `idx_leads_phone`
+
+## 88. pyra_lead_labels
+
+Junction table: Lead ↔ Label (many-to-many).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **lead_id** | varchar | NOT NULL | — |
+| **label_id** | varchar | NOT NULL | — |
+
+**PK**: `(lead_id, label_id)`
+**FK**: `lead_id` -> `pyra_sales_leads(id)` CASCADE, `label_id` -> `pyra_sales_labels(id)` CASCADE
+
+## 89. pyra_lead_activities
+
+Activity log for each lead (notes, calls, stage changes, etc.).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| lead_id | varchar | NOT NULL | — |
+| activity_type | varchar | NOT NULL | — |
+| description | text | YES | — |
+| metadata | jsonb | YES | — |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `lead_id` -> `pyra_sales_leads(id)` CASCADE
+**Index**: `idx_lead_activities_lead`
+
+## 90. pyra_lead_transfers
+
+Transfer history when leads are reassigned between agents.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| lead_id | varchar | NOT NULL | — |
+| from_agent | varchar | YES | — |
+| to_agent | varchar | YES | — |
+| reason | text | YES | — |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `lead_id` -> `pyra_sales_leads(id)` CASCADE
+
+## 91. pyra_whatsapp_instances
+
+WhatsApp instances linked to sales agents via Evolution API.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| instance_name | varchar | NOT NULL | — |
+| agent_username | varchar | YES | — |
+| phone_number | varchar | YES | — |
+| status | varchar | YES | `'disconnected'` |
+| api_key | varchar | YES | — |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+| updated_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**Unique**: `instance_name`
+
+## 92. pyra_whatsapp_messages
+
+WhatsApp message history synced from Evolution API.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| instance_name | varchar | YES | — |
+| remote_jid | varchar | NOT NULL | — |
+| lead_id | varchar | YES | — |
+| client_id | varchar | YES | — |
+| message_id | varchar | YES | — |
+| direction | varchar | NOT NULL | — |
+| message_type | varchar | YES | `'text'` |
+| content | text | YES | — |
+| media_url | text | YES | — |
+| file_name | text | YES | — |
+| status | varchar | YES | `'sent'` |
+| timestamp | timestamptz | NOT NULL | — |
+| metadata | jsonb | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `lead_id` -> `pyra_sales_leads(id)`, `client_id` -> `pyra_clients(id)`
+**Indexes**: `idx_wa_messages_jid`, `idx_wa_messages_lead`, `idx_wa_messages_instance`
+
+## 93. pyra_quote_approvals
+
+Quote approval workflow for sales agent quote submissions.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| quote_id | text | YES | — |
+| requested_by | varchar | YES | — |
+| approved_by | varchar | YES | — |
+| status | varchar | YES | `'pending'` |
+| comments | text | YES | — |
+| requested_at | timestamptz | YES | `now()` |
+| responded_at | timestamptz | YES | — |
+
+**PK**: `id`
+**FK**: `quote_id` -> `pyra_quotes(id)` CASCADE
+**Indexes**: `idx_quote_approvals_quote`, `idx_quote_approvals_status`
+
+## 94. pyra_sales_follow_ups
+
+Scheduled follow-up reminders for sales leads.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| lead_id | varchar | YES | — |
+| assigned_to | varchar | YES | — |
+| due_at | timestamptz | NOT NULL | — |
+| title | text | YES | — |
+| notes | text | YES | — |
+| status | varchar | YES | `'pending'` |
+| completed_at | timestamptz | YES | — |
+| created_by | varchar | YES | — |
+| created_at | timestamptz | YES | `now()` |
+
+**PK**: `id`
+**FK**: `lead_id` -> `pyra_sales_leads(id)` CASCADE
+**Indexes**: `idx_follow_ups_assigned`, `idx_follow_ups_due`
