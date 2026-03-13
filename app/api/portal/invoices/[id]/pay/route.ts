@@ -71,7 +71,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       line_items: [
         {
           price_data: {
-            currency: (invoice.currency || 'SAR').toLowerCase(),
+            currency: (invoice.currency || 'AED').toLowerCase(),
             product_data: {
               name: `Invoice ${invoice.invoice_number}`,
             },
@@ -99,7 +99,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         invoice_id: id,
         stripe_session_id: session.id,
         amount: amountDue,
-        currency: invoice.currency || 'SAR',
+        currency: invoice.currency || 'AED',
         status: 'pending',
         client_id: client.id,
       });

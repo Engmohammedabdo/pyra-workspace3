@@ -93,13 +93,25 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
     })) || [{ description: '', quantity: 1, rate: 0 }]
   );
   const [saving, setSaving] = useState(false);
+  const [defaultVatRate, setDefaultVatRate] = useState(quote?.tax_rate ?? 0);
 
   useEffect(() => {
     fetch('/api/clients?active=true')
       .then(r => r.json())
       .then(json => { if (json.data) setClients(json.data); })
       .catch(console.error);
-  }, []);
+
+    // Fetch default VAT rate from settings (only for new quotes)
+    if (!quote) {
+      fetch('/api/settings')
+        .then(r => r.json())
+        .then(json => {
+          const rate = parseFloat(json.data?.vat_rate);
+          if (!isNaN(rate)) setDefaultVatRate(rate);
+        })
+        .catch(() => {});
+    }
+  }, [quote]);
 
   // Set default expiry date
   useEffect(() => {
@@ -133,7 +145,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
   };
 
   const subtotal = services.reduce((sum, s) => sum + s.quantity * s.rate, 0);
-  const taxRate = quote?.tax_rate ?? 5;
+  const taxRate = defaultVatRate;
   const taxAmount = subtotal * (taxRate / 100);
   const total = subtotal + taxAmount;
   const currency = quote?.currency || 'AED';
@@ -143,10 +155,12 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
 
   const buildPayload = () => ({
     client_id: clientId || null,
+    client_address: clientAddress || null,
     project_name: projectName || null,
     estimate_date: estimateDate,
     expiry_date: expiryDate || null,
     notes: notes || null,
+    vat_rate: taxRate,
     items: services.map(s => ({
       description: s.description,
       quantity: s.quantity,

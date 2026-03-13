@@ -38,6 +38,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiValidationError('يمكن إنشاء فاتورة فقط من عرض سعر موقع');
     }
 
+    // Prevent duplicate conversion — check if an invoice already exists for this quote
+    const { data: existingInvoice } = await supabase
+      .from('pyra_invoices')
+      .select('id, invoice_number')
+      .eq('quote_id', quoteId)
+      .maybeSingle();
+    if (existingInvoice) {
+      return apiValidationError(`تم إنشاء فاتورة من هذا العرض مسبقاً (${existingInvoice.invoice_number})`);
+    }
+
     // Fetch quote items
     const { data: quoteItems } = await supabase
       .from('pyra_quote_items')
@@ -117,6 +127,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
         .insert(invoiceItems);
       if (itemsErr) console.error('Invoice items from quote error:', itemsErr);
     }
+
+    // Update quote status to invoiced
+    await supabase
+      .from('pyra_quotes')
+      .update({ status: 'invoiced', updated_at: new Date().toISOString() })
+      .eq('id', quoteId);
 
     // Log activity
     await supabase.from('pyra_activity_log').insert({

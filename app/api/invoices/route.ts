@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
 
     // Scope check: non-admins can only create invoices for their accessible clients
     if (!scope.isAdmin && client_id) {
-      if (!scope.clientIds.includes(Number(client_id))) {
+      if (!scope.clientIds.includes(client_id)) {
         return apiForbidden();
       }
     }
@@ -262,6 +262,9 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) {
       console.error('Invoice items insert error:', itemsError);
+      // Rollback: delete the invoice since items failed
+      await supabase.from('pyra_invoices').delete().eq('id', invoiceId);
+      return apiServerError('فشل في إضافة بنود الفاتورة');
     }
 
     // Log activity

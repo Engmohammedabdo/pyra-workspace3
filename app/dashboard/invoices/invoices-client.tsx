@@ -97,6 +97,7 @@ export default function InvoicesClient() {
   /* ── delete dialog ── */
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Invoice | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
 
   /* ── debounce search (400ms) ── */
@@ -161,17 +162,22 @@ export default function InvoicesClient() {
 
   /* ── delete ── */
   const handleDelete = async () => {
-    if (!selected) return;
+    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : selected ? [selected.id] : [];
+    if (idsToDelete.length === 0) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/invoices/${selected.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+      let failCount = 0;
+      for (const id of idsToDelete) {
+        const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.error) failCount++;
+      }
       setShowDelete(false);
       setSelected(null);
-      toast.success('تم حذف الفاتورة');
+      setBulkDeleteIds([]);
+      if (failCount > 0) toast.error(`فشل حذف ${failCount} فاتورة`);
+      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} فواتير` : 'تم حذف الفاتورة');
       fetchInvoices();
-      // refresh revenue
       fetch('/api/invoices/revenue-summary')
         .then(r => r.json())
         .then(j => { if (j.data) setRevenue(j.data); })
@@ -447,9 +453,11 @@ export default function InvoicesClient() {
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
-              const inv = invoices.find((i) => ids.includes(i.id) && i.status === 'draft');
-              if (inv) { setSelected(inv); setShowDelete(true); }
-              else toast.error('يمكن حذف المسودات فقط');
+              const draftIds = invoices.filter((i) => ids.includes(i.id) && i.status === 'draft').map(i => i.id);
+              if (draftIds.length === 0) { toast.error('يمكن حذف المسودات فقط'); return; }
+              setBulkDeleteIds(draftIds);
+              setSelected(null);
+              setShowDelete(true);
             },
           },
         ] : []}
@@ -487,7 +495,10 @@ export default function InvoicesClient() {
             <DialogTitle>حذف الفاتورة</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
-            هل أنت متأكد من حذف الفاتورة <strong>{selected?.invoice_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.
+            {bulkDeleteIds.length > 1
+              ? `هل أنت متأكد من حذف ${bulkDeleteIds.length} فواتير؟ لا يمكن التراجع عن هذا الإجراء.`
+              : <>هل أنت متأكد من حذف الفاتورة <strong>{selected?.invoice_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</>
+            }
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>

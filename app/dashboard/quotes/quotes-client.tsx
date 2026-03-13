@@ -13,7 +13,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download } from 'lucide-react';
+import { FileText, Plus, MoreHorizontal, Pencil, Copy, Send, Trash2, Download, Receipt } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
@@ -37,9 +37,12 @@ interface Quote {
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   draft: { label: 'مسودة', variant: 'secondary' },
+  pending_approval: { label: 'بانتظار الموافقة', variant: 'outline' },
   sent: { label: 'مُرسل', variant: 'default' },
   viewed: { label: 'تمت المشاهدة', variant: 'outline' },
   signed: { label: 'مُوقع', variant: 'default' },
+  invoiced: { label: 'تم الفوترة', variant: 'default' },
+  rejected: { label: 'مرفوض', variant: 'destructive' },
   expired: { label: 'منتهي', variant: 'destructive' },
   cancelled: { label: 'ملغي', variant: 'destructive' },
 };
@@ -56,6 +59,7 @@ export default function QuotesClient() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Quote | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
@@ -118,16 +122,33 @@ export default function QuotesClient() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selected) return;
-    setDeleting(true);
+  const handleConvertToInvoice = async (id: string) => {
     try {
-      const res = await fetch(`/api/quotes/${selected.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/invoices/from-quote/${id}`, { method: 'POST' });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
+      toast.success('تم إنشاء الفاتورة من عرض السعر');
+      fetchQuotes();
+      if (json.data?.id) router.push(`/dashboard/invoices/${json.data.id}`);
+    } catch { toast.error('حدث خطأ'); }
+  };
+
+  const handleDelete = async () => {
+    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : selected ? [selected.id] : [];
+    if (idsToDelete.length === 0) return;
+    setDeleting(true);
+    try {
+      let failCount = 0;
+      for (const id of idsToDelete) {
+        const res = await fetch(`/api/quotes/${id}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.error) failCount++;
+      }
       setShowDelete(false);
       setSelected(null);
-      toast.success('تم حذف عرض السعر');
+      setBulkDeleteIds([]);
+      if (failCount > 0) toast.error(`فشل حذف ${failCount} عرض`);
+      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} عروض` : 'تم حذف عرض السعر');
       fetchQuotes();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setDeleting(false); }
   };
@@ -232,6 +253,11 @@ export default function QuotesClient() {
               <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
                 <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
               </DropdownMenuItem>
+              {q.status === 'signed' && (
+                <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
+                  <Receipt className="h-3.5 w-3.5 me-2" /> تحويل لفاتورة
+                </DropdownMenuItem>
+              )}
               {canEdit && q.status === 'draft' && (
                 <DropdownMenuItem onClick={() => handleSend(q.id)}>
                   <Send className="h-3.5 w-3.5 me-2" /> إرسال
@@ -247,7 +273,7 @@ export default function QuotesClient() {
         </div>
       ),
     },
-  ], [canEdit, canCreate, canDelete, router, handleDuplicate, handleSend, handleDownloadPDF]);
+  ], [canEdit, canCreate, canDelete, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
@@ -306,8 +332,10 @@ export default function QuotesClient() {
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
-              const q = quotes.find((q) => ids.includes(q.id));
-              if (q) { setSelected(q); setShowDelete(true); }
+              if (ids.length === 0) return;
+              setBulkDeleteIds(ids);
+              setSelected(null);
+              setShowDelete(true);
             },
           },
         ] : []}
@@ -317,7 +345,10 @@ export default function QuotesClient() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>حذف عرض السعر</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
-            هل أنت متأكد من حذف عرض السعر <strong>{selected?.quote_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.
+            {bulkDeleteIds.length > 1
+              ? `هل أنت متأكد من حذف ${bulkDeleteIds.length} عروض أسعار؟ لا يمكن التراجع عن هذا الإجراء.`
+              : <>هل أنت متأكد من حذف عرض السعر <strong>{selected?.quote_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</>
+            }
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>

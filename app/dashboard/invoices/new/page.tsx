@@ -65,11 +65,19 @@ export default function NewInvoicePage() {
       .catch(() => {})
       .finally(() => setLoadingClients(false));
 
-    fetch('/api/settings?keys=vat_rate')
+    fetch('/api/settings')
       .then(r => r.json())
       .then(json => {
-        const rate = parseFloat(json.data?.vat_rate);
+        if (!json.data) return;
+        const rate = parseFloat(json.data.vat_rate);
         if (!isNaN(rate)) setVatRate(rate);
+        // Auto-calculate due date from payment_terms_days
+        const terms = parseInt(json.data.payment_terms_days);
+        if (!isNaN(terms) && terms > 0) {
+          const due = new Date();
+          due.setDate(due.getDate() + terms);
+          setDueDate(due.toISOString().split('T')[0]);
+        }
       })
       .catch(() => {});
   }, []);

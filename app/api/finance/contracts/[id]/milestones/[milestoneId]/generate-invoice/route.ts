@@ -151,6 +151,7 @@ export async function POST(
         bank_details: bankDetails,
         company_name: settingsMap.company_name || null,
         company_logo: settingsMap.company_logo || null,
+        contract_id: id,
         milestone_type: null,
         parent_invoice_id: null,
         created_by: auth.pyraUser.username,

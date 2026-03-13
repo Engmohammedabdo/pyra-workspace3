@@ -94,17 +94,25 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       notes,
       items,
       status,
+      vat_rate: bodyVatRate,
+      tax_rate: bodyTaxRate,
+      client_address: bodyClientAddress,
+      terms_conditions: bodyTerms,
     } = body;
 
     // ── Validate state transition ────────────────────
     // Valid transitions: draft→sent, sent→viewed, viewed→signed, signed→(none)
     // Admin can also revert: sent→draft, viewed→draft
     const VALID_TRANSITIONS: Record<string, string[]> = {
-      draft:   ['sent'],
-      sent:    ['draft', 'viewed'],
-      viewed:  ['draft', 'signed'],
-      signed:  [],            // terminal state — cannot be changed via PATCH
-      expired: ['draft'],     // can reactivate
+      draft:   ['sent', 'cancelled'],
+      pending_approval: ['draft', 'sent', 'rejected'],
+      sent:    ['draft', 'viewed', 'cancelled'],
+      viewed:  ['draft', 'signed', 'cancelled'],
+      signed:  ['invoiced'],
+      invoiced: [],           // terminal state
+      rejected: ['draft'],
+      expired: ['draft'],
+      cancelled: ['draft'],
     };
 
     // Build update object
@@ -114,6 +122,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (estimate_date !== undefined) updates.estimate_date = estimate_date;
     if (expiry_date !== undefined) updates.expiry_date = expiry_date;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
+    if (bodyClientAddress !== undefined) updates.client_address = bodyClientAddress?.trim() || null;
+    if (Array.isArray(bodyTerms)) updates.terms_conditions = bodyTerms;
 
     if (status !== undefined) {
       const currentStatus = existing.status as string;
@@ -163,13 +173,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         0
       );
 
-      const { data: vatSetting } = await supabase
-        .from('pyra_settings')
-        .select('value')
-        .eq('key', 'vat_rate')
-        .maybeSingle();
-
-      const taxRate = parseFloat(vatSetting?.value || '5');
+      // Use vat_rate/tax_rate from body if provided, otherwise fall back to settings
+      const explicitRate = bodyVatRate ?? bodyTaxRate;
+      let taxRate: number;
+      if (explicitRate != null) {
+        taxRate = parseFloat(explicitRate);
+      } else {
+        const { data: vatSetting } = await supabase
+          .from('pyra_settings')
+          .select('value')
+          .eq('key', 'vat_rate')
+          .maybeSingle();
+        taxRate = parseFloat(vatSetting?.value || '5');
+      }
       const taxAmount = subtotal * (taxRate / 100);
 
       updates.subtotal = subtotal;
@@ -194,6 +210,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { error: itemsErr } = await supabase.from('pyra_quote_items').insert(itemRows);
       if (itemsErr) console.error('Quote items insert error:', itemsErr);
+    } else if ((bodyVatRate ?? bodyTaxRate) != null) {
+      // VAT rate changed but items not re-sent — recalculate using existing subtotal
+      const { data: currentQuote } = await supabase
+        .from('pyra_quotes')
+        .select('subtotal')
+        .eq('id', id)
+        .single();
+
+      if (currentQuote) {
+        const taxRate = parseFloat(bodyVatRate ?? bodyTaxRate);
+        const taxAmount = (currentQuote.subtotal || 0) * (taxRate / 100);
+        updates.tax_rate = taxRate;
+        updates.tax_amount = taxAmount;
+        updates.total = (currentQuote.subtotal || 0) + taxAmount;
+      }
     }
 
     const { data: quote, error: updateError } = await supabase

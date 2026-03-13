@@ -106,6 +106,9 @@ export async function POST(request: NextRequest) {
       expiry_date,
       notes,
       items,
+      vat_rate: bodyVatRate,
+      client_address: bodyClientAddress,
+      terms_conditions: bodyTerms,
     } = body;
 
     // Scope check: non-admins can only create quotes for their own clients
@@ -145,7 +148,8 @@ export async function POST(request: NextRequest) {
       .eq('key', 'vat_rate')
       .maybeSingle();
 
-    const taxRate = parseFloat(vatSetting?.value || '5');
+    // Use vat_rate from request body if explicitly provided (even 0), otherwise fall back to settings
+    const taxRate = bodyVatRate != null ? parseFloat(bodyVatRate) : parseFloat(vatSetting?.value || '5');
     const taxAmount = subtotal * (taxRate / 100);
     const total = subtotal + taxAmount;
 
@@ -180,7 +184,7 @@ export async function POST(request: NextRequest) {
       client_email: null,
       client_company: null,
       client_phone: null,
-      client_address: null,
+      client_address: bodyClientAddress?.trim() || null,
     };
 
     if (client_id) {
@@ -196,7 +200,7 @@ export async function POST(request: NextRequest) {
           client_email: client.email,
           client_company: client.company,
           client_phone: client.phone,
-          client_address: null,
+          client_address: bodyClientAddress?.trim() || null,
         };
       }
     }
@@ -219,11 +223,13 @@ export async function POST(request: NextRequest) {
 
     const quoteId = generateId('qt');
 
-    const termsConditions = [
-      { text: 'Quotation valid for 30 days from the date of issue.' },
-      { text: '50% advance payment required to commence work.' },
-      { text: 'Balance payment due upon project completion.' },
-    ];
+    const termsConditions = Array.isArray(bodyTerms) && bodyTerms.length > 0
+      ? bodyTerms
+      : [
+          { text: `Quotation valid for ${expiryDays} days from the date of issue.` },
+          { text: '50% advance payment required to commence work.' },
+          { text: 'Balance payment due upon project completion.' },
+        ];
 
     // Determine status: admins create as draft, sales agents create as pending_approval
     const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
@@ -279,6 +285,9 @@ export async function POST(request: NextRequest) {
 
     if (itemsError) {
       console.error('Quote items insert error:', itemsError);
+      // Rollback: delete the quote if items failed
+      await supabase.from('pyra_quotes').delete().eq('id', quoteId);
+      return apiServerError('فشل في إضافة بنود عرض السعر');
     }
 
     // Log activity

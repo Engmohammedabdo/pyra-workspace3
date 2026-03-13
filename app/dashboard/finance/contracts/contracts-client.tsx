@@ -57,6 +57,7 @@ export default function ContractsClient() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
@@ -84,17 +85,20 @@ export default function ContractsClient() {
   useEffect(() => { fetchContracts(); }, [fetchContracts]);
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : deleteId ? [deleteId] : [];
+    if (idsToDelete.length === 0) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/finance/contracts/${deleteId}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('تم حذف العقد');
-        setDeleteId(null);
-        fetchContracts();
-      } else {
-        toast.error('فشل في الحذف');
+      let failCount = 0;
+      for (const id of idsToDelete) {
+        const res = await fetch(`/api/finance/contracts/${id}`, { method: 'DELETE' });
+        if (!res.ok) failCount++;
       }
+      setDeleteId(null);
+      setBulkDeleteIds([]);
+      if (failCount > 0) toast.error(`فشل حذف ${failCount} عقد`);
+      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} عقود` : 'تم حذف العقد');
+      fetchContracts();
     } catch {
       toast.error('فشل في الحذف');
     } finally {
@@ -265,7 +269,9 @@ export default function ContractsClient() {
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
-              if (ids.length > 0) setDeleteId(ids[0]);
+              if (ids.length === 0) return;
+              setBulkDeleteIds(ids);
+              setDeleteId(ids[0]);
             },
           },
         ]}
