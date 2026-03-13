@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { MessageBubble } from './message-bubble';
 import { ChatInput } from './chat-input';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, User, ExternalLink } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import { MessageCircle, User, Phone } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -28,7 +28,7 @@ interface ChatWindowProps {
   leadId?: string | null;
 }
 
-const POLL_INTERVAL = 5000; // 5 seconds
+const POLL_INTERVAL = 5000;
 
 export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -47,7 +47,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
       });
       const res = await fetch(`/api/dashboard/sales/whatsapp/messages?${params}`);
       const data = await res.json();
-      const msgs = (data.data || []).reverse(); // oldest first
+      const msgs = (data.data || []).reverse();
       setMessages(msgs);
     } catch {
       console.error('Failed to fetch messages');
@@ -63,7 +63,6 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
     return () => clearInterval(interval);
   }, [fetchMessages]);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
@@ -84,23 +83,28 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
         const data = await res.json();
         throw new Error(data.error || 'فشل الإرسال');
       }
-      // Immediate refresh
       fetchMessages();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الرسالة');
-      throw err; // Re-throw so ChatInput knows it failed
+      throw err;
     }
   }
 
   if (loading) {
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 border-b">
-          <Skeleton className="h-6 w-48" />
+        <div className="p-4 border-b border-border/60">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-10 w-10 rounded-xl" />
+            <div>
+              <Skeleton className="h-4 w-32 mb-1.5" />
+              <Skeleton className="h-3 w-20" />
+            </div>
+          </div>
         </div>
         <div className="flex-1 p-4 space-y-4">
           {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className={`h-12 w-48 rounded-2xl ${i % 2 === 0 ? 'ms-auto' : ''}`} />
+            <Skeleton key={i} className={cn('h-12 w-52 rounded-2xl', i % 2 === 0 ? 'ms-auto' : '')} />
           ))}
         </div>
       </div>
@@ -110,21 +114,24 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-3 border-b flex items-center justify-between bg-background">
+      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-card/80 backdrop-blur-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-orange-500/15">
             {(contactName || phone).charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="font-medium text-sm">{contactName || phone}</p>
-            <p className="text-xs text-muted-foreground" dir="ltr">+{phone}</p>
+            <p className="font-semibold text-sm">{contactName || phone}</p>
+            <p className="text-xs text-muted-foreground/60 flex items-center gap-1" dir="ltr">
+              <Phone className="h-3 w-3" />
+              +{phone}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {leadId && (
-            <Button variant="ghost" size="sm" asChild>
+            <Button variant="ghost" size="sm" asChild className="rounded-xl text-xs hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-600">
               <Link href={`/dashboard/sales/leads/${leadId}`}>
-                <User className="h-4 w-4 me-1" />
+                <User className="h-4 w-4 me-1.5" />
                 عرض العميل
               </Link>
             </Button>
@@ -133,12 +140,20 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
       </div>
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/20">
+      <div
+        ref={containerRef}
+        className={cn(
+          'flex-1 overflow-y-auto p-4 space-y-3',
+          'bg-gradient-to-b from-muted/10 via-transparent to-muted/10'
+        )}
+      >
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            <MessageCircle className="h-12 w-12 mb-3 opacity-30" />
-            <p className="text-sm">لا توجد رسائل بعد</p>
-            <p className="text-xs mt-1">ابدأ المحادثة بإرسال رسالة</p>
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
+            <div className="w-16 h-16 rounded-2xl bg-muted/40 flex items-center justify-center mb-4">
+              <MessageCircle className="h-8 w-8 opacity-40" />
+            </div>
+            <p className="text-sm font-medium">لا توجد رسائل بعد</p>
+            <p className="text-xs mt-1 text-muted-foreground/40">ابدأ المحادثة بإرسال رسالة</p>
           </div>
         ) : (
           messages.map(msg => (

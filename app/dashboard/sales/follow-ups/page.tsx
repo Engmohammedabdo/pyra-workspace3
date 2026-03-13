@@ -10,8 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
-import { Clock, CheckCircle2, Calendar, User, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle2, Calendar, User, AlertTriangle, Bell } from 'lucide-react';
 
 interface FollowUp {
   id: string;
@@ -24,6 +25,16 @@ interface FollowUp {
   completed_at?: string;
   created_at: string;
 }
+
+const containerMotion = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } },
+};
+
+const itemMotion = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35 } },
+};
 
 export default function FollowUpsPage() {
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
@@ -78,31 +89,47 @@ export default function FollowUpsPage() {
     }
   }
 
-  function isOverdue(dueAt: string) {
-    return new Date(dueAt) < new Date() && followUps.find(f => f.due_at === dueAt)?.status === 'pending';
-  }
-
   if (loading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold">المتابعات</h1>
-        {[1, 2, 3].map(i => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-10 rounded-xl" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 rounded-2xl" />)}
       </div>
     );
   }
 
-  // Split into overdue and upcoming
   const now = new Date();
   const overdue = followUps.filter(f => f.status === 'pending' && new Date(f.due_at) < now);
   const upcoming = followUps.filter(f => f.status === 'pending' && new Date(f.due_at) >= now);
   const completed = followUps.filter(f => f.status === 'completed');
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-2xl font-bold">المتابعات</h1>
+    <motion.div
+      variants={containerMotion}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      {/* Header */}
+      <motion.div variants={itemMotion} className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+            <Bell className="h-6 w-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">المتابعات</h1>
+            <p className="text-sm text-muted-foreground">
+              {overdue.length > 0 && <span className="text-red-500 font-medium">{overdue.length} متأخرة</span>}
+              {overdue.length > 0 && upcoming.length > 0 && ' • '}
+              {upcoming.length > 0 && <span>{upcoming.length} قادمة</span>}
+            </p>
+          </div>
+        </div>
         <Select value={filter} onValueChange={v => setFilter(v as typeof filter)}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-36 rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -111,7 +138,7 @@ export default function FollowUpsPage() {
             <SelectItem value="all">الكل</SelectItem>
           </SelectContent>
         </Select>
-      </div>
+      </motion.div>
 
       {followUps.length === 0 ? (
         <EmptyState
@@ -120,48 +147,54 @@ export default function FollowUpsPage() {
           description="ستظهر المتابعات هنا عند إنشائها من صفحة العميل المحتمل"
         />
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* Overdue Section */}
           {overdue.length > 0 && filter !== 'completed' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-red-600">
-                <AlertTriangle className="h-4 w-4" />
-                <h2 className="font-semibold text-sm">متأخرة ({overdue.length})</h2>
+            <motion.div variants={itemMotion} className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center">
+                  <AlertTriangle className="h-3.5 w-3.5 text-white" />
+                </div>
+                <h2 className="font-bold text-sm text-red-600 dark:text-red-400">متأخرة ({overdue.length})</h2>
               </div>
               {overdue.map(fu => (
                 <FollowUpCard key={fu.id} followUp={fu} onComplete={handleComplete} onCancel={handleCancel} isOverdue />
               ))}
-            </div>
+            </motion.div>
           )}
 
           {/* Upcoming Section */}
           {upcoming.length > 0 && filter !== 'completed' && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-blue-600">
-                <Calendar className="h-4 w-4" />
-                <h2 className="font-semibold text-sm">قادمة ({upcoming.length})</h2>
+            <motion.div variants={itemMotion} className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <Calendar className="h-3.5 w-3.5 text-white" />
+                </div>
+                <h2 className="font-bold text-sm text-blue-600 dark:text-blue-400">قادمة ({upcoming.length})</h2>
               </div>
               {upcoming.map(fu => (
                 <FollowUpCard key={fu.id} followUp={fu} onComplete={handleComplete} onCancel={handleCancel} />
               ))}
-            </div>
+            </motion.div>
           )}
 
           {/* Completed Section */}
           {completed.length > 0 && (filter === 'completed' || filter === 'all') && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 text-green-600">
-                <CheckCircle2 className="h-4 w-4" />
-                <h2 className="font-semibold text-sm">مكتملة ({completed.length})</h2>
+            <motion.div variants={itemMotion} className="space-y-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                </div>
+                <h2 className="font-bold text-sm text-emerald-600 dark:text-emerald-400">مكتملة ({completed.length})</h2>
               </div>
               {completed.map(fu => (
                 <FollowUpCard key={fu.id} followUp={fu} onComplete={handleComplete} onCancel={handleCancel} />
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -177,50 +210,75 @@ function FollowUpCard({
   isOverdue?: boolean;
 }) {
   return (
-    <Card className={cn(isOverdue && 'border-red-200 dark:border-red-900')}>
-      <CardContent className="py-3 flex items-center justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-sm truncate">{followUp.title || 'متابعة'}</p>
-            {isOverdue && (
-              <Badge variant="destructive" className="text-[10px]">متأخرة</Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {formatRelativeDate(followUp.due_at)}
-            </span>
-            {followUp.assigned_to && (
-              <span className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                {followUp.assigned_to}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Card className={cn(
+        'border-0 shadow-md shadow-black/5 dark:shadow-black/15 bg-card/80 backdrop-blur overflow-hidden transition-all hover:shadow-lg',
+        isOverdue && 'border-s-[3px] border-s-red-500'
+      )}>
+        <CardContent className="py-4 flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2.5">
+              <p className="font-semibold text-sm truncate">{followUp.title || 'متابعة'}</p>
+              {isOverdue && (
+                <Badge className="text-[10px] bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 border-0">
+                  متأخرة
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Clock className="h-3 w-3" />
+                {formatRelativeDate(followUp.due_at)}
               </span>
+              {followUp.assigned_to && (
+                <span className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-[8px] font-bold">
+                    {followUp.assigned_to.charAt(0).toUpperCase()}
+                  </div>
+                  {followUp.assigned_to}
+                </span>
+              )}
+            </div>
+            {followUp.notes && (
+              <p className="text-xs text-muted-foreground/70 mt-1.5 truncate">{followUp.notes}</p>
             )}
+            <Link href={`/dashboard/sales/leads/${followUp.lead_id}`} className="text-[11px] text-orange-500 hover:text-orange-600 hover:underline mt-1.5 inline-block font-medium">
+              عرض العميل المحتمل ←
+            </Link>
           </div>
-          {followUp.notes && (
-            <p className="text-xs text-muted-foreground mt-1 truncate">{followUp.notes}</p>
+
+          {followUp.status === 'pending' && (
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onComplete(followUp.id)}
+                className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 rounded-xl"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onCancel(followUp.id)}
+                className="text-muted-foreground hover:text-destructive rounded-xl"
+              >
+                ✕
+              </Button>
+            </div>
           )}
-          <Link href={`/dashboard/sales/leads/${followUp.lead_id}`} className="text-[10px] text-orange-600 hover:underline mt-1 inline-block">
-            عرض العميل المحتمل ←
-          </Link>
-        </div>
 
-        {followUp.status === 'pending' && (
-          <div className="flex items-center gap-1 shrink-0">
-            <Button size="sm" variant="ghost" onClick={() => onComplete(followUp.id)} className="text-green-600 hover:text-green-700">
-              <CheckCircle2 className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onCancel(followUp.id)} className="text-muted-foreground hover:text-destructive">
-              ✕
-            </Button>
-          </div>
-        )}
-
-        {followUp.status === 'completed' && (
-          <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 shrink-0">مكتملة</Badge>
-        )}
-      </CardContent>
-    </Card>
+          {followUp.status === 'completed' && (
+            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-0 shrink-0">
+              مكتملة
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

@@ -2,7 +2,6 @@
 
 import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Search, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -38,16 +37,21 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
   });
 
   return (
-    <div className="flex flex-col h-full border-e">
+    <div className="flex flex-col h-full border-e border-border/60 bg-card/50">
       {/* Search */}
-      <div className="p-3 border-b">
+      <div className="p-3 border-b border-border/60">
         <div className="relative">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50" />
+          <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="بحث..."
-            className="ps-9 h-9"
+            placeholder="بحث في المحادثات..."
+            className={cn(
+              'w-full rounded-xl border border-border/60 bg-muted/30 ps-9 pe-3 py-2 text-sm',
+              'placeholder:text-muted-foreground/50',
+              'focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400',
+              'transition-all duration-200'
+            )}
           />
         </div>
       </div>
@@ -55,8 +59,10 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
       {/* List */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-            <MessageCircle className="h-8 w-8 mb-2 opacity-50" />
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground/60">
+            <div className="w-12 h-12 rounded-2xl bg-muted/60 flex items-center justify-center mb-3">
+              <MessageCircle className="h-6 w-6 opacity-50" />
+            </div>
             <p className="text-sm">لا توجد محادثات</p>
           </div>
         ) : (
@@ -70,25 +76,35 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                 key={conv.remote_jid}
                 onClick={() => onSelect(conv)}
                 className={cn(
-                  'w-full text-start px-4 py-3 border-b hover:bg-muted/50 transition-colors flex items-start gap-3',
-                  isSelected && 'bg-orange-50 dark:bg-orange-950/30 border-s-2 border-s-orange-500'
+                  'w-full text-start px-3 py-3 border-b border-border/30 hover:bg-muted/40 transition-all duration-150 flex items-start gap-3',
+                  isSelected && 'bg-orange-50/80 dark:bg-orange-950/20 border-s-[3px] border-s-orange-500 hover:bg-orange-50/80 dark:hover:bg-orange-950/20'
                 )}
               >
                 {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
+                <div className={cn(
+                  'w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm transition-transform',
+                  isSelected
+                    ? 'bg-gradient-to-br from-orange-400 to-amber-600 text-white shadow-orange-500/20'
+                    : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-700 text-foreground/70'
+                )}>
                   {displayName.charAt(0).toUpperCase()}
                 </div>
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between">
-                    <p className="font-medium text-sm truncate">{displayName}</p>
-                    <span className="text-[10px] text-muted-foreground shrink-0 ms-2">
+                    <p className={cn(
+                      'font-medium text-sm truncate',
+                      isSelected && 'text-orange-700 dark:text-orange-400'
+                    )}>
+                      {displayName}
+                    </p>
+                    <span className="text-[10px] text-muted-foreground/60 shrink-0 ms-2">
                       {formatRelativeDate(conv.last_timestamp)}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <p className="text-xs text-muted-foreground truncate">
+                  <div className="flex items-center justify-between mt-1">
+                    <p className="text-xs text-muted-foreground/70 truncate">
                       {conv.last_message_type !== 'text' ? (
                         conv.last_message_type === 'image' ? '📷 صورة' :
                         conv.last_message_type === 'audio' ? '🎙️ صوت' :
@@ -97,9 +113,9 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                       ) : conv.last_message || '...'}
                     </p>
                     {conv.unread_count > 0 && (
-                      <Badge className="bg-orange-500 text-white text-[10px] min-w-[20px] h-5 shrink-0 ms-2">
+                      <div className="min-w-[22px] h-[22px] rounded-full bg-gradient-to-br from-orange-400 to-amber-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 ms-2 shadow-sm shadow-orange-500/20">
                         {conv.unread_count}
-                      </Badge>
+                      </div>
                     )}
                   </div>
                 </div>
