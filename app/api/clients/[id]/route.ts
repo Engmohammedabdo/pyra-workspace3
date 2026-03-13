@@ -194,10 +194,12 @@ export async function PATCH(
           return apiValidationError('البريد الإلكتروني مسجل بالفعل');
         }
 
-        // Update email in Supabase Auth as well
-        await supabase.auth.admin.updateUserById(existing.auth_user_id, {
-          email: newEmail,
-        });
+        // Update email in Supabase Auth as well (only if client has portal access)
+        if (existing.auth_user_id) {
+          await supabase.auth.admin.updateUserById(existing.auth_user_id, {
+            email: newEmail,
+          });
+        }
       }
 
       updates.email = newEmail;
@@ -307,12 +309,23 @@ export async function DELETE(
       .select('id', { count: 'exact', head: true })
       .eq('client_id', id);
 
+    // ── Check for linked invoices ─────────────────────
+    const { count: invoicesCount } = await supabase
+      .from('pyra_invoices')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', id);
+
     const linkedProjects = projectsCount ?? 0;
     const linkedQuotes = quotesCount ?? 0;
+    const linkedInvoices = invoicesCount ?? 0;
 
-    if (linkedProjects > 0 || linkedQuotes > 0) {
+    if (linkedProjects > 0 || linkedQuotes > 0 || linkedInvoices > 0) {
+      const parts = [];
+      if (linkedProjects > 0) parts.push(`${linkedProjects} مشروع`);
+      if (linkedQuotes > 0) parts.push(`${linkedQuotes} عرض سعر`);
+      if (linkedInvoices > 0) parts.push(`${linkedInvoices} فاتورة`);
       return apiValidationError(
-        `لا يمكن حذف العميل. يوجد ${linkedProjects} مشروع و ${linkedQuotes} عرض سعر مرتبط بهذا العميل. قم بحذفها أو نقلها أولاً.`
+        `لا يمكن حذف العميل. يوجد ${parts.join(' و ')} مرتبط بهذا العميل. قم بحذفها أو نقلها أولاً.`
       );
     }
 
@@ -327,14 +340,16 @@ export async function DELETE(
       return apiServerError();
     }
 
-    // ── Delete from Supabase Auth ────────────────────
-    const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
-      existing.auth_user_id
-    );
+    // ── Delete from Supabase Auth (only if client had portal access) ──
+    if (existing.auth_user_id) {
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(
+        existing.auth_user_id
+      );
 
-    if (authDeleteError) {
-      console.error('Auth user delete error (non-critical):', authDeleteError);
-      // Non-critical — client row is already deleted
+      if (authDeleteError) {
+        console.error('Auth user delete error (non-critical):', authDeleteError);
+        // Non-critical — client row is already deleted
+      }
     }
 
     // ── Log activity ─────────────────────────────────

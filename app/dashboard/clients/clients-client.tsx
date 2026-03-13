@@ -143,6 +143,12 @@ export default function ClientsClient() {
   }, [fetchClients]);
 
   const handleCreate = async () => {
+    if (!form.name.trim()) { toast.error('اسم العميل مطلوب'); return; }
+    if (!form.email.trim()) { toast.error('البريد الإلكتروني مطلوب'); return; }
+    if (!form.company.trim()) { toast.error('اسم الشركة مطلوب'); return; }
+    if (form.create_portal && (!form.password || form.password.length < 6)) {
+      toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return;
+    }
     setSaving(true);
     try {
       const res = await fetch('/api/clients', {
@@ -334,14 +340,7 @@ export default function ClientsClient() {
                     <th className="text-start p-3 font-medium">العميل</th>
                     <th className="text-start p-3 font-medium">الشركة</th>
                     <th className="text-start p-3 font-medium">التصنيفات</th>
-                    <th
-                      className="text-start p-3 font-medium cursor-pointer hover:text-foreground transition-colors"
-                      onClick={() => toggleSort('name')}
-                    >
-                      <span className="flex items-center gap-1">
-                        المشاريع <ArrowUpDown className="h-3 w-3 opacity-40" />
-                      </span>
-                    </th>
+                    <th className="text-start p-3 font-medium">المشاريع</th>
                     <th className="text-start p-3 font-medium">الفواتير</th>
                     <th className="text-start p-3 font-medium">الحالة</th>
                     <th className="text-start p-3 font-medium w-[60px]"></th>
