@@ -146,11 +146,11 @@ CREATE INDEX IF NOT EXISTS idx_follow_ups_due      ON pyra_sales_follow_ups(due_
 
 -- Seed default pipeline stages
 INSERT INTO pyra_sales_pipeline_stages (id, name, name_ar, color, sort_order, is_default) VALUES
-  ('stage_new',         'New',             'جديد',        'blue',   0, true),
-  ('stage_contacted',   'Initial Contact', 'تواصل أولي',  'yellow', 1, false),
-  ('stage_interested',  'Interested',      'مهتم',        'orange', 2, false),
-  ('stage_quoted',      'Quote Sent',      'عرض مقدم',    'purple', 3, false),
-  ('stage_negotiation', 'Negotiation',     'تفاوض',       'indigo', 4, false),
-  ('stage_won',         'Won',             'فاز',         'green',  5, false),
-  ('stage_lost',        'Lost',            'خسر',         'red',    6, false)
-ON CONFLICT (id) DO NOTHING;
+  ('stage_new',         'New',             E'\u062C\u062F\u064A\u062F',                          'blue',   0, true),
+  ('stage_contacted',   'Initial Contact', E'\u062A\u0648\u0627\u0635\u0644 \u0623\u0648\u0644\u064A', 'yellow', 1, false),
+  ('stage_interested',  'Interested',      E'\u0645\u0647\u062A\u0645',                          'orange', 2, false),
+  ('stage_quoted',      'Quote Sent',      E'\u0639\u0631\u0636 \u0645\u0642\u062F\u0645',       'purple', 3, false),
+  ('stage_negotiation', 'Negotiation',     E'\u062A\u0641\u0627\u0648\u0636',                    'indigo', 4, false),
+  ('stage_won',         'Won',             E'\u0641\u0627\u0632',                                'green',  5, false),
+  ('stage_lost',        'Lost',            E'\u062E\u0633\u0631',                                'red',    6, false)
+ON CONFLICT (id) DO UPDATE SET name_ar = EXCLUDED.name_ar;
