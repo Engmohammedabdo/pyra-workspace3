@@ -28,33 +28,41 @@ const ALERT_STYLES: Record<string, {
   itemBg: string;
   itemHover: string;
   icon: React.ComponentType<{ className?: string }>;
+  gradient: string;
+  dot: string;
 }> = {
   danger: {
-    bg: 'bg-red-50 dark:bg-red-950/30',
-    bgHover: 'hover:bg-red-100/70 dark:hover:bg-red-950/50',
+    bg: 'bg-red-50/80 dark:bg-red-950/20',
+    bgHover: 'hover:bg-red-100/70 dark:hover:bg-red-950/40',
     text: 'text-red-700 dark:text-red-400',
-    border: 'border-red-200 dark:border-red-800',
-    itemBg: 'bg-red-50/50 dark:bg-red-950/20',
-    itemHover: 'hover:bg-red-100/60 dark:hover:bg-red-950/40',
+    border: 'border-red-200/60 dark:border-red-800/40',
+    itemBg: 'bg-red-50/30 dark:bg-red-950/10',
+    itemHover: 'hover:bg-red-100/50 dark:hover:bg-red-950/30',
     icon: AlertCircle,
+    gradient: 'from-red-500 to-rose-600',
+    dot: 'bg-red-500',
   },
   warning: {
-    bg: 'bg-yellow-50 dark:bg-yellow-950/30',
-    bgHover: 'hover:bg-yellow-100/70 dark:hover:bg-yellow-950/50',
+    bg: 'bg-yellow-50/80 dark:bg-yellow-950/20',
+    bgHover: 'hover:bg-yellow-100/70 dark:hover:bg-yellow-950/40',
     text: 'text-yellow-700 dark:text-yellow-400',
-    border: 'border-yellow-200 dark:border-yellow-800',
-    itemBg: 'bg-yellow-50/50 dark:bg-yellow-950/20',
-    itemHover: 'hover:bg-yellow-100/60 dark:hover:bg-yellow-950/40',
+    border: 'border-yellow-200/60 dark:border-yellow-800/40',
+    itemBg: 'bg-yellow-50/30 dark:bg-yellow-950/10',
+    itemHover: 'hover:bg-yellow-100/50 dark:hover:bg-yellow-950/30',
     icon: AlertTriangle,
+    gradient: 'from-yellow-500 to-amber-600',
+    dot: 'bg-yellow-500',
   },
   info: {
-    bg: 'bg-blue-50 dark:bg-blue-950/30',
-    bgHover: 'hover:bg-blue-100/70 dark:hover:bg-blue-950/50',
+    bg: 'bg-blue-50/80 dark:bg-blue-950/20',
+    bgHover: 'hover:bg-blue-100/70 dark:hover:bg-blue-950/40',
     text: 'text-blue-700 dark:text-blue-400',
-    border: 'border-blue-200 dark:border-blue-800',
-    itemBg: 'bg-blue-50/50 dark:bg-blue-950/20',
-    itemHover: 'hover:bg-blue-100/60 dark:hover:bg-blue-950/40',
+    border: 'border-blue-200/60 dark:border-blue-800/40',
+    itemBg: 'bg-blue-50/30 dark:bg-blue-950/10',
+    itemHover: 'hover:bg-blue-100/50 dark:hover:bg-blue-950/30',
     icon: Info,
+    gradient: 'from-blue-500 to-indigo-600',
+    dot: 'bg-blue-500',
   },
 };
 
@@ -99,9 +107,9 @@ export function SmartAlerts() {
           <div
             key={idx}
             className={cn(
-              'rounded-xl border overflow-hidden transition-all duration-200',
+              'rounded-2xl border overflow-hidden transition-all duration-200 backdrop-blur-sm',
               style.border,
-              isExpanded ? 'shadow-sm' : '',
+              isExpanded ? 'shadow-md' : 'shadow-sm',
             )}
           >
             {/* Header — clickable to expand or navigate */}
@@ -116,14 +124,20 @@ export function SmartAlerts() {
                   style.text,
                 )}
               >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
+                <div className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                  'bg-gradient-to-br shadow-sm',
+                  style.gradient,
+                )}>
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
                 <span className="flex-1">{alert.message}</span>
                 {alert.items && (
                   <span className={cn(
                     'text-[10px] font-bold px-2 py-0.5 rounded-full',
                     'bg-white/60 dark:bg-white/10',
                   )}>
-                    {alert.items.length}{(alert.items.length < (alerts.length > 0 ? 99 : 0)) ? '' : '+'}
+                    {alert.items.length}
                   </span>
                 )}
                 <motion.div
@@ -144,7 +158,13 @@ export function SmartAlerts() {
                   style.text,
                 )}
               >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
+                <div className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+                  'bg-gradient-to-br shadow-sm',
+                  style.gradient,
+                )}>
+                  <Icon className="h-4 w-4 text-white" />
+                </div>
                 <span className="flex-1">{alert.message}</span>
                 <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-50" />
               </Link>
@@ -166,7 +186,7 @@ export function SmartAlerts() {
                         key={item.id}
                         href={item.href}
                         className={cn(
-                          'flex items-center gap-3 px-4 py-2.5 text-sm',
+                          'flex items-center gap-3 px-4 py-2.5 text-sm group',
                           'border-b last:border-b-0 transition-all duration-150',
                           style.border,
                           style.itemBg,
@@ -175,8 +195,7 @@ export function SmartAlerts() {
                       >
                         <div className={cn(
                           'w-1.5 h-1.5 rounded-full shrink-0',
-                          alert.type === 'danger' ? 'bg-red-500' :
-                          alert.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500',
+                          style.dot,
                         )} />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-foreground truncate">

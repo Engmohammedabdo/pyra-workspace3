@@ -2,16 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FolderOpen,
-  Users,
-  Building2,
-  Briefcase,
   Bell,
   Activity,
   ArrowLeft,
@@ -19,7 +15,6 @@ import {
   Clock,
   Plus,
   Upload,
-  FolderPlus,
   UserPlus,
   RefreshCw,
   CheckSquare,
@@ -29,6 +24,8 @@ import {
   Kanban,
   Sparkles,
   Receipt,
+  ArrowUpRight,
+  Zap,
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
@@ -39,7 +36,7 @@ import { RevenueTrendChart } from '@/components/dashboard/RevenueTrendChart';
 import { ProjectPipelineChart } from '@/components/dashboard/ProjectPipelineChart';
 import { ClientDistributionChart } from '@/components/dashboard/ClientDistributionChart';
 import { TeamWorkloadChart } from '@/components/dashboard/TeamWorkloadChart';
-import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
+import { motion } from 'framer-motion';
 
 interface DashboardData {
   // Admin fields (only present for admin role)
@@ -142,47 +139,140 @@ const ACTION_LABELS: Record<string, string> = {
   logout: 'تسجيل خروج',
 };
 
+const ACTION_COLORS: Record<string, string> = {
+  file_uploaded: 'from-blue-400 to-blue-600',
+  upload: 'from-blue-400 to-blue-600',
+  file_deleted: 'from-red-400 to-red-600',
+  file_purged: 'from-red-400 to-red-600',
+  project_created: 'from-emerald-400 to-emerald-600',
+  client_created: 'from-violet-400 to-violet-600',
+  invoice_created: 'from-orange-400 to-amber-600',
+  invoice_sent: 'from-orange-400 to-amber-600',
+  payment_recorded: 'from-emerald-400 to-teal-600',
+  quote_sent: 'from-indigo-400 to-indigo-600',
+  quote_signed: 'from-emerald-400 to-emerald-600',
+  login: 'from-gray-400 to-gray-600',
+  logout: 'from-gray-400 to-gray-600',
+};
+
+const containerMotion = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.05 },
+  },
+};
+
+const itemMotion = {
+  hidden: { opacity: 0, y: 16 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: 'easeOut' as const },
+  },
+};
+
 /* ── Clickable stat card ─────────────────────────── */
-function StatCard({ href, title, value, subtitle, icon: Icon, accent }: {
+function StatCard({ href, title, value, subtitle, icon: Icon, accent, gradient }: {
   href: string;
   title: string;
   value: string | number;
   subtitle: string;
   icon: React.ComponentType<{ className?: string }>;
   accent?: string;
+  gradient?: string;
 }) {
+  const gradientClass = gradient || 'from-orange-500 to-amber-600';
+
   return (
-    <Link href={href} className="group">
-      <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5 group-hover:border-orange-500/40">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-          <Icon className={`h-4 w-4 transition-colors ${accent || 'text-muted-foreground group-hover:text-orange-500'}`} />
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold font-mono">{value}</div>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        </CardContent>
-      </Card>
+    <Link href={href} className="group block">
+      <motion.div
+        whileHover={{ y: -3, scale: 1.01 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+        className={cn(
+          'relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-5',
+          'shadow-sm hover:shadow-xl hover:shadow-black/5 dark:hover:shadow-black/20',
+          'transition-shadow duration-300',
+          accent && 'border-s-[3px]',
+        )}
+        style={accent ? { borderInlineStartColor: accent } : undefined}
+      >
+        {/* Gradient orb */}
+        <div className={cn(
+          'absolute -top-8 -end-8 w-24 h-24 rounded-full opacity-[0.07] blur-2xl',
+          `bg-gradient-to-br ${gradientClass}`,
+        )} />
+
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-muted-foreground/80 font-medium">{title}</p>
+            <p className="text-2xl font-bold tracking-tight mt-1">{value}</p>
+            <p className="text-xs text-muted-foreground/60 mt-1">{subtitle}</p>
+          </div>
+          <div className={cn(
+            'w-11 h-11 rounded-xl flex items-center justify-center shrink-0',
+            'bg-gradient-to-br shadow-lg',
+            gradientClass,
+          )}>
+            <Icon className="h-5 w-5 text-white" />
+          </div>
+        </div>
+      </motion.div>
     </Link>
   );
 }
 
-/* ── Mini stat row ─────────────────────────── */
-function MiniStat({ label, value, icon: Icon, accent }: {
-  label: string;
-  value: string | number;
+/* ── Quick action item ─────────────────────────── */
+function QuickAction({ href, icon: Icon, label, gradient }: {
+  href: string;
   icon: React.ComponentType<{ className?: string }>;
-  accent?: string;
+  label: string;
+  gradient: string;
 }) {
   return (
-    <div className="flex items-center gap-3 py-2">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${accent || 'bg-muted/50'}`}>
-        <Icon className="h-4 w-4" />
+    <Link href={href} className="group block">
+      <div className={cn(
+        'flex items-center gap-3 px-3 py-2.5 rounded-xl',
+        'border border-border/40 bg-card/50',
+        'hover:bg-card hover:border-border/80 hover:shadow-sm',
+        'transition-all duration-200',
+      )}>
+        <div className={cn(
+          'w-8 h-8 rounded-lg flex items-center justify-center shrink-0',
+          'bg-gradient-to-br shadow-sm',
+          gradient,
+        )}>
+          <Icon className="h-4 w-4 text-white" />
+        </div>
+        <span className="text-sm font-medium flex-1">{label}</span>
+        <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-foreground/60 transition-colors" />
       </div>
-      <div className="flex-1">
-        <p className="text-xs text-muted-foreground">{label}</p>
+    </Link>
+  );
+}
+
+/* ── Leave balance mini stat ─────────────────────────── */
+function LeaveBar({ label, value, gradient, maxValue = 30 }: {
+  label: string;
+  value: number;
+  gradient: string;
+  maxValue?: number;
+}) {
+  const percent = Math.min((value / maxValue) * 100, 100);
+  return (
+    <div className="py-2.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs text-muted-foreground/70">{label}</span>
+        <span className="text-sm font-bold">{value} <span className="text-[10px] font-normal text-muted-foreground/50">يوم</span></span>
       </div>
-      <span className="font-bold font-mono text-sm">{value}</span>
+      <div className="h-2 rounded-full bg-muted/40 overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${percent}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.3 }}
+          className={cn('h-full rounded-full bg-gradient-to-r', gradient)}
+        />
+      </div>
     </div>
   );
 }
@@ -209,16 +299,16 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-24 rounded-xl" />
+        <Skeleton className="h-32 rounded-2xl" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
+            <Skeleton key={i} className="h-36 rounded-2xl" />
           ))}
         </div>
-        <Skeleton className="h-72" />
+        <Skeleton className="h-80 rounded-2xl" />
         <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-64 lg:col-span-2" />
-          <Skeleton className="h-64" />
+          <Skeleton className="h-72 lg:col-span-2 rounded-2xl" />
+          <Skeleton className="h-72 rounded-2xl" />
         </div>
       </div>
     );
@@ -234,52 +324,75 @@ export default function DashboardPage() {
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in-0 duration-300">
-      {/* ═══ Zone 1: Welcome Card + SmartAlerts ═══ */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-l from-orange-500/10 via-orange-500/5 to-transparent border p-5">
-        <div className="flex items-center justify-between relative z-10">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-orange-500/15 flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-orange-500" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">مرحباً بك في Pyra Workspace</h1>
-              <p className="text-sm text-muted-foreground">{today}</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-9 w-9 shrink-0"
-            onClick={loadDashboard}
-            aria-label="تحديث البيانات"
-          >
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-          </Button>
-        </div>
-        {/* Decorative elements */}
-        <div className="absolute end-0 top-0 w-32 h-32 rounded-full bg-orange-500/5 -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute end-16 bottom-0 w-20 h-20 rounded-full bg-orange-500/5 translate-y-1/2" />
-      </div>
+    <motion.div
+      variants={containerMotion}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      {/* ═══ Zone 1: Welcome Hero ═══ */}
+      <motion.div variants={itemMotion}>
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-orange-500/10 via-amber-500/5 to-transparent p-6">
+          {/* Decorative shapes */}
+          <div className="absolute end-0 top-0 w-64 h-64 rounded-full bg-gradient-to-br from-orange-400/10 to-amber-500/5 -translate-y-1/2 translate-x-1/3 blur-3xl" />
+          <div className="absolute start-1/2 bottom-0 w-40 h-40 rounded-full bg-gradient-to-br from-orange-500/5 to-transparent translate-y-1/2 blur-2xl" />
+          <div className="absolute end-12 bottom-2 w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-400/8 to-amber-500/4 rotate-12" />
 
-      {isAdmin && <SmartAlerts />}
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-xl shadow-orange-500/20">
+                <Sparkles className="h-7 w-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">مرحباً بك في Pyra Workspace</h1>
+                <p className="text-sm text-muted-foreground/70 mt-0.5">{today}</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 shrink-0 rounded-xl hover:bg-orange-500/10"
+              onClick={loadDashboard}
+              aria-label="تحديث البيانات"
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+          </div>
+        </div>
+      </motion.div>
+
+      {isAdmin && (
+        <motion.div variants={itemMotion}>
+          <SmartAlerts />
+        </motion.div>
+      )}
 
       {/* ═══ Zone 2: KPI Grid (Admin) ═══ */}
-      {isAdmin && <KpiGrid />}
+      {isAdmin && (
+        <motion.div variants={itemMotion}>
+          <KpiGrid />
+        </motion.div>
+      )}
 
       {/* ═══ Zone 2b: Employee Stats Grid ═══ */}
       {!isAdmin && data && (
-        <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StaggerItem>
+        <motion.div
+          variants={containerMotion}
+          initial="hidden"
+          animate="show"
+          className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+        >
+          <motion.div variants={itemMotion}>
             <StatCard
               href="/dashboard/files"
               title="الملفات"
               value={data.accessible_files ?? 0}
               subtitle="ملفات متاحة لك"
               icon={FolderOpen}
+              gradient="from-blue-500 to-indigo-600"
             />
-          </StaggerItem>
-          <StaggerItem>
+          </motion.div>
+          <motion.div variants={itemMotion}>
             <StatCard
               href="/dashboard/my-tasks"
               title="مهامي"
@@ -290,246 +403,237 @@ export default function DashboardPage() {
                   : 'لا توجد مهام متأخرة'
               }
               icon={CheckSquare}
-              accent={(data.my_tasks_overdue ?? 0) > 0 ? 'text-red-500' : undefined}
+              accent={(data.my_tasks_overdue ?? 0) > 0 ? '#ef4444' : undefined}
+              gradient={(data.my_tasks_overdue ?? 0) > 0 ? 'from-red-500 to-rose-600' : 'from-emerald-500 to-teal-600'}
             />
-          </StaggerItem>
-          <StaggerItem>
+          </motion.div>
+          <motion.div variants={itemMotion}>
             <StatCard
               href="/dashboard/timesheet"
               title="ساعات هذا الأسبوع"
               value={data.my_hours_this_week ?? 0}
               subtitle="ساعة مسجلة"
               icon={Clock}
+              gradient="from-violet-500 to-purple-600"
             />
-          </StaggerItem>
-          <StaggerItem>
+          </motion.div>
+          <motion.div variants={itemMotion}>
             <StatCard
               href="/dashboard/notifications"
               title="الإشعارات"
               value={data.unread_notifications ?? 0}
               subtitle="غير مقروءة"
               icon={Bell}
-              accent={data.unread_notifications ? 'text-orange-500' : undefined}
+              accent={data.unread_notifications ? '#f97316' : undefined}
+              gradient="from-orange-500 to-amber-600"
             />
-          </StaggerItem>
-        </StaggerContainer>
+          </motion.div>
+        </motion.div>
       )}
 
       {/* ═══ Employee Overdue Alert ═══ */}
       {!isAdmin && data && (data.my_tasks_overdue ?? 0) > 0 && (
-        <Link href="/dashboard/my-tasks" className="block">
-          <Card className="border-red-500/30 bg-red-50 dark:bg-red-950/20 hover:border-red-500/50 transition-colors">
-            <CardContent className="flex items-center gap-3 py-3">
-              <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+        <motion.div variants={itemMotion}>
+          <Link href="/dashboard/my-tasks" className="block group">
+            <div className="relative overflow-hidden rounded-2xl border border-red-300/50 dark:border-red-800/50 bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/30 dark:to-red-950/10 p-4 hover:shadow-lg hover:shadow-red-500/10 transition-all duration-200">
+              <div className="absolute -end-4 -top-4 w-24 h-24 rounded-full bg-red-400/10 blur-2xl" />
+              <div className="relative flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0 shadow-lg shadow-red-500/20">
+                  <AlertTriangle className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-red-800 dark:text-red-300">
+                    لديك {data.my_tasks_overdue} مهام متأخرة
+                  </p>
+                  <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">
+                    يرجى مراجعة المهام المتأخرة واتخاذ الإجراء المناسب
+                  </p>
+                </div>
+                <ArrowLeft className="h-5 w-5 text-red-400 group-hover:translate-x-[-4px] transition-transform" />
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-red-800 dark:text-red-300">
-                  لديك {data.my_tasks_overdue} مهام متأخرة
-                </p>
-                <p className="text-xs text-red-600/70 dark:text-red-400/70">
-                  يرجى مراجعة المهام المتأخرة واتخاذ الإجراء المناسب
-                </p>
-              </div>
-              <ArrowLeft className="h-5 w-5 text-red-400" />
-            </CardContent>
-          </Card>
-        </Link>
+            </div>
+          </Link>
+        </motion.div>
       )}
 
       {/* ═══ Zone 3: Charts (Admin) ═══ */}
       {isAdmin && (
         <>
-          {/* Revenue Chart — full width */}
-          <RevenueTrendChart />
+          <motion.div variants={itemMotion}>
+            <RevenueTrendChart />
+          </motion.div>
 
-          {/* Secondary Charts — 3 columns */}
-          <div className="grid gap-4 lg:grid-cols-3">
-            <ProjectPipelineChart />
-            <ClientDistributionChart />
-            <TeamWorkloadChart />
-          </div>
+          <motion.div variants={itemMotion}>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <ProjectPipelineChart />
+              <ClientDistributionChart />
+              <TeamWorkloadChart />
+            </div>
+          </motion.div>
 
-          {/* Historical Charts */}
-          <DashboardCharts />
+          <motion.div variants={itemMotion}>
+            <DashboardCharts />
+          </motion.div>
         </>
       )}
 
       {/* ═══ Zone 4: Two-column — Activity + Quick Actions ═══ */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Recent Activity */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              آخر النشاطات
-            </CardTitle>
-            <Link href="/dashboard/activity" className="text-xs text-orange-600 hover:underline flex items-center gap-1">
-              عرض الكل <ArrowLeft className="h-3 w-3" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[320px]">
+      <motion.div variants={itemMotion}>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Recent Activity */}
+          <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-orange-500/15">
+                  <Activity className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="font-bold text-sm">آخر النشاطات</h2>
+              </div>
+              <Link href="/dashboard/activity" className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 flex items-center gap-1 font-medium">
+                عرض الكل <ArrowLeft className="h-3 w-3" />
+              </Link>
+            </div>
+            <ScrollArea className="h-[360px]">
               {data?.recent_activity && data.recent_activity.length > 0 ? (
-                <div className="space-y-3">
-                  {data.recent_activity.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="flex items-start gap-3 rounded-lg border p-3"
-                    >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/10">
-                        <Activity className="h-4 w-4 text-orange-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-medium text-sm">
-                            {activity.display_name}
-                          </span>
-                          <Badge variant="secondary" className="text-[10px]">
-                            {ACTION_LABELS[activity.action_type] || activity.action_type}
-                          </Badge>
+                <div className="p-4 space-y-2">
+                  {data.recent_activity.map((activity, idx) => {
+                    const gradientColor = ACTION_COLORS[activity.action_type] || 'from-gray-400 to-gray-600';
+                    return (
+                      <motion.div
+                        key={activity.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: idx * 0.03, duration: 0.3, ease: 'easeOut' }}
+                        className="flex items-start gap-3 rounded-xl border border-border/30 bg-card/50 p-3 hover:bg-muted/30 transition-colors duration-150"
+                      >
+                        <div className={cn(
+                          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-sm',
+                          gradientColor,
+                        )}>
+                          <Activity className="h-4 w-4 text-white" />
                         </div>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {activity.target_path}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-1">
-                          {formatRelativeDate(activity.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">
+                              {activity.display_name}
+                            </span>
+                            <Badge variant="secondary" className="text-[10px] px-2 py-0 rounded-full bg-muted/60">
+                              {ACTION_LABELS[activity.action_type] || activity.action_type}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground/60 truncate mt-0.5">
+                            {activity.target_path}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground/40 mt-1">
+                            {formatRelativeDate(activity.created_at)}
+                          </p>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
-                  لا توجد نشاطات حديثة
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground/40">
+                  <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mb-3">
+                    <Activity className="h-7 w-7 opacity-40" />
+                  </div>
+                  <p className="text-sm font-medium">لا توجد نشاطات حديثة</p>
                 </div>
               )}
             </ScrollArea>
-          </CardContent>
-        </Card>
+          </div>
 
-        {/* Quick Actions + Leave Summary */}
-        <div className="space-y-4">
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">إجراءات سريعة</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {isAdmin ? (
-                <>
-                  <Link href="/dashboard/invoices/new" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Receipt className="h-4 w-4 me-2" /> فاتورة جديدة
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/quotes/new" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <FileText className="h-4 w-4 me-2" /> عرض سعر جديد
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/projects?action=new" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Plus className="h-4 w-4 me-2" /> مشروع جديد
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/clients?action=new" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <UserPlus className="h-4 w-4 me-2" /> عميل جديد
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/files" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Upload className="h-4 w-4 me-2" /> رفع ملفات
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <>
-                  <Link href="/dashboard/my-tasks" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <CheckSquare className="h-4 w-4 me-2" /> مهامي
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/boards" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Kanban className="h-4 w-4 me-2" /> لوحات العمل
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/timesheet" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Clock className="h-4 w-4 me-2" /> تسجيل ساعات
-                    </Button>
-                  </Link>
-                  <Link href="/dashboard/files" className="block">
-                    <Button variant="outline" size="sm" className="w-full justify-start">
-                      <Upload className="h-4 w-4 me-2" /> رفع ملفات
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          {/* Quick Actions + Leave Summary */}
+          <div className="space-y-4">
+            {/* Quick Actions */}
+            <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-500/15">
+                  <Zap className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="font-bold text-sm">إجراءات سريعة</h2>
+              </div>
+              <div className="p-3 space-y-1.5">
+                {isAdmin ? (
+                  <>
+                    <QuickAction href="/dashboard/invoices/new" icon={Receipt} label="فاتورة جديدة" gradient="from-orange-500 to-amber-600" />
+                    <QuickAction href="/dashboard/quotes/new" icon={FileText} label="عرض سعر جديد" gradient="from-indigo-500 to-blue-600" />
+                    <QuickAction href="/dashboard/projects?action=new" icon={Plus} label="مشروع جديد" gradient="from-emerald-500 to-teal-600" />
+                    <QuickAction href="/dashboard/clients?action=new" icon={UserPlus} label="عميل جديد" gradient="from-violet-500 to-purple-600" />
+                    <QuickAction href="/dashboard/files" icon={Upload} label="رفع ملفات" gradient="from-blue-500 to-cyan-600" />
+                  </>
+                ) : (
+                  <>
+                    <QuickAction href="/dashboard/my-tasks" icon={CheckSquare} label="مهامي" gradient="from-emerald-500 to-teal-600" />
+                    <QuickAction href="/dashboard/boards" icon={Kanban} label="لوحات العمل" gradient="from-blue-500 to-indigo-600" />
+                    <QuickAction href="/dashboard/timesheet" icon={Clock} label="تسجيل ساعات" gradient="from-violet-500 to-purple-600" />
+                    <QuickAction href="/dashboard/files" icon={Upload} label="رفع ملفات" gradient="from-orange-500 to-amber-600" />
+                  </>
+                )}
+              </div>
+            </div>
 
-          {/* Employee: Leave Summary */}
-          {!isAdmin && data?.leave_balance && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" /> رصيد الإجازات
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="divide-y">
-                <MiniStat
-                  label="سنوية"
-                  value={data.leave_balance.annual_remaining}
-                  icon={CalendarDays}
-                  accent="bg-orange-100 dark:bg-orange-900/30"
-                />
-                <MiniStat
-                  label="مرضية"
-                  value={data.leave_balance.sick_remaining}
-                  icon={CalendarDays}
-                  accent="bg-blue-100 dark:bg-blue-900/30"
-                />
-                <MiniStat
-                  label="شخصية"
-                  value={data.leave_balance.personal_remaining}
-                  icon={CalendarDays}
-                  accent="bg-purple-100 dark:bg-purple-900/30"
-                />
+            {/* Employee: Leave Summary */}
+            {!isAdmin && data?.leave_balance && (
+              <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-orange-500/15">
+                    <CalendarDays className="h-4 w-4 text-white" />
+                  </div>
+                  <h2 className="font-bold text-sm">رصيد الإجازات</h2>
+                </div>
+                <div className="px-5 py-3 space-y-1 divide-y divide-border/30">
+                  <LeaveBar
+                    label="سنوية"
+                    value={data.leave_balance.annual_remaining}
+                    gradient="from-orange-400 to-amber-500"
+                  />
+                  <LeaveBar
+                    label="مرضية"
+                    value={data.leave_balance.sick_remaining}
+                    gradient="from-blue-400 to-indigo-500"
+                    maxValue={15}
+                  />
+                  <LeaveBar
+                    label="شخصية"
+                    value={data.leave_balance.personal_remaining}
+                    gradient="from-violet-400 to-purple-500"
+                    maxValue={10}
+                  />
+                </div>
                 {(data.pending_leave_count ?? 0) > 0 && (
-                  <div className="pt-2 mt-2">
-                    <Link href="/dashboard/leave">
-                      <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30">
+                  <div className="px-5 py-3 border-t border-border/30">
+                    <Link href="/dashboard/leave" className="block">
+                      <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-full px-3">
                         {data.pending_leave_count} طلب معلق
                       </Badge>
                     </Link>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            )}
 
-          {/* Employee: Announcements */}
-          {!isAdmin && data && (data.unread_announcements ?? 0) > 0 && (
-            <Link href="/dashboard/announcements" className="block">
-              <Card className="border-blue-500/20 hover:border-blue-500/40 transition-colors">
-                <CardContent className="flex items-center gap-3 py-3">
-                  <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                    <Megaphone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+            {/* Employee: Announcements */}
+            {!isAdmin && data && (data.unread_announcements ?? 0) > 0 && (
+              <Link href="/dashboard/announcements" className="block group">
+                <div className="relative overflow-hidden rounded-2xl border border-blue-300/40 dark:border-blue-800/40 bg-gradient-to-br from-blue-50/80 to-blue-100/30 dark:from-blue-950/30 dark:to-blue-950/10 p-4 hover:shadow-lg hover:shadow-blue-500/10 transition-all duration-200">
+                  <div className="absolute -end-4 -top-4 w-20 h-20 rounded-full bg-blue-400/10 blur-2xl" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-md shadow-blue-500/15">
+                      <Megaphone className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">{data.unread_announcements} إعلانات جديدة</p>
+                      <p className="text-[10px] text-muted-foreground/60">اضغط لقراءة الإعلانات</p>
+                    </div>
+                    <ArrowLeft className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-[-4px] transition-transform" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{data.unread_announcements} إعلانات جديدة</p>
-                    <p className="text-[10px] text-muted-foreground">اضغط لقراءة الإعلانات</p>
-                  </div>
-                  <ArrowLeft className="h-4 w-4 text-muted-foreground" />
-                </CardContent>
-              </Card>
-            </Link>
-          )}
+                </div>
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
