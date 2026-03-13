@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
-    if (role === 'admin' || role === 'employee') {
+    if (['admin', 'employee', 'sales_agent'].includes(role)) {
       query = query.eq('role', role);
     }
 
@@ -86,8 +86,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
     }
 
-    if (!role || (role !== 'admin' && role !== 'employee')) {
-      return apiValidationError('الدور يجب أن يكون admin أو employee');
+    if (!role || !['admin', 'employee', 'sales_agent'].includes(role)) {
+      return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
     }
 
     if (!display_name || typeof display_name !== 'string' || display_name.trim().length === 0) {

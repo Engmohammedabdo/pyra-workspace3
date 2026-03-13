@@ -78,8 +78,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     if (body.role !== undefined) {
-      if (body.role !== 'admin' && body.role !== 'employee') {
-        return apiValidationError('الدور يجب أن يكون admin أو employee');
+      if (!['admin', 'employee', 'sales_agent'].includes(body.role)) {
+        return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
       }
       // Prevent admin from changing their own role (could lock themselves out)
       if (username === auth.pyraUser.username) {

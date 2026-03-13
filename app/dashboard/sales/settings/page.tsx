@@ -301,11 +301,40 @@ function LabelsManager({ labels, onRefresh }: { labels: SalesLabel[]; onRefresh:
 }
 
 // ─── WhatsApp Instances Manager ──────────────────────────
+interface AgentOption {
+  username: string;
+  display_name: string;
+}
+
 function WAInstancesManager({ instances, onRefresh }: { instances: WAInstance[]; onRefresh: () => void }) {
   const [newInstance, setNewInstance] = useState({ instance_name: '', agent_username: '', phone_number: '' });
   const [adding, setAdding] = useState(false);
   const [qrLoading, setQrLoading] = useState<string | null>(null);
   const [qrData, setQrData] = useState<Record<string, string>>({});
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+
+  useEffect(() => {
+    // Fetch sales agents + employees for dropdown
+    fetch('/api/users?role=sales_agent')
+      .then(r => r.json())
+      .then(d => {
+        const salesAgents = (d.data || []).map((u: { username: string; display_name: string }) => ({
+          username: u.username,
+          display_name: u.display_name,
+        }));
+        // Also fetch employees
+        fetch('/api/users?role=employee')
+          .then(r2 => r2.json())
+          .then(d2 => {
+            const employees = (d2.data || []).map((u: { username: string; display_name: string }) => ({
+              username: u.username,
+              display_name: u.display_name,
+            }));
+            setAgents([...salesAgents, ...employees]);
+          });
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleAdd() {
     if (!newInstance.instance_name.trim()) {
@@ -410,7 +439,17 @@ function WAInstancesManager({ instances, onRefresh }: { instances: WAInstance[];
           </div>
           <div>
             <Label className="text-xs">الموظف</Label>
-            <Input value={newInstance.agent_username} onChange={e => setNewInstance(i => ({ ...i, agent_username: e.target.value }))} placeholder="username" dir="ltr" />
+            <Select value={newInstance.agent_username || '__none__'} onValueChange={v => setNewInstance(i => ({ ...i, agent_username: v === '__none__' ? '' : v }))}>
+              <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">بدون تعيين</SelectItem>
+                {agents.map(agent => (
+                  <SelectItem key={agent.username} value={agent.username}>
+                    {agent.display_name} ({agent.username})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-xs">رقم الهاتف</Label>

@@ -55,7 +55,7 @@ interface PyraRole {
 interface PyraUser {
   id: number;
   username: string;
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'sales_agent';
   role_id: string | null;
   display_name: string;
   phone: string | null;
@@ -102,7 +102,7 @@ export default function UsersClient() {
     username: '',
     display_name: '',
     password: '',
-    role: 'employee' as 'admin' | 'employee',
+    role: 'employee' as 'admin' | 'employee' | 'sales_agent',
     role_id: '' as string,
     job_title: '',
     phone: '',
@@ -373,8 +373,8 @@ export default function UsersClient() {
                           {user.pyra_roles.name_ar}
                         </Badge>
                       ) : (
-                        <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : 'موظف'}
+                        <Badge variant={user.role === 'admin' ? 'default' : user.role === 'sales_agent' ? 'outline' : 'secondary'} className={user.role === 'sales_agent' ? 'border-orange-300 text-orange-700 dark:border-orange-600 dark:text-orange-400' : ''}>
+                          {user.role === 'admin' ? <><Shield className="h-3 w-3 me-1" /> مسؤول</> : user.role === 'sales_agent' ? 'وكيل مبيعات' : 'موظف'}
                         </Badge>
                       )}
                     </td>
@@ -465,10 +465,11 @@ export default function UsersClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>نوع الحساب</FormLabel>
-                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
+                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="employee">موظف</SelectItem>
+                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
                       <SelectItem value="admin">مسؤول</SelectItem>
                     </SelectContent>
                   </Select>
@@ -552,10 +553,11 @@ export default function UsersClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>نوع الحساب</FormLabel>
-                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' }))}>
+                  <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="employee">موظف</SelectItem>
+                      <SelectItem value="sales_agent">وكيل مبيعات</SelectItem>
                       <SelectItem value="admin">مسؤول</SelectItem>
                     </SelectContent>
                   </Select>
