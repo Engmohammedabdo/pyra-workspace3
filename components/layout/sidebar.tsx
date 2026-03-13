@@ -153,6 +153,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
       { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
+      { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
     ],
   },
   {

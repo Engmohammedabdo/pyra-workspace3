@@ -51,6 +51,8 @@ const ALLOWED_KEYS = new Set([
   'default_currency',
   // KPI settings
   'kpi_storage_warning_percent',
+  // Default language
+  'default_language',
 ]);
 
 // =============================================================
