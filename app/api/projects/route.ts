@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { name, description, client_company, client_id, team_id, status } = body;
+    const { name, description, client_company, client_id, team_id, status, deadline, start_date } = body;
 
     // Validation
     if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -172,6 +172,8 @@ export async function POST(request: NextRequest) {
       client_company: client_company.trim(),
       team_id: team_id || null,
       status: status || 'active',
+      deadline: deadline || null,
+      start_date: start_date || null,
       storage_path: storagePath,
       created_by: auth.pyraUser.username,
       created_at: now,

@@ -50,6 +50,7 @@ import {
   ChevronDown,
   ChevronLeft,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 
@@ -578,9 +579,7 @@ export default function ProjectDetailPage() {
                     ))}
                   </div>
                 ) : files.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground text-sm">
-                    لا توجد ملفات
-                  </div>
+                  <EmptyState icon={FileIcon} title="لا توجد ملفات" description="لم يتم رفع أي ملفات لهذا المشروع بعد" />
                 ) : (
                   <div className="overflow-y-auto max-h-[calc(100vh-320px)] scrollbar-thin scrollbar-thumb-muted-foreground/20 scrollbar-track-transparent">
                     <div className="divide-y">
@@ -782,9 +781,7 @@ export default function ProjectDetailPage() {
                     ))}
                   </div>
                 ) : comments.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground text-sm">
-                    لا توجد تعليقات بعد
-                  </div>
+                  <EmptyState icon={MessageSquare} title="لا توجد تعليقات بعد" description="أضف تعليقاً للتواصل مع الفريق أو العميل" />
                 ) : (
                   <ScrollArea className="max-h-[400px]">
                     <div className="divide-y">

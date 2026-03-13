@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     const body = await request.json();
-    const { name, description, status, client_company } = body;
+    const { name, description, status, client_company, deadline, start_date } = body;
 
     const supabase = await createServerSupabaseClient();
 
@@ -142,6 +142,24 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         return apiValidationError('اسم شركة العميل لا يمكن أن يكون فارغًا');
       }
       updates.client_company = client_company.trim();
+
+      // Auto-resolve client_id from company name
+      const { data: matchedClient } = await supabase
+        .from('pyra_clients')
+        .select('id')
+        .eq('company', client_company.trim())
+        .maybeSingle();
+      if (matchedClient) {
+        updates.client_id = matchedClient.id;
+      }
+    }
+
+    if (deadline !== undefined) {
+      updates.deadline = deadline || null;
+    }
+
+    if (start_date !== undefined) {
+      updates.start_date = start_date || null;
     }
 
     const { data: project, error } = await supabase

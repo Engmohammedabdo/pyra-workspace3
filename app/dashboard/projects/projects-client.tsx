@@ -84,7 +84,7 @@ export default function ProjectsClient() {
   const [selected, setSelected] = useState<Project | null>(null);
   const [saving, setSaving] = useState(false);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
-  const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active' });
+  const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
@@ -123,7 +123,7 @@ export default function ProjectsClient() {
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
       setShowCreate(false);
-      setForm({ name: '', description: '', client_company: '', status: 'active' });
+      setForm({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
       toast.success('تم إنشاء المشروع بنجاح');
       fetchProjects();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
@@ -164,7 +164,7 @@ export default function ProjectsClient() {
 
   const openEdit = (p: Project) => {
     setSelected(p);
-    setForm({ name: p.name, description: p.description || '', client_company: p.client_company, status: p.status });
+    setForm({ name: p.name, description: p.description || '', client_company: p.client_company, status: p.status, deadline: p.deadline || '', start_date: p.start_date || '' });
     setShowEdit(true);
   };
 
@@ -374,7 +374,7 @@ export default function ProjectsClient() {
           <p className="text-muted-foreground">إدارة مشاريع العملاء</p>
         </div>
         {canCreate && (
-          <Button onClick={() => { setForm({ name: '', description: '', client_company: '', status: 'active' }); setShowCreate(true); }}>
+          <Button onClick={() => { setForm({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' }); setShowCreate(true); }}>
             <Plus className="h-4 w-4 me-2" /> مشروع جديد
           </Button>
         )}
@@ -421,7 +421,7 @@ export default function ProjectsClient() {
 
       {viewMode === 'kanban' ? (
         <ProjectKanban
-          projects={projects}
+          projects={sortedProjects}
           onEdit={canEdit ? openEdit : undefined}
           onDelete={canDelete ? openDelete : undefined}
           onStatusChange={canEdit ? handleStatusChange : undefined}
@@ -471,6 +471,10 @@ export default function ProjectsClient() {
                 <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><FormLabel>تاريخ البدء</FormLabel><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel>الموعد النهائي</FormLabel><Input type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} /></div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
@@ -505,6 +509,10 @@ export default function ProjectsClient() {
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2"><FormLabel>تاريخ البدء</FormLabel><Input type="date" value={form.start_date} onChange={e => setForm(p => ({ ...p, start_date: e.target.value }))} /></div>
+              <div className="space-y-2"><FormLabel>الموعد النهائي</FormLabel><Input type="date" value={form.deadline} onChange={e => setForm(p => ({ ...p, deadline: e.target.value }))} /></div>
             </div>
           </div>
           <DialogFooter>
