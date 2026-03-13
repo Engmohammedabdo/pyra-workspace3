@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { hasPermission } from '@/lib/auth/rbac';
 
 /**
  * GET /api/dashboard/sidebar-badges
- * Returns badge counts for sidebar: unread notifications + overdue invoices.
+ * Returns badge counts for sidebar: unread notifications + overdue invoices + pending approvals.
  * Lightweight endpoint polled every 60s.
  */
 export async function GET() {
@@ -18,7 +18,9 @@ export async function GET() {
     const supabase = await createServerSupabaseClient();
     const username = auth.pyraUser.username;
 
-    const [notifResult, overdueResult] = await Promise.all([
+    const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
+
+    const [notifResult, overdueResult, approvalsResult] = await Promise.all([
       // Unread notifications for this user
       supabase
         .from('pyra_notifications')
@@ -30,11 +32,19 @@ export async function GET() {
         .from('pyra_invoices')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'overdue'),
+      // Pending quote approvals (only count for admins who can manage approvals)
+      canManageApprovals
+        ? supabase
+            .from('pyra_quote_approvals')
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+        : Promise.resolve({ count: 0 }),
     ]);
 
     return apiSuccess({
       notifications: notifResult.count ?? 0,
       overdue_invoices: overdueResult.count ?? 0,
+      pending_approvals: approvalsResult.count ?? 0,
     });
   } catch {
     return apiError('خطأ في الخادم', 500);
