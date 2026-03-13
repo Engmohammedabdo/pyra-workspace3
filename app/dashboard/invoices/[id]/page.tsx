@@ -141,6 +141,7 @@ export default function InvoiceDetailPage() {
   const [editProjectName, setEditProjectName] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
+  const [editVatRate, setEditVatRate] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
 
   /* ── action states ── */
@@ -191,6 +192,7 @@ export default function InvoiceDetailPage() {
     setEditProjectName(invoice.project_name || '');
     setEditNotes(invoice.notes || '');
     setEditDueDate(invoice.due_date);
+    setEditVatRate(invoice.tax_rate);
     setEditing(true);
   };
 
@@ -244,6 +246,7 @@ export default function InvoiceDetailPage() {
           project_name: editProjectName || null,
           notes: editNotes || null,
           due_date: editDueDate,
+          tax_rate: editVatRate,
           items: validItems.map(i => ({
             description: i.description.trim(),
             quantity: i.quantity,
@@ -413,7 +416,7 @@ export default function InvoiceDetailPage() {
 
   /* ──────────────────── Edit totals ──────────────────── */
   const editSubtotal = editItems.reduce((sum, i) => sum + (i.quantity * i.rate), 0);
-  const editVatAmount = editSubtotal * (invoice.tax_rate / 100);
+  const editVatAmount = editSubtotal * (editVatRate / 100);
   const editTotal = editSubtotal + editVatAmount;
 
   /* ──────────────────────── Render ─────────────────────── */
@@ -621,8 +624,22 @@ export default function InvoiceDetailPage() {
                   <span>المجموع الفرعي</span>
                   <span className="font-mono">{formatCurrency(editSubtotal, invoice.currency)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span>ضريبة القيمة المضافة ({invoice.tax_rate}%)</span>
+                <div className="flex justify-between items-center text-sm">
+                  <div className="flex items-center gap-2">
+                    <span>ضريبة القيمة المضافة</span>
+                    <div className="flex items-center gap-1">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        value={editVatRate}
+                        onChange={e => setEditVatRate(parseFloat(e.target.value) || 0)}
+                        className="w-16 h-7 text-xs text-center"
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
                   <span className="font-mono">{formatCurrency(editVatAmount, invoice.currency)}</span>
                 </div>
                 <div className="flex justify-between font-bold border-t pt-2">

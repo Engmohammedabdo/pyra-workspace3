@@ -46,7 +46,7 @@ export default function NewInvoicePage() {
   const [dueDate, setDueDate] = useState('');
   const [milestoneType, setMilestoneType] = useState('');
   const [notes, setNotes] = useState('');
-  const [vatRate, setVatRate] = useState(5);
+  const [vatRate, setVatRate] = useState(0);
 
   /* ── items ── */
   const [items, setItems] = useState<InvoiceItem[]>([
@@ -57,13 +57,21 @@ export default function NewInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
 
-  /* ── fetch clients ── */
+  /* ── fetch clients + default VAT ── */
   useEffect(() => {
     fetch('/api/clients?limit=100')
       .then(r => r.json())
       .then(json => { if (json.data) setClients(json.data); })
       .catch(() => {})
       .finally(() => setLoadingClients(false));
+
+    fetch('/api/settings?keys=vat_rate')
+      .then(r => r.json())
+      .then(json => {
+        const rate = parseFloat(json.data?.vat_rate);
+        if (!isNaN(rate)) setVatRate(rate);
+      })
+      .catch(() => {});
   }, []);
 
   /* ── item helpers ── */

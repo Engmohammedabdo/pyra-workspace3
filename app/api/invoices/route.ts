@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
       items,
       milestone_type,
       parent_invoice_id,
+      vat_rate: bodyVatRate,
     } = body;
 
     // Scope check: non-admins can only create invoices for their accessible clients
@@ -157,7 +158,8 @@ export async function POST(request: NextRequest) {
     const settingsMap: Record<string, string> = {};
     for (const s of settings || []) settingsMap[s.key] = s.value;
 
-    const taxRate = parseFloat(settingsMap.vat_rate || '5');
+    // Use vat_rate from request body if explicitly provided (even 0), otherwise fall back to settings
+    const taxRate = bodyVatRate != null ? parseFloat(bodyVatRate) : parseFloat(settingsMap.vat_rate || '5');
 
     const bankDetails = {
       bank: settingsMap.bank_name || '',
