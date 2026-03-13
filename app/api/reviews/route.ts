@@ -23,22 +23,23 @@ export async function GET(request: NextRequest) {
 
     const filePath = request.nextUrl.searchParams.get('path')?.trim();
 
-    if (!filePath) {
-      return apiValidationError('مسار الملف مطلوب');
-    }
-
-    // Path-based access control
-    if (!(await canAccessPath(auth, filePath))) {
+    // Path-based access control (only when filtering by path)
+    if (filePath && !(await canAccessPath(auth, filePath))) {
       return apiForbidden();
     }
 
     const supabase = await createServerSupabaseClient();
 
-    const { data: reviews, count, error } = await supabase
+    let query = supabase
       .from('pyra_reviews')
       .select('*', { count: 'exact' })
-      .eq('file_path', filePath)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false });
+
+    if (filePath) {
+      query = query.eq('file_path', filePath);
+    }
+
+    const { data: reviews, count, error } = await query;
 
     if (error) {
       console.error('Reviews list error:', error);

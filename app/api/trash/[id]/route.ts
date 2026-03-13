@@ -37,34 +37,15 @@ export async function POST(
       return apiNotFound('العنصر غير موجود في سلة المهملات');
     }
 
-    // Move file from trash path back to original path in storage
-    const { data: fileData, error: downloadError } = await storage.storage
+    // Move file from trash path back to original path atomically
+    const { error: moveError } = await storage.storage
       .from(BUCKET)
-      .download(trashItem.trash_path);
+      .move(trashItem.trash_path, trashItem.original_path);
 
-    if (downloadError || !fileData) {
-      console.error('Trash restore download error:', downloadError);
-      return apiServerError('فشل في استعادة الملف من التخزين');
+    if (moveError) {
+      console.error('Trash restore move error:', moveError);
+      return apiServerError('فشل في استعادة الملف إلى مساره الأصلي');
     }
-
-    // Upload to original path
-    const buffer = Buffer.from(await fileData.arrayBuffer());
-    const { error: uploadError } = await storage.storage
-      .from(BUCKET)
-      .upload(trashItem.original_path, buffer, {
-        contentType: trashItem.mime_type || 'application/octet-stream',
-        upsert: true,
-      });
-
-    if (uploadError) {
-      console.error('Trash restore upload error:', uploadError);
-      return apiServerError('فشل في إعادة الملف إلى مساره الأصلي');
-    }
-
-    // Remove from trash path in storage
-    await storage.storage
-      .from(BUCKET)
-      .remove([trashItem.trash_path]);
 
     // Delete from pyra_trash table
     const { error: deleteError } = await supabase
@@ -148,6 +129,12 @@ export async function DELETE(
       console.error('Trash permanent delete DB error:', deleteError);
       return apiServerError();
     }
+
+    // Also clean file index if any remnants exist
+    await supabase
+      .from('pyra_file_index')
+      .delete()
+      .eq('file_path', trashItem.original_path);
 
     // Log activity
     await supabase.from('pyra_activity_log').insert({

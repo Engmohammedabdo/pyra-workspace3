@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -21,8 +20,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // =============================================================
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.delete');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const { id } = await context.params;
 

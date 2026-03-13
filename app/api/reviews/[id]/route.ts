@@ -1,8 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiForbidden,
   apiNotFound,
   apiValidationError,
@@ -20,8 +19,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('reviews.manage');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const { id } = await params;
     const body = await request.json();
@@ -71,8 +71,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('reviews.manage');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const { id } = await params;
     const supabase = await createServerSupabaseClient();

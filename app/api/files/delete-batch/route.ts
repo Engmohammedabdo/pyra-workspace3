@@ -39,17 +39,17 @@ export async function POST(request: NextRequest) {
       return apiValidationError('يجب تحديد ملف واحد على الأقل للحذف');
     }
 
+    if (paths.length > MAX_BATCH_SIZE) {
+      return apiValidationError(
+        `الحد الأقصى للحذف الجماعي هو ${MAX_BATCH_SIZE} ملف`
+      );
+    }
+
     // Enforce path-based access control on all paths
     const sanitizedPaths = paths.map(p => sanitizePath(p));
     const { allowed, deniedPaths } = await canAccessAllPaths(auth, sanitizedPaths);
     if (!allowed) {
       return apiForbidden(`لا تملك صلاحية حذف الملفات في: ${deniedPaths.join(', ')}`);
-    }
-
-    if (paths.length > MAX_BATCH_SIZE) {
-      return apiValidationError(
-        `الحد الأقصى للحذف الجماعي هو ${MAX_BATCH_SIZE} ملف`
-      );
     }
 
     const storage = createServiceRoleClient();
