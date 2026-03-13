@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 import type { PyraScriptReview, PyraScriptReviewReply } from '@/types/database';
 
 const STATUS_CONFIG = {
@@ -313,6 +314,7 @@ export default function ScriptReviewsClient() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">جميع الحالات</SelectItem>
+            <SelectItem value="pending">بانتظار المراجعة</SelectItem>
             <SelectItem value="approved">معتمد</SelectItem>
             <SelectItem value="revision_requested">مطلوب تعديل</SelectItem>
           </SelectContent>
@@ -327,19 +329,13 @@ export default function ScriptReviewsClient() {
           ))}
         </div>
       ) : reviews.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <ScrollText className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h2 className="text-lg font-bold mb-2">لا توجد مراجعات</h2>
-            <p className="text-sm text-muted-foreground">
-              {statusFilter === 'all'
-                ? 'لم يقم العميل بمراجعة أي سكريبت بعد'
-                : 'لا توجد مراجعات بهذه الحالة'}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ScrollText}
+          title="لا توجد مراجعات"
+          description={statusFilter === 'all'
+            ? 'لم يقم العميل بمراجعة أي سكريبت بعد'
+            : 'لا توجد مراجعات بهذه الحالة'}
+        />
       ) : (
         <div className="space-y-3">
           {reviews.map((review) => (

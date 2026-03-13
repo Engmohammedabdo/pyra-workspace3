@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { HardDrive, File, FolderOpen, TrendingUp } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatFileSize } from '@/lib/utils/format';
 import {
   PieChart,
@@ -70,9 +71,11 @@ export default function StoragePage() {
 
   if (!stats) {
     return (
-      <div className="text-center py-20 text-muted-foreground">
-        <p>فشل في تحميل إحصائيات التخزين</p>
-      </div>
+      <EmptyState
+        icon={HardDrive}
+        title="فشل في تحميل إحصائيات التخزين"
+        description="حدث خطأ أثناء تحميل البيانات، حاول تحديث الصفحة"
+      />
     );
   }
 
@@ -180,7 +183,7 @@ export default function StoragePage() {
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات</p>
+              <EmptyState icon={File} title="لا توجد بيانات" description="" />
             )}
           </CardContent>
         </Card>
@@ -222,7 +225,7 @@ export default function StoragePage() {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات</p>
+              <EmptyState icon={File} title="لا توجد بيانات" description="" />
             )}
           </CardContent>
         </Card>
@@ -270,8 +273,8 @@ export default function StoragePage() {
                 ))}
                 {stats.largestFiles.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                      لا توجد ملفات
+                    <td colSpan={5} className="p-6">
+                      <EmptyState icon={File} title="لا توجد ملفات" description="" />
                     </td>
                   </tr>
                 )}

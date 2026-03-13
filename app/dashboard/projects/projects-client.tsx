@@ -83,6 +83,7 @@ export default function ProjectsClient() {
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Project | null>(null);
   const [saving, setSaving] = useState(false);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active' });
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -144,14 +145,19 @@ export default function ProjectsClient() {
   };
 
   const handleDelete = async () => {
-    if (!selected) return;
+    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : selected ? [selected.id] : [];
+    if (idsToDelete.length === 0) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/projects/${selected.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+      let hasError = false;
+      for (const pid of idsToDelete) {
+        const res = await fetch(`/api/projects/${pid}`, { method: 'DELETE' });
+        const json = await res.json();
+        if (json.error) { toast.error(json.error); hasError = true; }
+      }
       setShowDelete(false);
-      toast.success('تم حذف المشروع');
+      setBulkDeleteIds([]);
+      if (!hasError) toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مشاريع` : 'تم حذف المشروع');
       fetchProjects();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
@@ -442,8 +448,9 @@ export default function ProjectsClient() {
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
-              const p = projects.find((p) => ids.includes(p.id));
-              if (p) openDelete(p);
+              setBulkDeleteIds(ids);
+              setSelected(null);
+              setShowDelete(true);
             },
           },
         ] : []}
@@ -511,7 +518,12 @@ export default function ProjectsClient() {
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader><DialogTitle>حذف المشروع</DialogTitle></DialogHeader>
-          <p className="text-sm text-muted-foreground py-4">هل أنت متأكد من حذف المشروع <strong>{selected?.name}</strong>؟ سيتم حذف جميع الملفات والتعليقات المرتبطة.</p>
+          <p className="text-sm text-muted-foreground py-4">
+            {bulkDeleteIds.length > 1
+              ? `هل أنت متأكد من حذف ${bulkDeleteIds.length} مشاريع؟ سيتم حذف جميع الملفات والتعليقات المرتبطة.`
+              : <>هل أنت متأكد من حذف المشروع <strong>{selected?.name}</strong>؟ سيتم حذف جميع الملفات والتعليقات المرتبطة.</>
+            }
+          </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف'}</Button>

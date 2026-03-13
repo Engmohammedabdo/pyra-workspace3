@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { MessageSquare, Check, Trash2 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
+import { EmptyState } from '@/components/ui/empty-state';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
@@ -58,13 +59,16 @@ export default function ReviewsClient() {
     try {
       const review = reviews.find(r => r.id === id);
       if (!review) return;
-      await fetch(`/api/reviews/${id}`, {
+      const res = await fetch(`/api/reviews/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ resolved: !review.resolved }),
       });
+      const json = await res.json();
+      if (json.error) { toast.error(json.error); return; }
       setReviews(prev => prev.map(r => r.id === id ? { ...r, resolved: !r.resolved } : r));
-    } catch (err) { console.error(err); }
+      toast.success(review.resolved ? 'تم إلغاء الحل' : 'تم تحديد كمحلول');
+    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
   };
 
   const handleDelete = async () => {
@@ -104,7 +108,11 @@ export default function ReviewsClient() {
       {loading ? (
         <div className="space-y-4">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-24" />)}</div>
       ) : Object.keys(grouped).length === 0 ? (
-        <Card><CardContent className="p-12 text-center text-muted-foreground">لا توجد مراجعات</CardContent></Card>
+        <EmptyState
+          icon={MessageSquare}
+          title="لا توجد مراجعات"
+          description="لم يتم إضافة أي مراجعات أو تعليقات على الملفات بعد"
+        />
       ) : (
         <ScrollArea className="max-h-[600px]">
           <div className="space-y-4">
