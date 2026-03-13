@@ -412,6 +412,7 @@ export default function InvoiceDetailPage() {
 
   const status = STATUS_MAP[invoice.status] || { label: invoice.status, color: 'bg-gray-100 text-gray-700' };
   const isDraft = invoice.status === 'draft';
+  const canEdit = ['draft', 'sent', 'overdue'].includes(invoice.status);
   const canRecordPayment = ['sent', 'partially_paid', 'overdue'].includes(invoice.status);
 
   /* ──────────────────── Edit totals ──────────────────── */
@@ -446,7 +447,7 @@ export default function InvoiceDetailPage() {
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {isDraft && !editing && (
+          {canEdit && !editing && (
             <Button variant="outline" size="sm" onClick={startEditing}>
               <Pencil className="h-4 w-4 me-1" /> تعديل
             </Button>

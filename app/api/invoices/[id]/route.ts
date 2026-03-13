@@ -158,9 +158,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       }
     }
 
-    // Only draft invoices can be fully edited
-    if (existing.status !== 'draft') {
-      return apiValidationError('لا يمكن تعديل فاتورة غير مسودة');
+    // Only draft/sent/overdue invoices can be edited
+    const editableStatuses = ['draft', 'sent', 'overdue'];
+    if (!editableStatuses.includes(existing.status)) {
+      return apiValidationError('لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)');
     }
 
     const { items, status, ...updateFields } = body;
