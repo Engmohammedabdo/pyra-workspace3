@@ -8,6 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ClientNotesTab } from '@/components/clients/ClientNotesTab';
 import { BrandingEditor } from '@/components/clients/BrandingEditor';
@@ -40,6 +43,7 @@ import {
   Globe,
   Users,
   Loader2,
+  Shield,
 } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────
@@ -56,6 +60,7 @@ interface Client {
   source: string | null;
   last_login_at: string | null;
   is_active: boolean;
+  has_portal: boolean;
   created_at: string;
   tags: { id: string; name: string; color: string }[];
   projects_count: number;
@@ -338,6 +343,9 @@ export function ClientDetailClient() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
+  const [showPortalDialog, setShowPortalDialog] = useState(false);
+  const [portalPassword, setPortalPassword] = useState('');
+  const [activatingPortal, setActivatingPortal] = useState(false);
 
   // ── Tab data + loading states ────────────────────────
   const [projects, setProjects] = useState<ProjectItem[]>([]);
@@ -491,6 +499,36 @@ export function ClientDetailClient() {
     }
   };
 
+  // ── Activate portal ─────────────────────────────────
+  const handleActivatePortal = async () => {
+    if (!client) return;
+    if (!portalPassword || portalPassword.length < 6) {
+      toast.error('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+      return;
+    }
+    setActivatingPortal(true);
+    try {
+      const res = await fetch(`/api/clients/${client.id}/activate-portal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: portalPassword }),
+      });
+      const json = await res.json();
+      if (json.error) {
+        toast.error(json.error);
+        return;
+      }
+      setClient((prev) => (prev ? { ...prev, has_portal: true } : prev));
+      setShowPortalDialog(false);
+      setPortalPassword('');
+      toast.success('تم تفعيل حساب البورتال بنجاح');
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setActivatingPortal(false);
+    }
+  };
+
   // ──────────────────────────────────────────────────────
   // Loading State
   // ──────────────────────────────────────────────────────
@@ -584,6 +622,16 @@ export function ClientDetailClient() {
             >
               {client.is_active ? 'نشط' : 'غير نشط'}
             </Badge>
+            <Badge
+              className={cn(
+                'text-xs',
+                client.has_portal
+                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+              )}
+            >
+              {client.has_portal ? 'بورتال مفعّل' : 'بدون بورتال'}
+            </Badge>
           </div>
           <p className="text-muted-foreground mt-0.5">{client.company}</p>
 
@@ -667,6 +715,17 @@ export function ClientDetailClient() {
               )}
               {client.is_active ? 'تعطيل' : 'تفعيل'}
             </Button>
+            {!client.has_portal && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/50"
+                onClick={() => setShowPortalDialog(true)}
+              >
+                <Shield className="h-3.5 w-3.5" />
+                تفعيل البورتال
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -1282,6 +1341,53 @@ export function ClientDetailClient() {
           <BrandingEditor clientId={client.id} />
         </TabsContent>
       </Tabs>
+
+      {/* ── Activate Portal Dialog ───────────────────────── */}
+      <Dialog open={showPortalDialog} onOpenChange={setShowPortalDialog}>
+        <DialogContent className="sm:max-w-md" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              تفعيل حساب البورتال
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              سيتم إنشاء حساب بورتال للعميل <strong>{client.name}</strong> باستخدام
+              البريد الإلكتروني <span dir="ltr" className="text-xs font-mono">{client.email}</span>
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="portal-password">كلمة مرور البورتال</Label>
+              <Input
+                id="portal-password"
+                type="password"
+                placeholder="6 أحرف على الأقل"
+                value={portalPassword}
+                onChange={(e) => setPortalPassword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleActivatePortal()}
+                dir="ltr"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setShowPortalDialog(false)}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleActivatePortal}
+              disabled={activatingPortal || !portalPassword || portalPassword.length < 6}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {activatingPortal ? (
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
+              ) : (
+                <Shield className="h-4 w-4 me-2" />
+              )}
+              تفعيل البورتال
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

@@ -186,7 +186,11 @@ export async function GET(request: NextRequest) {
  * Create a new client.
  * Admin only.
  *
- * Body: { name, email, phone?, company, password, address?, source? }
+ * Body: { name, email, phone?, company, password?, address?, source?, create_portal? }
+ *
+ * Portal access is OPTIONAL:
+ *   - If create_portal=true (or password is provided), a Supabase Auth user is created
+ *   - If create_portal=false (and no password), client is created without portal access
  */
 export async function POST(request: NextRequest) {
   try {
@@ -194,14 +198,17 @@ export async function POST(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await request.json();
-    const { name, email, phone, company, password, address, source } = body;
+    const { name, email, phone, company, password, address, source, create_portal } = body;
 
     // ── Validation ───────────────────────────────────
     if (!name?.trim()) return apiValidationError('الاسم مطلوب');
     if (!email?.trim()) return apiValidationError('البريد الإلكتروني مطلوب');
     if (!company?.trim()) return apiValidationError('اسم الشركة مطلوب');
-    if (!password || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+
+    // Password is only required when creating portal access
+    const wantsPortal = create_portal === true || (password && password.length > 0);
+    if (wantsPortal && (!password || password.length < 6)) {
+      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل) لإنشاء حساب البورتال');
     }
 
     const supabase = createServiceRoleClient();
@@ -221,25 +228,29 @@ export async function POST(request: NextRequest) {
       return apiValidationError('البريد الإلكتروني مسجل مسبقاً');
     }
 
-    // ── Create Supabase Auth user ────────────────────
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
-      email: email.trim().toLowerCase(),
-      password,
-      email_confirm: true,
-      user_metadata: {
-        role: 'client',
-        company: company.trim(),
-        display_name: name.trim(),
-      },
-    });
+    let authUserId: string | null = null;
 
-    if (authError) {
-      console.error('Auth user creation error:', authError.message, authError);
-      // If user already exists in Auth but not in pyra_clients, provide clear message
-      if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
-        return apiValidationError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة');
+    // ── Optionally create Supabase Auth user ─────────
+    if (wantsPortal) {
+      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+        email: email.trim().toLowerCase(),
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: 'client',
+          company: company.trim(),
+          display_name: name.trim(),
+        },
+      });
+
+      if (authError) {
+        console.error('Auth user creation error:', authError.message, authError);
+        if (authError.message.includes('already been registered') || authError.message.includes('already exists')) {
+          return apiValidationError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة');
+        }
+        return apiValidationError(`فشل إنشاء الحساب: ${authError.message}`);
       }
-      return apiValidationError(`فشل إنشاء الحساب: ${authError.message}`);
+      authUserId = authUser.user.id;
     }
 
     // ── Insert into pyra_clients ─────────────────────
@@ -255,8 +266,8 @@ export async function POST(request: NextRequest) {
         company: company.trim(),
         address: address?.trim() || null,
         source: source || 'manual',
-        auth_user_id: authUser.user.id,
-        password_hash: 'supabase_auth_managed',
+        auth_user_id: authUserId,
+        password_hash: authUserId ? 'supabase_auth_managed' : 'no_portal_access',
         role: 'client',
         status: 'active',
         language: 'ar',
@@ -268,8 +279,10 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('Client insert error:', insertError.message, insertError);
-      // Rollback: delete the auth user we just created
-      await supabase.auth.admin.deleteUser(authUser.user.id);
+      // Rollback: delete the auth user if we created one
+      if (authUserId) {
+        await supabase.auth.admin.deleteUser(authUserId);
+      }
       return apiValidationError(`فشل حفظ بيانات العميل: ${insertError.message}`);
     }
 

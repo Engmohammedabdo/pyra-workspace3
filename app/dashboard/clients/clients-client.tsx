@@ -85,11 +85,12 @@ interface FormState {
   is_active: boolean;
   address: string;
   source: string;
+  create_portal: boolean;
 }
 
 const EMPTY_FORM: FormState = {
   name: '', email: '', phone: '', company: '', password: '',
-  is_active: true, address: '', source: 'manual',
+  is_active: true, address: '', source: 'manual', create_portal: false,
 };
 
 export default function ClientsClient() {
@@ -152,9 +153,10 @@ export default function ClientsClient() {
           email: form.email,
           phone: form.phone || null,
           company: form.company,
-          password: form.password,
+          password: form.create_portal ? form.password : undefined,
           address: form.address || null,
           source: form.source || 'manual',
+          create_portal: form.create_portal,
         }),
       });
       const json = await res.json();
@@ -230,6 +232,7 @@ export default function ClientsClient() {
       is_active: c.is_active,
       address: c.address || '',
       source: c.source || 'manual',
+      create_portal: false,
     });
     setShowEdit(true);
   };
@@ -649,24 +652,44 @@ export default function ClientsClient() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <FormLabel required>كلمة المرور</FormLabel>
+                  <FormLabel>العنوان</FormLabel>
                   <Input
-                    type="password"
-                    value={form.password}
-                    onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                    dir="ltr"
-                    placeholder="لبوابة العميل"
+                    value={form.address}
+                    onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                    placeholder="العنوان (اختياري)"
                   />
                 </div>
               </div>
-              <div className="space-y-2 mt-4">
-                <FormLabel>العنوان</FormLabel>
-                <Textarea
-                  value={form.address}
-                  onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                  rows={2}
-                  placeholder="العنوان الكامل (اختياري)"
-                />
+            </div>
+
+            {/* Portal Access */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-3">بوابة العميل</p>
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">إنشاء حساب بورتال</Label>
+                    <p className="text-xs text-muted-foreground">
+                      يتيح للعميل الدخول على البورتال ومتابعة مشاريعه وفواتيره
+                    </p>
+                  </div>
+                  <Switch
+                    checked={form.create_portal}
+                    onCheckedChange={(v) => setForm((p) => ({ ...p, create_portal: v, password: v ? p.password : '' }))}
+                  />
+                </div>
+                {form.create_portal && (
+                  <div className="space-y-2 pt-2 border-t border-border/40">
+                    <FormLabel required>كلمة مرور البورتال</FormLabel>
+                    <Input
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
+                      dir="ltr"
+                      placeholder="6 أحرف على الأقل"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

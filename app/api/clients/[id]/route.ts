@@ -9,8 +9,8 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
-// Fields to select — everything EXCEPT auth_user_id
-const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at';
+// Fields to select — include auth_user_id for portal status detection
+const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at, auth_user_id';
 
 /**
  * GET /api/clients/[id]
@@ -115,8 +115,12 @@ export async function GET(
       .map((a) => a.pyra_client_tags as unknown as { id: string; name: string; color: string })
       .filter(Boolean);
 
+    // Strip auth_user_id from response, expose only has_portal flag
+    const { auth_user_id, ...clientData } = client;
+
     return apiSuccess({
-      ...client,
+      ...clientData,
+      has_portal: !!auth_user_id,
       tags,
       projects_count: projects.length,
       active_projects_count: activeProjects.length,
