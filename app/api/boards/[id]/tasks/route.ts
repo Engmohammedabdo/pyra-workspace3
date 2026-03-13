@@ -61,6 +61,19 @@ export async function POST(
   if (!column_id) return apiValidationError('العمود مطلوب');
 
   const supabase = await createServerSupabaseClient();
+
+  // Verify column belongs to this board
+  const { data: column, error: colError } = await supabase
+    .from('pyra_board_columns')
+    .select('id')
+    .eq('id', column_id)
+    .eq('board_id', boardId)
+    .single();
+
+  if (colError || !column) {
+    return apiValidationError('العمود المحدد لا ينتمي لهذه اللوحة');
+  }
+
   const taskId = generateId('tk');
 
   // Get max position in column

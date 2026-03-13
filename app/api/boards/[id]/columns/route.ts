@@ -54,11 +54,20 @@ export async function PATCH(
   const supabase = await createServerSupabaseClient();
 
   // Batch update column positions and properties
+  const errors: string[] = [];
   for (const col of columns) {
-    await supabase
+    const { error: updateErr } = await supabase
       .from('pyra_board_columns')
       .update({ position: col.position, name: col.name, color: col.color })
       .eq('id', col.id);
+    if (updateErr) {
+      errors.push(`Column ${col.id}: ${updateErr.message}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error('Column batch update errors:', errors);
+    return apiServerError(`فشل في تحديث ${errors.length} عمود`);
   }
 
   return apiSuccess({ updated: true });

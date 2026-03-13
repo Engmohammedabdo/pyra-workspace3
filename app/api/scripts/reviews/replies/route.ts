@@ -1,10 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import {
   apiSuccess,
-  apiUnauthorized,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
@@ -16,8 +15,9 @@ import {
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('script_reviews.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const reviewId = request.nextUrl.searchParams.get('review_id');
     if (!reviewId) return apiValidationError('review_id مطلوب');
@@ -49,8 +49,9 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('script_reviews.manage');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { review_id, message } = body;

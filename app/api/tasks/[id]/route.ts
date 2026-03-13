@@ -43,7 +43,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('tasks.create');
+  const auth = await requireApiPermission('tasks.manage');
   if (isApiError(auth)) return auth;
 
   const { id } = await params;

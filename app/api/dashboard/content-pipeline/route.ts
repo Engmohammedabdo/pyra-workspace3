@@ -165,7 +165,12 @@ export async function POST(request: NextRequest) {
 
     if (stagesError) {
       console.error('Stages create error:', stagesError);
-      // Pipeline was created but stages failed — still return success with warning
+      // Rollback: delete the pipeline item since stages failed
+      await supabase
+        .from('pyra_content_pipeline')
+        .delete()
+        .eq('id', pipelineId);
+      return apiServerError('فشل في إنشاء مراحل خط الإنتاج');
     }
 
     return apiSuccess(pipeline, undefined, 201);

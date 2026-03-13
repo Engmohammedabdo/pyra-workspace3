@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiNotFound } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { resolveUserScope } from '@/lib/auth/scope';
 
 // =============================================================
 // GET /api/boards/[id]
@@ -15,6 +16,13 @@ export async function GET(
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
+
+  // Verify non-admin employee has access to this board
+  const scope = await resolveUserScope(auth);
+  if (!scope.isAdmin && !scope.boardIds.includes(id)) {
+    return apiError('ليس لديك صلاحية الوصول إلى هذه اللوحة', 403);
+  }
+
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase

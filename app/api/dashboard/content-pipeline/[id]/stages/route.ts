@@ -68,6 +68,17 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiNotFound('المرحلة غير موجودة');
     }
 
+    // State machine validation — prevent invalid transitions
+    if (action === 'start' && stageRecord.status !== 'pending') {
+      return apiValidationError('لا يمكن بدء مرحلة ليست في حالة "معلقة"');
+    }
+    if (action === 'complete' && stageRecord.status !== 'in_progress') {
+      return apiValidationError('لا يمكن إكمال مرحلة ليست قيد التنفيذ');
+    }
+    if (action === 'skip' && (stageRecord.status === 'completed' || stageRecord.status === 'skipped')) {
+      return apiValidationError('لا يمكن تخطي مرحلة مكتملة أو تم تخطيها بالفعل');
+    }
+
     // Build update based on action
     const stageUpdate: Record<string, unknown> = {};
 
@@ -117,11 +128,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .eq('stage', nextStage)
           .eq('status', 'pending');
       } else if (currentIdx === STAGE_ORDER.length - 1) {
-        // Last stage completed — mark pipeline as delivered
-        await supabase
-          .from('pyra_content_pipeline')
-          .update({ current_stage: 'delivery', updated_at: now })
-          .eq('id', pipelineId);
+        // Last stage completed/skipped — mark pipeline accordingly
+        // Only set to 'delivery' if actually completed, not if skipped
+        if (action === 'complete') {
+          await supabase
+            .from('pyra_content_pipeline')
+            .update({ current_stage: 'delivery', updated_at: now })
+            .eq('id', pipelineId);
+        }
+        // If skipped, leave current_stage as-is (the stage was skipped, not delivered)
       }
     }
 
