@@ -146,6 +146,59 @@ export async function GET(req: Request) {
       entry.balance = Math.round(runningBalance * 100) / 100;
     }
 
+    // ── Unbilled contract obligations ──
+    // Find active contracts with pending milestones (not yet invoiced)
+    const { data: clientContracts } = await supabase
+      .from('pyra_contracts')
+      .select('id, title, total_value, currency, amount_billed, contract_type, status')
+      .eq('client_id', client.id)
+      .in('status', ['active', 'in_progress', 'signed']);
+
+    interface UnbilledObligation {
+      contract_id: string;
+      contract_title: string;
+      total_value: number;
+      amount_billed: number;
+      unbilled_amount: number;
+      currency: string;
+      pending_milestones: { title: string; amount: number }[];
+    }
+
+    const unbilledObligations: UnbilledObligation[] = [];
+
+    for (const contract of clientContracts || []) {
+      const unbilled = Number(contract.total_value || 0) - Number(contract.amount_billed || 0);
+      if (unbilled <= 0) continue;
+
+      // Fetch pending milestones for milestone contracts
+      let pendingMilestones: { title: string; amount: number }[] = [];
+      if (contract.contract_type === 'milestone' || contract.contract_type === 'upfront_delivery') {
+        const { data: milestones } = await supabase
+          .from('pyra_contract_milestones')
+          .select('title, amount, status')
+          .eq('contract_id', contract.id)
+          .eq('status', 'pending')
+          .order('sort_order', { ascending: true });
+
+        pendingMilestones = (milestones || []).map((m: { title: string; amount: number }) => ({
+          title: m.title,
+          amount: Number(m.amount) || 0,
+        }));
+      }
+
+      unbilledObligations.push({
+        contract_id: contract.id,
+        contract_title: contract.title || 'بدون عنوان',
+        total_value: Number(contract.total_value) || 0,
+        amount_billed: Number(contract.amount_billed) || 0,
+        unbilled_amount: Math.round(unbilled * 100) / 100,
+        currency: contract.currency || 'AED',
+        pending_milestones: pendingMilestones,
+      });
+    }
+
+    const totalUnbilled = unbilledObligations.reduce((s, o) => s + o.unbilled_amount, 0);
+
     // ── Summary ──
     const totalInvoiced = (invoices || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
     const totalPaid = (invoices || []).reduce((s, i) => s + (Number(i.amount_paid) || 0), 0);
@@ -165,11 +218,13 @@ export async function GET(req: Request) {
         total_paid: Math.round(totalPaid * 100) / 100,
         total_remaining: Math.round(totalRemaining * 100) / 100,
         overdue_amount: Math.round(overdueAmount * 100) / 100,
+        unbilled_amount: Math.round(totalUnbilled * 100) / 100,
         invoice_count: (invoices || []).length,
         payment_count: payments.length,
       },
       entries,
       invoices: invoices || [],
+      unbilled_obligations: unbilledObligations,
     });
   } catch (err) {
     console.error('GET /api/portal/statement error:', err);
