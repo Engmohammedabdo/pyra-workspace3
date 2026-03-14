@@ -186,4 +186,42 @@ export const emailTemplates = {
       <a href="${escapeHtml(data.projectUrl)}" class="btn">عرض المشروع</a>
     `);
   },
+
+  /** Quote approved notification */
+  quoteApproved: (data: { agentName: string; quoteNumber: string; approvedBy: string; comments?: string; quoteUrl: string }) =>
+    baseLayout(`
+      <h2>✅ تمت الموافقة على عرض السعر</h2>
+      <p>مرحباً ${escapeHtml(data.agentName)}، تمت الموافقة على عرض السعر الخاص بك.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
+        <div class="detail-row"><span class="detail-label">تمت الموافقة بواسطة:</span> <strong>${escapeHtml(data.approvedBy)}</strong></div>
+        ${data.comments ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e4e4e7;"><p style="font-size: 13px; color: #52525b;">"${escapeHtml(data.comments)}"</p></div>` : ''}
+      </div>
+      <a href="${escapeHtml(data.quoteUrl)}" class="btn">عرض عرض السعر</a>
+    `),
+
+  /** Quote rejected notification */
+  quoteRejected: (data: { agentName: string; quoteNumber: string; rejectedBy: string; comments?: string; quoteUrl: string }) =>
+    baseLayout(`
+      <h2>❌ تم رفض عرض السعر</h2>
+      <p>مرحباً ${escapeHtml(data.agentName)}، تم رفض عرض السعر الخاص بك.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
+        <div class="detail-row"><span class="detail-label">تم الرفض بواسطة:</span> <strong>${escapeHtml(data.rejectedBy)}</strong></div>
+        ${data.comments ? `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e4e4e7;"><p style="font-size: 13px; color: #52525b;"><strong>السبب:</strong> "${escapeHtml(data.comments)}"</p></div>` : ''}
+      </div>
+      <a href="${escapeHtml(data.quoteUrl)}" class="btn">عرض عرض السعر</a>
+    `),
+
+  /** Lead assigned to agent */
+  leadAssigned: (data: { agentName: string; leadName: string; assignedBy: string; leadUrl: string }) =>
+    baseLayout(`
+      <h2>👤 تم تعيين عميل محتمل جديد لك</h2>
+      <p>مرحباً ${escapeHtml(data.agentName)}، تم تعيين عميل محتمل جديد لك.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">اسم العميل:</span> <strong>${escapeHtml(data.leadName)}</strong></div>
+        <div class="detail-row"><span class="detail-label">تم التعيين بواسطة:</span> <strong>${escapeHtml(data.assignedBy)}</strong></div>
+      </div>
+      <a href="${escapeHtml(data.leadUrl)}" class="btn">عرض العميل المحتمل</a>
+    `),
 };

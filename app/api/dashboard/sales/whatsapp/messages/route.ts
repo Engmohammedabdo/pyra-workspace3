@@ -42,6 +42,12 @@ export async function GET(request: NextRequest) {
   if (leadId) query = query.eq('lead_id', leadId);
   if (instanceName) query = query.eq('instance_name', instanceName);
 
+  // Search in message content
+  const search = searchParams.get('search')?.trim();
+  if (search) {
+    query = query.ilike('content', `%${search}%`);
+  }
+
   const { data, error } = await query;
   if (error) return apiServerError(error.message);
   return apiSuccess(data);

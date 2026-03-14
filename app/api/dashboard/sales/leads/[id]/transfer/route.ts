@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
+import { notifyLeadAssigned } from '@/lib/email/notify';
 
 export async function POST(
   request: NextRequest,
@@ -67,6 +68,27 @@ export async function POST(
     target_path: `/dashboard/sales/leads/${id}`,
     details: { lead_name: lead.name, from: fromAgent, to: to_agent },
     ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+  });
+
+  // Internal notification to the new agent
+  void supabase.from('pyra_notifications').insert({
+    id: generateId('nt'),
+    recipient_username: to_agent,
+    type: 'lead_assigned',
+    title: 'تم تعيين عميل محتمل جديد لك',
+    message: `تم تحويل العميل المحتمل "${lead.name}" إليك${reason ? ` — ${reason}` : ''}`,
+    source_username: auth.pyraUser.username,
+    source_display_name: auth.pyraUser.display_name,
+    target_path: `/dashboard/sales/leads/${id}`,
+    is_read: false,
+  });
+
+  // Email notification (fire-and-forget)
+  notifyLeadAssigned({
+    agentUsername: to_agent,
+    leadName: lead.name,
+    assignedBy: auth.pyraUser.display_name || auth.pyraUser.username,
+    leadId: id,
   });
 
   return apiSuccess({ transferred: true, from: fromAgent, to: to_agent });

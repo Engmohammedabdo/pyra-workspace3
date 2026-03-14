@@ -178,3 +178,114 @@ export function notifyWelcomeUser(data: {
     }
   })();
 }
+
+// ── Sales CRM notifications ──
+
+/**
+ * Notify sales agent that their quote was approved.
+ */
+export function notifyQuoteApproved(data: {
+  requestedBy: string;
+  quoteNumber: string;
+  approvedBy: string;
+  quoteId: string;
+  comments?: string;
+}) {
+  (async () => {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: user } = await supabase
+        .from('pyra_users')
+        .select('email, display_name')
+        .eq('username', data.requestedBy)
+        .single();
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
+          subject: `✅ تمت الموافقة على عرض السعر ${data.quoteNumber}`,
+          html: emailTemplates.quoteApproved({
+            agentName: user.display_name || data.requestedBy,
+            quoteNumber: data.quoteNumber,
+            approvedBy: data.approvedBy,
+            comments: data.comments,
+            quoteUrl: `${APP_URL}/dashboard/quotes/${data.quoteId}`,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error('[Notify] quoteApproved error:', err);
+    }
+  })();
+}
+
+/**
+ * Notify sales agent that their quote was rejected.
+ */
+export function notifyQuoteRejected(data: {
+  requestedBy: string;
+  quoteNumber: string;
+  rejectedBy: string;
+  quoteId: string;
+  comments?: string;
+}) {
+  (async () => {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: user } = await supabase
+        .from('pyra_users')
+        .select('email, display_name')
+        .eq('username', data.requestedBy)
+        .single();
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
+          subject: `❌ تم رفض عرض السعر ${data.quoteNumber}`,
+          html: emailTemplates.quoteRejected({
+            agentName: user.display_name || data.requestedBy,
+            quoteNumber: data.quoteNumber,
+            rejectedBy: data.rejectedBy,
+            comments: data.comments,
+            quoteUrl: `${APP_URL}/dashboard/quotes/${data.quoteId}`,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error('[Notify] quoteRejected error:', err);
+    }
+  })();
+}
+
+/**
+ * Notify agent when a lead is assigned/transferred to them.
+ */
+export function notifyLeadAssigned(data: {
+  agentUsername: string;
+  leadName: string;
+  assignedBy: string;
+  leadId: string;
+}) {
+  (async () => {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { data: user } = await supabase
+        .from('pyra_users')
+        .select('email, display_name')
+        .eq('username', data.agentUsername)
+        .single();
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
+          subject: `👤 تم تعيين عميل محتمل جديد: ${data.leadName}`,
+          html: emailTemplates.leadAssigned({
+            agentName: user.display_name || data.agentUsername,
+            leadName: data.leadName,
+            assignedBy: data.assignedBy,
+            leadUrl: `${APP_URL}/dashboard/sales/leads/${data.leadId}`,
+          }),
+        });
+      }
+    } catch (err) {
+      console.error('[Notify] leadAssigned error:', err);
+    }
+  })();
+}

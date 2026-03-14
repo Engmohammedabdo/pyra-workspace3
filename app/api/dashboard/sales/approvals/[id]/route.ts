@@ -4,6 +4,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { QUOTE_APPROVAL_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
+import { notifyQuoteApproved, notifyQuoteRejected } from '@/lib/email/notify';
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -76,6 +77,50 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     details: { approval_id: id, comments },
     ip_address: request.headers.get('x-forwarded-for') || 'unknown',
   });
+
+  // Internal notification to the sales agent who requested approval
+  if (approval.requested_by) {
+    // Get quote number for notification
+    const { data: quoteInfo } = await supabase
+      .from('pyra_quotes')
+      .select('quote_number')
+      .eq('id', approval.quote_id)
+      .single();
+    const quoteNumber = quoteInfo?.quote_number || '';
+
+    void supabase.from('pyra_notifications').insert({
+      id: generateId('nt'),
+      recipient_username: approval.requested_by,
+      type: action === 'approve' ? 'quote_approved' : 'quote_rejected',
+      title: action === 'approve' ? 'تمت الموافقة على عرض السعر' : 'تم رفض عرض السعر',
+      message: action === 'approve'
+        ? `تمت الموافقة على عرض السعر ${quoteNumber}${comments ? ` — ${comments}` : ''}`
+        : `تم رفض عرض السعر ${quoteNumber}${comments ? ` — السبب: ${comments}` : ''}`,
+      source_username: auth.pyraUser.username,
+      source_display_name: auth.pyraUser.display_name,
+      target_path: `/dashboard/quotes/${approval.quote_id}`,
+      is_read: false,
+    });
+
+    // Email notification (fire-and-forget)
+    if (action === 'approve') {
+      notifyQuoteApproved({
+        requestedBy: approval.requested_by,
+        quoteNumber,
+        approvedBy: auth.pyraUser.display_name || auth.pyraUser.username,
+        quoteId: approval.quote_id,
+        comments,
+      });
+    } else {
+      notifyQuoteRejected({
+        requestedBy: approval.requested_by,
+        quoteNumber,
+        rejectedBy: auth.pyraUser.display_name || auth.pyraUser.username,
+        quoteId: approval.quote_id,
+        comments,
+      });
+    }
+  }
 
   return apiSuccess(updated);
 }

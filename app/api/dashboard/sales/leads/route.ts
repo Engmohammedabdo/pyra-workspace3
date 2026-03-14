@@ -6,6 +6,7 @@ import { LEAD_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { calculateLeadScore } from '@/lib/sales/lead-scoring';
+import { notifyLeadAssigned } from '@/lib/email/notify';
 
 export async function GET(request: NextRequest) {
   const auth = await requireApiPermission('sales_leads.view');
@@ -159,6 +160,30 @@ export async function POST(request: NextRequest) {
     details: { lead_name: name, source: source || 'manual' },
     ip_address: request.headers.get('x-forwarded-for') || 'unknown',
   });
+
+  // Notify assigned agent if different from creator
+  const finalAssignedTo = assigned_to || auth.pyraUser.username;
+  if (finalAssignedTo !== auth.pyraUser.username) {
+    void supabase.from('pyra_notifications').insert({
+      id: generateId('nt'),
+      recipient_username: finalAssignedTo,
+      type: 'lead_assigned',
+      title: 'تم تعيين عميل محتمل جديد لك',
+      message: `تم تعيين العميل المحتمل "${name}" لك`,
+      source_username: auth.pyraUser.username,
+      source_display_name: auth.pyraUser.display_name,
+      target_path: `/dashboard/sales/leads/${leadId}`,
+      is_read: false,
+    });
+
+    // Email notification (fire-and-forget)
+    notifyLeadAssigned({
+      agentUsername: finalAssignedTo,
+      leadName: name,
+      assignedBy: auth.pyraUser.display_name || auth.pyraUser.username,
+      leadId: leadId,
+    });
+  }
 
   return apiSuccess(data, undefined, 201);
 }
