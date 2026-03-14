@@ -56,6 +56,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiValidationError('لا يمكن تسجيل دفعة لهذه الفاتورة');
     }
 
+    if (invoice.status === 'paid') {
+      return apiValidationError('الفاتورة مدفوعة بالكامل بالفعل');
+    }
+
+    // Prevent overpayment: amount must not exceed amount_due
+    const currentDue = Number(invoice.amount_due) || (Number(invoice.total) - Number(invoice.amount_paid));
+    if (amount > currentDue) {
+      return apiValidationError(
+        `مبلغ الدفع (${amount}) يتجاوز المبلغ المستحق (${currentDue.toFixed(2)})`
+      );
+    }
+
     // Insert payment
     const { data: payment, error: payError } = await supabase
       .from('pyra_payments')
