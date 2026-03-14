@@ -14,7 +14,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { FileText, Eye, PenTool, ChevronRight } from 'lucide-react';
+import { FileText, Eye, PenTool, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
@@ -22,6 +22,9 @@ import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 
 const SignaturePad = dynamic(() => import('@/components/quotes/SignaturePad'), { ssr: false });
+
+// Lazy load PDF generator
+const generateQuotePDFAsync = () => import('@/lib/pdf/quote-pdf').then(m => m.generateQuotePDF);
 
 interface PortalQuote {
   id: string;
@@ -80,6 +83,50 @@ export default function PortalQuotesPage() {
   const [signName, setSignName] = useState('');
   const [signData, setSignData] = useState('');
   const [signing, setSigning] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (!detail) return;
+    setDownloadingPdf(true);
+    try {
+      const generateQuotePDF = await generateQuotePDFAsync();
+      await generateQuotePDF({
+        quote_number: detail.quote_number,
+        estimate_date: detail.estimate_date,
+        expiry_date: detail.expiry_date,
+        status: detail.status,
+        currency: detail.currency,
+        subtotal: detail.subtotal,
+        tax_rate: detail.tax_rate,
+        tax_amount: detail.tax_amount,
+        total: detail.total,
+        notes: detail.notes,
+        terms_conditions: detail.terms_conditions || [],
+        bank_details: detail.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
+        company_name: detail.company_name,
+        client_name: detail.client_name,
+        client_company: detail.client_company,
+        client_email: null,
+        client_phone: null,
+        client_address: null,
+        project_name: detail.project_name,
+        signature_data: detail.signature_data,
+        signed_by: detail.signed_by,
+        signed_at: detail.signed_at,
+        items: detail.items.map(i => ({
+          description: i.description,
+          quantity: i.quantity,
+          rate: i.rate,
+          amount: i.amount,
+        })),
+      });
+      toast.success('تم تحميل الـ PDF بنجاح');
+    } catch {
+      toast.error('فشل في إنشاء ملف PDF');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true);
@@ -127,9 +174,21 @@ export default function PortalQuotesPage() {
   if (detail) {
     return (
       <div className="space-y-6">
-        <Button variant="ghost" onClick={() => setDetail(null)} className="gap-1">
-          <ChevronRight className="h-4 w-4" /> العودة للقائمة
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" onClick={() => setDetail(null)} className="gap-1">
+            <ChevronRight className="h-4 w-4" /> العودة للقائمة
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPdf}
+            disabled={downloadingPdf}
+            className="gap-1.5"
+          >
+            {downloadingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            تحميل PDF
+          </Button>
+        </div>
 
         <Card className="max-w-[800px] mx-auto">
           <CardHeader className="text-center border-b">

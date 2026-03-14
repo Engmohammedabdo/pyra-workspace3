@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import {
-  ArrowRight, FileSignature, FileText, Receipt, CalendarClock, ListTree,
+  ArrowRight, FileSignature, FileText, Receipt, CalendarClock, ListTree, CheckCircle, Clock, CircleDot,
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -57,6 +57,17 @@ interface ContractDetail {
       invoice_count: number;
     };
   } | null;
+  milestones?: {
+    id: string;
+    title: string;
+    description: string | null;
+    amount: number;
+    status: string;
+    invoice_id: string | null;
+    invoice_number: string | null;
+    invoice_status: string | null;
+    sort_order: number;
+  }[] | null;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -119,6 +130,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
 
   const statusInfo = STATUS_MAP[contract.status] || { label: contract.status, variant: 'outline' as const };
   const isRetainer = contract.contract_type === 'retainer';
+  const isMilestone = contract.contract_type === 'milestone' || contract.contract_type === 'upfront_delivery';
   const bh = contract.billing_history;
 
   return (
@@ -227,6 +239,124 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
                   )}
                 </div>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Milestone progress */}
+      {isMilestone && contract.milestones && contract.milestones.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <CircleDot className="h-4 w-4 text-orange-500" />
+              تقدم المراحل
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {contract.milestones.map((m, idx) => {
+                const milestoneStatusMap: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
+                  completed: { label: 'مكتمل', icon: CheckCircle, color: 'text-emerald-500' },
+                  invoiced: { label: 'مفوتر', icon: Receipt, color: 'text-blue-500' },
+                  in_progress: { label: 'قيد التنفيذ', icon: Clock, color: 'text-amber-500' },
+                  pending: { label: 'قيد الانتظار', icon: Clock, color: 'text-muted-foreground' },
+                };
+                const ms = milestoneStatusMap[m.status] || milestoneStatusMap.pending;
+                const MsIcon = ms.icon;
+
+                return (
+                  <div
+                    key={m.id}
+                    className="flex items-center gap-3 rounded-lg border p-3 bg-card"
+                  >
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted shrink-0">
+                      <MsIcon className={`h-4 w-4 ${ms.color}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{m.title}</span>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{ms.label}</Badge>
+                      </div>
+                      {m.description && (
+                        <p className="text-xs text-muted-foreground mt-0.5 truncate">{m.description}</p>
+                      )}
+                      {m.invoice_number && (
+                        <Link href={`/portal/invoices/${m.invoice_id}`}>
+                          <span className="text-xs text-portal hover:underline mt-0.5 inline-block">
+                            فاتورة: {m.invoice_number}
+                          </span>
+                        </Link>
+                      )}
+                    </div>
+                    <div className="text-end shrink-0">
+                      <p className="font-mono text-sm font-medium">
+                        {formatCurrency(m.amount, contract.currency)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Milestone summary */}
+            {bh && bh.summary && (
+              <div className="grid grid-cols-3 gap-3 mt-4">
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">المفوتر</p>
+                  <p className="text-lg font-bold font-mono">
+                    {formatCurrency(bh.summary.total_billed, contract.currency)}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">المدفوع</p>
+                  <p className="text-lg font-bold font-mono text-green-600 dark:text-green-400">
+                    {formatCurrency(bh.summary.total_paid, contract.currency)}
+                  </p>
+                </div>
+                <div className="rounded-lg border p-3 text-center">
+                  <p className="text-xs text-muted-foreground">المتبقي</p>
+                  <p className="text-lg font-bold font-mono text-orange-600 dark:text-orange-400">
+                    {formatCurrency(bh.summary.total_remaining, contract.currency)}
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Non-retainer billing history (milestone/fixed invoices) */}
+      {!isRetainer && bh && bh.invoices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Receipt className="h-4 w-4" />
+              الفواتير المرتبطة
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {bh.invoices.map(inv => {
+                const invStatus = INVOICE_STATUS_MAP[inv.status] || { label: inv.status, variant: 'outline' as const };
+                return (
+                  <Link key={inv.id} href={`/portal/invoices/${inv.id}`}>
+                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm">{inv.invoice_number}</span>
+                          <Badge variant={invStatus.variant}>{invStatus.label}</Badge>
+                        </div>
+                        <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                          {inv.issue_date && <span>{inv.issue_date}</span>}
+                          <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </CardContent>
         </Card>

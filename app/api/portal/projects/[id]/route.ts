@@ -101,11 +101,25 @@ export async function GET(
       .eq('author_type', 'team')
       .eq('is_read_by_client', false);
 
+    // ── Fetch linked contract ──────────────────────────
+    let linkedContract = null;
+    const { data: contractData } = await supabase
+      .from('pyra_contracts')
+      .select('id, title, contract_type, total_value, currency, status, start_date, end_date')
+      .eq('project_id', id)
+      .neq('status', 'draft')
+      .maybeSingle();
+
+    if (contractData) {
+      linkedContract = contractData;
+    }
+
     return apiSuccess({
       project,
       project_files: filesWithDetails,
       file_approvals: fileApprovals,
       comments: comments || [],
+      linked_contract: linkedContract,
     });
   } catch (err) {
     console.error('GET /api/portal/projects/[id] error:', err);

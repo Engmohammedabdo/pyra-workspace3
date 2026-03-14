@@ -17,9 +17,14 @@ import {
   FolderKanban,
   FolderOpen,
   FileText,
+  FileSignature,
+  Receipt,
+  RefreshCw,
+  Wallet,
   Bell,
   User,
   ScrollText,
+  HelpCircle,
 } from 'lucide-react';
 import { useBranding } from '@/components/portal/BrandingProvider';
 
@@ -40,9 +45,34 @@ const portalNavItems = [
     icon: FileText,
   },
   {
+    href: '/portal/contracts',
+    label: 'العقود',
+    icon: FileSignature,
+  },
+  {
+    href: '/portal/invoices',
+    label: 'الفواتير',
+    icon: Receipt,
+  },
+  {
+    href: '/portal/recurring',
+    label: 'الفواتير المتكررة',
+    icon: RefreshCw,
+  },
+  {
+    href: '/portal/statement',
+    label: 'كشف الحساب',
+    icon: Wallet,
+  },
+  {
     href: '/portal/scripts',
     label: 'السكريبتات',
     icon: ScrollText,
+  },
+  {
+    href: '/portal/help',
+    label: 'مركز المساعدة',
+    icon: HelpCircle,
   },
   {
     href: '/portal/notifications',

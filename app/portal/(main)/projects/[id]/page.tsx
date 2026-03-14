@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { formatDate, formatRelativeDate, formatFileSize } from '@/lib/utils/format';
+import { formatDate, formatRelativeDate, formatFileSize, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import {
   Card,
@@ -38,6 +38,7 @@ import {
   FileSpreadsheet,
   File as FileIcon,
   FileText,
+  FileSignature,
   Send,
   Loader2,
   MessageSquare,
@@ -46,6 +47,7 @@ import {
   History,
   Filter,
 } from 'lucide-react';
+import Link from 'next/link';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -78,6 +80,17 @@ interface ProjectComment {
   created_at: string;
 }
 
+interface LinkedContract {
+  id: string;
+  title: string | null;
+  contract_type: string | null;
+  total_value: number;
+  currency: string;
+  status: string;
+  start_date: string | null;
+  end_date: string | null;
+}
+
 interface ProjectDetail {
   id: string;
   name: string;
@@ -86,6 +99,7 @@ interface ProjectDetail {
   updated_at: string;
   files: ProjectFile[];
   comments: ProjectComment[];
+  linked_contract?: LinkedContract | null;
 }
 
 // ---------- Helpers ----------
@@ -219,6 +233,7 @@ export default function PortalProjectDetailPage() {
           updated_at: d.project.updated_at,
           files,
           comments: d.comments || [],
+          linked_contract: d.linked_contract || null,
         });
       }
     } catch {
@@ -426,6 +441,31 @@ export default function PortalProjectDetailPage() {
           </p>
         )}
       </div>
+
+      {/* Linked Contract Card */}
+      {project.linked_contract && (
+        <Link href={`/portal/contracts/${project.linked_contract.id}`}>
+          <Card className="hover:shadow-md hover:border-portal/30 transition-all duration-200 cursor-pointer">
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-portal/10 flex items-center justify-center shrink-0">
+                <FileSignature className="h-5 w-5 text-portal" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {project.linked_contract.title || 'عقد المشروع'}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  <span>{project.linked_contract.contract_type === 'retainer' ? 'ثابت شهري' : project.linked_contract.contract_type === 'milestone' ? 'مراحل' : project.linked_contract.contract_type === 'fixed' ? 'سعر ثابت' : project.linked_contract.contract_type || ''}</span>
+                  <span className="font-mono">{formatCurrency(project.linked_contract.total_value, project.linked_contract.currency)}</span>
+                </div>
+              </div>
+              <Badge variant={project.linked_contract.status === 'active' ? 'default' : 'secondary'}>
+                {project.linked_contract.status === 'active' ? 'نشط' : project.linked_contract.status === 'completed' ? 'مكتمل' : project.linked_contract.status}
+              </Badge>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {/* Tabs: Files + Comments + Activity */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>

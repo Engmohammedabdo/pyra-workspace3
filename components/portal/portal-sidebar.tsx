@@ -16,6 +16,8 @@ import {
   User,
   ScrollText,
   HelpCircle,
+  Wallet,
+  RefreshCw,
 } from 'lucide-react';
 
 const portalNavItems = [
@@ -47,6 +49,18 @@ const portalNavItems = [
     href: '/portal/invoices',
     label: 'الفواتير',
     icon: Receipt,
+    badgeKey: null as 'notifications' | null,
+  },
+  {
+    href: '/portal/recurring',
+    label: 'الفواتير المتكررة',
+    icon: RefreshCw,
+    badgeKey: null as 'notifications' | null,
+  },
+  {
+    href: '/portal/statement',
+    label: 'كشف الحساب',
+    icon: Wallet,
     badgeKey: null as 'notifications' | null,
   },
   {

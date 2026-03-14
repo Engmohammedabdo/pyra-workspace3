@@ -60,8 +60,9 @@ export async function GET(_req: NextRequest, context: RouteContext) {
         .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order),
     }));
 
-    // 4. For retainer contracts, include billing history
+    // 4. Include billing history for retainer and milestone contracts
     let billing_history = null;
+    let milestones = null;
 
     if (contract.contract_type === 'retainer') {
       const { data: recurringInvoice } = await supabase
@@ -97,11 +98,73 @@ export async function GET(_req: NextRequest, context: RouteContext) {
       };
     }
 
+    // 4b. Milestone progress for milestone contracts
+    if (contract.contract_type === 'milestone' || contract.contract_type === 'upfront_delivery') {
+      const { data: contractMilestones } = await supabase
+        .from('pyra_contract_milestones')
+        .select('id, title, description, amount, status, invoice_id, sort_order')
+        .eq('contract_id', id)
+        .order('sort_order', { ascending: true });
+
+      // Get invoice details for invoiced milestones
+      const invoiceIds = (contractMilestones || [])
+        .filter((m: { invoice_id: string | null }) => m.invoice_id)
+        .map((m: { invoice_id: string | null }) => m.invoice_id as string);
+
+      let invoiceMap: Record<string, { invoice_number: string; status: string; amount_paid: number }> = {};
+      if (invoiceIds.length > 0) {
+        const { data: linkedInvoices } = await supabase
+          .from('pyra_invoices')
+          .select('id, invoice_number, status, amount_paid')
+          .in('id', invoiceIds);
+        if (linkedInvoices) {
+          invoiceMap = Object.fromEntries(
+            linkedInvoices.map((inv: { id: string; invoice_number: string; status: string; amount_paid: number }) =>
+              [inv.id, { invoice_number: inv.invoice_number, status: inv.status, amount_paid: inv.amount_paid }]
+            )
+          );
+        }
+      }
+
+      milestones = (contractMilestones || []).map((m: {
+        id: string; title: string; description: string | null;
+        amount: number; status: string; invoice_id: string | null; sort_order: number;
+      }) => ({
+        ...m,
+        invoice_number: m.invoice_id ? invoiceMap[m.invoice_id]?.invoice_number || null : null,
+        invoice_status: m.invoice_id ? invoiceMap[m.invoice_id]?.status || null : null,
+      }));
+
+      // Also fetch any invoices linked to this contract
+      const { data: contractInvoices } = await supabase
+        .from('pyra_invoices')
+        .select('id, invoice_number, status, issue_date, due_date, total, amount_paid, amount_due, currency')
+        .eq('contract_id', id)
+        .neq('status', 'draft')
+        .order('issue_date', { ascending: false });
+
+      const invoiceList = contractInvoices || [];
+      const totalBilled = invoiceList.reduce((sum, inv) => sum + (inv.total || 0), 0);
+      const totalPaid = invoiceList.reduce((sum, inv) => sum + (inv.amount_paid || 0), 0);
+
+      billing_history = {
+        recurring_invoice: null,
+        invoices: invoiceList,
+        summary: {
+          total_billed: totalBilled,
+          total_paid: totalPaid,
+          total_remaining: totalBilled - totalPaid,
+          invoice_count: invoiceList.length,
+        },
+      };
+    }
+
     return apiSuccess({
       ...contract,
       project_name,
       items: contractItems,
       billing_history,
+      milestones,
     });
   } catch {
     return apiServerError();
