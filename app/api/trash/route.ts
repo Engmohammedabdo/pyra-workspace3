@@ -89,6 +89,15 @@ export async function DELETE(request: NextRequest) {
       // Continue to remove DB records even if storage removal partially fails
     }
 
+    // Clean file index entries for the original paths
+    const originalPaths = expiredItems.map((item) => item.original_path);
+    if (originalPaths.length > 0) {
+      await supabase
+        .from('pyra_file_index')
+        .delete()
+        .in('file_path', originalPaths);
+    }
+
     // Remove from DB
     const ids = expiredItems.map((item) => item.id);
     const { error: deleteError } = await supabase

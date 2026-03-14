@@ -194,8 +194,9 @@ export function BrandingEditor({ clientId }: Props) {
         setCompanyName(json.data.company_name_display || '');
         setLoginBg(json.data.login_background_url || '');
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.error('Failed to fetch branding:', err);
+      toast.error('فشل في تحميل إعدادات العلامة التجارية');
     } finally {
       setLoading(false);
     }
@@ -220,8 +221,12 @@ export function BrandingEditor({ clientId }: Props) {
           login_background_url: loginBg || null,
         }),
       });
-      if (res.ok) toast.success('تم حفظ إعدادات العلامة التجارية');
-      else toast.error('فشل في الحفظ');
+      if (res.ok) {
+        toast.success('تم حفظ إعدادات العلامة التجارية');
+      } else {
+        const json = await res.json().catch(() => null);
+        toast.error(json?.error || 'فشل في الحفظ');
+      }
     } catch {
       toast.error('فشل في الحفظ');
     } finally {

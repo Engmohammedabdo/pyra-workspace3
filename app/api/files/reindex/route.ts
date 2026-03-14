@@ -58,8 +58,9 @@ export async function POST(request: NextRequest) {
       if (!items || items.length === 0) return;
 
       for (const item of items) {
-        // Skip placeholder files
+        // Skip placeholder files and hidden/system folders
         if (item.name === '.emptyFolderPlaceholder' || item.name === '.gitkeep') continue;
+        if (item.name.startsWith('.')) continue; // Skip .trash, .versions, and other hidden folders/files
 
         const itemPath = folderPath ? `${folderPath}/${item.name}` : item.name;
 

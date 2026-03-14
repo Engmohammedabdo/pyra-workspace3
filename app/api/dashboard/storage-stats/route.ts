@@ -35,6 +35,7 @@ export async function GET(_request: NextRequest) {
         return apiSuccess({
           totalSize: 0,
           totalFiles: 0,
+          totalFolders: 0,
           typeBreakdown: [],
           topFolders: [],
           largestFiles: [],
@@ -94,6 +95,7 @@ export async function GET(_request: NextRequest) {
       byFolder[topFolder].count += 1;
     }
 
+    const totalFolders = Object.keys(byFolder).length;
     const topFolders = Object.entries(byFolder)
       .sort((a, b) => b[1].size - a[1].size)
       .slice(0, 20)
@@ -115,6 +117,7 @@ export async function GET(_request: NextRequest) {
     return apiSuccess({
       totalSize,
       totalFiles,
+      totalFolders,
       typeBreakdown,
       topFolders,
       largestFiles,

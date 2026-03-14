@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -141,6 +142,19 @@ export default function ClientsClient() {
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
+
+  // Handle ?edit=<clientId> query param from client detail page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    if (editId && clients.length > 0 && !showEdit) {
+      const clientToEdit = clients.find((c) => c.id === editId);
+      if (clientToEdit) {
+        openEdit(clientToEdit);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, clients]);
 
   const handleCreate = async () => {
     if (!form.name.trim()) { toast.error('اسم العميل مطلوب'); return; }

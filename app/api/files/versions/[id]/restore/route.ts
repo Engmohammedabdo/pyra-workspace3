@@ -1,14 +1,15 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getParentPath } from '@/lib/utils/path';
+import { canAccessPath } from '@/lib/auth/file-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,8 +26,9 @@ type RouteContext = { params: Promise<{ id: string }> };
 // =============================================================
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.edit');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const { id } = await context.params;
 
@@ -42,6 +44,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     if (fetchError || !version) {
       return apiNotFound('النسخة غير موجودة');
+    }
+
+    // Path-level access check
+    if (!(await canAccessPath(auth, version.file_path))) {
+      return apiForbidden();
     }
 
     const originalPath = version.file_path;

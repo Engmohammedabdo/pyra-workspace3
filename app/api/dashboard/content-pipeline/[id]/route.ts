@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -119,6 +120,58 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return apiSuccess(updated);
   } catch (err) {
     console.error('Content pipeline [id] PATCH error:', err);
+    return apiServerError();
+  }
+}
+
+// =============================================================
+// DELETE /api/dashboard/content-pipeline/[id]
+// Delete a pipeline item and its stages (cascade)
+// =============================================================
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  try {
+    const auth = await requireApiPermission('script_reviews.manage');
+    if (isApiError(auth)) return auth;
+
+    const { id } = await context.params;
+    const supabase = createServiceRoleClient();
+
+    // Verify item exists
+    const { data: existing, error: existErr } = await supabase
+      .from('pyra_content_pipeline')
+      .select('id, title')
+      .eq('id', id)
+      .single();
+
+    if (existErr || !existing) {
+      return apiNotFound('عنصر خط الإنتاج غير موجود');
+    }
+
+    // Delete — stages cascade via FK ON DELETE CASCADE
+    const { error } = await supabase
+      .from('pyra_content_pipeline')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Pipeline delete error:', error);
+      return apiServerError('فشل في حذف عنصر خط الإنتاج');
+    }
+
+    // Log activity
+    await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'pipeline_item_deleted',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: `/dashboard/content-pipeline`,
+      details: { pipeline_id: id, title: existing.title },
+      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    });
+
+    return apiSuccess({ deleted: true });
+  } catch (err) {
+    console.error('Content pipeline [id] DELETE error:', err);
     return apiServerError();
   }
 }

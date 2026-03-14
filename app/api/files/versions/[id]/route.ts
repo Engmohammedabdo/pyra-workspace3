@@ -2,9 +2,11 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiForbidden,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
+import { canAccessPath } from '@/lib/auth/file-access';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
@@ -37,6 +39,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     if (fetchError || !version) {
       return apiNotFound('النسخة غير موجودة');
+    }
+
+    // Path-level access check
+    if (!(await canAccessPath(auth, version.file_path))) {
+      return apiForbidden();
     }
 
     // Delete from storage

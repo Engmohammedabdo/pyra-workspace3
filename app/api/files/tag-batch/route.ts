@@ -1,13 +1,14 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
-  apiUnauthorized,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { canAccessAllPaths } from '@/lib/auth/file-access';
 
 // =============================================================
 // POST /api/files/tag-batch
@@ -16,8 +17,9 @@ import { generateId } from '@/lib/utils/id';
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.edit');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { paths, tag_name, color } = body;
@@ -25,6 +27,10 @@ export async function POST(request: NextRequest) {
     if (!Array.isArray(paths) || paths.length === 0) {
       return apiValidationError('قائمة الملفات مطلوبة');
     }
+
+    // Path-level access control
+    const { allowed } = await canAccessAllPaths(auth, paths);
+    if (!allowed) return apiForbidden();
 
     if (!tag_name || typeof tag_name !== 'string' || tag_name.trim().length === 0) {
       return apiValidationError('اسم الوسم مطلوب');

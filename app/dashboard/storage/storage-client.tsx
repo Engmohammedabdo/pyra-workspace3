@@ -22,6 +22,7 @@ import {
 interface StorageStats {
   totalSize: number;
   totalFiles: number;
+  totalFolders?: number;
   typeBreakdown: { name: string; size: number; count: number }[];
   topFolders: { name: string; size: number; count: number }[];
   largestFiles: { name: string; path: string; size: number; type: string }[];
@@ -125,7 +126,7 @@ export default function StorageClient() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">عدد المجلدات</p>
-                <p className="text-2xl font-bold">{stats.topFolders.length.toLocaleString('ar-SA')}</p>
+                <p className="text-2xl font-bold">{(stats.totalFolders ?? stats.topFolders.length).toLocaleString('ar-SA')}</p>
               </div>
             </div>
           </CardContent>

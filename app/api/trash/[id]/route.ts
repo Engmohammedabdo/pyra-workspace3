@@ -7,6 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { getParentPath } from '@/lib/utils/path';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -57,6 +58,23 @@ export async function POST(
       console.error('Trash DB delete error:', deleteError);
       return apiServerError();
     }
+
+    // Re-add to file index so the restored file appears in search/stats
+    const fileName = trashItem.file_name || trashItem.original_path.split('/').pop() || '';
+    await supabase.from('pyra_file_index').upsert(
+      {
+        id: generateId('fi'),
+        file_path: trashItem.original_path,
+        file_name: fileName,
+        file_name_lower: fileName.toLowerCase(),
+        file_size: trashItem.file_size || 0,
+        mime_type: trashItem.mime_type || 'application/octet-stream',
+        is_folder: false,
+        parent_path: getParentPath(trashItem.original_path),
+        indexed_at: new Date().toISOString(),
+      },
+      { onConflict: 'file_path' }
+    );
 
     // Log activity
     await supabase.from('pyra_activity_log').insert({

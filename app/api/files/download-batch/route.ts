@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
-import { apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiValidationError, apiServerError, apiForbidden } from '@/lib/api/response';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isPathSafe } from '@/lib/utils/path';
+import { canAccessAllPaths } from '@/lib/auth/file-access';
 import JSZip from 'jszip';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
@@ -13,8 +14,9 @@ const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    const authResult = await requireApiPermission('files.view');
+    if (isApiError(authResult)) return authResult;
+    const auth = authResult;
 
     const body = await request.json();
     const { paths } = body;
@@ -34,7 +36,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const supabase = await createServerSupabaseClient();
+    // Path-level access control
+    const { allowed, deniedPaths } = await canAccessAllPaths(auth, paths);
+    if (!allowed) {
+      return apiForbidden();
+    }
+
+    const supabase = createServiceRoleClient();
     const zip = new JSZip();
 
     // Download each file and add to ZIP
