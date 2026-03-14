@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   Filter,
   FileText,
+  FileSignature,
+  Clock,
 } from 'lucide-react';
 
 interface StatementEntry {
@@ -37,14 +39,26 @@ interface StatementSummary {
   total_paid: number;
   total_remaining: number;
   overdue_amount: number;
+  unbilled_amount: number;
   invoice_count: number;
   payment_count: number;
+}
+
+interface UnbilledObligation {
+  contract_id: string;
+  contract_title: string;
+  total_value: number;
+  amount_billed: number;
+  unbilled_amount: number;
+  currency: string;
+  pending_milestones: { title: string; amount: number }[];
 }
 
 interface StatementData {
   client: { name: string; company: string; email: string };
   summary: StatementSummary;
   entries: StatementEntry[];
+  unbilled_obligations: UnbilledObligation[];
 }
 
 export default function PortalStatementPage() {
@@ -78,8 +92,8 @@ export default function PortalStatementPage() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
@@ -98,7 +112,7 @@ export default function PortalStatementPage() {
     );
   }
 
-  const { summary, entries } = data;
+  const { summary, entries, unbilled_obligations } = data;
 
   return (
     <div className="space-y-6">
@@ -111,7 +125,7 @@ export default function PortalStatementPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
@@ -181,6 +195,27 @@ export default function PortalStatementPage() {
             </div>
           </CardContent>
         </Card>
+
+        {summary.unbilled_amount > 0 && (
+          <Card className="border-purple-500/20 bg-purple-500/5">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
+                  <FileSignature className="h-5 w-5 text-purple-500" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">مبالغ غير مفوترة</p>
+                  <p className="text-xl font-bold font-mono tabular-nums text-purple-600 dark:text-purple-400">
+                    {formatCurrency(summary.unbilled_amount)}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    من عقود قيد التنفيذ
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Filters */}
@@ -297,6 +332,83 @@ export default function PortalStatementPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Unbilled Contract Obligations */}
+      {unbilled_obligations && unbilled_obligations.length > 0 && (
+        <Card className="border-purple-500/20">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <FileSignature className="h-4 w-4 text-purple-500" />
+              التزامات تعاقدية غير مفوترة
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              مبالغ من عقود قيد التنفيذ لم يتم إصدار فواتير لها بعد
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {unbilled_obligations.map((obligation) => (
+                <div
+                  key={obligation.contract_id}
+                  className="border rounded-lg p-4 bg-muted/30"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div>
+                      <button
+                        onClick={() => router.push(`/portal/contracts/${obligation.contract_id}`)}
+                        className="font-medium text-portal hover:underline"
+                      >
+                        {obligation.contract_title}
+                      </button>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                        <span>قيمة العقد: {formatCurrency(obligation.total_value, obligation.currency)}</span>
+                        <span>تم فوترة: {formatCurrency(obligation.amount_billed, obligation.currency)}</span>
+                      </div>
+                    </div>
+                    <div className="text-end">
+                      <p className="text-xs text-muted-foreground">المتبقي</p>
+                      <p className="text-lg font-bold font-mono tabular-nums text-purple-600 dark:text-purple-400">
+                        {formatCurrency(obligation.unbilled_amount, obligation.currency)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="w-full bg-muted rounded-full h-2 mb-3">
+                    <div
+                      className="bg-purple-500 h-2 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min((obligation.amount_billed / obligation.total_value) * 100, 100)}%`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Pending milestones */}
+                  {obligation.pending_milestones.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">مراحل معلّقة:</p>
+                      {obligation.pending_milestones.map((ms, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between text-sm bg-background rounded-md px-3 py-2"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span>{ms.title}</span>
+                          </div>
+                          <span className="font-mono tabular-nums text-muted-foreground">
+                            {formatCurrency(ms.amount, obligation.currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
