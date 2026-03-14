@@ -36,7 +36,7 @@ export async function GET() {
     // ── Project IDs for this client ────────────────────
     const { data: clientProjects } = await supabase
       .from('pyra_projects')
-      .select('id, name')
+      .select('id, name, status')
       .or(projectScope);
 
     const projectIds = (clientProjects || []).map((p) => p.id);
@@ -151,9 +151,12 @@ export async function GET() {
     }
 
     // ── Project progress (approved / total files) ─────
+    // If project status is "completed" → progress = 100%
+    // Otherwise, calculate based on approved file approvals
     const projectProgress: Array<{
       id: string;
       name: string;
+      status: string;
       totalFiles: number;
       approvedFiles: number;
       progress: number;
@@ -170,6 +173,23 @@ export async function GET() {
           .eq('project_id', pid)
           .eq('client_visible', true);
 
+        const total = totalCount || 0;
+        const projectStatus = (project as { status?: string }).status || 'active';
+
+        // Completed projects → 100% progress
+        if (projectStatus === 'completed') {
+          projectProgress.push({
+            id: pid,
+            name: project.name,
+            status: projectStatus,
+            totalFiles: total,
+            approvedFiles: total,
+            progress: 100,
+          });
+          continue;
+        }
+
+        // Active/in_progress projects → calculate from file approvals
         const { data: pidFiles } = await supabase
           .from('pyra_project_files')
           .select('id')
@@ -191,9 +211,10 @@ export async function GET() {
         projectProgress.push({
           id: pid,
           name: project.name,
-          totalFiles: totalCount || 0,
+          status: projectStatus,
+          totalFiles: total,
           approvedFiles: approvedCount,
-          progress: totalCount ? Math.round((approvedCount / totalCount) * 100) : 0,
+          progress: total ? Math.round((approvedCount / total) * 100) : 0,
         });
       }
     }

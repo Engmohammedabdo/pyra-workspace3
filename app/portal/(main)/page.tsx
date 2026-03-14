@@ -92,6 +92,7 @@ interface ChartDataPoint {
 interface ProjectProgressItem {
   id: string;
   name: string;
+  status?: string;
   totalFiles: number;
   approvedFiles: number;
   progress: number;
@@ -674,32 +675,52 @@ export default function PortalDashboardPage() {
             <CardContent>
               {data?.projectProgress && data.projectProgress.length > 0 ? (
                 <div className="space-y-5">
-                  {data.projectProgress.map((project) => (
-                    <div key={project.id} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium truncate max-w-[60%]">
-                          {project.name}
+                  {data.projectProgress.map((project) => {
+                    const isCompleted = project.status === 'completed';
+                    const progressColor = isCompleted
+                      ? 'from-emerald-500 to-emerald-400'
+                      : project.progress >= 70
+                        ? 'from-portal to-portal'
+                        : project.progress >= 30
+                          ? 'from-amber-500 to-amber-400'
+                          : 'from-portal to-portal';
+                    return (
+                      <div key={project.id} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium truncate max-w-[50%]">
+                            {project.name}
+                          </p>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isCompleted && (
+                              <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20">
+                                مكتمل
+                              </Badge>
+                            )}
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-xs tabular-nums',
+                                isCompleted && 'border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                              )}
+                            >
+                              {project.progress}%
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                          <motion.div
+                            className={cn('h-full rounded-full bg-gradient-to-l', progressColor)}
+                            initial={{ width: 0 }}
+                            animate={{ width: `${project.progress}%` }}
+                            transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {project.approvedFiles} من {project.totalFiles} ملف مكتمل
                         </p>
-                        <Badge
-                          variant="outline"
-                          className="text-xs tabular-nums shrink-0"
-                        >
-                          {project.progress}%
-                        </Badge>
                       </div>
-                      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                        <motion.div
-                          className="h-full rounded-full bg-gradient-to-l from-portal to-portal"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${project.progress}%` }}
-                          transition={{ duration: 0.8, ease: 'easeOut', delay: 0.2 }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {project.approvedFiles} من {project.totalFiles} ملف مكتمل
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-56 flex items-center justify-center">
