@@ -71,8 +71,9 @@ export async function autoLinkFileToProject(
     if (existing) return; // Already linked
 
     // Insert into pyra_project_files
+    const projectFileId = generateId('pf');
     await supabase.from('pyra_project_files').insert({
-      id: generateId('pf'),
+      id: projectFileId,
       project_id: projectId,
       file_name: fileName,
       file_path: filePath,
@@ -84,6 +85,19 @@ export async function autoLinkFileToProject(
       version: 1,
       created_at: new Date().toISOString(),
     });
+
+    // Create a pending approval record since needs_approval is true
+    await supabase.from('pyra_file_approvals').upsert(
+      {
+        id: generateId('fa'),
+        file_id: projectFileId,
+        status: 'pending',
+        comment: null,
+        reviewed_by: null,
+        reviewed_at: null,
+      },
+      { onConflict: 'file_id' }
+    );
 
     // ── Notify client about new file upload (non-critical) ──
     if (matchedProject.client_id) {

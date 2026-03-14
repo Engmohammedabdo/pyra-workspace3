@@ -61,6 +61,11 @@ import { resolveMimeType } from '@/lib/utils/mime';
 
 // ---------- Types ----------
 
+interface FileTag {
+  tag_name: string;
+  color: string;
+}
+
 interface FileWithProject {
   id: string;
   file_name: string;
@@ -75,6 +80,7 @@ interface FileWithProject {
     status: 'pending' | 'approved' | 'revision_requested';
     comment: string | null;
   } | null;
+  tags?: FileTag[];
 }
 
 interface TreeFolder {
@@ -398,6 +404,26 @@ function FileCard({
           {file.file_size != null && <span>·</span>}
           <span>{formatDate(file.added_at)}</span>
         </div>
+        {file.tags && file.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1.5">
+            {file.tags.slice(0, 3).map((tag) => (
+              <span
+                key={tag.tag_name}
+                className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border"
+                style={{
+                  backgroundColor: `${tag.color}15`,
+                  color: tag.color,
+                  borderColor: `${tag.color}30`,
+                }}
+              >
+                {tag.tag_name}
+              </span>
+            ))}
+            {file.tags.length > 3 && (
+              <span className="text-[9px] text-muted-foreground">+{file.tags.length - 3}</span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -452,6 +478,27 @@ function FileRow({
               <Badge className={cn('text-[9px] px-1.5 py-0', approvalStatus.className)}>
                 {approvalStatus.label}
               </Badge>
+            </>
+          )}
+          {file.tags && file.tags.length > 0 && (
+            <>
+              <span>&middot;</span>
+              {file.tags.slice(0, 2).map((tag) => (
+                <span
+                  key={tag.tag_name}
+                  className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border"
+                  style={{
+                    backgroundColor: `${tag.color}15`,
+                    color: tag.color,
+                    borderColor: `${tag.color}30`,
+                  }}
+                >
+                  {tag.tag_name}
+                </span>
+              ))}
+              {file.tags.length > 2 && (
+                <span className="text-[9px] text-muted-foreground">+{file.tags.length - 2}</span>
+              )}
             </>
           )}
         </div>
@@ -541,6 +588,7 @@ export default function PortalFilesPage() {
             project_id: f.project_id as string,
             project_name: f.project_name as string,
             approval: f.approval as FileWithProject['approval'],
+            tags: (f.tags as FileTag[] | undefined) || [],
           };
         });
         setFiles(mapped);

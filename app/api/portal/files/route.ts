@@ -93,6 +93,24 @@ export async function GET(request: NextRequest) {
       (approvals || []).map((a) => [a.file_id, { id: a.id, status: a.status, comment: a.comment }])
     );
 
+    // ── Get tags for these files ────────────────────────
+    const filePaths = files.map((f) => f.file_path);
+    let tagsMap = new Map<string, { tag_name: string; color: string }[]>();
+    if (filePaths.length > 0) {
+      const { data: tags } = await supabase
+        .from('pyra_file_tags')
+        .select('file_path, tag_name, color')
+        .in('file_path', filePaths);
+
+      if (tags) {
+        for (const t of tags) {
+          const existing = tagsMap.get(t.file_path) || [];
+          existing.push({ tag_name: t.tag_name, color: t.color });
+          tagsMap.set(t.file_path, existing);
+        }
+      }
+    }
+
     // ── Build response ────────────────────────────────
     let result = files.map((f) => ({
       id: f.id,
@@ -104,6 +122,7 @@ export async function GET(request: NextRequest) {
       project_id: f.project_id,
       project_name: projectMap.get(f.project_id) || '',
       approval: approvalMap.get(f.id) || null,
+      tags: tagsMap.get(f.file_path) || [],
     }));
 
     // ── Apply status filter client-side ────────────────

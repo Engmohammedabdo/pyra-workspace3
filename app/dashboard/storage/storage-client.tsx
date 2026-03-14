@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { HardDrive, File, FolderOpen, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HardDrive, File, FolderOpen, TrendingUp, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatFileSize } from '@/lib/utils/format';
 import {
@@ -37,8 +40,10 @@ const CHART_COLORS = [
 export default function StorageClient() {
   const [stats, setStats] = useState<StorageStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reindexing, setReindexing] = useState(false);
 
-  useEffect(() => {
+  const fetchStats = () => {
+    setLoading(true);
     fetch('/api/dashboard/storage-stats')
       .then((res) => res.json())
       .then((json) => {
@@ -46,7 +51,29 @@ export default function StorageClient() {
       })
       .catch(console.error)
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchStats();
   }, []);
+
+  const handleReindex = async () => {
+    setReindexing(true);
+    try {
+      const res = await fetch('/api/files/reindex', { method: 'POST' });
+      const json = await res.json();
+      if (res.ok && json.data) {
+        toast.success(json.data.message || `تم فهرسة ${json.data.indexed} ملف`);
+        fetchStats(); // Refresh stats after reindex
+      } else {
+        toast.error(json.error || 'فشل في إعادة الفهرسة');
+      }
+    } catch {
+      toast.error('حدث خطأ أثناء إعادة الفهرسة');
+    } finally {
+      setReindexing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -83,11 +110,23 @@ export default function StorageClient() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <HardDrive className="h-6 w-6" /> التخزين
-        </h1>
-        <p className="text-muted-foreground">إحصائيات استخدام مساحة التخزين</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <HardDrive className="h-6 w-6" /> التخزين
+          </h1>
+          <p className="text-muted-foreground">إحصائيات استخدام مساحة التخزين</p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleReindex}
+          disabled={reindexing}
+          className="gap-2"
+        >
+          <RefreshCw className={cn('h-4 w-4', reindexing && 'animate-spin')} />
+          {reindexing ? 'جارٍ الفهرسة...' : 'إعادة فهرسة الملفات'}
+        </Button>
       </div>
 
       {/* Summary Cards */}

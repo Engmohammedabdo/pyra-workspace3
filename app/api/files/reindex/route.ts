@@ -85,6 +85,7 @@ export async function POST(request: NextRequest) {
                 mime_type: mimeType,
                 is_folder: false,
                 parent_path: parentPath,
+                folder_path: parentPath,
                 indexed_at: new Date().toISOString(),
               },
               { onConflict: 'file_path' }
