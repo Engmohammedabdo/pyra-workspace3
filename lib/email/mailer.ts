@@ -224,4 +224,27 @@ export const emailTemplates = {
       </div>
       <a href="${escapeHtml(data.leadUrl)}" class="btn">عرض العميل المحتمل</a>
     `),
+
+  /** Invoice payment reminder (overdue) */
+  invoiceReminder: (
+    clientName: string,
+    invoiceNumber: string,
+    amountDue: string,
+    dueDate: string,
+    daysOverdue: number,
+    penaltyWarning: string,
+    invoiceUrl: string,
+  ) =>
+    baseLayout(`
+      <h2 style="color: #ea580c;">⏰ تذكير بدفع فاتورة</h2>
+      <p>عزيزي/عزيزتي ${escapeHtml(clientName)}،</p>
+      <p>نود تذكيركم بأن الفاتورة رقم <strong>${escapeHtml(invoiceNumber)}</strong> متأخرة الدفع منذ <strong>${daysOverdue}</strong> يوم.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">المبلغ المستحق:</span> <strong>${escapeHtml(amountDue)}</strong></div>
+        <div class="detail-row"><span class="detail-label">تاريخ الاستحقاق:</span> <strong>${escapeHtml(dueDate)}</strong></div>
+        <div class="detail-row"><span class="detail-label">أيام التأخير:</span> <strong style="color: #dc2626;">${daysOverdue} يوم</strong></div>
+      </div>
+      ${penaltyWarning}
+      <a href="${escapeHtml(invoiceUrl)}" class="btn">عرض الفاتورة والدفع</a>
+    `),
 };
