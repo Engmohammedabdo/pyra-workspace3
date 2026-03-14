@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { LEAD_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { calculateLeadScore } from '@/lib/sales/lead-scoring';
 
 export async function GET(request: NextRequest) {
   const auth = await requireApiPermission('sales_leads.view');
@@ -87,6 +88,33 @@ export async function POST(request: NextRequest) {
   const leadId = generateId('sl');
   const now = new Date().toISOString();
 
+  // Calculate initial score
+  const { data: allStages } = await supabase
+    .from('pyra_sales_pipeline_stages')
+    .select('id, sort_order')
+    .order('sort_order');
+
+  const stagesArr = allStages || [];
+  const stageSortOrder = stagesArr.findIndex(s => s.id === finalStageId);
+  const initialScore = calculateLeadScore(
+    {
+      source: source || 'manual',
+      phone: phone || null,
+      email: email || null,
+      company: company || null,
+      stage_id: finalStageId,
+      is_converted: false,
+      last_contact_at: null,
+      created_at: now,
+    },
+    {
+      activityCount: 0,
+      quoteCount: 0,
+      stageSortOrder: Math.max(0, stageSortOrder),
+      totalStages: stagesArr.length,
+    }
+  );
+
   const { data, error } = await supabase
     .from('pyra_sales_leads')
     .insert({
@@ -100,6 +128,7 @@ export async function POST(request: NextRequest) {
       assigned_to: assigned_to || auth.pyraUser.username,
       notes: notes || null,
       priority: priority || 'medium',
+      score: initialScore.total,
       is_converted: false,
       created_by: auth.pyraUser.username,
       created_at: now,

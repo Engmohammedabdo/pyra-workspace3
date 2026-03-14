@@ -14,6 +14,7 @@ interface LeadCardProps {
     company?: string;
     source: string;
     priority: string;
+    score?: number;
     assigned_to?: string;
   };
 }
@@ -99,12 +100,24 @@ export function LeadCard({ lead }: LeadCardProps) {
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border/40 ps-3">
-          <Badge
-            variant="secondary"
-            className="text-[10px] bg-muted/60 hover:bg-muted font-normal"
-          >
-            {SOURCE_LABELS[lead.source] || lead.source}
-          </Badge>
+          <div className="flex items-center gap-1.5">
+            <Badge
+              variant="secondary"
+              className="text-[10px] bg-muted/60 hover:bg-muted font-normal"
+            >
+              {SOURCE_LABELS[lead.source] || lead.source}
+            </Badge>
+            {lead.score != null && (
+              <span className={cn(
+                'text-[10px] font-bold tabular-nums',
+                lead.score >= 70 ? 'text-green-600 dark:text-green-400' :
+                lead.score >= 40 ? 'text-orange-600 dark:text-orange-400' :
+                'text-red-500 dark:text-red-400'
+              )}>
+                {lead.score}
+              </span>
+            )}
+          </div>
           {lead.assigned_to && (
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
               <div className="w-4 h-4 rounded-full bg-gradient-to-br from-violet-400 to-purple-500 flex items-center justify-center text-white text-[8px] font-bold">

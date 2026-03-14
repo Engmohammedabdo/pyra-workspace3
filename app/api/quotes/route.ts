@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       client_id,
+      lead_id,
       project_name,
       estimate_date,
       expiry_date,
@@ -241,6 +242,7 @@ export async function POST(request: NextRequest) {
         id: quoteId,
         quote_number: quoteNumber,
         client_id: client_id || null,
+        lead_id: lead_id || null,
         project_name: project_name?.trim() || null,
         status: quoteStatus,
         estimate_date: estDate,
@@ -300,6 +302,18 @@ export async function POST(request: NextRequest) {
       details: { quote_number: quoteNumber, total },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    // Log lead activity if linked to a lead
+    if (lead_id) {
+      void supabase.from('pyra_lead_activities').insert({
+        id: generateId('la'),
+        lead_id,
+        activity_type: 'note',
+        description: `تم إنشاء عرض سعر ${quoteNumber} بمبلغ ${total} AED`,
+        metadata: { quote_id: quoteId, quote_number: quoteNumber, total },
+        created_by: auth.pyraUser.username,
+      });
+    }
 
     // If pending approval, create approval record
     if (quoteStatus === 'pending_approval') {

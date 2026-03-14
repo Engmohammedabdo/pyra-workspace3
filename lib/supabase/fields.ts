@@ -7,7 +7,7 @@
 
 /** Columns returned for a single quote (used by list + detail endpoints). */
 export const QUOTE_FIELDS = `
-  id, quote_number, client_id, project_name, status,
+  id, quote_number, client_id, lead_id, project_name, status,
   estimate_date, expiry_date, currency, subtotal, tax_rate,
   tax_amount, total, notes, bank_details,
   company_name, company_logo, client_name, client_email,
@@ -106,7 +106,7 @@ export const API_KEY_FIELDS = `
 
 export const LEAD_FIELDS = `
   id, name, phone, email, company, source, stage_id, assigned_to,
-  client_id, notes, priority, last_contact_at, next_follow_up,
+  client_id, notes, priority, score, last_contact_at, next_follow_up,
   converted_at, is_converted, created_by, created_at, updated_at
 `;
 
@@ -141,4 +141,8 @@ export const PIPELINE_STAGE_FIELDS = `
 
 export const SALES_LABEL_FIELDS = `
   id, name, name_ar, color, created_by, created_at
+`;
+
+export const WA_TEMPLATE_FIELDS = `
+  id, title, content, category, shortcut, created_by, created_at
 `;

@@ -51,7 +51,18 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       .eq('quote_id', id)
       .order('sort_order', { ascending: true });
 
-    return apiSuccess({ ...quote, items: items || [] });
+    // Get linked lead info if lead_id exists
+    let leadInfo: { id: string; name: string; phone?: string; email?: string; company?: string } | null = null;
+    if (quote.lead_id) {
+      const { data: lead } = await supabase
+        .from('pyra_sales_leads')
+        .select('id, name, phone, email, company')
+        .eq('id', quote.lead_id)
+        .maybeSingle();
+      if (lead) leadInfo = lead;
+    }
+
+    return apiSuccess({ ...quote, items: items || [], lead: leadInfo });
   } catch (err) {
     console.error('GET /api/quotes/[id] error:', err);
     return apiServerError();

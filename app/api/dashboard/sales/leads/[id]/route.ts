@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/res
 import { LEAD_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { calculateLeadScore } from '@/lib/sales/lead-scoring';
 
 export async function GET(
   _request: NextRequest,
@@ -40,18 +41,46 @@ export async function GET(
     .map((l: Record<string, unknown>) => l.pyra_sales_labels)
     .filter(Boolean);
 
-  // Fetch stage info
+  // Fetch stage info + all stages for scoring
   let stageInfo = null;
+  const { data: allStages } = await supabase
+    .from('pyra_sales_pipeline_stages')
+    .select('id, name, name_ar, color, sort_order')
+    .order('sort_order');
+
+  const stagesArr = allStages || [];
   if (data.stage_id) {
-    const { data: stage } = await supabase
-      .from('pyra_sales_pipeline_stages')
-      .select('id, name, name_ar, color')
-      .eq('id', data.stage_id)
-      .single();
-    stageInfo = stage;
+    stageInfo = stagesArr.find(s => s.id === data.stage_id) || null;
   }
 
-  return apiSuccess({ ...data, labels, stage: stageInfo });
+  // Calculate lead score
+  const { count: activityCount } = await supabase
+    .from('pyra_lead_activities')
+    .select('id', { count: 'exact', head: true })
+    .eq('lead_id', id);
+
+  const { count: quoteCount } = await supabase
+    .from('pyra_quotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('lead_id', id);
+
+  const stageSortOrder = stagesArr.findIndex(s => s.id === data.stage_id);
+  const scoreBreakdown = calculateLeadScore(data, {
+    activityCount: activityCount || 0,
+    quoteCount: quoteCount || 0,
+    stageSortOrder: Math.max(0, stageSortOrder),
+    totalStages: stagesArr.length,
+  });
+
+  // Update score in DB if changed
+  if (data.score !== scoreBreakdown.total) {
+    void supabase
+      .from('pyra_sales_leads')
+      .update({ score: scoreBreakdown.total })
+      .eq('id', id);
+  }
+
+  return apiSuccess({ ...data, score: scoreBreakdown.total, score_breakdown: scoreBreakdown, labels, stage: stageInfo });
 }
 
 export async function PATCH(
@@ -108,6 +137,41 @@ export async function PATCH(
       metadata: { from: existing.stage_id, to: body.stage_id },
       created_by: auth.pyraUser.username,
     });
+  }
+
+  // Recalculate score after update
+  if (data) {
+    const { data: allStages } = await supabase
+      .from('pyra_sales_pipeline_stages')
+      .select('id, sort_order')
+      .order('sort_order');
+
+    const { count: activityCount } = await supabase
+      .from('pyra_lead_activities')
+      .select('id', { count: 'exact', head: true })
+      .eq('lead_id', id);
+
+    const { count: quoteCount } = await supabase
+      .from('pyra_quotes')
+      .select('id', { count: 'exact', head: true })
+      .eq('lead_id', id);
+
+    const stagesArr = allStages || [];
+    const stageSortOrder = stagesArr.findIndex(s => s.id === data.stage_id);
+    const scoreBreakdown = calculateLeadScore(data, {
+      activityCount: activityCount || 0,
+      quoteCount: quoteCount || 0,
+      stageSortOrder: Math.max(0, stageSortOrder),
+      totalStages: stagesArr.length,
+    });
+
+    // Update score in background
+    void supabase
+      .from('pyra_sales_leads')
+      .update({ score: scoreBreakdown.total })
+      .eq('id', id);
+
+    return apiSuccess({ ...data, score: scoreBreakdown.total });
   }
 
   return apiSuccess(data);

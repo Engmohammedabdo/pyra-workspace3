@@ -67,11 +67,12 @@ export interface QuoteData {
 
 interface QuoteBuilderProps {
   quote?: QuoteData;
+  leadId?: string;
   onSaved?: (id: string) => void;
   onClose?: () => void;
 }
 
-export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderProps) {
+export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteBuilderProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(quote?.client_id || '');
   const [clientName, setClientName] = useState(quote?.client_name || '');
@@ -155,6 +156,7 @@ export default function QuoteBuilder({ quote, onSaved, onClose }: QuoteBuilderPr
 
   const buildPayload = () => ({
     client_id: clientId || null,
+    lead_id: leadId || null,
     client_address: clientAddress || null,
     project_name: projectName || null,
     estimate_date: estimateDate,

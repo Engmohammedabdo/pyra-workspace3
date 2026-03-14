@@ -341,6 +341,7 @@ export interface PyraQuote {
   quote_number: string;
   team_id: string;
   client_id: string | null;
+  lead_id: string | null;
   project_name: string | null;
   status: 'draft' | 'sent' | 'viewed' | 'signed' | 'expired' | 'cancelled';
   estimate_date: string;
@@ -1150,6 +1151,7 @@ export interface PyraSalesLead {
   next_follow_up: string | null;
   converted_at: string | null;
   is_converted: boolean;
+  score: number;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -1250,6 +1252,16 @@ export interface PyraSalesFollowUp {
   // Joined
   lead_name?: string;
   assigned_display_name?: string;
+}
+
+export interface PyraWhatsAppTemplate {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  shortcut: string | null;
+  created_by: string | null;
+  created_at: string;
 }
 
 // Leave Balances (v1 - legacy)
