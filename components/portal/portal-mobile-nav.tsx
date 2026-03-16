@@ -14,6 +14,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Menu,
+  LayoutDashboard,
   FolderKanban,
   FolderOpen,
   FileText,
@@ -29,6 +30,11 @@ import {
 import { useBranding } from '@/components/portal/BrandingProvider';
 
 const portalNavItems = [
+  {
+    href: '/portal',
+    label: 'الرئيسية',
+    icon: LayoutDashboard,
+  },
   {
     href: '/portal/projects',
     label: 'المشاريع',
@@ -134,9 +140,9 @@ export function PortalMobileNav() {
         <ScrollArea className="h-[calc(100vh-4rem)]">
           <nav className="space-y-1 p-3">
             {portalNavItems.map((item) => {
-              const isActive =
-                pathname === item.href ||
-                pathname.startsWith(item.href + '/');
+              const isActive = item.href === '/portal'
+                ? pathname === '/portal'
+                : pathname === item.href || pathname.startsWith(item.href + '/');
               const Icon = item.icon;
 
               return (

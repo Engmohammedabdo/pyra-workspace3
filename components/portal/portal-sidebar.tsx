@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBranding } from '@/components/portal/BrandingProvider';
 import { usePortalNotifications } from '@/hooks/useNotifications';
 import {
+  LayoutDashboard,
   FolderKanban,
   FolderOpen,
   FileText,
@@ -21,6 +22,12 @@ import {
 } from 'lucide-react';
 
 const portalNavItems = [
+  {
+    href: '/portal',
+    label: 'الرئيسية',
+    icon: LayoutDashboard,
+    badgeKey: null as 'notifications' | null,
+  },
   {
     href: '/portal/projects',
     label: 'المشاريع',
@@ -129,8 +136,9 @@ export function PortalSidebar() {
       <ScrollArea className="flex-1 py-4">
         <nav className="space-y-1 px-3">
           {portalNavItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = item.href === '/portal'
+              ? pathname === '/portal'
+              : pathname === item.href || pathname.startsWith(item.href + '/');
             const Icon = item.icon;
 
             return (

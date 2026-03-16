@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import {
   ArrowRight, FileSignature, FileText, Receipt, CalendarClock, ListTree, CheckCircle, Clock, CircleDot,
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
+import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
 interface ContractDetail {
@@ -179,13 +179,13 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
             {contract.start_date && (
               <div>
                 <p className="text-muted-foreground text-xs">تاريخ البداية</p>
-                <p>{contract.start_date}</p>
+                <p>{formatDate(contract.start_date)}</p>
               </div>
             )}
             {contract.end_date && (
               <div>
                 <p className="text-muted-foreground text-xs">تاريخ النهاية</p>
-                <p>{contract.end_date}</p>
+                <p>{formatDate(contract.end_date)}</p>
               </div>
             )}
           </div>
@@ -349,7 +349,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
                           <Badge variant={invStatus.variant}>{invStatus.label}</Badge>
                         </div>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                          {inv.issue_date && <span>{inv.issue_date}</span>}
+                          {inv.issue_date && <span>{formatDate(inv.issue_date)}</span>}
                           <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>
                         </div>
                       </div>
@@ -431,7 +431,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
                               <Badge variant={invStatus.variant}>{invStatus.label}</Badge>
                             </div>
                             <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                              {inv.issue_date && <span>{inv.issue_date}</span>}
+                              {inv.issue_date && <span>{formatDate(inv.issue_date)}</span>}
                               <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>
                             </div>
                           </div>

@@ -41,7 +41,7 @@ export default function PaymentSuccessPage() {
           </div>
 
           {truncatedSessionId && (
-            <p className="text-xs text-muted-foreground direction-ltr">
+            <p className="text-xs text-muted-foreground" dir="ltr">
               معرف الجلسة: {truncatedSessionId}
             </p>
           )}

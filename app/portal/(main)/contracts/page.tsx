@@ -10,7 +10,7 @@ import {
 import { FileSignature } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
-import { formatCurrency } from '@/lib/utils/format';
+import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
 interface PortalContract {
@@ -118,8 +118,8 @@ export default function PortalContractsPage() {
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           {c.project_name && <span>{c.project_name}</span>}
-                          {c.start_date && <span>{c.start_date}</span>}
-                          {c.end_date && <span>→ {c.end_date}</span>}
+                          {c.start_date && <span>{formatDate(c.start_date)}</span>}
+                          {c.end_date && <span>→ {formatDate(c.end_date)}</span>}
                         </div>
                       </div>
                       <div className="text-end shrink-0">
