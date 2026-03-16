@@ -89,12 +89,27 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // get supplier info for each expense
+    const supplierIds = [...new Set((data || []).map((e: { supplier_id: string | null }) => e.supplier_id).filter(Boolean))];
+    let suppliers: Record<string, { name: string; company: string | null }> = {};
+    if (supplierIds.length > 0) {
+      const { data: sups } = await supabase
+        .from('pyra_suppliers')
+        .select('id, name, company')
+        .in('id', supplierIds);
+      if (sups) {
+        suppliers = Object.fromEntries(sups.map((s: { id: string; name: string; company: string | null }) => [s.id, s]));
+      }
+    }
+
     const enriched = (data || []).map((e: Record<string, unknown>) => ({
       ...e,
       category_name: e.category_id ? categories[e.category_id as string]?.name : null,
       category_name_ar: e.category_id ? categories[e.category_id as string]?.name_ar : null,
       category_color: e.category_id ? categories[e.category_id as string]?.color : null,
       project_name: e.project_id ? projects[e.project_id as string]?.name : null,
+      supplier_name: e.supplier_id ? suppliers[e.supplier_id as string]?.name : null,
+      supplier_company: e.supplier_id ? suppliers[e.supplier_id as string]?.company : null,
     }));
 
     // Calculate summary from a separate query (same filters as main query)

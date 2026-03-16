@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 
 interface Category { id: string; name: string; name_ar: string; }
 interface Project { id: string; name: string; }
+interface Supplier { id: string; name: string; company: string | null; }
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'نقداً' },
@@ -31,11 +32,12 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
-    expense_date: '', vendor: '', payment_method: '', category_id: '', project_id: '', notes: '',
+    expense_date: '', vendor: '', payment_method: '', category_id: '', project_id: '', supplier_id: '', notes: '',
   });
 
   useEffect(() => {
@@ -46,6 +48,10 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
     fetch('/api/projects?pageSize=100')
       .then(r => r.json())
       .then(j => { if (j.data) setProjects(j.data.map((p: Project) => ({ id: p.id, name: p.name }))); })
+      .catch(() => {});
+    fetch('/api/dashboard/suppliers?limit=100&active=true')
+      .then(r => r.json())
+      .then(j => { if (j.data) setSuppliers(j.data); })
       .catch(() => {});
   }, []);
 
@@ -64,6 +70,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
             payment_method: j.data.payment_method || '',
             category_id: j.data.category_id || '',
             project_id: j.data.project_id || '',
+            supplier_id: j.data.supplier_id || '',
             notes: j.data.notes || '',
           });
         }
@@ -85,6 +92,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
           vat_rate: Number(form.vat_rate),
           category_id: form.category_id || null,
           project_id: form.project_id || null,
+          supplier_id: form.supplier_id || null,
           payment_method: form.payment_method || null,
         }),
       });
@@ -131,7 +139,23 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
                 <Input value={form.description} onChange={e => update('description', e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>المورد</Label>
+                <Label>المورد (من السجل)</Label>
+                <Select value={form.supplier_id} onValueChange={v => {
+                  update('supplier_id', v === 'none' ? '' : v);
+                  if (v !== 'none') {
+                    const sup = suppliers.find(s => s.id === v);
+                    if (sup) update('vendor', sup.name);
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="اختر مورد" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون ربط</SelectItem>
+                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.company ? ` — ${s.company}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>اسم المورد</Label>
                 <Input value={form.vendor} onChange={e => update('vendor', e.target.value)} />
               </div>
               <div className="space-y-2">

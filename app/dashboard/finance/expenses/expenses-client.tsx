@@ -28,6 +28,9 @@ interface Expense {
   vat_amount: number;
   expense_date: string | null;
   vendor: string | null;
+  supplier_id: string | null;
+  supplier_name: string | null;
+  supplier_company: string | null;
   category_name: string | null;
   category_name_ar: string | null;
   category_color: string | null;
@@ -205,8 +208,13 @@ export default function ExpensesClient() {
       key: 'vendor',
       header: 'المورد',
       sortable: true,
-      className: 'text-muted-foreground',
-      render: (exp) => exp.vendor || '—',
+      render: (exp) => exp.supplier_id && exp.supplier_name ? (
+        <Link href={`/dashboard/finance/suppliers/${exp.supplier_id}`} className="text-orange-600 hover:underline font-medium" onClick={e => e.stopPropagation()}>
+          {exp.supplier_name}
+        </Link>
+      ) : exp.vendor ? (
+        <span className="text-muted-foreground">{exp.vendor}</span>
+      ) : <span className="text-muted-foreground">—</span>,
     },
     {
       key: 'status',

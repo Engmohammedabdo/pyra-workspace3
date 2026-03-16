@@ -20,6 +20,11 @@ import {
   AlertTriangle,
   RefreshCw,
   ArrowDownCircle,
+  Truck,
+  ShoppingCart,
+  FileCheck,
+  PieChart,
+  Target,
 } from 'lucide-react';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
@@ -375,34 +380,33 @@ export default function FinanceDashboardPage() {
       </div>
 
       {/* ═══ Quick Links ═══ */}
-      <StaggerContainer className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+      <StaggerContainer className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
         <StaggerItem>
-          <QuickLinkCard
-            href="/dashboard/finance/expenses"
-            label="المصاريف"
-            icon={ArrowDownCircle}
-          />
+          <QuickLinkCard href="/dashboard/finance/expenses" label="المصاريف" icon={ArrowDownCircle} />
         </StaggerItem>
         <StaggerItem>
-          <QuickLinkCard
-            href="/dashboard/finance/subscriptions"
-            label="الاشتراكات"
-            icon={RefreshCw}
-          />
+          <QuickLinkCard href="/dashboard/finance/suppliers" label="الموردين" icon={Truck} />
         </StaggerItem>
         <StaggerItem>
-          <QuickLinkCard
-            href="/dashboard/finance/cards"
-            label="البطاقات"
-            icon={CreditCard}
-          />
+          <QuickLinkCard href="/dashboard/finance/purchase-orders" label="أوامر الشراء" icon={ShoppingCart} />
         </StaggerItem>
         <StaggerItem>
-          <QuickLinkCard
-            href="/dashboard/finance/contracts"
-            label="العقود"
-            icon={FileSignature}
-          />
+          <QuickLinkCard href="/dashboard/finance/credit-notes" label="إشعارات دائنة" icon={FileCheck} />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard href="/dashboard/finance/subscriptions" label="الاشتراكات" icon={RefreshCw} />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard href="/dashboard/finance/contracts" label="العقود" icon={FileSignature} />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard href="/dashboard/finance/cards" label="البطاقات" icon={CreditCard} />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard href="/dashboard/finance/reports" label="التقارير المالية" icon={PieChart} />
+        </StaggerItem>
+        <StaggerItem>
+          <QuickLinkCard href="/dashboard/finance/targets" label="أهداف الإيرادات" icon={Target} />
         </StaggerItem>
       </StaggerContainer>
     </div>

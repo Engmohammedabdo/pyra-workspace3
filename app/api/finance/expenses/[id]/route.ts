@@ -99,7 +99,7 @@ export async function PATCH(
     const allowedFields = [
       'description', 'amount', 'currency', 'vat_rate', 'vat_amount',
       'expense_date', 'vendor', 'payment_method', 'receipt_url', 'notes',
-      'category_id', 'project_id', 'subscription_id', 'is_recurring', 'recurring_period',
+      'category_id', 'project_id', 'supplier_id', 'subscription_id', 'is_recurring', 'recurring_period',
     ];
     const update: Record<string, unknown> = {};
     for (const field of allowedFields) {

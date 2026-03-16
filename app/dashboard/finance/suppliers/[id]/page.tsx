@@ -12,8 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   ArrowRight, Truck, Edit2, Save, Loader2, Trash2,
-  Mail, Phone, MapPin, Building2, Banknote,
+  Mail, Phone, MapPin, Building2, Banknote, ArrowDownCircle,
 } from 'lucide-react';
+import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 
 interface Supplier {
@@ -34,6 +36,15 @@ interface Supplier {
   created_at: string;
 }
 
+interface LinkedExpense {
+  id: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  expense_date: string | null;
+  vendor: string | null;
+}
+
 export default function SupplierDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
@@ -42,6 +53,8 @@ export default function SupplierDetailPage() {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Partial<Supplier>>({});
+  const [expenses, setExpenses] = useState<LinkedExpense[]>([]);
+  const [expensesTotal, setExpensesTotal] = useState(0);
 
   useEffect(() => {
     fetch(`/api/dashboard/suppliers/${id}`)
@@ -54,6 +67,17 @@ export default function SupplierDetailPage() {
       })
       .catch(() => toast.error('فشل في تحميل بيانات المورد'))
       .finally(() => setLoading(false));
+
+    // Fetch linked expenses
+    fetch(`/api/dashboard/suppliers/${id}/expenses`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          setExpenses(json.data);
+          setExpensesTotal(json.meta?.total_amount ?? 0);
+        }
+      })
+      .catch(() => {});
   }, [id]);
 
   const handleSave = async () => {
@@ -195,6 +219,45 @@ export default function SupplierDetailPage() {
               <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{supplier.notes}</p></CardContent>
             </Card>
           )}
+
+          {/* Linked Expenses */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <ArrowDownCircle className="h-5 w-5" />
+                المصروفات المرتبطة
+                {expenses.length > 0 && (
+                  <Badge variant="secondary" className="ms-2">{expenses.length}</Badge>
+                )}
+              </CardTitle>
+              {expensesTotal > 0 && (
+                <span className="text-sm font-bold font-mono text-red-600">{formatCurrency(expensesTotal)}</span>
+              )}
+            </CardHeader>
+            <CardContent>
+              {expenses.length === 0 ? (
+                <EmptyState
+                  icon={ArrowDownCircle}
+                  title="لا توجد مصروفات"
+                  description="لم يتم ربط أي مصروفات بهذا المورد بعد"
+                />
+              ) : (
+                <div className="space-y-2">
+                  {expenses.map(exp => (
+                    <Link key={exp.id} href={`/dashboard/finance/expenses/${exp.id}`}>
+                      <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                        <div>
+                          <p className="text-sm font-medium">{exp.description || exp.vendor || '—'}</p>
+                          <p className="text-xs text-muted-foreground">{exp.expense_date ? formatDate(exp.expense_date) : '—'}</p>
+                        </div>
+                        <span className="font-mono text-sm font-bold text-red-600">{formatCurrency(exp.amount, exp.currency)}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </>
       ) : (
         /* Edit Mode */
