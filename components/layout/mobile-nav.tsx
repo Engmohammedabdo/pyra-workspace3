@@ -53,6 +53,13 @@ import {
   Network,
   Award,
   Settings2,
+  TrendingUp,
+  UserPlus,
+  MessageCircle,
+  CheckCircle,
+  FileCheck,
+  Truck,
+  ShoppingCart,
 } from 'lucide-react';
 import { hasPermission } from '@/lib/auth/rbac';
 import { MODULE_GUIDES } from '@/lib/config/module-guide';
@@ -75,12 +82,14 @@ interface MobileNavItem {
 
 interface MobileNavGroup {
   title: string;
+  description?: string;
   items: MobileNavItem[];
 }
 
 const mobileNavGroups: MobileNavGroup[] = [
   {
     title: 'الرئيسية',
+    description: 'لوحة التحكم والإشعارات',
     items: [
       { href: '/dashboard', label: 'الرئيسية', icon: LayoutDashboard },
       { href: '/dashboard/notifications', label: 'الإشعارات', icon: Bell, permission: 'notifications.view' },
@@ -89,13 +98,20 @@ const mobileNavGroups: MobileNavGroup[] = [
     ],
   },
   {
-    title: 'العمل',
+    title: 'الأعمال',
+    description: 'المشاريع والعملاء والفواتير',
     items: [
       { href: '/dashboard/projects', label: 'المشاريع', icon: Briefcase, permission: 'projects.view' },
       { href: '/dashboard/clients', label: 'العملاء', icon: Building2, permission: 'clients.view' },
       { href: '/dashboard/quotes', label: 'عروض الأسعار', icon: FileText, permission: 'quotes.view' },
       { href: '/dashboard/invoices', label: 'الفواتير', icon: Receipt, permission: 'invoices.view' },
       { href: '/dashboard/boards', label: 'لوحات العمل', icon: Kanban, permission: 'boards.view' },
+    ],
+  },
+  {
+    title: 'المحتوى والملفات',
+    description: 'المراجعات والملفات والتخزين',
+    items: [
       { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', icon: ScrollText, permission: 'script_reviews.view' },
       { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', icon: Clapperboard, permission: 'script_reviews.view' },
       { href: '/dashboard/files', label: 'الملفات', icon: FolderOpen, permission: 'files.view' },
@@ -106,7 +122,21 @@ const mobileNavGroups: MobileNavGroup[] = [
     ],
   },
   {
+    title: 'المبيعات',
+    description: 'العملاء المحتملين والمتابعات',
+    items: [
+      { href: '/dashboard/sales', label: 'نظرة عامة', icon: TrendingUp, permission: 'sales.view' },
+      { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', icon: UserPlus, permission: 'sales_leads.view' },
+      { href: '/dashboard/sales/chat', label: 'محادثات واتساب', icon: MessageCircle, permission: 'sales_whatsapp.view' },
+      { href: '/dashboard/sales/approvals', label: 'موافقات العروض', icon: CheckCircle, permission: 'quote_approvals.view' },
+      { href: '/dashboard/sales/follow-ups', label: 'المتابعات', icon: Clock, permission: 'sales_leads.view' },
+      { href: '/dashboard/sales/reports', label: 'تقارير المبيعات', icon: BarChart3, permission: 'sales.view' },
+      { href: '/dashboard/sales/settings', label: 'إعدادات المبيعات', icon: Settings2, permission: 'sales_pipeline.manage' },
+    ],
+  },
+  {
     title: 'الموارد البشرية',
+    description: 'الحضور والإجازات والتقييمات',
     items: [
       { href: '/dashboard/timesheet', label: 'ساعات العمل', icon: Clock, permission: 'timesheet.view' },
       { href: '/dashboard/attendance', label: 'الحضور', icon: Timer, permission: 'attendance.view' },
@@ -117,10 +147,12 @@ const mobileNavGroups: MobileNavGroup[] = [
       { href: '/dashboard/announcements', label: 'الإعلانات', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', icon: Network, permission: 'directory.view' },
       { href: '/dashboard/evaluations', label: 'تقييم الأداء', icon: Award, permission: 'evaluations.view' },
+      { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', icon: Settings2, permission: 'evaluations.manage' },
     ],
   },
   {
     title: 'المالية',
+    description: 'المصاريف والعقود والتقارير المالية',
     items: [
       { href: '/dashboard/finance', label: 'الإدارة المالية', icon: Wallet, permission: 'finance.view' },
       { href: '/dashboard/finance/expenses', label: 'المصاريف', icon: ArrowDownCircle, permission: 'finance.view' },
@@ -128,23 +160,39 @@ const mobileNavGroups: MobileNavGroup[] = [
       { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, permission: 'finance.view' },
       { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, permission: 'finance.view' },
       { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', icon: Repeat, permission: 'finance.view' },
+      { href: '/dashboard/finance/credit-notes', label: 'إشعارات دائنة', icon: FileCheck, permission: 'finance.view' },
+      { href: '/dashboard/finance/suppliers', label: 'الموردين', icon: Truck, permission: 'finance.view' },
+      { href: '/dashboard/finance/purchase-orders', label: 'أوامر الشراء', icon: ShoppingCart, permission: 'finance.view' },
       { href: '/dashboard/finance/reports', label: 'التقارير المالية', icon: PieChart, permission: 'finance.view' },
       { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', icon: Target, permission: 'finance.view' },
       { href: '/dashboard/payroll', label: 'الرواتب', icon: Banknote, permission: 'payroll.manage' },
     ],
   },
   {
-    title: 'الإدارة',
+    title: 'إدارة الفريق',
+    description: 'المستخدمون والأدوار والصلاحيات',
     items: [
-      { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, permission: 'settings.view' },
       { href: '/dashboard/users', label: 'المستخدمون', icon: Users, permission: 'users.view' },
       { href: '/dashboard/teams', label: 'الفرق', icon: Building2, permission: 'teams.view' },
       { href: '/dashboard/roles', label: 'الأدوار', icon: Shield, permission: 'roles.view' },
       { href: '/dashboard/permissions', label: 'الصلاحيات', icon: KeyRound, permission: 'users.manage' },
+    ],
+  },
+  {
+    title: 'الأدوات',
+    description: 'الإعدادات والأتمتة والتكاملات',
+    items: [
+      { href: '/dashboard/settings', label: 'الإعدادات', icon: Settings, permission: 'settings.view' },
       { href: '/dashboard/reports', label: 'التقارير', icon: BarChart3, permission: 'reports.view' },
       { href: '/dashboard/automations', label: 'الأتمتة', icon: Zap, permission: 'automations.view' },
       { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', icon: BookOpen, permission: 'knowledge_base.view' },
       { href: '/dashboard/integrations', label: 'التكاملات', icon: Webhook, permission: 'integrations.view' },
+    ],
+  },
+  {
+    title: 'الأمان والمراقبة',
+    description: 'سجلات الدخول والنشاط والجلسات',
+    items: [
       { href: '/dashboard/activity', label: 'سجل النشاط', icon: Activity, permission: 'activity.view' },
       { href: '/dashboard/login-history', label: 'سجل الدخول', icon: KeyRound, permission: 'sessions.view' },
       { href: '/dashboard/sessions', label: 'الجلسات', icon: Monitor, permission: 'sessions.view' },
@@ -186,9 +234,16 @@ export function MobileNav({ user }: MobileNavProps) {
 
               return (
                 <div key={group.title}>
-                  <p className="px-3 py-1 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
-                    {group.title}
-                  </p>
+                  <div className="px-3 py-1.5">
+                    <p className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider">
+                      {group.title}
+                    </p>
+                    {group.description && (
+                      <p className="text-[9px] text-muted-foreground/40 leading-tight mt-0.5">
+                        {group.description}
+                      </p>
+                    )}
+                  </div>
                   <div className="space-y-0.5">
                     {visibleItems.map((item) => {
                       const isActive = pathname === item.href ||

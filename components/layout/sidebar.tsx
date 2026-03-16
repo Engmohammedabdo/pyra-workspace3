@@ -95,16 +95,19 @@ interface NavItem {
 interface NavGroup {
   title: string;
   titleEn: string;
+  description?: string;
   items: NavItem[];
 }
 
 // ═══════════════════════════════════════════════
-//  5 Reorganized Groups (was 8)
+//  9 Well-organized Groups (max 7 items each)
+//  Split for clarity: العمل→2, الإدارة→3
 // ═══════════════════════════════════════════════
 const navGroups: NavGroup[] = [
   {
     title: 'الرئيسية',
     titleEn: 'Main',
+    description: 'لوحة التحكم والإشعارات ومهامك الشخصية',
     items: [
       { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
       { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view', badgeKey: 'notifications' },
@@ -113,14 +116,22 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: 'العمل',
-    titleEn: 'Work',
+    title: 'الأعمال',
+    titleEn: 'Business',
+    description: 'إدارة المشاريع والعملاء والفواتير وعروض الأسعار',
     items: [
       { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
       { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
       { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view', badgeKey: 'overdue_invoices' },
       { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
+    ],
+  },
+  {
+    title: 'المحتوى والملفات',
+    titleEn: 'Content & Files',
+    description: 'مراجعات المحتوى والملفات والتخزين',
+    items: [
       { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
       { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', labelEn: 'Content Pipeline', icon: Clapperboard, permission: 'script_reviews.view' },
       { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen, permission: 'files.view' },
@@ -133,6 +144,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'المبيعات',
     titleEn: 'Sales',
+    description: 'إدارة العملاء المحتملين والمتابعات وتقارير المبيعات',
     items: [
       { href: '/dashboard/sales', label: 'نظرة عامة', labelEn: 'Sales Overview', icon: TrendingUp, permission: 'sales.view' },
       { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', labelEn: 'Leads', icon: UserPlus, permission: 'sales_leads.view' },
@@ -146,6 +158,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'الموارد البشرية',
     titleEn: 'HR',
+    description: 'الحضور والإجازات والرواتب والتقييمات',
     items: [
       { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
       { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
@@ -162,6 +175,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'المالية',
     titleEn: 'Finance',
+    description: 'المصاريف والعقود والاشتراكات والتقارير المالية',
     items: [
       { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, permission: 'finance.view' },
       { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, permission: 'finance.view' },
@@ -178,18 +192,33 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: 'الإدارة',
-    titleEn: 'Admin',
+    title: 'إدارة الفريق',
+    titleEn: 'Team Management',
+    description: 'إدارة المستخدمين وتوزيع الأدوار والصلاحيات',
     items: [
-      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
       { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, permission: 'users.view' },
       { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
       { href: '/dashboard/roles', label: 'الأدوار', labelEn: 'Roles', icon: Shield, permission: 'roles.view' },
       { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: KeyRound, permission: 'users.manage' },
+    ],
+  },
+  {
+    title: 'الأدوات',
+    titleEn: 'Tools',
+    description: 'إعدادات النظام والأتمتة وقاعدة المعرفة والتكاملات',
+    items: [
+      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
       { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, permission: 'reports.view' },
       { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, permission: 'automations.view' },
       { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', labelEn: 'Knowledge Base', icon: BookOpen, permission: 'knowledge_base.view' },
       { href: '/dashboard/integrations', label: 'التكاملات', labelEn: 'Integrations', icon: Webhook, permission: 'integrations.view' },
+    ],
+  },
+  {
+    title: 'الأمان والمراقبة',
+    titleEn: 'Security',
+    description: 'سجلات الدخول والنشاط والجلسات النشطة',
+    items: [
       { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity, permission: 'activity.view' },
       { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, permission: 'sessions.view' },
       { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, permission: 'sessions.view' },
@@ -203,8 +232,8 @@ const navGroups: NavGroup[] = [
 const STORAGE_KEY = 'pyra-sidebar-collapsed-groups';
 const FAVORITES_KEY = 'pyra-sidebar-favorites';
 
-// Old group names from the 8-group layout
-const OLD_GROUP_NAMES = ['General', 'Personal', 'File Management', 'Workflow', 'Team', 'System'];
+// Old group names from previous layouts — trigger migration to clear stale localStorage
+const OLD_GROUP_NAMES = ['General', 'Personal', 'File Management', 'Workflow', 'Team', 'System', 'Work', 'Admin'];
 const NEW_GROUP_NAMES = navGroups.map(g => g.titleEn);
 
 function loadCollapsedGroups(): Set<string> {
@@ -460,16 +489,25 @@ export function Sidebar({ user }: SidebarProps) {
               return (
                 <div key={group.titleEn} className="mb-3">
                   {!collapsed && (
-                    <button
-                      onClick={() => toggleGroup(group.titleEn)}
-                      className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors group/section"
-                    >
-                      <span>{group.title}</span>
-                      <ChevronDown className={cn(
-                        'h-3 w-3 opacity-0 group-hover/section:opacity-100 transition-all duration-200',
-                        isGroupCollapsed && '-rotate-90'
-                      )} />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => toggleGroup(group.titleEn)}
+                          className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors group/section"
+                        >
+                          <span>{group.title}</span>
+                          <ChevronDown className={cn(
+                            'h-3 w-3 opacity-0 group-hover/section:opacity-100 transition-all duration-200',
+                            isGroupCollapsed && '-rotate-90'
+                          )} />
+                        </button>
+                      </TooltipTrigger>
+                      {group.description && (
+                        <TooltipContent side="left" className="max-w-[200px] text-right">
+                          <p className="text-[11px] leading-relaxed">{group.description}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
                   )}
                   {collapsed && <div className="my-1 mx-2 border-t border-border/40" />}
                   <div
