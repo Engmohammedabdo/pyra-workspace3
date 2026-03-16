@@ -48,6 +48,10 @@ export default function NewInvoicePage() {
   const [notes, setNotes] = useState('');
   const [vatRate, setVatRate] = useState(0);
 
+  /* ── discount ── */
+  const [discountType, setDiscountType] = useState('');
+  const [discountValue, setDiscountValue] = useState(0);
+
   /* ── items ── */
   const [items, setItems] = useState<InvoiceItem[]>([
     { description: '', quantity: 1, rate: 0 },
@@ -98,8 +102,14 @@ export default function NewInvoicePage() {
 
   /* ── calculations ── */
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+  const discountAmount = discountType === 'percentage'
+    ? Math.round(subtotal * (discountValue / 100) * 100) / 100
+    : discountType === 'fixed'
+      ? Math.min(discountValue, subtotal)
+      : 0;
+  const taxableAmount = subtotal - discountAmount;
+  const vatAmount = taxableAmount * (vatRate / 100);
+  const total = taxableAmount + vatAmount;
 
   /* ── submit ── */
   const handleSubmit = async (shouldSend: boolean) => {
@@ -138,6 +148,10 @@ export default function NewInvoicePage() {
 
       if (clientId) body.client_id = clientId;
       if (milestoneType) body.milestone_type = milestoneType;
+      if (discountType) {
+        body.discount_type = discountType;
+        body.discount_value = discountValue;
+      }
 
       const res = await fetch('/api/invoices', {
         method: 'POST',
@@ -346,6 +360,37 @@ export default function NewInvoicePage() {
               <span>المجموع الفرعي</span>
               <span className="font-mono">{formatCurrency(subtotal)}</span>
             </div>
+
+            {/* Discount */}
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2">
+                <span>خصم</span>
+                <Select value={discountType} onValueChange={v => { setDiscountType(v === 'none' ? '' : v); if (v === 'none') setDiscountValue(0); }}>
+                  <SelectTrigger className="w-28 h-7 text-xs">
+                    <SelectValue placeholder="بدون" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون</SelectItem>
+                    <SelectItem value="percentage">نسبة %</SelectItem>
+                    <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                  </SelectContent>
+                </Select>
+                {discountType && (
+                  <Input
+                    type="number"
+                    min={0}
+                    max={discountType === 'percentage' ? 100 : subtotal}
+                    step={0.01}
+                    value={discountValue}
+                    onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)}
+                    className="w-20 h-7 text-xs"
+                  />
+                )}
+                {discountType === 'percentage' && <span className="text-muted-foreground">%</span>}
+              </div>
+              <span className="font-mono text-red-500">{discountAmount > 0 ? `- ${formatCurrency(discountAmount)}` : '—'}</span>
+            </div>
+
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span>ضريبة القيمة المضافة</span>

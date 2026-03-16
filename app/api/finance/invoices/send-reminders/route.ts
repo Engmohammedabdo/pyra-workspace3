@@ -29,13 +29,20 @@ export async function POST(req: NextRequest) {
     const { data: settings } = await supabase
       .from('pyra_settings')
       .select('key, value')
-      .in('key', ['late_penalty_rate', 'late_penalty_grace_days', 'company_name']);
+      .in('key', ['late_penalty_rate', 'late_penalty_grace_days', 'company_name', 'dunning_enabled', 'dunning_reminder_interval_days']);
 
     const settingsMap: Record<string, string> = {};
     for (const s of settings || []) settingsMap[s.key] = s.value;
 
+    // Check if dunning is enabled (default: enabled for backward compat)
+    const dunningEnabled = settingsMap.dunning_enabled !== 'false';
+    if (!dunningEnabled) {
+      return apiSuccess({ message: 'نظام التحصيل معطّل', dunning_enabled: false });
+    }
+
     const penaltyRate = parseFloat(settingsMap.late_penalty_rate || '0'); // e.g., 2 = 2%
     const graceDays = parseInt(settingsMap.late_penalty_grace_days || '7');
+    const _reminderIntervalDays = parseInt(settingsMap.dunning_reminder_interval_days || '1');
     const companyName = settingsMap.company_name || 'Pyramedia X';
 
     // ── 1. Mark overdue invoices ──

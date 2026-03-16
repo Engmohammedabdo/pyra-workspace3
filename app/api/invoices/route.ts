@@ -110,6 +110,8 @@ export async function POST(request: NextRequest) {
       milestone_type,
       parent_invoice_id,
       vat_rate: bodyVatRate,
+      discount_type: bodyDiscountType,
+      discount_value: bodyDiscountValue,
     } = body;
 
     // Scope check: non-admins can only create invoices for their accessible clients
@@ -153,6 +155,8 @@ export async function POST(request: NextRequest) {
         'company_name',
         'company_logo',
         'payment_terms_days',
+        'default_early_payment_discount_percent',
+        'default_early_payment_discount_days',
       ]);
 
     const settingsMap: Record<string, string> = {};
@@ -209,8 +213,25 @@ export async function POST(request: NextRequest) {
       (sum: number, i: { amount: number }) => sum + i.amount,
       0
     );
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
+
+    // Calculate discount
+    const discountType = bodyDiscountType || null; // 'percentage' | 'fixed' | null
+    const discountValue = parseFloat(bodyDiscountValue) || 0;
+    let discountAmount = 0;
+    if (discountType === 'percentage' && discountValue > 0) {
+      discountAmount = Math.round(subtotal * (discountValue / 100) * 100) / 100;
+    } else if (discountType === 'fixed' && discountValue > 0) {
+      discountAmount = Math.min(discountValue, subtotal);
+    }
+
+    // Early payment discount defaults from settings
+    const earlyPaymentDiscountPercent = parseFloat(settingsMap.default_early_payment_discount_percent || '0');
+    const earlyPaymentDiscountDays = parseInt(settingsMap.default_early_payment_discount_days || '0');
+
+    // Tax is calculated on subtotal AFTER discount (UAE standard)
+    const taxableAmount = subtotal - discountAmount;
+    const taxAmount = taxableAmount * (taxRate / 100);
+    const total = taxableAmount + taxAmount;
 
     const invoiceId = generateId('inv');
 
@@ -226,6 +247,11 @@ export async function POST(request: NextRequest) {
         due_date,
         currency: 'AED',
         subtotal,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_amount: discountAmount,
+        early_payment_discount_percent: earlyPaymentDiscountPercent,
+        early_payment_discount_days: earlyPaymentDiscountDays,
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,

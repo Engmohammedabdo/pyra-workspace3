@@ -13,7 +13,7 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ArrowRight, ArrowDownCircle, Plus, Pencil, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
@@ -32,7 +32,15 @@ interface Expense {
   category_name_ar: string | null;
   category_color: string | null;
   payment_method: string | null;
+  status: 'draft' | 'pending' | 'approved' | 'rejected';
 }
+
+const EXPENSE_STATUS_MAP: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
+  approved: { label: 'معتمد', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
+  pending: { label: 'بانتظار الاعتماد', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Clock },
+  rejected: { label: 'مرفوض', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: XCircle },
+  draft: { label: 'مسودة', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: Clock },
+};
 
 interface Category {
   id: string;
@@ -56,6 +64,7 @@ export default function ExpensesClient() {
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+  const [statusFilter, setStatusFilter] = useState('');
 
   // Fetch categories
   useEffect(() => {
@@ -73,6 +82,7 @@ export default function ExpensesClient() {
       if (categoryFilter) params.set('category', categoryFilter);
       if (fromDate) params.set('from', fromDate);
       if (toDate) params.set('to', toDate);
+      if (statusFilter) params.set('status', statusFilter);
 
       const res = await fetch(`/api/finance/expenses?${params}`);
       const json = await res.json();
@@ -87,7 +97,7 @@ export default function ExpensesClient() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, categoryFilter, fromDate, toDate]);
+  }, [page, search, categoryFilter, fromDate, toDate, statusFilter]);
 
   useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
 
@@ -112,6 +122,21 @@ export default function ExpensesClient() {
       setDeleting(false);
     }
   };
+
+  const handleApproval = useCallback(async (id: string, action: 'approve' | 'reject') => {
+    try {
+      const res = await fetch(`/api/finance/expenses/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) { toast.error('فشل في تحديث حالة المصروف'); return; }
+      toast.success(action === 'approve' ? 'تم اعتماد المصروف' : 'تم رفض المصروف');
+      fetchExpenses();
+    } catch {
+      toast.error('حدث خطأ');
+    }
+  }, [fetchExpenses]);
 
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);
@@ -184,10 +209,28 @@ export default function ExpensesClient() {
       render: (exp) => exp.vendor || '—',
     },
     {
+      key: 'status',
+      header: 'الحالة',
+      render: (exp) => {
+        const st = EXPENSE_STATUS_MAP[exp.status] || EXPENSE_STATUS_MAP.approved;
+        return <Badge className={`${st.color} gap-1`}><st.icon className="h-3 w-3" />{st.label}</Badge>;
+      },
+    },
+    {
       key: 'actions',
       header: 'الإجراءات',
       render: (exp) => (
         <div className="flex items-center gap-1" data-no-row-click>
+          {exp.status === 'pending' && (
+            <>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد">
+                <CheckCircle className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleApproval(exp.id, 'reject')} title="رفض">
+                <XCircle className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          )}
           <Link href={`/dashboard/finance/expenses/${exp.id}`}>
             <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
@@ -197,7 +240,7 @@ export default function ExpensesClient() {
         </div>
       ),
     },
-  ], []);
+  ], [handleApproval]);
 
   return (
     <div className="space-y-6">
@@ -257,6 +300,15 @@ export default function ExpensesClient() {
           <SelectContent>
             <SelectItem value="all">الكل</SelectItem>
             {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name_ar || c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">كل الحالات</SelectItem>
+            <SelectItem value="pending">بانتظار الاعتماد</SelectItem>
+            <SelectItem value="approved">معتمد</SelectItem>
+            <SelectItem value="rejected">مرفوض</SelectItem>
           </SelectContent>
         </Select>
         <Input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }} className="w-[160px]" />

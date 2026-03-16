@@ -69,6 +69,9 @@ import {
   UserPlus,
   MessageCircle,
   CheckCircle,
+  FileCheck,
+  Truck,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -166,6 +169,9 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, permission: 'finance.view' },
       { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, permission: 'finance.view' },
       { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, permission: 'finance.view' },
+      { href: '/dashboard/finance/credit-notes', label: 'إشعارات دائنة', labelEn: 'Credit Notes', icon: FileCheck, permission: 'finance.view' },
+      { href: '/dashboard/finance/suppliers', label: 'الموردين', labelEn: 'Suppliers', icon: Truck, permission: 'finance.view' },
+      { href: '/dashboard/finance/purchase-orders', label: 'أوامر الشراء', labelEn: 'Purchase Orders', icon: ShoppingCart, permission: 'finance.view' },
       { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, permission: 'finance.view' },
       { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, permission: 'finance.view' },
       { href: '/dashboard/payroll', label: 'الرواتب', labelEn: 'Payroll', icon: Banknote, permission: 'payroll.manage' },

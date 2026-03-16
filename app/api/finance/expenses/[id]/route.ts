@@ -64,6 +64,37 @@ export async function PATCH(
 
     const body = await req.json();
 
+    // Handle approval/rejection action
+    if (body.action === 'approve' || body.action === 'reject') {
+      const newStatus = body.action === 'approve' ? 'approved' : 'rejected';
+      const { data: approvedData, error: approveError } = await supabase
+        .from('pyra_expenses')
+        .update({
+          status: newStatus,
+          approved_by: auth.pyraUser.username,
+          approved_at: new Date().toISOString(),
+          approval_notes: body.approval_notes || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select(EXPENSE_FIELDS)
+        .single();
+
+      if (approveError || !approvedData) return apiNotFound();
+
+      // Log activity
+      supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: body.action === 'approve' ? 'expense_approved' : 'expense_rejected',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: `/finance/expenses/${id}`,
+        details: { expense_id: id, status: newStatus, notes: body.approval_notes },
+      }).then(null, (e: unknown) => console.error('Activity log error:', e));
+
+      return apiSuccess(approvedData);
+    }
+
     // Allowlist fields to prevent mass assignment
     const allowedFields = [
       'description', 'amount', 'currency', 'vat_rate', 'vat_amount',

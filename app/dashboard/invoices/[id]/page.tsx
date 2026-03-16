@@ -67,6 +67,11 @@ interface Invoice {
   total: number;
   amount_paid: number;
   amount_due: number;
+  discount_type: 'percentage' | 'fixed' | null;
+  discount_value: number;
+  discount_amount: number;
+  early_payment_discount_percent: number;
+  early_payment_discount_days: number;
   notes: string | null;
   terms_conditions: Array<{ text: string }> | null;
   bank_details: { bank: string; account_name: string; account_no: string; iban: string } | null;
@@ -748,6 +753,12 @@ export default function InvoiceDetailPage() {
                   <span>المجموع الفرعي</span>
                   <span className="font-mono">{formatCurrency(invoice.subtotal, invoice.currency)}</span>
                 </div>
+                {invoice.discount_amount > 0 && (
+                  <div className="flex justify-between text-sm text-red-500">
+                    <span>خصم {invoice.discount_type === 'percentage' ? `(${invoice.discount_value}%)` : '(مبلغ ثابت)'}</span>
+                    <span className="font-mono">- {formatCurrency(invoice.discount_amount, invoice.currency)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span>ضريبة القيمة المضافة ({invoice.tax_rate}%)</span>
                   <span className="font-mono">{formatCurrency(invoice.tax_amount, invoice.currency)}</span>

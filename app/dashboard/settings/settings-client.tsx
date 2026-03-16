@@ -15,7 +15,7 @@ import {
   Settings, Save, Key, Copy, Trash2, Plus, Shield, Check,
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
-  CreditCard, Eye, EyeOff,
+  CreditCard, Eye, EyeOff, Bell, ArrowDownCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
@@ -38,6 +38,10 @@ const SETTING_LABELS: Record<string, { label: string; description: string; group
   invoice_prefix: { label: 'بادئة الفاتورة', description: 'مثال: INV — يظهر قبل رقم الفاتورة', group: 'invoices', dir: 'ltr' },
   payment_terms_days: { label: 'مدة الدفع (أيام)', description: 'مدة الدفع الافتراضية بالأيام — تُستخدم لحساب تاريخ الاستحقاق', group: 'invoices' },
   default_currency: { label: 'العملة الافتراضية', description: 'رمز العملة — مثال: AED, USD, SAR', group: 'invoices', dir: 'ltr' },
+  default_early_payment_discount_percent: { label: 'خصم الدفع المبكر (%)', description: 'نسبة الخصم الافتراضية عند الدفع المبكر — مثال: 2 = 2%', group: 'invoices' },
+  default_early_payment_discount_days: { label: 'أيام الدفع المبكر', description: 'عدد أيام الدفع المبكر للاستفادة من الخصم', group: 'invoices' },
+  credit_note_prefix: { label: 'بادئة الإشعار الدائن', description: 'مثال: CN — يظهر قبل رقم الإشعار', group: 'invoices', dir: 'ltr' },
+  po_prefix: { label: 'بادئة أمر الشراء', description: 'مثال: PO — يظهر قبل رقم أمر الشراء', group: 'invoices', dir: 'ltr' },
   // Bank
   bank_name: { label: 'اسم البنك', description: 'اسم البنك للتحويلات', group: 'bank' },
   bank_account_name: { label: 'اسم الحساب', description: 'اسم صاحب الحساب البنكي', group: 'bank' },
@@ -50,6 +54,14 @@ const SETTING_LABELS: Record<string, { label: string; description: string; group
   // Portal (NEW)
   portal_enabled: { label: 'تفعيل بورتال العملاء', description: 'تمكين أو تعطيل بورتال العملاء بالكامل', group: 'portal' },
   portal_welcome_message: { label: 'رسالة الترحيب', description: 'رسالة ترحيب تظهر للعميل عند تسجيل الدخول', group: 'portal' },
+  // Stripe
+  // Dunning / collection
+  dunning_enabled: { label: 'تفعيل نظام التحصيل', description: 'تمكين أو تعطيل التذكيرات التلقائية وغرامات التأخير', group: 'dunning' },
+  late_penalty_rate: { label: 'نسبة غرامة التأخير (%)', description: 'النسبة المئوية التي تُضاف على الفواتير المتأخرة — مثال: 2 = 2%', group: 'dunning' },
+  late_penalty_grace_days: { label: 'أيام السماح', description: 'عدد أيام السماح بعد تاريخ الاستحقاق قبل تطبيق الغرامة', group: 'dunning' },
+  dunning_reminder_interval_days: { label: 'الفترة بين التذكيرات (أيام)', description: 'عدد الأيام بين كل تذكير وآخر — الافتراضي: 1', group: 'dunning' },
+  // Expense settings
+  expense_approval_required: { label: 'تفعيل اعتماد المصروفات', description: 'عند التفعيل، المصروفات الجديدة تحتاج موافقة قبل اعتمادها', group: 'expenses' },
   // Stripe
   stripe_enabled: { label: 'تفعيل الدفع الإلكتروني', description: 'تمكين أو تعطيل الدفع عبر Stripe بالكامل', group: 'stripe' },
   stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', group: 'stripe', dir: 'ltr' },
@@ -67,6 +79,8 @@ const GROUPS: Array<{
   { key: 'company', label: 'معلومات الشركة', icon: Building2, gradient: 'from-orange-500 to-amber-600' },
   { key: 'quotes', label: 'إعدادات عروض الأسعار', icon: FileText, gradient: 'from-blue-500 to-indigo-600' },
   { key: 'invoices', label: 'إعدادات الفواتير', icon: Receipt, gradient: 'from-emerald-500 to-teal-600' },
+  { key: 'dunning', label: 'التحصيل والتذكيرات', icon: Bell, gradient: 'from-red-500 to-rose-600' },
+  { key: 'expenses', label: 'إعدادات المصاريف', icon: ArrowDownCircle, gradient: 'from-amber-500 to-yellow-600' },
   { key: 'bank', label: 'البيانات البنكية', icon: Landmark, gradient: 'from-violet-500 to-purple-600' },
   { key: 'storage', label: 'إعدادات التخزين', icon: HardDrive, gradient: 'from-rose-500 to-pink-600' },
   { key: 'portal', label: 'بورتال العملاء', icon: Globe, gradient: 'from-cyan-500 to-sky-600' },
@@ -613,7 +627,7 @@ export default function SettingsClient() {
                   {groupSettings.map(([key, meta]) => (
                     <div key={key} className="space-y-1.5">
                       <Label htmlFor={key} className="text-sm font-medium">{meta.label}</Label>
-                      {key === 'portal_enabled' || key === 'stripe_enabled' ? (
+                      {key === 'portal_enabled' || key === 'stripe_enabled' || key === 'dunning_enabled' || key === 'expense_approval_required' ? (
                         <div className="flex items-center gap-3">
                           <Switch
                             id={key}

@@ -58,6 +58,20 @@ const ALLOWED_KEYS = new Set([
   'kpi_storage_warning_percent',
   // Default language
   'default_language',
+  // Dunning / collection settings
+  'dunning_enabled',
+  'late_penalty_rate',
+  'late_penalty_grace_days',
+  'dunning_reminder_interval_days',
+  // Expense settings
+  'expense_approval_required',
+  // Invoice discount defaults
+  'default_early_payment_discount_percent',
+  'default_early_payment_discount_days',
+  // Credit note settings
+  'credit_note_prefix',
+  // Purchase order settings
+  'po_prefix',
 ]);
 
 // =============================================================

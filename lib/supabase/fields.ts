@@ -22,6 +22,8 @@ export const INVOICE_FIELDS = `
   id, invoice_number, quote_id, client_id, project_name, status,
   issue_date, due_date, currency, subtotal, tax_rate,
   tax_amount, total, amount_paid, amount_due, notes,
+  discount_type, discount_value, discount_amount,
+  early_payment_discount_percent, early_payment_discount_days,
   terms_conditions, bank_details,
   company_name, company_logo, client_name, client_email,
   client_company, client_phone, client_address,
@@ -38,9 +40,10 @@ export const EXPENSE_CATEGORY_FIELDS = `
 `;
 
 export const EXPENSE_FIELDS = `
-  id, category_id, project_id, subscription_id, description, amount, currency,
+  id, category_id, project_id, subscription_id, supplier_id, description, amount, currency,
   vat_rate, vat_amount, expense_date, vendor, payment_method,
   receipt_url, notes, is_recurring, recurring_period,
+  status, approved_by, approved_at, approval_notes, submitted_by,
   created_by, created_at, updated_at
 `;
 
@@ -98,6 +101,41 @@ export const API_KEY_FIELDS = `
   id, name, key_prefix, permissions, is_active,
   last_used_at, expires_at, created_by,
   created_at, updated_at
+`;
+
+// ==========================================
+// Credit Notes
+// ==========================================
+
+export const CREDIT_NOTE_FIELDS = `
+  id, credit_note_number, invoice_id, client_id, reason, status,
+  issue_date, currency, subtotal, tax_rate, tax_amount, total,
+  applied_amount, notes,
+  company_name, company_logo, client_name, client_email,
+  client_company, client_phone,
+  created_by, created_at, updated_at
+`;
+
+export const CREDIT_NOTE_ITEM_FIELDS = `
+  id, credit_note_id, description, quantity, rate, amount, sort_order, created_at
+`;
+
+export const SUPPLIER_FIELDS = `
+  id, name, company, email, phone, address, tax_number,
+  payment_terms_days, currency, bank_name, bank_account, bank_iban,
+  notes, is_active, created_by, created_at, updated_at
+`;
+
+export const PURCHASE_ORDER_FIELDS = `
+  id, po_number, supplier_id, project_id, status,
+  issue_date, expected_delivery_date, currency,
+  subtotal, tax_rate, tax_amount, total, notes,
+  supplier_name, supplier_company, supplier_email,
+  created_by, created_at, updated_at
+`;
+
+export const PO_ITEM_FIELDS = `
+  id, purchase_order_id, description, quantity, rate, amount, sort_order, created_at
 `;
 
 // ============================================================

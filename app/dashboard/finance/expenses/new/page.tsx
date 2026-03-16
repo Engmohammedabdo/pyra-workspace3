@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 
 interface Category { id: string; name: string; name_ar: string; }
 interface Project { id: string; name: string; }
+interface Supplier { id: string; name: string; company: string | null; }
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'نقداً' },
@@ -29,11 +30,12 @@ export default function NewExpensePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
     expense_date: new Date().toISOString().split('T')[0],
-    vendor: '', payment_method: '', category_id: '', project_id: '', notes: '',
+    vendor: '', payment_method: '', category_id: '', project_id: '', supplier_id: '', notes: '',
     is_recurring: false, recurring_period: '',
   });
 
@@ -45,6 +47,10 @@ export default function NewExpensePage() {
     fetch('/api/projects?pageSize=100')
       .then(r => r.json())
       .then(j => { if (j.data) setProjects(j.data.map((p: Project) => ({ id: p.id, name: p.name }))); })
+      .catch(() => {});
+    fetch('/api/dashboard/suppliers?limit=100&active=true')
+      .then(r => r.json())
+      .then(j => { if (j.data) setSuppliers(j.data); })
       .catch(() => {});
   }, []);
 
@@ -65,6 +71,7 @@ export default function NewExpensePage() {
           vat_rate: Number(form.vat_rate),
           category_id: form.category_id || null,
           project_id: form.project_id || null,
+          supplier_id: form.supplier_id || null,
           payment_method: form.payment_method || null,
         }),
       });
@@ -103,7 +110,23 @@ export default function NewExpensePage() {
                 <Input value={form.description} onChange={e => update('description', e.target.value)} placeholder="وصف المصروف" />
               </div>
               <div className="space-y-2">
-                <Label>المورد</Label>
+                <Label>المورد (من السجل)</Label>
+                <Select value={form.supplier_id} onValueChange={v => {
+                  update('supplier_id', v === 'none' ? '' : v);
+                  if (v !== 'none') {
+                    const sup = suppliers.find(s => s.id === v);
+                    if (sup) update('vendor', sup.name);
+                  }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="اختر مورد" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">بدون ربط</SelectItem>
+                    {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.company ? ` — ${s.company}` : ''}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>اسم المورد</Label>
                 <Input value={form.vendor} onChange={e => update('vendor', e.target.value)} placeholder="اسم المورد" />
               </div>
               <div className="space-y-2">

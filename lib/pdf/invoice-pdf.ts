@@ -33,6 +33,11 @@ interface InvoiceData {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  discount_type?: 'percentage' | 'fixed' | null;
+  discount_value?: number;
+  discount_amount?: number;
+  early_payment_discount_percent?: number;
+  early_payment_discount_days?: number;
   amount_paid: number;
   amount_due: number;
   notes: string | null;
@@ -295,6 +300,17 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
   doc.setTextColor(24, 24, 27);
   doc.text(formatCurrency(invoice.subtotal, invoice.currency), totalsValueX, y, { align: 'right' });
   y += 6;
+
+  // Discount (if any)
+  if (invoice.discount_amount && invoice.discount_amount > 0) {
+    doc.setTextColor(220, 38, 38); // Red
+    const discountLabel = invoice.discount_type === 'percentage'
+      ? `Discount (${invoice.discount_value || 0}%):`
+      : 'Discount:';
+    doc.text(discountLabel, totalsX, y);
+    doc.text(`- ${formatCurrency(invoice.discount_amount, invoice.currency)}`, totalsValueX, y, { align: 'right' });
+    y += 6;
+  }
 
   // Tax
   doc.setTextColor(113, 113, 122);

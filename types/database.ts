@@ -435,6 +435,11 @@ export interface PyraInvoice {
   client_company: string | null;
   client_phone: string | null;
   client_address: string | null;
+  discount_type: 'percentage' | 'fixed' | null;
+  discount_value: number;
+  discount_amount: number;
+  early_payment_discount_percent: number;
+  early_payment_discount_days: number;
   milestone_type: 'booking_deposit' | 'initial_delivery' | 'final_delivery' | null;
   parent_invoice_id: string | null;
   created_by: string | null;
@@ -450,6 +455,96 @@ export interface PyraInvoiceItem {
   quantity: number;
   rate: number;
   amount: number;
+  created_at: string;
+}
+
+export interface PyraCreditNote {
+  id: string;
+  credit_note_number: string;
+  invoice_id: string | null;
+  client_id: string | null;
+  reason: string;
+  status: 'draft' | 'issued' | 'applied' | 'cancelled';
+  issue_date: string;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  applied_amount: number;
+  notes: string | null;
+  company_name: string | null;
+  company_logo: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_company: string | null;
+  client_phone: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraCreditNoteItem {
+  id: string;
+  credit_note_id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface PyraSupplier {
+  id: string;
+  name: string;
+  company: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  tax_number: string | null;
+  payment_terms_days: number;
+  currency: string;
+  bank_name: string | null;
+  bank_account: string | null;
+  bank_iban: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraPurchaseOrder {
+  id: string;
+  po_number: string;
+  supplier_id: string | null;
+  project_id: string | null;
+  status: 'draft' | 'sent' | 'acknowledged' | 'received' | 'invoiced' | 'cancelled';
+  issue_date: string;
+  expected_delivery_date: string | null;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  notes: string | null;
+  supplier_name: string | null;
+  supplier_company: string | null;
+  supplier_email: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PyraPurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  description: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+  sort_order: number;
   created_at: string;
 }
 
@@ -607,6 +702,11 @@ export interface PyraExpense {
   notes: string | null;
   is_recurring: boolean;
   recurring_period: string | null;
+  status: 'draft' | 'pending' | 'approved' | 'rejected';
+  approved_by: string | null;
+  approved_at: string | null;
+  approval_notes: string | null;
+  submitted_by: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

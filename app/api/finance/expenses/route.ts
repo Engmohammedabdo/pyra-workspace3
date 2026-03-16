@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
   const projectId = url.get('project_id') || '';
   const from = url.get('from') || '';
   const to = url.get('to') || '';
+  const status = url.get('status') || '';
 
   try {
     let query = supabase
@@ -45,6 +46,9 @@ export async function GET(req: NextRequest) {
     }
     if (to) {
       query = query.lte('expense_date', to);
+    }
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
     }
 
     // Scope filtering for non-admins
@@ -133,7 +137,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, project_id, receipt_url, notes, is_recurring, recurring_period } = body;
+    const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, project_id, supplier_id, receipt_url, notes, is_recurring, recurring_period } = body;
 
     if (!amount || amount <= 0) return apiError('المبلغ مطلوب', 422);
 
@@ -143,6 +147,16 @@ export async function POST(req: NextRequest) {
     }
 
     const vat_amount = vat_rate ? (amount * vat_rate / 100) : 0;
+
+    // Check if expense approval is required from settings
+    const { data: approvalSetting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'expense_approval_required')
+      .maybeSingle();
+
+    const approvalRequired = approvalSetting?.value === 'true';
+    const expenseStatus = approvalRequired ? 'pending' : 'approved';
 
     const { data, error } = await supabase
       .from('pyra_expenses')
@@ -158,10 +172,13 @@ export async function POST(req: NextRequest) {
         payment_method,
         category_id: category_id || null,
         project_id: project_id || null,
+        supplier_id: supplier_id || null,
         receipt_url,
         notes,
         is_recurring: is_recurring || false,
         recurring_period,
+        status: expenseStatus,
+        submitted_by: approvalRequired ? auth.pyraUser.username : null,
         created_by: auth.pyraUser.username,
       })
       .select(EXPENSE_FIELDS)
