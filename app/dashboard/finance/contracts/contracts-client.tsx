@@ -204,9 +204,9 @@ export default function ContractsClient() {
       render: (c) => (
         <div className="flex items-center gap-1" data-no-row-click>
           <Link href={`/dashboard/finance/contracts/${c.id}`}>
-            <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل العقد"><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)} aria-label="حذف العقد">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -233,8 +233,8 @@ export default function ContractsClient() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="بحث..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="pr-10" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input placeholder="بحث..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="ps-10" />
         </div>
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
           <SelectTrigger className="w-[150px]"><SelectValue placeholder="الحالة" /></SelectTrigger>

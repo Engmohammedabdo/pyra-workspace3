@@ -219,7 +219,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 ml-2" />
+                <Save className="h-4 w-4 me-2" />
                 {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
               </Button>
             </div>

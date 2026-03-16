@@ -149,11 +149,11 @@ export default function RecurringInvoicesPage() {
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleGenerate} disabled={generating}>
-            <Zap className="h-4 w-4 ml-2" />
+            <Zap className="h-4 w-4 me-2" />
             {generating ? 'جاري التوليد...' : 'توليد الفواتير المستحقة'}
           </Button>
           <Link href="/dashboard/finance/recurring/new">
-            <Button><Plus className="h-4 w-4 ml-2" /> إضافة فاتورة متكررة</Button>
+            <Button><Plus className="h-4 w-4 me-2" /> إضافة فاتورة متكررة</Button>
           </Link>
         </div>
       </div>
@@ -200,12 +200,12 @@ export default function RecurringInvoicesPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="بحث..."
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1); }}
-            className="pr-10"
+            className="ps-10"
           />
         </div>
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
@@ -257,7 +257,7 @@ export default function RecurringInvoicesPage() {
                       <div>
                         <span className="font-medium">{ri.title}</span>
                         {ri.auto_send && (
-                          <Badge variant="outline" className="mr-2 text-xs">إرسال تلقائي</Badge>
+                          <Badge variant="outline" className="ms-2 text-xs">إرسال تلقائي</Badge>
                         )}
                       </div>
                       {ri.contract_title && (
@@ -277,7 +277,7 @@ export default function RecurringInvoicesPage() {
                       <span className={isDue ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
                         {formatDate(ri.next_generation_date)}
                       </span>
-                      {isDue && <Badge variant="destructive" className="mr-2 text-xs">مستحق</Badge>}
+                      {isDue && <Badge variant="destructive" className="ms-2 text-xs">مستحق</Badge>}
                     </td>
                     <td className="p-3 text-muted-foreground">
                       {ri.last_generated_at ? formatDate(ri.last_generated_at) : '—'}
@@ -290,7 +290,7 @@ export default function RecurringInvoicesPage() {
                     <td className="p-3">
                       <div className="flex items-center gap-1">
                         <Link href={`/dashboard/finance/recurring/${ri.id}`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل">
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
                         </Link>
@@ -299,6 +299,7 @@ export default function RecurringInvoicesPage() {
                           size="icon"
                           className="h-8 w-8 text-red-600"
                           onClick={() => setDeleteId(ri.id)}
+                          aria-label="حذف"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

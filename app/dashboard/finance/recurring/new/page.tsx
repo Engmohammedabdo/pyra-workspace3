@@ -289,7 +289,7 @@ export default function CreateRecurringInvoicePage() {
             <div className="flex items-center justify-between">
               <CardTitle>بنود الفاتورة</CardTitle>
               <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                <Plus className="h-4 w-4 ml-2" />
+                <Plus className="h-4 w-4 me-2" />
                 إضافة بند
               </Button>
             </div>
@@ -393,12 +393,12 @@ export default function CreateRecurringInvoicePage() {
           <Button type="submit" disabled={loading}>
             {loading ? (
               <>
-                <Loader2 className="h-4 w-4 ml-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
                 جاري الحفظ...
               </>
             ) : (
               <>
-                <Save className="h-4 w-4 ml-2" />
+                <Save className="h-4 w-4 me-2" />
                 حفظ الفاتورة المتكررة
               </>
             )}

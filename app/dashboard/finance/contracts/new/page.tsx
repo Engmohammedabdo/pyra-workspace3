@@ -233,7 +233,7 @@ export default function NewContractPage() {
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 ml-2" />
+                <Save className="h-4 w-4 me-2" />
                 {saving ? 'جاري الحفظ...' : 'إنشاء العقد'}
               </Button>
             </div>

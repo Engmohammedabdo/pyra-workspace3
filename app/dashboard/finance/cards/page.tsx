@@ -148,7 +148,7 @@ export default function CardsPage() {
             <CreditCard className="h-6 w-6" /> البطاقات
           </h1>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 ml-2" /> إضافة بطاقة</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 me-2" /> إضافة بطاقة</Button>
       </div>
 
       {/* Cards Grid */}
@@ -182,10 +182,10 @@ export default function CardsPage() {
                     <p className="text-sm text-muted-foreground">{c.bank_name || ''}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)} aria-label="تعديل البطاقة">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)} aria-label="حذف البطاقة">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

@@ -190,7 +190,7 @@ export default function NewExpensePage() {
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 ml-2" />
+                <Save className="h-4 w-4 me-2" />
                 {saving ? 'جاري الحفظ...' : 'حفظ المصروف'}
               </Button>
             </div>

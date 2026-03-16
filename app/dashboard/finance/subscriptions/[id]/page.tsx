@@ -105,7 +105,7 @@ export default function EditSubscriptionPage({ params }: { params: Promise<{ id:
               <Label className="cursor-pointer" onClick={() => u('auto_renew', !form.auto_renew)}>تجديد تلقائي</Label>
             </div>
             <div className="space-y-2"><Label>ملاحظات</Label><Textarea value={form.notes} onChange={e => u('notes', e.target.value)} rows={3} /></div>
-            <div className="flex justify-end"><Button type="submit" disabled={saving}><Save className="h-4 w-4 ml-2" />{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</Button></div>
+            <div className="flex justify-end"><Button type="submit" disabled={saving}><Save className="h-4 w-4 me-2" />{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}</Button></div>
           </CardContent>
         </Card>
       </form>

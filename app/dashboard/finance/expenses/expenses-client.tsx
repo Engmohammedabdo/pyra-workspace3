@@ -231,18 +231,18 @@ export default function ExpensesClient() {
         <div className="flex items-center gap-1" data-no-row-click>
           {exp.status === 'pending' && (
             <>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد" aria-label="اعتماد المصروف">
                 <CheckCircle className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleApproval(exp.id, 'reject')} title="رفض">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleApproval(exp.id, 'reject')} title="رفض" aria-label="رفض المصروف">
                 <XCircle className="h-3.5 w-3.5" />
               </Button>
             </>
           )}
           <Link href={`/dashboard/finance/expenses/${exp.id}`}>
-            <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل المصروف"><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(exp.id)}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(exp.id)} aria-label="حذف المصروف">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

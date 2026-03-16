@@ -603,7 +603,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 ml-2" />
+                <Save className="h-4 w-4 me-2" />
                 {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
               </Button>
             </div>
@@ -711,7 +711,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                         </div>
                         <Link href={`/dashboard/invoices/${inv.id}`}>
                           <Button variant="ghost" size="sm" className="h-8 text-xs">
-                            <FileText className="h-3.5 w-3.5 ml-1" />
+                            <FileText className="h-3.5 w-3.5 me-1" />
                             عرض
                           </Button>
                         </Link>
@@ -734,7 +734,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">مراحل العقد</CardTitle>
               <Button size="sm" onClick={openAddMilestone}>
-                <Plus className="h-4 w-4 ml-1" />
+                <Plus className="h-4 w-4 me-1" />
                 إضافة مرحلة
               </Button>
             </div>
@@ -792,13 +792,13 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                       <div className="flex items-center gap-1 shrink-0">
                         {(m.status === 'pending' || m.status === 'in_progress') && (
                           <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditMilestone(m)} title="تعديل">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditMilestone(m)} title="تعديل" aria-label="تعديل المرحلة">
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="ghost" size="icon"
                               className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50 dark:hover:bg-green-950"
-                              onClick={() => handleMarkComplete(m)} title="اكتمل"
+                              onClick={() => handleMarkComplete(m)} title="اكتمل" aria-label="تحديد اكتمال المرحلة"
                             >
                               <CheckCircle2 className="h-3.5 w-3.5" />
                             </Button>
@@ -810,14 +810,14 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                             className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950"
                             onClick={() => handleGenerateInvoice(m)} disabled={isGenerating}
                           >
-                            {isGenerating ? <Loader2 className="h-3.5 w-3.5 ml-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 ml-1" />}
+                            {isGenerating ? <Loader2 className="h-3.5 w-3.5 me-1 animate-spin" /> : <FileText className="h-3.5 w-3.5 me-1" />}
                             إنشاء فاتورة
                           </Button>
                         )}
                         {m.status === 'invoiced' && m.invoice_id && (
                           <Link href={`/dashboard/invoices/${m.invoice_id}`}>
                             <Button variant="ghost" size="sm" className="h-8 text-xs text-blue-600 hover:text-blue-700">
-                              <FileText className="h-3.5 w-3.5 ml-1" />
+                              <FileText className="h-3.5 w-3.5 me-1" />
                               عرض الفاتورة
                             </Button>
                           </Link>
@@ -917,7 +917,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
               إلغاء
             </Button>
             <Button onClick={handleSaveMilestone} disabled={milestoneSaving}>
-              {milestoneSaving && <Loader2 className="h-4 w-4 ml-1 animate-spin" />}
+              {milestoneSaving && <Loader2 className="h-4 w-4 me-1 animate-spin" />}
               {editingMilestone ? 'حفظ التعديلات' : 'إضافة'}
             </Button>
           </DialogFooter>

@@ -80,7 +80,7 @@ export default function SubscriptionsPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><RefreshCw className="h-6 w-6" /> الاشتراكات</h1>
         </div>
         <Link href="/dashboard/finance/subscriptions/new">
-          <Button><Plus className="h-4 w-4 ml-2" /> إضافة اشتراك</Button>
+          <Button><Plus className="h-4 w-4 me-2" /> إضافة اشتراك</Button>
         </Link>
       </div>
 

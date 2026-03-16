@@ -143,11 +143,11 @@ export default function ExpenseCategoriesPage() {
                     <td className="p-3">{cat.is_default ? 'نعم' : 'لا'}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)} aria-label="تعديل التصنيف">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         {!cat.is_default && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(cat.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(cat.id)} aria-label="حذف التصنيف">
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
