@@ -286,10 +286,10 @@ export default function PortalQuotesPage() {
 
             {/* Signature */}
             {detail.signature_data ? (
-              <div className="border rounded-lg p-4 bg-green-50">
-                <p className="text-sm font-semibold text-green-700 mb-2">تم التوقيع</p>
+              <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950/30 dark:border-green-800/30">
+                <p className="text-sm font-semibold text-green-700 dark:text-green-400 mb-2">تم التوقيع</p>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={detail.signature_data} alt="Signature" className="border rounded bg-white max-w-[300px]" />
+                <img src={detail.signature_data} alt="Signature" className="border rounded bg-white dark:bg-gray-900 max-w-[300px]" />
                 <p className="text-xs text-muted-foreground mt-2">
                   بواسطة: {detail.signed_by} — {detail.signed_at ? formatDate(detail.signed_at, 'dd-MM-yyyy') : ''}
                 </p>

@@ -741,15 +741,15 @@ export default function EtmamScriptsPage() {
                         <div className="p-6 lg:p-8" dir="rtl">
                           {/* UX Hint Banner */}
                           {!currentReview || currentReview.status !== 'approved' ? (
-                            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 border-2 border-red-200 mb-6 shadow-sm">
-                              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
-                                <AlertTriangle className="h-4.5 w-4.5 text-red-600" />
+                            <div className="flex items-start gap-3 p-4 rounded-xl bg-red-50 dark:bg-red-950/30 border-2 border-red-200 dark:border-red-800/40 mb-6 shadow-sm">
+                              <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center shrink-0 mt-0.5">
+                                <AlertTriangle className="h-4.5 w-4.5 text-red-600 dark:text-red-400" />
                               </div>
                               <div>
-                                <p className="text-sm font-bold text-red-800 mb-1">
+                                <p className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
                                   مطلوب منك اتخاذ إجراء
                                 </p>
-                                <p className="text-sm text-red-700 leading-relaxed">
+                                <p className="text-sm text-red-700 dark:text-red-400 leading-relaxed">
                                   بعد قراءة السكريبت، انتقل لأسفل الصفحة لاعتماده أو طلب تعديلات. يمكنك أيضاً التواصل مع فريق العمل عبر المحادثة المرفقة.
                                 </p>
                               </div>
@@ -769,19 +769,19 @@ export default function EtmamScriptsPage() {
                           <div className="mt-8 pt-6 border-t border-[#e6dfd7]">
                             {currentReview?.status === 'approved' ? (
                               /* Already approved */
-                              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 border border-green-200">
-                                <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
+                              <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800/40">
+                                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 shrink-0" />
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-green-800">
+                                  <p className="text-sm font-medium text-green-800 dark:text-green-300">
                                     تم اعتماد هذه النسخة
                                   </p>
-                                  <p className="text-xs text-green-600 mt-0.5">
+                                  <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
                                     بواسطة {currentReview.client_name}
                                     {currentReview.reviewed_at &&
                                       ` • ${new Date(currentReview.reviewed_at).toLocaleString('ar-SA')}`}
                                   </p>
                                   {currentReview.comment && (
-                                    <p className="text-xs text-green-700 mt-2 bg-green-100 rounded p-2">
+                                    <p className="text-xs text-green-700 dark:text-green-300 mt-2 bg-green-100 dark:bg-green-900/40 rounded p-2">
                                       {currentReview.comment}
                                     </p>
                                   )}
@@ -790,19 +790,19 @@ export default function EtmamScriptsPage() {
                             ) : currentReview?.status === 'revision_requested' ? (
                               /* Revision requested — show previous comment + allow re-approve */
                               <div className="space-y-3">
-                                <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 border border-red-200">
-                                  <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 mt-0.5" />
+                                <div className="flex items-start gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40">
+                                  <AlertTriangle className="h-5 w-5 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
                                   <div className="flex-1">
-                                    <p className="text-sm font-medium text-red-800">
+                                    <p className="text-sm font-medium text-red-800 dark:text-red-300">
                                       تم طلب تعديل على هذه النسخة
                                     </p>
-                                    <p className="text-xs text-red-600 mt-0.5">
+                                    <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
                                       بواسطة {currentReview.client_name}
                                       {currentReview.reviewed_at &&
                                         ` • ${new Date(currentReview.reviewed_at).toLocaleString('ar-SA')}`}
                                     </p>
                                     {currentReview.comment && (
-                                      <p className="text-xs text-red-700 mt-2 bg-red-100 rounded p-2">
+                                      <p className="text-xs text-red-700 dark:text-red-300 mt-2 bg-red-100 dark:bg-red-900/40 rounded p-2">
                                         {currentReview.comment}
                                       </p>
                                     )}
@@ -929,14 +929,14 @@ export default function EtmamScriptsPage() {
                                             key={reply.id}
                                             className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
                                               reply.sender_type === 'admin'
-                                                ? 'bg-blue-50 border border-blue-100'
-                                                : 'bg-gray-50 border border-gray-100'
+                                                ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-800/30'
+                                                : 'bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/50'
                                             }`}
                                           >
                                             <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                                               reply.sender_type === 'admin'
-                                                ? 'bg-blue-100 text-blue-600'
-                                                : 'bg-gray-200 text-gray-600'
+                                                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
+                                                : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                             }`}>
                                               {reply.sender_type === 'admin' ? (
                                                 <Shield className="h-3 w-3" />

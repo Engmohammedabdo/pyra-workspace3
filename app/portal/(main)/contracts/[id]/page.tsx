@@ -257,9 +257,9 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
             <div className="space-y-3">
               {contract.milestones.map((m, idx) => {
                 const milestoneStatusMap: Record<string, { label: string; icon: typeof CheckCircle; color: string }> = {
-                  completed: { label: 'مكتمل', icon: CheckCircle, color: 'text-emerald-500' },
-                  invoiced: { label: 'مفوتر', icon: Receipt, color: 'text-blue-500' },
-                  in_progress: { label: 'قيد التنفيذ', icon: Clock, color: 'text-amber-500' },
+                  completed: { label: 'مكتمل', icon: CheckCircle, color: 'text-emerald-500 dark:text-emerald-400' },
+                  invoiced: { label: 'مفوتر', icon: Receipt, color: 'text-blue-500 dark:text-blue-400' },
+                  in_progress: { label: 'قيد التنفيذ', icon: Clock, color: 'text-amber-500 dark:text-amber-400' },
                   pending: { label: 'قيد الانتظار', icon: Clock, color: 'text-muted-foreground' },
                 };
                 const ms = milestoneStatusMap[m.status] || milestoneStatusMap.pending;

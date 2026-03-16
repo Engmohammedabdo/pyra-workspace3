@@ -32,7 +32,7 @@ export default function PaymentSuccessPage() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-green-700">
+            <h1 className="text-2xl font-bold text-green-700 dark:text-green-400">
               تم الدفع بنجاح
             </h1>
             <p className="text-muted-foreground">

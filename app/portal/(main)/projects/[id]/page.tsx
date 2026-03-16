@@ -107,38 +107,38 @@ interface ProjectDetail {
 const statusConfig: Record<string, { label: string; className: string }> = {
   active: {
     label: 'نشط',
-    className: 'bg-green-500/10 text-green-600 border-green-500/20',
+    className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   },
   in_progress: {
     label: 'قيد التنفيذ',
-    className: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+    className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
   },
   review: {
     label: 'قيد المراجعة',
-    className: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
   },
   completed: {
     label: 'مكتمل',
-    className: 'bg-green-500/10 text-green-600 border-green-500/20',
+    className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   },
   archived: {
     label: 'مؤرشف',
-    className: 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+    className: 'bg-gray-500/10 text-gray-500 dark:text-gray-400 border-gray-500/20',
   },
 };
 
 const approvalStatusConfig: Record<string, { label: string; className: string }> = {
   pending: {
     label: 'بانتظار المراجعة',
-    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   },
   approved: {
     label: 'تمت الموافقة',
-    className: 'bg-green-500/10 text-green-600 border-green-500/20',
+    className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   },
   revision_requested: {
     label: 'مطلوب تعديل',
-    className: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
   },
 };
 

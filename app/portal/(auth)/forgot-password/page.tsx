@@ -71,7 +71,7 @@ export default function PortalForgotPasswordPage() {
           {submitted ? (
             <div className="text-center space-y-4">
               <div className="mx-auto w-14 h-14 rounded-full bg-green-500/10 flex items-center justify-center">
-                <CheckCircle2 className="h-7 w-7 text-green-600" />
+                <CheckCircle2 className="h-7 w-7 text-green-600 dark:text-green-400" />
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-foreground">

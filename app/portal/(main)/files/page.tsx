@@ -100,15 +100,15 @@ interface LevelContents {
 const approvalStatusConfig: Record<string, { label: string; className: string }> = {
   pending: {
     label: 'بانتظار المراجعة',
-    className: 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20',
+    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
   },
   approved: {
     label: 'تمت الموافقة',
-    className: 'bg-green-500/10 text-green-600 border-green-500/20',
+    className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
   },
   revision_requested: {
     label: 'مطلوب تعديل',
-    className: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
   },
 };
 
@@ -150,20 +150,20 @@ function getFileIcon(fileType: string) {
 
 function getFileColorBg(fileType: string): string {
   const type = fileType.toLowerCase();
-  if (type.startsWith('image/')) return 'bg-emerald-50 text-emerald-500';
-  if (type.startsWith('video/')) return 'bg-purple-50 text-purple-500';
-  if (type.startsWith('audio/')) return 'bg-pink-50 text-pink-500';
+  if (type.startsWith('image/')) return 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400';
+  if (type.startsWith('video/')) return 'bg-purple-50 dark:bg-purple-950/30 text-purple-500 dark:text-purple-400';
+  if (type.startsWith('audio/')) return 'bg-pink-50 dark:bg-pink-950/30 text-pink-500 dark:text-pink-400';
   if (type.includes('zip') || type.includes('rar') || type.includes('archive'))
-    return 'bg-amber-50 text-amber-600';
+    return 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400';
   if (type.includes('pdf'))
-    return 'bg-red-50 text-red-500';
+    return 'bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400';
   if (type.includes('document') || type.includes('word'))
-    return 'bg-blue-50 text-blue-500';
+    return 'bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400';
   if (type.includes('sheet') || type.includes('excel') || type.includes('csv'))
-    return 'bg-green-50 text-green-600';
+    return 'bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400';
   if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css') || type.includes('markdown'))
-    return 'bg-cyan-50 text-cyan-500';
-  return 'bg-gray-50 text-gray-400';
+    return 'bg-cyan-50 dark:bg-cyan-950/30 text-cyan-500 dark:text-cyan-400';
+  return 'bg-gray-50 dark:bg-gray-950/30 text-gray-400';
 }
 
 /**
@@ -324,17 +324,17 @@ function FileCard({
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); onPreview(); }}
-            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
             title="معاينة"
           >
-            <Eye className="h-4 w-4 text-gray-700" />
+            <Eye className="h-4 w-4 text-gray-700 dark:text-gray-200" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
-            className="w-9 h-9 rounded-full bg-white/90 hover:bg-white flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
             title="تحميل"
           >
-            <Download className="h-4 w-4 text-gray-700" />
+            <Download className="h-4 w-4 text-gray-700 dark:text-gray-200" />
           </button>
           {canAct && (
             <>

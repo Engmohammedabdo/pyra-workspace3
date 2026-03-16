@@ -296,9 +296,9 @@ export default function PortalInvoiceDetailPage() {
               <Separator />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">المدفوع</span>
-                <span className="font-mono text-green-600" dir="ltr">{fmtNum(invoice.amount_paid)} {invoice.currency}</span>
+                <span className="font-mono text-green-600 dark:text-green-400" dir="ltr">{fmtNum(invoice.amount_paid)} {invoice.currency}</span>
               </div>
-              <div className={`flex justify-between text-sm font-semibold ${invoice.status === 'overdue' ? 'text-red-600' : ''}`}>
+              <div className={`flex justify-between text-sm font-semibold ${invoice.status === 'overdue' ? 'text-red-600 dark:text-red-400' : ''}`}>
                 <span>المتبقي</span>
                 <span className="font-mono" dir="ltr">{fmtNum(invoice.amount_due)} {invoice.currency}</span>
               </div>
@@ -324,7 +324,7 @@ export default function PortalInvoiceDetailPage() {
                       {invoice.payments.map((payment) => (
                         <tr key={payment.id} className="border-b">
                           <td className="p-2">{formatDate(payment.payment_date, 'dd-MM-yyyy')}</td>
-                          <td className="p-2 font-mono text-green-600" dir="ltr">
+                          <td className="p-2 font-mono text-green-600 dark:text-green-400" dir="ltr">
                             {fmtNum(payment.amount)} {invoice.currency}
                           </td>
                           <td className="p-2">
@@ -383,13 +383,13 @@ export default function PortalInvoiceDetailPage() {
                   </div>
                   <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
                     <p className="text-[10px] text-muted-foreground mb-0.5">المحصّل</p>
-                    <p className="text-sm font-bold font-mono text-green-600" dir="ltr">
+                    <p className="text-sm font-bold font-mono text-green-600 dark:text-green-400" dir="ltr">
                       {fmtNum(invoice.contract_summary.total_collected)} {invoice.contract_summary.contract_currency}
                     </p>
                   </div>
                   <div className="bg-white dark:bg-background rounded-lg p-2.5 text-center border">
                     <p className="text-[10px] text-muted-foreground mb-0.5">المتبقي</p>
-                    <p className={`text-sm font-bold font-mono ${invoice.contract_summary.remaining > 0 ? 'text-portal' : 'text-green-600'}`} dir="ltr">
+                    <p className={`text-sm font-bold font-mono ${invoice.contract_summary.remaining > 0 ? 'text-portal' : 'text-green-600 dark:text-green-400'}`} dir="ltr">
                       {fmtNum(invoice.contract_summary.remaining)} {invoice.contract_summary.contract_currency}
                     </p>
                   </div>
