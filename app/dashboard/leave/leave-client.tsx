@@ -319,7 +319,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                   ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">من تاريخ</label>
                   <Input type="date" value={formStart} onChange={(e) => setFormStart(e.target.value)} dir="ltr" />

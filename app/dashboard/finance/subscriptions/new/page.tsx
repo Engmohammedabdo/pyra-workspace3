@@ -49,7 +49,7 @@ export default function NewSubscriptionPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/finance/subscriptions"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <Link href="/dashboard/finance/subscriptions"><Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button></Link>
         <h1 className="text-2xl font-bold">إضافة اشتراك جديد</h1>
       </div>
       <form onSubmit={handleSubmit}>

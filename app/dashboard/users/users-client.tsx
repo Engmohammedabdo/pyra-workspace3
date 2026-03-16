@@ -462,7 +462,7 @@ export default function UsersClient() {
             {/* Section 2: Employee Info */}
             <div className="space-y-4 border-t pt-4">
               <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>نوع الحساب</FormLabel>
                   <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
@@ -489,7 +489,7 @@ export default function UsersClient() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المسمى الوظيفي</FormLabel>
                   <Input
@@ -550,7 +550,7 @@ export default function UsersClient() {
             {/* Section 2: Employee Info */}
             <div className="space-y-4 border-t pt-4">
               <Label className="text-sm font-semibold text-muted-foreground">معلومات الموظف</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>نوع الحساب</FormLabel>
                   <Select value={formData.role} onValueChange={v => setFormData(p => ({ ...p, role: v as 'admin' | 'employee' | 'sales_agent' }))}>
@@ -577,7 +577,7 @@ export default function UsersClient() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المسمى الوظيفي</FormLabel>
                   <Input
@@ -620,7 +620,7 @@ export default function UsersClient() {
             {/* Section 3: Employment Data */}
             <div className="space-y-4 border-t pt-4">
               <Label className="text-sm font-semibold text-muted-foreground">بيانات التوظيف</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>نوع التوظيف</FormLabel>
                   <Select value={formData.employment_type} onValueChange={v => setFormData(p => ({ ...p, employment_type: v === '__none__' ? '' : v }))}>
@@ -648,7 +648,7 @@ export default function UsersClient() {
                   </Select>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>نوع الدفع</FormLabel>
                   <Select value={formData.payment_type} onValueChange={v => setFormData(p => ({ ...p, payment_type: v === '__none__' ? '' : v }))}>

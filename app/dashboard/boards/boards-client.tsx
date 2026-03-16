@@ -138,7 +138,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{'\u0627\u062E\u062A\u0631 \u0642\u0627\u0644\u0628'}</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {BOARD_TEMPLATES.map((t) => {
                       const Icon = TEMPLATE_ICONS[t.icon] || Layout;
                       return (

@@ -426,7 +426,7 @@ export default function InvoiceDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/invoices">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="رجوع">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
@@ -462,7 +462,7 @@ export default function InvoiceDetailPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/invoices">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="رجوع">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>

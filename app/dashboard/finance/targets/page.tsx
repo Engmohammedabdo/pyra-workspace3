@@ -181,7 +181,7 @@ export default function RevenueTargetsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Target className="h-6 w-6" /> أهداف الإيرادات
@@ -217,10 +217,10 @@ export default function RevenueTargetsPage() {
                 <CardContent className="p-6">
                   {/* Actions */}
                   <div className="absolute top-3 start-3 flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(t)} aria-label="تعديل الهدف">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(t.id)}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(t.id)} aria-label="حذف الهدف">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -286,7 +286,7 @@ export default function RevenueTargetsPage() {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>تاريخ البداية *</Label>
                 <Input type="date" value={form.period_start} onChange={e => u('period_start', e.target.value)} />
@@ -297,7 +297,7 @@ export default function RevenueTargetsPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>المبلغ المستهدف *</Label>
                 <Input

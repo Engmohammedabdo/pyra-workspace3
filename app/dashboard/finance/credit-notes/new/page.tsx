@@ -115,7 +115,7 @@ export default function NewCreditNotePage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/finance/credit-notes">
-          <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold">إشعار دائن جديد</h1>

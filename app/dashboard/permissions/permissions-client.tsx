@@ -232,7 +232,7 @@ export default function PermissionsClient() {
                         </div>
                       </td>
                       <td className="p-3">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePermission(p)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removePermission(p)} aria-label="حذف الصلاحية">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </td>
@@ -277,7 +277,7 @@ export default function PermissionsClient() {
             </div>
             <div className="space-y-3">
               <Label>الصلاحيات</Label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
                   <Checkbox checked={form.can_read} onCheckedChange={v => setForm(p => ({ ...p, can_read: !!v }))} />
                   <Label className="font-normal">قراءة</Label>

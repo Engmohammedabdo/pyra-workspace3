@@ -142,7 +142,7 @@ export default function SupplierDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance/suppliers">
-            <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <div>
             <div className="flex items-center gap-2">

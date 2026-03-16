@@ -354,7 +354,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
               <DialogTitle>تسجيل ساعات عمل</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">التاريخ</label>
                   <Input
@@ -675,7 +675,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                     <DialogTitle>إنشاء فترة زمنية</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">تاريخ البداية</label>
                         <Input

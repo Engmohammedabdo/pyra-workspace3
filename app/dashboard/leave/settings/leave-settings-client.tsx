@@ -301,7 +301,7 @@ export default function LeaveSettingsClient() {
                   سيتم ترحيل الأيام المتبقية من أنواع الإجازات التي تسمح بالترحيل (حسب الحد الأقصى
                   المحدد لكل نوع).
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">من سنة</label>
                     <Select
@@ -469,7 +469,7 @@ export default function LeaveSettingsClient() {
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">الاسم (إنجليزي) *</label>
                 <Input
@@ -489,7 +489,7 @@ export default function LeaveSettingsClient() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">الأيقونة</label>
                 <Select
@@ -531,7 +531,7 @@ export default function LeaveSettingsClient() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">الأيام الافتراضية *</label>
                 <Input

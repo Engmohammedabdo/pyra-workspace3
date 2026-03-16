@@ -601,7 +601,7 @@ export default function ClientsClient() {
             {/* Basic Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات أساسية</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>الاسم</FormLabel>
                   <Input
@@ -622,7 +622,7 @@ export default function ClientsClient() {
             {/* Contact Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات التواصل</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>البريد الإلكتروني</FormLabel>
                   <Input
@@ -646,7 +646,7 @@ export default function ClientsClient() {
             {/* Additional Details */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">تفاصيل إضافية</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المصدر</FormLabel>
                   <Select
@@ -729,7 +729,7 @@ export default function ClientsClient() {
             {/* Basic Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات أساسية</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>الاسم</FormLabel>
                   <Input
@@ -750,7 +750,7 @@ export default function ClientsClient() {
             {/* Contact Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات التواصل</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>البريد</FormLabel>
                   <Input
@@ -774,7 +774,7 @@ export default function ClientsClient() {
             {/* Additional Details */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">تفاصيل إضافية</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المصدر</FormLabel>
                   <Select

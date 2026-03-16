@@ -162,12 +162,12 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
           <div className="flex items-center gap-2">
             {hasChanges && (
               <Button size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? <Loader2 className="h-4 w-4 ml-1 animate-spin" /> : <Save className="h-4 w-4 ml-1" />}
+                {saving ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Save className="h-4 w-4 me-1" />}
                 حفظ البنود
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={addItem}>
-              <Plus className="h-4 w-4 ml-1" />
+              <Plus className="h-4 w-4 me-1" />
               إضافة بند
             </Button>
           </div>
@@ -215,6 +215,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                       className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950"
                       onClick={() => addChild(idx)}
                       title="إضافة بند فرعي"
+                      aria-label="إضافة بند فرعي"
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -223,6 +224,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                       className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => removeItem(idx)}
                       title="حذف البند"
+                      aria-label="حذف البند"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -250,6 +252,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
                           onClick={() => removeChild(idx, cIdx)}
                           title="حذف"
+                          aria-label="حذف البند الفرعي"
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -264,7 +267,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
             {items.length > 3 && hasChanges && (
               <div className="flex justify-end pt-2">
                 <Button size="sm" onClick={handleSave} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 ml-1 animate-spin" /> : <Save className="h-4 w-4 ml-1" />}
+                  {saving ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Save className="h-4 w-4 me-1" />}
                   حفظ البنود
                 </Button>
               </div>

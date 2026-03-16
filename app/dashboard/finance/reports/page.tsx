@@ -478,7 +478,7 @@ function VatTab() {
           <Skeleton className="h-10 w-40" />
           <Skeleton className="h-10 w-40" />
         </div>
-        <div className="grid gap-4 grid-cols-3">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className="h-24" />
           ))}

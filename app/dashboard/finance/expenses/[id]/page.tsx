@@ -124,7 +124,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/finance/expenses">
-          <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
         </Link>
         <h1 className="text-2xl font-bold">تعديل المصروف</h1>
       </div>

@@ -189,7 +189,7 @@ export default function HelpCenterPage() {
       {selectedCategory && !hasSearched && (
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={handleBackToCategories}>
+            <Button variant="ghost" size="icon" onClick={handleBackToCategories} aria-label="رجوع">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <h2 className="text-lg font-semibold">{selectedCategory.name}</h2>

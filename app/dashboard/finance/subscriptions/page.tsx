@@ -76,7 +76,7 @@ export default function SubscriptionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <Link href="/dashboard/finance"><Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button></Link>
           <h1 className="text-2xl font-bold flex items-center gap-2"><RefreshCw className="h-6 w-6" /> الاشتراكات</h1>
         </div>
         <Link href="/dashboard/finance/subscriptions/new">
@@ -85,7 +85,7 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card><CardContent className="p-4">
           <p className="text-sm text-muted-foreground">التكلفة الشهرية</p>
           <p className="text-2xl font-bold mt-1 text-orange-600">{formatCurrency(monthlyTotal)}</p>
@@ -167,9 +167,9 @@ export default function SubscriptionsPage() {
                   <td className="p-3">
                     <div className="flex items-center gap-1">
                       <Link href={`/dashboard/finance/subscriptions/${s.id}`}>
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل"><Pencil className="h-3.5 w-3.5" /></Button>
                       </Link>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(s.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" aria-label="حذف" onClick={() => setDeleteId(s.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

@@ -628,6 +628,7 @@ export default function PayrollClient() {
                                           handleDownloadPayslip(run.id, item.username);
                                         }}
                                         disabled={downloadingPayslip === `${run.id}-${item.username}`}
+                                        aria-label="تحميل"
                                       >
                                         {downloadingPayslip === `${run.id}-${item.username}` ? (
                                           <Loader2 className="h-4 w-4 animate-spin" />

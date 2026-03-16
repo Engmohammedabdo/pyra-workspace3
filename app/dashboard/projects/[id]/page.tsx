@@ -420,7 +420,7 @@ export default function ProjectDetailPage() {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/projects')}>
+          <Button variant="ghost" size="icon" aria-label="رجوع" onClick={() => router.push('/dashboard/projects')}>
             <ArrowRight className="h-5 w-5" />
           </Button>
           <div className="flex-1">

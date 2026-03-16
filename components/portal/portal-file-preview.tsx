@@ -227,6 +227,7 @@ export function PortalFilePreview({ file, open, onOpenChange }: PortalFilePrevie
                 size="icon"
                 className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
                 onClick={() => onOpenChange(false)}
+                aria-label="إغلاق"
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -369,6 +370,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
           size="icon"
           className="h-7 w-7"
           onClick={() => setImgZoom((z) => Math.max(0.25, z - 0.25))}
+          aria-label="تصغير"
         >
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
@@ -380,6 +382,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
           size="icon"
           className="h-7 w-7"
           onClick={() => setImgZoom((z) => Math.min(4, z + 0.25))}
+          aria-label="تكبير"
         >
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>

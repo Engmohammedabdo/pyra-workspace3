@@ -411,7 +411,7 @@ export default function EditAutomationPage() {
       <div className="space-y-6 max-w-4xl">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/automations">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="رجوع">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
@@ -437,7 +437,7 @@ export default function EditAutomationPage() {
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/automations">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" aria-label="رجوع">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>

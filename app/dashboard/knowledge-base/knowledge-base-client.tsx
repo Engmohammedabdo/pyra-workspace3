@@ -341,7 +341,7 @@ export default function KnowledgeBaseClient() {
                         {articleCounts[cat.id] || 0} مقالة
                       </span>
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCatDialog(cat)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openCatDialog(cat)} aria-label="تعديل">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         <Button
@@ -349,6 +349,7 @@ export default function KnowledgeBaseClient() {
                           size="icon"
                           className="h-7 w-7 text-destructive"
                           onClick={() => { setDeletingCatId(cat.id); setShowDeleteCat(true); }}
+                          aria-label="حذف"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>

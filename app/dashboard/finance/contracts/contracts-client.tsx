@@ -219,7 +219,7 @@ export default function ContractsClient() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <FileSignature className="h-6 w-6" /> العقود

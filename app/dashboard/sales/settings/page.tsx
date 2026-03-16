@@ -164,7 +164,7 @@ function PipelineStagesManager({ stages, onRefresh }: { stages: Stage[]; onRefre
           </div>
         ))}
 
-        <div className="border-t pt-4 grid grid-cols-4 gap-2 items-end">
+        <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
           <div>
             <Label className="text-xs">الاسم (عربي)</Label>
             <Input value={newStage.name_ar} onChange={e => setNewStage(s => ({ ...s, name_ar: e.target.value }))} placeholder="اسم المرحلة" />
@@ -265,7 +265,7 @@ function LabelsManager({ labels, onRefresh }: { labels: SalesLabel[]; onRefresh:
           ))
         )}
 
-        <div className="border-t pt-4 grid grid-cols-4 gap-2 items-end">
+        <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
           <div>
             <Label className="text-xs">الاسم (عربي)</Label>
             <Input value={newLabel.name_ar} onChange={e => setNewLabel(l => ({ ...l, name_ar: e.target.value }))} placeholder="اسم التصنيف" />
@@ -432,7 +432,7 @@ function WAInstancesManager({ instances, onRefresh }: { instances: WAInstance[];
           ))
         )}
 
-        <div className="border-t pt-4 grid grid-cols-4 gap-2 items-end">
+        <div className="border-t pt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 items-end">
           <div>
             <Label className="text-xs">اسم Instance</Label>
             <Input value={newInstance.instance_name} onChange={e => setNewInstance(i => ({ ...i, instance_name: e.target.value }))} placeholder="my-instance" dir="ltr" />

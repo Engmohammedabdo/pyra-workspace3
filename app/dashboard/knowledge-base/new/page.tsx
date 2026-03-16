@@ -104,7 +104,7 @@ export default function NewArticlePage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/knowledge-base">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" aria-label="رجوع">
             <ArrowRight className="h-4 w-4" />
           </Button>
         </Link>
