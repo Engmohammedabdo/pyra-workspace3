@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { getStripe } from '@/lib/stripe';
+import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     let event: Stripe.Event;
 
     // Verify webhook signature — REQUIRED in production
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    const webhookSecret = await getStripeWebhookSecret();
     if (!webhookSecret) {
       console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET not set — refusing to process');
       return NextResponse.json(
@@ -34,7 +34,8 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
+    const stripe = await getStripeClient();
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
 
     const supabase = createServiceRoleClient();
 

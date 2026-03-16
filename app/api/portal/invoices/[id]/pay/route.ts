@@ -9,7 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { getStripe } from '@/lib/stripe';
+import { getStripeClient } from '@/lib/stripe';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -66,7 +66,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     // 5. Create Stripe Checkout Session
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 
-    const session = await getStripe().checkout.sessions.create({
+    const stripe = await getStripeClient();
+    const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   ArrowRight, Send, Download, Trash2, Plus, Save,
-  CreditCard, Loader2, FileText, Pencil, X, Activity, FileCheck,
+  CreditCard, Loader2, FileText, Pencil, X, Activity, FileCheck, Link2, Copy,
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -148,6 +148,9 @@ export default function InvoiceDetailPage() {
   const [sending, setSending] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+
+  /* ── stripe payment link ── */
+  const [generatingLink, setGeneratingLink] = useState(false);
 
   /* ── payment dialog ── */
   const [showPayment, setShowPayment] = useState(false);
@@ -342,6 +345,33 @@ export default function InvoiceDetailPage() {
     setPayNotes('');
   };
 
+  /* ── generate Stripe payment link ── */
+  const handleGeneratePaymentLink = async () => {
+    if (!invoice) return;
+    setGeneratingLink(true);
+    try {
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id: invoice.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل في إنشاء رابط الدفع');
+        return;
+      }
+      const url = json.data?.checkout_url || json.checkout_url;
+      if (url) {
+        await navigator.clipboard.writeText(url);
+        toast.success('تم نسخ رابط الدفع');
+      }
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
   /* ── download PDF ── */
   const handleDownloadPDF = async () => {
     if (!invoice) return;
@@ -465,13 +495,25 @@ export default function InvoiceDetailPage() {
             </Button>
           )}
           {canRecordPayment && (
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-              onClick={() => setShowPayment(true)}
-            >
-              <CreditCard className="h-4 w-4 me-1" /> تسجيل دفعة
-            </Button>
+            <>
+              <Button
+                size="sm"
+                className="bg-green-600 hover:bg-green-700"
+                onClick={() => setShowPayment(true)}
+              >
+                <CreditCard className="h-4 w-4 me-1" /> تسجيل دفعة
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 dark:border-indigo-800 dark:hover:bg-indigo-950/50"
+                onClick={handleGeneratePaymentLink}
+                disabled={generatingLink}
+              >
+                {generatingLink ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Link2 className="h-4 w-4 me-1" />}
+                رابط دفع Stripe
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
             <Download className="h-4 w-4 me-1" /> PDF

@@ -15,6 +15,7 @@ import {
   Settings, Save, Key, Copy, Trash2, Plus, Shield, Check,
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
+  CreditCard, Eye, EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
@@ -49,6 +50,11 @@ const SETTING_LABELS: Record<string, { label: string; description: string; group
   // Portal (NEW)
   portal_enabled: { label: 'تفعيل بورتال العملاء', description: 'تمكين أو تعطيل بورتال العملاء بالكامل', group: 'portal' },
   portal_welcome_message: { label: 'رسالة الترحيب', description: 'رسالة ترحيب تظهر للعميل عند تسجيل الدخول', group: 'portal' },
+  // Stripe
+  stripe_enabled: { label: 'تفعيل الدفع الإلكتروني', description: 'تمكين أو تعطيل الدفع عبر Stripe بالكامل', group: 'stripe' },
+  stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', group: 'stripe', dir: 'ltr' },
+  stripe_secret_key: { label: 'Secret Key', description: 'المفتاح السري — يبدأ بـ sk_live_ أو sk_test_', group: 'stripe', dir: 'ltr' },
+  stripe_webhook_secret: { label: 'Webhook Secret', description: 'سر Webhook — يبدأ بـ whsec_', group: 'stripe', dir: 'ltr' },
 };
 
 /* ── Group definitions with icons and gradients ── */
@@ -64,6 +70,7 @@ const GROUPS: Array<{
   { key: 'bank', label: 'البيانات البنكية', icon: Landmark, gradient: 'from-violet-500 to-purple-600' },
   { key: 'storage', label: 'إعدادات التخزين', icon: HardDrive, gradient: 'from-rose-500 to-pink-600' },
   { key: 'portal', label: 'بورتال العملاء', icon: Globe, gradient: 'from-cyan-500 to-sky-600' },
+  { key: 'stripe', label: 'الدفع الإلكتروني (Stripe)', icon: CreditCard, gradient: 'from-indigo-500 to-purple-600' },
 ];
 
 /* ── Sub-settings navigation links ── */
@@ -493,6 +500,9 @@ function ModuleSettingsTab() {
 /* ══════════════════════════════════════════════════════════════
    Main Settings Page
    ══════════════════════════════════════════════════════════════ */
+/* ── Secret field keys that should use password input ── */
+const SECRET_FIELDS = new Set(['stripe_secret_key', 'stripe_webhook_secret']);
+
 export default function SettingsClient() {
   const canManage = usePermission('settings.manage');
   const [settings, setSettings] = useState<SettingsMap>({});
@@ -500,6 +510,7 @@ export default function SettingsClient() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
+  const [visibleSecrets, setVisibleSecrets] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch('/api/settings')
@@ -602,7 +613,7 @@ export default function SettingsClient() {
                   {groupSettings.map(([key, meta]) => (
                     <div key={key} className="space-y-1.5">
                       <Label htmlFor={key} className="text-sm font-medium">{meta.label}</Label>
-                      {key === 'portal_enabled' ? (
+                      {key === 'portal_enabled' || key === 'stripe_enabled' ? (
                         <div className="flex items-center gap-3">
                           <Switch
                             id={key}
@@ -614,6 +625,31 @@ export default function SettingsClient() {
                           <span className="text-sm text-muted-foreground">
                             {settings[key] === 'true' || settings[key] === '1' ? 'مفعّل' : 'معطّل'}
                           </span>
+                        </div>
+                      ) : SECRET_FIELDS.has(key) ? (
+                        <div className="relative">
+                          <Input
+                            id={key}
+                            type={visibleSecrets.has(key) ? 'text' : 'password'}
+                            value={settings[key] || ''}
+                            onChange={e => setSettings(prev => ({ ...prev, [key]: e.target.value }))}
+                            dir="ltr"
+                            className="rounded-xl pe-10"
+                            disabled={!canManage}
+                            placeholder="••••••••••••••••"
+                          />
+                          <button
+                            type="button"
+                            className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors"
+                            onClick={() => setVisibleSecrets(prev => {
+                              const next = new Set(prev);
+                              if (next.has(key)) next.delete(key); else next.add(key);
+                              return next;
+                            })}
+                            tabIndex={-1}
+                          >
+                            {visibleSecrets.has(key) ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </button>
                         </div>
                       ) : (
                         <Input

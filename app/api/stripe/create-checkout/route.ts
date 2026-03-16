@@ -3,7 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { getStripe } from '@/lib/stripe';
+import { getStripeClient } from '@/lib/stripe';
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,7 +66,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Create Stripe Checkout session
-    const session = await getStripe().checkout.sessions.create({
+    const stripe = await getStripeClient();
+    const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
         price_data: {

@@ -49,6 +49,11 @@ const ALLOWED_KEYS = new Set([
   'invoice_prefix',
   'payment_terms_days',
   'default_currency',
+  // Stripe settings
+  'stripe_enabled',
+  'stripe_publishable_key',
+  'stripe_secret_key',
+  'stripe_webhook_secret',
   // KPI settings
   'kpi_storage_warning_percent',
   // Default language
