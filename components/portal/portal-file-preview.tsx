@@ -363,7 +363,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg"
+        className="absolute bottom-6 start-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg"
       >
         <Button
           variant="ghost"
@@ -538,7 +538,7 @@ function TextPreview({ url, name, mime }: { url: string; name: string; mime: str
                   </div>
                 </div>
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-transparent" />
+              <div className="absolute bottom-0 start-0 end-0 h-px bg-gradient-to-l from-transparent via-emerald-500/30 to-transparent" />
             </div>
 
             {/* Beautiful rendered markdown */}
@@ -871,7 +871,7 @@ function DocxPreview({ url, name, onDownload }: { url: string; name: string; onD
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         />
         {/* Fallback overlay in case Office viewer doesn't load */}
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-4 start-1/2 -translate-x-1/2">
           <Button
             variant="outline"
             size="sm"

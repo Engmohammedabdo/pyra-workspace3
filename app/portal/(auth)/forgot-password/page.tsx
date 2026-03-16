@@ -106,7 +106,7 @@ export default function PortalForgotPasswordPage() {
                     required
                     autoComplete="email"
                     dir="ltr"
-                    className="text-left ps-10"
+                    className="text-start ps-10"
                   />
                   <Mail className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 </div>

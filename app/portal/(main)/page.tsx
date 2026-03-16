@@ -437,8 +437,8 @@ export default function PortalDashboardPage() {
         <Card className="overflow-hidden border-portal/20">
           <div className="relative bg-gradient-to-l from-portal/10 via-portal/5 to-transparent">
             {/* Decorative circles */}
-            <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-portal/5 blur-2xl" />
-            <div className="absolute -bottom-10 -right-10 w-32 h-32 rounded-full bg-portal/5 blur-2xl" />
+            <div className="absolute -top-10 -start-10 w-40 h-40 rounded-full bg-portal/5 blur-2xl" />
+            <div className="absolute -bottom-10 -end-10 w-32 h-32 rounded-full bg-portal/5 blur-2xl" />
             <CardContent className="relative flex items-center gap-4 py-8 px-6">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-portal to-portal-secondary flex items-center justify-center shrink-0 shadow-lg shadow-portal/20">
                 <LayoutDashboard className="h-7 w-7 text-white" />
@@ -747,7 +747,7 @@ export default function PortalDashboardPage() {
               {data?.recentActivity && data.recentActivity.length > 0 ? (
                 <div className="relative space-y-0">
                   {/* Vertical timeline line */}
-                  <div className="absolute top-2 bottom-2 right-[11px] w-px bg-border" />
+                  <div className="absolute top-2 bottom-2 end-[11px] w-px bg-border" />
 
                   {data.recentActivity.map((entry, index) => {
                     const ActionIcon = getActionIcon(entry.action_type);

@@ -130,7 +130,7 @@ export default function PortalLoginPage() {
                 required
                 autoComplete="email"
                 dir="ltr"
-                className="text-left"
+                className="text-start"
               />
             </div>
 
@@ -147,7 +147,7 @@ export default function PortalLoginPage() {
                   required
                   autoComplete="current-password"
                   dir="ltr"
-                  className="text-left pe-10"
+                  className="text-start pe-10"
                 />
                 <button
                   type="button"

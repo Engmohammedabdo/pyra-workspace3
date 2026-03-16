@@ -124,7 +124,7 @@ function ResetPasswordForm() {
             minLength={12}
             autoComplete="new-password"
             dir="ltr"
-            className="text-left pe-10"
+            className="text-start pe-10"
           />
           <button
             type="button"
@@ -155,7 +155,7 @@ function ResetPasswordForm() {
             minLength={12}
             autoComplete="new-password"
             dir="ltr"
-            className="text-left pe-10"
+            className="text-start pe-10"
           />
           <button
             type="button"

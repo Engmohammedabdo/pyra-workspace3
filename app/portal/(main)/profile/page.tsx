@@ -230,7 +230,7 @@ export default function PortalProfilePage() {
                   placeholder="client@company.com"
                   required
                   dir="ltr"
-                  className="text-left"
+                  className="text-start"
                 />
               </div>
 
@@ -244,7 +244,7 @@ export default function PortalProfilePage() {
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+971 50 000 0000"
                   dir="ltr"
-                  className="text-left"
+                  className="text-start"
                 />
               </div>
             </div>
@@ -294,7 +294,7 @@ export default function PortalProfilePage() {
                   placeholder="••••••••"
                   required
                   dir="ltr"
-                  className="text-left pe-10"
+                  className="text-start pe-10"
                 />
                 <button
                   type="button"
@@ -325,7 +325,7 @@ export default function PortalProfilePage() {
                     required
                     minLength={12}
                     dir="ltr"
-                    className="text-left pe-10"
+                    className="text-start pe-10"
                   />
                   <button
                     type="button"

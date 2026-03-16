@@ -301,7 +301,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
 
             {/* Milestone summary */}
             {bh && bh.summary && (
-              <div className="grid grid-cols-3 gap-3 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
                 <div className="rounded-lg border p-3 text-center">
                   <p className="text-xs text-muted-foreground">المفوتر</p>
                   <p className="text-lg font-bold font-mono">
@@ -388,7 +388,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
             ) : (
               <>
                 {/* Summary */}
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="rounded-lg border p-3 text-center">
                     <p className="text-xs text-muted-foreground">المفوتر</p>
                     <p className="text-lg font-bold font-mono">
