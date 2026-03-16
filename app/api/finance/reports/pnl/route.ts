@@ -112,38 +112,68 @@ export async function GET(req: NextRequest) {
 
     if (invErr) throw invErr;
 
-    // Fetch all expenses in the full range at once
+    // Fetch all expenses in the full range at once (include category_id for breakdown)
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount, currency, expense_date')
+      .select('amount, vat_amount, currency, expense_date, category_id')
       .gte('expense_date', from)
       .lte('expense_date', to);
 
     if (expErr) throw expErr;
 
-    // Aggregate per period
+    // Aggregate per period with expense breakdown
     let totalRevenue = 0;
     let totalExpenses = 0;
+    let totalSalaries = 0;
+    let totalSubscriptions = 0;
+    let totalOperational = 0;
 
     const periodResults = periods.map((p) => {
       const periodRevenue = (invoices || [])
         .filter((inv: { issue_date: string }) => inv.issue_date >= p.start && inv.issue_date <= p.end)
         .reduce((sum: number, inv: { amount_paid: number; currency: string }) => sum + toAED(Number(inv.amount_paid), inv.currency), 0);
 
-      const periodExpenses = (expenses || [])
-        .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end)
-        .reduce((sum: number, exp: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(exp.amount) + Number(exp.vat_amount), exp.currency), 0);
+      const periodExpenseItems = (expenses || [])
+        .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end);
+
+      // Calculate expense breakdown by category
+      let periodSalaries = 0;
+      let periodSubscriptions = 0;
+      let periodOperational = 0;
+
+      for (const exp of periodExpenseItems) {
+        const typedExp = exp as { amount: number; vat_amount: number; currency: string; category_id: string | null };
+        const expAmount = toAED(Number(typedExp.amount) + Number(typedExp.vat_amount || 0), typedExp.currency);
+
+        if (typedExp.category_id === 'ec_salaries') {
+          periodSalaries += expAmount;
+        } else if (typedExp.category_id === 'ec_subscriptions') {
+          periodSubscriptions += expAmount;
+        } else {
+          periodOperational += expAmount;
+        }
+      }
+
+      const periodExpensesTotal = periodSalaries + periodSubscriptions + periodOperational;
 
       totalRevenue += periodRevenue;
-      totalExpenses += periodExpenses;
+      totalExpenses += periodExpensesTotal;
+      totalSalaries += periodSalaries;
+      totalSubscriptions += periodSubscriptions;
+      totalOperational += periodOperational;
 
       return {
         label: p.label,
         start: p.start,
         end: p.end,
         revenue: Math.round(periodRevenue * 100) / 100,
-        expenses: Math.round(periodExpenses * 100) / 100,
-        profit: Math.round((periodRevenue - periodExpenses) * 100) / 100,
+        expenses: {
+          total: Math.round(periodExpensesTotal * 100) / 100,
+          salaries: Math.round(periodSalaries * 100) / 100,
+          operational: Math.round(periodOperational * 100) / 100,
+          subscriptions: Math.round(periodSubscriptions * 100) / 100,
+        },
+        profit: Math.round((periodRevenue - periodExpensesTotal) * 100) / 100,
       };
     });
 
@@ -154,7 +184,12 @@ export async function GET(req: NextRequest) {
       periods: periodResults,
       totals: {
         revenue: Math.round(totalRevenue * 100) / 100,
-        expenses: Math.round(totalExpenses * 100) / 100,
+        expenses: {
+          total: Math.round(totalExpenses * 100) / 100,
+          salaries: Math.round(totalSalaries * 100) / 100,
+          operational: Math.round(totalOperational * 100) / 100,
+          subscriptions: Math.round(totalSubscriptions * 100) / 100,
+        },
         profit: Math.round(totalProfit * 100) / 100,
         margin,
       },

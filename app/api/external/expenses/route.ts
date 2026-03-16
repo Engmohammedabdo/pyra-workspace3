@@ -90,6 +90,7 @@ export async function POST(req: NextRequest) {
       notes,
       project_id,
       subscription_id,
+      supplier_id: rawSupplierId,
       source,
     } = body;
 
@@ -127,6 +128,33 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Resolve supplier: supplier_id (direct) has priority, else auto-match by vendor name
+    let supplier_id: string | null = null;
+    if (rawSupplierId) {
+      const { data: sup } = await supabase
+        .from('pyra_suppliers')
+        .select('id')
+        .eq('id', rawSupplierId)
+        .maybeSingle();
+      if (sup) {
+        supplier_id = sup.id;
+      } else {
+        return apiError('معرّف المورّد غير صالح', 422);
+      }
+    } else if (vendor) {
+      // Auto-match supplier by vendor name
+      const safeVendor = `%${escapeLike(vendor)}%`;
+      const { data: sup } = await supabase
+        .from('pyra_suppliers')
+        .select('id')
+        .ilike('name', safeVendor)
+        .limit(1)
+        .maybeSingle();
+      if (sup) {
+        supplier_id = sup.id;
+      }
+    }
+
     // Validate subscription_id if provided
     if (subscription_id) {
       const { data: sub } = await supabase
@@ -153,6 +181,7 @@ export async function POST(req: NextRequest) {
         payment_method: payment_method || null,
         category_id,
         subscription_id: subscription_id || null,
+        supplier_id: supplier_id,
         project_id: project_id || null,
         notes: notes ? `${notes}${source ? ` [${source}]` : ''}` : (source ? `[${source}]` : null),
         created_by: 'api',

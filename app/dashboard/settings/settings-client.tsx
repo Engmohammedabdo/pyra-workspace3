@@ -15,7 +15,7 @@ import {
   Settings, Save, Key, Copy, Trash2, Plus, Shield, Check,
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
-  CreditCard, Eye, EyeOff, Bell, ArrowDownCircle,
+  CreditCard, Eye, EyeOff, Bell, ArrowDownCircle, Percent,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
@@ -62,6 +62,10 @@ const SETTING_LABELS: Record<string, { label: string; description: string; group
   dunning_reminder_interval_days: { label: 'الفترة بين التذكيرات (أيام)', description: 'عدد الأيام بين كل تذكير وآخر — الافتراضي: 1', group: 'dunning' },
   // Expense settings
   expense_approval_required: { label: 'تفعيل اعتماد المصروفات', description: 'عند التفعيل، المصروفات الجديدة تحتاج موافقة قبل اعتمادها', group: 'expenses' },
+  // Commissions
+  commission_rate: { label: 'نسبة العمولة الافتراضية (%)', description: 'النسبة المئوية للعمولة — تُستخدم كقيمة افتراضية إذا لم يكن للموظف نسبة خاصة', group: 'commissions' },
+  commission_trigger: { label: 'توقيت احتساب العمولة', description: 'متى تُحتسب العمولة — مثال: payment (عند الدفع) أو invoice (عند إصدار الفاتورة)', group: 'commissions', dir: 'ltr' },
+  commission_auto_calculate: { label: 'احتساب تلقائي للعمولات', description: 'عند التفعيل، يتم احتساب العمولات تلقائياً عند تسجيل الدفع', group: 'commissions' },
   // Stripe
   stripe_enabled: { label: 'تفعيل الدفع الإلكتروني', description: 'تمكين أو تعطيل الدفع عبر Stripe بالكامل', group: 'stripe' },
   stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', group: 'stripe', dir: 'ltr' },
@@ -81,6 +85,7 @@ const GROUPS: Array<{
   { key: 'invoices', label: 'إعدادات الفواتير', icon: Receipt, gradient: 'from-emerald-500 to-teal-600' },
   { key: 'dunning', label: 'التحصيل والتذكيرات', icon: Bell, gradient: 'from-red-500 to-rose-600' },
   { key: 'expenses', label: 'إعدادات المصاريف', icon: ArrowDownCircle, gradient: 'from-amber-500 to-yellow-600' },
+  { key: 'commissions', label: 'العمولات', icon: Percent, gradient: 'from-emerald-500 to-teal-600' },
   { key: 'bank', label: 'البيانات البنكية', icon: Landmark, gradient: 'from-violet-500 to-purple-600' },
   { key: 'storage', label: 'إعدادات التخزين', icon: HardDrive, gradient: 'from-rose-500 to-pink-600' },
   { key: 'portal', label: 'بورتال العملاء', icon: Globe, gradient: 'from-cyan-500 to-sky-600' },
@@ -627,7 +632,7 @@ export default function SettingsClient() {
                   {groupSettings.map(([key, meta]) => (
                     <div key={key} className="space-y-1.5">
                       <Label htmlFor={key} className="text-sm font-medium">{meta.label}</Label>
-                      {key === 'portal_enabled' || key === 'stripe_enabled' || key === 'dunning_enabled' || key === 'expense_approval_required' ? (
+                      {key === 'portal_enabled' || key === 'stripe_enabled' || key === 'dunning_enabled' || key === 'expense_approval_required' || key === 'commission_auto_calculate' ? (
                         <div className="flex items-center gap-3">
                           <Switch
                             id={key}

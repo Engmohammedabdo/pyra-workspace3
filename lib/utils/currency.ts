@@ -6,11 +6,10 @@
 
 const EXCHANGE_RATES: Record<string, number> = {
   AED: 1,
-  USD: 3.67,
-  // Add more as needed:
-  // EUR: 4.00,
-  // GBP: 4.65,
-  // SAR: 0.98,
+  USD: 3.76,    // Fixed rate — UAE Central Bank peg
+  EUR: 4.12,    // Approximate
+  SAR: 1.0027,  // Near-fixed (SAR pegged to USD)
+  GBP: 4.75,    // Approximate
 };
 
 /**

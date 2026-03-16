@@ -72,6 +72,10 @@ const ALLOWED_KEYS = new Set([
   'credit_note_prefix',
   // Purchase order settings
   'po_prefix',
+  // Commission settings
+  'commission_rate',
+  'commission_trigger',
+  'commission_auto_calculate',
 ]);
 
 // =============================================================

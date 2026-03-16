@@ -53,10 +53,10 @@ export async function GET(req: NextRequest) {
     if (expErr) throw expErr;
 
     // 3. Fetch paid/partially-paid invoices (optionally date-filtered)
-    //    Invoices link to projects by project_name matching project.name
+    //    Use project_id for linking; fall back to project_name match
     let invQuery = supabase
       .from('pyra_invoices')
-      .select('project_name, client_id, amount_paid, issue_date')
+      .select('project_id, project_name, client_id, amount_paid, issue_date')
       .in('status', ['paid', 'partially_paid']);
 
     if (from) invQuery = invQuery.gte('issue_date', from);
@@ -64,6 +64,18 @@ export async function GET(req: NextRequest) {
 
     const { data: invoices, error: invErr } = await invQuery;
     if (invErr) throw invErr;
+
+    // 3b. Fetch timesheets for labor cost calculation
+    let tsQuery = supabase
+      .from('pyra_timesheets')
+      .select('project_id, hours, hourly_rate, date')
+      .not('project_id', 'is', null);
+
+    if (from) tsQuery = tsQuery.gte('date', from);
+    if (to) tsQuery = tsQuery.lte('date', to);
+
+    const { data: timesheets, error: tsErr } = await tsQuery;
+    if (tsErr) throw tsErr;
 
     // 4. Build lookup maps
     // Expenses by project_id (converted to AED)
@@ -73,17 +85,35 @@ export async function GET(req: NextRequest) {
       expByProject[pid] = (expByProject[pid] || 0) + toAED(Number(exp.amount) + Number(exp.vat_amount), exp.currency as string);
     }
 
-    // Revenue by project name (invoices use project_name string)
-    const revByProjectName: Record<string, number> = {};
+    // Labor cost by project_id from timesheets
+    const laborByProject: Record<string, number> = {};
+    for (const ts of timesheets || []) {
+      const pid = ts.project_id as string;
+      const cost = Number(ts.hours || 0) * Number(ts.hourly_rate || 0);
+      laborByProject[pid] = (laborByProject[pid] || 0) + cost;
+    }
+
+    // Revenue by project_id (preferred) and project_name (fallback)
+    // Build a name→id map for fallback matching
+    const nameToId = new Map<string, string>();
+    for (const proj of allProjects) {
+      nameToId.set(proj.name, proj.id);
+    }
+
+    const revByProject: Record<string, number> = {};
     for (const inv of invoices || []) {
-      const pname = (inv.project_name || '') as string;
-      if (pname) {
-        revByProjectName[pname] = (revByProjectName[pname] || 0) + Number(inv.amount_paid);
+      let pid: string | null = inv.project_id as string | null;
+      // Fallback: match project_name to project.name
+      if (!pid && inv.project_name) {
+        pid = nameToId.get(inv.project_name as string) || null;
+      }
+      if (pid) {
+        revByProject[pid] = (revByProject[pid] || 0) + Number(inv.amount_paid);
       }
     }
 
     // 5. Build per-project profitability
-    // Only include projects that have expenses or invoices
+    // Only include projects that have expenses, invoices, or labor
     const projectResults: {
       project_id: string;
       project_name: string;
@@ -91,6 +121,7 @@ export async function GET(req: NextRequest) {
       budget: number | null;
       revenue: number;
       expenses: number;
+      labor_cost: number;
       profit: number;
       margin: number;
       budget_utilization: number | null;
@@ -101,20 +132,22 @@ export async function GET(req: NextRequest) {
 
     for (const proj of allProjects) {
       const projExpenses = expByProject[proj.id] || 0;
-      const projRevenue = revByProjectName[proj.name] || 0;
+      const projLabor = laborByProject[proj.id] || 0;
+      const projRevenue = revByProject[proj.id] || 0;
 
       // Skip projects with no financial activity
-      if (projExpenses === 0 && projRevenue === 0) continue;
+      if (projExpenses === 0 && projRevenue === 0 && projLabor === 0) continue;
 
-      const profit = projRevenue - projExpenses;
+      const totalCost = projExpenses + projLabor;
+      const profit = projRevenue - totalCost;
       const margin = projRevenue > 0 ? Math.round((profit / projRevenue) * 10000) / 100 : 0;
       const budget = proj.budget ? Number(proj.budget) : null;
       const budgetUtilization = budget && budget > 0
-        ? Math.round((projExpenses / budget) * 10000) / 100
+        ? Math.round((totalCost / budget) * 10000) / 100
         : null;
 
       totalRevenue += projRevenue;
-      totalExpenses += projExpenses;
+      totalExpenses += totalCost;
 
       projectResults.push({
         project_id: proj.id,
@@ -123,6 +156,7 @@ export async function GET(req: NextRequest) {
         budget,
         revenue: Math.round(projRevenue * 100) / 100,
         expenses: Math.round(projExpenses * 100) / 100,
+        labor_cost: Math.round(projLabor * 100) / 100,
         profit: Math.round(profit * 100) / 100,
         margin,
         budget_utilization: budgetUtilization,

@@ -100,9 +100,57 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .gte('date', startDate)
       .lte('date', endDate);
 
+    // 5b. Fetch approved unpaid leave for this month
+    const { data: leaveRequests } = await supabase
+      .from('pyra_leave_requests')
+      .select('username, total_days, leave_type_id')
+      .eq('status', 'approved')
+      .gte('start_date', startDate)
+      .lte('start_date', endDate);
+
+    // Fetch leave types to check is_paid
+    let unpaidLeaveTypes: Set<string> = new Set();
+    if (leaveRequests && leaveRequests.length > 0) {
+      const typeIds = [...new Set(leaveRequests.map((lr: { leave_type_id: string | null }) => lr.leave_type_id).filter(Boolean))];
+      if (typeIds.length > 0) {
+        const { data: types } = await supabase
+          .from('pyra_leave_types')
+          .select('id, name_ar, is_paid')
+          .in('id', typeIds);
+        if (types) {
+          for (const t of types) {
+            if (!t.is_paid) unpaidLeaveTypes.add(t.id);
+          }
+        }
+      }
+    }
+
+    // Build unpaid leave deductions per user
+    const unpaidLeaveByUser: Record<string, { days: number; typeName: string }[]> = {};
+    if (leaveRequests) {
+      for (const lr of leaveRequests) {
+        if (lr.leave_type_id && unpaidLeaveTypes.has(lr.leave_type_id)) {
+          if (!unpaidLeaveByUser[lr.username]) unpaidLeaveByUser[lr.username] = [];
+          unpaidLeaveByUser[lr.username].push({ days: lr.total_days, typeName: 'إجازة غير مدفوعة' });
+        }
+      }
+    }
+
+    // 5c. Fetch commission employee_payments (auto-generated from invoice payments)
+    const { data: commissionPayments } = await supabase
+      .from('pyra_employee_payments')
+      .select('id, username, source_type, amount, status, payroll_id, created_at')
+      .eq('source_type', 'commission')
+      .eq('status', 'approved')
+      .is('payroll_id', null)
+      .gte('created_at', startDate + 'T00:00:00')
+      .lte('created_at', endDate + 'T23:59:59');
+
     // Build lookup maps
     const paymentsByUser: Record<string, Array<{ id: string; source_type: string; amount: number }>> = {};
-    (allPayments || []).forEach((p: { id: string; username: string; source_type: string; amount: number }) => {
+    // Merge allPayments + commissionPayments
+    const allPaymentsCombined = [...(allPayments || []), ...(commissionPayments || [])];
+    allPaymentsCombined.forEach((p: { id: string; username: string; source_type: string; amount: number }) => {
       if (!paymentsByUser[p.username]) paymentsByUser[p.username] = [];
       paymentsByUser[p.username].push({ id: p.id, source_type: p.source_type, amount: p.amount });
     });
@@ -151,16 +199,36 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         .filter(p => p.source_type === 'bonus')
         .reduce((sum, p) => sum + Number(p.amount), 0);
 
-      // Deductions
+      // Commission payments
+      const commissions = userPayments
+        .filter(p => p.source_type === 'commission')
+        .reduce((sum, p) => sum + Number(p.amount), 0);
+
+      // Deductions (manual)
       const deductionPayments = userPayments.filter(p => p.source_type === 'deduction');
-      const deductions = deductionPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const deductionDetails = deductionPayments.map(p => ({
+      let deductions = deductionPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const deductionDetails: Array<{ type: string; amount: number; reason?: string }> = deductionPayments.map(p => ({
         type: 'deduction',
         amount: Number(p.amount),
       }));
 
-      // Net pay
-      const netPay = baseSalary + taskPayments + overtimeAmount + bonus - deductions;
+      // Unpaid leave deductions (auto-calculated)
+      const unpaidLeave = unpaidLeaveByUser[emp.username] || [];
+      if (unpaidLeave.length > 0 && baseSalary > 0) {
+        const dailyRate = baseSalary / 22; // UAE standard working days
+        for (const leave of unpaidLeave) {
+          const leaveDeduction = Math.round(dailyRate * leave.days * 100) / 100;
+          deductions += leaveDeduction;
+          deductionDetails.push({
+            type: 'unpaid_leave',
+            amount: leaveDeduction,
+            reason: `${leave.typeName} — ${leave.days} يوم`,
+          });
+        }
+      }
+
+      // Net pay (include commissions as income)
+      const netPay = baseSalary + taskPayments + overtimeAmount + bonus + commissions - deductions;
 
       payrollItems.push({
         id: generateId('pi'),

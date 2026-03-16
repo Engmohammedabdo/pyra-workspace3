@@ -60,6 +60,8 @@ interface TimesheetEntry {
   created_at: string;
   is_overtime?: boolean;
   overtime_multiplier?: number;
+  is_billable?: boolean;
+  billing_rate?: number | null;
   period_id?: string | null;
   pyra_projects: { id: string; name: string } | null;
 }
@@ -118,6 +120,8 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
   const [formHours, setFormHours] = useState('');
   const [formProject, setFormProject] = useState('');
   const [formDesc, setFormDesc] = useState('');
+  const [formBillable, setFormBillable] = useState(false);
+  const [formBillingRate, setFormBillingRate] = useState('');
 
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'timesheet.manage');
   const canApprove = hasPermission(session.pyraUser.rolePermissions, 'timesheet.approve');
@@ -189,6 +193,8 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
           hours: parseFloat(formHours),
           project_id: formProject || null,
           description: formDesc || null,
+          is_billable: formBillable,
+          billing_rate: formBillingRate ? parseFloat(formBillingRate) : null,
         }),
       });
       if (!res.ok) throw new Error('Failed');
@@ -197,6 +203,8 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       setFormHours('');
       setFormDesc('');
       setFormProject('');
+      setFormBillable(false);
+      setFormBillingRate('');
       fetchEntries();
       fetchOvertimeSummary();
     } catch {
@@ -393,6 +401,32 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                   placeholder="ما الذي عملت عليه؟"
                 />
               </div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formBillable}
+                    onChange={(e) => setFormBillable(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
+                  />
+                  قابل للفوترة
+                </label>
+                {formBillable && (
+                  <div className="flex-1 space-y-1">
+                    <label className="text-xs text-muted-foreground">سعر الساعة</label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formBillingRate}
+                      onChange={(e) => setFormBillingRate(e.target.value)}
+                      placeholder="مثال: 150"
+                      dir="ltr"
+                      className="h-8"
+                    />
+                  </div>
+                )}
+              </div>
               <Button
                 onClick={addEntry}
                 disabled={saving || !formHours}
@@ -535,6 +569,12 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                             <p className="text-sm font-medium">
                               {entry.description || 'بدون وصف'}
                             </p>
+                            {entry.is_billable && (
+                              <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-[10px]">
+                                قابل للفوترة
+                                {entry.billing_rate ? ` (${entry.billing_rate}/س)` : ''}
+                              </Badge>
+                            )}
                             {entry.is_overtime && (
                               <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[10px]">
                                 عمل إضافي

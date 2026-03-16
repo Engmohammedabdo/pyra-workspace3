@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
-import { formatDate, formatRelativeDate, formatFileSize } from '@/lib/utils/format';
+import { formatDate, formatRelativeDate, formatFileSize, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import {
   Card,
@@ -49,6 +49,8 @@ import {
   Folder,
   ChevronDown,
   ChevronLeft,
+  DollarSign,
+  Timer,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
@@ -70,6 +72,8 @@ interface Project {
   revision_count?: number;
   total_file_size?: number;
   unread_team_comments?: number;
+  budget_amount?: number | null;
+  budgeted_hours?: number | null;
 }
 
 interface ProjectFile {
@@ -491,6 +495,36 @@ export default function ProjectDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Budget Card */}
+        {(project.budget_amount != null && project.budget_amount > 0) && (
+          <Card className="border-orange-500/20 bg-orange-500/5">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-orange-500/10">
+                    <DollarSign className="h-4 w-4 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">ميزانية المشروع</p>
+                    <p className="text-xl font-bold font-mono tabular-nums">{formatCurrency(project.budget_amount)}</p>
+                  </div>
+                </div>
+                {project.budgeted_hours != null && project.budgeted_hours > 0 && (
+                  <div className="flex items-center gap-3 border-s ps-4">
+                    <div className="p-2 rounded-lg bg-blue-500/10">
+                      <Timer className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">الساعات المخصصة</p>
+                      <p className="text-xl font-bold font-mono tabular-nums">{project.budgeted_hours} <span className="text-sm font-normal text-muted-foreground">ساعة</span></p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-5">
           {/* Files Section — Folder-grouped with visibility checkboxes */}

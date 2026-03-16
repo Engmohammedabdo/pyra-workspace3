@@ -182,6 +182,102 @@ export async function PATCH(
       return apiSuccess(data);
     }
 
+    // Handle recommend_bonus action
+    if (body.action === 'recommend_bonus') {
+      if (!canManage) {
+        return apiError('فقط المسؤول يمكنه التوصية بمكافأة', 403);
+      }
+
+      const overallRating = Number(evaluation.overall_rating);
+      if (!overallRating || overallRating < 3.5) {
+        return apiError('التقييم لا يستحق مكافأة', 400);
+      }
+
+      // Fetch employee salary
+      const { data: employee, error: empError } = await supabase
+        .from('pyra_users')
+        .select('salary, display_name')
+        .eq('username', evaluation.employee_username)
+        .single();
+
+      if (empError || !employee) {
+        return apiError('لم يتم العثور على بيانات الموظف', 404);
+      }
+
+      const salary = Number(employee.salary);
+      if (!salary || salary <= 0) {
+        return apiError('لا يوجد راتب محدد للموظف — لا يمكن حساب المكافأة', 400);
+      }
+
+      // Calculate bonus percentage based on rating
+      let bonusPercent: number;
+      if (overallRating >= 4.5) {
+        bonusPercent = 0.15;
+      } else if (overallRating >= 4.0) {
+        bonusPercent = 0.10;
+      } else {
+        bonusPercent = 0.05;
+      }
+
+      const bonusAmount = Math.round(salary * bonusPercent * 100) / 100;
+
+      // Fetch period name for the description
+      const { data: period } = await supabase
+        .from('pyra_evaluation_periods')
+        .select('name_ar, name')
+        .eq('id', evaluation.period_id)
+        .single();
+
+      const periodLabel = period?.name_ar || period?.name || '';
+      const description = `مكافأة أداء — تقييم ${periodLabel}`.trim();
+
+      // Create employee payment record
+      const { data: payment, error: paymentError } = await supabase
+        .from('pyra_employee_payments')
+        .insert({
+          id: generateId('ep'),
+          username: evaluation.employee_username,
+          source_type: 'bonus',
+          source_id: evaluation.id,
+          description,
+          amount: bonusAmount,
+          currency: 'AED',
+          status: 'pending',
+        })
+        .select()
+        .single();
+
+      if (paymentError) {
+        console.error('Bonus payment insert error:', paymentError);
+        return apiServerError('فشل في إنشاء سجل المكافأة');
+      }
+
+      // Activity log
+      await supabase.from('pyra_activity_log').insert({
+        id: generateId('al'),
+        action_type: 'evaluation_bonus_recommended',
+        username: auth.pyraUser.username,
+        display_name: auth.pyraUser.display_name,
+        target_path: '/dashboard/evaluations',
+        details: {
+          evaluation_id: id,
+          employee_username: evaluation.employee_username,
+          overall_rating: overallRating,
+          bonus_amount: bonusAmount,
+          bonus_percent: bonusPercent * 100,
+          payment_id: payment.id,
+        },
+        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+      });
+
+      return apiSuccess({
+        message: `تمت التوصية بمكافأة بمبلغ ${bonusAmount} AED`,
+        payment,
+        bonus_amount: bonusAmount,
+        bonus_percent: bonusPercent * 100,
+      });
+    }
+
     // Handle acknowledge action
     if (body.action === 'acknowledge') {
       if (!isEmployee && !canManage) {

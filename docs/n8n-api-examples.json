@@ -127,6 +127,7 @@
         "vat_rate": "(optional) VAT/tax percentage — e.g., 5 for 5% VAT. Default: 0",
         "vat_amount": "(optional) VAT/tax amount — e.g., 0.25. Default: 0",
         "notes": "(optional) any additional notes from the invoice (receipt number, invoice number, etc.)",
+        "supplier_id": "(optional) Link to an existing supplier in pyra_suppliers. If provided, verified against DB. If omitted and vendor is set, the system auto-matches a supplier by name.",
         "source": "(recommended) 'telegram' if from Telegram, 'n8n' otherwise"
       },
       "example_subscription_expense": {

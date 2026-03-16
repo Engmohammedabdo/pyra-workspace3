@@ -24,6 +24,7 @@ export const INVOICE_FIELDS = `
   tax_amount, total, amount_paid, amount_due, notes,
   discount_type, discount_value, discount_amount,
   early_payment_discount_percent, early_payment_discount_days,
+  project_id,
   terms_conditions, bank_details,
   company_name, company_logo, client_name, client_email,
   client_company, client_phone, client_address,
@@ -40,7 +41,9 @@ export const EXPENSE_CATEGORY_FIELDS = `
 `;
 
 export const EXPENSE_FIELDS = `
-  id, category_id, project_id, subscription_id, supplier_id, description, amount, currency,
+  id, category_id, project_id, subscription_id, supplier_id,
+  payroll_run_id, purchase_order_id,
+  description, amount, currency,
   vat_rate, vat_amount, expense_date, vendor, payment_method,
   receipt_url, notes, is_recurring, recurring_period,
   status, approved_by, approved_at, approval_notes, submitted_by,

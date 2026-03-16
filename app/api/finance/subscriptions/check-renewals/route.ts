@@ -32,10 +32,45 @@ export async function POST(req: NextRequest) {
       .eq('auto_renew', true)
       .lte('next_renewal_date', today);
 
+    const cycleArabic: Record<string, string> = {
+      monthly: 'شهري',
+      quarterly: 'ربع سنوي',
+      yearly: 'سنوي',
+      weekly: 'أسبوعي',
+    };
+
     let renewed = 0;
+    let expensesCreated = 0;
     for (const sub of dueAutoRenew || []) {
       const nextDate = calculateNextRenewalDate(sub.next_renewal_date, sub.billing_cycle);
 
+      // ── Auto-create expense for this renewal ──
+      // Check for duplicate: same subscription_id + expense_date in the same billing period
+      const { data: existingExpense } = await supabase
+        .from('pyra_expenses')
+        .select('id')
+        .eq('subscription_id', sub.id)
+        .eq('expense_date', sub.next_renewal_date)
+        .maybeSingle();
+
+      if (!existingExpense) {
+        const cycleName = cycleArabic[sub.billing_cycle] || 'شهري';
+        await supabase.from('pyra_expenses').insert({
+          id: generateId('exp'),
+          description: `${sub.name} — تجديد ${cycleName}`,
+          amount: sub.cost,
+          currency: sub.currency,
+          subscription_id: sub.id,
+          category_id: 'ec_subscriptions',
+          vendor: sub.provider,
+          status: 'approved',
+          expense_date: sub.next_renewal_date,
+          created_by: 'system',
+        });
+        expensesCreated++;
+      }
+
+      // ── Update next_renewal_date ──
       await supabase
         .from('pyra_subscriptions')
         .update({
@@ -59,6 +94,7 @@ export async function POST(req: NextRequest) {
           previous_date: sub.next_renewal_date,
           next_date: nextDate,
           billing_cycle: sub.billing_cycle,
+          expense_created: !existingExpense,
         },
         ip_address: 'system',
       });
@@ -142,9 +178,10 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({
       renewed,
+      expensesCreated,
       expired: expiredCount,
       notified,
-      message: `تم تجديد ${renewed} اشتراك، إنهاء ${expiredCount}، تنبيه ${notified}`,
+      message: `تم تجديد ${renewed} اشتراك، إنشاء ${expensesCreated} مصروف، إنهاء ${expiredCount}، تنبيه ${notified}`,
     });
   } catch (err) {
     console.error('POST /api/finance/subscriptions/check-renewals error:', err);

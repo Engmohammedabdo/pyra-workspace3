@@ -29,6 +29,7 @@ export interface PyraUser {
   manager_username?: string | null;
   // Work schedule
   work_schedule_id?: string | null;
+  commission_rate?: number | null;
   // Extended profile fields
   phone?: string;
   job_title?: string;
@@ -442,6 +443,8 @@ export interface PyraInvoice {
   early_payment_discount_days: number;
   milestone_type: 'booking_deposit' | 'initial_delivery' | 'final_delivery' | null;
   parent_invoice_id: string | null;
+  project_id: string | null;
+  contract_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -707,6 +710,10 @@ export interface PyraExpense {
   approved_at: string | null;
   approval_notes: string | null;
   submitted_by: string | null;
+  supplier_id: string | null;
+  subscription_id: string | null;
+  payroll_run_id: string | null;
+  purchase_order_id: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -715,6 +722,8 @@ export interface PyraExpense {
   category_name_ar?: string;
   category_color?: string;
   project_name?: string;
+  supplier_name?: string;
+  supplier_company?: string;
 }
 
 export interface PyraCard {
@@ -1189,6 +1198,8 @@ export interface PyraTimesheet {
   task_id: string | null;
   is_overtime: boolean;
   overtime_multiplier: number;
+  is_billable: boolean;
+  billing_rate: number | null;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
   created_at: string;
   // Joined

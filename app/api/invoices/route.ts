@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       client_id,
+      project_id: bodyProjectId,
       project_name,
       issue_date,
       due_date,
@@ -109,6 +110,7 @@ export async function POST(request: NextRequest) {
       items,
       milestone_type,
       parent_invoice_id,
+      contract_id,
       vat_rate: bodyVatRate,
       discount_type: bodyDiscountType,
       discount_value: bodyDiscountValue,
@@ -197,6 +199,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Resolve project_id: use explicit value, or look up by project_name
+    let resolvedProjectId: string | null = bodyProjectId || null;
+    if (!resolvedProjectId && project_name) {
+      const { data: matchedProject } = await supabase
+        .from('pyra_projects')
+        .select('id')
+        .eq('name', project_name.trim())
+        .maybeSingle();
+      if (matchedProject) resolvedProjectId = matchedProject.id;
+    }
+
     // Calculate totals
     const processedItems = items.map(
       (item: { description: string; quantity: number; rate: number }, idx: number) => ({
@@ -241,6 +254,7 @@ export async function POST(request: NextRequest) {
         id: invoiceId,
         invoice_number: invoiceNumber,
         client_id: client_id || null,
+        project_id: resolvedProjectId,
         project_name: project_name?.trim() || null,
         status: 'draft',
         issue_date: issue_date || new Date().toISOString().split('T')[0],
@@ -263,6 +277,7 @@ export async function POST(request: NextRequest) {
         company_logo: settingsMap.company_logo || null,
         milestone_type: milestone_type || null,
         parent_invoice_id: parent_invoice_id || null,
+        contract_id: contract_id || null,
         created_by: auth.pyraUser.username,
         ...clientData,
       })
@@ -291,6 +306,25 @@ export async function POST(request: NextRequest) {
       // Rollback: delete the invoice since items failed
       await supabase.from('pyra_invoices').delete().eq('id', invoiceId);
       return apiServerError('فشل في إضافة بنود الفاتورة');
+    }
+
+    // Update contract amount_billed if invoice is linked to a contract
+    if (contract_id) {
+      const { data: contractData } = await supabase
+        .from('pyra_contracts')
+        .select('id, amount_billed')
+        .eq('id', contract_id)
+        .maybeSingle();
+
+      if (contractData) {
+        await supabase
+          .from('pyra_contracts')
+          .update({
+            amount_billed: (contractData.amount_billed || 0) + total,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', contract_id);
+      }
     }
 
     // Log activity

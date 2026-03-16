@@ -10,6 +10,34 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
+/**
+ * Insert a salary history record when salary or hourly_rate changes.
+ */
+async function trackSalaryChange(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  username: string,
+  changedBy: string,
+  oldSalary: number | null,
+  newSalary: number | null,
+  oldHourlyRate: number | null,
+  newHourlyRate: number | null,
+) {
+  const salaryChanged = oldSalary !== newSalary;
+  const rateChanged = oldHourlyRate !== newHourlyRate;
+  if (!salaryChanged && !rateChanged) return;
+
+  await supabase.from('pyra_salary_history').insert({
+    id: generateId('sh'),
+    username,
+    old_salary: oldSalary,
+    new_salary: newSalary,
+    old_hourly_rate: oldHourlyRate,
+    new_hourly_rate: newHourlyRate,
+    effective_date: new Date().toISOString().split('T')[0],
+    changed_by: changedBy,
+  });
+}
+
 type RouteParams = { params: Promise<{ username: string }> };
 
 // =============================================================
@@ -246,6 +274,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (updateError) {
       console.error('User update error:', updateError);
       return apiServerError('فشل في تحديث المستخدم');
+    }
+
+    // Track salary/hourly_rate changes in pyra_salary_history
+    if (updateData.salary !== undefined || updateData.hourly_rate !== undefined) {
+      try {
+        const serviceClient = createServiceRoleClient();
+        await trackSalaryChange(
+          serviceClient,
+          username,
+          auth.pyraUser.username,
+          existingUser.salary ?? null,
+          updateData.salary !== undefined ? (updateData.salary as number | null) : (existingUser.salary ?? null),
+          existingUser.hourly_rate ?? null,
+          updateData.hourly_rate !== undefined ? (updateData.hourly_rate as number | null) : (existingUser.hourly_rate ?? null),
+        );
+      } catch (err) {
+        console.error('Salary history insert error:', err);
+        // Non-blocking — do not fail the update
+      }
     }
 
     // Update Supabase Auth user metadata if display_name or role changed

@@ -119,6 +119,80 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
       if (error) return apiServerError(error.message);
 
+      // ── Create expense records for each payroll item ──────────────
+      // This makes payroll visible in the finance dashboard & reports
+      const { data: payrollItems } = await supabase
+        .from('pyra_payroll_items')
+        .select('username, net_pay')
+        .eq('payroll_id', id);
+
+      if (payrollItems && payrollItems.length > 0) {
+        // Fetch display names for all employees
+        const unames = payrollItems.map((pi: { username: string }) => pi.username);
+        const { data: users } = await supabase
+          .from('pyra_users')
+          .select('username, display_name')
+          .in('username', unames);
+        const nameMap: Record<string, string> = {};
+        if (users) {
+          for (const u of users) nameMap[u.username] = u.display_name;
+        }
+
+        // Find primary project per employee (most timesheet hours that month)
+        const monthStart = `${run.year}-${String(run.month).padStart(2, '0')}-01`;
+        const monthEnd = `${run.year}-${String(run.month).padStart(2, '0')}-${new Date(run.year, run.month, 0).getDate()}`;
+        const { data: timesheets } = await supabase
+          .from('pyra_timesheets')
+          .select('username, project_id, hours')
+          .in('username', unames)
+          .gte('date', monthStart)
+          .lte('date', monthEnd)
+          .not('project_id', 'is', null);
+
+        const userProjectHours: Record<string, Record<string, number>> = {};
+        if (timesheets) {
+          for (const ts of timesheets) {
+            if (!ts.project_id) continue;
+            if (!userProjectHours[ts.username]) userProjectHours[ts.username] = {};
+            userProjectHours[ts.username][ts.project_id] = (userProjectHours[ts.username][ts.project_id] || 0) + Number(ts.hours);
+          }
+        }
+
+        // Last day of month for expense_date
+        const expenseDate = monthEnd;
+
+        const expenseRecords = payrollItems.map((item: { username: string; net_pay: number }) => {
+          // Find primary project (most hours)
+          let projectId: string | null = null;
+          const projects = userProjectHours[item.username];
+          if (projects) {
+            const sorted = Object.entries(projects).sort((a, b) => b[1] - a[1]);
+            if (sorted.length > 0) projectId = sorted[0][0];
+          }
+
+          return {
+            id: generateId('exp'),
+            description: `راتب شهر ${run.month}/${run.year} — ${nameMap[item.username] || item.username}`,
+            amount: item.net_pay,
+            currency: run.currency || 'AED',
+            category_id: 'ec_salaries',
+            project_id: projectId,
+            expense_date: expenseDate,
+            vendor: nameMap[item.username] || item.username,
+            status: 'approved',
+            payroll_run_id: id,
+            created_by: auth.pyraUser.username,
+          };
+        });
+
+        // Delete any existing payroll expenses for this run (re-approval case)
+        await supabase.from('pyra_expenses').delete().eq('payroll_run_id', id);
+        // Insert new expense records
+        const { error: expErr } = await supabase.from('pyra_expenses').insert(expenseRecords);
+        if (expErr) console.error('Payroll expense creation error:', expErr);
+      }
+      // ─────────────────────────────────────────────────────────────
+
       // Activity log
       const { error: logErr } = await supabase.from('pyra_activity_log').insert({
         id: generateId('al'),
@@ -126,7 +200,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         username: auth.pyraUser.username,
         display_name: auth.pyraUser.display_name,
         target_path: '/dashboard/payroll',
-        details: { payroll_id: id, new_status: 'approved' },
+        details: { payroll_id: id, new_status: 'approved', expenses_created: payrollItems?.length || 0 },
         ip_address: req.headers.get('x-forwarded-for') || 'unknown',
       });
       if (logErr) console.error('Activity log error:', logErr);

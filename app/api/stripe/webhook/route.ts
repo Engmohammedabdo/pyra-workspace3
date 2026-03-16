@@ -217,6 +217,74 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // ── Auto-calculate commission for commission employees ──
+      try {
+        const { data: commissionSetting } = await supabase
+          .from('pyra_settings')
+          .select('value')
+          .eq('key', 'commission_auto_calculate')
+          .maybeSingle();
+
+        if (commissionSetting?.value === 'true') {
+          const { data: rateSetting } = await supabase
+            .from('pyra_settings')
+            .select('value')
+            .eq('key', 'commission_rate')
+            .maybeSingle();
+          const globalRate = parseFloat(rateSetting?.value || '0');
+
+          // Find the project linked to this invoice
+          const { data: invProject } = await supabase
+            .from('pyra_invoices')
+            .select('project_id')
+            .eq('id', invoiceId)
+            .maybeSingle();
+
+          const projectId = invProject?.project_id;
+
+          if (projectId) {
+            const { data: commissionEmployees } = await supabase
+              .from('pyra_timesheets')
+              .select('username')
+              .eq('project_id', projectId)
+              .eq('payment_type', 'commission');
+
+            const uniqueUsernames = [...new Set((commissionEmployees || []).map((e: { username: string }) => e.username))];
+
+            if (uniqueUsernames.length > 0) {
+              const { data: users } = await supabase
+                .from('pyra_users')
+                .select('username, display_name, commission_rate')
+                .in('username', uniqueUsernames);
+
+              for (const user of users || []) {
+                const rate = user.commission_rate ?? globalRate;
+                if (rate <= 0) continue;
+
+                const commissionAmount = Math.round(paymentAmount * rate) / 100;
+                if (commissionAmount <= 0) continue;
+
+                await supabase.from('pyra_employee_payments').insert({
+                  id: generateId('ep'),
+                  username: user.username,
+                  display_name: user.display_name,
+                  type: 'bonus',
+                  source_type: 'commission',
+                  source_id: invoiceId,
+                  amount: commissionAmount,
+                  currency: 'AED',
+                  status: 'pending',
+                  notes: `عمولة تلقائية — فاتورة ${invoice.invoice_number} — ${rate}%`,
+                  created_by: 'system',
+                });
+              }
+            }
+          }
+        }
+      } catch (commErr) {
+        console.error('[Stripe Webhook] Commission auto-calculate error:', commErr);
+      }
+
       console.log(`[Stripe Webhook] Payment processed: invoice=${invoiceId}, amount=${paymentAmount}, status=${newStatus}`);
     }
 

@@ -28,7 +28,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return apiError('لا يمكن تعديل سجل تم إرساله', 400);
   }
 
-  const allowed = ['project_id', 'task_id', 'date', 'hours', 'description', 'status'];
+  const allowed = ['project_id', 'task_id', 'date', 'hours', 'description', 'status', 'is_billable', 'billing_rate'];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];

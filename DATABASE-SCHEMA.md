@@ -2,7 +2,7 @@
 
 > Auto-documented from live Supabase database on 2026-03-05
 > Host: `pyraworkspacedb.pyramedia.cloud`
-> 84 tables in `public` schema (prefix: `pyra_`)
+> 100 tables in `public` schema (prefix: `pyra_`)
 > Includes 15 new ERP tables from `002_erp_features.sql` migration
 > `pyra_file_permissions` renamed to `pyra_file_permissions_archived`
 
@@ -460,6 +460,8 @@ Project management with client and team associations.
 | updated_at | timestamptz | YES | `now()` |
 | client_id | text | YES | FK → pyra_clients(id) |
 | team_id | text | YES | FK → pyra_teams(id) |
+| budget_amount | numeric(14,2) | YES | `0` |
+| budgeted_hours | numeric(8,2) | YES | — |
 
 ---
 
@@ -652,7 +654,18 @@ Employee and admin accounts. Passwords hashed with scrypt.
 | role | varchar | NOT NULL | `'client'` |
 | display_name | varchar | NOT NULL | — |
 | permissions | jsonb | NOT NULL | `'{}'` |
+| salary | numeric(12,2) | YES | — |
+| hourly_rate | numeric(8,2) | YES | — |
+| department | varchar | YES | — |
+| payment_type | varchar | YES | `'monthly_salary'` |
+| employment_type | varchar | YES | `'full_time'` |
+| status | varchar | YES | `'active'` |
+| commission_rate | numeric(5,2) | YES | — |
 | created_at | timestamptz | YES | `now()` |
+
+**payment_type values**: `monthly_salary`, `hourly`, `per_task`, `commission`
+**employment_type values**: `full_time`, `part_time`, `contractor`, `freelancer`
+**status values**: `active`, `suspended`
 
 **Permissions JSON structure:**
 ```json
@@ -961,6 +974,10 @@ Employee time entries for tracking work hours per project/task.
 | status | varchar(20) | NULL | 'draft' |
 | approved_by | varchar | NULL | — |
 | approved_at | timestamptz | NULL | — |
+| is_overtime | boolean | NULL | `false` |
+| overtime_multiplier | numeric(3,2) | NULL | `1.5` |
+| is_billable | boolean | NULL | `false` |
+| billing_rate | numeric(8,2) | NULL | — |
 | created_at | timestamptz | NULL | now() |
 
 **PK**: `id`
@@ -1122,12 +1139,20 @@ Stores invoice records with client snapshot data, financial totals, milestone tr
 | client_address | text | NULL | — |
 | milestone_type | varchar | NULL | — |
 | parent_invoice_id | varchar | NULL | — |
-| contract_id | varchar | NULL | — |
+| contract_id | varchar | NULL | FK → pyra_contracts(id) |
+| project_id | varchar | NULL | FK → pyra_projects(id) |
+| discount_type | varchar | NULL | — |
+| discount_value | numeric | NULL | `0` |
+| discount_amount | numeric | NULL | `0` |
+| early_payment_discount_percent | numeric | NULL | — |
+| early_payment_discount_days | integer | NULL | — |
 | created_by | varchar | NULL | — |
 | created_at | timestamptz | NOT NULL | now() |
 | updated_at | timestamptz | NOT NULL | now() |
 
 **Unique constraint**: `invoice_number`
+**Indexes**: `idx_invoices_project` on `project_id`
+**discount_type values**: `percentage`, `fixed`
 
 ---
 
@@ -1192,11 +1217,21 @@ Individual expense entries linked to categories, projects, or subscriptions. Sup
 | notes | text | NULL | — |
 | is_recurring | boolean | NOT NULL | false |
 | recurring_period | varchar | NULL | — |
+| status | varchar | NULL | `'approved'` |
+| approved_by | varchar | NULL | — |
+| approved_at | timestamptz | NULL | — |
+| approval_notes | text | NULL | — |
+| submitted_by | varchar | NULL | — |
+| supplier_id | varchar | NULL | FK → pyra_suppliers(id) |
+| payroll_run_id | varchar | NULL | FK → pyra_payroll_runs(id) |
+| purchase_order_id | varchar | NULL | FK → pyra_purchase_orders(id) |
 | created_by | varchar | NULL | — |
 | created_at | timestamptz | NOT NULL | now() |
 | updated_at | timestamptz | NOT NULL | now() |
 
 **FK**: `category_id` → `pyra_expense_categories.id`, `project_id` → `pyra_projects.id`
+**Indexes**: `idx_expenses_payroll` on `payroll_run_id`, `idx_expenses_po` on `purchase_order_id`
+**status values**: `pending`, `approved`, `rejected`
 
 ---
 
@@ -2244,3 +2279,157 @@ Scheduled follow-up reminders for sales leads.
 **PK**: `id`
 **FK**: `lead_id` -> `pyra_sales_leads(id)` CASCADE
 **Indexes**: `idx_follow_ups_assigned`, `idx_follow_ups_due`
+
+---
+
+## 95. pyra_suppliers
+
+Vendor/supplier records for expense and purchase order tracking.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| name | varchar | NOT NULL | — |
+| company | varchar | NULL | — |
+| email | varchar | NULL | — |
+| phone | varchar | NULL | — |
+| address | text | NULL | — |
+| tax_number | varchar | NULL | — |
+| payment_terms_days | integer | NULL | — |
+| currency | varchar | NULL | `'AED'` |
+| bank_name | varchar | NULL | — |
+| bank_account | varchar | NULL | — |
+| bank_iban | varchar | NULL | — |
+| notes | text | NULL | — |
+| is_active | boolean | NULL | `true` |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NULL | `now()` |
+| updated_at | timestamptz | NULL | `now()` |
+
+**PK**: `id`
+
+---
+
+## 96. pyra_purchase_orders
+
+Purchase orders for tracking procurement from suppliers.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| po_number | varchar | NOT NULL | UNIQUE |
+| supplier_id | varchar | NULL | FK → pyra_suppliers(id) |
+| project_id | varchar | NULL | FK → pyra_projects(id) |
+| status | varchar | NULL | `'draft'` |
+| issue_date | date | NULL | — |
+| expected_delivery_date | date | NULL | — |
+| currency | varchar | NULL | `'AED'` |
+| subtotal | numeric | NULL | `0` |
+| tax_rate | numeric | NULL | `0` |
+| tax_amount | numeric | NULL | `0` |
+| total | numeric | NULL | `0` |
+| notes | text | NULL | — |
+| supplier_name | varchar | NULL | — |
+| supplier_company | varchar | NULL | — |
+| supplier_email | varchar | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NULL | `now()` |
+| updated_at | timestamptz | NULL | `now()` |
+
+**PK**: `id`
+**Status values**: `draft`, `sent`, `confirmed`, `received`, `cancelled`
+
+---
+
+## 97. pyra_purchase_order_items
+
+Line items for purchase orders.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| purchase_order_id | varchar | NOT NULL | FK → pyra_purchase_orders(id) CASCADE |
+| description | text | NOT NULL | — |
+| quantity | numeric | NULL | `1` |
+| rate | numeric | NULL | `0` |
+| amount | numeric | NULL | `0` |
+| sort_order | integer | NULL | `0` |
+| created_at | timestamptz | NULL | `now()` |
+
+**PK**: `id`
+
+---
+
+## 98. pyra_credit_notes
+
+Credit notes issued against invoices for refunds or adjustments.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| credit_note_number | varchar | NOT NULL | UNIQUE |
+| invoice_id | varchar | NULL | FK → pyra_invoices(id) |
+| client_id | varchar | NULL | — |
+| reason | text | NULL | — |
+| status | varchar | NULL | `'draft'` |
+| issue_date | date | NULL | — |
+| currency | varchar | NULL | `'AED'` |
+| subtotal | numeric | NULL | `0` |
+| tax_rate | numeric | NULL | `0` |
+| tax_amount | numeric | NULL | `0` |
+| total | numeric | NULL | `0` |
+| applied_amount | numeric | NULL | `0` |
+| notes | text | NULL | — |
+| company_name | varchar | NULL | — |
+| company_logo | text | NULL | — |
+| client_name | varchar | NULL | — |
+| client_email | varchar | NULL | — |
+| client_company | varchar | NULL | — |
+| client_phone | varchar | NULL | — |
+| created_by | varchar | NULL | — |
+| created_at | timestamptz | NULL | `now()` |
+| updated_at | timestamptz | NULL | `now()` |
+
+**PK**: `id`
+**Status values**: `draft`, `issued`, `applied`, `voided`
+
+---
+
+## 99. pyra_credit_note_items
+
+Line items for credit notes.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| credit_note_id | varchar | NOT NULL | FK → pyra_credit_notes(id) CASCADE |
+| description | text | NOT NULL | — |
+| quantity | numeric | NULL | `1` |
+| rate | numeric | NULL | `0` |
+| amount | numeric | NULL | `0` |
+| sort_order | integer | NULL | `0` |
+| created_at | timestamptz | NULL | `now()` |
+
+**PK**: `id`
+
+---
+
+## 100. pyra_salary_history
+
+Tracks salary and hourly rate changes for employees over time.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar | NOT NULL | — |
+| username | varchar | NOT NULL | — |
+| old_salary | numeric(12,2) | NULL | — |
+| new_salary | numeric(12,2) | NULL | — |
+| old_hourly_rate | numeric(8,2) | NULL | — |
+| new_hourly_rate | numeric(8,2) | NULL | — |
+| reason | text | NULL | — |
+| effective_date | date | NOT NULL | — |
+| changed_by | varchar | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+**Indexes**: `idx_salary_history_user` on `username`

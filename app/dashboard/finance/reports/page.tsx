@@ -35,18 +35,25 @@ import { ExportButton } from '@/components/reports/ExportButton';
    Types
    ══════════════════════════════════════════════════════ */
 
+interface ExpenseBreakdown {
+  total: number;
+  salaries: number;
+  operational: number;
+  subscriptions: number;
+}
+
 interface PnlPeriod {
   label: string;
   start: string;
   end: string;
   revenue: number;
-  expenses: number;
+  expenses: ExpenseBreakdown;
   profit: number;
 }
 
 interface PnlTotals {
   revenue: number;
-  expenses: number;
+  expenses: ExpenseBreakdown;
   profit: number;
   margin: number;
 }
@@ -266,7 +273,7 @@ function PnlTab() {
             />
             <SummaryCard
               title="إجمالي المصاريف"
-              value={formatCurrency(data.totals.expenses)}
+              value={formatCurrency(data.totals.expenses.total)}
               icon={TrendingDown}
               colorClass="text-red-600"
             />
@@ -295,7 +302,16 @@ function PnlTab() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={data.periods} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <BarChart
+                    data={data.periods.map(p => ({
+                      label: p.label,
+                      revenue: p.revenue,
+                      salaries: p.expenses.salaries,
+                      operational: p.expenses.operational,
+                      subscriptions: p.expenses.subscriptions,
+                    }))}
+                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
                     <YAxis
@@ -310,22 +326,31 @@ function PnlTab() {
                         borderRadius: '8px',
                         fontSize: '12px',
                       }}
-                      formatter={(value: number, name: string) => [
-                        formatCurrency(value),
-                        name === 'revenue' ? 'الإيرادات' : name === 'expenses' ? 'المصاريف' : 'الربح',
-                      ]}
+                      formatter={(value: number, name: string) => {
+                        const labels: Record<string, string> = {
+                          revenue: 'الإيرادات',
+                          salaries: 'الرواتب',
+                          operational: 'تشغيلية',
+                          subscriptions: 'الاشتراكات',
+                        };
+                        return [formatCurrency(value), labels[name] || name];
+                      }}
                     />
                     <Legend
                       formatter={(value: string) => {
                         const labels: Record<string, string> = {
                           revenue: 'الإيرادات',
-                          expenses: 'المصاريف',
+                          salaries: 'الرواتب',
+                          operational: 'مصاريف تشغيلية',
+                          subscriptions: 'الاشتراكات',
                         };
                         return labels[value] || value;
                       }}
                     />
                     <Bar dataKey="revenue" fill="#22c55e" radius={[4, 4, 0, 0]} name="revenue" />
-                    <Bar dataKey="expenses" fill="#ef4444" radius={[4, 4, 0, 0]} name="expenses" />
+                    <Bar dataKey="salaries" fill="#ef4444" stackId="expenses" name="salaries" />
+                    <Bar dataKey="operational" fill="#f97316" stackId="expenses" name="operational" />
+                    <Bar dataKey="subscriptions" fill="#8b5cf6" stackId="expenses" radius={[4, 4, 0, 0]} name="subscriptions" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -344,7 +369,10 @@ function PnlTab() {
                     <tr className="border-b text-muted-foreground">
                       <th className="text-right py-3 px-2 font-medium">الفترة</th>
                       <th className="text-right py-3 px-2 font-medium">الإيرادات</th>
-                      <th className="text-right py-3 px-2 font-medium">المصاريف</th>
+                      <th className="text-right py-3 px-2 font-medium">الرواتب</th>
+                      <th className="text-right py-3 px-2 font-medium">تشغيلية</th>
+                      <th className="text-right py-3 px-2 font-medium">اشتراكات</th>
+                      <th className="text-right py-3 px-2 font-medium">إجمالي المصاريف</th>
                       <th className="text-right py-3 px-2 font-medium">الربح</th>
                     </tr>
                   </thead>
@@ -355,8 +383,17 @@ function PnlTab() {
                         <td className="py-3 px-2 font-mono text-green-600">
                           {formatCurrency(p.revenue)}
                         </td>
-                        <td className="py-3 px-2 font-mono text-red-600">
-                          {formatCurrency(p.expenses)}
+                        <td className="py-3 px-2 font-mono text-red-500">
+                          {formatCurrency(p.expenses.salaries)}
+                        </td>
+                        <td className="py-3 px-2 font-mono text-orange-500">
+                          {formatCurrency(p.expenses.operational)}
+                        </td>
+                        <td className="py-3 px-2 font-mono text-violet-500">
+                          {formatCurrency(p.expenses.subscriptions)}
+                        </td>
+                        <td className="py-3 px-2 font-mono text-red-600 font-semibold">
+                          {formatCurrency(p.expenses.total)}
                         </td>
                         <td
                           className={`py-3 px-2 font-mono font-semibold ${
@@ -374,8 +411,17 @@ function PnlTab() {
                       <td className="py-3 px-2 font-mono text-green-600">
                         {formatCurrency(data.totals.revenue)}
                       </td>
+                      <td className="py-3 px-2 font-mono text-red-500">
+                        {formatCurrency(data.totals.expenses.salaries)}
+                      </td>
+                      <td className="py-3 px-2 font-mono text-orange-500">
+                        {formatCurrency(data.totals.expenses.operational)}
+                      </td>
+                      <td className="py-3 px-2 font-mono text-violet-500">
+                        {formatCurrency(data.totals.expenses.subscriptions)}
+                      </td>
                       <td className="py-3 px-2 font-mono text-red-600">
-                        {formatCurrency(data.totals.expenses)}
+                        {formatCurrency(data.totals.expenses.total)}
                       </td>
                       <td
                         className={`py-3 px-2 font-mono ${

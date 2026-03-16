@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
   if (!auth) return apiUnauthorized();
 
   const body = await req.json();
-  const { project_id, task_id, date, hours, description, period_id } = body;
+  const { project_id, task_id, date, hours, description, period_id, is_billable, billing_rate } = body;
 
   if (!date || !hours) return apiValidationError('التاريخ والساعات مطلوبة');
   if (hours <= 0 || hours > 24) return apiValidationError('الساعات يجب أن تكون بين 0 و 24');
@@ -163,6 +163,8 @@ export async function POST(req: NextRequest) {
       period_id: period_id || null,
       is_overtime,
       overtime_multiplier,
+      is_billable: is_billable ?? false,
+      billing_rate: (typeof billing_rate === 'number' && billing_rate >= 0) ? billing_rate : null,
     })
     .select('*, pyra_projects!left(id, name)')
     .single();

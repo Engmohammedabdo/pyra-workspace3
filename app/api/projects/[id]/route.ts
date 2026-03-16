@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
     const body = await request.json();
-    const { name, description, status, client_company, deadline, start_date } = body;
+    const { name, description, status, client_company, deadline, start_date, budget_amount, budgeted_hours } = body;
 
     const supabase = await createServerSupabaseClient();
 
@@ -160,6 +160,20 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (start_date !== undefined) {
       updates.start_date = start_date || null;
+    }
+
+    if (budget_amount !== undefined) {
+      if (budget_amount !== null && (typeof budget_amount !== 'number' || budget_amount < 0)) {
+        return apiValidationError('ميزانية المشروع يجب أن تكون رقم موجب');
+      }
+      updates.budget_amount = budget_amount;
+    }
+
+    if (budgeted_hours !== undefined) {
+      if (budgeted_hours !== null && (typeof budgeted_hours !== 'number' || budgeted_hours < 0)) {
+        return apiValidationError('الساعات المخصصة يجب أن تكون رقم موجب');
+      }
+      updates.budgeted_hours = budgeted_hours;
     }
 
     const { data: project, error } = await supabase
