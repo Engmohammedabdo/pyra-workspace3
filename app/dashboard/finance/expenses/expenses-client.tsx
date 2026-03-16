@@ -268,13 +268,13 @@ export default function ExpensesClient() {
             to={toDate || new Date().toISOString().split('T')[0]}
           />
           <Link href="/dashboard/finance/expenses/new">
-            <Button><Plus className="h-4 w-4 ml-2" /> إضافة مصروف</Button>
+            <Button><Plus className="h-4 w-4 me-2" /> إضافة مصروف</Button>
           </Link>
         </div>
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {loading ? Array.from({ length: 3 }).map((_, i) => (
           <Card key={i}><CardContent className="p-4"><Skeleton className="h-4 w-20 mb-2" /><Skeleton className="h-8 w-24" /></CardContent></Card>
         )) : (
@@ -319,8 +319,14 @@ export default function ExpensesClient() {
             <SelectItem value="rejected">مرفوض</SelectItem>
           </SelectContent>
         </Select>
-        <Input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }} className="w-[160px]" />
-        <Input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1); }} className="w-[160px]" />
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">من</span>
+          <Input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }} className="w-[160px]" />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">إلى</span>
+          <Input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1); }} className="w-[160px]" />
+        </div>
       </div>
 
       {/* Table */}

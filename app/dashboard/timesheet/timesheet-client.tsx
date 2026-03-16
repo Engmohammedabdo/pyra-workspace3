@@ -320,7 +320,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
     return (
       <div className="p-6 space-y-4">
         <Skeleton className="h-10 w-48" />
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Skeleton className="h-24 rounded-xl" />
           <Skeleton className="h-24 rounded-xl" />
           <Skeleton className="h-24 rounded-xl" />

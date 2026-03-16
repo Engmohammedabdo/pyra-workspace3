@@ -226,7 +226,7 @@ export default function ContractsClient() {
           </h1>
         </div>
         <Link href="/dashboard/finance/contracts/new">
-          <Button><Plus className="h-4 w-4 ml-2" /> إنشاء عقد</Button>
+          <Button><Plus className="h-4 w-4 me-2" /> إنشاء عقد</Button>
         </Link>
       </div>
 

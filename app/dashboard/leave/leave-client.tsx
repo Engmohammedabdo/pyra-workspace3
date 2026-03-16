@@ -376,8 +376,14 @@ export default function LeaveClient({ session }: LeaveClientProps) {
             <Card key={b.type}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className={`h-10 w-10 rounded-lg bg-${b.color}-500/10 flex items-center justify-center`}>
-                    <Icon className={`h-5 w-5 text-${b.color}-500`} />
+                  <div
+                    className="h-10 w-10 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: b.color === 'orange' ? 'rgba(249,115,22,0.1)' : b.color === 'blue' ? 'rgba(59,130,246,0.1)' : 'rgba(168,85,247,0.1)' }}
+                  >
+                    <Icon
+                      className="h-5 w-5"
+                      style={{ color: b.color === 'orange' ? '#f97316' : b.color === 'blue' ? '#3b82f6' : '#a855f7' }}
+                    />
                   </div>
                   <div>
                     <p className="text-sm font-medium">{b.label}</p>
@@ -388,7 +394,13 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                   </div>
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
-                  <div className={`h-full rounded-full bg-${b.color}-500 transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${Math.min(pct, 100)}%`,
+                      backgroundColor: b.color === 'orange' ? '#f97316' : b.color === 'blue' ? '#3b82f6' : '#a855f7',
+                    }}
+                  />
                 </div>
               </CardContent>
             </Card>

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
@@ -169,18 +170,13 @@ export default function AutomationsClient() {
           ))}
         </div>
       ) : rules.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center text-muted-foreground">
-            <Zap className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-            <p>لا توجد قواعد أتمتة</p>
-            <p className="text-xs mt-1">أنشئ قاعدة جديدة للبدء في الأتمتة</p>
-            <Link href="/dashboard/automations/new">
-              <Button className="mt-4 bg-orange-500 hover:bg-orange-600">
-                <Plus className="h-4 w-4 me-2" /> إضافة قاعدة
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={Zap}
+          title="لا توجد قواعد أتمتة"
+          description="أنشئ قاعدة جديدة لأتمتة المهام المتكررة وتوفير الوقت"
+          actionLabel="إضافة قاعدة"
+          onAction={() => router.push('/dashboard/automations/new')}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {rules.map(rule => (
