@@ -1,6 +1,6 @@
 # Pyra Workspace 3.0
 
-**Pyramedia's Digital Workspace** — File management, client portal, project tracking, quotations, invoicing, and team collaboration platform with white-label portal branding.
+**Pyramedia X — Enterprise Digital Workspace** — A full-stack ERP platform covering file management, client portal, project tracking, CRM, invoicing, HR, payroll, finance reporting, and team collaboration — with white-label portal branding.
 
 Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hosted) + **shadcn/ui**.
 
@@ -23,70 +23,243 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 | Charts | Recharts |
 | Animations | framer-motion |
 | PDF | jsPDF + Amiri font (Arabic RTL support) |
-| Payments | Stripe |
+| Payments | Stripe (checkout + webhooks) |
+| Email | Nodemailer SMTP (Arabic HTML templates) |
+| Kanban | @dnd-kit (drag-and-drop) |
 | Package Manager | pnpm |
+| Deployment | Vercel (auto-deploy on push to main) |
+
+---
+
+## System Overview
+
+```
+                    ┌──────────────────────────────────┐
+                    │           Vercel (Edge)           │
+                    │  ┌────────────┐  ┌────────────┐  │
+                    │  │  Dashboard  │  │   Portal   │  │
+                    │  │  94 pages   │  │  21 pages  │  │
+                    │  └──────┬──────┘  └─────┬──────┘  │
+                    │         └───────┬───────┘         │
+                    │        290+ API Routes            │
+                    └─────────────┬──────────────────────┘
+                                  │
+              ┌───────────────────┼───────────────────┐
+              │                   │                     │
+     ┌────────▼────────┐  ┌──────▼──────┐  ┌──────────▼──────────┐
+     │   Supabase DB   │  │   Storage   │  │   External APIs     │
+     │  100 tables     │  │  S3-compat  │  │  Stripe · SMTP ·    │
+     │  RLS enabled    │  │             │  │  n8n · Telegram Bot  │
+     └─────────────────┘  └─────────────┘  └─────────────────────┘
+```
 
 ---
 
 ## Features
 
-### Admin Dashboard (`/dashboard`)
+### 1. Admin Dashboard (`/dashboard`) — 94 pages
+
+#### File Management
 - **File Explorer** — Grid/list views, upload, drag-drop, preview panel, sort/filter, bulk operations, keyboard shortcuts, context menu
-- **User Management** — CRUD with role-based access (admin/employee), path-based permissions
-- **Client Management** — Full CRM: detail pages, notes, tags, activity tracking, branding editor, CSV/PDF export ([docs](./docs/CLIENT-MANAGEMENT.md))
-- **Project Management** — CRUD with team scoping, file assignment, approval workflow
-- **Team Management** — CRUD with member add/remove
-- **Invoicing** — Invoice builder, auto-numbering, status flow (draft > sent > paid > overdue), PDF generation
-- **Quotations** — Full quote builder, auto-numbering (QT-XXXX), VAT calculation, PDF generation, electronic signatures
-- **Contracts** — Contract management with client linking
-- **Expenses & Subscriptions** — Expense tracking and recurring subscription management
-- **Finance Reports** — Revenue, clients, projects, team, and storage analytics with charts
-- **Smart Alerts** — Expandable alert cards for overdue invoices, expiring quotes, stalled projects
-- **Notifications** — Realtime bell with unread badge, notification list, mark read
-- **Activity Log** — Filterable audit trail of all system actions (40+ action types)
+- **Favorites** — Bookmark files and folders
+- **File Versions** — Version history with rollback
+- **File Reviews** — Review comments grouped by path
+- **Share Links** — Public share links with expiry, password protection, access limits
 - **Trash** — Soft delete with 30-day auto-purge, restore capability
-- **Reviews** — File review system grouped by path
-- **Script Reviews** — Script content review workflow
+
+#### Client Management (CRM)
+- **Client Profiles** — Full detail pages with tabs (overview, projects, invoices, quotes, notes, activity, branding)
+- **Client Notes** — Pin-able relationship notes (meetings, decisions, follow-ups)
+- **Client Tags** — Classification tags with color coding (VIP, Priority, etc.)
+- **Activity Tracking** — Complete client interaction history
+- **CSV/PDF Export** — Client data export
+
+#### Project Management
+- **Projects** — CRUD with client and team scoping, file assignment, approval workflow
+- **Project Budget** — Budget amount and budgeted hours tracking with utilization metrics
+- **Org Chart** — Organizational hierarchy visualization
+
+#### Sales & CRM
+- **Sales Pipeline** — Kanban-style lead management with custom stages
+- **Leads** — Lead tracking with scoring, source attribution, and conversion
+- **Follow-ups** — Scheduled follow-up reminders with assignment
+- **WhatsApp Integration** — Instance management, message tracking, templates
+- **Sales Reports** — Pipeline analytics and conversion tracking
+- **Quote Approvals** — Internal approval workflow for quotes
+
+#### Invoicing & Billing
+- **Invoices** — Full invoice builder, auto-numbering, status flow (draft → sent → paid → overdue), PDF generation
+- **Payments** — Manual recording + Stripe checkout integration with webhook handling
+- **Recurring Invoices** — Auto-generation of recurring invoices from contracts
+- **Credit Notes** — Credit note issuance against invoices with line items
+- **Stripe Integration** — Payment links, checkout sessions, webhook processing (payment, refund, dispute)
+- **Dunning** — Automated overdue payment reminders
+
+#### Quotations
+- **Quote Builder** — Full quote builder with auto-numbering (QT-XXXX), VAT calculation
+- **PDF Generation** — Arabic RTL PDF with company branding
+- **Electronic Signatures** — Canvas-based digital signatures with IP logging
+- **Email Sending** — Direct quote email to clients
+
+#### Finance Module
+- **Expenses** — Expense tracking with categories, VAT, receipts, approval workflow
+- **Expense Categories** — Custom categories with Arabic names, icons, and colors
+- **Subscriptions** — Recurring subscription management with auto-renewal expense creation
+- **Contracts** — Contract management with milestones, billing structure, auto-billed amounts
+- **Purchase Orders** — PO creation, approval, and auto-expense on receipt
+- **Suppliers** — Vendor management with bank details and payment terms
+- **Payment Cards** — Company card management
+- **Revenue Targets** — Monthly/quarterly/yearly revenue goals
+- **Finance Alerts** — Smart alerts for overdue invoices, budget overruns, expiring subscriptions
+
+#### Finance Reports
+- **P&L (Profit & Loss)** — Monthly/quarterly with expense breakdown (salaries, operational, subscriptions)
+- **VAT Report** — Collected vs paid VAT with monthly breakdown
+- **Client Profitability** — Revenue, expenses, and margin per client
+- **Project Profitability** — Revenue vs costs (direct expenses + labor) per project with budget utilization
+- **Client Statement** — Per-client account statement with aging
+- **Cashflow** — Cash in/out analysis
+- **Revenue Reports** — Revenue analytics with charts
+
+#### HR & Payroll
+- **Attendance** — Clock-in/out with geolocation + IP tracking
+- **Leave Management** — Request/approve leave with balance tracking, custom leave types (paid/unpaid)
+- **Payroll** — Multi-period payroll with auto-calculation:
+  - Base salary + task payments + overtime + bonuses + commissions
+  - Auto-deduction for unpaid leave (daily rate = salary ÷ 22 working days)
+  - Auto-creation of expense records on payroll approval
+  - Commission payments from invoice payments (manual + Stripe)
+- **Salary History** — Automatic tracking of salary/hourly rate changes
+- **Evaluations** — Performance reviews with criteria scoring and bonus recommendations
+- **Timesheets** — Period-based time tracking with project linking, billable hours support
+- **Employee Payments** — Advances, bonuses, deductions, commission tracking
+- **Work Schedules** — Shift definitions and assignments
+- **Overtime** — Overtime request and approval workflow
+- **Directory** — Employee profiles + org chart visualization
+- **Announcements** — Company-wide announcements with priority and targeting
+- **My Payslips** — Employee self-service payslip viewing
+
+#### Task Management
+- **Kanban Boards** — Full kanban with drag-and-drop, labels, checklists, comments, attachments
+- **My Tasks** — Personal task dashboard across all boards
+- **Content Pipeline** — Content production workflow management
+
+#### Knowledge Base
+- **Articles** — Searchable knowledge base with categories
+- **Help Center** — Client-facing help articles
+
+#### System Administration
+- **User Management** — CRUD with role-based access (admin/employee), path-based permissions
+- **Roles & Permissions** — RBAC with `module.action` format (60+ permissions)
+- **Teams** — Team management with member add/remove
+- **Settings** — Company info, quotes, bank details, storage, commission rates
+- **Integrations** — Automation rules, webhooks, API keys
+- **Activity Log** — Filterable audit trail (40+ action types)
+- **Login History** — Security monitoring
 - **Sessions** — Active session management
-- **Permissions & Roles** — RBAC with `module.action` format
-- **Settings** — Company, quotes, bank, storage configuration
 - **Module Guide** — Contextual help on every page with searchable guide directory
 - **Command Palette** — Ctrl+K global search across all pages
 
-### Client Portal (`/portal`)
+#### External API (n8n / Telegram Bot)
+- **Expense Recording** — Register expenses via Telegram bot through n8n
+- **Subscription Management** — Manage subscriptions via external API
+- **Supplier Auto-Matching** — Auto-match vendor name to existing suppliers
+
+---
+
+### 2. Client Portal (`/portal`) — 21 pages
+
 - **Dashboard** — Welcome card, stats overview, recent activity, quick actions
 - **Projects** — Project list with status tabs, detail view with files + comments
 - **Files** — All files across projects with preview, approve/request-revision workflow
 - **Quotes** — View quotes, electronic signature via canvas
 - **Invoices** — Invoice list, detail view, Stripe payment integration
+- **Contracts** — Contract list and details
+- **Recurring Invoices** — View recurring invoice schedules
+- **Account Statement** — Full payment history and balance
 - **Scripts** — Script viewing and commenting
 - **Help Center** — Searchable help articles
-- **Notifications** — Push notifications, notification list with read/unread filters
+- **Notifications** — Push notifications with read/unread filters
 - **Profile** — Personal info editor, password change
-- **Dynamic Branding** — Per-client white-label theming (colors, logo, favicon) ([docs](./docs/PORTAL-BRANDING.md))
-
-### Security
-- CSRF protection (Origin header validation)
-- Rate limiting on sensitive endpoints
-- Path traversal prevention
-- LIKE wildcard escaping
-- File type whitelist (MIME + extension)
-- HSTS + security headers
-- IDOR protection on portal routes
-- Error boundaries with Arabic UI
-- RBAC permission system
+- **Dynamic Branding** — Per-client white-label theming (colors, logo, favicon)
 
 ---
 
-## Documentation
+### 3. Security
 
-| Document | Description |
-|----------|-------------|
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, component structure, API patterns |
-| [`docs/PORTAL-BRANDING.md`](./docs/PORTAL-BRANDING.md) | Dynamic portal branding system (CSS vars, Tailwind integration) |
-| [`docs/CLIENT-MANAGEMENT.md`](./docs/CLIENT-MANAGEMENT.md) | Client CRM system (notes, tags, activity, branding) |
-| [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md) | Full database schema (29 tables) |
-| [`CLAUDE.md`](./CLAUDE.md) | Development guide, coding conventions, mandatory checklists |
+- **CSRF Protection** — Origin header validation
+- **Rate Limiting** — On sensitive endpoints (login, password reset)
+- **Path Traversal Prevention** — Sanitized file paths
+- **LIKE Wildcard Escaping** — SQL injection prevention
+- **File Type Whitelist** — MIME + extension validation
+- **HSTS + Security Headers** — Strict transport security
+- **IDOR Protection** — Portal routes scoped to authenticated client
+- **Error Boundaries** — Arabic UI error pages
+- **RBAC Permission System** — 60+ granular permissions
+- **Session Management** — Cookie-based with SHA-256 hashed tokens
+
+---
+
+## Currency & Exchange Rates
+
+The system operates primarily in AED (UAE Dirham) with fixed exchange rates:
+
+| Currency | Rate to AED | Source |
+|----------|-------------|--------|
+| AED | 1.00 | — |
+| USD | 3.76 | UAE Central Bank peg (fixed) |
+| EUR | 4.12 | Approximate |
+| SAR | 1.0027 | Near-fixed (SAR pegged to USD) |
+| GBP | 4.75 | Approximate |
+
+All financial reports aggregate amounts in AED using these rates.
+
+---
+
+## HR-Finance Integration
+
+The system unifies HR and Finance with these key integrations:
+
+| Integration | Description |
+|-------------|-------------|
+| **Payroll → Expenses** | When payroll is approved, expense records are auto-created per employee (category: Salaries) |
+| **Unpaid Leave → Deductions** | Unpaid leave auto-deducted from payroll (daily rate = salary ÷ 22 working days) |
+| **Commissions** | Auto-calculated on invoice payments (manual + Stripe) based on employee commission rates |
+| **PO → Expenses** | Purchase orders auto-create expenses when status changes to "received" |
+| **Subscriptions → Expenses** | Auto-expense creation on subscription renewal with dedup |
+| **Invoice → Project** | Direct `project_id` linking for accurate project profitability |
+| **Contract → Billing** | Auto-update `amount_billed` when invoices are created against contracts |
+| **Evaluation → Bonus** | Performance rating-based bonus recommendations (≥4.5 → 15%, ≥4.0 → 10%) |
+| **Salary History** | Automatic tracking when salary or hourly rate changes |
+| **P&L Breakdown** | Expense breakdown by category: salaries, operational, subscriptions |
+
+---
+
+## Database
+
+100 PostgreSQL tables with `pyra_` prefix in the public schema.
+
+### Key Table Groups
+
+| Group | Tables | Description |
+|-------|--------|-------------|
+| Core | `pyra_users`, `pyra_sessions`, `pyra_auth_mapping`, `pyra_roles`, `pyra_settings` | Users, auth, roles, config |
+| Clients | `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding` | CRM and portal |
+| Files | `pyra_file_index`, `pyra_file_versions`, `pyra_project_files`, `pyra_favorites`, `pyra_trash` | File management |
+| Projects | `pyra_projects`, `pyra_teams`, `pyra_team_members` | Project and team management |
+| Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_*` (6 tables) | Kanban boards |
+| Finance | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_expenses`, `pyra_expense_categories`, `pyra_subscriptions`, `pyra_contracts`, `pyra_contract_milestones`, `pyra_cards`, `pyra_recurring_invoices`, `pyra_revenue_targets`, `pyra_stripe_payments` | Billing and finance |
+| Procurement | `pyra_suppliers`, `pyra_purchase_orders`, `pyra_purchase_order_items`, `pyra_credit_notes`, `pyra_credit_note_items` | Vendors and purchase orders |
+| Quotes | `pyra_quotes`, `pyra_quote_items` | Quotations |
+| HR | `pyra_attendance`, `pyra_leave_requests`, `pyra_leave_types`, `pyra_leave_balances_v2`, `pyra_work_schedules`, `pyra_timesheets`, `pyra_timesheet_periods` | Attendance and leave |
+| Payroll | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments`, `pyra_salary_history` | Payroll and compensation |
+| Evaluations | `pyra_evaluation_periods`, `pyra_evaluation_criteria`, `pyra_evaluations`, `pyra_evaluation_scores`, `pyra_kpi_targets` | Performance management |
+| Sales CRM | `pyra_sales_leads`, `pyra_sales_labels`, `pyra_pipeline_stages`, `pyra_sales_follow_ups`, `pyra_lead_activities`, `pyra_wa_instances`, `pyra_wa_messages`, `pyra_wa_templates` | Sales pipeline |
+| Automation | `pyra_automation_rules`, `pyra_automation_log`, `pyra_webhooks`, `pyra_webhook_deliveries`, `pyra_api_keys` | Workflows and integrations |
+| Content | `pyra_content_pipeline`, `pyra_pipeline_stages`, `pyra_kb_articles`, `pyra_kb_categories`, `pyra_script_reviews` | Content and knowledge |
+| System | `pyra_activity_log`, `pyra_notifications`, `pyra_client_notifications`, `pyra_login_attempts`, `pyra_announcements` | Audit and notifications |
+
+Full schema documentation: [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md)
 
 ---
 
@@ -94,63 +267,142 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 
 ```
 app/
-  api/                    # 60+ API route handlers
-    files/                # File CRUD, search, folders, batch delete
-    users/                # User CRUD, password management
-    clients/              # Client CRUD, notes, tags, branding, activity
-    projects/             # Project CRUD, file assignment
-    approvals/            # Submit, approve/reject
-    quotes/               # Quote CRUD, duplicate, send
-    invoices/             # Invoice CRUD, payments
-    notifications/        # List, mark read
-    teams/                # Team CRUD, members
-    shares/               # Share links, public download
-    trash/                # Restore, permanent delete
-    portal/               # Client portal endpoints (15+ routes)
-    dashboard/            # Stats API
-    activity/             # Audit log
-    settings/             # Config get/update
-  dashboard/              # Admin pages (20+ pages)
-  portal/                 # Client portal pages (10+ pages)
-  share/                  # Public share download page
+  api/                        # 290+ API route handlers
+    dashboard/                # Admin APIs (payroll, evaluations, attendance, sales, etc.)
+    portal/                   # Client portal APIs (auth, files, invoices, etc.)
+    finance/                  # Finance APIs (expenses, reports, subscriptions, contracts)
+    invoices/                 # Invoice CRUD, payments
+    quotes/                   # Quote CRUD, duplicate, send
+    files/                    # File CRUD, search, folders, batch delete
+    clients/                  # Client CRUD, notes, tags, branding, activity
+    users/                    # User CRUD, password management
+    projects/                 # Project CRUD, file assignment
+    external/                 # External API (n8n, Telegram bot)
+    stripe/                   # Stripe webhooks
+    ...                       # 30+ more route groups
+  dashboard/                  # Admin pages (94 pages)
+    finance/                  # 20+ finance pages (expenses, invoices, reports, etc.)
+    sales/                    # 10+ sales CRM pages
+    ...                       # HR, projects, files, settings, etc.
+  portal/                     # Client portal pages (21 pages)
+    (auth)/                   # Login, forgot/reset password
+    (main)/                   # Dashboard, projects, invoices, quotes, etc.
+  share/                      # Public share download page
+
 components/
-  ui/                     # shadcn/ui components (25+) + custom (empty-state, page-guide)
-  layout/                 # Sidebar, topbar, breadcrumb, page-transition
-  portal/                 # Portal sidebar, topbar, mobile nav, branding, file preview
-  clients/                # Client notes, branding editor
-  files/                  # File explorer, grid, list, preview, context menu, drop zone
-  quotes/                 # QuoteBuilder, SignaturePad
-  finance/                # Finance charts, revenue reports
-  projects/               # Project components
-  dashboard/              # Dashboard widgets
-  reports/                # Report components
-  auth/                   # Auth components
-  providers/              # Context providers (theme, auth)
-hooks/                    # React hooks (files, notifications, realtime, debounce, permissions)
+  ui/                         # shadcn/ui components (30+) + custom (empty-state, page-guide)
+  layout/                     # Sidebar, topbar, breadcrumb, page-transition
+  portal/                     # Portal sidebar, topbar, mobile nav, branding
+  clients/                    # Client notes, branding editor
+  files/                      # File explorer, grid, list, preview, context menu, drop zone
+  quotes/                     # QuoteBuilder, SignaturePad
+  finance/                    # Finance charts, revenue reports
+  projects/                   # Project components
+  dashboard/                  # Dashboard widgets
+  reports/                    # Report components, ExportButton
+  auth/                       # Auth components
+  providers/                  # Context providers (theme, auth)
+
+hooks/                        # React hooks (files, notifications, realtime, debounce, permissions)
+
 lib/
-  api/                    # Auth helpers, response helpers
-  auth/                   # Guards, RBAC, middleware utilities
-  config/                 # Module guide config
-  portal/                 # Portal session management, branding types
-  supabase/               # Supabase client factories (server, client, middleware, service role)
-  utils/                  # Path sanitization, rate limiting, ID generation, formatting
-  pdf/                    # PDF generators (Arabic support via Amiri font)
-  email/                  # SMTP mailer, notification templates
-  finance/                # Finance alerts engine
-  automation/             # Workflow automation
-  webhooks/               # Webhook dispatcher
-docs/                     # Technical documentation
+  api/                        # Auth helpers, response helpers
+  auth/                       # Guards, RBAC, middleware utilities
+  config/                     # Module guide config
+  portal/                     # Portal session management, branding types
+  supabase/                   # Supabase client factories (server, client, middleware, service role)
+  utils/                      # Path sanitization, rate limiting, ID generation, formatting, currency
+  pdf/                        # PDF generators (Arabic support via Amiri font)
+  email/                      # SMTP mailer, notification templates
+  finance/                    # Finance alerts engine
+  automation/                 # Workflow automation
+  webhooks/                   # Webhook dispatcher
+
+types/
+  database.ts                 # TypeScript interfaces for all database tables
+
+docs/                         # Technical documentation
 ```
 
 ---
 
-## Database
+## API Overview
 
-29 PostgreSQL tables with `pyra_` prefix + 1 view (`v_project_summary`).
+| Group | Routes | Description |
+|-------|--------|-------------|
+| `/api/dashboard/*` | 91 | Admin dashboard endpoints (payroll, evaluations, attendance, sales, purchases, etc.) |
+| `/api/portal/*` | 47 | Client portal endpoints (auth, files, invoices, contracts, statement) |
+| `/api/finance/*` | 28 | Finance (expenses, reports, subscriptions, contracts, suppliers) |
+| `/api/files/*` | 19 | File CRUD, search, folders, batch operations |
+| `/api/clients/*` | 13 | Client CRUD, notes, tags, branding, activity |
+| `/api/invoices/*` | 7 | Invoice CRUD, payments, send |
+| `/api/external/*` | 7 | External API for n8n/Telegram bot (expenses, subscriptions) |
+| `/api/reports/*` | 7 | Revenue, client, project, team, storage reports |
+| `/api/webhooks/*` | 7 | Webhook management and deliveries |
+| `/api/projects/*` | 5 | Project CRUD, file assignment |
+| `/api/auth/*` | 5 | Login, logout, session management |
+| `/api/automations/*` | 5 | Automation rules, execution, triggers |
+| `/api/quotes/*` | 4 | Quote CRUD, duplicate, send |
+| `/api/users/*` | 4 | User CRUD, password change |
+| `/api/leave/*` | 4 | Leave requests and approvals |
+| `/api/kb/*` | 4 | Knowledge base articles and categories |
+| `/api/shares/*` | 4 | Share links, public download |
+| `/api/boards/*` | 4 | Kanban board management |
+| `/api/teams/*` | 3 | Team CRUD, member management |
+| `/api/notifications/*` | 3 | List, mark read, mark all |
+| `/api/settings/*` | 3 | Config get/update |
+| `/api/stripe/*` | 2 | Stripe checkout, webhooks |
+| `/api/timesheet/*` | 2 | Timesheet CRUD |
+| `/api/roles/*` | 2 | Role management |
+| **Total** | **290+** | |
 
-Key tables: `pyra_users`, `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding`, `pyra_projects`, `pyra_project_files`, `pyra_teams`, `pyra_quotes`, `pyra_quote_items`, `pyra_invoices`, `pyra_invoice_items`, `pyra_notifications`, `pyra_file_index`, `pyra_trash`, `pyra_activity_log`, `pyra_settings`.
+---
 
-Full schema documentation: [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md)
+## Documentation
+
+| Document | Path | Description |
+|----------|------|-------------|
+| Architecture | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, component structure, API patterns |
+| Database Schema | [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md) | Full database schema (100 tables) |
+| Development Guide | [`CLAUDE.md`](./CLAUDE.md) | Coding conventions, mandatory checklists, key systems |
+| Employee System | [`docs/EMPLOYEE-SYSTEM.md`](./docs/EMPLOYEE-SYSTEM.md) | HR system documentation (14 modules) |
+| Employee PRD | [`docs/PRD-EMPLOYEE-SYSTEM.md`](./docs/PRD-EMPLOYEE-SYSTEM.md) | Employee system requirements |
+| Employee Implementation | [`docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md`](./docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md) | Implementation details |
+| Client Management | [`docs/CLIENT-MANAGEMENT.md`](./docs/CLIENT-MANAGEMENT.md) | Client CRM system (notes, tags, activity, branding) |
+| Portal Branding | [`docs/PORTAL-BRANDING.md`](./docs/PORTAL-BRANDING.md) | Dynamic portal branding system |
+| Portal Gaps | [`docs/PORTAL-GAPS.md`](./docs/PORTAL-GAPS.md) | Portal features roadmap |
+| External API | [`docs/n8n-api-examples.json`](./docs/n8n-api-examples.json) | n8n/Telegram bot API examples |
+
+---
+
+## RBAC Permissions
+
+The system uses granular `module.action` permissions:
+
+| Module | Permissions |
+|--------|------------|
+| Files | `files.view`, `files.upload`, `files.delete`, `files.manage` |
+| Projects | `projects.view`, `projects.create`, `projects.manage` |
+| Clients | `clients.view`, `clients.create`, `clients.manage` |
+| Invoices | `invoices.view`, `invoices.create`, `invoices.manage` |
+| Quotes | `quotes.view`, `quotes.create`, `quotes.manage` |
+| Finance | `finance.view`, `finance.manage` |
+| Payroll | `payroll.view`, `payroll.manage` |
+| Attendance | `attendance.view`, `attendance.manage` |
+| Leave | `leave.view`, `leave.manage` |
+| Evaluations | `evaluations.view`, `evaluations.manage` |
+| Timesheet | `timesheet.view`, `timesheet.manage` |
+| Overtime | `overtime.view`, `overtime.manage` |
+| Work Schedules | `work_schedules.view`, `work_schedules.manage` |
+| Employee Payments | `employee_payments.view`, `employee_payments.manage` |
+| Content Pipeline | `content_pipeline.view`, `content_pipeline.manage` |
+| Directory | `directory.view`, `directory.manage` |
+| Announcements | `announcements.view`, `announcements.manage` |
+| Leave Types | `leave_types.view`, `leave_types.manage` |
+| Users | `users.view`, `users.create`, `users.manage` |
+| Roles | `roles.view`, `roles.manage` |
+| Settings | `settings.view`, `settings.manage` |
+| Reports | `reports.view` |
 
 ---
 
@@ -179,10 +431,23 @@ cp .env.example .env.local
 ### Environment Variables
 
 ```env
+# Supabase
 NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
 NEXT_PUBLIC_STORAGE_BUCKET=pyraai-workspace
+
+# Stripe
+STRIPE_SECRET_KEY=<your-stripe-secret-key>
+STRIPE_WEBHOOK_SECRET=<your-webhook-secret>
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=<your-publishable-key>
+
+# Email (SMTP)
+SMTP_HOST=<your-smtp-host>
+SMTP_PORT=587
+SMTP_USER=<your-smtp-user>
+SMTP_PASS=<your-smtp-password>
+SMTP_FROM=noreply@yourdomain.com
 ```
 
 ### Development
@@ -191,7 +456,7 @@ NEXT_PUBLIC_STORAGE_BUCKET=pyraai-workspace
 pnpm dev          # Start dev server with Turbopack
 pnpm build        # Production build
 pnpm start        # Start production server (port 3000)
-pnpm check        # TypeScript type checking
+pnpm tsc --noEmit # TypeScript type checking
 pnpm lint         # ESLint
 ```
 
@@ -216,30 +481,12 @@ pnpm lint         # ESLint
 | 9 | Finance Module (invoices, expenses, subscriptions, reports) | Done |
 | 10 | Client Management Overhaul (detail pages, notes, tags, branding) | Done |
 | 11 | Dynamic Portal Branding (white-label theming system) | Done |
-| 12 | Docker & Deployment | Pending |
-
----
-
-## API Overview
-
-| Group | Routes | Description |
-|-------|--------|-------------|
-| `/api/files` | 6 | File CRUD, search, folders, batch delete |
-| `/api/users` | 4 | User CRUD, password change |
-| `/api/clients` | 17 | Client CRUD, notes, tags, branding, activity |
-| `/api/projects` | 3 | Project CRUD, file assignment |
-| `/api/approvals` | 2 | Submit, approve/reject |
-| `/api/quotes` | 7 | Quote CRUD, duplicate, send |
-| `/api/invoices` | 5 | Invoice CRUD, payments |
-| `/api/notifications` | 3 | List, mark read, mark all read |
-| `/api/teams` | 3 | Team CRUD, member management |
-| `/api/shares` | 3 | Create share links, public download |
-| `/api/trash` | 2 | Restore, permanent delete |
-| `/api/portal/*` | 15 | Client portal endpoints |
-| `/api/dashboard` | 1 | Role-based stats |
-| `/api/activity` | 1 | Filtered audit log |
-| `/api/settings` | 1 | Config get/update |
-| `/api/health` | 1 | Health check |
+| 12 | Employee & HR System (14 modules, 15 tables) | Done |
+| 13 | ERP Expansion (evaluations, payroll, work schedules, overtime) | Done |
+| 14 | Sales CRM (pipeline, leads, WhatsApp, follow-ups) | Done |
+| 15 | Finance v2 (credit notes, POs, suppliers, contracts) | Done |
+| 16 | HR-Finance Integration (payroll→expenses, commissions, P&L) | Done |
+| 17 | Docker & Deployment | Pending |
 
 ---
 
@@ -251,4 +498,4 @@ The entire UI is RTL-first (Arabic), with automatic LTR detection for English co
 
 ## License
 
-Private project. All rights reserved by Pyramedia.
+Private project. All rights reserved by Pyramedia X.
