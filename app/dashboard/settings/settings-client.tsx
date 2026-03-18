@@ -250,7 +250,7 @@ function SettingField({ settingKey, meta, value, onChange, canManage, visibleSec
           </button>
         </div>
         <p className="text-xs text-muted-foreground flex items-center gap-1">
-          <AlertCircle className="h-3 w-3 text-red-400" />
+          <AlertCircle className="h-3 w-3 text-red-400 dark:text-red-500" />
           {meta.description}
         </p>
       </div>
@@ -728,7 +728,7 @@ function ApiKeysSection() {
                   {revealedKey}
                 </code>
                 <Button variant="outline" size="sm" onClick={handleCopyKey} className="rounded-xl">
-                  {copiedKey ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                  {copiedKey ? <Check className="h-4 w-4 text-green-600 dark:text-green-400" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
             </div>
@@ -904,8 +904,11 @@ export default function SettingsClient() {
   useEffect(() => {
     fetch('/api/settings')
       .then(r => r.json())
-      .then(json => { if (json.data) setSettings(json.data); })
-      .catch(console.error)
+      .then(json => {
+        if (json.error) { toast.error(json.error); return; }
+        if (json.data) setSettings(json.data);
+      })
+      .catch(() => toast.error('فشل تحميل الإعدادات'))
       .finally(() => setLoading(false));
   }, []);
 
@@ -960,7 +963,7 @@ export default function SettingsClient() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className={`rounded-xl shadow-md transition-all ${saved ? 'bg-green-600 hover:bg-green-700' : ''}`}
+              className={`rounded-xl shadow-md transition-all ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
             >
               {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
               {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
@@ -1006,7 +1009,7 @@ export default function SettingsClient() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className={`w-full rounded-xl shadow-md ${saved ? 'bg-green-600 hover:bg-green-700' : ''}`}
+            className={`w-full rounded-xl shadow-md ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
           >
             {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
             {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
