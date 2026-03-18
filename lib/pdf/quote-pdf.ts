@@ -5,8 +5,7 @@ import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
 
 // ============================================================
 // Quote PDF Generator — Professional Design
-// Matches Pyramedia X brand identity: orange accent, clean grid,
-// multi-column T&C, logo support, bank detail table, branded footer.
+// Matches Pyramedia X brand identity
 // ============================================================
 
 interface QuoteItem {
@@ -48,18 +47,19 @@ interface QuoteData {
   items: QuoteItem[];
 }
 
-// ── Brand Colors ──
+// ── Colors ──
 const ORANGE = '#f97316';
 const DARK = '#18181b';
 const GRAY = '#71717a';
-const LIGHT_BORDER = '#e5e5e5';
+const BORDER = '#d4d4d4';
+const LIGHT_BG = '#f5f5f5';
 
-// ── Footer Info (company contact) ──
+// ── Footer ──
 const FOOTER_PHONE = '+971 565799505';
 const FOOTER_SOCIAL = 'PYRAMEDIA.DXB';
 const FOOTER_WEB = 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI';
 
-// ── Fixed Terms & Conditions ──
+// ── Fixed Terms ──
 const FIXED_TERMS: Record<string, string[]> = {
   'Payment': [
     '- Projects below AED 5,000 require 100% advance payment.',
@@ -113,20 +113,38 @@ function fmtDate(dateStr: string): string {
   }
 }
 
-/**
- * Draw a dashed line (simulated with small segments).
- */
-function dashedLine(doc: jsPDF, x1: number, y: number, x2: number) {
-  const dashLen = 1.5;
-  const gapLen = 1;
-  let x = x1;
+function dashedLine(doc: jsPDF, x1: number, yPos: number, x2: number) {
   doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.2);
+  doc.setLineWidth(0.15);
+  let x = x1;
   while (x < x2) {
-    const end = Math.min(x + dashLen, x2);
-    doc.line(x, y, end, y);
-    x = end + gapLen;
+    const end = Math.min(x + 1.2, x2);
+    doc.line(x, yPos, end, yPos);
+    x = end + 0.8;
   }
+}
+
+// Helper: render text, using Amiri for Arabic, Helvetica for English
+function smartText(doc: jsPDF, text: string, x: number, yPos: number, arFn: (t: string) => string, opts?: { align?: 'left' | 'center' | 'right'; maxWidth?: number }) {
+  const hasArabic = /[\u0600-\u06FF]/.test(text);
+  if (hasArabic) {
+    doc.setFont('Amiri', 'normal');
+    const processed = arFn(text);
+    if (opts?.maxWidth) {
+      const lines = doc.splitTextToSize(processed, opts.maxWidth);
+      doc.text(lines, x, yPos, opts?.align ? { align: opts.align } : undefined);
+      return lines.length;
+    }
+    doc.text(processed, x, yPos, opts?.align ? { align: opts.align } : undefined);
+  } else {
+    if (opts?.maxWidth) {
+      const lines = doc.splitTextToSize(text, opts.maxWidth);
+      doc.text(lines, x, yPos, opts?.align ? { align: opts.align } : undefined);
+      return lines.length;
+    }
+    doc.text(text, x, yPos, opts?.align ? { align: opts.align } : undefined);
+  }
+  return 1;
 }
 
 /**
@@ -138,374 +156,310 @@ export async function generateQuotePDF(quote: QuoteData) {
   await registerArabicFont(doc);
   const arText = (t: string) => doc.processArabic(t);
 
-  const pw = 210;    // page width
-  const ph = 297;    // page height
-  const m = 15;      // margin
-  const cw = pw - m * 2; // content width
+  const pw = 210;
+  const m = 15;
+  const cw = pw - m * 2;
   let y = 0;
 
-  // ── Try to load company logo ──
+  // ── Load logo: try local first, then company_logo URL ──
   let logoData: string | null = null;
-  if (quote.company_logo) {
-    logoData = await loadImageAsBase64(quote.company_logo);
+  try {
+    logoData = await loadImageAsBase64('/images/pyramediax-logo.png');
+  } catch { /* ignore */ }
+  if (!logoData && quote.company_logo) {
+    try {
+      logoData = await loadImageAsBase64(quote.company_logo);
+    } catch { /* ignore */ }
   }
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 1: HEADER — Logo + Company + Client Info
-  // ════════════════════════════════════════════════════════
-  y = 15;
+  // ════════════════════════════════════════════════
+  // HEADER: Logo/Company + Client Info
+  // ════════════════════════════════════════════════
+  y = 14;
 
-  // Logo or text fallback
+  // -- Left: Logo + Company Name --
   if (logoData) {
     try {
-      doc.addImage(logoData, 'PNG', m, y - 2, 28, 28);
-    } catch {
-      // Fallback to text
-      doc.setFont('Amiri', 'bold');
-      doc.setFontSize(18);
-      doc.setTextColor(ORANGE);
-      doc.text(arText(quote.company_name || 'PYRAMEDIA X'), m, y + 10);
-    }
-  } else {
-    doc.setFont('Amiri', 'bold');
-    doc.setFontSize(18);
-    doc.setTextColor(ORANGE);
-    doc.text(arText(quote.company_name || 'PYRAMEDIA X'), m, y + 10);
+      doc.addImage(logoData, 'PNG', m, y - 4, 24, 24);
+    } catch { logoData = null; }
   }
 
-  // Company name under logo
-  if (logoData) {
-    doc.setFont('Amiri', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(DARK);
-    doc.text(arText(quote.company_name || 'PYRAMEDIA X'), m, y + 32);
-  }
+  // Company name text (below logo if logo exists, or standalone)
+  const companyNameY = logoData ? y + 24 : y + 8;
+  doc.setFont('Amiri', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(ORANGE);
+  doc.text(quote.company_name || 'PYRAMEDIA X', m, companyNameY);
 
-  // Client info — right side with dashed underlines
-  const clientStartX = 80;
-  const clientLabelW = 25;
-  const clientValueX = clientStartX + clientLabelW + 2;
-  const clientEndX = pw - m;
-  let cy = y;
+  // -- Right: Client info with labels + dashed lines --
+  const cInfoX = 80; // start of client info area
+  const cValX = cInfoX + 22; // start of values
+  const cMidX = 145; // second column label
+  const cMidValX = cMidX + 22;
+  const lineEndLeft = cMidX - 5;
+  const lineEndRight = pw - m;
 
-  const clientFields = [
-    { label: 'Client:', value: quote.client_company || quote.client_name || '---' },
-    { label: 'Email:', value: quote.client_email || '---' },
-    { label: 'Contact:', value: quote.client_name || '---' },
-    { label: 'Phone:', value: quote.client_phone || '---' },
-    { label: 'Address:', value: quote.client_address || '---' },
-  ];
-
-  // Draw in 2 columns: left 2 (Client, Contact) and right 2 (Email, Phone, Address)
-  const leftFields = [clientFields[0], clientFields[2]]; // Client, Contact
-  const rightFields = [clientFields[1], clientFields[3]]; // Email, Phone
-
-  const col1X = clientStartX;
-  const col2X = clientStartX + 60;
-
-  // Row 1: Client + Email
+  // Row 1: Client + Email + Address
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setTextColor(DARK);
-  doc.text('Client:', col1X, cy);
+  doc.text('Client:', cInfoX, y);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(DARK);
-  doc.text(clientFields[0].value.slice(0, 25), col1X + 18, cy);
-  dashedLine(doc, col1X + 18, cy + 1, col2X - 5);
+  doc.text((quote.client_company || quote.client_name || '---').slice(0, 20), cValX, y);
+  dashedLine(doc, cValX, y + 1, lineEndLeft);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Email:', col2X, cy);
+  doc.text('Email:', cMidX, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(clientFields[1].value.slice(0, 30), col2X + 18, cy);
-  dashedLine(doc, col2X + 18, cy + 1, clientEndX);
+  doc.text((quote.client_email || '---').slice(0, 22), cMidValX, y);
 
-  // Also address on same row far right
   doc.setFont('helvetica', 'bold');
-  doc.text('Address:', pw - m - 40, cy);
+  doc.text('Address:', pw - m - 30, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(clientFields[4].value.slice(0, 15), pw - m - 20, cy);
-
-  cy += 9;
+  doc.text((quote.client_address || '---').slice(0, 12), pw - m - 12, y);
 
   // Row 2: Contact + Phone
+  y += 8;
   doc.setFont('helvetica', 'bold');
-  doc.text('Contact:', col1X, cy);
+  doc.text('Contact:', cInfoX, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(clientFields[2].value.slice(0, 25), col1X + 22, cy);
-  dashedLine(doc, col1X + 22, cy + 1, col2X - 5);
+  doc.text((quote.client_name || '---').slice(0, 20), cValX, y);
+  dashedLine(doc, cValX, y + 1, lineEndLeft);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('Phone:', col2X, cy);
+  doc.text('Phone:', cMidX, y);
   doc.setFont('helvetica', 'normal');
-  doc.text(clientFields[3].value.slice(0, 20), col2X + 18, cy);
-  dashedLine(doc, col2X + 18, cy + 1, clientEndX);
+  doc.text((quote.client_phone || '---').slice(0, 20), cMidValX, y);
+  dashedLine(doc, cMidValX, y + 1, lineEndRight);
 
-  y = Math.max(logoData ? y + 40 : y + 20, cy + 8);
+  y = Math.max(companyNameY + 4, y + 6);
 
-  // ── Orange separator line ──
+  // ── Orange separator ──
   doc.setDrawColor(ORANGE);
-  doc.setLineWidth(1);
+  doc.setLineWidth(1.2);
   doc.line(m, y, pw - m, y);
-
-  // ════════════════════════════════════════════════════════
-  // SECTION 2: QUOTE DETAILS GRID
-  // ════════════════════════════════════════════════════════
   y += 6;
-  const gridCols = 4;
-  const gridW = cw / gridCols;
 
-  const detailLabels = ['invoice', 'Estimate Date', 'Expiry Date', 'Project Name'];
-  const detailValues = [
+  // ════════════════════════════════════════════════
+  // QUOTE DETAILS: 4-column grid
+  // ════════════════════════════════════════════════
+  const gw = cw / 4;
+  const labels = ['invoice', 'Estimate Date', 'Expiry Date', 'Project Name'];
+  const values = [
     quote.quote_number,
     fmtDate(quote.estimate_date),
     quote.expiry_date ? fmtDate(quote.expiry_date) : '---',
     quote.project_name || '---',
   ];
 
-  // Labels
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(DARK);
-  for (let i = 0; i < gridCols; i++) {
-    doc.text(detailLabels[i], m + i * gridW, y);
-  }
+  for (let i = 0; i < 4; i++) doc.text(labels[i], m + i * gw, y);
 
   y += 5;
-
-  // Values
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  doc.setTextColor(DARK);
-  for (let i = 0; i < gridCols; i++) {
-    const val = i === 3 && quote.project_name
-      ? arText(quote.project_name)
-      : detailValues[i];
-    doc.setFont(i === 3 && quote.project_name ? 'Amiri' : 'helvetica', 'normal');
-    doc.text(val.slice(0, 25), m + i * gridW, y);
+  for (let i = 0; i < 4; i++) {
+    if (i === 3 && quote.project_name) {
+      doc.setFont('Amiri', 'normal');
+      doc.setFontSize(9);
+      doc.text(arText(quote.project_name).slice(0, 28), m + i * gw, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+    } else {
+      doc.text(values[i], m + i * gw, y);
+    }
   }
 
   y += 8;
 
-  // ── Orange separator line ──
+  // ── Orange line ──
   doc.setDrawColor(ORANGE);
   doc.setLineWidth(0.5);
   doc.line(m, y, pw - m, y);
-
-  // ════════════════════════════════════════════════════════
-  // SECTION 3: ITEMS TABLE
-  // ════════════════════════════════════════════════════════
   y += 6;
 
-  // Table header
-  const tblX = m;
-  const descW = cw - 60;
-  const qtyX = m + descW;
+  // ════════════════════════════════════════════════
+  // ITEMS TABLE
+  // ════════════════════════════════════════════════
+  const descEndX = m + cw - 60;
+  const qtyX = descEndX;
   const rateX = qtyX + 20;
   const amtX = pw - m;
 
-  // Orange square + header text
+  // Header row
   doc.setFillColor(ORANGE);
-  doc.rect(tblX, y - 1.5, 3, 3, 'F');
+  doc.rect(m, y - 2, 3, 3, 'F'); // orange square
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(DARK);
-  doc.text('ITEM & DESCRIPTION', tblX + 6, y + 1);
-  doc.text('QTY', qtyX, y + 1);
-  doc.text('RATE', rateX, y + 1);
-  doc.text('AMOUNT', amtX, y + 1, { align: 'right' });
+  doc.text('ITEM & DESCRIPTION', m + 6, y);
+  doc.text('QTY', qtyX + 8, y, { align: 'center' });
+  doc.text('RATE', rateX + 8, y, { align: 'center' });
+  doc.text('AMOUNT', amtX, y, { align: 'right' });
 
-  y += 4;
-
-  // Orange line under header
+  y += 3;
   doc.setDrawColor(ORANGE);
   doc.setLineWidth(0.5);
-  doc.line(tblX, y, pw - m, y);
+  doc.line(m, y, pw - m, y);
+  y += 1;
 
-  y += 2;
-
-  // Item rows
+  // Rows
   const rowH = 10;
-  const minRows = 3; // Always show at least 3 rows
-  const totalRows = Math.max(quote.items.length, minRows);
+  const minRows = Math.max(quote.items.length, 3);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-
-  for (let i = 0; i < totalRows; i++) {
-    if (y > 245) {
-      doc.addPage();
-      y = m;
-    }
-
-    const rowTop = y;
+  for (let i = 0; i < minRows; i++) {
+    if (y > 240) { doc.addPage(); y = m; }
     const item = quote.items[i];
+    const rowTop = y;
 
-    // Row borders
-    doc.setDrawColor(LIGHT_BORDER);
-    doc.setLineWidth(0.2);
-    doc.line(tblX, rowTop, pw - m, rowTop); // top line
-    // Vertical lines
-    doc.line(tblX, rowTop, tblX, rowTop + rowH);
-    doc.line(qtyX - 2, rowTop, qtyX - 2, rowTop + rowH);
-    doc.line(rateX - 2, rowTop, rateX - 2, rowTop + rowH);
-    doc.line(amtX - 28, rowTop, amtX - 28, rowTop + rowH);
-    doc.line(pw - m, rowTop, pw - m, rowTop + rowH);
+    // Cell borders
+    doc.setDrawColor(BORDER);
+    doc.setLineWidth(0.15);
+    doc.rect(m, rowTop, descEndX - m, rowH);
+    doc.rect(descEndX, rowTop, 20, rowH);
+    doc.rect(rateX, rowTop, 20, rowH);
+    doc.rect(rateX + 20, rowTop, amtX - rateX - 20, rowH);
 
     if (item) {
       doc.setTextColor(DARK);
-      // Description (may need Arabic)
+      doc.setFontSize(8.5);
+      // Description
       doc.setFont('Amiri', 'normal');
-      const desc = item.description.length > 60 ? item.description.slice(0, 60) + '...' : item.description;
-      doc.text(arText(desc), tblX + 3, rowTop + 6.5);
+      const desc = item.description.length > 55 ? item.description.slice(0, 55) + '...' : item.description;
+      doc.text(arText(desc), m + 2, rowTop + 6.5);
       doc.setFont('helvetica', 'normal');
-      // Qty
-      doc.text(String(item.quantity), qtyX + 6, rowTop + 6.5, { align: 'center' });
-      // Rate
-      doc.text(fmtNum(item.rate), rateX + 6, rowTop + 6.5, { align: 'center' });
-      // Amount
-      doc.text(fmtNum(item.amount), amtX - 3, rowTop + 6.5, { align: 'right' });
+      // Numbers
+      doc.text(String(item.quantity), qtyX + 10, rowTop + 6.5, { align: 'center' });
+      doc.text(fmtNum(item.rate), rateX + 10, rowTop + 6.5, { align: 'center' });
+      doc.text(fmtNum(item.amount), amtX - 2, rowTop + 6.5, { align: 'right' });
     }
-
     y += rowH;
   }
-  // Bottom border of last row
-  doc.setDrawColor(LIGHT_BORDER);
-  doc.line(tblX, y, pw - m, y);
 
   y += 10;
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 4: TOTAL BOX
-  // ════════════════════════════════════════════════════════
-  const boxW = 55;
-  const boxH = quote.tax_amount > 0 ? 24 : 12;
-  const boxX = pw - m - boxW;
+  // ════════════════════════════════════════════════
+  // TOTAL BOX
+  // ════════════════════════════════════════════════
+  const bw = 52;
+  const bx = pw - m - bw;
+  const hasTax = quote.tax_amount > 0;
+  const bh = hasTax ? 22 : 12;
 
   doc.setDrawColor(ORANGE);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(boxX, y, boxW, boxH, 2, 2);
+  doc.setLineWidth(0.6);
+  doc.roundedRect(bx, y, bw, bh, 1.5, 1.5);
 
-  if (quote.tax_amount > 0) {
-    // Subtotal
+  if (hasTax) {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
+    doc.setFontSize(7.5);
     doc.setTextColor(GRAY);
-    doc.text('Subtotal:', boxX + 3, y + 5);
-    doc.text(fmtNum(quote.subtotal), boxX + boxW - 3, y + 5, { align: 'right' });
-
-    // Tax
-    doc.text(`VAT (${quote.tax_rate}%):`, boxX + 3, y + 10);
-    doc.text(fmtNum(quote.tax_amount), boxX + boxW - 3, y + 10, { align: 'right' });
-
-    // Separator
-    doc.setDrawColor(LIGHT_BORDER);
-    doc.line(boxX + 2, y + 13, boxX + boxW - 2, y + 13);
-
-    // Total
+    doc.text('Subtotal:', bx + 3, y + 5);
+    doc.text(fmtNum(quote.subtotal), bx + bw - 3, y + 5, { align: 'right' });
+    doc.text(`VAT (${quote.tax_rate}%):`, bx + 3, y + 10);
+    doc.text(fmtNum(quote.tax_amount), bx + bw - 3, y + 10, { align: 'right' });
+    doc.setDrawColor(BORDER);
+    doc.line(bx + 2, y + 13, bx + bw - 2, y + 13);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setTextColor(ORANGE);
-    doc.text(fmtNum(quote.total), boxX + boxW / 2, y + 21, { align: 'center' });
+    doc.text(fmtNum(quote.total), bx + bw / 2, y + 20, { align: 'center' });
   } else {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
+    doc.setFontSize(13);
     doc.setTextColor(ORANGE);
-    doc.text(fmtNum(quote.total), boxX + boxW / 2, y + 8, { align: 'center' });
+    doc.text(fmtNum(quote.total), bx + bw / 2, y + 8, { align: 'center' });
   }
 
-  y += boxH + 8;
+  y += bh + 6;
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 5: NOTES
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // NOTES (using Amiri for Arabic support)
+  // ════════════════════════════════════════════════
   if (quote.notes) {
-    if (y > 240) { doc.addPage(); y = m; }
+    if (y > 235) { doc.addPage(); y = m; }
 
-    doc.setFont('helvetica', 'italic');
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.setTextColor(GRAY);
+    doc.setTextColor(DARK);
+    doc.text('Notes:', m, y);
 
-    const notePrefix = 'Notes: ';
-    const noteLines = doc.splitTextToSize(notePrefix + quote.notes, cw);
+    y += 4;
+    doc.setFontSize(7.5);
+    doc.setTextColor(GRAY);
+    // Use Amiri for notes since they may contain Arabic
+    doc.setFont('Amiri', 'normal');
+    const noteLines = doc.splitTextToSize(arText(quote.notes), cw);
     doc.text(noteLines, m, y);
+    doc.setFont('helvetica', 'normal');
     y += noteLines.length * 3.5 + 4;
   }
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 6: BANK ACCOUNT DETAILS
-  // ════════════════════════════════════════════════════════
-  if (quote.bank_details && quote.bank_details.bank) {
-    if (y > 230) { doc.addPage(); y = m; }
+  // ════════════════════════════════════════════════
+  // BANK DETAILS
+  // ════════════════════════════════════════════════
+  if (quote.bank_details?.bank) {
+    if (y > 225) { doc.addPage(); y = m; }
 
-    // Separator
-    doc.setDrawColor(LIGHT_BORDER);
+    doc.setDrawColor(BORDER);
     doc.setLineWidth(0.3);
     doc.line(m, y, pw - m, y);
-    y += 6;
+    y += 5;
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.setTextColor(DARK);
     doc.text('Bank account details', m, y);
-    y += 5;
+    y += 4;
 
-    // Bank detail table — 2 rows × 3 columns
-    const bankTblW = cw;
-    const bankColW = bankTblW / 3;
-    const bankRowH = 8;
-
-    const bankData = [
+    // Table: 2 rows × 3 columns — label on top, value below
+    const bc = cw / 3;
+    const bankRows = [
       [
         { label: 'Name of the bank:', value: quote.bank_details.bank },
         { label: 'Account name:', value: quote.bank_details.account_name },
         { label: 'Account Class:', value: 'CURRENT ACCOUNT' },
       ],
       [
-        { label: 'Account Type:', value: 'AED - Business Connect Current Acc' },
+        { label: 'Account Type:', value: 'AED - Business Current Acc' },
         { label: 'Account No:', value: quote.bank_details.account_no },
         { label: 'IBAN:', value: quote.bank_details.iban },
       ],
     ];
 
-    doc.setFontSize(7);
+    for (const row of bankRows) {
+      for (let c = 0; c < 3; c++) {
+        const cx = m + c * bc;
+        doc.setDrawColor(BORDER);
+        doc.setLineWidth(0.15);
+        doc.rect(cx, y, bc, 8);
 
-    for (let row = 0; row < bankData.length; row++) {
-      const rowY = y + row * bankRowH;
-
-      for (let col = 0; col < 3; col++) {
-        const cellX = m + col * bankColW;
-        const cell = bankData[row][col];
-
-        // Cell borders
-        doc.setDrawColor(LIGHT_BORDER);
-        doc.setLineWidth(0.2);
-        doc.rect(cellX, rowY, bankColW, bankRowH);
-
-        // Label
+        // Label (small gray)
         doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
         doc.setTextColor(GRAY);
-        doc.text(cell.label, cellX + 2, rowY + 3.5);
+        doc.text(row[c].label, cx + 2, y + 3);
 
-        // Value
+        // Value (bold dark)
         doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
         doc.setTextColor(DARK);
-        const maxValueW = bankColW - (doc.getTextWidth(cell.label) + 6);
-        const truncatedValue = cell.value.length > 35 ? cell.value.slice(0, 35) + '...' : cell.value;
-        doc.text(truncatedValue, cellX + 2 + doc.getTextWidth(cell.label) + 3, rowY + 3.5);
+        const val = row[c].value.length > 30 ? row[c].value.slice(0, 30) + '...' : row[c].value;
+        doc.text(val, cx + 2, y + 6.5);
       }
+      y += 8;
     }
 
-    y += bankRowH * 2 + 4;
+    y += 3;
   }
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 7: TERMS & CONDITIONS (3 columns)
-  // ════════════════════════════════════════════════════════
-  // Check if we need a new page for terms
-  if (y > 200) { doc.addPage(); y = m; }
+  // ════════════════════════════════════════════════
+  // TERMS & CONDITIONS (3-column layout)
+  // ════════════════════════════════════════════════
+  if (y > 195) { doc.addPage(); y = m; }
 
-  // Separator
   doc.setDrawColor(DARK);
   doc.setLineWidth(0.3);
   doc.line(m, y, pw - m, y);
@@ -515,75 +469,62 @@ export async function generateQuotePDF(quote: QuoteData) {
   doc.setFontSize(9);
   doc.setTextColor(DARK);
   doc.text('TERMS & CONDITIONS', m, y);
-  y += 1;
-  doc.setDrawColor(DARK);
   doc.setLineWidth(0.2);
-  doc.line(m, y, m + 42, y);
-  y += 4;
+  doc.line(m, y + 1, m + 40, y + 1);
+  y += 5;
 
-  // 3-column layout for terms
+  // Split terms into 3 columns
   const termKeys = Object.keys(FIXED_TERMS);
-  const col1Terms = termKeys.slice(0, 4);   // Payment, Scope, Validity, Delivery
-  const col2Terms = termKeys.slice(4, 7);   // Cancellation, Overtime, IP
-  const col3Terms = termKeys.slice(7);      // Liability, Gov Law, Acceptance
+  const cols = [termKeys.slice(0, 4), termKeys.slice(4, 7), termKeys.slice(7)];
+  const tcw = (cw - 6) / 3;
 
-  const termColW = cw / 3 - 2;
-  const termFontSize = 5.5;
-  const termTitleSize = 6.5;
+  const termStartY = y;
+  for (let ci = 0; ci < 3; ci++) {
+    let ty = termStartY;
+    const cx = m + ci * (tcw + 3);
 
-  function drawTermColumn(doc: jsPDF, terms: string[], startX: number, startY: number): number {
-    let ty = startY;
-    for (const key of terms) {
-      const lines = FIXED_TERMS[key];
-      // Title
+    for (const key of cols[ci]) {
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(termTitleSize);
+      doc.setFontSize(6);
       doc.setTextColor(DARK);
-      doc.text(key, startX, ty);
-      ty += 3;
+      doc.text(key, cx, ty);
+      ty += 2.5;
 
-      // Content
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(termFontSize);
+      doc.setFontSize(5.2);
       doc.setTextColor(GRAY);
-      for (const line of lines) {
-        const wrapped = doc.splitTextToSize(line, termColW);
-        doc.text(wrapped, startX, ty);
-        ty += wrapped.length * 2.2 + 0.5;
+      for (const line of FIXED_TERMS[key]) {
+        const wrapped = doc.splitTextToSize(line, tcw);
+        doc.text(wrapped, cx, ty);
+        ty += wrapped.length * 2 + 0.3;
       }
       ty += 1.5;
     }
-    return ty;
+    y = Math.max(y, ty);
   }
 
-  const termStartY = y;
-  drawTermColumn(doc, col1Terms, m, termStartY);
-  drawTermColumn(doc, col2Terms, m + termColW + 3, termStartY);
-  const termEndY = drawTermColumn(doc, col3Terms, m + (termColW + 3) * 2, termStartY);
-
-  y = termEndY + 2;
-
   // Custom terms from data
-  if (quote.terms_conditions && quote.terms_conditions.length > 0) {
+  if (quote.terms_conditions?.length > 0) {
+    y += 2;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(termFontSize);
+    doc.setFontSize(5.5);
     doc.setTextColor(GRAY);
     for (const term of quote.terms_conditions) {
-      if (y > 275) { doc.addPage(); y = m; }
+      if (y > 278) { doc.addPage(); y = m; }
       const wrapped = doc.splitTextToSize(`• ${term.text}`, cw);
       doc.text(wrapped, m, y);
-      y += wrapped.length * 2.2 + 1;
+      y += wrapped.length * 2.2 + 0.5;
     }
   }
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 8: SIGNATURE (if signed)
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // SIGNATURE
+  // ════════════════════════════════════════════════
   if (quote.signature_data && quote.signed_by) {
-    if (y > 250) { doc.addPage(); y = m; }
+    if (y > 245) { doc.addPage(); y = m; }
 
-    y += 4;
-    doc.setDrawColor(LIGHT_BORDER);
+    y += 3;
+    doc.setDrawColor(BORDER);
     doc.line(m, y, pw - m, y);
     y += 4;
 
@@ -594,76 +535,71 @@ export async function generateQuotePDF(quote: QuoteData) {
     y += 3;
 
     try {
-      doc.addImage(quote.signature_data, 'PNG', m, y, 45, 18);
-      y += 20;
+      doc.addImage(quote.signature_data, 'PNG', m, y, 42, 16);
+      y += 18;
     } catch {
       y += 2;
     }
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    doc.setTextColor(GRAY);
     doc.setFont('Amiri', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(GRAY);
     doc.text(`Signed by: ${arText(quote.signed_by)}`, m, y);
     if (quote.signed_at) {
-      doc.text(`Date: ${fmtDate(quote.signed_at)}`, m, y + 3.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Date: ${fmtDate(quote.signed_at)}`, m, y + 4);
     }
   }
 
-  // ════════════════════════════════════════════════════════
-  // SECTION 9: FOOTER (every page)
-  // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════
+  // FOOTER (on every page)
+  // ════════════════════════════════════════════════
   const pageCount = doc.getNumberOfPages();
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-
-    const footerY = ph - 12;
+    const fy = 284;
 
     // Orange line
     doc.setDrawColor(ORANGE);
-    doc.setLineWidth(0.5);
-    doc.line(m, footerY, pw - m, footerY);
+    doc.setLineWidth(0.6);
+    doc.line(m, fy, pw - m, fy);
 
-    // Phone
+    // Phone icon (orange circle with T)
     doc.setFillColor(ORANGE);
-    doc.circle(m + 2, footerY + 4.5, 1.8, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
+    doc.circle(m + 2, fy + 4, 1.6, 'F');
+    doc.setFontSize(5.5);
     doc.setTextColor(255, 255, 255);
-    doc.text('T', m + 2, footerY + 5.2, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('T', m + 2, fy + 4.6, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(DARK);
-    doc.text(FOOTER_PHONE, m + 6, footerY + 5);
+    doc.text(FOOTER_PHONE, m + 6, fy + 4.5);
 
-    // Three orange dots in center
-    const centerX = pw / 2;
+    // 3 orange dots
+    const cx = pw / 2 - 10;
     doc.setFillColor(ORANGE);
-    doc.circle(centerX - 4, footerY + 4.5, 1.2, 'F');
-    doc.circle(centerX, footerY + 4.5, 1.2, 'F');
-    doc.circle(centerX + 4, footerY + 4.5, 1.2, 'F');
+    doc.circle(cx, fy + 4, 1, 'F');
+    doc.circle(cx + 3.5, fy + 4, 1, 'F');
+    doc.circle(cx + 7, fy + 4, 1, 'F');
 
-    // Social handle
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7);
-    doc.setTextColor(DARK);
-    doc.text(FOOTER_SOCIAL, centerX + 10, footerY + 5);
+    doc.text(FOOTER_SOCIAL, cx + 12, fy + 4.5);
 
-    // Website row
+    // Web icon (orange circle with @)
     doc.setFillColor(ORANGE);
-    doc.circle(m + 2, footerY + 9, 1.8, 'F');
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
+    doc.circle(m + 2, fy + 8.5, 1.6, 'F');
+    doc.setFontSize(5);
     doc.setTextColor(255, 255, 255);
-    doc.text('@', m + 2, footerY + 9.7, { align: 'center' });
+    doc.text('@', m + 2, fy + 9.1, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     doc.setTextColor(ORANGE);
-    doc.text(FOOTER_WEB, m + 6, footerY + 9.5);
+    doc.text(FOOTER_WEB, m + 6, fy + 9);
   }
 
-  // Save
   doc.save(`quote-${quote.quote_number}.pdf`);
 }
