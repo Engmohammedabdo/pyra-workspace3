@@ -44,3 +44,34 @@ export async function registerArabicFont(doc: jsPDF): Promise<void> {
   doc.addFont('Amiri-Regular.ttf', 'Amiri', 'normal');
   doc.addFont('Amiri-Bold.ttf', 'Amiri', 'bold');
 }
+
+/**
+ * Load an image from URL and return as base64 data URI for jsPDF addImage().
+ * Returns null if the image can't be loaded (graceful fallback to text branding).
+ */
+let imageCache: Record<string, string> = {};
+
+export async function loadImageAsBase64(url: string): Promise<string | null> {
+  if (!url) return null;
+  if (imageCache[url]) return imageCache[url];
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+
+    const buffer = await response.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const base64 = btoa(binary);
+    const dataUri = `data:${contentType};base64,${base64}`;
+    imageCache[url] = dataUri;
+    return dataUri;
+  } catch {
+    return null;
+  }
+}

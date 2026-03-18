@@ -51,6 +51,7 @@ interface QuoteDetail extends PortalQuote {
   terms_conditions: { text: string }[];
   bank_details: { bank: string; account_name: string; account_no: string; iban: string };
   company_name: string | null;
+  company_logo: string | null;
   signature_data: string | null;
   items: {
     id: string;
@@ -104,6 +105,7 @@ export default function PortalQuotesPage() {
         terms_conditions: detail.terms_conditions || [],
         bank_details: detail.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
         company_name: detail.company_name,
+        company_logo: detail.company_logo || null,
         client_name: detail.client_name,
         client_company: detail.client_company,
         client_email: null,
