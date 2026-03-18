@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
         'company_name',
         'company_logo',
         'payment_terms_days',
+        'default_currency',
       ]);
 
     const settingsMap: Record<string, string> = {};
@@ -188,7 +189,7 @@ export async function POST(req: NextRequest) {
             status: invoiceStatus,
             issue_date: issueDate,
             due_date: dueDateStr,
-            currency: template.currency || 'AED',
+            currency: template.currency || settingsMap.default_currency || 'AED',
             subtotal,
             tax_rate: taxRate,
             tax_amount: taxAmount,

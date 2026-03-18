@@ -1,8 +1,10 @@
 import nodemailer from 'nodemailer';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 // ============================================================
 // Email Service for Pyra Workspace
-// Uses SMTP configured via environment variables
+// Reads SMTP config from pyra_settings (DB-first), falls back to env vars.
+// Same pattern as lib/stripe.ts — runtime-configurable from Settings page.
 // ============================================================
 
 /** Escape HTML special chars to prevent injection in email templates */
@@ -15,24 +17,58 @@ function escapeHtml(str: string): string {
     .replace(/'/g, '&#39;');
 }
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'localhost',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: process.env.SMTP_USER
-    ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS || '',
-      }
-    : undefined,
-  // Allow self-signed certs in dev
-  tls: {
-    rejectUnauthorized: process.env.NODE_ENV === 'production',
-  },
-});
+// ── Cached transporter (re-created when config changes) ──
+let _transporter: nodemailer.Transporter | null = null;
+let _cachedConfigHash: string | null = null;
 
-const FROM_NAME = process.env.SMTP_FROM_NAME || 'Pyra Workspace';
-const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'noreply@pyramedia.cloud';
+/**
+ * Read an SMTP setting from pyra_settings, fallback to env var.
+ */
+async function getSmtpSetting(dbKey: string, envKey: string): Promise<string | undefined> {
+  try {
+    const supabase = createServiceRoleClient();
+    const { data } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', dbKey)
+      .maybeSingle();
+    if (data?.value) return data.value;
+  } catch {
+    // DB read failed — fall through to env
+  }
+  return process.env[envKey] || undefined;
+}
+
+/**
+ * Get or create SMTP transporter. Caches and re-creates if config changes.
+ */
+async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; fromName: string; fromEmail: string } | null> {
+  const host = await getSmtpSetting('smtp_host', 'SMTP_HOST');
+  if (!host) return null;
+
+  const port = await getSmtpSetting('smtp_port', 'SMTP_PORT');
+  const user = await getSmtpSetting('smtp_user', 'SMTP_USER');
+  const pass = await getSmtpSetting('smtp_pass', 'SMTP_PASS');
+  const fromEmail = await getSmtpSetting('smtp_from', 'SMTP_FROM_EMAIL') || 'noreply@pyramedia.cloud';
+  const fromName = process.env.SMTP_FROM_NAME || 'Pyra Workspace';
+
+  const configHash = `${host}:${port}:${user}`;
+
+  if (_transporter && _cachedConfigHash === configHash) {
+    return { transporter: _transporter, fromName, fromEmail };
+  }
+
+  _transporter = nodemailer.createTransport({
+    host,
+    port: Number(port) || 587,
+    secure: (Number(port) || 587) === 465,
+    auth: user ? { user, pass: pass || '' } : undefined,
+    tls: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
+  });
+  _cachedConfigHash = configHash;
+
+  return { transporter: _transporter, fromName, fromEmail };
+}
 
 interface SendEmailOptions {
   to: string | string[];
@@ -42,15 +78,15 @@ interface SendEmailOptions {
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<boolean> {
-  // Skip if SMTP not configured
-  if (!process.env.SMTP_HOST) {
-    console.warn('[Email] SMTP_HOST not configured, skipping email');
+  const smtp = await getTransporter();
+  if (!smtp) {
+    console.warn('[Email] SMTP not configured (neither DB settings nor env vars), skipping email');
     return false;
   }
 
   try {
-    await transporter.sendMail({
-      from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+    await smtp.transporter.sendMail({
+      from: `"${smtp.fromName}" <${smtp.fromEmail}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
       subject,
       html,

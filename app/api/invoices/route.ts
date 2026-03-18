@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
     const scope = await resolveUserScope(auth);
 
     const body = await request.json();
-    const {
+    let {
       client_id,
       project_id: bodyProjectId,
       project_name,
@@ -135,10 +135,6 @@ export async function POST(request: NextRequest) {
         return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
       }
     }
-    if (!due_date) {
-      return apiValidationError('تاريخ الاستحقاق مطلوب');
-    }
-
     const supabase = createServiceRoleClient();
 
     // Generate invoice number atomically (race-condition safe)
@@ -157,12 +153,24 @@ export async function POST(request: NextRequest) {
         'company_name',
         'company_logo',
         'payment_terms_days',
+        'default_currency',
         'default_early_payment_discount_percent',
         'default_early_payment_discount_days',
       ]);
 
     const settingsMap: Record<string, string> = {};
     for (const s of settings || []) settingsMap[s.key] = s.value;
+
+    // Auto-calculate due_date from payment_terms_days if not provided
+    const paymentTermsDays = parseInt(settingsMap.payment_terms_days || '0');
+    if (!due_date && paymentTermsDays > 0) {
+      const issueDate = new Date(issue_date || new Date().toISOString().split('T')[0]);
+      issueDate.setDate(issueDate.getDate() + paymentTermsDays);
+      due_date = issueDate.toISOString().split('T')[0];
+    }
+    if (!due_date) {
+      return apiValidationError('تاريخ الاستحقاق مطلوب — حدد التاريخ أو اضبط مدة الدفع في الإعدادات');
+    }
 
     // Use vat_rate from request body if explicitly provided (even 0), otherwise fall back to settings
     const taxRate = bodyVatRate != null ? parseFloat(bodyVatRate) : parseFloat(settingsMap.vat_rate || '5');
@@ -259,7 +267,7 @@ export async function POST(request: NextRequest) {
         status: 'draft',
         issue_date: issue_date || new Date().toISOString().split('T')[0],
         due_date,
-        currency: 'AED',
+        currency: body.currency || settingsMap.default_currency || 'AED',
         subtotal,
         discount_type: discountType,
         discount_value: discountValue,

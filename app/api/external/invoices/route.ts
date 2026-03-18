@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceRoleClient();
     const body = await req.json();
 
-    const {
+    let {
       client_id,
       client_name,
       items,
@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     const { data: bankSettings } = await supabase
       .from('pyra_settings')
       .select('key, value')
-      .in('key', ['bank_name', 'bank_account_name', 'bank_account_no', 'bank_iban', 'company_name', 'company_logo']);
+      .in('key', ['bank_name', 'bank_account_name', 'bank_account_no', 'bank_iban', 'company_name', 'company_logo', 'payment_terms_days', 'default_currency']);
 
     const settingsMap: Record<string, string> = {};
     for (const s of bankSettings || []) settingsMap[s.key] = s.value;
@@ -152,6 +152,16 @@ export async function POST(req: NextRequest) {
       account_no: settingsMap.bank_account_no || '',
       iban: settingsMap.bank_iban || '',
     };
+
+    // Auto-calculate due_date from payment_terms_days if not provided
+    if (!due_date) {
+      const paymentTermsDays = parseInt(settingsMap.payment_terms_days || '0');
+      if (paymentTermsDays > 0) {
+        const issueDate = new Date();
+        issueDate.setDate(issueDate.getDate() + paymentTermsDays);
+        due_date = issueDate.toISOString().split('T')[0];
+      }
+    }
 
     // Calculate totals
     const processedItems = items.map(
@@ -183,7 +193,7 @@ export async function POST(req: NextRequest) {
         status: 'draft',
         issue_date: new Date().toISOString().split('T')[0],
         due_date: due_date || null,
-        currency: currency || 'AED',
+        currency: currency || settingsMap.default_currency || 'AED',
         subtotal,
         tax_rate: taxRate,
         tax_amount: taxAmount,

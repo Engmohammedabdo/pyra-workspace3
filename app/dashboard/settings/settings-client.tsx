@@ -15,7 +15,7 @@ import {
   Settings, Save, Key, Copy, Trash2, Plus, Shield, Check,
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
-  CreditCard, Eye, EyeOff, Bell, ArrowDownCircle, Percent,
+  CreditCard, Eye, EyeOff, Bell, ArrowDownCircle, Percent, Mail, Lock,
   Search, Info, Lightbulb, ChevronDown, ChevronUp, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -79,6 +79,22 @@ const SETTING_LABELS: Record<string, {
   stripe_publishable_key: { label: 'Publishable Key', description: 'المفتاح العام — يبدأ بـ pk_live_ أو pk_test_', group: 'stripe', dir: 'ltr', placeholder: 'pk_live_...' },
   stripe_secret_key: { label: 'Secret Key', description: 'المفتاح السري — لا تشاركه مع أحد', group: 'stripe', dir: 'ltr', placeholder: 'sk_live_...' },
   stripe_webhook_secret: { label: 'Webhook Secret', description: 'سر التحقق من إشعارات Stripe', group: 'stripe', dir: 'ltr', placeholder: 'whsec_...' },
+  // File Management
+  auto_version_on_upload: { label: 'تفعيل الإصدارات التلقائية', description: 'عند الرفع، يُنشئ إصداراً جديداً بدلاً من الاستبدال', group: 'files' },
+  max_versions_per_file: { label: 'أقصى عدد إصدارات لكل ملف', description: 'الإصدارات الأقدم تُحذف تلقائياً عند تجاوز الحد', group: 'files', placeholder: '10' },
+  trash_auto_purge_days: { label: 'مدة حذف سلة المهملات (أيام)', description: 'الملفات المحذوفة تُزال نهائياً بعد هذه المدة', group: 'files', placeholder: '30' },
+  allow_public_shares: { label: 'السماح بروابط مشاركة عامة', description: 'عند التعطيل، لا يمكن إنشاء روابط مشاركة خارجية', group: 'files' },
+  share_default_expiry_hours: { label: 'انتهاء صلاحية الرابط (ساعات)', description: 'المدة الافتراضية لصلاحية رابط المشاركة', group: 'files', placeholder: '72' },
+  // Security
+  session_timeout_minutes: { label: 'مهلة الجلسة (دقائق)', description: 'يتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط', group: 'security', placeholder: '60' },
+  max_failed_logins: { label: 'أقصى محاولات دخول فاشلة', description: 'يتم قفل الحساب بعد هذا العدد من المحاولات', group: 'security', placeholder: '5' },
+  lockout_duration_minutes: { label: 'مدة القفل (دقائق)', description: 'مدة قفل الحساب بعد تجاوز المحاولات المسموحة', group: 'security', placeholder: '15' },
+  // Email / SMTP
+  smtp_host: { label: 'خادم البريد (SMTP Host)', description: 'عنوان خادم البريد الصادر', group: 'email', dir: 'ltr', placeholder: 'smtp.gmail.com' },
+  smtp_port: { label: 'المنفذ (Port)', description: 'عادة 587 (TLS) أو 465 (SSL)', group: 'email', dir: 'ltr', placeholder: '587' },
+  smtp_user: { label: 'اسم المستخدم', description: 'البريد الإلكتروني أو اسم المستخدم للمصادقة', group: 'email', dir: 'ltr', placeholder: 'user@example.com' },
+  smtp_pass: { label: 'كلمة المرور', description: 'كلمة مرور البريد أو App Password', group: 'email', dir: 'ltr', placeholder: '••••••••' },
+  smtp_from: { label: 'البريد المرسل', description: 'عنوان البريد الذي يظهر كمرسل للإشعارات', group: 'email', dir: 'ltr', placeholder: 'noreply@company.com' },
 };
 
 /* ═══════════════════════════════════════════════════════
@@ -117,6 +133,12 @@ const GROUPS: GroupDef[] = [
     tip: 'حدود التخزين تحمي من الاستهلاك المفرط. نسبة التنبيه تظهر إشعاراً في لوحة التحكم.' },
   { key: 'stripe', label: 'الدفع الإلكتروني', icon: CreditCard, gradient: 'from-indigo-500 to-purple-600', category: 'system',
     tip: 'احصل على المفاتيح من dashboard.stripe.com. استخدم مفاتيح test_ أثناء التجربة.' },
+  { key: 'files', label: 'إدارة الملفات', icon: FileText, gradient: 'from-teal-500 to-cyan-600', category: 'system',
+    tip: 'إعدادات الإصدارات والمشاركة وسلة المهملات. تؤثر على جميع الملفات في النظام.' },
+  { key: 'security', label: 'الأمان', icon: Lock, gradient: 'from-red-500 to-rose-600', category: 'system',
+    tip: 'إعدادات حماية الحسابات — مهلة الجلسة وقفل المحاولات الفاشلة. تُطبق على جميع المستخدمين.' },
+  { key: 'email', label: 'البريد الإلكتروني', icon: Mail, gradient: 'from-blue-500 to-sky-600', category: 'system',
+    tip: 'إعدادات SMTP لإرسال الإشعارات والتذكيرات. إذا لم تُعبأ، يستخدم النظام الإعدادات الافتراضية.' },
 ];
 
 const CATEGORIES = [
@@ -140,8 +162,8 @@ const TABS = [
 ];
 
 /* ── Secret fields ── */
-const SECRET_FIELDS = new Set(['stripe_secret_key', 'stripe_webhook_secret']);
-const SWITCH_FIELDS = new Set(['portal_enabled', 'stripe_enabled', 'dunning_enabled', 'expense_approval_required', 'commission_auto_calculate']);
+const SECRET_FIELDS = new Set(['stripe_secret_key', 'stripe_webhook_secret', 'smtp_pass']);
+const SWITCH_FIELDS = new Set(['portal_enabled', 'stripe_enabled', 'dunning_enabled', 'expense_approval_required', 'commission_auto_calculate', 'auto_version_on_upload', 'allow_public_shares']);
 
 /* ── Framer Motion ── */
 const containerMotion = {

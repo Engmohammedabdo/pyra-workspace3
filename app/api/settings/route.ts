@@ -14,14 +14,9 @@ const ALLOWED_KEYS = new Set([
   // Company info
   'company_name',
   'company_logo',
-  'app_logo_url',
   // Quote settings
   'quote_prefix',
   'quote_expiry_days',
-  'quote_number_prefix',
-  'quote_default_expiry_days',
-  'quote_company_name',
-  'quote_number_counter',
   'vat_rate',
   // Bank data
   'bank_name',
