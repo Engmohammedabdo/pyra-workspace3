@@ -14,18 +14,32 @@ const ALLOWED_KEYS = new Set([
   // Company info
   'company_name',
   'company_logo',
+  'app_logo_url',
   // Quote settings
   'quote_prefix',
   'quote_expiry_days',
+  'quote_number_prefix',
+  'quote_default_expiry_days',
+  'quote_company_name',
+  'quote_number_counter',
   'vat_rate',
   // Bank data
   'bank_name',
   'bank_account_name',
   'bank_account_no',
   'bank_iban',
-  // Storage settings
+  // Storage / file settings
   'max_upload_size_mb',
   'max_storage_gb',
+  'auto_version_on_upload',
+  'max_versions_per_file',
+  'trash_auto_purge_days',
+  'allow_public_shares',
+  'share_default_expiry_hours',
+  // Security settings
+  'session_timeout_minutes',
+  'max_failed_logins',
+  'lockout_duration_minutes',
   // Legacy / system keys (keep for backward compat)
   'app_name',
   'app_logo',
@@ -56,8 +70,6 @@ const ALLOWED_KEYS = new Set([
   'stripe_webhook_secret',
   // KPI settings
   'kpi_storage_warning_percent',
-  // Default language
-  'default_language',
   // Dunning / collection settings
   'dunning_enabled',
   'late_penalty_rate',
