@@ -50,15 +50,17 @@ interface QuoteData {
 /* ── Design tokens ── */
 const C = {
   orange: [249, 115, 22] as [number, number, number],
-  orangeHex: '#f97316',
   dark: [24, 24, 27] as [number, number, number],
   gray: [113, 113, 122] as [number, number, number],
-  border: [210, 210, 210] as [number, number, number],
+  lightGray: [160, 160, 165] as [number, number, number],
+  border: [200, 200, 200] as [number, number, number],
+  lightBg: [245, 245, 245] as [number, number, number],
   white: [255, 255, 255] as [number, number, number],
 };
 const PW = 210;          // A4 width
-const M = 18;            // margin (generous like reference)
-const CW = PW - M * 2;  // content width = 174mm
+const PH = 297;          // A4 height
+const M = 15;            // margin
+const CW = PW - M * 2;  // content width = 180mm
 
 /* ── Helpers ── */
 function fmtNum(n: number): string {
@@ -70,12 +72,12 @@ function fmtDate(s: string): string {
   catch { return s; }
 }
 
-/** Draw a dashed line matching the reference style */
-function dash(doc: jsPDF, x1: number, y: number, x2: number) {
+/** Draw a dotted line (reference style) */
+function dottedLine(doc: jsPDF, x1: number, y: number, x2: number) {
   doc.setDrawColor(...C.border);
   doc.setLineWidth(0.15);
-  for (let x = x1; x < x2; x += 2.2) {
-    doc.line(x, y, Math.min(x + 1.3, x2), y);
+  for (let x = x1; x < x2; x += 1.8) {
+    doc.line(x, y, Math.min(x + 0.8, x2), y);
   }
 }
 
@@ -125,76 +127,73 @@ export async function generateQuotePDF(quote: QuoteData) {
   if (!logo && quote.company_logo) { try { logo = await loadImageAsBase64(quote.company_logo); } catch { /* */ } }
 
   // ╔══════════════════════════════════════════════════════════╗
-  // ║  HEADER — Logo + Company Name | Client Info Grid        ║
+  // ║  HEADER — Logo (left) | Client Info (right)             ║
   // ╚══════════════════════════════════════════════════════════╝
-  y = 12;
+  y = 10;
 
-  // Left: Logo (large, like reference ~40×40)
-  const logoW = 38;
-  const logoH = 38;
+  // Logo — landscape aspect ratio (~2:1). Logo already contains "PYRAMEDIA X" text.
+  const logoW = 52;
+  const logoH = 26;
   if (logo) {
     try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
   }
+  // Fallback: text if no logo
+  if (!logo) {
+    doc.setFont('Amiri', 'bold');
+    doc.setFontSize(20);
+    doc.setTextColor(...C.orange);
+    doc.text(quote.company_name || 'PYRAMEDIA X', M, y + 14);
+  }
 
-  // Company name under logo
-  const nameY = logo ? y + logoH + 3 : y + 12;
-  doc.setFont('Amiri', 'bold');
-  doc.setFontSize(18);
-  doc.setTextColor(...C.orange);
-  doc.text(quote.company_name || 'PYRAMEDIA X', M, nameY);
+  // Client info — right side, 2 rows with labels + dotted underlines
+  const infoX = M + 68;  // start of client info block
+  const midCol = M + 128; // second column of labels
+  const endLine = PW - M;
 
-  // Right: Client info — 3 columns matching reference exactly
-  //   Col A (label 80→100): Client/Contact
-  //   Col B (label 135→155): Email/Phone
-  //   Col C: Address (far right, row 1 only)
-  const A = 70;     // first label X
-  const Av = 92;    // first value X
-  const B = 135;    // second label X
-  const Bv = 155;   // second value X
-  const Cv = PW - M - 25; // address label
-  const END_A = B - 4;
-  const END_B = PW - M;
+  doc.setFontSize(8.5);
 
-  doc.setFontSize(9);
-
-  // -- Row 1: Client: | Email: | Address: --
-  let ry = y + 4;
+  // Row 1: Client: _____ | Email: _____
+  let ry = y + 6;
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
-  doc.text('Client:', A, ry);
-  doc.setFont('helvetica', 'normal');
-  doc.text((quote.client_company || quote.client_name || '---').slice(0, 18), Av, ry);
-  dash(doc, Av, ry + 1.5, END_A);
+  doc.text('Client:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  const clientVal = (quote.client_company || quote.client_name || '---');
+  doc.text(clientVal.slice(0, 22), infoX + 14, ry);
+  dottedLine(doc, infoX + 14, ry + 1.5, midCol - 3);
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Email:', B, ry);
-  doc.setFont('helvetica', 'normal');
-  doc.text((quote.client_email || '---').slice(0, 18), Bv, ry);
-  dash(doc, Bv, ry + 1.5, END_B);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Address:', Cv, ry);
-  doc.setFont('helvetica', 'normal');
-  doc.text((quote.client_address || '---').slice(0, 12), Cv + 20, ry);
-
-  // -- Row 2: Contact: | Phone: --
-  ry += 12;
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
-  doc.text('Contact:', A, ry);
-  doc.setFont('helvetica', 'normal');
-  doc.text((quote.client_name || '---').slice(0, 18), Av, ry);
-  dash(doc, Av, ry + 1.5, END_A);
+  doc.text('Email:', midCol, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((quote.client_email || '---').slice(0, 24), midCol + 13, ry);
+  dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Phone:', B, ry);
-  doc.setFont('helvetica', 'normal');
-  doc.text((quote.client_phone || '---').slice(0, 18), Bv, ry);
-  dash(doc, Bv, ry + 1.5, END_B);
+  // Row 2: Contact: _____ | Phone: _____
+  ry += 9;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Contact:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((quote.client_name || '---').slice(0, 20), infoX + 17, ry);
+  dottedLine(doc, infoX + 17, ry + 1.5, midCol - 3);
 
-  y = Math.max(nameY + 5, ry + 10);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Phone:', midCol, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((quote.client_phone || '---').slice(0, 20), midCol + 13, ry);
+  dottedLine(doc, midCol + 13, ry + 1.5, endLine);
 
-  // ── ORANGE SEPARATOR (thick, like reference) ──
+  // Row 3: Address: _____
+  ry += 9;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Address:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((quote.client_address || '---').slice(0, 50), infoX + 17, ry);
+  dottedLine(doc, infoX + 17, ry + 1.5, endLine);
+
+  y = Math.max(y + logoH + 4, ry + 6);
+
+  // ── THICK ORANGE SEPARATOR ──
   doc.setDrawColor(...C.orange);
-  doc.setLineWidth(1.5);
+  doc.setLineWidth(1.8);
   doc.line(M, y, PW - M, y);
   y += 8;
 
@@ -215,8 +214,15 @@ export async function generateQuotePDF(quote: QuoteData) {
   doc.setTextColor(...C.dark);
   for (let i = 0; i < 4; i++) doc.text(gLabels[i], M + i * gw, y);
 
-  y += 5.5;
+  y += 1.5;
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.15);
+  doc.line(M, y, PW - M, y);
+  y += 4.5;
+
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(...C.gray);
   for (let i = 0; i < 4; i++) {
     if (i === 3 && quote.project_name) {
       doc.setFont('Amiri', 'normal');
@@ -227,115 +233,127 @@ export async function generateQuotePDF(quote: QuoteData) {
     }
   }
 
-  y += 10;
+  y += 8;
 
-  // ── Orange line (thin) ──
+  // ── Thin orange line under details ──
   doc.setDrawColor(...C.orange);
   doc.setLineWidth(0.6);
   doc.line(M, y, PW - M, y);
-  y += 10;
+  y += 8;
 
   // ╔══════════════════════════════════════════════════════════╗
   // ║  ITEMS TABLE                                             ║
   // ╚══════════════════════════════════════════════════════════╝
-  // Column positions
-  const descEnd = M + CW - 60;
-  const qtyMid = descEnd + 10;
-  const rateMid = descEnd + 30;
-  const amtR = PW - M - 2;
+  // Column layout
+  const colDesc = M;
+  const colQty = M + CW - 60;
+  const colRate = M + CW - 40;
+  const colAmt = M + CW - 20;
+  const colEnd = PW - M;
 
-  // Header
+  // Header row
   doc.setFillColor(...C.orange);
-  doc.rect(M, y - 2, 3.5, 3.5, 'F');  // orange square
+  doc.rect(M, y - 2.5, 3, 3, 'F');  // small orange square icon
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...C.dark);
-  doc.text('ITEM & DESCRIPTION', M + 7, y);
-  doc.text('QTY', qtyMid, y, { align: 'center' });
-  doc.text('RATE', rateMid, y, { align: 'center' });
-  doc.text('AMOUNT', amtR, y, { align: 'right' });
+  doc.text('ITEM & DESCRIPTION', M + 6, y);
+  doc.text('QTY', colQty + 10, y, { align: 'center' });
+  doc.text('RATE', colRate + 10, y, { align: 'center' });
+  doc.text('AMOUNT', colEnd - 2, y, { align: 'right' });
 
-  y += 4;
+  y += 3;
   doc.setDrawColor(...C.orange);
-  doc.setLineWidth(0.6);
+  doc.setLineWidth(0.7);
   doc.line(M, y, PW - M, y);
-  y += 1;
+  y += 0.5;
 
-  // Rows
-  const rH = 12; // row height (generous like reference)
-  const minR = Math.max(quote.items.length, 3);
+  // Data rows
+  const rowH = 11;
+  const minRows = Math.max(quote.items.length, 3);
 
-  for (let i = 0; i < minR; i++) {
+  for (let i = 0; i < minRows; i++) {
     if (y > 235) { doc.addPage(); y = M; }
     const item = quote.items[i];
     const top = y;
 
-    // Cell outlines
+    // Cell borders — each cell outlined
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.2);
-    doc.rect(M, top, descEnd - M, rH);
-    doc.rect(descEnd, top, 20, rH);
-    doc.rect(descEnd + 20, top, 20, rH);
-    doc.rect(descEnd + 40, top, PW - M - descEnd - 40, rH);
+    // Description cell
+    doc.rect(colDesc, top, colQty - colDesc, rowH);
+    // QTY cell
+    doc.rect(colQty, top, 20, rowH);
+    // RATE cell
+    doc.rect(colRate, top, 20, rowH);
+    // AMOUNT cell
+    doc.rect(colAmt, top, colEnd - colAmt, rowH);
 
     if (item) {
-      const cy = top + rH / 2 + 1.5;
-      doc.setFontSize(9);
+      const cy = top + rowH / 2 + 1.2;
+      doc.setFontSize(8.5);
       doc.setTextColor(...C.dark);
-      // Description
+      // Description (Arabic support)
       doc.setFont('Amiri', 'normal');
-      const desc = item.description.length > 50 ? item.description.slice(0, 50) + '...' : item.description;
-      doc.text(ar(desc), M + 3, cy);
+      const maxDescW = colQty - colDesc - 8;
+      let desc = item.description;
+      if (doc.getTextWidth(desc) > maxDescW) {
+        while (doc.getTextWidth(desc + '...') > maxDescW && desc.length > 5) desc = desc.slice(0, -1);
+        desc += '...';
+      }
+      doc.text(ar(desc), colDesc + 3, cy);
       // Numbers
       doc.setFont('helvetica', 'normal');
-      doc.text(String(item.quantity), qtyMid, cy, { align: 'center' });
-      doc.text(fmtNum(item.rate), rateMid, cy, { align: 'center' });
-      doc.text(fmtNum(item.amount), amtR, cy, { align: 'right' });
+      doc.text(String(item.quantity), colQty + 10, cy, { align: 'center' });
+      doc.text(fmtNum(item.rate), colRate + 10, cy, { align: 'center' });
+      doc.text(fmtNum(item.amount), colEnd - 3, cy, { align: 'right' });
     }
-    y += rH;
+    y += rowH;
   }
 
-  y += 14;
+  y += 10;
 
   // ╔══════════════════════════════════════════════════════════╗
-  // ║  TOTAL BOX                                               ║
+  // ║  TOTAL BOX — right-aligned with orange border           ║
   // ╚══════════════════════════════════════════════════════════╝
-  const bw = 55;
-  const bx = PW - M - bw;
+  const boxW = 55;
+  const boxX = PW - M - boxW;
   const hasTax = quote.tax_amount > 0;
-  const bh = hasTax ? 24 : 14;
+  const boxH = hasTax ? 26 : 14;
 
   doc.setDrawColor(...C.orange);
   doc.setLineWidth(0.7);
-  doc.roundedRect(bx, y, bw, bh, 2, 2);
+  doc.roundedRect(boxX, y, boxW, boxH, 2, 2);
 
   if (hasTax) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...C.gray);
-    doc.text('Subtotal:', bx + 4, y + 6);
-    doc.text(fmtNum(quote.subtotal), bx + bw - 4, y + 6, { align: 'right' });
-    doc.text(`VAT (${quote.tax_rate}%):`, bx + 4, y + 11);
-    doc.text(fmtNum(quote.tax_amount), bx + bw - 4, y + 11, { align: 'right' });
+    doc.text('Subtotal:', boxX + 4, y + 6);
+    doc.text(fmtNum(quote.subtotal), boxX + boxW - 4, y + 6, { align: 'right' });
+    doc.text(`VAT (${quote.tax_rate}%):`, boxX + 4, y + 12);
+    doc.text(fmtNum(quote.tax_amount), boxX + boxW - 4, y + 12, { align: 'right' });
+    // Divider
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.15);
-    doc.line(bx + 3, y + 14, bx + bw - 3, y + 14);
+    doc.line(boxX + 3, y + 15, boxX + boxW - 3, y + 15);
+    // Total
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
+    doc.setFontSize(16);
     doc.setTextColor(...C.orange);
-    doc.text(fmtNum(quote.total), bx + bw / 2, y + 21.5, { align: 'center' });
+    doc.text(fmtNum(quote.total), boxX + boxW / 2, y + 23, { align: 'center' });
   } else {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(15);
+    doc.setFontSize(16);
     doc.setTextColor(...C.orange);
-    doc.text(fmtNum(quote.total), bx + bw / 2, y + 9.5, { align: 'center' });
+    doc.text(fmtNum(quote.total), boxX + boxW / 2, y + 10, { align: 'center' });
   }
 
-  y += bh + 10;
+  y += boxH + 8;
 
   // ╔══════════════════════════════════════════════════════════╗
-  // ║  NOTES                                                   ║
+  // ║  NOTES (italic, Arabic support)                         ║
   // ╚══════════════════════════════════════════════════════════╝
   if (quote.notes) {
     if (y > 230) { doc.addPage(); y = M; }
@@ -343,7 +361,7 @@ export async function generateQuotePDF(quote: QuoteData) {
     doc.setFont('Amiri', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...C.dark);
-    doc.text(ar('Notes:'), M, y);
+    doc.text('Notes:', M, y);
     y += 5;
 
     doc.setFont('Amiri', 'normal');
@@ -351,7 +369,7 @@ export async function generateQuotePDF(quote: QuoteData) {
     doc.setTextColor(...C.gray);
     const noteLines = doc.splitTextToSize(ar(quote.notes), CW);
     doc.text(noteLines, M, y);
-    y += noteLines.length * 4 + 6;
+    y += noteLines.length * 3.8 + 5;
   }
 
   // ╔══════════════════════════════════════════════════════════╗
@@ -360,59 +378,59 @@ export async function generateQuotePDF(quote: QuoteData) {
   if (quote.bank_details?.bank) {
     if (y > 215) { doc.addPage(); y = M; }
 
+    // Separator
     doc.setDrawColor(...C.dark);
     doc.setLineWidth(0.3);
     doc.line(M, y, PW - M, y);
-    y += 7;
+    y += 6;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setTextColor(...C.dark);
     doc.text('Bank account details', M, y);
     y += 5;
 
-    // Table: 2 rows × 3 cols — label: value side by side (reference style)
+    // 2×3 grid table — label in gray, value in bold dark, side by side in each cell
     const bc = CW / 3;
-    const bRows = [
+    const cellH = 8;
+    const bankRows = [
       [
-        { l: 'Name of the bank:', v: quote.bank_details.bank },
-        { l: 'Account name:', v: quote.bank_details.account_name },
-        { l: 'Account Class:', v: 'CURRENT ACCOUNT' },
+        { l: 'Name of the bank: ', v: quote.bank_details.bank },
+        { l: 'Account name: ', v: quote.bank_details.account_name },
+        { l: 'Account Class: ', v: 'CURRENT ACCOUNT' },
       ],
       [
-        { l: 'Account Type:', v: 'AED - Business Connect Current Acc' },
-        { l: 'Account No:', v: quote.bank_details.account_no },
-        { l: 'IBAN:', v: quote.bank_details.iban },
+        { l: 'Account Type: ', v: 'AED' },
+        { l: 'Account No: ', v: quote.bank_details.account_no },
+        { l: 'IBAN: ', v: quote.bank_details.iban },
       ],
     ];
 
-    for (const row of bRows) {
+    for (const row of bankRows) {
       for (let c = 0; c < 3; c++) {
         const cx = M + c * bc;
-        // Cell border
+        // Cell background + border
+        doc.setFillColor(...C.lightBg);
         doc.setDrawColor(...C.border);
         doc.setLineWidth(0.2);
-        doc.rect(cx, y, bc, 7);
-        // Label (normal gray)
+        doc.rect(cx, y, bc, cellH, 'FD');
+        // Label
         doc.setFont('helvetica', 'normal');
-        doc.setFontSize(7);
-        doc.setTextColor(...C.gray);
-        doc.text(row[c].l, cx + 2, y + 4.5);
-        // Value (bold dark) — right after label
-        doc.setFont('helvetica', 'bold');
-        doc.setTextColor(...C.dark);
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.lightGray);
+        doc.text(row[c].l, cx + 2, y + cellH / 2 + 0.8);
+        // Value — bold, dark, right after label
         const labelW = doc.getTextWidth(row[c].l);
-        const maxValW = bc - labelW - 6;
-        const val = row[c].v;
-        // Truncate if needed
-        let displayVal = val;
-        while (doc.getTextWidth(displayVal) > maxValW && displayVal.length > 5) {
-          displayVal = displayVal.slice(0, -1);
-        }
-        if (displayVal !== val) displayVal += '...';
-        doc.text(displayVal, cx + labelW + 4, y + 4.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.dark);
+        const maxValW = bc - labelW - 5;
+        let val = row[c].v;
+        while (doc.getTextWidth(val) > maxValW && val.length > 3) val = val.slice(0, -1);
+        if (val !== row[c].v) val += '…';
+        doc.text(val, cx + labelW + 3, y + cellH / 2 + 0.8);
       }
-      y += 7;
+      y += cellH;
     }
 
     y += 5;
@@ -423,8 +441,9 @@ export async function generateQuotePDF(quote: QuoteData) {
   // ╚══════════════════════════════════════════════════════════╝
   if (y > 190) { doc.addPage(); y = M; }
 
+  // Separator
   doc.setDrawColor(...C.dark);
-  doc.setLineWidth(0.4);
+  doc.setLineWidth(0.35);
   doc.line(M, y, PW - M, y);
   y += 5;
 
@@ -432,60 +451,65 @@ export async function generateQuotePDF(quote: QuoteData) {
   doc.setFontSize(9);
   doc.setTextColor(...C.dark);
   doc.text('TERMS & CONDITIONS', M, y);
-  doc.setLineWidth(0.25);
-  doc.line(M, y + 1.2, M + 42, y + 1.2);
+  // Underline
+  doc.setDrawColor(...C.dark);
+  doc.setLineWidth(0.3);
+  doc.line(M, y + 1.2, M + 40, y + 1.2);
   y += 5;
 
+  // Distribute terms into 3 columns
   const termKeys = Object.keys(TERMS);
   const tCols = [termKeys.slice(0, 4), termKeys.slice(4, 7), termKeys.slice(7)];
-  const tw = (CW - 8) / 3;
+  const tw = (CW - 6) / 3;
 
   const tStartY = y;
   for (let ci = 0; ci < 3; ci++) {
     let ty = tStartY;
-    const tx = M + ci * (tw + 4);
+    const tx = M + ci * (tw + 3);
 
     for (const key of tCols[ci]) {
+      // Term title
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(6.5);
+      doc.setFontSize(6);
       doc.setTextColor(...C.dark);
       doc.text(key, tx, ty);
-      ty += 3;
+      ty += 2.8;
 
+      // Term content
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(5.5);
+      doc.setFontSize(5.2);
       doc.setTextColor(...C.gray);
       for (const line of TERMS[key]) {
-        const wrapped = doc.splitTextToSize(line, tw);
+        const wrapped = doc.splitTextToSize(line, tw - 2);
         doc.text(wrapped, tx, ty);
-        ty += wrapped.length * 2.2 + 0.5;
+        ty += wrapped.length * 2 + 0.4;
       }
-      ty += 2;
+      ty += 1.8;
     }
     y = Math.max(y, ty);
   }
 
-  // Custom terms from data
+  // Custom terms from quote data
   if (quote.terms_conditions?.length > 0) {
-    y += 3;
+    y += 2;
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setTextColor(...C.gray);
     for (const term of quote.terms_conditions) {
       if (y > 275) { doc.addPage(); y = M; }
       const wrapped = doc.splitTextToSize(`• ${term.text}`, CW);
       doc.text(wrapped, M, y);
-      y += wrapped.length * 2.5 + 1;
+      y += wrapped.length * 2.3 + 1;
     }
   }
 
   // ╔══════════════════════════════════════════════════════════╗
-  // ║  SIGNATURE                                               ║
+  // ║  SIGNATURE (if signed)                                   ║
   // ╚══════════════════════════════════════════════════════════╝
   if (quote.signature_data && quote.signed_by) {
     if (y > 240) { doc.addPage(); y = M; }
 
-    y += 4;
+    y += 3;
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.3);
     doc.line(M, y, PW - M, y);
@@ -513,23 +537,24 @@ export async function generateQuotePDF(quote: QuoteData) {
   }
 
   // ╔══════════════════════════════════════════════════════════╗
-  // ║  FOOTER (every page)                                     ║
+  // ║  FOOTER — on every page                                 ║
   // ╚══════════════════════════════════════════════════════════╝
   const pages = doc.getNumberOfPages();
   for (let p = 1; p <= pages; p++) {
     doc.setPage(p);
-    const fy = 283;
+    const fy = PH - 16;  // ~281mm
 
     // Orange line
     doc.setDrawColor(...C.orange);
-    doc.setLineWidth(0.7);
+    doc.setLineWidth(0.8);
     doc.line(M, fy, PW - M, fy);
 
-    // Row 1: Phone + dots + social
+    // Row 1: Phone icon + number | 3 dots | Social handle
+    // Phone circle
     doc.setFillColor(...C.orange);
     doc.circle(M + 2.5, fy + 4.5, 2, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6);
+    doc.setFontSize(5.5);
     doc.setTextColor(...C.white);
     doc.text('T', M + 2.5, fy + 5.2, { align: 'center' });
 
@@ -538,27 +563,30 @@ export async function generateQuotePDF(quote: QuoteData) {
     doc.setTextColor(...C.dark);
     doc.text(FOOTER.phone, M + 7, fy + 5);
 
-    const cx = PW / 2 - 8;
+    // 3 orange dots (center)
+    const cx = PW / 2 - 6;
     doc.setFillColor(...C.orange);
-    doc.circle(cx, fy + 4.5, 1.2, 'F');
-    doc.circle(cx + 4, fy + 4.5, 1.2, 'F');
-    doc.circle(cx + 8, fy + 4.5, 1.2, 'F');
+    doc.circle(cx, fy + 4.5, 1, 'F');
+    doc.circle(cx + 4, fy + 4.5, 1, 'F');
+    doc.circle(cx + 8, fy + 4.5, 1, 'F');
 
+    // Social handle
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text(FOOTER.social, cx + 14, fy + 5);
+    doc.setTextColor(...C.dark);
+    doc.text(FOOTER.social, cx + 13, fy + 5);
 
-    // Row 2: Web
+    // Row 2: Web icon + websites
     doc.setFillColor(...C.orange);
-    doc.circle(M + 2.5, fy + 9, 2, 'F');
-    doc.setFontSize(5.5);
+    doc.circle(M + 2.5, fy + 9.5, 2, 'F');
+    doc.setFontSize(5);
     doc.setTextColor(...C.white);
-    doc.text('@', M + 2.5, fy + 9.7, { align: 'center' });
+    doc.text('@', M + 2.5, fy + 10.2, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(...C.orange);
-    doc.text(FOOTER.web, M + 7, fy + 9.5);
+    doc.text(FOOTER.web, M + 7, fy + 10);
   }
 
   doc.save(`quote-${quote.quote_number}.pdf`);
