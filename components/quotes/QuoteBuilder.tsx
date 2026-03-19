@@ -12,7 +12,7 @@ import {
 import { Plus, Trash2, Save, Send, FileDown, X } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
-import { generateQuotePdf } from '@/lib/pdf/generateQuotePdf';
+import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 
 interface Client {
   id: string;
@@ -215,25 +215,40 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
   };
 
   const handlePdf = async () => {
-    await generateQuotePdf({
-      clientName,
-      clientEmail,
-      clientAddress,
-      contactPerson: clientName,
-      clientPhone,
-      quoteNumber: quote?.quote_number || 'DRAFT',
-      estimateDate: formatDate(estimateDate, 'dd-MM-yyyy'),
-      expiryDate: expiryDate ? formatDate(expiryDate, 'dd-MM-yyyy') : '',
-      projectName,
-      services: services.map(s => ({ description: s.description, qty: s.quantity, rate: s.rate })),
-      notes,
+    const items = services.map(s => ({
+      description: s.description,
+      quantity: s.quantity,
+      rate: s.rate,
+      amount: s.quantity * s.rate,
+    }));
+    const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
+    const taxAmount = subtotal * (taxRate / 100);
+
+    await generateQuotePDF({
+      quote_number: quote?.quote_number || 'DRAFT',
+      estimate_date: estimateDate,
+      expiry_date: expiryDate || null,
+      status: quote?.status || 'draft',
       currency: quote?.currency || 'AED',
-      taxRate,
-      bankDetails: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
-      companyName: quote?.company_name || 'PYRAMEDIA X',
-      signatureDataUrl: quote?.signature_data || null,
-      signedBy: quote?.signed_by || null,
-      signedAt: quote?.signed_at ? formatDate(quote.signed_at, 'dd-MM-yyyy') : null,
+      subtotal,
+      tax_rate: taxRate,
+      tax_amount: taxAmount,
+      total: subtotal + taxAmount,
+      notes: notes || null,
+      terms_conditions: quote?.terms_conditions || [],
+      bank_details: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
+      company_name: quote?.company_name || 'PYRAMEDIA X',
+      company_logo: null,
+      client_name: clientName || null,
+      client_company: null,
+      client_email: clientEmail || null,
+      client_phone: clientPhone || null,
+      client_address: clientAddress || null,
+      project_name: projectName || null,
+      signature_data: quote?.signature_data || null,
+      signed_by: quote?.signed_by || null,
+      signed_at: quote?.signed_at || null,
+      items,
     });
   };
 
