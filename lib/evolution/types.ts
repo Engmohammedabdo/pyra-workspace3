@@ -63,6 +63,11 @@ export interface EvoMessageData {
     remoteJid: string;
     fromMe: boolean;
     id: string;
+    /** Alternative JID in @s.whatsapp.net format (when remoteJid is @lid) */
+    remoteJidAlt?: string;
+    /** "lid" for new Linked ID format, undefined for classic */
+    addressingMode?: string;
+    participant?: string;
   };
   pushName?: string;
   message?: {

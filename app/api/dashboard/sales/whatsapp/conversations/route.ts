@@ -45,6 +45,7 @@ export async function GET() {
     lead_id: string | null;
     client_id: string | null;
     contact_name: string | null;
+    phone: string | null;
     last_message: string | null;
     last_message_type: string;
     last_timestamp: string;
@@ -55,13 +56,28 @@ export async function GET() {
   for (const msg of messages || []) {
     const jid = msg.remote_jid;
     if (!conversationMap.has(jid)) {
-      const pushName = (msg.metadata as Record<string, unknown>)?.pushName as string || null;
+      const meta = (msg.metadata || {}) as Record<string, unknown>;
+      const pushName = (meta.pushName as string) || null;
+
+      // Extract phone: from metadata.phone (set by webhook/sync), or from JID
+      let phone = (meta.phone as string) || null;
+      if (!phone) {
+        // Try remoteJidAlt first (real phone when JID is @lid)
+        const altJid = (meta.remoteJidAlt as string) || '';
+        if (altJid) {
+          phone = altJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        } else if (jid.includes('@s.whatsapp.net') || jid.includes('@c.us')) {
+          phone = jid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        }
+      }
+
       conversationMap.set(jid, {
         remote_jid: jid,
         instance_name: msg.instance_name,
         lead_id: msg.lead_id,
         client_id: msg.client_id,
         contact_name: pushName,
+        phone,
         last_message: msg.content,
         last_message_type: msg.message_type,
         last_timestamp: msg.timestamp,
@@ -80,8 +96,14 @@ export async function GET() {
     if (msg.client_id && !conv.client_id) conv.client_id = msg.client_id;
     // Keep contact name from metadata
     if (!conv.contact_name) {
-      const pushName = (msg.metadata as Record<string, unknown>)?.pushName as string;
+      const pushName = ((msg.metadata || {}) as Record<string, unknown>).pushName as string;
       if (pushName) conv.contact_name = pushName;
+    }
+    // Keep phone from metadata
+    if (!conv.phone) {
+      const meta = (msg.metadata || {}) as Record<string, unknown>;
+      const phone = (meta.phone as string) || (meta.remoteJidAlt as string)?.replace('@s.whatsapp.net', '').replace('@c.us', '') || null;
+      if (phone) conv.phone = phone;
     }
   }
 

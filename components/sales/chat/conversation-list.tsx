@@ -12,6 +12,7 @@ export interface Conversation {
   lead_id: string | null;
   client_id: string | null;
   contact_name: string | null;
+  phone: string | null;
   last_message: string | null;
   last_message_type: string;
   last_timestamp: string;
@@ -32,7 +33,8 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
     if (!search) return true;
     const q = search.toLowerCase();
     const name = c.contact_name?.toLowerCase() || '';
-    const phone = c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+    // Use phone field (extracted from metadata) or fallback to JID
+    const phone = c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
     return name.includes(q) || phone.includes(q);
   });
 
@@ -67,7 +69,8 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
           </div>
         ) : (
           filtered.map(conv => {
-            const phone = conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+            // Use phone from metadata (handles @lid format) or extract from JID
+            const phone = conv.phone || conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
             const displayName = conv.contact_name || phone;
             const isSelected = conv.remote_jid === selectedJid;
 

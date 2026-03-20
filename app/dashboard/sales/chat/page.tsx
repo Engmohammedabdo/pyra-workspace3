@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { ConversationList, type Conversation } from '@/components/sales/chat/conversation-list';
 import { ChatWindow } from '@/components/sales/chat/chat-window';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EmptyState } from '@/components/ui/empty-state';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import { toast } from 'sonner';
 
 export default function ChatInboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
 
   const fetchConversations = useCallback(async () => {
@@ -24,6 +26,28 @@ export default function ChatInboxPage() {
       setLoading(false);
     }
   }, []);
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/dashboard/sales/whatsapp/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ instanceName: 'pyraai' }),
+      });
+      const data = await res.json();
+      if (data.sync) {
+        toast.success(`تم مزامنة ${data.sync.inserted} رسالة جديدة (تم تخطي ${data.sync.skipped})`);
+        await fetchConversations();
+      } else {
+        toast.error('فشل في المزامنة');
+      }
+    } catch {
+      toast.error('فشل في المزامنة');
+    } finally {
+      setSyncing(false);
+    }
+  }, [fetchConversations]);
 
   useEffect(() => {
     fetchConversations();
@@ -60,14 +84,28 @@ export default function ChatInboxPage() {
       className="space-y-4"
     >
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <MessageCircle className="h-5 w-5 text-white" />
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <MessageCircle className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>
+            <p className="text-xs text-muted-foreground/60">{conversations.length} محادثة</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>
-          <p className="text-xs text-muted-foreground/60">{conversations.length} محادثة</p>
-        </div>
+        {conversations.length === 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSync}
+            disabled={syncing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'جاري المزامنة...' : 'مزامنة الرسائل'}
+          </Button>
+        )}
       </div>
 
       <div

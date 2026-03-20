@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
 
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function processWebhook(event: string, instanceName: string, data: Record<string, unknown>) {
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
 
   switch (event) {
     case 'MESSAGES_UPSERT': {
@@ -88,24 +88,35 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           if (existing) continue;
         }
 
-        // Try to match with a lead by normalized phone number (exact match)
-        const rawPhone = msg.key.remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        // ── Extract phone: handle both @lid and @s.whatsapp.net formats ──
+        // New WhatsApp uses @lid (Linked ID) format. The real phone is in remoteJidAlt.
+        const jidForPhone = msg.key.remoteJidAlt || msg.key.remoteJid;
+        const rawPhone = jidForPhone
+          .replace('@s.whatsapp.net', '')
+          .replace('@c.us', '')
+          .replace('@lid', '');
         const phone = normalizePhone(rawPhone);
 
-        // Fetch leads that have a phone set, then match by normalized value
-        const { data: candidateLeads } = await supabase
-          .from('pyra_sales_leads')
-          .select('id, client_id, phone')
-          .not('phone', 'is', null);
+        // Use remoteJid as the conversation key (could be @lid or @s.whatsapp.net)
+        const conversationJid = msg.key.remoteJid;
 
-        const matchedLead = candidateLeads?.find(
-          (l) => l.phone && normalizePhone(l.phone) === phone
-        ) || null;
+        // Try to match with a lead by normalized phone number
+        let matchedLead: { id: string; client_id: string | null } | null = null;
+        if (phone && !phone.match(/^\d{10,20}$/) === false) {
+          const { data: candidateLeads } = await supabase
+            .from('pyra_sales_leads')
+            .select('id, client_id, phone')
+            .not('phone', 'is', null);
+
+          matchedLead = candidateLeads?.find(
+            (l) => l.phone && normalizePhone(l.phone) === phone
+          ) || null;
+        }
 
         await supabase.from('pyra_whatsapp_messages').insert({
           id: generateId('wm'),
           instance_name: instanceName,
-          remote_jid: msg.key.remoteJid,
+          remote_jid: conversationJid,
           lead_id: matchedLead?.id || null,
           client_id: matchedLead?.client_id || null,
           message_id: msg.key.id || null,
@@ -118,7 +129,12 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           timestamp: msg.messageTimestamp
             ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
             : new Date().toISOString(),
-          metadata: { pushName: msg.pushName },
+          metadata: {
+            pushName: msg.pushName,
+            remoteJidAlt: msg.key.remoteJidAlt || null,
+            addressingMode: msg.key.addressingMode || null,
+            phone: phone || null,
+          },
         });
 
         // Update lead's last_contact_at
