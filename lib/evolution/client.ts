@@ -102,6 +102,25 @@ class EvolutionClient {
     return this.request('DELETE', `/instance/logout/${instanceName}`);
   }
 
+  /** Set/update webhook URL for an instance */
+  async setWebhook(instanceName: string, webhookUrl: string) {
+    return this.request('POST', `/webhook/set/${instanceName}`, {
+      url: webhookUrl,
+      webhook_by_events: false,
+      webhook_base64: false,
+      events: [
+        'MESSAGES_UPSERT',
+        'MESSAGES_UPDATE',
+        'CONNECTION_UPDATE',
+      ],
+    });
+  }
+
+  /** Restart an instance */
+  async restartInstance(instanceName: string) {
+    return this.request('PUT', `/instance/restart/${instanceName}`);
+  }
+
   // ─── Messaging ────────────────────────────────────────────
 
   /** Send a text message */

@@ -30,10 +30,12 @@ export async function POST(request: NextRequest) {
 
   if (!instance_name) return apiError('اسم الـ Instance مطلوب');
 
+  const secret = process.env.EVOLUTION_API_KEY || '';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://workspace.pyramedia.cloud';
+  const webhookUrl = `${appUrl}/api/dashboard/sales/whatsapp/webhook?secret=${secret}`;
+
   try {
-    // Create on Evolution API — include secret for webhook authentication
-    const secret = process.env.EVOLUTION_API_KEY || '';
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/dashboard/sales/whatsapp/webhook?secret=${secret}`;
+    // Create on Evolution API with webhook
     await evolutionClient.createInstance(instance_name, webhookUrl);
   } catch (err) {
     return apiServerError(`فشل إنشاء Instance على Evolution API: ${err instanceof Error ? err.message : ''}`);
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
       instance_name,
       agent_username: agent_username || null,
       phone_number: phone_number || null,
+      webhook_url: webhookUrl,
       status: 'disconnected',
       created_by: auth.pyraUser.username,
     })

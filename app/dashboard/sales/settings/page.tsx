@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import {
   Settings2, Plus, Trash2, GripVertical, Loader2,
-  Wifi, WifiOff, QrCode, Phone, User
+  Wifi, WifiOff, QrCode, Phone, User, RefreshCw
 } from 'lucide-react';
 
 interface Stage {
@@ -39,6 +39,9 @@ interface WAInstance {
   agent_username?: string;
   phone_number?: string;
   status: string;
+  webhook_url?: string;
+  last_connected_at?: string;
+  auto_sync?: boolean;
   qr_code?: string;
   connection_state?: string;
 }
@@ -378,6 +381,36 @@ function WAInstancesManager({ instances, onRefresh }: { instances: WAInstance[];
     }
   }
 
+  async function handleDelete(instanceId: string) {
+    if (!confirm('حذف هذا الـ Instance؟ سيتم فصل الواتساب نهائياً.')) return;
+    try {
+      const res = await fetch(`/api/dashboard/sales/whatsapp/instances/${instanceId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+      toast.success('تم حذف الـ Instance');
+      setQrData(prev => { const copy = { ...prev }; delete copy[instanceId]; return copy; });
+      onRefresh();
+    } catch {
+      toast.error('فشل حذف الـ Instance');
+    }
+  }
+
+  async function handleRefreshStatus(instanceId: string) {
+    setQrLoading(instanceId);
+    try {
+      const res = await fetch(`/api/dashboard/sales/whatsapp/instances/${instanceId}`);
+      const data = await res.json();
+      if (data.data?.connection_state === 'open') {
+        toast.success('الـ Instance متصل');
+        setQrData(prev => { const copy = { ...prev }; delete copy[instanceId]; return copy; });
+      }
+      onRefresh();
+    } catch {
+      toast.error('فشل تحديث الحالة');
+    } finally {
+      setQrLoading(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -391,41 +424,80 @@ function WAInstancesManager({ instances, onRefresh }: { instances: WAInstance[];
           <EmptyState icon={Phone} title="لا يوجد Instances" description="أضف Instance لربط واتساب بموظف" />
         ) : (
           instances.map(inst => (
-            <div key={inst.id} className="border rounded-lg p-4 space-y-3">
+            <div key={inst.id} className="border border-border/60 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {inst.status === 'connected' ? (
-                    <Wifi className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <WifiOff className="h-5 w-5 text-red-500" />
-                  )}
+                  <div className={cn(
+                    'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
+                    inst.status === 'connected'
+                      ? 'bg-green-100 dark:bg-green-950/30'
+                      : 'bg-red-100 dark:bg-red-950/30'
+                  )}>
+                    {inst.status === 'connected' ? (
+                      <Wifi className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <WifiOff className="h-5 w-5 text-red-600 dark:text-red-400" />
+                    )}
+                  </div>
                   <div>
-                    <p className="font-medium text-sm">{inst.instance_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {inst.agent_username && <span className="flex items-center gap-1"><User className="h-3 w-3" />{inst.agent_username}</span>}
-                    </p>
+                    <p className="font-semibold text-sm">{inst.instance_name}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      {inst.agent_username && (
+                        <span className="flex items-center gap-1">
+                          <User className="h-3 w-3" />
+                          {inst.agent_username}
+                        </span>
+                      )}
+                      {inst.phone_number && (
+                        <span dir="ltr" className="tabular-nums">{inst.phone_number}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={inst.status === 'connected' ? 'default' : 'secondary'}>
+                  <Badge variant={inst.status === 'connected' ? 'default' : 'secondary'} className={cn(
+                    inst.status === 'connected' && 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400'
+                  )}>
                     {inst.status === 'connected' ? 'متصل' : inst.status === 'pending' ? 'جاري الاتصال' : 'غير متصل'}
                   </Badge>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-lg"
+                    onClick={() => handleRefreshStatus(inst.id)}
+                    disabled={qrLoading === inst.id}
+                    title="تحديث الحالة"
+                  >
+                    {qrLoading === inst.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                  </Button>
                   {inst.status !== 'connected' && (
                     <Button
                       size="sm"
                       variant="outline"
+                      className="rounded-lg"
                       onClick={() => handleGetQR(inst.id)}
                       disabled={qrLoading === inst.id}
                     >
-                      {qrLoading === inst.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4 me-1" />}
+                      <QrCode className="h-4 w-4 me-1" />
                       QR Code
                     </Button>
                   )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDelete(inst.id)}
+                    title="حذف Instance"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
               {qrData[inst.id] && (
-                <div className="flex justify-center p-4 bg-white rounded-lg">
+                <div className="flex flex-col items-center gap-3 p-4 bg-white dark:bg-gray-900 rounded-xl border border-border/40">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`data:image/png;base64,${qrData[inst.id]}`} alt="QR Code" className="w-48 h-48" />
+                  <p className="text-xs text-muted-foreground">امسح الكود من تطبيق واتساب على هاتفك</p>
                 </div>
               )}
             </div>

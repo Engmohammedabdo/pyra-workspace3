@@ -164,7 +164,8 @@ export const FOLLOW_UP_FIELDS = `
 
 export const WA_INSTANCE_FIELDS = `
   id, instance_name, agent_username, phone_number, status,
-  api_key, created_by, created_at, updated_at
+  api_key, webhook_url, last_connected_at, auto_sync,
+  created_by, created_at, updated_at
 `;
 
 export const WA_MESSAGE_FIELDS = `

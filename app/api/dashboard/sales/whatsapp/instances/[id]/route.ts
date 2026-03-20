@@ -52,9 +52,11 @@ export async function GET(_request: NextRequest, { params }: Params) {
     };
     const newStatus = statusMap[connectionState] || 'disconnected';
     if (newStatus !== data.status) {
+      const updateData: Record<string, unknown> = { status: newStatus, updated_at: new Date().toISOString() };
+      if (newStatus === 'connected') updateData.last_connected_at = new Date().toISOString();
       await supabase
         .from('pyra_whatsapp_instances')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', id);
       data.status = newStatus;
     }
@@ -74,6 +76,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const updates: Record<string, unknown> = {};
   if (body.agent_username !== undefined) updates.agent_username = body.agent_username;
   if (body.phone_number !== undefined) updates.phone_number = body.phone_number;
+  if (body.auto_sync !== undefined) updates.auto_sync = body.auto_sync;
   if (body.status !== undefined) updates.status = body.status;
   updates.updated_at = new Date().toISOString();
 
