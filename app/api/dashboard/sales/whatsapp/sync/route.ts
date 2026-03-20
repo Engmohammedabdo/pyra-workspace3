@@ -49,12 +49,22 @@ export async function POST(request: NextRequest) {
     // empty body is fine
   }
 
-  const instanceName = body.instanceName || 'pyraai';
+  const supabase = createServiceRoleClient();
+
+  let instanceName: string = body.instanceName || '';
+  if (!instanceName) {
+    // Auto-detect: find first connected instance from DB
+    const { data: inst } = await supabase
+      .from('pyra_whatsapp_instances')
+      .select('instance_name')
+      .eq('status', 'connected')
+      .limit(1)
+      .maybeSingle();
+    instanceName = inst?.instance_name || 'pyraai';
+  }
   const batchSize = Math.min(body.batchSize || 50, 100);
   const startPage = body.startPage || 1;
   const pagesToSync = Math.min(body.pagesToSync || 10, 20); // max 20 pages per call
-
-  const supabase = createServiceRoleClient();
 
   // Fetch all existing message_ids for dedup
   const { data: existingMsgs } = await supabase

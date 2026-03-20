@@ -1,7 +1,6 @@
 'use client';
 
 import { cn } from '@/lib/utils/cn';
-import { Badge } from '@/components/ui/badge';
 import { Search, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { formatRelativeDate } from '@/lib/utils/format';

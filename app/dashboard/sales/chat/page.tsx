@@ -42,7 +42,7 @@ export default function ChatInboxPage() {
         const res = await fetch('/api/dashboard/sales/whatsapp/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ instanceName: 'pyraai', startPage: nextPage, pagesToSync: 10 }),
+          body: JSON.stringify({ startPage: nextPage, pagesToSync: 10 }),
         });
 
         if (!res.ok) {
@@ -89,11 +89,21 @@ export default function ChatInboxPage() {
     }
   }, [fetchConversations]);
 
+  // Auto-sync on first load if zero conversations
+  const [hasAutoSynced, setHasAutoSynced] = useState(false);
+
   useEffect(() => {
     fetchConversations();
     const interval = setInterval(fetchConversations, 10000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
+
+  useEffect(() => {
+    if (!loading && conversations.length === 0 && !syncing && !hasAutoSynced) {
+      setHasAutoSynced(true);
+      handleSync();
+    }
+  }, [loading, conversations.length, syncing, hasAutoSynced, handleSync]);
 
   if (loading) {
     return (
@@ -170,6 +180,7 @@ export default function ChatInboxPage() {
               instanceName={selectedConv.instance_name}
               contactName={selectedConv.contact_name}
               leadId={selectedConv.lead_id}
+              phone={selectedConv.phone}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">

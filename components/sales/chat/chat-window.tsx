@@ -26,11 +26,12 @@ interface ChatWindowProps {
   instanceName: string;
   contactName: string | null;
   leadId?: string | null;
+  phone?: string | null;
 }
 
 const POLL_INTERVAL = 5000;
 
-export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: ChatWindowProps) {
+export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -40,7 +41,8 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  const phone = remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+  // Use phone prop (from conversation metadata) or extract from JID
+  const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -92,6 +94,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instance_name: instanceName,
+          remote_jid: remoteJid,
           number: phone,
           text,
           lead_id: leadId,
@@ -146,6 +149,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId }: Cha
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           instance_name: instanceName,
+          remote_jid: remoteJid,
           number: phone,
           text: caption || undefined,
           media_url: mediaUrl,

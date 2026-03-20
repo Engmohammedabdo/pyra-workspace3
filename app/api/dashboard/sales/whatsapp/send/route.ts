@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createServerSupabaseClient();
   const body = await request.json();
-  const { instance_name, number, text, media_url, media_type, mime_type, file_name, lead_id, client_id } = body;
+  const { instance_name, remote_jid, number, text, media_url, media_type, mime_type, file_name, lead_id, client_id } = body;
 
   if (!number) return apiError('رقم الهاتف مطلوب');
   if (!text && !media_url) return apiError('محتوى الرسالة مطلوب');
@@ -64,14 +64,14 @@ export async function POST(request: NextRequest) {
       response = await evolutionClient.sendText(instanceToUse, { number, text });
     }
 
-    // Normalize JID
-    const remoteJid = response.key?.remoteJid || `${number.replace(/\D/g, '')}@s.whatsapp.net`;
+    // Use the original remote_jid if provided (preserves @lid format), or derive from response/number
+    const finalRemoteJid = remote_jid || response.key?.remoteJid || `${number.replace(/\D/g, '')}@s.whatsapp.net`;
 
     // Save to local database
     await supabase.from('pyra_whatsapp_messages').insert({
       id: generateId('wm'),
       instance_name: instanceToUse,
-      remote_jid: remoteJid,
+      remote_jid: finalRemoteJid,
       lead_id: lead_id || null,
       client_id: client_id || null,
       message_id: response.key?.id || null,

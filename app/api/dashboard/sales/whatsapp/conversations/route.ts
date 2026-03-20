@@ -25,11 +25,12 @@ export async function GET() {
     if (instanceFilter.length === 0) return apiSuccess([]);
   }
 
-  // Fetch all messages ordered by timestamp
+  // Fetch messages ordered by timestamp (limit to recent 5000 to avoid loading 10K+ rows)
   let query = supabase
     .from('pyra_whatsapp_messages')
     .select('id, instance_name, remote_jid, lead_id, client_id, direction, content, message_type, status, timestamp, metadata')
-    .order('timestamp', { ascending: false });
+    .order('timestamp', { ascending: false })
+    .limit(5000);
 
   if (instanceFilter) {
     query = query.in('instance_name', instanceFilter);
