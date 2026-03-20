@@ -6,7 +6,7 @@ import { ChatInput } from './chat-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import { MessageCircle, User, Phone, Search, X, ArrowDown } from 'lucide-react';
+import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -27,11 +27,12 @@ interface ChatWindowProps {
   contactName: string | null;
   leadId?: string | null;
   phone?: string | null;
+  onBack?: () => void;
 }
 
 const POLL_INTERVAL = 5000;
 
-export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp }: ChatWindowProps) {
+export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp, onBack }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -43,6 +44,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
 
   // Use phone prop (from conversation metadata) or extract from JID
   const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
+  const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
 
   const fetchMessages = useCallback(async () => {
     try {
@@ -75,7 +77,6 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages.length]);
 
-  // Track scroll position for "scroll to bottom" button
   function handleScroll() {
     const el = containerRef.current;
     if (!el) return;
@@ -113,7 +114,6 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
 
   async function handleSendMedia(file: File, caption?: string) {
     try {
-      // Upload file to Supabase storage first
       const formData = new FormData();
       formData.append('file', file);
       const uploadRes = await fetch('/api/dashboard/files/upload-temp', {
@@ -126,7 +126,6 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
         const uploadData = await uploadRes.json();
         mediaUrl = uploadData.data?.url || uploadData.url;
       } else {
-        // Fallback: convert to base64 data URL for small files
         if (file.size > 2 * 1024 * 1024) {
           toast.error('فشل رفع الملف — حاول ملف أصغر');
           return;
@@ -138,7 +137,6 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
         });
       }
 
-      // Determine media type
       let mediaType = 'document';
       if (file.type.startsWith('image/')) mediaType = 'image';
       else if (file.type.startsWith('video/')) mediaType = 'video';
@@ -176,22 +174,42 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
     ? messages.filter(m => m.content?.toLowerCase().includes(searchQuery.toLowerCase()))
     : messages;
 
+  // Group messages by date
+  const groupedMessages: { date: string; messages: Message[] }[] = [];
+  let currentDate = '';
+  for (const msg of displayMessages) {
+    const msgDate = new Date(msg.timestamp).toLocaleDateString('ar-EG', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+    if (msgDate !== currentDate) {
+      currentDate = msgDate;
+      groupedMessages.push({ date: msgDate, messages: [] });
+    }
+    groupedMessages[groupedMessages.length - 1].messages.push(msg);
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col h-full">
         <div className="p-4 border-b border-border/60">
           <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-10 rounded-xl" />
-            <div>
-              <Skeleton className="h-4 w-32 mb-1.5" />
+            <Skeleton className="h-11 w-11 rounded-full" />
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-28" />
               <Skeleton className="h-3 w-20" />
             </div>
           </div>
         </div>
         <div className="flex-1 p-4 space-y-4">
-          {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className={cn('h-12 w-52 rounded-2xl', i % 2 === 0 ? 'ms-auto' : '')} />
+          {[1, 2, 3, 4, 5].map(i => (
+            <Skeleton key={i} className={cn('h-10 rounded-2xl', i % 2 === 0 ? 'w-48 ms-auto' : 'w-56')} />
           ))}
+        </div>
+        <div className="p-4 border-t border-border/60">
+          <Skeleton className="h-12 rounded-xl" />
         </div>
       </div>
     );
@@ -200,17 +218,31 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between bg-card/80 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-orange-500/15">
+      <div className="px-3 py-2.5 border-b border-border/60 flex items-center justify-between bg-card/80 backdrop-blur-sm">
+        <div className="flex items-center gap-2.5">
+          {/* Back button — visible on mobile */}
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-xl h-9 w-9 md:hidden shrink-0"
+              onClick={onBack}
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/15">
             {(contactName || phone).charAt(0).toUpperCase()}
           </div>
-          <div>
-            <p className="font-semibold text-sm">{contactName || phone}</p>
-            <p className="text-xs text-muted-foreground/60 flex items-center gap-1" dir="ltr">
-              <Phone className="h-3 w-3" />
-              +{phone}
-            </p>
+          <div className="min-w-0">
+            <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
+            {displayPhone && (
+              <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums" dir="ltr">
+                <Phone className="h-2.5 w-2.5" />
+                {displayPhone}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-1">
@@ -220,7 +252,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
             size="icon"
             className={cn(
               'rounded-xl h-9 w-9',
-              searchOpen && 'bg-orange-50 dark:bg-orange-950/20 text-orange-600'
+              searchOpen && 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600'
             )}
             onClick={() => {
               setSearchOpen(!searchOpen);
@@ -235,8 +267,8 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
           {leadId && (
             <Button variant="ghost" size="sm" asChild className="rounded-xl text-xs hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-600">
               <Link href={`/dashboard/sales/leads/${leadId}`}>
-                <User className="h-4 w-4 me-1.5" />
-                عرض العميل
+                <User className="h-3.5 w-3.5 me-1" />
+                <span className="hidden sm:inline">عرض العميل</span>
               </Link>
             </Button>
           )}
@@ -245,23 +277,23 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
 
       {/* Search Bar */}
       {searchOpen && (
-        <div className="px-4 py-2 border-b border-border/40 bg-muted/30 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
-          <Search className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+        <div className="px-4 py-2 border-b border-border/30 bg-muted/20 flex items-center gap-2 animate-in slide-in-from-top-2 duration-200">
+          <Search className="h-4 w-4 text-muted-foreground/40 shrink-0" />
           <input
             ref={searchInputRef}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             placeholder="بحث في الرسائل..."
-            className="flex-1 bg-transparent text-sm border-none focus:outline-none placeholder:text-muted-foreground/50"
+            className="flex-1 bg-transparent text-sm border-none focus:outline-none placeholder:text-muted-foreground/40"
           />
           {searchQuery && (
-            <span className="text-[10px] text-muted-foreground/60 shrink-0">
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium shrink-0 bg-emerald-50 dark:bg-emerald-950/20 px-2 py-0.5 rounded-full">
               {displayMessages.length} نتيجة
             </span>
           )}
           <button
             onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
-            className="shrink-0 text-muted-foreground/50 hover:text-foreground transition-colors"
+            className="shrink-0 text-muted-foreground/40 hover:text-foreground transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -272,50 +304,61 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className={cn(
-          'flex-1 overflow-y-auto p-4 space-y-3 relative',
-          'bg-gradient-to-b from-muted/10 via-transparent to-muted/10'
-        )}
+        className="flex-1 overflow-y-auto px-4 py-3 relative"
       >
         {displayMessages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground/50">
-            <div className="w-16 h-16 rounded-2xl bg-muted/40 flex items-center justify-center mb-4">
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground/40">
+            <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
               {searchQuery ? (
-                <Search className="h-8 w-8 opacity-40" />
+                <Search className="h-7 w-7 opacity-40" />
               ) : (
-                <MessageCircle className="h-8 w-8 opacity-40" />
+                <MessageCircle className="h-7 w-7 opacity-40" />
               )}
             </div>
             <p className="text-sm font-medium">
               {searchQuery ? 'لا توجد نتائج' : 'لا توجد رسائل بعد'}
             </p>
-            <p className="text-xs mt-1 text-muted-foreground/40">
+            <p className="text-xs mt-1">
               {searchQuery ? 'حاول بكلمة بحث مختلفة' : 'ابدأ المحادثة بإرسال رسالة'}
             </p>
           </div>
         ) : (
-          displayMessages.map(msg => (
-            <MessageBubble
-              key={msg.id}
-              content={msg.content}
-              direction={msg.direction as 'incoming' | 'outgoing'}
-              messageType={msg.message_type}
-              mediaUrl={msg.media_url}
-              fileName={msg.file_name}
-              status={msg.status}
-              timestamp={msg.timestamp}
-            />
-          ))
+          <div className="space-y-1">
+            {groupedMessages.map((group, gi) => (
+              <div key={gi}>
+                {/* Date separator */}
+                <div className="flex items-center justify-center my-4">
+                  <div className="px-3 py-1 rounded-full bg-muted/50 text-[10px] font-medium text-muted-foreground/60 shadow-sm">
+                    {group.date}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {group.messages.map(msg => (
+                    <MessageBubble
+                      key={msg.id}
+                      content={msg.content}
+                      direction={msg.direction as 'incoming' | 'outgoing'}
+                      messageType={msg.message_type}
+                      mediaUrl={msg.media_url}
+                      fileName={msg.file_name}
+                      status={msg.status}
+                      timestamp={msg.timestamp}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         )}
         <div ref={messagesEndRef} />
 
-        {/* Scroll to Bottom FAB */}
+        {/* Scroll to Bottom FAB — uses left-1/2 (centering, safe for RTL per CLAUDE.md) */}
         {showScrollDown && (
           <button
             onClick={scrollToBottom}
-            className="sticky bottom-2 start-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border/60 shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-105 z-10"
+            className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border/60 shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-10"
           >
-            <ArrowDown className="h-4 w-4" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         )}
       </div>
