@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
@@ -450,9 +451,13 @@ export function Sidebar({ user }: SidebarProps) {
           'flex items-center h-16 border-b px-4',
           collapsed ? 'justify-center' : 'gap-3'
         )}>
-          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm shrink-0">
+          <motion.div
+            className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm shrink-0"
+            whileHover={{ rotate: [0, -8, 8, 0], scale: 1.1 }}
+            transition={{ duration: 0.4 }}
+          >
             P
-          </div>
+          </motion.div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <span className="font-bold text-sm truncate">PYRAMEDIA X</span>
@@ -511,16 +516,19 @@ export function Sidebar({ user }: SidebarProps) {
                     </Tooltip>
                   )}
                   {collapsed && <div className="my-1 mx-2 border-t border-border/40" />}
-                  <div
-                    className={cn(
-                      'space-y-0.5 overflow-hidden transition-all duration-200',
-                      !collapsed && isGroupCollapsed && 'max-h-0 opacity-0',
-                      (!collapsed && !isGroupCollapsed) && 'max-h-[800px] opacity-100',
-                      collapsed && 'max-h-[800px] opacity-100'
+                  <AnimatePresence initial={false}>
+                    {(!collapsed ? !isGroupCollapsed : true) && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeInOut' }}
+                        className="space-y-0.5 overflow-hidden"
+                      >
+                        {visibleItems.map(item => renderNavItem(item, true))}
+                      </motion.div>
                     )}
-                  >
-                    {visibleItems.map(item => renderNavItem(item, true))}
-                  </div>
+                  </AnimatePresence>
                 </div>
               );
             })}

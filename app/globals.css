@@ -146,6 +146,87 @@
   color: hsl(var(--foreground)) !important;
 }
 
+/* ═══ Interactive micro-animations ═══ */
+
+/* Button press effect */
+button:not([disabled]):active,
+[role="button"]:not([disabled]):active {
+  transform: scale(0.97);
+}
+
+/* Smooth button transition */
+button,
+[role="button"] {
+  transition: transform 0.1s ease, color 0.15s ease, background-color 0.15s ease,
+    border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Card hover lift */
+.card-hover {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.08), 0 4px 10px -4px rgb(0 0 0 / 0.04);
+}
+.dark .card-hover:hover {
+  box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.3), 0 4px 10px -4px rgb(0 0 0 / 0.2);
+}
+
+/* Focus ring animation */
+:focus-visible {
+  transition: box-shadow 0.15s ease;
+}
+
+/* Smooth checkbox/switch toggle */
+input[type="checkbox"] {
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Status badge pulse for active states */
+.status-pulse {
+  position: relative;
+}
+.status-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: pulse-ring 2s ease-out infinite;
+  background: inherit;
+  opacity: 0.3;
+}
+
+/* Skeleton shimmer animation */
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.05) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Smooth link underline */
+.link-underline {
+  position: relative;
+}
+.link-underline::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  inset-inline-start: 0;
+  width: 0;
+  height: 1.5px;
+  background: hsl(var(--primary));
+  transition: width 0.25s ease;
+}
+.link-underline:hover::after {
+  width: 100%;
+}
+
 /* Reduced motion support */
 @media (prefers-reduced-motion: reduce) {
   *,

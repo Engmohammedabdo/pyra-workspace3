@@ -72,9 +72,12 @@ export function NotificationBell({ username }: NotificationBellProps) {
         <Button variant="ghost" size="icon" className="relative" title="الإشعارات">
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
-            <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
+            <>
+              <span className="absolute -top-0.5 -end-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white animate-scale-in">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+              <span className="absolute -top-0.5 -end-0.5 h-4 w-4 rounded-full bg-orange-500/40 animate-pulse-ring" />
+            </>
           )}
         </Button>
       </PopoverTrigger>
