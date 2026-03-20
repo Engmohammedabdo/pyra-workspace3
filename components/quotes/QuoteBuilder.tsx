@@ -54,6 +54,7 @@ export interface QuoteData {
   terms_conditions: { text: string }[];
   bank_details: { bank: string; account_name: string; account_no: string; iban: string };
   company_name: string | null;
+  company_logo: string | null;
   client_name: string | null;
   client_email: string | null;
   client_company: string | null;
@@ -238,7 +239,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       terms_conditions: quote?.terms_conditions || [],
       bank_details: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
       company_name: quote?.company_name || 'PYRAMEDIA X',
-      company_logo: null,
+      company_logo: quote?.company_logo || null,
       client_name: clientName || null,
       client_company: null,
       client_email: clientEmail || null,

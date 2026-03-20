@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { notifyQuoteSentToClient } from '@/lib/email/notify';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -25,7 +26,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     const { data: quote } = await supabase
       .from('pyra_quotes')
-      .select('id, quote_number, client_id, client_name, total, currency, status')
+      .select('id, quote_number, client_id, client_name, client_email, total, currency, status')
       .eq('id', id)
       .maybeSingle();
 
@@ -61,6 +62,17 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         title: 'عرض سعر جديد',
         message: `تم إرسال عرض سعر جديد: ${quote.quote_number}`,
         is_read: false,
+      });
+    }
+
+    // Send email to client (fire-and-forget)
+    if (quote.client_email) {
+      notifyQuoteSentToClient({
+        clientEmail: quote.client_email,
+        clientName: quote.client_name || '',
+        quoteNumber: quote.quote_number,
+        total: quote.total,
+        currency: quote.currency || 'AED',
       });
     }
 

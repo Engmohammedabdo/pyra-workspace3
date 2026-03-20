@@ -261,6 +261,34 @@ export const emailTemplates = {
       <a href="${escapeHtml(data.leadUrl)}" class="btn">عرض العميل المحتمل</a>
     `),
 
+  /** Quote sent to client */
+  quoteSent: (data: { clientName: string; quoteNumber: string; total: string; currency: string; portalUrl: string }) =>
+    baseLayout(`
+      <h2>📋 عرض سعر جديد</h2>
+      <p>عزيزي/عزيزتي ${escapeHtml(data.clientName)}،</p>
+      <p>تم إرسال عرض سعر جديد لكم من Pyramedia X.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
+        <div class="detail-row"><span class="detail-label">المبلغ الإجمالي:</span> <strong>${escapeHtml(data.currency)} ${escapeHtml(data.total)}</strong></div>
+      </div>
+      <p>يرجى مراجعة العرض والتوقيع عليه من خلال البورتال.</p>
+      <a href="${escapeHtml(data.portalUrl)}" class="btn">عرض عرض السعر</a>
+    `),
+
+  /** Quote signed by client — notification to agent/admin */
+  quoteSigned: (data: { quoteNumber: string; signedBy: string; total: string; currency: string; quoteUrl: string }) =>
+    baseLayout(`
+      <h2>✍️ تم توقيع عرض السعر</h2>
+      <p>تم توقيع عرض السعر من قبل العميل.</p>
+      <div class="detail">
+        <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
+        <div class="detail-row"><span class="detail-label">وقّع بواسطة:</span> <strong>${escapeHtml(data.signedBy)}</strong></div>
+        <div class="detail-row"><span class="detail-label">المبلغ:</span> <strong>${escapeHtml(data.currency)} ${escapeHtml(data.total)}</strong></div>
+      </div>
+      <p>يمكنك الآن تحويل العرض إلى فاتورة.</p>
+      <a href="${escapeHtml(data.quoteUrl)}" class="btn">عرض عرض السعر</a>
+    `),
+
   /** Invoice payment reminder (overdue) */
   invoiceReminder: (
     clientName: string,

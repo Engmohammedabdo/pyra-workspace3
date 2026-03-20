@@ -256,6 +256,91 @@ export function notifyQuoteRejected(data: {
 }
 
 /**
+ * Notify client via email when a quote is sent to them.
+ */
+export function notifyQuoteSentToClient(data: {
+  clientEmail: string;
+  clientName: string;
+  quoteNumber: string;
+  total: number;
+  currency: string;
+}) {
+  (async () => {
+    try {
+      if (!data.clientEmail) return;
+      const portalUrl = `${APP_URL}/portal/quotes`;
+      await sendEmail({
+        to: data.clientEmail,
+        subject: `📋 عرض سعر جديد: ${data.quoteNumber}`,
+        html: emailTemplates.quoteSent({
+          clientName: data.clientName || 'العميل',
+          quoteNumber: data.quoteNumber,
+          total: data.total.toLocaleString('en-US'),
+          currency: data.currency || 'AED',
+          portalUrl,
+        }),
+      });
+    } catch (err) {
+      console.error('[Notify] quoteSentToClient error:', err);
+    }
+  })();
+}
+
+/**
+ * Notify agent + admins when a client signs a quote.
+ */
+export function notifyQuoteSigned(data: {
+  createdBy: string;
+  quoteNumber: string;
+  quoteId: string;
+  signedBy: string;
+  total: number;
+  currency: string;
+}) {
+  (async () => {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const quoteUrl = `${APP_URL}/dashboard/quotes/${data.quoteId}`;
+      const templateData = {
+        quoteNumber: data.quoteNumber,
+        signedBy: data.signedBy,
+        total: data.total.toLocaleString('en-US'),
+        currency: data.currency || 'AED',
+        quoteUrl,
+      };
+
+      // Notify the creating agent
+      const { data: user } = await supabase
+        .from('pyra_users')
+        .select('email, display_name')
+        .eq('username', data.createdBy)
+        .single();
+      if (user?.email) {
+        await sendEmail({
+          to: user.email,
+          subject: `✍️ تم توقيع عرض السعر ${data.quoteNumber}`,
+          html: emailTemplates.quoteSigned(templateData),
+        });
+      }
+
+      // Also notify admins
+      const adminEmails = await getAdminEmails();
+      const agentEmail = user?.email;
+      const filteredAdmins = adminEmails.filter(e => e !== agentEmail);
+      if (filteredAdmins.length > 0) {
+        await sendEmail({
+          to: filteredAdmins,
+          subject: `✍️ تم توقيع عرض السعر ${data.quoteNumber}`,
+          html: emailTemplates.quoteSigned(templateData),
+        });
+      }
+    } catch (err) {
+      console.error('[Notify] quoteSigned error:', err);
+    }
+  })();
+}
+
+/**
  * Notify agent when a lead is assigned/transferred to them.
  */
 export function notifyLeadAssigned(data: {

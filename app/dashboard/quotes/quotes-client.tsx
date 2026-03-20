@@ -301,10 +301,13 @@ export default function QuotesClient() {
           <SelectContent>
             <SelectItem value="all">جميع الحالات</SelectItem>
             <SelectItem value="draft">مسودة</SelectItem>
+            <SelectItem value="pending_approval">بانتظار الموافقة</SelectItem>
             <SelectItem value="sent">مُرسل</SelectItem>
             <SelectItem value="viewed">تمت المشاهدة</SelectItem>
             <SelectItem value="signed">مُوقع</SelectItem>
+            <SelectItem value="invoiced">تم الفوترة</SelectItem>
             <SelectItem value="expired">منتهي</SelectItem>
+            <SelectItem value="rejected">مرفوض</SelectItem>
             <SelectItem value="cancelled">ملغي</SelectItem>
           </SelectContent>
         </Select>

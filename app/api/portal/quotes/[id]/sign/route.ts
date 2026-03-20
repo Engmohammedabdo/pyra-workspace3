@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { notifyQuoteSigned } from '@/lib/email/notify';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -34,13 +35,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { data: quote } = await supabase
       .from('pyra_quotes')
-      .select('id, client_id, client_company, quote_number, status')
+      .select('id, client_id, client_company, quote_number, status, expiry_date, total, currency, created_by')
       .eq('id', id)
       .maybeSingle();
 
     if (!quote) return apiNotFound('عرض السعر غير موجود');
     if (!quote.client_id || quote.client_id !== session.id) {
       return apiForbidden('ليس لديك صلاحية لتوقيع هذا العرض');
+    }
+
+    // Block signing expired quotes
+    if (quote.expiry_date && new Date(quote.expiry_date) < new Date(new Date().toISOString().split('T')[0])) {
+      return apiValidationError('عرض السعر منتهي الصلاحية ولا يمكن توقيعه');
     }
 
     // Only sent or viewed quotes can be signed
@@ -84,6 +90,32 @@ export async function POST(request: NextRequest, context: RouteContext) {
       details: { quote_number: quote.quote_number, signed_by: signed_by.trim() },
       ip_address: ip,
     });
+
+    // Notify agent + admins via email (fire-and-forget)
+    if (quote.created_by) {
+      notifyQuoteSigned({
+        createdBy: quote.created_by,
+        quoteNumber: quote.quote_number,
+        quoteId: id,
+        signedBy: signed_by.trim(),
+        total: quote.total || 0,
+        currency: quote.currency || 'AED',
+      });
+    }
+
+    // In-app notification for the creating agent
+    if (quote.created_by) {
+      try {
+        await supabase.from('pyra_notifications').insert({
+          id: generateId('notif'),
+          recipient_username: quote.created_by,
+          type: 'quote_signed',
+          title: 'تم توقيع عرض السعر',
+          message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signed_by.trim()}`,
+          link: `/dashboard/quotes/${id}`,
+        });
+      } catch { /* non-critical */ }
+    }
 
     return apiSuccess(updated);
   } catch (err) {
