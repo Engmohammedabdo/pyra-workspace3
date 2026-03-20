@@ -48,6 +48,7 @@ const SECTIONS = [
       '/dashboard/clients',
       '/dashboard/clients/[id]',
       '/dashboard/quotes',
+      '/dashboard/quotes/analytics',
       '/dashboard/invoices',
       '/dashboard/boards',
       '/dashboard/script-reviews',

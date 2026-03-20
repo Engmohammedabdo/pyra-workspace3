@@ -344,7 +344,7 @@ export interface PyraQuote {
   client_id: string | null;
   lead_id: string | null;
   project_name: string | null;
-  status: 'draft' | 'sent' | 'viewed' | 'signed' | 'expired' | 'cancelled';
+  status: 'draft' | 'pending_approval' | 'sent' | 'viewed' | 'signed' | 'invoiced' | 'expired' | 'rejected' | 'cancelled';
   estimate_date: string;
   expiry_date: string | null;
   currency: string;
@@ -352,6 +352,9 @@ export interface PyraQuote {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  discount_type: 'percentage' | 'fixed' | null;
+  discount_value: number;
+  discount_amount: number;
   notes: string | null;
   terms_conditions: TermCondition[];
   bank_details: BankDetails;
@@ -366,6 +369,8 @@ export interface PyraQuote {
   signed_by: string | null;
   signed_at: string | null;
   signed_ip: string | null;
+  parent_quote_id: string | null;
+  version: number;
   sent_at: string | null;
   viewed_at: string | null;
   created_by: string | null;
@@ -382,6 +387,24 @@ export interface BankDetails {
   account_name: string;
   account_no: string;
   iban: string;
+}
+
+export interface PyraQuoteTemplate {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  description: string | null;
+  items: { description: string; quantity: number; rate: number }[];
+  notes: string | null;
+  terms_conditions: { text: string }[];
+  currency: string;
+  tax_rate: number;
+  discount_type: string | null;
+  discount_value: number;
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface PyraQuoteItem {

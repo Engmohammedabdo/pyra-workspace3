@@ -123,6 +123,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
       { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
       { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
+      { href: '/dashboard/quotes/analytics', label: 'تحليلات العروض', labelEn: 'Quote Analytics', icon: BarChart3, permission: 'quotes.view' },
       { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view', badgeKey: 'overdue_invoices' },
       { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
     ],

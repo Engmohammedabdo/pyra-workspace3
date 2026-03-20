@@ -62,7 +62,16 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       if (lead) leadInfo = lead;
     }
 
-    return apiSuccess({ ...quote, items: items || [], lead: leadInfo });
+    // Get revisions (other versions in the same chain)
+    const rootId = quote.parent_quote_id || quote.id;
+    const { data: revisions } = await supabase
+      .from('pyra_quotes')
+      .select('id, quote_number, version, status, created_at')
+      .or(`id.eq.${rootId},parent_quote_id.eq.${rootId}`)
+      .neq('id', id)
+      .order('version', { ascending: false });
+
+    return apiSuccess({ ...quote, items: items || [], lead: leadInfo, revisions: revisions || [] });
   } catch (err) {
     console.error('GET /api/quotes/[id] error:', err);
     return apiServerError();
@@ -86,7 +95,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_quotes')
-      .select('id, status, client_id')
+      .select('id, status, client_id, tax_rate, discount_type, discount_value')
       .eq('id', id)
       .maybeSingle();
 
@@ -105,8 +114,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       notes,
       items,
       status,
+      currency: bodyCurrency,
       vat_rate: bodyVatRate,
       tax_rate: bodyTaxRate,
+      discount_type: bodyDiscountType,
+      discount_value: bodyDiscountValue,
       client_address: bodyClientAddress,
       terms_conditions: bodyTerms,
     } = body;
@@ -133,8 +145,11 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (estimate_date !== undefined) updates.estimate_date = estimate_date;
     if (expiry_date !== undefined) updates.expiry_date = expiry_date;
     if (notes !== undefined) updates.notes = notes?.trim() || null;
+    if (bodyCurrency !== undefined) updates.currency = bodyCurrency;
     if (bodyClientAddress !== undefined) updates.client_address = bodyClientAddress?.trim() || null;
     if (Array.isArray(bodyTerms)) updates.terms_conditions = bodyTerms;
+    if (bodyDiscountType !== undefined) updates.discount_type = bodyDiscountType || null;
+    if (bodyDiscountValue !== undefined) updates.discount_value = parseFloat(bodyDiscountValue) || 0;
 
     if (status !== undefined) {
       const currentStatus = existing.status as string;
@@ -197,12 +212,26 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           .maybeSingle();
         taxRate = parseFloat(vatSetting?.value || '5');
       }
-      const taxAmount = subtotal * (taxRate / 100);
+      // Discount calculation
+      const dType = bodyDiscountType ?? existing.discount_type ?? null;
+      const dValue = bodyDiscountValue != null ? parseFloat(bodyDiscountValue) : (existing.discount_value || 0);
+      let dAmount = 0;
+      if (dType === 'percentage' && dValue > 0) {
+        dAmount = Math.round(subtotal * (dValue / 100) * 100) / 100;
+      } else if (dType === 'fixed' && dValue > 0) {
+        dAmount = Math.min(dValue, subtotal);
+      }
+
+      const taxableAmount = subtotal - dAmount;
+      const taxAmount = taxableAmount * (taxRate / 100);
 
       updates.subtotal = subtotal;
       updates.tax_rate = taxRate;
       updates.tax_amount = taxAmount;
-      updates.total = subtotal + taxAmount;
+      updates.total = taxableAmount + taxAmount;
+      updates.discount_type = dType;
+      updates.discount_value = dValue;
+      updates.discount_amount = dAmount;
 
       // Replace all items
       await supabase.from('pyra_quote_items').delete().eq('quote_id', id);
@@ -221,20 +250,32 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       const { error: itemsErr } = await supabase.from('pyra_quote_items').insert(itemRows);
       if (itemsErr) console.error('Quote items insert error:', itemsErr);
-    } else if ((bodyVatRate ?? bodyTaxRate) != null) {
-      // VAT rate changed but items not re-sent — recalculate using existing subtotal
+    } else if ((bodyVatRate ?? bodyTaxRate) != null || bodyDiscountType !== undefined || bodyDiscountValue !== undefined) {
+      // VAT rate or discount changed but items not re-sent — recalculate using existing subtotal
       const { data: currentQuote } = await supabase
         .from('pyra_quotes')
-        .select('subtotal')
+        .select('subtotal, discount_type, discount_value')
         .eq('id', id)
         .single();
 
       if (currentQuote) {
-        const taxRate = parseFloat(bodyVatRate ?? bodyTaxRate);
-        const taxAmount = (currentQuote.subtotal || 0) * (taxRate / 100);
+        const taxRate = (bodyVatRate ?? bodyTaxRate) != null
+          ? parseFloat(bodyVatRate ?? bodyTaxRate)
+          : (existing.tax_rate || 5);
+        const sub = currentQuote.subtotal || 0;
+        const dType = bodyDiscountType !== undefined ? (bodyDiscountType || null) : (currentQuote.discount_type || null);
+        const dValue = bodyDiscountValue != null ? parseFloat(bodyDiscountValue) : (currentQuote.discount_value || 0);
+        let dAmount = 0;
+        if (dType === 'percentage' && dValue > 0) dAmount = Math.round(sub * (dValue / 100) * 100) / 100;
+        else if (dType === 'fixed' && dValue > 0) dAmount = Math.min(dValue, sub);
+        const taxableAmt = sub - dAmount;
+        const taxAmount = taxableAmt * (taxRate / 100);
         updates.tax_rate = taxRate;
         updates.tax_amount = taxAmount;
-        updates.total = (currentQuote.subtotal || 0) + taxAmount;
+        updates.total = taxableAmt + taxAmount;
+        updates.discount_type = dType;
+        updates.discount_value = dValue;
+        updates.discount_amount = dAmount;
       }
     }
 

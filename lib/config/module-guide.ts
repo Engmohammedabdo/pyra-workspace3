@@ -144,6 +144,19 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['quotes', 'عروض أسعار', 'تسعير', 'توقيع'],
   },
+  '/dashboard/quotes/analytics': {
+    href: '/dashboard/quotes/analytics',
+    description: 'تحليلات ومؤشرات أداء عروض الأسعار',
+    descriptionEn: 'Quote analytics and performance metrics',
+    goal: 'تابع نسب التحويل، قيمة العروض النشطة، سرعة التوقيع، وأداء وكلاء المبيعات.',
+    tips: [
+      'قمع التحويل يوضح نسبة العروض التي تتحول من إرسال لتوقيع لفوترة',
+      'متوسط أيام التوقيع يقيس سرعة استجابة العملاء',
+      'أداء الوكلاء يساعد في تقييم فريق المبيعات',
+      'قيمة العروض النشطة تعطي صورة عن خط الأنابيب المتوقع',
+    ],
+    keywords: ['analytics', 'تحليلات', 'تقارير', 'أداء', 'تحويل'],
+  },
   '/dashboard/invoices': {
     href: '/dashboard/invoices',
     description: 'إصدار وتتبع الفواتير والمدفوعات',

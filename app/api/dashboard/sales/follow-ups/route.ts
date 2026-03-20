@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const dueBefore = searchParams.get('due_before');
+  const quoteId = searchParams.get('quote_id');
 
   let query = supabase
     .from('pyra_sales_follow_ups')
@@ -28,6 +29,7 @@ export async function GET(request: NextRequest) {
 
   if (status) query = query.eq('status', status);
   if (dueBefore) query = query.lte('due_at', dueBefore);
+  if (quoteId) query = query.eq('quote_id', quoteId);
 
   const { data, error } = await query;
   if (error) return apiServerError(error.message);
@@ -41,14 +43,15 @@ export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const body = await request.json();
 
-  const { lead_id, due_at, title, notes, assigned_to } = body;
-  if (!lead_id || !due_at) return apiError('العميل المحتمل ووقت المتابعة مطلوبين');
+  const { lead_id, quote_id, due_at, title, notes, assigned_to } = body;
+  if ((!lead_id && !quote_id) || !due_at) return apiError('العميل المحتمل أو عرض السعر ووقت المتابعة مطلوبين');
 
   const { data, error } = await supabase
     .from('pyra_sales_follow_ups')
     .insert({
       id: generateId('fu'),
-      lead_id,
+      lead_id: lead_id || null,
+      quote_id: quote_id || null,
       assigned_to: assigned_to || auth.pyraUser.username,
       due_at,
       title: title || null,

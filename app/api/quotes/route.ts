@@ -107,7 +107,10 @@ export async function POST(request: NextRequest) {
       expiry_date,
       notes,
       items,
+      currency: bodyCurrency,
       vat_rate: bodyVatRate,
+      discount_type: bodyDiscountType,
+      discount_value: bodyDiscountValue,
       client_address: bodyClientAddress,
       terms_conditions: bodyTerms,
     } = body;
@@ -151,8 +154,20 @@ export async function POST(request: NextRequest) {
 
     // Use vat_rate from request body if explicitly provided (even 0), otherwise fall back to settings
     const taxRate = bodyVatRate != null ? parseFloat(bodyVatRate) : parseFloat(vatSetting?.value || '5');
-    const taxAmount = subtotal * (taxRate / 100);
-    const total = subtotal + taxAmount;
+
+    // Discount calculation (same pattern as invoices)
+    const discountType = bodyDiscountType || null;
+    const discountValue = parseFloat(bodyDiscountValue) || 0;
+    let discountAmount = 0;
+    if (discountType === 'percentage' && discountValue > 0) {
+      discountAmount = Math.round(subtotal * (discountValue / 100) * 100) / 100;
+    } else if (discountType === 'fixed' && discountValue > 0) {
+      discountAmount = Math.min(discountValue, subtotal);
+    }
+
+    const taxableAmount = subtotal - discountAmount;
+    const taxAmount = taxableAmount * (taxRate / 100);
+    const total = taxableAmount + taxAmount;
 
     // Get bank details from settings
     const { data: bankSettings } = await supabase
@@ -247,11 +262,14 @@ export async function POST(request: NextRequest) {
         status: quoteStatus,
         estimate_date: estDate,
         expiry_date: expDate,
-        currency: 'AED',
+        currency: bodyCurrency || 'AED',
         subtotal,
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
+        discount_type: discountType,
+        discount_value: discountValue,
+        discount_amount: discountAmount,
         notes: notes?.trim() || null,
         terms_conditions: termsConditions,
         bank_details: bankDetails,

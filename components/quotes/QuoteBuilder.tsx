@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,10 +9,26 @@ import { Separator } from '@/components/ui/separator';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Trash2, Save, Send, FileDown, X } from 'lucide-react';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Plus, Trash2, Save, Send, FileDown, X, Eye, BookTemplate } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
+
+interface QuoteTemplate {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  items: { description: string; quantity: number; rate: number }[];
+  notes: string | null;
+  terms_conditions: { text: string }[];
+  currency: string;
+  tax_rate: number;
+  discount_type: string | null;
+  discount_value: number;
+}
 
 interface Client {
   id: string;
@@ -50,6 +66,9 @@ export interface QuoteData {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  discount_type?: 'percentage' | 'fixed' | null;
+  discount_value?: number;
+  discount_amount?: number;
   notes: string | null;
   terms_conditions: { text: string }[];
   bank_details: { bank: string; account_name: string; account_no: string; iban: string };
@@ -73,6 +92,20 @@ interface QuoteBuilderProps {
   onClose?: () => void;
 }
 
+const CURRENCIES = [
+  { value: 'AED', label: 'AED — درهم إماراتي' },
+  { value: 'USD', label: 'USD — دولار أمريكي' },
+  { value: 'EUR', label: 'EUR — يورو' },
+  { value: 'SAR', label: 'SAR — ريال سعودي' },
+  { value: 'GBP', label: 'GBP — جنيه إسترليني' },
+];
+
+const DEFAULT_TERMS = [
+  { text: 'Quotation valid for 30 days from the date of issue.' },
+  { text: '50% advance payment required to commence work.' },
+  { text: 'Balance payment due upon project completion.' },
+];
+
 export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteBuilderProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(quote?.client_id || '');
@@ -95,9 +128,25 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     })) || [{ description: '', quantity: 1, rate: 0 }]
   );
   const [saving, setSaving] = useState(false);
-  const [defaultVatRate, setDefaultVatRate] = useState(quote?.tax_rate ?? 0);
+  const [vatRate, setVatRate] = useState(quote?.tax_rate ?? 0);
+  const [currency, setCurrency] = useState(quote?.currency || 'AED');
+  const [discountType, setDiscountType] = useState<string>(quote?.discount_type || '');
+  const [discountValue, setDiscountValue] = useState(quote?.discount_value || 0);
+  const [terms, setTerms] = useState<{ text: string }[]>(
+    quote?.terms_conditions?.length ? quote.terms_conditions : DEFAULT_TERMS
+  );
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<QuoteTemplate[]>([]);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
+    // Fetch templates
+    fetch('/api/quotes/templates')
+      .then(r => r.json())
+      .then(json => { if (json.data) setTemplates(json.data); })
+      .catch(() => {});
+
     fetch('/api/clients?active=true')
       .then(r => r.json())
       .then(json => { if (json.data) setClients(json.data); })
@@ -109,7 +158,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
         .then(r => r.json())
         .then(json => {
           const rate = parseFloat(json.data?.vat_rate);
-          if (!isNaN(rate)) setDefaultVatRate(rate);
+          if (!isNaN(rate)) setVatRate(rate);
         })
         .catch(() => {});
     }
@@ -123,6 +172,11 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       setExpiryDate(d.toISOString().split('T')[0]);
     }
   }, [estimateDate, expiryDate]);
+
+  // Cleanup preview URL on unmount
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
+  }, [previewUrl]);
 
   const handleClientSelect = (id: string) => {
     setClientId(id);
@@ -146,14 +200,26 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     setServices(prev => prev.map((row, i) => i === idx ? { ...row, [field]: value } : row));
   };
 
+  // ── Calculations ──
   const subtotal = services.reduce((sum, s) => sum + s.quantity * s.rate, 0);
-  const taxRate = defaultVatRate;
-  const taxAmount = subtotal * (taxRate / 100);
-  const total = subtotal + taxAmount;
-  const currency = quote?.currency || 'AED';
+  let discountAmount = 0;
+  if (discountType === 'percentage' && discountValue > 0) {
+    discountAmount = Math.round(subtotal * (discountValue / 100) * 100) / 100;
+  } else if (discountType === 'fixed' && discountValue > 0) {
+    discountAmount = Math.min(discountValue, subtotal);
+  }
+  const taxableAmount = subtotal - discountAmount;
+  const taxAmount = taxableAmount * (vatRate / 100);
+  const total = taxableAmount + taxAmount;
 
   const fmtNum = (n: number) =>
     new Intl.NumberFormat('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+
+  // ── Terms helpers ──
+  const addTerm = () => setTerms(prev => [...prev, { text: '' }]);
+  const removeTerm = (idx: number) => setTerms(prev => prev.filter((_, i) => i !== idx));
+  const updateTerm = (idx: number, text: string) =>
+    setTerms(prev => prev.map((t, i) => i === idx ? { text } : t));
 
   const buildPayload = () => ({
     client_id: clientId || null,
@@ -163,7 +229,11 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     estimate_date: estimateDate,
     expiry_date: expiryDate || null,
     notes: notes || null,
-    vat_rate: taxRate,
+    vat_rate: vatRate,
+    currency,
+    discount_type: discountType || null,
+    discount_value: discountValue,
+    terms_conditions: terms.filter(t => t.text.trim()),
     items: services.map(s => ({
       description: s.description,
       quantity: s.quantity,
@@ -215,33 +285,43 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     }
   };
 
-  const handlePdf = async () => {
+  const buildPdfData = useCallback(() => {
     const items = services.map(s => ({
       description: s.description,
       quantity: s.quantity,
       rate: s.rate,
       amount: s.quantity * s.rate,
     }));
-    const subtotal = items.reduce((sum, i) => sum + i.amount, 0);
-    const taxAmount = subtotal * (taxRate / 100);
+    const sub = items.reduce((sum, i) => sum + i.amount, 0);
+    let dAmt = 0;
+    if (discountType === 'percentage' && discountValue > 0) {
+      dAmt = Math.round(sub * (discountValue / 100) * 100) / 100;
+    } else if (discountType === 'fixed' && discountValue > 0) {
+      dAmt = Math.min(discountValue, sub);
+    }
+    const taxable = sub - dAmt;
+    const tax = taxable * (vatRate / 100);
 
-    await generateQuotePDF({
+    return {
       quote_number: quote?.quote_number || 'DRAFT',
       estimate_date: estimateDate,
       expiry_date: expiryDate || null,
       status: quote?.status || 'draft',
-      currency: quote?.currency || 'AED',
-      subtotal,
-      tax_rate: taxRate,
-      tax_amount: taxAmount,
-      total: subtotal + taxAmount,
+      currency,
+      subtotal: sub,
+      tax_rate: vatRate,
+      tax_amount: tax,
+      total: taxable + tax,
+      discount_type: (discountType || null) as 'percentage' | 'fixed' | null,
+      discount_value: discountValue,
+      discount_amount: dAmt,
       notes: notes || null,
-      terms_conditions: quote?.terms_conditions || [],
+      terms_conditions: terms.filter(t => t.text.trim()),
       bank_details: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
       company_name: quote?.company_name || 'PYRAMEDIA X',
       company_logo: quote?.company_logo || null,
       client_name: clientName || null,
-      client_company: null,
+      client_company: clientCompany || null,
       client_email: clientEmail || null,
       client_phone: clientPhone || null,
       client_address: clientAddress || null,
@@ -250,7 +330,72 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       signed_by: quote?.signed_by || null,
       signed_at: quote?.signed_at || null,
       items,
-    });
+    };
+  }, [services, discountType, discountValue, vatRate, quote, estimateDate, expiryDate, currency, notes, terms, clientName, clientCompany, clientEmail, clientPhone, clientAddress, projectName]);
+
+  const handlePdf = async () => {
+    await generateQuotePDF(buildPdfData());
+  };
+
+  const handlePreview = async () => {
+    try {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      const blob = await generateQuotePDF(buildPdfData(), { returnBlob: true });
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl(url);
+        setPreviewOpen(true);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('فشل في إنشاء المعاينة');
+    }
+  };
+
+  const loadTemplate = (templateId: string) => {
+    const tpl = templates.find(t => t.id === templateId);
+    if (!tpl) return;
+    setServices(tpl.items.length > 0 ? tpl.items.map(i => ({ description: i.description, quantity: i.quantity, rate: i.rate })) : [{ description: '', quantity: 1, rate: 0 }]);
+    if (tpl.notes) setNotes(tpl.notes);
+    if (tpl.terms_conditions?.length) setTerms(tpl.terms_conditions);
+    setCurrency(tpl.currency || 'AED');
+    setVatRate(tpl.tax_rate ?? 5);
+    setDiscountType(tpl.discount_type || '');
+    setDiscountValue(tpl.discount_value || 0);
+    toast.success(`تم تحميل القالب: ${tpl.name}`);
+  };
+
+  const saveAsTemplate = async () => {
+    const name = prompt('اسم القالب:');
+    if (!name?.trim()) return;
+    setSavingTemplate(true);
+    try {
+      const res = await fetch('/api/quotes/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          items: services.map(s => ({ description: s.description, quantity: s.quantity, rate: s.rate })),
+          notes: notes || null,
+          terms_conditions: terms.filter(t => t.text.trim()),
+          currency,
+          tax_rate: vatRate,
+          discount_type: discountType || null,
+          discount_value: discountValue,
+        }),
+      });
+      const json = await res.json();
+      if (json.data) {
+        setTemplates(prev => [...prev, json.data]);
+        toast.success('تم حفظ القالب بنجاح');
+      } else {
+        toast.error(json.error || 'فشل حفظ القالب');
+      }
+    } catch {
+      toast.error('فشل حفظ القالب');
+    } finally {
+      setSavingTemplate(false);
+    }
   };
 
   return (
@@ -304,10 +449,29 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
 
           <Separator />
 
+          {/* Template Selector */}
+          {templates.length > 0 && (
+            <div className="flex items-center gap-3">
+              <BookTemplate className="h-4 w-4 text-muted-foreground" />
+              <Select onValueChange={loadTemplate}>
+                <SelectTrigger className="w-64 h-8">
+                  <SelectValue placeholder="تحميل من قالب..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name_ar || t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Quote Details */}
           <div>
             <h3 className="text-sm font-semibold mb-3">تفاصيل العرض</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="space-y-1">
                 <Label className="text-xs">رقم العرض</Label>
                 <Input value={quote?.quote_number || 'تلقائي'} disabled className="font-mono" />
@@ -323,6 +487,17 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
               <div className="space-y-1">
                 <Label className="text-xs">اسم المشروع</Label>
                 <Input value={projectName} onChange={e => setProjectName(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">العملة</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map(c => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -401,18 +576,79 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
               <Plus className="h-3.5 w-3.5 me-1" /> إضافة عنصر
             </Button>
 
-            {/* Totals */}
+            {/* Discount + VAT + Totals */}
             <div className="flex justify-end mt-4">
-              <div className="w-64 space-y-2 border rounded-lg p-4">
+              <div className="w-80 space-y-3 border rounded-lg p-4">
+                {/* Discount selector */}
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">الخصم</Label>
+                  <div className="flex gap-2">
+                    <Select value={discountType || 'none'} onValueChange={v => setDiscountType(v === 'none' ? '' : v)}>
+                      <SelectTrigger className="w-32 h-8">
+                        <SelectValue placeholder="بدون خصم" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">بدون خصم</SelectItem>
+                        <SelectItem value="percentage">نسبة %</SelectItem>
+                        <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {discountType && (
+                      <Input
+                        type="number"
+                        min={0}
+                        step={discountType === 'percentage' ? 1 : 0.01}
+                        max={discountType === 'percentage' ? 100 : undefined}
+                        value={discountValue}
+                        onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)}
+                        className="h-8 w-24"
+                        dir="ltr"
+                        placeholder={discountType === 'percentage' ? '%' : currency}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                <Separator />
+
+                {/* Subtotal */}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">المجموع الفرعي</span>
                   <span className="font-mono" dir="ltr">{fmtNum(subtotal)} {currency}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">ضريبة القيمة المضافة ({taxRate}%)</span>
+
+                {/* Discount line */}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''}
+                    </span>
+                    <span className="font-mono text-red-500" dir="ltr">-{fmtNum(discountAmount)} {currency}</span>
+                  </div>
+                )}
+
+                {/* Editable VAT rate */}
+                <div className="flex justify-between text-sm items-center">
+                  <div className="flex items-center gap-1">
+                    <span className="text-muted-foreground">ضريبة القيمة المضافة</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={vatRate}
+                      onChange={e => setVatRate(parseFloat(e.target.value) || 0)}
+                      className="h-6 w-14 text-xs text-center"
+                      dir="ltr"
+                    />
+                    <span className="text-muted-foreground text-xs">%</span>
+                  </div>
                   <span className="font-mono" dir="ltr">{fmtNum(taxAmount)} {currency}</span>
                 </div>
+
                 <Separator />
+
+                {/* Total */}
                 <div className="flex justify-between font-bold">
                   <span>الإجمالي</span>
                   <span className="font-mono text-orange-600" dir="ltr">{fmtNum(total)} {currency}</span>
@@ -463,13 +699,35 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
             </div>
           )}
 
-          {/* Terms */}
-          <div className="text-[10px] text-muted-foreground">
-            <p className="font-semibold mb-1">الشروط والأحكام</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <p>1. عرض السعر صالح لمدة 30 يوماً من تاريخ الإصدار.</p>
-              <p>2. يُطلب دفع 50% مقدماً لبدء العمل.</p>
-              <p>3. يُستحق باقي المبلغ عند اكتمال المشروع.</p>
+          {/* Editable Terms & Conditions */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">الشروط والأحكام</Label>
+              <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addTerm}>
+                <Plus className="h-3 w-3 me-1" /> إضافة شرط
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {terms.map((term, idx) => (
+                <div key={idx} className="flex gap-2 items-start">
+                  <span className="text-xs text-muted-foreground mt-2 min-w-[20px]">{idx + 1}.</span>
+                  <Input
+                    value={term.text}
+                    onChange={e => updateTerm(idx, e.target.value)}
+                    className="h-8 text-xs"
+                    placeholder="نص الشرط..."
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive shrink-0"
+                    onClick={() => removeTerm(idx)}
+                    disabled={terms.length <= 1}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
             </div>
           </div>
         </CardContent>
@@ -483,11 +741,15 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
           </Button>
         </div>
         <div className="flex gap-2">
-          {quote?.id && (
-            <Button variant="outline" onClick={handlePdf}>
-              <FileDown className="h-4 w-4 me-1" /> تحميل PDF
-            </Button>
-          )}
+          <Button variant="outline" onClick={saveAsTemplate} disabled={savingTemplate}>
+            <BookTemplate className="h-4 w-4 me-1" /> حفظ كقالب
+          </Button>
+          <Button variant="outline" onClick={handlePreview}>
+            <Eye className="h-4 w-4 me-1" /> معاينة
+          </Button>
+          <Button variant="outline" onClick={handlePdf}>
+            <FileDown className="h-4 w-4 me-1" /> تحميل PDF
+          </Button>
           <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
             <Save className="h-4 w-4 me-1" />
             {saving ? 'جارٍ الحفظ...' : 'حفظ كمسودة'}
@@ -498,6 +760,23 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
           </Button>
         </div>
       </div>
+
+      {/* Live Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl h-[90vh] p-0">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle>معاينة عرض السعر</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <iframe
+              src={previewUrl}
+              className="w-full flex-1 border-0 rounded-b-lg"
+              style={{ height: 'calc(90vh - 60px)' }}
+              title="Quote Preview"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

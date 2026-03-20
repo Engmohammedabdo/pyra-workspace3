@@ -25,6 +25,9 @@ interface QuoteData {
   tax_rate: number;
   tax_amount: number;
   total: number;
+  discount_type?: 'percentage' | 'fixed' | null;
+  discount_value?: number;
+  discount_amount?: number;
   notes: string | null;
   terms_conditions: Array<{ text: string }>;
   bank_details: {
@@ -115,7 +118,7 @@ const TERMS: Record<string, string[]> = {
 const FOOTER = { phone: '+971 565799505', social: 'PYRAMEDIA.DXB', web: 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI' };
 
 // ============================================================
-export async function generateQuotePDF(quote: QuoteData) {
+export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?: boolean }): Promise<Blob | void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await registerArabicFont(doc);
   const ar = (t: string) => doc.processArabic(t);
@@ -320,29 +323,49 @@ export async function generateQuotePDF(quote: QuoteData) {
   const boxW = 55;
   const boxX = PW - M - boxW;
   const hasTax = quote.tax_amount > 0;
-  const boxH = hasTax ? 26 : 14;
+  const hasDiscount = (quote.discount_amount || 0) > 0;
+  const detailLines = 1 + (hasDiscount ? 1 : 0) + (hasTax ? 1 : 0); // subtotal + discount? + vat?
+  const boxH = detailLines > 1 ? 12 + detailLines * 6 : 14;
 
   doc.setDrawColor(...C.orange);
   doc.setLineWidth(0.7);
   doc.roundedRect(boxX, y, boxW, boxH, 2, 2);
 
-  if (hasTax) {
+  if (hasDiscount || hasTax) {
+    let ly = y + 6;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(...C.gray);
-    doc.text('Subtotal:', boxX + 4, y + 6);
-    doc.text(fmtNum(quote.subtotal), boxX + boxW - 4, y + 6, { align: 'right' });
-    doc.text(`VAT (${quote.tax_rate}%):`, boxX + 4, y + 12);
-    doc.text(fmtNum(quote.tax_amount), boxX + boxW - 4, y + 12, { align: 'right' });
+    doc.text('Subtotal:', boxX + 4, ly);
+    doc.text(fmtNum(quote.subtotal), boxX + boxW - 4, ly, { align: 'right' });
+
+    if (hasDiscount) {
+      ly += 6;
+      const discLabel = quote.discount_type === 'percentage'
+        ? `Discount (${quote.discount_value || 0}%):`
+        : 'Discount:';
+      doc.text(discLabel, boxX + 4, ly);
+      doc.setTextColor(220, 38, 38);
+      doc.text(`-${fmtNum(quote.discount_amount || 0)}`, boxX + boxW - 4, ly, { align: 'right' });
+      doc.setTextColor(...C.gray);
+    }
+
+    if (hasTax) {
+      ly += 6;
+      doc.text(`VAT (${quote.tax_rate}%):`, boxX + 4, ly);
+      doc.text(fmtNum(quote.tax_amount), boxX + boxW - 4, ly, { align: 'right' });
+    }
+
     // Divider
+    ly += 3;
     doc.setDrawColor(...C.border);
     doc.setLineWidth(0.15);
-    doc.line(boxX + 3, y + 15, boxX + boxW - 3, y + 15);
+    doc.line(boxX + 3, ly, boxX + boxW - 3, ly);
     // Total
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(...C.orange);
-    doc.text(fmtNum(quote.total), boxX + boxW / 2, y + 23, { align: 'center' });
+    doc.text(fmtNum(quote.total), boxX + boxW / 2, ly + 7, { align: 'center' });
   } else {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
@@ -589,5 +612,8 @@ export async function generateQuotePDF(quote: QuoteData) {
     doc.text(FOOTER.web, M + 7, fy + 10);
   }
 
+  if (options?.returnBlob) {
+    return doc.output('blob');
+  }
   doc.save(`quote-${quote.quote_number}.pdf`);
 }
