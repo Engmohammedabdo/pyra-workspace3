@@ -44,11 +44,11 @@ export async function GET(request: NextRequest) {
     query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
   }
 
-  const { data, error } = await query;
-  if (error) return apiServerError(error.message);
-
-  // If kanban view, group by stage
+  // If kanban view, no pagination — return all grouped by stage
   if (view === 'kanban') {
+    const { data, error } = await query;
+    if (error) return apiServerError(error.message);
+
     const { data: stages } = await supabase
       .from('pyra_sales_pipeline_stages')
       .select('id, name, name_ar, color, sort_order')
@@ -62,7 +62,41 @@ export async function GET(request: NextRequest) {
     return apiSuccess(kanban);
   }
 
-  return apiSuccess(data);
+  // Table/list view: support pagination
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  // Get total count first (using a separate count query)
+  const countQuery = supabase
+    .from('pyra_sales_leads')
+    .select('id', { count: 'exact', head: true });
+
+  // Apply same filters to count query
+  if (!isAdmin) countQuery.eq('assigned_to', auth.pyraUser.username);
+  if (stageId) countQuery.eq('stage_id', stageId);
+  if (assignedTo && isAdmin) countQuery.eq('assigned_to', assignedTo);
+  if (priority) countQuery.eq('priority', priority);
+  if (source) countQuery.eq('source', source);
+  if (isConverted !== null && isConverted !== undefined) {
+    countQuery.eq('is_converted', isConverted === 'true');
+  }
+  if (search) {
+    countQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+  }
+
+  const { count } = await countQuery;
+
+  const { data, error } = await query.range(from, to);
+  if (error) return apiServerError(error.message);
+
+  return apiSuccess(data, {
+    page,
+    limit,
+    total: count || 0,
+    totalPages: Math.ceil((count || 0) / limit),
+  });
 }
 
 export async function POST(request: NextRequest) {

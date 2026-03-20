@@ -80,12 +80,27 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
   }
 
-  // 4. Find the "won" stage
+  // 4. Find the "won" stage — use ID directly (stable), fallback to max sort_order
+  const KNOWN_WON_STAGE_ID = 'stage_won';
   const { data: wonStage } = await supabase
     .from('pyra_sales_pipeline_stages')
     .select('id')
-    .eq('name', 'Won')
+    .eq('id', KNOWN_WON_STAGE_ID)
     .maybeSingle();
+
+  // If the known ID doesn't exist, find the stage with highest sort_order
+  // (excluding "Lost" which is typically the last)
+  let wonStageId = wonStage?.id;
+  if (!wonStageId) {
+    const { data: stages } = await supabase
+      .from('pyra_sales_pipeline_stages')
+      .select('id, name, sort_order')
+      .order('sort_order', { ascending: false })
+      .limit(2);
+
+    // Pick the first stage that isn't "Lost"
+    wonStageId = stages?.find(s => !s.name.toLowerCase().includes('lost'))?.id;
+  }
 
   // 5. Update lead
   const { error: updateError } = await supabase
@@ -94,7 +109,7 @@ export async function POST(request: NextRequest, { params }: Params) {
       client_id: clientId,
       is_converted: true,
       converted_at: new Date().toISOString(),
-      stage_id: wonStage?.id || lead.stage_id,
+      stage_id: wonStageId || lead.stage_id,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id);

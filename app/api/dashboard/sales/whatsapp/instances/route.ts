@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
   if (!instance_name) return apiError('اسم الـ Instance مطلوب');
 
   try {
-    // Create on Evolution API
-    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/dashboard/sales/whatsapp/webhook`;
+    // Create on Evolution API — include secret for webhook authentication
+    const secret = process.env.EVOLUTION_API_KEY || '';
+    const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/dashboard/sales/whatsapp/webhook?secret=${secret}`;
     await evolutionClient.createInstance(instance_name, webhookUrl);
   } catch (err) {
     return apiServerError(`فشل إنشاء Instance على Evolution API: ${err instanceof Error ? err.message : ''}`);

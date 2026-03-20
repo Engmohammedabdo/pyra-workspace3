@@ -3,12 +3,40 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
 
+/** Shared secret for webhook authentication */
+const WEBHOOK_SECRET = process.env.EVOLUTION_API_KEY || '';
+
 /**
- * Public webhook — receives events from Evolution API.
- * No auth required (Evolution API calls this directly).
+ * Normalize a phone number to digits-only, stripping leading zeros and
+ * ensuring consistent format for exact matching.
+ * e.g. "+971 56 579 9505" → "971565799505"
+ *      "0565799505"       → "971565799505" (assumes UAE)
+ */
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  // If starts with "00" (international prefix), strip it
+  if (digits.startsWith('00')) return digits.slice(2);
+  // If starts with "0" and is 10 digits (UAE local), add country code
+  if (digits.startsWith('0') && digits.length === 10) return `971${digits.slice(1)}`;
+  return digits;
+}
+
+/**
+ * Webhook endpoint for Evolution API events.
+ * Authenticated via x-api-key header or ?secret= query parameter.
  * Returns 200 immediately; processing is best-effort.
  */
 export async function POST(request: NextRequest) {
+  // ── Auth: validate webhook secret ──
+  const headerKey = request.headers.get('x-api-key') || request.headers.get('apikey') || '';
+  const queryKey = request.nextUrl.searchParams.get('secret') || '';
+  const providedKey = headerKey || queryKey;
+
+  if (!WEBHOOK_SECRET || providedKey !== WEBHOOK_SECRET) {
+    console.warn('[WA Webhook] Unauthorized request — invalid or missing secret');
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
   let body: { event?: string; instance?: string; data?: Record<string, unknown> };
 
   try {
@@ -60,13 +88,19 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           if (existing) continue;
         }
 
-        // Try to match with a lead by phone number
-        const phone = msg.key.remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
-        const { data: matchedLead } = await supabase
+        // Try to match with a lead by normalized phone number (exact match)
+        const rawPhone = msg.key.remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
+        const phone = normalizePhone(rawPhone);
+
+        // Fetch leads that have a phone set, then match by normalized value
+        const { data: candidateLeads } = await supabase
           .from('pyra_sales_leads')
-          .select('id, client_id')
-          .or(`phone.ilike.%${phone}%,phone.ilike.%${phone.slice(-9)}%`)
-          .maybeSingle();
+          .select('id, client_id, phone')
+          .not('phone', 'is', null);
+
+        const matchedLead = candidateLeads?.find(
+          (l) => l.phone && normalizePhone(l.phone) === phone
+        ) || null;
 
         await supabase.from('pyra_whatsapp_messages').insert({
           id: generateId('wm'),
