@@ -170,7 +170,7 @@ export const WA_INSTANCE_FIELDS = `
 export const WA_MESSAGE_FIELDS = `
   id, instance_name, remote_jid, lead_id, client_id, message_id,
   direction, message_type, content, media_url, file_name,
-  status, timestamp, metadata, created_at
+  contact_name, status, timestamp, metadata, created_at
 `;
 
 export const QUOTE_APPROVAL_FIELDS = `

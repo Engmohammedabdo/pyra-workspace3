@@ -102,7 +102,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // Try to match with a lead by normalized phone number
         let matchedLead: { id: string; client_id: string | null } | null = null;
-        if (phone && !phone.match(/^\d{10,20}$/) === false) {
+        if (phone && /^\d{7,20}$/.test(phone)) {
           const { data: candidateLeads } = await supabase
             .from('pyra_sales_leads')
             .select('id, client_id, phone')
@@ -125,6 +125,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           content,
           media_url: mediaUrl,
           file_name: fileName,
+          contact_name: msg.pushName || null,
           status: direction === 'incoming' ? 'received' : 'sent',
           timestamp: msg.messageTimestamp
             ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()

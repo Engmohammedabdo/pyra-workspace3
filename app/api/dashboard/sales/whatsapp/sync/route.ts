@@ -270,6 +270,7 @@ async function processPage(
       content,
       media_url: mediaUrl,
       file_name: fileName,
+      contact_name: msg.pushName || null,
       status: direction === 'incoming' ? 'received' : 'sent',
       timestamp: msg.messageTimestamp
         ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()

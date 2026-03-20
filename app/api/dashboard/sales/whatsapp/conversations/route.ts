@@ -28,7 +28,7 @@ export async function GET() {
   // Fetch messages ordered by timestamp (limit to recent 5000 to avoid loading 10K+ rows)
   let query = supabase
     .from('pyra_whatsapp_messages')
-    .select('id, instance_name, remote_jid, lead_id, client_id, direction, content, message_type, status, timestamp, metadata')
+    .select('id, instance_name, remote_jid, lead_id, client_id, direction, content, message_type, status, timestamp, contact_name, metadata')
     .order('timestamp', { ascending: false })
     .limit(5000);
 
@@ -58,7 +58,7 @@ export async function GET() {
     const jid = msg.remote_jid;
     if (!conversationMap.has(jid)) {
       const meta = (msg.metadata || {}) as Record<string, unknown>;
-      const pushName = (meta.pushName as string) || null;
+      const pushName = msg.contact_name || (meta.pushName as string) || null;
 
       // Extract phone: from metadata.phone (set by webhook/sync), or from JID
       let phone = (meta.phone as string) || null;
@@ -95,10 +95,10 @@ export async function GET() {
     // Keep lead/client association if any message has it
     if (msg.lead_id && !conv.lead_id) conv.lead_id = msg.lead_id;
     if (msg.client_id && !conv.client_id) conv.client_id = msg.client_id;
-    // Keep contact name from metadata
+    // Keep contact name from column or metadata
     if (!conv.contact_name) {
-      const pushName = ((msg.metadata || {}) as Record<string, unknown>).pushName as string;
-      if (pushName) conv.contact_name = pushName;
+      const name = msg.contact_name || ((msg.metadata || {}) as Record<string, unknown>).pushName as string;
+      if (name) conv.contact_name = name;
     }
     // Keep phone from metadata
     if (!conv.phone) {
