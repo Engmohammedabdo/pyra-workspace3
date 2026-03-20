@@ -4,6 +4,9 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { generateId } from '@/lib/utils/id';
 import { EVOLUTION_API_URL, EVOLUTION_API_KEY } from '@/lib/evolution/config';
 
+/** Allow up to 120 seconds for sync batches */
+export const maxDuration = 120;
+
 /**
  * Normalize a phone number to digits-only, stripping leading zeros and
  * ensuring consistent format for exact matching.
@@ -19,18 +22,27 @@ function normalizePhone(phone: string): string {
  * POST /api/dashboard/sales/whatsapp/sync
  *
  * Syncs historical messages from Evolution API into pyra_whatsapp_messages.
- * Supports incremental sync — skips messages already in DB (dedup by message_id).
+ * Works in batches to avoid Vercel timeout.
  *
  * Body (optional):
  *   instanceName: string (default: 'pyraai')
+ *   startPage: number (default: 1)
  *   batchSize: number (default: 50, max 100)
- *   maxPages: number (default: 0 = all pages)
+ *   pagesToSync: number (default: 10 — pages per call)
+ *
+ * Returns: { sync: { ...progress, done: boolean, nextPage: number } }
+ *   Client should keep calling with nextPage until done === true
  */
 export async function POST(request: NextRequest) {
   const auth = await requireApiPermission('sales_whatsapp.view');
   if (isApiError(auth)) return auth;
 
-  let body: { instanceName?: string; batchSize?: number; maxPages?: number } = {};
+  let body: {
+    instanceName?: string;
+    startPage?: number;
+    batchSize?: number;
+    pagesToSync?: number;
+  } = {};
   try {
     body = await request.json();
   } catch {
@@ -39,7 +51,8 @@ export async function POST(request: NextRequest) {
 
   const instanceName = body.instanceName || 'pyraai';
   const batchSize = Math.min(body.batchSize || 50, 100);
-  const maxPages = body.maxPages || 0; // 0 = all
+  const startPage = body.startPage || 1;
+  const pagesToSync = Math.min(body.pagesToSync || 10, 20); // max 20 pages per call
 
   const supabase = createServiceRoleClient();
 
@@ -70,46 +83,54 @@ export async function POST(request: NextRequest) {
   let totalInserted = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
-  let currentPage = 1;
+  let totalPagesInApi = 0;
 
-  // First request to get total pages
-  const firstRes = await fetchEvoMessages(instanceName, batchSize, 1);
-  if (!firstRes) {
-    return NextResponse.json({ error: 'Failed to fetch from Evolution API' }, { status: 502 });
-  }
+  const endPage = startPage + pagesToSync - 1;
 
-  const totalPages = maxPages > 0 ? Math.min(firstRes.pages, maxPages) : firstRes.pages;
+  for (let page = startPage; page <= endPage; page++) {
+    const res = await fetchEvoMessages(instanceName, batchSize, page);
+    if (!res) {
+      // If first page fails, return error
+      if (page === startPage) {
+        return NextResponse.json(
+          { error: 'Failed to fetch from Evolution API' },
+          { status: 502 },
+        );
+      }
+      break; // Otherwise stop gracefully
+    }
 
-  // Process first page
-  const firstResult = await processPage(firstRes.records, instanceName, supabase, existingIds, leadsByPhone);
-  totalInserted += firstResult.inserted;
-  totalSkipped += firstResult.skipped;
-  totalErrors += firstResult.errors;
-  currentPage = 2;
+    totalPagesInApi = res.pages;
 
-  // Process remaining pages
-  while (currentPage <= totalPages) {
-    const res = await fetchEvoMessages(instanceName, batchSize, currentPage);
-    if (!res || !res.records?.length) break;
+    // If we've exceeded total pages, we're done
+    if (page > res.pages) break;
 
-    const result = await processPage(res.records, instanceName, supabase, existingIds, leadsByPhone);
+    if (!res.records?.length) break;
+
+    const result = await processPage(
+      res.records,
+      instanceName,
+      supabase,
+      existingIds,
+      leadsByPhone,
+    );
     totalInserted += result.inserted;
     totalSkipped += result.skipped;
     totalErrors += result.errors;
-    currentPage++;
-
-    // Yield control every 10 pages to avoid timeout
-    if (currentPage % 10 === 0) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
   }
+
+  const lastProcessedPage = Math.min(endPage, totalPagesInApi || endPage);
+  const done = lastProcessedPage >= totalPagesInApi;
 
   return NextResponse.json({
     status: 'ok',
     sync: {
       instance: instanceName,
-      totalPages,
-      pagesProcessed: currentPage - 1,
+      totalPages: totalPagesInApi,
+      startPage,
+      lastProcessedPage,
+      nextPage: done ? null : lastProcessedPage + 1,
+      done,
       inserted: totalInserted,
       skipped: totalSkipped,
       errors: totalErrors,
@@ -251,8 +272,6 @@ async function processPage(
       inserted += rowsToInsert.length;
     }
   }
-
-  skipped += records.length - rowsToInsert.length - skipped;
 
   return { inserted, skipped, errors };
 }

@@ -27,25 +27,64 @@ export default function ChatInboxPage() {
     }
   }, []);
 
+  const [syncProgress, setSyncProgress] = useState('');
+
   const handleSync = useCallback(async () => {
     setSyncing(true);
+    setSyncProgress('جاري بدء المزامنة...');
+    let nextPage = 1;
+    let totalInserted = 0;
+    let totalSkipped = 0;
+    let done = false;
+
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instanceName: 'pyraai' }),
-      });
-      const data = await res.json();
-      if (data.sync) {
-        toast.success(`تم مزامنة ${data.sync.inserted} رسالة جديدة (تم تخطي ${data.sync.skipped})`);
-        await fetchConversations();
+      while (!done) {
+        const res = await fetch('/api/dashboard/sales/whatsapp/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ instanceName: 'pyraai', startPage: nextPage, pagesToSync: 10 }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          toast.error(errData.error || 'فشل في المزامنة');
+          break;
+        }
+
+        const data = await res.json();
+        if (!data.sync) {
+          toast.error('فشل في المزامنة');
+          break;
+        }
+
+        totalInserted += data.sync.inserted;
+        totalSkipped += data.sync.skipped;
+        done = data.sync.done;
+        nextPage = data.sync.nextPage || nextPage;
+
+        const totalPages = data.sync.totalPages || 0;
+        const progress = totalPages > 0
+          ? Math.round((data.sync.lastProcessedPage / totalPages) * 100)
+          : 0;
+        setSyncProgress(`${progress}% — ${totalInserted} رسالة جديدة`);
+
+        // Refresh conversations list after each batch
+        if (totalInserted > 0) {
+          await fetchConversations();
+        }
+      }
+
+      if (totalInserted > 0) {
+        toast.success(`تمت المزامنة: ${totalInserted} رسالة جديدة`);
       } else {
-        toast.error('فشل في المزامنة');
+        toast.info('لا توجد رسائل جديدة للمزامنة');
       }
     } catch {
-      toast.error('فشل في المزامنة');
+      toast.error('فشل في المزامنة — حاول مرة أخرى');
     } finally {
       setSyncing(false);
+      setSyncProgress('');
+      await fetchConversations();
     }
   }, [fetchConversations]);
 
@@ -94,7 +133,10 @@ export default function ChatInboxPage() {
             <p className="text-xs text-muted-foreground/60">{conversations.length} محادثة</p>
           </div>
         </div>
-        {conversations.length === 0 && (
+        <div className="flex items-center gap-3">
+          {syncing && syncProgress && (
+            <span className="text-xs text-muted-foreground animate-pulse">{syncProgress}</span>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -105,7 +147,7 @@ export default function ChatInboxPage() {
             <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
             {syncing ? 'جاري المزامنة...' : 'مزامنة الرسائل'}
           </Button>
-        )}
+        </div>
       </div>
 
       <div
