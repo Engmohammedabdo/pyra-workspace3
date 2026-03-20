@@ -88,12 +88,20 @@ export async function POST(request: NextRequest) {
   const endPage = startPage + pagesToSync - 1;
 
   for (let page = startPage; page <= endPage; page++) {
-    const res = await fetchEvoMessages(instanceName, batchSize, page);
+    const { data: res, error: fetchError } = await fetchEvoMessages(instanceName, batchSize, page);
     if (!res) {
-      // If first page fails, return error
+      // If first page fails, return detailed error
       if (page === startPage) {
         return NextResponse.json(
-          { error: 'Failed to fetch from Evolution API' },
+          {
+            error: 'Failed to fetch from Evolution API',
+            details: fetchError || 'Unknown error',
+            debug: {
+              url: `${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`,
+              hasApiKey: !!EVOLUTION_API_KEY,
+              apiKeyPrefix: EVOLUTION_API_KEY ? EVOLUTION_API_KEY.slice(0, 8) + '...' : 'EMPTY',
+            },
+          },
           { status: 502 },
         );
       }
@@ -168,9 +176,11 @@ async function fetchEvoMessages(
   instanceName: string,
   limit: number,
   page: number,
-): Promise<EvoMessagesResponse | null> {
+): Promise<{ data: EvoMessagesResponse | null; error?: string }> {
   try {
     const url = `${EVOLUTION_API_URL}/chat/findMessages/${instanceName}`;
+    console.log(`[WA Sync] Fetching page ${page} from ${url}`);
+
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -180,12 +190,19 @@ async function fetchEvoMessages(
       body: JSON.stringify({ where: {}, limit, page }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      const errMsg = `Evolution API returned ${res.status}: ${text.slice(0, 200)}`;
+      console.error(`[WA Sync] ${errMsg}`);
+      return { data: null, error: errMsg };
+    }
 
     const data = await res.json();
-    return data.messages as EvoMessagesResponse;
-  } catch {
-    return null;
+    return { data: data.messages as EvoMessagesResponse };
+  } catch (err) {
+    const errMsg = `Network error: ${err instanceof Error ? err.message : String(err)}`;
+    console.error(`[WA Sync] ${errMsg}`);
+    return { data: null, error: errMsg };
   }
 }
 

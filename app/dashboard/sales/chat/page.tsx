@@ -47,7 +47,8 @@ export default function ChatInboxPage() {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          toast.error(errData.error || 'فشل في المزامنة');
+          console.error('[Sync Error]', errData);
+          toast.error(errData.details || errData.error || 'فشل في المزامنة');
           break;
         }
 
