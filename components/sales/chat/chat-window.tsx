@@ -6,11 +6,19 @@ import { ChatInput } from './chat-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight, UserPlus, PanelRightOpen } from 'lucide-react';
+import {
+  MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight,
+  UserPlus, PanelRightOpen, FileText, Receipt, StickyNote, Clock,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { AssignDialog } from './assign-dialog';
 import { ContactSidebar } from './contact-sidebar';
+import { SendQuoteDialog } from './send-quote-dialog';
+import { SendInvoiceDialog } from './send-invoice-dialog';
+import { CreateLeadDialog } from './create-lead-dialog';
+import { AddNoteDialog } from './add-note-dialog';
+import { ScheduleFollowupDialog } from './schedule-followup-dialog';
 
 interface Message {
   id: string;
@@ -28,6 +36,7 @@ interface ChatWindowProps {
   instanceName: string;
   contactName: string | null;
   leadId?: string | null;
+  clientId?: string | null;
   phone?: string | null;
   assignedTo?: string | null;
   isAdmin?: boolean;
@@ -37,7 +46,7 @@ interface ChatWindowProps {
 
 const POLL_INTERVAL = 5000;
 
-export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp, assignedTo, isAdmin, onBack, onConversationUpdated }: ChatWindowProps) {
+export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clientId, phone: phoneProp, assignedTo, isAdmin, onBack, onConversationUpdated }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -45,6 +54,8 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
+  const [activeDialog, setActiveDialog] = useState<'quote' | 'invoice' | 'lead' | 'note' | 'followup' | null>(null);
+  const [currentLeadId, setCurrentLeadId] = useState(leadId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -419,6 +430,50 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
         )}
       </div>
 
+      {/* Quick Actions Bar */}
+      <div className="px-3 py-1.5 border-t border-border/30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-muted/10">
+        {currentLeadId ? (
+          <>
+            <button
+              onClick={() => setActiveDialog('quote')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-orange-700 dark:text-orange-400 bg-orange-500/10 hover:bg-orange-500/20 transition-colors whitespace-nowrap"
+            >
+              <FileText className="h-3 w-3" />
+              عرض سعر
+            </button>
+            <button
+              onClick={() => setActiveDialog('invoice')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-purple-700 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 transition-colors whitespace-nowrap"
+            >
+              <Receipt className="h-3 w-3" />
+              فاتورة
+            </button>
+            <button
+              onClick={() => setActiveDialog('note')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-yellow-700 dark:text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20 transition-colors whitespace-nowrap"
+            >
+              <StickyNote className="h-3 w-3" />
+              ملاحظة
+            </button>
+            <button
+              onClick={() => setActiveDialog('followup')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-sky-700 dark:text-sky-400 bg-sky-500/10 hover:bg-sky-500/20 transition-colors whitespace-nowrap"
+            >
+              <Clock className="h-3 w-3" />
+              متابعة
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => setActiveDialog('lead')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-colors whitespace-nowrap"
+          >
+            <UserPlus className="h-3 w-3" />
+            إنشاء عميل محتمل
+          </button>
+        )}
+      </div>
+
       {/* Input */}
       <ChatInput onSend={handleSend} onSendMedia={handleSendMedia} />
       </div>
@@ -430,8 +485,56 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
           instanceName={instanceName}
           contactName={contactName}
           phone={phone}
-          leadId={leadId}
+          leadId={currentLeadId}
           onClose={() => setShowSidebar(false)}
+        />
+      )}
+
+      {/* Dialogs */}
+      {activeDialog === 'quote' && currentLeadId && (
+        <SendQuoteDialog
+          leadId={currentLeadId}
+          remoteJid={remoteJid}
+          instanceName={instanceName}
+          phone={phone}
+          onClose={() => setActiveDialog(null)}
+          onSent={fetchMessages}
+        />
+      )}
+      {activeDialog === 'invoice' && (
+        <SendInvoiceDialog
+          leadId={currentLeadId || null}
+          clientId={clientId}
+          remoteJid={remoteJid}
+          instanceName={instanceName}
+          phone={phone}
+          onClose={() => setActiveDialog(null)}
+          onSent={fetchMessages}
+        />
+      )}
+      {activeDialog === 'lead' && (
+        <CreateLeadDialog
+          contactName={contactName}
+          phone={phone}
+          onClose={() => setActiveDialog(null)}
+          onCreated={(newLeadId) => {
+            setCurrentLeadId(newLeadId);
+            onConversationUpdated?.();
+          }}
+        />
+      )}
+      {activeDialog === 'note' && currentLeadId && (
+        <AddNoteDialog
+          leadId={currentLeadId}
+          onClose={() => setActiveDialog(null)}
+          onAdded={() => {}}
+        />
+      )}
+      {activeDialog === 'followup' && currentLeadId && (
+        <ScheduleFollowupDialog
+          leadId={currentLeadId}
+          onClose={() => setActiveDialog(null)}
+          onScheduled={() => {}}
         />
       )}
     </div>

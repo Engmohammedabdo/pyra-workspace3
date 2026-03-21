@@ -241,6 +241,7 @@ export default function ChatInboxPage() {
                 instanceName={selectedConv.instance_name}
                 contactName={selectedConv.contact_name}
                 leadId={selectedConv.lead_id}
+                clientId={selectedConv.client_id}
                 phone={selectedConv.phone}
                 assignedTo={selectedConv.assigned_to}
                 isAdmin={isAdmin}
