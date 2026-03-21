@@ -11,7 +11,7 @@ import Link from 'next/link';
 import {
   TrendingUp, Users, UserCheck, Clock,
   BarChart3, ArrowUpRight, ArrowDownRight,
-  Zap, Target, Phone, ChevronLeft,
+  Zap, Target, Phone, ChevronLeft, MessageCircle, Send,
 } from 'lucide-react';
 
 interface PipelineStats {
@@ -20,6 +20,13 @@ interface PipelineStats {
   converted: number;
   pending_follow_ups: number;
   stages: { name_ar: string; color: string; count: number }[];
+}
+
+interface WhatsAppStats {
+  total_conversations: number;
+  messages_today: number;
+  messages_sent_today: number;
+  messages_received_today: number;
 }
 
 const STAGE_GRADIENTS: Record<string, string> = {
@@ -61,6 +68,7 @@ const itemMotion = {
 
 export default function SalesOverviewPage() {
   const [stats, setStats] = useState<PipelineStats | null>(null);
+  const [waStats, setWaStats] = useState<WhatsAppStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentLeads, setRecentLeads] = useState<Record<string, unknown>[]>([]);
 
@@ -70,22 +78,26 @@ export default function SalesOverviewPage() {
 
   async function fetchData() {
     try {
-      const [leadsRes, stagesRes, followUpsRes] = await Promise.all([
+      const [leadsRes, stagesRes, followUpsRes, convsRes] = await Promise.all([
         fetch('/api/dashboard/sales/leads'),
         fetch('/api/dashboard/sales/pipeline-stages'),
         fetch('/api/dashboard/sales/follow-ups?status=pending'),
+        fetch('/api/dashboard/sales/whatsapp/conversations'),
       ]);
 
       const leadsData = await leadsRes.json();
       const stagesData = await stagesRes.json();
       const followUpsData = await followUpsRes.json();
+      const convsData = await convsRes.json();
 
       const leads = leadsData.data || [];
       const stages = stagesData.data || [];
       const followUps = followUpsData.data || [];
+      const conversations = convsData.data || [];
 
       const now = new Date();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
       const stageStats = stages.map((s: Record<string, unknown>) => ({
         name_ar: s.name_ar as string,
@@ -99,6 +111,16 @@ export default function SalesOverviewPage() {
         converted: leads.filter((l: Record<string, unknown>) => l.is_converted).length,
         pending_follow_ups: followUps.length,
         stages: stageStats,
+      });
+
+      // WhatsApp stats — count total messages from conversations
+      const totalMsgs = conversations.reduce((sum: number, c: Record<string, unknown>) => sum + (c.total_messages as number || 0), 0);
+      const todayConvs = conversations.filter((c: Record<string, unknown>) => new Date(c.last_timestamp as string) >= todayStart);
+      setWaStats({
+        total_conversations: conversations.length,
+        messages_today: todayConvs.reduce((sum: number, c: Record<string, unknown>) => sum + (c.unread_count as number || 0), 0),
+        messages_sent_today: 0,
+        messages_received_today: todayConvs.length,
       });
 
       setRecentLeads(leads.slice(0, 5));
@@ -236,6 +258,42 @@ export default function SalesOverviewPage() {
           </motion.div>
         ))}
       </div>
+
+      {/* WhatsApp Quick Stats */}
+      {waStats && waStats.total_conversations > 0 && (
+        <motion.div variants={itemMotion}>
+          <Card className="overflow-hidden border-0 shadow-xl shadow-black/5 dark:shadow-black/20 bg-gradient-to-bl from-emerald-50/80 to-teal-50/40 dark:from-emerald-950/20 dark:to-teal-950/10">
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+                    <MessageCircle className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="font-semibold text-sm">واتساب</span>
+                </div>
+                <Link href="/dashboard/sales/chat" className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1">
+                  فتح الشات
+                  <ChevronLeft className="h-3 w-3" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.total_conversations}</p>
+                  <p className="text-[11px] text-muted-foreground">محادثة</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.messages_received_today}</p>
+                  <p className="text-[11px] text-muted-foreground">نشطة اليوم</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.messages_today}</p>
+                  <p className="text-[11px] text-muted-foreground">غير مقروءة</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Pipeline + Recent Leads Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
