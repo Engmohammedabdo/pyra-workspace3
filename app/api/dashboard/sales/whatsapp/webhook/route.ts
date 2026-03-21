@@ -148,6 +148,35 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             })
             .eq('id', matchedLead.id);
         }
+
+        // Auto-assign new conversations to instance owner
+        if (direction === 'incoming') {
+          const { data: existingAssignment } = await supabase
+            .from('pyra_whatsapp_assignments')
+            .select('id')
+            .eq('remote_jid', conversationJid)
+            .eq('instance_name', instanceName)
+            .maybeSingle();
+
+          if (!existingAssignment) {
+            // Get instance owner
+            const { data: inst } = await supabase
+              .from('pyra_whatsapp_instances')
+              .select('agent_username')
+              .eq('instance_name', instanceName)
+              .maybeSingle();
+
+            if (inst?.agent_username) {
+              await supabase.from('pyra_whatsapp_assignments').insert({
+                id: generateId('wa'),
+                remote_jid: conversationJid,
+                instance_name: instanceName,
+                assigned_to: inst.agent_username,
+                assigned_by: 'system',
+              });
+            }
+          }
+        }
       }
       break;
     }

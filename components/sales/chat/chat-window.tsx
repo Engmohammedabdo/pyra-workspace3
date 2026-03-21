@@ -6,9 +6,10 @@ import { ChatInput } from './chat-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight } from 'lucide-react';
+import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import { AssignDialog } from './assign-dialog';
 
 interface Message {
   id: string;
@@ -27,17 +28,21 @@ interface ChatWindowProps {
   contactName: string | null;
   leadId?: string | null;
   phone?: string | null;
+  assignedTo?: string | null;
+  isAdmin?: boolean;
   onBack?: () => void;
+  onConversationUpdated?: () => void;
 }
 
 const POLL_INTERVAL = 5000;
 
-export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp, onBack }: ChatWindowProps) {
+export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone: phoneProp, assignedTo, isAdmin, onBack, onConversationUpdated }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showScrollDown, setShowScrollDown] = useState(false);
+  const [showAssign, setShowAssign] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -245,7 +250,34 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
             )}
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 relative">
+          {/* Assign to Agent — admin only */}
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'rounded-xl h-9 w-9',
+                showAssign && 'bg-orange-50 dark:bg-orange-950/20 text-orange-600'
+              )}
+              onClick={() => setShowAssign(!showAssign)}
+              title="تعيين لوكيل"
+            >
+              <UserPlus className="h-4 w-4" />
+            </Button>
+          )}
+
+          {/* Assign Dialog Popover */}
+          {showAssign && (
+            <AssignDialog
+              remoteJid={remoteJid}
+              instanceName={instanceName}
+              currentAgent={assignedTo || null}
+              onAssigned={() => onConversationUpdated?.()}
+              onClose={() => setShowAssign(false)}
+            />
+          )}
+
           {/* Search Toggle */}
           <Button
             variant="ghost"

@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils/cn';
-import { Search, MessageCircle, User } from 'lucide-react';
+import { Search, MessageCircle, User, Pin } from 'lucide-react';
 import { useState } from 'react';
 import { formatRelativeDate } from '@/lib/utils/format';
 
@@ -17,6 +17,9 @@ export interface Conversation {
   last_timestamp: string;
   unread_count: number;
   total_messages: number;
+  assigned_to?: string | null;
+  is_pinned?: boolean;
+  is_archived?: boolean;
 }
 
 interface ConversationListProps {
@@ -142,6 +145,9 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                       )}>
                         {conv.contact_name || (phone.length > 5 ? `+${phone}` : phone)}
                       </p>
+                      {conv.is_pinned && (
+                        <Pin className="h-3 w-3 text-orange-500 shrink-0" />
+                      )}
                       {conv.lead_id && (
                         <div className="shrink-0 w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center" title="عميل محتمل">
                           <User className="h-2.5 w-2.5 text-orange-600 dark:text-orange-400" />
@@ -153,12 +159,19 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                     </span>
                   </div>
 
-                  {/* Phone number (if contact has a name, show phone separately) */}
-                  {conv.contact_name && phone && phone.length > 5 && (
-                    <p className="text-[10px] text-muted-foreground/40 mt-0.5 tabular-nums" dir="ltr">
-                      +{phone}
-                    </p>
-                  )}
+                  {/* Phone + assigned agent */}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    {conv.contact_name && phone && phone.length > 5 && (
+                      <span className="text-[10px] text-muted-foreground/40 tabular-nums" dir="ltr">
+                        +{phone}
+                      </span>
+                    )}
+                    {conv.assigned_to && (
+                      <span className="text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">
+                        {conv.assigned_to}
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center justify-between mt-0.5">
                     <p className="text-xs text-muted-foreground/60 truncate">

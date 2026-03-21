@@ -12,27 +12,54 @@ export async function GET() {
 
   const supabase = await createServerSupabaseClient();
 
-  // Agent scoping
+  // Agent scoping: admin sees all, agents see their instances + assigned conversations
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
   let instanceFilter: string[] | null = null;
+  let assignedJids: Set<string> | null = null;
 
   if (!isAdmin) {
+    // Get agent's own instances
     const { data: agentInstances } = await supabase
       .from('pyra_whatsapp_instances')
       .select('instance_name')
       .eq('agent_username', auth.pyraUser.username);
     instanceFilter = (agentInstances || []).map((i: { instance_name: string }) => i.instance_name);
-    if (instanceFilter.length === 0) return apiSuccess([]);
+
+    // Get conversations assigned to this agent
+    const { data: assignments } = await supabase
+      .from('pyra_whatsapp_assignments')
+      .select('remote_jid')
+      .eq('assigned_to', auth.pyraUser.username)
+      .eq('is_archived', false);
+    assignedJids = new Set((assignments || []).map((a: { remote_jid: string }) => a.remote_jid));
+
+    if (instanceFilter.length === 0 && assignedJids.size === 0) return apiSuccess([]);
+  }
+
+  // Load all assignments for enriching conversation data
+  const { data: allAssignments } = await supabase
+    .from('pyra_whatsapp_assignments')
+    .select('remote_jid, instance_name, assigned_to, is_pinned, is_archived');
+
+  const assignmentMap = new Map<string, { assigned_to: string; is_pinned: boolean; is_archived: boolean }>();
+  for (const a of allAssignments || []) {
+    assignmentMap.set(`${a.remote_jid}::${a.instance_name}`, {
+      assigned_to: a.assigned_to,
+      is_pinned: a.is_pinned,
+      is_archived: a.is_archived,
+    });
   }
 
   // Fetch messages ordered by timestamp (limit to recent 5000 to avoid loading 10K+ rows)
+  // For non-admin: we fetch from agent's instances + assigned JIDs (filtering done in-memory)
   let query = supabase
     .from('pyra_whatsapp_messages')
     .select('id, instance_name, remote_jid, lead_id, client_id, direction, content, message_type, status, timestamp, contact_name, metadata')
     .order('timestamp', { ascending: false })
     .limit(5000);
 
-  if (instanceFilter) {
+  // For non-admin with only instance filter (no assigned JIDs), filter at DB level for efficiency
+  if (instanceFilter && (!assignedJids || assignedJids.size === 0)) {
     query = query.in('instance_name', instanceFilter);
   }
 
@@ -52,10 +79,21 @@ export async function GET() {
     last_timestamp: string;
     unread_count: number;
     total_messages: number;
+    assigned_to: string | null;
+    is_pinned: boolean;
+    is_archived: boolean;
   }>();
 
   for (const msg of messages || []) {
     const jid = msg.remote_jid;
+
+    // For non-admin: skip conversations not in agent's instances or assignments
+    if (!isAdmin && assignedJids) {
+      const inInstance = instanceFilter && instanceFilter.includes(msg.instance_name);
+      const isAssigned = assignedJids.has(jid);
+      if (!inInstance && !isAssigned) continue;
+    }
+
     if (!conversationMap.has(jid)) {
       const meta = (msg.metadata || {}) as Record<string, unknown>;
       const pushName = msg.contact_name || (meta.pushName as string) || null;
@@ -63,7 +101,6 @@ export async function GET() {
       // Extract phone: from metadata.phone (set by webhook/sync), or from JID
       let phone = (meta.phone as string) || null;
       if (!phone) {
-        // Try remoteJidAlt first (real phone when JID is @lid)
         const altJid = (meta.remoteJidAlt as string) || '';
         if (altJid) {
           phone = altJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
@@ -71,6 +108,9 @@ export async function GET() {
           phone = jid.replace('@s.whatsapp.net', '').replace('@c.us', '');
         }
       }
+
+      // Get assignment info
+      const assignment = assignmentMap.get(`${jid}::${msg.instance_name}`);
 
       conversationMap.set(jid, {
         remote_jid: jid,
@@ -84,6 +124,9 @@ export async function GET() {
         last_timestamp: msg.timestamp,
         unread_count: 0,
         total_messages: 0,
+        assigned_to: assignment?.assigned_to || null,
+        is_pinned: assignment?.is_pinned || false,
+        is_archived: assignment?.is_archived || false,
       });
     }
 
@@ -108,9 +151,14 @@ export async function GET() {
     }
   }
 
-  // Sort by last_timestamp desc
+  // Sort: pinned first, then by last_timestamp desc. Exclude archived.
   const conversations = Array.from(conversationMap.values())
-    .sort((a, b) => new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime());
+    .filter(c => !c.is_archived)
+    .sort((a, b) => {
+      if (a.is_pinned && !b.is_pinned) return -1;
+      if (!a.is_pinned && b.is_pinned) return 1;
+      return new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime();
+    });
 
   return apiSuccess(conversations);
 }

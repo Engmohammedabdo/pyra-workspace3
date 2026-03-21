@@ -9,8 +9,13 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 export default function ChatInboxPage() {
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser ? isSuperAdmin(currentUser.rolePermissions) : false;
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -237,7 +242,10 @@ export default function ChatInboxPage() {
                 contactName={selectedConv.contact_name}
                 leadId={selectedConv.lead_id}
                 phone={selectedConv.phone}
+                assignedTo={selectedConv.assigned_to}
+                isAdmin={isAdmin}
                 onBack={handleBackToList}
+                onConversationUpdated={fetchConversations}
               />
             ) : (
               <div className="flex-1 h-full flex items-center justify-center">
