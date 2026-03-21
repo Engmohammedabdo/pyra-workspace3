@@ -2,8 +2,9 @@
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
-import { Phone, Mail, Building2, GripVertical } from 'lucide-react';
+import { Phone, Mail, Building2, GripVertical, Clock, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
+import { formatRelativeDate } from '@/lib/utils/format';
 
 interface LeadCardProps {
   lead: {
@@ -16,6 +17,8 @@ interface LeadCardProps {
     priority: string;
     score?: number;
     assigned_to?: string;
+    last_contact_at?: string;
+    next_follow_up?: string;
   };
 }
 
@@ -97,6 +100,24 @@ export function LeadCard({ lead }: LeadCardProps) {
             </div>
           )}
         </div>
+
+        {/* Contact Info Row */}
+        {(lead.last_contact_at || lead.next_follow_up) && (
+          <div className="flex items-center gap-3 text-[10px] text-muted-foreground/60 ps-3">
+            {lead.last_contact_at && (
+              <span className="flex items-center gap-1">
+                <MessageCircle className="h-2.5 w-2.5" />
+                {formatRelativeDate(lead.last_contact_at)}
+              </span>
+            )}
+            {lead.next_follow_up && (
+              <span className="flex items-center gap-1 text-sky-600 dark:text-sky-400">
+                <Clock className="h-2.5 w-2.5" />
+                {formatRelativeDate(lead.next_follow_up)}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between pt-2 border-t border-border/40 ps-3">

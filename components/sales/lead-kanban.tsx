@@ -21,8 +21,11 @@ interface Lead {
   company?: string;
   source: string;
   priority: string;
+  score?: number;
   assigned_to?: string;
   stage_id: string;
+  last_contact_at?: string;
+  next_follow_up?: string;
 }
 
 interface LeadKanbanProps {
