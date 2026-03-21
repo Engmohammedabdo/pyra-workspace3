@@ -220,7 +220,7 @@ export default function ChatInboxPage() {
 
           {/* Conversation List — hidden on mobile when chat is open */}
           <div className={cn(
-            'h-full md:block',
+            'h-full min-h-0 overflow-hidden md:block',
             mobileView === 'chat' ? 'hidden' : 'block'
           )}>
             <ConversationList
@@ -232,7 +232,7 @@ export default function ChatInboxPage() {
 
           {/* Chat Window — hidden on mobile when list is showing */}
           <div className={cn(
-            'h-full flex flex-col bg-background/50 md:block',
+            'h-full min-h-0 overflow-hidden flex flex-col bg-background/50 md:block',
             mobileView === 'list' ? 'hidden' : 'block'
           )}>
             {selectedConv ? (
