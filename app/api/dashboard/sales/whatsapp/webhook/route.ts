@@ -149,14 +149,16 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             .eq('id', matchedLead.id);
         }
 
-        // Auto-assign new conversations to instance owner
+        // Auto-assign new conversations to instance owner + send notification
         if (direction === 'incoming') {
           const { data: existingAssignment } = await supabase
             .from('pyra_whatsapp_assignments')
-            .select('id')
+            .select('id, assigned_to')
             .eq('remote_jid', conversationJid)
             .eq('instance_name', instanceName)
             .maybeSingle();
+
+          let assignedAgent: string | null = existingAssignment?.assigned_to || null;
 
           if (!existingAssignment) {
             // Get instance owner
@@ -167,6 +169,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
               .maybeSingle();
 
             if (inst?.agent_username) {
+              assignedAgent = inst.agent_username;
               await supabase.from('pyra_whatsapp_assignments').insert({
                 id: generateId('wa'),
                 remote_jid: conversationJid,
@@ -175,6 +178,22 @@ async function processWebhook(event: string, instanceName: string, data: Record<
                 assigned_by: 'system',
               });
             }
+          }
+
+          // Create notification for the assigned agent
+          if (assignedAgent) {
+            const senderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
+            const preview = content ? (content.length > 60 ? content.slice(0, 60) + '...' : content) : (messageType !== 'text' ? `${messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 رسالة صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف'}` : 'رسالة جديدة');
+            await supabase.from('pyra_notifications').insert({
+              id: generateId('n'),
+              recipient_username: assignedAgent,
+              type: 'whatsapp_message',
+              title: `رسالة من ${senderName}`,
+              message: preview,
+              source_display_name: senderName,
+              target_path: `/dashboard/sales/chat`,
+              is_read: false,
+            });
           }
         }
       }

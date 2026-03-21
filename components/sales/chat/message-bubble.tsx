@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { cn } from '@/lib/utils/cn';
 import {
   Check,
@@ -11,6 +11,7 @@ import {
   FileText,
   Image as ImageIcon,
   Mic,
+  Pause,
   Play,
   Video,
   X,
@@ -36,6 +37,9 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
 
 export function MessageBubble({ content, direction, messageType, mediaUrl, fileName, status, timestamp }: MessageBubbleProps) {
   const [imagePreview, setImagePreview] = useState(false);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const isOutgoing = direction === 'outgoing';
   const time = new Date(timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
 
@@ -84,31 +88,47 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
               'flex items-center gap-3 rounded-xl px-3 py-2 min-w-[200px]',
               isOutgoing ? 'bg-white/10' : 'bg-muted/40'
             )}>
-              <a
-                href={mediaUrl}
-                target="_blank"
-                rel="noopener noreferrer"
+              {/* Hidden audio element */}
+              <audio
+                ref={audioRef}
+                src={mediaUrl}
+                onTimeUpdate={() => {
+                  const el = audioRef.current;
+                  if (el && el.duration) setAudioProgress((el.currentTime / el.duration) * 100);
+                }}
+                onEnded={() => { setAudioPlaying(false); setAudioProgress(0); }}
+              />
+              <button
+                onClick={() => {
+                  const el = audioRef.current;
+                  if (!el) return;
+                  if (audioPlaying) { el.pause(); setAudioPlaying(false); }
+                  else { el.play(); setAudioPlaying(true); }
+                }}
                 className={cn(
                   'w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform hover:scale-105',
                   isOutgoing ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
                 )}
               >
-                <Play className="h-4 w-4 ms-0.5" />
-              </a>
+                {audioPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ms-0.5" />}
+              </button>
               <div className="flex-1 min-w-0">
-                <div className={cn(
-                  'h-1 rounded-full',
-                  isOutgoing ? 'bg-white/20' : 'bg-muted-foreground/15'
-                )}>
-                  <div className={cn(
-                    'h-full w-1/3 rounded-full',
-                    isOutgoing ? 'bg-white/60' : 'bg-emerald-500'
-                  )} />
+                <div
+                  className={cn('h-1.5 rounded-full cursor-pointer', isOutgoing ? 'bg-white/20' : 'bg-muted-foreground/15')}
+                  onClick={(e) => {
+                    const el = audioRef.current;
+                    if (!el || !el.duration) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    el.currentTime = (x / rect.width) * el.duration;
+                  }}
+                >
+                  <div
+                    className={cn('h-full rounded-full transition-all', isOutgoing ? 'bg-white/60' : 'bg-emerald-500')}
+                    style={{ width: `${audioProgress}%` }}
+                  />
                 </div>
-                <p className={cn(
-                  'text-[10px] mt-1',
-                  isOutgoing ? 'text-white/50' : 'text-muted-foreground/50'
-                )}>
+                <p className={cn('text-[10px] mt-1', isOutgoing ? 'text-white/50' : 'text-muted-foreground/50')}>
                   رسالة صوتية
                 </p>
               </div>
@@ -117,31 +137,19 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
 
           {/* ── Video ── */}
           {messageType === 'video' && mediaUrl && (
-            <a
-              href={mediaUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(
-                'flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors',
-                isOutgoing ? 'bg-white/10 hover:bg-white/15' : 'bg-muted/40 hover:bg-muted/60'
+            <div className="rounded-xl overflow-hidden -mx-0.5 -mt-0.5">
+              <video
+                src={mediaUrl}
+                controls
+                preload="metadata"
+                className="w-full max-h-60 rounded-xl"
+              />
+              {fileName && (
+                <p className={cn('text-[10px] mt-1 px-1', isOutgoing ? 'text-white/50' : 'text-muted-foreground/50')}>
+                  {fileName}
+                </p>
               )}
-            >
-              <div className={cn(
-                'w-10 h-10 rounded-xl flex items-center justify-center shrink-0',
-                isOutgoing ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
-              )}>
-                <Video className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={cn('text-sm font-medium truncate', isOutgoing ? 'text-white' : 'text-foreground')}>
-                  {fileName || 'فيديو'}
-                </p>
-                <p className={cn('text-[10px]', isOutgoing ? 'text-white/50' : 'text-muted-foreground/50')}>
-                  اضغط للعرض
-                </p>
-              </div>
-              <ExternalLink className={cn('h-3.5 w-3.5 shrink-0', isOutgoing ? 'text-white/30' : 'text-muted-foreground/30')} />
-            </a>
+            </div>
           )}
 
           {/* ── Document ── */}

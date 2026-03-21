@@ -6,10 +6,11 @@ import { ChatInput } from './chat-input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight, UserPlus } from 'lucide-react';
+import { MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight, UserPlus, PanelRightOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { AssignDialog } from './assign-dialog';
+import { ContactSidebar } from './contact-sidebar';
 
 interface Message {
   id: string;
@@ -43,6 +44,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
   const [searchQuery, setSearchQuery] = useState('');
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -221,7 +223,9 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full">
+      {/* Main Chat Area */}
+      <div className="flex flex-col flex-1 min-w-0 h-full">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-border/60 flex items-center justify-between bg-card/80 backdrop-blur-sm">
         <div className="flex items-center gap-2.5">
@@ -237,18 +241,24 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
             </Button>
           )}
 
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/15">
-            {(contactName || phone).charAt(0).toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
-            {displayPhone && (
-              <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums" dir="ltr">
-                <Phone className="h-2.5 w-2.5" />
-                {displayPhone}
-              </p>
-            )}
-          </div>
+          {/* Clickable contact info — toggles sidebar */}
+          <button
+            className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+            onClick={() => setShowSidebar(!showSidebar)}
+          >
+            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/15">
+              {(contactName || phone).charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0 text-start">
+              <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
+              {displayPhone && (
+                <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums" dir="ltr">
+                  <Phone className="h-2.5 w-2.5" />
+                  {displayPhone}
+                </p>
+              )}
+            </div>
+          </button>
         </div>
         <div className="flex items-center gap-1 relative">
           {/* Assign to Agent — admin only */}
@@ -296,8 +306,22 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
             <Search className="h-4 w-4" />
           </Button>
 
+          {/* Contact Info Sidebar Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'rounded-xl h-9 w-9 hidden lg:flex',
+              showSidebar && 'bg-teal-50 dark:bg-teal-950/20 text-teal-600'
+            )}
+            onClick={() => setShowSidebar(!showSidebar)}
+            title="معلومات جهة الاتصال"
+          >
+            <PanelRightOpen className="h-4 w-4" />
+          </Button>
+
           {leadId && (
-            <Button variant="ghost" size="sm" asChild className="rounded-xl text-xs hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-600">
+            <Button variant="ghost" size="sm" asChild className="rounded-xl text-xs hover:bg-orange-50 dark:hover:bg-orange-950/20 hover:text-orange-600 lg:hidden">
               <Link href={`/dashboard/sales/leads/${leadId}`}>
                 <User className="h-3.5 w-3.5 me-1" />
                 <span className="hidden sm:inline">عرض العميل</span>
@@ -397,6 +421,19 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, phone
 
       {/* Input */}
       <ChatInput onSend={handleSend} onSendMedia={handleSendMedia} />
+      </div>
+
+      {/* Contact Info Sidebar */}
+      {showSidebar && (
+        <ContactSidebar
+          remoteJid={remoteJid}
+          instanceName={instanceName}
+          contactName={contactName}
+          phone={phone}
+          leadId={leadId}
+          onClose={() => setShowSidebar(false)}
+        />
+      )}
     </div>
   );
 }

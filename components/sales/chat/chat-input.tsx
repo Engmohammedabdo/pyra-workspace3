@@ -12,6 +12,8 @@ import {
   ImageIcon,
   FileText,
   Plus,
+  Mic,
+  Square,
 } from 'lucide-react';
 import {
   Popover,
@@ -42,8 +44,14 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
   const [templateSearch, setTemplateSearch] = useState('');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentPreview, setAttachmentPreview] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch templates on first open
   const fetchTemplates = useCallback(async () => {
@@ -99,25 +107,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Max 16MB
-    if (file.size > 16 * 1024 * 1024) {
-      toast.error('حجم الملف أكبر من 16 ميجابايت');
-      return;
-    }
-
-    setAttachmentFile(file);
-
-    // Preview for images
-    if (file.type.startsWith('image/')) {
-      const reader = new FileReader();
-      reader.onload = () => setAttachmentPreview(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      setAttachmentPreview(null);
-    }
-
-    // Reset file input
+    processFile(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -133,6 +123,105 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
     }
   }
 
+  // ── Drag & Drop ──
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(true);
+  }
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+  }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processFile(file);
+  }
+
+  // ── Paste (images from clipboard) ──
+  function handlePaste(e: React.ClipboardEvent) {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) processFile(file);
+        break;
+      }
+    }
+  }
+
+  function processFile(file: File) {
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error('حجم الملف أكبر من 16 ميجابايت');
+      return;
+    }
+    setAttachmentFile(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => setAttachmentPreview(reader.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setAttachmentPreview(null);
+    }
+  }
+
+  // ── Voice Recording ──
+  async function startRecording() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      recordingChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop());
+        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        processFile(file);
+        setIsRecording(false);
+        setRecordingTime(0);
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      };
+
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingTime(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(t => t + 1);
+      }, 1000);
+    } catch {
+      toast.error('لم يتم السماح بالوصول للميكروفون');
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop();
+  }
+
+  function cancelRecording() {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stream.getTracks().forEach(t => t.stop());
+      mediaRecorderRef.current = null;
+    }
+    recordingChunksRef.current = [];
+    setIsRecording(false);
+    setRecordingTime(0);
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+  }
+
+  function formatRecordingTime(seconds: number) {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
   // Auto-resize textarea
   function handleTextChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setText(e.target.value);
@@ -142,7 +231,51 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
   }
 
   return (
-    <div className="border-t border-border/60 bg-card/80 backdrop-blur-sm">
+    <div
+      className={cn(
+        'border-t border-border/60 bg-card/80 backdrop-blur-sm transition-colors',
+        isDragging && 'bg-orange-50/50 dark:bg-orange-950/10 border-orange-400/50'
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="px-3 pt-3 text-center text-sm text-orange-600 dark:text-orange-400 font-medium">
+          اسحب الملف هنا للإرسال
+        </div>
+      )}
+
+      {/* Recording UI */}
+      {isRecording && (
+        <div className="px-3 pt-3 flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-1 bg-red-50 dark:bg-red-950/20 rounded-xl px-4 py-2.5">
+            <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="text-sm font-medium text-red-600 dark:text-red-400 tabular-nums">
+              {formatRecordingTime(recordingTime)}
+            </span>
+            <span className="text-xs text-red-500/60">جاري التسجيل...</span>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-xl h-10 w-10 text-muted-foreground hover:text-destructive"
+            onClick={cancelRecording}
+            title="إلغاء"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+          <Button
+            size="icon"
+            className="rounded-xl h-10 w-10 bg-red-500 hover:bg-red-600 text-white shadow-md"
+            onClick={stopRecording}
+            title="إيقاف وإرسال"
+          >
+            <Square className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
       {/* Attachment Preview */}
       {attachmentFile && (
         <div className="px-3 pt-3 flex items-start gap-3">
@@ -283,41 +416,60 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
         </Popover>
 
         {/* Textarea */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={inputRef}
-            value={text}
-            onChange={handleTextChange}
-            onKeyDown={handleKeyDown}
-            placeholder="اكتب رسالة..."
+        {!isRecording && (
+          <div className="flex-1 relative">
+            <textarea
+              ref={inputRef}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder="اكتب رسالة..."
+              disabled={disabled || sending}
+              rows={1}
+              className={cn(
+                'w-full rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-sm resize-none',
+                'placeholder:text-muted-foreground/50',
+                'focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400',
+                'transition-all duration-200',
+                'disabled:opacity-50',
+                'max-h-[120px]'
+              )}
+              style={{ height: 'auto' }}
+            />
+          </div>
+        )}
+
+        {/* Voice Record Button — show when no text and no attachment */}
+        {!text.trim() && !attachmentFile && !isRecording && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground rounded-xl h-10 w-10"
+            onClick={startRecording}
             disabled={disabled || sending}
-            rows={1}
-            className={cn(
-              'w-full rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 text-sm resize-none',
-              'placeholder:text-muted-foreground/50',
-              'focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-400',
-              'transition-all duration-200',
-              'disabled:opacity-50',
-              'max-h-[120px]'
-            )}
-            style={{ height: 'auto' }}
-          />
-        </div>
+            title="تسجيل رسالة صوتية"
+          >
+            <Mic className="h-5 w-5" />
+          </Button>
+        )}
 
         {/* Send Button */}
-        <Button
-          onClick={handleSend}
-          disabled={(!text.trim() && !attachmentFile) || sending || disabled}
-          size="icon"
-          className={cn(
-            'shrink-0 rounded-xl w-10 h-10 shadow-md transition-all duration-200',
-            'bg-gradient-to-br from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700',
-            'text-white shadow-orange-500/20',
-            'disabled:opacity-40 disabled:shadow-none'
-          )}
-        >
-          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-        </Button>
+        {!isRecording && (text.trim() || attachmentFile) && (
+          <Button
+            onClick={handleSend}
+            disabled={(!text.trim() && !attachmentFile) || sending || disabled}
+            size="icon"
+            className={cn(
+              'shrink-0 rounded-xl w-10 h-10 shadow-md transition-all duration-200',
+              'bg-gradient-to-br from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700',
+              'text-white shadow-orange-500/20',
+              'disabled:opacity-40 disabled:shadow-none'
+            )}
+          >
+            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        )}
       </div>
     </div>
   );
