@@ -55,6 +55,11 @@ import {
   Settings,
   GitBranch,
   LayoutGrid,
+  Paperclip,
+  Upload,
+  FileText,
+  Download,
+  History,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -397,6 +402,19 @@ function TaskDetailDialog({
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [showChecklistInput, setShowChecklistInput] = useState(false);
 
+  // Activity log
+  const [activities, setActivities] = useState<Array<{
+    id: string; action: string; display_name: string; details: string; created_at: string;
+  }>>([]);
+  const [showActivity, setShowActivity] = useState(false);
+
+  // Attachments
+  const [attachments, setAttachments] = useState<Array<{
+    id: string; file_name: string; file_url: string; file_size: number;
+    uploaded_by: string; review_status: string; created_at: string;
+  }>>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -416,14 +434,27 @@ function TaskDetailDialog({
 
   const fetchDetail = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tasks/${task.id}`);
-      const { data } = await res.json();
+      const [taskRes, attRes] = await Promise.all([
+        fetch(`/api/tasks/${task.id}`),
+        board ? fetch(`/api/boards/${board.id}/tasks/${task.id}/attachments`) : Promise.resolve(null),
+      ]);
+      const { data } = await taskRes.json();
       if (data) {
         setDetail(data);
         setTitle(data.title);
         setDescription(data.description || '');
         setPriority(data.priority || 'medium');
         setDueDate(data.due_date || '');
+      }
+      if (data?.pyra_task_activity) {
+        setActivities(data.pyra_task_activity);
+      }
+      if (data?.pyra_task_attachments) {
+        setAttachments(data.pyra_task_attachments);
+      }
+      if (attRes) {
+        const attJson = await attRes.json();
+        if (attJson.data?.length) setAttachments(attJson.data);
       }
     } catch {
       toast.error('فشل في تحميل تفاصيل المهمة');
@@ -656,6 +687,64 @@ function TaskDetailDialog({
       onUpdate();
     } catch {
       toast.error('فشل حذف العنصر');
+    }
+  };
+
+  // ── Fetch activity log ──
+  const fetchActivity = async () => {
+    try {
+      const res = await fetch(`/api/tasks/${task.id}`);
+      const { data } = await res.json();
+      if (data?.pyra_task_activity) {
+        setActivities(data.pyra_task_activity);
+      }
+    } catch { /* silent */ }
+  };
+
+  // ── Upload attachment ──
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !board) return;
+    setUploadingFile(true);
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+      const storagePath = `tasks/${task.id}/${Date.now()}_${file.name}`;
+
+      // Upload to Supabase Storage
+      const formData = new FormData();
+      formData.append('', file);
+      const uploadRes = await fetch(
+        `${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${document.cookie.split('sb-access-token=')[1]?.split(';')[0] || ''}` },
+          body: formData,
+        }
+      );
+
+      // Get public URL
+      const fileUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${storagePath}`;
+
+      // Record in DB
+      await fetch(`/api/boards/${board.id}/tasks/${task.id}/attachments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          file_name: file.name,
+          file_url: fileUrl,
+          file_size: file.size,
+          storage_path: storagePath,
+        }),
+      });
+
+      toast.success('تم رفع الملف');
+      fetchDetail();
+    } catch {
+      toast.error('فشل رفع الملف');
+    } finally {
+      setUploadingFile(false);
+      e.target.value = '';
     }
   };
 
@@ -1024,6 +1113,51 @@ function TaskDetailDialog({
               )}
             </div>
 
+            {/* ── Attachments ── */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Paperclip className="h-3.5 w-3.5" />
+                  المرفقات ({attachments.length})
+                </label>
+                {canManage && (
+                  <label className="cursor-pointer">
+                    <input type="file" className="hidden" onChange={handleFileUpload} disabled={uploadingFile} />
+                    <span className="inline-flex items-center gap-1 text-xs text-orange-500 hover:text-orange-600 transition-colors">
+                      <Upload className="h-3 w-3" />
+                      {uploadingFile ? 'جاري الرفع...' : 'رفع ملف'}
+                    </span>
+                  </label>
+                )}
+              </div>
+              {attachments.length > 0 && (
+                <div className="space-y-1.5">
+                  {attachments.map(att => (
+                    <div key={att.id} className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/20 text-xs">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <a
+                        href={att.file_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 truncate hover:text-orange-500 transition-colors"
+                      >
+                        {att.file_name}
+                      </a>
+                      {att.review_status === 'approved' && (
+                        <Badge className="text-[9px] h-4 bg-green-500/10 text-green-600 border-0">موافق</Badge>
+                      )}
+                      {att.review_status === 'revision_requested' && (
+                        <Badge className="text-[9px] h-4 bg-red-500/10 text-red-600 border-0">تعديل</Badge>
+                      )}
+                      <a href={att.file_url} download className="text-muted-foreground hover:text-foreground">
+                        <Download className="h-3 w-3" />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* ── Comments ── */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
@@ -1096,6 +1230,60 @@ function TaskDetailDialog({
                   <Send className="h-3.5 w-3.5" />
                 </Button>
               </div>
+            </div>
+
+            {/* ── Activity Log ── */}
+            <div className="space-y-2">
+              <button
+                onClick={() => { setShowActivity(!showActivity); if (!showActivity && activities.length === 0) fetchActivity(); }}
+                className="text-xs font-medium text-muted-foreground flex items-center gap-1 hover:text-foreground transition-colors"
+              >
+                <History className="h-3.5 w-3.5" />
+                سجل النشاط ({activities.length})
+                <span className="text-[10px]">{showActivity ? '▲' : '▼'}</span>
+              </button>
+              {showActivity && activities.length > 0 && (
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {activities
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .slice(0, 20)
+                    .map(act => {
+                      const ACTION_LABELS: Record<string, string> = {
+                        created: 'أنشأ المهمة',
+                        moved: 'نقل المهمة',
+                        assignee_added: 'أضاف معين',
+                        assignee_removed: 'أزال معين',
+                        comment_added: 'أضاف تعليق',
+                        checklist_added: 'أضاف عنصر قائمة',
+                        stage_advanced: 'نقل للمرحلة التالية',
+                        stage_approved: 'وافق على النقل',
+                        stage_rejected: 'رفض النقل',
+                        file_uploaded: 'رفع ملف',
+                        file_approved: 'وافق على ملف',
+                        file_revision_requested: 'طلب تعديل ملف',
+                      };
+                      const timeAgo = (() => {
+                        const diff = Date.now() - new Date(act.created_at).getTime();
+                        const mins = Math.floor(diff / 60000);
+                        if (mins < 60) return `منذ ${mins} دقيقة`;
+                        const hrs = Math.floor(mins / 60);
+                        if (hrs < 24) return `منذ ${hrs} ساعة`;
+                        return `منذ ${Math.floor(hrs / 24)} يوم`;
+                      })();
+                      return (
+                        <div key={act.id} className="flex items-start gap-2 text-[11px] py-1">
+                          <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
+                          <div>
+                            <span className="font-medium">{act.display_name}</span>
+                            {' '}
+                            <span className="text-muted-foreground">{ACTION_LABELS[act.action] || act.action}</span>
+                            <span className="text-muted-foreground/50 ms-1.5">{timeAgo}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
             </div>
 
             {/* ── Pipeline Actions ── */}
