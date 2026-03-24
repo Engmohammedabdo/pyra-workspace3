@@ -65,6 +65,7 @@ import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
+import { TaskSheet } from '@/components/boards/task-sheet';
 
 // ============================================================
 // Types
@@ -1831,10 +1832,10 @@ export default function BoardViewClient({
         </DialogContent>
       </Dialog>
 
-      {/* Task Detail Dialog */}
+      {/* Task Sheet (Trello-style) */}
       {selectedTask && (
-        <TaskDetailDialog
-          task={selectedTask}
+        <TaskSheet
+          taskId={selectedTask.id}
           board={board}
           onClose={() => setSelectedTask(null)}
           onUpdate={fetchBoard}
