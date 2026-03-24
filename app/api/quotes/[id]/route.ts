@@ -51,6 +51,21 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       .eq('quote_id', id)
       .order('sort_order', { ascending: true });
 
+    // Get company settings (for PDF generation)
+    const { data: settingsRows } = await supabase
+      .from('pyra_settings')
+      .select('key, value')
+      .in('key', ['company_name', 'company_logo', 'bank_name', 'bank_account_name', 'bank_account_number', 'bank_iban']);
+    const settingsMap: Record<string, string> = {};
+    (settingsRows || []).forEach((s: { key: string; value: string }) => { settingsMap[s.key] = s.value; });
+
+    const bankDetails = (settingsMap.bank_name || settingsMap.bank_iban) ? {
+      bank: settingsMap.bank_name || '',
+      account_name: settingsMap.bank_account_name || '',
+      account_no: settingsMap.bank_account_number || '',
+      iban: settingsMap.bank_iban || '',
+    } : null;
+
     // Get linked lead info if lead_id exists
     let leadInfo: { id: string; name: string; phone?: string; email?: string; company?: string } | null = null;
     if (quote.lead_id) {
@@ -71,7 +86,15 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       .neq('id', id)
       .order('version', { ascending: false });
 
-    return apiSuccess({ ...quote, items: items || [], lead: leadInfo, revisions: revisions || [] });
+    return apiSuccess({
+      ...quote,
+      items: items || [],
+      lead: leadInfo,
+      revisions: revisions || [],
+      company_name: settingsMap.company_name || null,
+      company_logo: settingsMap.company_logo || null,
+      bank_details: bankDetails || quote.bank_details || null,
+    });
   } catch (err) {
     console.error('GET /api/quotes/[id] error:', err);
     return apiServerError();
