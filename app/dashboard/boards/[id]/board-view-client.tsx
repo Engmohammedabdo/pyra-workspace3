@@ -66,6 +66,9 @@ import type { AuthSession } from '@/lib/auth/guards';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { TaskSheet } from '@/components/boards/task-sheet';
+import { BoardToolbar, applyFilters, EMPTY_FILTERS, type BoardFilters, type ViewMode } from '@/components/boards/board-toolbar';
+import { BoardListView } from '@/components/boards/board-list-view';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 // ============================================================
 // Types
@@ -123,6 +126,7 @@ interface Board {
   auto_advance?: boolean;
   default_task_type?: string | null;
   pyra_board_columns?: Column[];
+  pyra_board_labels?: { id: string; name: string; color: string }[];
 }
 
 // ============================================================
@@ -293,18 +297,33 @@ function DroppableColumn({
   tasks,
   onAddTask,
   onTaskClick,
+  quickAddCol,
+  quickAddTitle,
+  onQuickAddStart,
+  onQuickAddChange,
+  onQuickAddSubmit,
+  onQuickAddCancel,
+  canCreate,
 }: {
   column: Column;
   tasks: Task[];
   onAddTask: (columnId: string) => void;
   onTaskClick: (task: Task) => void;
+  quickAddCol?: string | null;
+  quickAddTitle?: string;
+  onQuickAddStart?: (colId: string) => void;
+  onQuickAddChange?: (title: string) => void;
+  onQuickAddSubmit?: (colId: string) => void;
+  onQuickAddCancel?: () => void;
+  canCreate?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const isQuickAdding = quickAddCol === column.id;
 
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-[300px] rounded-xl p-3 flex flex-col max-h-[calc(100vh-200px)] transition-colors ${
+      className={`flex-shrink-0 w-[300px] rounded-xl p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors ${
         isOver
           ? 'bg-orange-500/10 ring-2 ring-orange-500/30'
           : 'bg-muted/50'
@@ -325,15 +344,20 @@ function DroppableColumn({
           >
             {tasks.length}
           </Badge>
+          {column.is_done_column && (
+            <CheckSquare className="h-3.5 w-3.5 text-green-500" />
+          )}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={() => onAddTask(column.id)}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        {canCreate && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => onQuickAddStart?.(column.id)}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {/* Tasks */}
@@ -350,7 +374,7 @@ function DroppableColumn({
                 onClick={() => onTaskClick(task)}
               />
             ))}
-            {tasks.length === 0 && (
+            {tasks.length === 0 && !isQuickAdding && (
               <div className="text-center text-xs text-muted-foreground py-8 border-2 border-dashed rounded-lg">
                 اسحب مهمة هنا
               </div>
@@ -358,6 +382,38 @@ function DroppableColumn({
           </div>
         </SortableContext>
       </ScrollArea>
+
+      {/* Quick-add inline input */}
+      {isQuickAdding ? (
+        <div className="mt-2 space-y-1.5">
+          <Input
+            autoFocus
+            value={quickAddTitle || ''}
+            onChange={e => onQuickAddChange?.(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter') onQuickAddSubmit?.(column.id);
+              if (e.key === 'Escape') onQuickAddCancel?.();
+            }}
+            placeholder="عنوان المهمة..."
+            className="h-8 text-sm"
+          />
+          <div className="flex gap-1">
+            <Button size="sm" className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white flex-1" onClick={() => onQuickAddSubmit?.(column.id)}>
+              إضافة
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onQuickAddCancel}>
+              <X className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      ) : canCreate ? (
+        <button
+          onClick={() => onQuickAddStart?.(column.id)}
+          className="mt-2 w-full text-xs text-muted-foreground/50 hover:text-muted-foreground py-1.5 border border-dashed border-border/30 rounded-lg hover:border-orange-300 transition-colors flex items-center justify-center gap-1"
+        >
+          <Plus className="h-3 w-3" /> إضافة مهمة
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1416,6 +1472,14 @@ export default function BoardViewClient({
   const [showSettings, setShowSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
+  // Toolbar state
+  const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS);
+  const [currentViewMode, setCurrentViewMode] = useState<ViewMode>('kanban');
+
+  // Quick-add inline state (per-column)
+  const [quickAddCol, setQuickAddCol] = useState<string | null>(null);
+  const [quickAddTitle, setQuickAddTitle] = useState('');
+
   // Add task dialog state
   const [showAddTask, setShowAddTask] = useState(false);
   const [addToColumn, setAddToColumn] = useState('');
@@ -1461,6 +1525,46 @@ export default function BoardViewClient({
   useEffect(() => {
     fetchBoard();
   }, [fetchBoard]);
+
+  // Set view mode from board config
+  useEffect(() => {
+    if (board?.view_mode === 'pipeline') setCurrentViewMode('pipeline');
+  }, [board?.view_mode]);
+
+  // ── Realtime subscription ──
+  useEffect(() => {
+    const supabase = createBrowserSupabaseClient();
+    const channel = supabase
+      .channel(`board-${boardId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pyra_tasks', filter: `board_id=eq.${boardId}` }, () => {
+        fetchBoard();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pyra_task_comments' }, () => {
+        // Refresh when comments change (no board_id filter available)
+        fetchBoard();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [boardId, fetchBoard]);
+
+  // ── Quick add task ──
+  const quickAddTask = async (columnId: string) => {
+    if (!quickAddTitle.trim()) { setQuickAddCol(null); return; }
+    try {
+      const res = await fetch(`/api/boards/${boardId}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: quickAddTitle.trim(), column_id: columnId }),
+      });
+      if (res.ok) {
+        toast.success('تم إضافة المهمة');
+        setQuickAddTitle('');
+        setQuickAddCol(null);
+        fetchBoard();
+      }
+    } catch { toast.error('فشل إضافة المهمة'); }
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const task = tasks.find((t) => t.id === event.active.id);
@@ -1643,64 +1747,60 @@ export default function BoardViewClient({
     (a, b) => a.position - b.position
   );
 
+  // Collect unique assignees for filter dropdown
+  const assigneeList = Array.from(new Set(tasks.flatMap(t => (t.pyra_task_assignees || []).map(a => a.username))));
+  const labelList = (board.pyra_board_labels as Array<{ id: string; name: string; color: string }>) || [];
+
+  // Apply filters
+  const filteredTasks = applyFilters(tasks, filters);
+
   return (
     <div className="p-6 space-y-4">
       {/* Board Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => router.push('/dashboard/boards')}
-          >
-            <ArrowRight className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{board.name}</h1>
-            {board.description && (
-              <p className="text-sm text-muted-foreground">
-                {board.description}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* View mode indicator */}
-          {board.is_pipeline && (
-            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 gap-1">
-              <GitBranch className="h-3.5 w-3.5" />
-              Pipeline
-            </Badge>
-          )}
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{tasks.length} مهمة</span>
-            <span>·</span>
-            <span>{columns.length} {board.is_pipeline ? 'مراحل' : 'أعمدة'}</span>
-          </div>
-          {/* Board Settings Button (admin only) */}
-          {hasPermission(session.pyraUser.rolePermissions, 'boards.manage') && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowSettings(true)}
-              title="إعدادات اللوحة"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/boards')}>
+          <ArrowRight className="h-5 w-5" />
+        </Button>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold truncate">{board.name}</h1>
+          {board.description && <p className="text-xs text-muted-foreground truncate">{board.description}</p>}
         </div>
       </div>
 
-      {/* ── Pipeline View ── */}
-      {board.view_mode === 'pipeline' ? (
+      {/* Toolbar */}
+      <BoardToolbar
+        taskCount={filteredTasks.length}
+        columnCount={columns.length}
+        isPipeline={board.is_pipeline || false}
+        viewMode={currentViewMode}
+        onViewModeChange={setCurrentViewMode}
+        filters={filters}
+        onFiltersChange={setFilters}
+        assigneeList={assigneeList}
+        labelList={labelList}
+        onSettingsClick={() => setShowSettings(true)}
+        canManage={hasPermission(session.pyraUser.rolePermissions, 'boards.manage')}
+      />
+
+      {/* ── Views ── */}
+      {currentViewMode === 'pipeline' ? (
         <PipelineView
           columns={columns}
-          tasks={tasks}
+          tasks={filteredTasks}
           onAddTask={canCreate ? openAddTask : () => {}}
           onTaskClick={(task) => setSelectedTask(task)}
         />
+      ) : currentViewMode === 'list' ? (
+        <BoardListView
+          tasks={filteredTasks}
+          columns={columns}
+          boardId={boardId}
+          onTaskClick={(task) => setSelectedTask(task)}
+          onUpdate={fetchBoard}
+          canEdit={canCreate}
+        />
       ) : (
-        /* ── Kanban Board — uses LTR direction for horizontal column layout ── */
+        /* ── Kanban Board ── */
         <DndContext
           sensors={sensors}
           collisionDetection={closestCorners}
@@ -1708,17 +1808,27 @@ export default function BoardViewClient({
           onDragEnd={handleDragEnd}
         >
           <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
-            {columns.map((col) => (
-              <DroppableColumn
-                key={col.id}
-                column={col}
-                tasks={tasks
-                  .filter((t) => t.column_id === col.id)
-                  .sort((a, b) => a.position - b.position)}
-                onAddTask={canCreate ? openAddTask : () => {}}
-                onTaskClick={(task) => setSelectedTask(task)}
-              />
-            ))}
+            {columns.map((col) => {
+              const colTasks = filteredTasks
+                .filter((t) => t.column_id === col.id)
+                .sort((a, b) => a.position - b.position);
+              return (
+                <DroppableColumn
+                  key={col.id}
+                  column={col}
+                  tasks={colTasks}
+                  onAddTask={canCreate ? openAddTask : () => {}}
+                  onTaskClick={(task) => setSelectedTask(task)}
+                  quickAddCol={quickAddCol}
+                  quickAddTitle={quickAddTitle}
+                  onQuickAddStart={(colId) => { setQuickAddCol(colId); setQuickAddTitle(''); }}
+                  onQuickAddChange={setQuickAddTitle}
+                  onQuickAddSubmit={quickAddTask}
+                  onQuickAddCancel={() => { setQuickAddCol(null); setQuickAddTitle(''); }}
+                  canCreate={canCreate}
+                />
+              );
+            })}
           </div>
 
           <DragOverlay>
