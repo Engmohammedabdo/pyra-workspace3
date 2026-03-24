@@ -362,11 +362,13 @@ function DroppableColumn({
 
 function TaskDetailDialog({
   task,
+  board,
   onClose,
   onUpdate,
   session,
 }: {
   task: Task;
+  board: Board | null;
   onClose: () => void;
   onUpdate: () => void;
   session: AuthSession;
@@ -398,6 +400,11 @@ function TaskDetailDialog({
   // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Pipeline actions
+  const [advancing, setAdvancing] = useState(false);
+  const [rejectNote, setRejectNote] = useState('');
+  const [showReject, setShowReject] = useState(false);
+
   const canManage = hasPermission(
     session.pyraUser.rolePermissions,
     'tasks.create'
@@ -428,6 +435,62 @@ function TaskDetailDialog({
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  // ── Pipeline: Advance/Approve/Reject ──
+  const pipelineCols = board?.is_pipeline
+    ? (board.pyra_board_columns || []).sort((a, b) => a.position - b.position)
+    : [];
+  const currentColIdx = pipelineCols.findIndex(c => c.id === (detail?.column_id || task.column_id));
+  const nextCol = currentColIdx >= 0 && currentColIdx < pipelineCols.length - 1
+    ? pipelineCols[currentColIdx + 1]
+    : null;
+  const isLastStage = currentColIdx === pipelineCols.length - 1;
+  const needsApproval = nextCol?.requires_approval || false;
+
+  const handleAdvance = async () => {
+    if (!board) return;
+    setAdvancing(true);
+    try {
+      const endpoint = needsApproval
+        ? `/api/boards/${board.id}/tasks/${task.id}/approve`
+        : `/api/boards/${board.id}/tasks/${task.id}/advance`;
+      const body = needsApproval ? { action: 'approve' } : {};
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'فشل في نقل المهمة');
+        return;
+      }
+      toast.success(needsApproval ? 'تمت الموافقة ونقل المهمة' : 'تم نقل المهمة للمرحلة التالية');
+      onUpdate();
+      onClose();
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setAdvancing(false);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!board) return;
+    setAdvancing(true);
+    try {
+      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', note: rejectNote }),
+      });
+      if (!res.ok) { toast.error('فشل في الرفض'); return; }
+      toast.success('تم رفض المهمة وإرجاعها');
+      onUpdate();
+      onClose();
+    } catch { toast.error('حدث خطأ'); }
+    finally { setAdvancing(false); }
+  };
 
   // ── Save title/description ──
   const saveBasicFields = async () => {
@@ -1035,6 +1098,62 @@ function TaskDetailDialog({
               </div>
             </div>
 
+            {/* ── Pipeline Actions ── */}
+            {board?.is_pipeline && nextCol && !isLastStage && canManage && (
+              <div className="pt-3 border-t">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                  <GitBranch className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                      المرحلة التالية: <strong>{nextCol.name}</strong>
+                      {needsApproval && ' (تتطلب موافقة)'}
+                    </p>
+                  </div>
+                  <div className="flex gap-1.5 shrink-0">
+                    {showReject ? (
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={rejectNote}
+                          onChange={e => setRejectNote(e.target.value)}
+                          placeholder="سبب الرفض..."
+                          className="h-8 text-xs w-32"
+                        />
+                        <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing} onClick={handleReject}>
+                          رفض
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowReject(false)}>
+                          إلغاء
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>
+                          رفض
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
+                          disabled={advancing}
+                          onClick={handleAdvance}
+                        >
+                          {advancing ? 'جاري...' : needsApproval ? 'موافقة ونقل' : 'نقل للتالي'}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Pipeline Complete Indicator ── */}
+            {board?.is_pipeline && isLastStage && (
+              <div className="pt-3 border-t">
+                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium">✅ هذه المهمة في المرحلة الأخيرة — مكتملة</p>
+                </div>
+              </div>
+            )}
+
             {/* ── Delete Section ── */}
             {canDelete && (
               <div className="pt-3 border-t">
@@ -1528,6 +1647,7 @@ export default function BoardViewClient({
       {selectedTask && (
         <TaskDetailDialog
           task={selectedTask}
+          board={board}
           onClose={() => setSelectedTask(null)}
           onUpdate={fetchBoard}
           session={session}

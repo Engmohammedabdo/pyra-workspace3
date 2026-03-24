@@ -1,0 +1,2 @@
+[   12653ms] [WARNING] Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}. @ https://workspace.pyramedia.cloud/_next/static/chunks/58989-55195b852028fc44.js:0
+[  391597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://workspace.pyramedia.cloud/api/notifications?limit=10:0

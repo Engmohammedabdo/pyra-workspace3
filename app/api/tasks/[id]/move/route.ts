@@ -13,7 +13,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('tasks.manage');
+  const auth = await requireApiPermission('tasks.create');
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
@@ -58,14 +58,50 @@ export async function POST(
     }
   }
 
+  // Calculate completion % for pipeline boards
+  let completionPct: number | undefined;
+  if (isCrossColumn) {
+    const { data: taskFull } = await supabase
+      .from('pyra_tasks')
+      .select('board_id')
+      .eq('id', id)
+      .single();
+    if (taskFull) {
+      const { data: board } = await supabase
+        .from('pyra_boards')
+        .select('is_pipeline')
+        .eq('id', taskFull.board_id)
+        .single();
+      if (board?.is_pipeline) {
+        const { data: allCols } = await supabase
+          .from('pyra_board_columns')
+          .select('id, position')
+          .eq('board_id', taskFull.board_id)
+          .order('position');
+        if (allCols) {
+          const colIdx = allCols.findIndex(c => c.id === column_id);
+          completionPct = Math.round(((colIdx + 1) / allCols.length) * 100);
+        }
+      }
+    }
+  }
+
   // Move the task
+  const updatePayload: Record<string, unknown> = {
+    column_id,
+    position: newPosition,
+    updated_at: new Date().toISOString(),
+  };
+  if (isCrossColumn) {
+    updatePayload.stage_entered_at = new Date().toISOString();
+  }
+  if (completionPct !== undefined) {
+    updatePayload.completion_percentage = completionPct;
+  }
+
   const { data, error } = await supabase
     .from('pyra_tasks')
-    .update({
-      column_id,
-      position: newPosition,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', id)
     .select()
     .single();
