@@ -27,10 +27,11 @@ export async function GET() {
     .from('pyra_tasks')
     .select(`
       *,
-      pyra_boards!inner(id, name, project_id, pyra_projects!left(id, name)),
-      pyra_board_columns!inner(id, name, color, is_done_column),
+      pyra_boards!inner(id, name, project_id, view_mode, is_pipeline, pyra_projects!left(id, name)),
+      pyra_board_columns!inner(id, name, color, position, is_done_column, requires_approval),
       pyra_task_labels(label_id, pyra_board_labels(id, name, color)),
-      pyra_task_checklist(id, title, is_checked)
+      pyra_task_checklist(id, title, is_checked),
+      pyra_task_assignees(id, username)
     `)
     .in('id', taskIds)
     .eq('is_archived', false)

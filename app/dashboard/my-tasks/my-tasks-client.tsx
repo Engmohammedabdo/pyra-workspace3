@@ -7,9 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import {
   CheckSquare, Search, Calendar, Briefcase, AlertCircle, Clock,
-  ArrowRight, CheckCircle, Circle
+  ArrowRight, CheckCircle, Circle, GitBranch, ChevronLeft, Loader2,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -132,6 +134,52 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
         </button>
       </div>
 
+      {/* Pipeline Progress (for pipeline boards) */}
+      {(() => {
+        const pipelineTasks = tasks.filter(t => t.pyra_boards?.is_pipeline);
+        if (pipelineTasks.length === 0) return null;
+        // Group by board
+        const boardMap = new Map<string, { name: string; projectName: string | null; tasks: typeof pipelineTasks }>();
+        pipelineTasks.forEach(t => {
+          const bId = t.board_id;
+          if (!boardMap.has(bId)) {
+            boardMap.set(bId, { name: t.pyra_boards?.name || '', projectName: t.pyra_boards?.pyra_projects?.name || null, tasks: [] });
+          }
+          boardMap.get(bId)!.tasks.push(t);
+        });
+        return (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <GitBranch className="h-4 w-4 text-emerald-500" />
+              تقدم الـ Pipeline
+            </h2>
+            {Array.from(boardMap.entries()).map(([bId, info]) => {
+              const completed = info.tasks.filter(t => t.completion_percentage >= 100 || t.pyra_board_columns?.is_done_column).length;
+              const pct = info.tasks.length > 0 ? Math.round((completed / info.tasks.length) * 100) : 0;
+              return (
+                <Link key={bId} href={`/dashboard/boards/${bId}`}>
+                  <Card className="hover:border-emerald-400/60 transition-colors cursor-pointer">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium">{info.name}</span>
+                          {info.projectName && <Badge variant="secondary" className="text-[10px]">{info.projectName}</Badge>}
+                        </div>
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{pct}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">{completed} من {info.tasks.length} مهام مكتملة</p>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        );
+      })()}
+
       {/* Task Sections */}
       {tasks.length === 0 ? (
         <EmptyState icon={CheckSquare} title="لا توجد مهام" description="لم يتم تعيين أي مهام لك بعد" />
@@ -188,6 +236,11 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
                           {columnName && (
                             <Badge variant="outline" className="text-[9px] h-4 px-1">
                               {columnName}
+                            </Badge>
+                          )}
+                          {task.pyra_boards?.is_pipeline && task.completion_percentage > 0 && (
+                            <Badge className="text-[9px] h-4 px-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+                              {task.completion_percentage}%
                             </Badge>
                           )}
                         </div>
