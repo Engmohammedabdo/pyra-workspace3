@@ -20,7 +20,7 @@ import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import {
   Users, Tag, CalendarDays, CalendarClock, Flag, Clock, Paperclip, Image,
-  FolderOpen, ArrowRightLeft, Archive, Trash2, Plus, Check, X, Send,
+  FolderOpen, ArrowRightLeft, Archive, Trash2, Plus, Check, X, Send, Copy,
   ChevronDown, Download, FileText, MessageSquare, History, CheckSquare,
   GripVertical, MoreHorizontal, Pencil, AlertTriangle, Loader2,
 } from 'lucide-react';
@@ -990,6 +990,29 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   ))}
                 </PopoverContent>
               </Popover>
+
+              {/* Copy/Duplicate */}
+              {canEdit && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch(`/api/tasks/${task.id}/duplicate`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({}),
+                      });
+                      if (res.ok) {
+                        toast.success('تم نسخ المهمة');
+                        onUpdate();
+                      } else toast.error('فشل نسخ المهمة');
+                    } catch { toast.error('فشل نسخ المهمة'); }
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
+                >
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                  <span>نسخ المهمة</span>
+                </button>
+              )}
 
               {/* Archive */}
               <button

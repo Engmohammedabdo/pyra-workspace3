@@ -85,6 +85,9 @@ interface Task {
   position: number;
   priority: string;
   due_date?: string;
+  task_number?: number;
+  board_id?: string;
+  created_at?: string;
   start_date?: string;
   estimated_hours?: number;
   actual_hours?: number;
@@ -199,7 +202,16 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   const labels = task.pyra_task_labels || [];
   const assignees = task.pyra_task_assignees || [];
   const comments = task.pyra_task_comments || [];
-  const isOverdue = task.due_date && new Date(task.due_date) < new Date();
+  const today = new Date().toISOString().split('T')[0];
+  const isOverdue = task.due_date && task.due_date < today;
+  const dueBadgeColor = (() => {
+    if (!task.due_date) return '';
+    const diff = Math.ceil((new Date(task.due_date).getTime() - Date.now()) / 86400000);
+    if (diff < 0) return 'bg-red-500/15 text-red-600 dark:text-red-400';
+    if (diff === 0) return 'bg-orange-500/15 text-orange-600 dark:text-orange-400';
+    if (diff <= 3) return 'bg-yellow-500/15 text-yellow-600 dark:text-yellow-400';
+    return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+  })();
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="group">
@@ -234,18 +246,19 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
             >
               <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
             </button>
-            <p className="text-sm font-medium flex-1 line-clamp-2">
-              {task.title}
-            </p>
+            <div className="flex-1 min-w-0">
+              {task.task_number && (
+                <span className="text-[10px] text-muted-foreground/50 font-mono">#{task.task_number}</span>
+              )}
+              <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+            </div>
           </div>
 
           {/* Meta row */}
           <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
             {task.due_date && (
               <span
-                className={`flex items-center gap-0.5 ${
-                  isOverdue ? 'text-red-500 font-medium' : ''
-                }`}
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md ${dueBadgeColor}`}
               >
                 <Calendar className="h-3 w-3" />
                 {new Date(task.due_date).toLocaleDateString('ar-EG', {

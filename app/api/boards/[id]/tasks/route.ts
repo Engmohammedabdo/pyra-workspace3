@@ -85,6 +85,15 @@ export async function POST(
     .limit(1)
     .single();
 
+  // Get next task_number for this board
+  const { data: maxNum } = await supabase
+    .from('pyra_tasks')
+    .select('task_number')
+    .eq('board_id', boardId)
+    .order('task_number', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .single();
+
   const { data, error } = await supabase
     .from('pyra_tasks')
     .insert({
@@ -98,6 +107,7 @@ export async function POST(
       start_date: start_date || null,
       estimated_hours: estimated_hours || null,
       position: (maxPos?.position ?? -1) + 1,
+      task_number: (maxNum?.task_number ?? 0) + 1,
       created_by: auth.pyraUser.username,
     })
     .select()

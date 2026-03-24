@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
-  Kanban, Plus, Briefcase, GitBranch, List, LayoutGrid,
+  Kanban, Plus, Briefcase, GitBranch, List, LayoutGrid, Star,
   Layout, FileText, Palette, Megaphone, Video, Share2,
 } from 'lucide-react';
 import { BOARD_TEMPLATES } from '@/lib/config/board-templates';
@@ -42,6 +42,7 @@ interface BoardsClientProps {
 
 export default function BoardsClient({ session }: BoardsClientProps) {
   const [boards, setBoards] = useState<Board[]>([]);
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
@@ -66,6 +67,29 @@ export default function BoardsClient({ session }: BoardsClientProps) {
   }, []);
 
   useEffect(() => { fetchBoards(); }, [fetchBoards]);
+
+  const toggleStar = async (boardId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/boards/${boardId}/star`, { method: 'POST' });
+      const json = await res.json();
+      if (json.data?.starred) {
+        setStarredIds(prev => new Set([...prev, boardId]));
+        toast.success('تم إضافة اللوحة للمفضلة');
+      } else {
+        setStarredIds(prev => { const n = new Set(prev); n.delete(boardId); return n; });
+        toast.success('تم إزالة اللوحة من المفضلة');
+      }
+    } catch { toast.error('فشل'); }
+  };
+
+  // Sort: starred first
+  const sortedBoards = [...boards].sort((a, b) => {
+    const aS = starredIds.has(a.id) ? 0 : 1;
+    const bS = starredIds.has(b.id) ? 0 : 1;
+    return aS - bS;
+  });
 
   const createBoard = async () => {
     if (!newName.trim()) return;
@@ -226,16 +250,21 @@ export default function BoardsClient({ session }: BoardsClientProps) {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {boards.map((board) => (
+          {sortedBoards.map((board) => (
             <Link key={board.id} href={`/dashboard/boards/${board.id}`}>
               <Card className="hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer h-full">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{board.name}</CardTitle>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <button onClick={(e) => toggleStar(board.id, e)} className="shrink-0">
+                        <Star className={`h-4 w-4 transition-colors ${starredIds.has(board.id) ? 'text-yellow-500 fill-yellow-500' : 'text-muted-foreground/30 hover:text-yellow-400'}`} />
+                      </button>
+                      <CardTitle className="text-base truncate">{board.name}</CardTitle>
+                    </div>
                     {board.is_pipeline ? (
-                      <GitBranch className="h-5 w-5 text-emerald-500" />
+                      <GitBranch className="h-5 w-5 text-emerald-500 shrink-0" />
                     ) : (
-                      <Kanban className="h-5 w-5 text-orange-500" />
+                      <Kanban className="h-5 w-5 text-orange-500 shrink-0" />
                     )}
                   </div>
                   {board.description && (

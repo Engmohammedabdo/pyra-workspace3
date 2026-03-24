@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils/cn';
 import {
-  Search, Filter, LayoutGrid, List, GitBranch, Users, Tag, Flag, CalendarClock, X,
+  Search, Filter, LayoutGrid, List, GitBranch, Users, Tag, Flag, CalendarClock, X, ArrowUpDown,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -16,16 +16,19 @@ import {
 
 export type ViewMode = 'kanban' | 'pipeline' | 'list';
 
+export type SortOption = 'position' | 'newest' | 'oldest' | 'priority' | 'due_date' | 'title';
+
 export interface BoardFilters {
   search: string;
   assignees: string[];
   labels: string[];
   priorities: string[];
   dueDateFilter: '' | 'overdue' | 'today' | 'week' | 'none';
+  sortBy: SortOption;
 }
 
 export const EMPTY_FILTERS: BoardFilters = {
-  search: '', assignees: [], labels: [], priorities: [], dueDateFilter: '',
+  search: '', assignees: [], labels: [], priorities: [], dueDateFilter: '', sortBy: 'position',
 };
 
 interface BoardToolbarProps {
@@ -70,9 +73,12 @@ const LABEL_DOT: Record<string, string> = {
 // Filter logic (exported for use in parent)
 // ═══════════════════════════════════════════════════════════
 
+const PRIORITY_SORT: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
 export function applyFilters<T extends {
-  id: string; title: string; priority: string; column_id: string;
-  due_date?: string; pyra_task_assignees?: { username: string }[];
+  id: string; title: string; priority: string; column_id: string; position: number;
+  due_date?: string; created_at?: string;
+  pyra_task_assignees?: { username: string }[];
   pyra_task_labels?: { label_id?: string }[];
 }>(
   tasks: T[],
@@ -81,7 +87,7 @@ export function applyFilters<T extends {
   const today = new Date().toISOString().split('T')[0];
   const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
-  return tasks.filter(t => {
+  const filtered = tasks.filter(t => {
     // Search
     if (filters.search && !t.title.toLowerCase().includes(filters.search.toLowerCase())) return false;
     // Assignee
@@ -103,6 +109,22 @@ export function applyFilters<T extends {
     if (filters.dueDateFilter === 'none' && t.due_date) return false;
     return true;
   });
+
+  // Sort
+  if (filters.sortBy && filters.sortBy !== 'position') {
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'newest': return (b.created_at || '').localeCompare(a.created_at || '');
+        case 'oldest': return (a.created_at || '').localeCompare(b.created_at || '');
+        case 'priority': return (PRIORITY_SORT[a.priority] ?? 2) - (PRIORITY_SORT[b.priority] ?? 2);
+        case 'due_date': return (a.due_date || '9999').localeCompare(b.due_date || '9999');
+        case 'title': return a.title.localeCompare(b.title, 'ar');
+        default: return 0;
+      }
+    });
+  }
+
+  return filtered;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -236,6 +258,34 @@ export function BoardToolbar({
             >
               <span className={d.color}>●</span>
               {d.label}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+
+      {/* Sort */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.sortBy !== 'position' && 'border-orange-400 bg-orange-500/5')}>
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            ترتيب
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-36 p-1">
+          {([
+            { key: 'position', label: 'الافتراضي' },
+            { key: 'newest', label: 'الأحدث' },
+            { key: 'oldest', label: 'الأقدم' },
+            { key: 'priority', label: 'الأولوية' },
+            { key: 'due_date', label: 'تاريخ التسليم' },
+            { key: 'title', label: 'الاسم' },
+          ] as const).map(s => (
+            <button
+              key={s.key}
+              onClick={() => updateFilter('sortBy', s.key)}
+              className={cn('w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted', filters.sortBy === s.key && 'bg-orange-500/10')}
+            >
+              {s.label}
             </button>
           ))}
         </PopoverContent>
