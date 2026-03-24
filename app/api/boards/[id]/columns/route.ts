@@ -72,3 +72,35 @@ export async function PATCH(
 
   return apiSuccess({ updated: true });
 }
+
+// =============================================================
+// DELETE /api/boards/[id]/columns?columnId=xxx
+// Delete a column (must be empty — no tasks)
+// =============================================================
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireApiPermission('boards.manage');
+  if (isApiError(auth)) return auth;
+
+  const columnId = req.nextUrl.searchParams.get('columnId');
+  if (!columnId) return apiValidationError('columnId مطلوب');
+
+  const supabase = await createServerSupabaseClient();
+
+  // Check if column has tasks
+  const { count } = await supabase
+    .from('pyra_tasks')
+    .select('id', { count: 'exact', head: true })
+    .eq('column_id', columnId)
+    .eq('is_archived', false);
+
+  if (count && count > 0) {
+    return apiValidationError(`لا يمكن حذف العمود — يحتوي على ${count} مهمة. انقل المهام أولاً.`);
+  }
+
+  const { error } = await supabase.from('pyra_board_columns').delete().eq('id', columnId);
+  if (error) return apiServerError(error.message);
+  return apiSuccess({ deleted: true });
+}

@@ -38,6 +38,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
@@ -60,6 +61,8 @@ import {
   FileText,
   Download,
   History,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -317,12 +320,20 @@ function DroppableColumn({
   onQuickAddCancel?: () => void;
   canCreate?: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.id });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.id });
+  const { attributes, listeners, setNodeRef: setSortRef, transform, transition } = useSortable({ id: `col-${column.id}` });
+  const style = { transform: CSS.Translate.toString(transform), transition };
+
+  const setNodeRef = (el: HTMLDivElement | null) => {
+    setDropRef(el);
+    setSortRef(el);
+  };
   const isQuickAdding = quickAddCol === column.id;
 
   return (
     <div
       ref={setNodeRef}
+      style={style}
       className={`flex-shrink-0 w-[300px] rounded-xl p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors ${
         isOver
           ? 'bg-orange-500/10 ring-2 ring-orange-500/30'
@@ -332,6 +343,9 @@ function DroppableColumn({
       {/* Column Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
+          <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground">
+            <GripVertical className="h-4 w-4" />
+          </button>
           <div
             className={`h-2.5 w-2.5 rounded-full ${
               COLUMN_COLORS[column.color] || COLUMN_COLORS.gray
@@ -1578,6 +1592,39 @@ export default function BoardViewClient({
     if (!over) return;
     if (active.id === over.id) return;
 
+    // ── Column reorder ──
+    const activeStr = active.id as string;
+    const overStr = over.id as string;
+    if (activeStr.startsWith('col-') && overStr.startsWith('col-')) {
+      const fromId = activeStr.replace('col-', '');
+      const toId = overStr.replace('col-', '');
+      const oldCols = (board?.pyra_board_columns || []).sort((a, b) => a.position - b.position);
+      const fromIdx = oldCols.findIndex(c => c.id === fromId);
+      const toIdx = oldCols.findIndex(c => c.id === toId);
+      if (fromIdx === -1 || toIdx === -1) return;
+      const newCols = [...oldCols];
+      const [moved] = newCols.splice(fromIdx, 1);
+      newCols.splice(toIdx, 0, moved);
+      // Optimistic update
+      if (board) {
+        setBoard({ ...board, pyra_board_columns: newCols.map((c, i) => ({ ...c, position: i })) });
+      }
+      // Save to API
+      const payload = newCols.map((c, i) => ({ id: c.id, position: i, name: c.name, color: c.color }));
+      try {
+        await fetch(`/api/boards/${boardId}/columns`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ columns: payload }),
+        });
+        toast.success('تم إعادة ترتيب الأعمدة');
+      } catch {
+        toast.error('فشل حفظ الترتيب');
+        fetchBoard();
+      }
+      return;
+    }
+
     const taskId = active.id as string;
     const task = tasks.find((t) => t.id === taskId);
     if (!task) return;
@@ -1807,6 +1854,7 @@ export default function BoardViewClient({
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
+          <SortableContext items={columns.map(c => `col-${c.id}`)} strategy={verticalListSortingStrategy}>
           <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
             {columns.map((col) => {
               const colTasks = filteredTasks
@@ -1830,6 +1878,7 @@ export default function BoardViewClient({
               );
             })}
           </div>
+          </SortableContext>
 
           <DragOverlay>
             {activeTask ? (
@@ -1955,14 +2004,16 @@ export default function BoardViewClient({
 
       {/* Board Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إعدادات اللوحة</DialogTitle>
           </DialogHeader>
           <BoardSettingsForm
             board={board}
+            boardId={boardId}
             saving={savingSettings}
             onSave={handleSaveSettings}
+            onUpdate={fetchBoard}
           />
         </DialogContent>
       </Dialog>
@@ -2120,106 +2171,192 @@ function PipelineView({
 /* ── Board Settings Form ── */
 function BoardSettingsForm({
   board,
+  boardId,
   saving,
   onSave,
+  onUpdate,
 }: {
   board: Board;
+  boardId: string;
   saving: boolean;
   onSave: (updates: Record<string, unknown>) => void;
+  onUpdate: () => void;
 }) {
+  // General
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
   const [viewMode, setViewMode] = useState(board.view_mode || 'kanban');
   const [isPipeline, setIsPipeline] = useState(board.is_pipeline || false);
   const [autoAdvance, setAutoAdvance] = useState(board.auto_advance || false);
 
-  const handleSubmit = () => {
+  // Columns
+  const [cols, setCols] = useState(
+    (board.pyra_board_columns || []).sort((a, b) => a.position - b.position).map(c => ({ ...c }))
+  );
+  const [newColName, setNewColName] = useState('');
+  const [newColColor, setNewColColor] = useState('gray');
+
+  // Labels
+  const [lbls, setLbls] = useState(board.pyra_board_labels || []);
+  const [newLblName, setNewLblName] = useState('');
+  const [newLblColor, setNewLblColor] = useState('blue');
+
+  const COL_COLORS = ['gray', 'blue', 'green', 'yellow', 'orange', 'red', 'purple', 'pink', 'indigo'];
+  const COLOR_DOT: Record<string, string> = {
+    gray: 'bg-gray-500', blue: 'bg-blue-500', green: 'bg-green-500', yellow: 'bg-yellow-500',
+    orange: 'bg-orange-500', red: 'bg-red-500', purple: 'bg-purple-500', pink: 'bg-pink-500', indigo: 'bg-indigo-500',
+  };
+
+  const handleSaveGeneral = () => {
     if (!name.trim()) return;
-    onSave({
-      name: name.trim(),
-      description: description.trim() || null,
-      view_mode: viewMode,
-      is_pipeline: isPipeline,
-      auto_advance: autoAdvance,
+    onSave({ name: name.trim(), description: description.trim() || null, view_mode: viewMode, is_pipeline: isPipeline, auto_advance: autoAdvance });
+  };
+
+  // Column CRUD
+  const addColumn = async () => {
+    if (!newColName.trim()) return;
+    const res = await fetch(`/api/boards/${boardId}/columns`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newColName.trim(), color: newColColor, position: cols.length }),
     });
+    if (res.ok) { toast.success('تم إضافة العمود'); setNewColName(''); onUpdate(); const { data } = await res.json(); setCols(prev => [...prev, data]); }
+    else toast.error('فشل إضافة العمود');
+  };
+
+  const saveColumns = async () => {
+    const payload = cols.map((c, i) => ({ id: c.id, position: i, name: c.name, color: c.color }));
+    const res = await fetch(`/api/boards/${boardId}/columns`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ columns: payload }),
+    });
+    if (res.ok) { toast.success('تم حفظ الأعمدة'); onUpdate(); }
+    else toast.error('فشل حفظ الأعمدة');
+  };
+
+  const deleteColumn = async (colId: string) => {
+    const res = await fetch(`/api/boards/${boardId}/columns?columnId=${colId}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (res.ok) { toast.success('تم حذف العمود'); setCols(prev => prev.filter(c => c.id !== colId)); onUpdate(); }
+    else toast.error(json.error || 'فشل حذف العمود');
+  };
+
+  const moveCol = (idx: number, dir: -1 | 1) => {
+    const next = [...cols];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setCols(next);
+  };
+
+  // Label CRUD
+  const addLabel = async () => {
+    if (!newLblName.trim()) return;
+    const res = await fetch(`/api/boards/${boardId}/labels`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newLblName.trim(), color: newLblColor }),
+    });
+    if (res.ok) { toast.success('تم إضافة التصنيف'); setNewLblName(''); const { data } = await res.json(); setLbls(prev => [...prev, data]); onUpdate(); }
+    else toast.error('فشل إضافة التصنيف');
+  };
+
+  const deleteLabel = async (labelId: string) => {
+    const res = await fetch(`/api/boards/${boardId}/labels?labelId=${labelId}`, { method: 'DELETE' });
+    if (res.ok) { toast.success('تم حذف التصنيف'); setLbls(prev => prev.filter(l => l.id !== labelId)); onUpdate(); }
+    else toast.error('فشل حذف التصنيف');
   };
 
   return (
-    <div className="space-y-4 mt-2">
-      {/* Name */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">اسم اللوحة</label>
-        <Input value={name} onChange={e => setName(e.target.value)} />
-      </div>
+    <Tabs defaultValue="general" className="mt-2">
+      <TabsList className="w-full">
+        <TabsTrigger value="general" className="flex-1 text-xs">عام</TabsTrigger>
+        <TabsTrigger value="columns" className="flex-1 text-xs">الأعمدة ({cols.length})</TabsTrigger>
+        <TabsTrigger value="labels" className="flex-1 text-xs">التصنيفات ({lbls.length})</TabsTrigger>
+      </TabsList>
 
-      {/* Description */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">الوصف</label>
-        <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف مختصر..." />
-      </div>
-
-      {/* View Mode */}
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">نوع العرض</label>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            onClick={() => { setViewMode('kanban'); setIsPipeline(false); }}
-            className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${
-              viewMode === 'kanban'
-                ? 'border-orange-500 bg-orange-500/10'
-                : 'border-border hover:border-orange-300'
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4 text-orange-500" />
-            <div>
-              <p className="text-sm font-medium">كانبان</p>
-              <p className="text-[10px] text-muted-foreground">أعمدة مرنة</p>
-            </div>
-          </button>
-          <button
-            onClick={() => { setViewMode('pipeline'); setIsPipeline(true); }}
-            className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${
-              viewMode === 'pipeline'
-                ? 'border-emerald-500 bg-emerald-500/10'
-                : 'border-border hover:border-emerald-300'
-            }`}
-          >
-            <GitBranch className="h-4 w-4 text-emerald-500" />
-            <div>
-              <p className="text-sm font-medium">Pipeline</p>
-              <p className="text-[10px] text-muted-foreground">مراحل تسلسلية</p>
-            </div>
-          </button>
+      {/* ── General ── */}
+      <TabsContent value="general" className="space-y-4 mt-3">
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">اسم اللوحة</label>
+          <Input value={name} onChange={e => setName(e.target.value)} />
         </div>
-      </div>
-
-      {/* Auto-advance (only for pipeline) */}
-      {isPipeline && (
-        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-          <div>
-            <p className="text-sm font-medium">انتقال تلقائي</p>
-            <p className="text-[10px] text-muted-foreground">المهمة تنتقل تلقائياً بعد الإكمال</p>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">الوصف</label>
+          <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف مختصر..." />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">نوع العرض</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => { setViewMode('kanban'); setIsPipeline(false); }} className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${viewMode === 'kanban' ? 'border-orange-500 bg-orange-500/10' : 'border-border hover:border-orange-300'}`}>
+              <LayoutGrid className="h-4 w-4 text-orange-500" /><div><p className="text-sm font-medium">كانبان</p></div>
+            </button>
+            <button onClick={() => { setViewMode('pipeline'); setIsPipeline(true); }} className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${viewMode === 'pipeline' ? 'border-emerald-500 bg-emerald-500/10' : 'border-border hover:border-emerald-300'}`}>
+              <GitBranch className="h-4 w-4 text-emerald-500" /><div><p className="text-sm font-medium">Pipeline</p></div>
+            </button>
           </div>
-          <button
-            onClick={() => setAutoAdvance(!autoAdvance)}
-            className={`w-10 h-5 rounded-full transition-colors relative ${
-              autoAdvance ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
-            }`}
-          >
-            <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${
-              autoAdvance ? 'start-5' : 'start-0.5'
-            }`} />
-          </button>
         </div>
-      )}
+        {isPipeline && (
+          <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+            <div><p className="text-sm font-medium">انتقال تلقائي</p><p className="text-[10px] text-muted-foreground">المهمة تنتقل تلقائياً بعد الإكمال</p></div>
+            <button onClick={() => setAutoAdvance(!autoAdvance)} className={`w-10 h-5 rounded-full transition-colors relative ${autoAdvance ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
+              <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${autoAdvance ? 'start-5' : 'start-0.5'}`} />
+            </button>
+          </div>
+        )}
+        <Button onClick={handleSaveGeneral} disabled={saving || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+          {saving ? 'جاري الحفظ...' : 'حفظ'}
+        </Button>
+      </TabsContent>
 
-      <Button
-        onClick={handleSubmit}
-        disabled={saving || !name.trim()}
-        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-      >
-        {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
-      </Button>
-    </div>
+      {/* ── Columns ── */}
+      <TabsContent value="columns" className="space-y-3 mt-3">
+        <div className="space-y-1.5">
+          {cols.map((col, idx) => (
+            <div key={col.id} className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/20">
+              <div className="flex flex-col gap-0.5">
+                <button onClick={() => moveCol(idx, -1)} disabled={idx === 0} className="text-muted-foreground hover:text-foreground disabled:opacity-20"><ChevronUp className="h-3 w-3" /></button>
+                <button onClick={() => moveCol(idx, 1)} disabled={idx === cols.length - 1} className="text-muted-foreground hover:text-foreground disabled:opacity-20"><ChevronDown className="h-3 w-3" /></button>
+              </div>
+              <div className={`w-3 h-3 rounded-full shrink-0 ${COLOR_DOT[col.color] || 'bg-gray-500'}`} />
+              <Input value={col.name} onChange={e => setCols(prev => prev.map((c, i) => i === idx ? { ...c, name: e.target.value } : c))} className="h-7 text-xs flex-1" />
+              <select value={col.color} onChange={e => setCols(prev => prev.map((c, i) => i === idx ? { ...c, color: e.target.value } : c))} className="h-7 text-[10px] bg-transparent border border-border rounded px-1">
+                {COL_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <button onClick={() => deleteColumn(col.id)} className="text-red-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+        </div>
+        {/* Add column */}
+        <div className="flex items-center gap-2">
+          <Input value={newColName} onChange={e => setNewColName(e.target.value)} placeholder="عمود جديد..." className="h-8 text-xs flex-1"
+            onKeyDown={e => { if (e.key === 'Enter') addColumn(); }} />
+          <select value={newColColor} onChange={e => setNewColColor(e.target.value)} className="h-8 text-[10px] bg-transparent border border-border rounded px-1">
+            {COL_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <Button size="sm" className="h-8 text-xs" onClick={addColumn}><Plus className="h-3 w-3 me-1" /> إضافة</Button>
+        </div>
+        <Button onClick={saveColumns} className="w-full bg-orange-500 hover:bg-orange-600 text-white text-xs">حفظ ترتيب الأعمدة</Button>
+      </TabsContent>
+
+      {/* ── Labels ── */}
+      <TabsContent value="labels" className="space-y-3 mt-3">
+        <div className="space-y-1.5">
+          {lbls.map(l => (
+            <div key={l.id} className="flex items-center gap-2 p-2 rounded-lg border border-border/50 bg-muted/20">
+              <div className={`w-4 h-4 rounded-sm shrink-0 ${COLOR_DOT[l.color] || 'bg-gray-500'}`} />
+              <span className="text-sm flex-1">{l.name}</span>
+              <button onClick={() => deleteLabel(l.id)} className="text-red-400 hover:text-red-500"><Trash2 className="h-3.5 w-3.5" /></button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <Input value={newLblName} onChange={e => setNewLblName(e.target.value)} placeholder="تصنيف جديد..." className="h-8 text-xs flex-1"
+            onKeyDown={e => { if (e.key === 'Enter') addLabel(); }} />
+          <select value={newLblColor} onChange={e => setNewLblColor(e.target.value)} className="h-8 text-[10px] bg-transparent border border-border rounded px-1">
+            {COL_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <Button size="sm" className="h-8 text-xs" onClick={addLabel}><Plus className="h-3 w-3 me-1" /> إضافة</Button>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }

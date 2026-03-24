@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { hasPermission } from '@/lib/auth/rbac';
+import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import {
@@ -392,16 +393,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     if (!file) return;
     setUploading(true);
     try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const sb = createBrowserSupabaseClient();
       const bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
       const storagePath = `tasks/${task.id}/${Date.now()}_${file.name}`;
-      const fileUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${storagePath}`;
-      // Upload
-      const form = new FormData();
-      form.append('', file);
-      await fetch(`${supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`, {
-        method: 'POST', body: form,
-      });
+      const { error: upErr } = await sb.storage.from(bucket).upload(storagePath, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = sb.storage.from(bucket).getPublicUrl(storagePath);
+      const fileUrl = urlData.publicUrl;
       // Record
       await fetch(`/api/boards/${board.id}/tasks/${task.id}/attachments`, {
         method: 'POST',

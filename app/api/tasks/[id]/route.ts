@@ -49,6 +49,42 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
+  const supabase = await createServerSupabaseClient();
+
+  // ── Label operations (handle before normal updates) ──
+  if (body._add_label) {
+    const labelId = body._add_label as string;
+    const { error: lErr } = await supabase.from('pyra_task_labels').insert({
+      task_id: id,
+      label_id: labelId,
+    });
+    if (lErr && !lErr.message.includes('duplicate')) return apiServerError(lErr.message);
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('tl'),
+      task_id: id,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'label_added',
+      details: JSON.stringify({ label_id: labelId }),
+    });
+    return apiSuccess({ label_added: labelId });
+  }
+
+  if (body._remove_label) {
+    const labelId = body._remove_label as string;
+    await supabase.from('pyra_task_labels').delete().eq('task_id', id).eq('label_id', labelId);
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('tl'),
+      task_id: id,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'label_removed',
+      details: JSON.stringify({ label_id: labelId }),
+    });
+    return apiSuccess({ label_removed: labelId });
+  }
+
+  // ── Normal field updates ──
   const allowed = [
     'title', 'description', 'column_id', 'position', 'priority',
     'due_date', 'start_date', 'estimated_hours', 'actual_hours',
@@ -61,7 +97,6 @@ export async function PATCH(
   }
   updates.updated_at = new Date().toISOString();
 
-  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from('pyra_tasks')
     .update(updates)

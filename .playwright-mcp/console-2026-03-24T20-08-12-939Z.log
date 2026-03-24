@@ -2,3 +2,4 @@
 [  391597ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://workspace.pyramedia.cloud/api/notifications?limit=10:0
 [ 1711545ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://workspace.pyramedia.cloud/api/notifications?limit=10:0
 [ 3391612ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://workspace.pyramedia.cloud/api/notifications?limit=10:0
+[ 4711601ms] [ERROR] Failed to load resource: net::ERR_CONNECTION_CLOSED @ https://workspace.pyramedia.cloud/api/notifications?limit=10:0
