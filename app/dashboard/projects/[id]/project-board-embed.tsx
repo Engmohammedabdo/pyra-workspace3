@@ -220,6 +220,21 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
 
   return (
     <div className="space-y-4">
+      {/* Progress Bar */}
+      {totalTasks > 0 && (
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-l from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+              style={{ width: `${Math.round((doneTasks / totalTasks) * 100)}%` }}
+            />
+          </div>
+          <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+            {Math.round((doneTasks / totalTasks) * 100)}%
+          </span>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

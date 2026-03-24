@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { generateId } from '@/lib/utils/id';
 
 // =============================================================
 // GET /api/tasks/[id]
@@ -69,6 +70,20 @@ export async function PATCH(
     .single();
 
   if (error) return apiServerError(error.message);
+
+  // Log task activity
+  const changedFields = Object.keys(updates).filter(k => k !== 'updated_at');
+  if (changedFields.length > 0) {
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('tl'),
+      task_id: id,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'updated',
+      details: JSON.stringify({ fields: changedFields }),
+    });
+  }
+
   return apiSuccess(data);
 }
 

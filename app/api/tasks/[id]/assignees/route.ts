@@ -83,6 +83,30 @@ export async function POST(
     details: { added: newUsernames },
   });
 
+  // Notify new assignees
+  const { data: taskInfo } = await supabase
+    .from('pyra_tasks')
+    .select('title, board_id')
+    .eq('id', id)
+    .single();
+
+  if (taskInfo) {
+    const notifs = newUsernames
+      .filter((u: string) => u !== auth.pyraUser.username)
+      .map((u: string) => ({
+        id: generateId('ntf'),
+        username: u,
+        type: 'task_assigned',
+        title: `تم تعيينك في مهمة: ${taskInfo.title}`,
+        message: `قام ${auth.pyraUser.display_name} بتعيينك في المهمة`,
+        link: `/dashboard/boards/${taskInfo.board_id}`,
+        is_read: false,
+      }));
+    if (notifs.length > 0) {
+      await supabase.from('pyra_notifications').insert(notifs);
+    }
+  }
+
   return apiSuccess({ added: newUsernames.length }, undefined, 201);
 }
 

@@ -30,6 +30,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
+  const [groupBy, setGroupBy] = useState<'date' | 'board' | 'priority' | 'project'>('date');
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -92,9 +93,30 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
             {overdueCount > 0 && <span className="text-red-500 ms-2">· {overdueCount} متأخرة</span>}
           </p>
         </div>
-        <div className="relative w-64">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث في المهام..." className="ps-10" />
+        <div className="flex items-center gap-2">
+          <div className="relative w-48">
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث في المهام..." className="ps-10 h-9" />
+          </div>
+          {/* Group by toggle */}
+          <div className="flex items-center border border-border rounded-lg overflow-hidden">
+            {([
+              { key: 'date', label: 'تاريخ' },
+              { key: 'board', label: 'لوحة' },
+              { key: 'priority', label: 'أولوية' },
+              { key: 'project', label: 'مشروع' },
+            ] as const).map(g => (
+              <button
+                key={g.key}
+                onClick={() => setGroupBy(g.key)}
+                className={`px-2.5 py-1.5 text-[11px] transition-colors ${
+                  groupBy === g.key ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : 'hover:bg-muted text-muted-foreground'
+                } ${g.key !== 'date' ? 'border-s border-border' : ''}`}
+              >
+                {g.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -183,13 +205,45 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
       {/* Task Sections */}
       {tasks.length === 0 ? (
         <EmptyState icon={CheckSquare} title="لا توجد مهام" description="لم يتم تعيين أي مهام لك بعد" />
-      ) : (
+      ) : groupBy === 'date' ? (
         <div className="space-y-6">
           <TaskSection title="متأخرة" icon={AlertCircle} color="text-red-500" tasks={categorized.overdue} />
           <TaskSection title="اليوم" icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} />
           <TaskSection title="هذا الأسبوع" icon={Clock} color="text-green-500" tasks={categorized.thisWeek} />
           <TaskSection title="قادمة" icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} />
           <TaskSection title="مكتملة" icon={CheckCircle} color="text-green-600" tasks={categorized.done} collapsed />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {(() => {
+            let filtered = tasks;
+            if (search.trim()) {
+              const q = search.toLowerCase();
+              filtered = filtered.filter((t: { title: string }) => t.title.toLowerCase().includes(q));
+            }
+            // Group tasks
+            const groups = new Map<string, { title: string; tasks: typeof filtered }>();
+            filtered.forEach(t => {
+              let key = '';
+              let title = '';
+              if (groupBy === 'board') {
+                key = t.board_id || 'unknown';
+                title = t.pyra_boards?.name || 'بدون لوحة';
+              } else if (groupBy === 'priority') {
+                key = t.priority || 'medium';
+                const labels: Record<string, string> = { urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض' };
+                title = labels[key] || key;
+              } else if (groupBy === 'project') {
+                key = t.pyra_boards?.pyra_projects?.name || 'no-project';
+                title = t.pyra_boards?.pyra_projects?.name || 'بدون مشروع';
+              }
+              if (!groups.has(key)) groups.set(key, { title, tasks: [] });
+              groups.get(key)!.tasks.push(t);
+            });
+            return Array.from(groups.entries()).map(([key, group]) => (
+              <TaskSection key={key} title={group.title} icon={CheckSquare} color="text-orange-500" tasks={group.tasks} />
+            ));
+          })()}
         </div>
       )}
     </div>

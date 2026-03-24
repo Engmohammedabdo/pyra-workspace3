@@ -613,6 +613,32 @@ export default function DashboardPage() {
               </div>
             )}
 
+            {/* My Tasks Widget */}
+            {data && (data.my_tasks_count ?? 0) > 0 && (
+              <Link href="/dashboard/my-tasks" className="block group">
+                <div className="relative overflow-hidden rounded-2xl border border-orange-300/40 dark:border-orange-800/40 bg-gradient-to-br from-orange-50/80 to-amber-50/30 dark:from-orange-950/30 dark:to-amber-950/10 p-4 hover:shadow-lg hover:shadow-orange-500/10 transition-all duration-200">
+                  <div className="absolute -end-4 -top-4 w-20 h-20 rounded-full bg-orange-400/10 blur-2xl" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shrink-0 shadow-md shadow-orange-500/15">
+                      <CheckSquare className="h-5 w-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold">مهامي</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground">{data.my_tasks_count} مهمة</span>
+                        {(data.my_tasks_overdue ?? 0) > 0 && (
+                          <Badge className="text-[9px] h-4 bg-red-500/10 text-red-600 dark:text-red-400 border-0">
+                            {data.my_tasks_overdue} متأخرة
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowLeft className="h-4 w-4 text-muted-foreground/40 group-hover:translate-x-[-4px] transition-transform" />
+                  </div>
+                </div>
+              </Link>
+            )}
+
             {/* Employee: Announcements */}
             {!isAdmin && data && (data.unread_announcements ?? 0) > 0 && (
               <Link href="/dashboard/announcements" className="block group">

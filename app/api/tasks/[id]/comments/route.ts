@@ -192,6 +192,37 @@ export async function POST(
     details: { content: trimmedContent.slice(0, 100), mentions: validMentions },
   });
 
+  // ── Notify ALL task assignees (not just mentioned) ──
+  const { data: taskAssignees } = await supabase
+    .from('pyra_task_assignees')
+    .select('username')
+    .eq('task_id', id);
+
+  if (taskAssignees) {
+    const { data: taskInfo } = await supabase
+      .from('pyra_tasks')
+      .select('title, board_id')
+      .eq('id', id)
+      .single();
+
+    const alreadyNotified = new Set([...mentionedUsernames, auth.pyraUser.username]);
+    const assigneeNotifs = taskAssignees
+      .filter(a => !alreadyNotified.has(a.username))
+      .map(a => ({
+        id: generateId('ntf'),
+        username: a.username,
+        type: 'task_comment',
+        title: `تعليق جديد على: ${taskInfo?.title || 'مهمة'}`,
+        message: `${auth.pyraUser.display_name}: ${trimmedContent.slice(0, 80)}`,
+        link: `/dashboard/boards/${taskInfo?.board_id || ''}`,
+        is_read: false,
+      }));
+
+    if (assigneeNotifs.length > 0) {
+      await supabase.from('pyra_notifications').insert(assigneeNotifs);
+    }
+  }
+
   return apiSuccess(data, undefined, 201);
 }
 
