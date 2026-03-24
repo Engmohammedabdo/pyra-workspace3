@@ -27,7 +27,8 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 | Email | Nodemailer SMTP (Arabic HTML templates) |
 | Kanban | @dnd-kit (drag-and-drop) |
 | Package Manager | pnpm |
-| Deployment | Vercel (auto-deploy on push to main) |
+| WhatsApp | Evolution API v2 (multi-instance per agent) |
+| Deployment | Coolify (Docker) — auto-deploy on push to main |
 
 ---
 
@@ -35,22 +36,23 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 
 ```
                     ┌──────────────────────────────────┐
-                    │           Vercel (Edge)           │
+                    │        Coolify (Docker)          │
                     │  ┌────────────┐  ┌────────────┐  │
                     │  │  Dashboard  │  │   Portal   │  │
-                    │  │  94 pages   │  │  21 pages  │  │
+                    │  │  98+ pages  │  │  22 pages  │  │
                     │  └──────┬──────┘  └─────┬──────┘  │
                     │         └───────┬───────┘         │
-                    │        290+ API Routes            │
+                    │        320+ API Routes            │
                     └─────────────┬──────────────────────┘
                                   │
               ┌───────────────────┼───────────────────┐
               │                   │                     │
      ┌────────▼────────┐  ┌──────▼──────┐  ┌──────────▼──────────┐
      │   Supabase DB   │  │   Storage   │  │   External APIs     │
-     │  100 tables     │  │  S3-compat  │  │  Stripe · SMTP ·    │
-     │  RLS enabled    │  │             │  │  n8n · Telegram Bot  │
-     └─────────────────┘  └─────────────┘  └─────────────────────┘
+     │  110+ tables    │  │  S3-compat  │  │  Stripe · SMTP ·    │
+     │  RLS enabled    │  │             │  │  Evolution API ·     │
+     └─────────────────┘  └─────────────┘  │  n8n · Telegram Bot  │
+                                           └─────────────────────┘
 ```
 
 ---
@@ -80,15 +82,24 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Org Chart** — Organizational hierarchy visualization
 
 #### Sales & CRM
+- **Sales Dashboard** — KPIs, WhatsApp analytics, pipeline overview
 - **Sales Pipeline** — Kanban-style lead management with custom stages
-- **Leads** — Lead tracking with scoring, source attribution, and conversion
+- **Leads** — Lead tracking with scoring, source attribution, conversion, WhatsApp tab
 - **Follow-ups** — Scheduled follow-up reminders with assignment
-- **WhatsApp Integration** — Instance management, message tracking, templates
+- **WhatsApp Integration** — Full WhatsApp Web replacement:
+  - Multi-instance management (one per agent via Evolution API v2)
+  - Real-time chat inbox with 650+ conversation sync
+  - Voice recording, drag-drop file upload, clipboard paste
+  - Contact sidebar with lead/client linking
+  - Agent scoping (non-admins see only their assigned conversations)
+  - Auto-assignment of new conversations to instance owner
+  - Quick actions bar: send quotes, create leads, schedule follow-ups from chat
+  - @lid format support for new WhatsApp Linked IDs
 - **Sales Reports** — Pipeline analytics and conversion tracking
 - **Quote Approvals** — Internal approval workflow for quotes
 
 #### Invoicing & Billing
-- **Invoices** — Full invoice builder, auto-numbering, status flow (draft → sent → paid → overdue), PDF generation
+- **Invoices** — Full invoice builder, auto-numbering, status flow (draft → sent → paid → overdue), PDF generation, display client name override (trade license name)
 - **Payments** — Manual recording + Stripe checkout integration with webhook handling
 - **Recurring Invoices** — Auto-generation of recurring invoices from contracts
 - **Credit Notes** — Credit note issuance against invoices with line items
@@ -139,10 +150,22 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Announcements** — Company-wide announcements with priority and targeting
 - **My Payslips** — Employee self-service payslip viewing
 
-#### Task Management
+#### Unified Task Pipeline
 - **Kanban Boards** — Full kanban with drag-and-drop, labels, checklists, comments, attachments
-- **My Tasks** — Personal task dashboard across all boards
-- **Content Pipeline** — Content production workflow management
+- **Pipeline View** — Sequential stage-based workflow with progress tracking and arrows
+- **View Mode Switcher** — Toggle between Kanban and Pipeline views per board
+- **Board Templates** — 6 built-in templates (General, Content, Design, Campaign, Video, Social Media) + custom admin-configurable templates
+- **Board Settings** — Admin panel for configuring view mode, pipeline toggle, auto-advance, column settings
+- **Stage Gates** — Configurable approval gates on columns (requires_approval, approval_role)
+- **Task Advance API** — Sequential stage advancement with completion percentage tracking
+- **Approve/Reject Flow** — Admin approves or rejects task advancement with notes and notifications
+- **Task File System** — File attachments per task with review/approve/reject workflow
+- **Stage History** — Full audit trail of task stage transitions with timing data
+- **Task Types** — Configurable task types per board (design, script, edit, etc.)
+- **Auto-advance** — Automatic task movement to next stage on completion
+- **Default Assignees** — Auto-assign users when tasks enter specific stages
+- **My Tasks** — Enhanced personal dashboard with pipeline progress bars, completion %, stage context
+- **Content Pipeline** — Legacy content production workflow (being replaced by unified pipeline)
 
 #### Knowledge Base
 - **Articles** — Searchable knowledge base with categories
@@ -170,7 +193,7 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 ### 2. Client Portal (`/portal`) — 21 pages
 
 - **Dashboard** — Welcome card, stats overview, recent activity, quick actions
-- **Projects** — Project list with status tabs, detail view with files + comments
+- **Projects** — Project list with status tabs, detail view with files + comments + pipeline progress tab
 - **Files** — All files across projects with preview, approve/request-revision workflow
 - **Quotes** — View quotes, electronic signature via canvas
 - **Invoices** — Invoice list, detail view, Stripe payment integration
@@ -195,7 +218,7 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **HSTS + Security Headers** — Strict transport security
 - **IDOR Protection** — Portal routes scoped to authenticated client
 - **Error Boundaries** — Arabic UI error pages
-- **RBAC Permission System** — 60+ granular permissions
+- **RBAC Permission System** — 79 granular permissions across 34 modules
 - **Session Management** — Cookie-based with SHA-256 hashed tokens
 
 ---
@@ -237,7 +260,7 @@ The system unifies HR and Finance with these key integrations:
 
 ## Database
 
-100 PostgreSQL tables with `pyra_` prefix in the public schema.
+110+ PostgreSQL tables with `pyra_` prefix in the public schema.
 
 ### Key Table Groups
 
@@ -247,14 +270,14 @@ The system unifies HR and Finance with these key integrations:
 | Clients | `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding` | CRM and portal |
 | Files | `pyra_file_index`, `pyra_file_versions`, `pyra_project_files`, `pyra_favorites`, `pyra_trash` | File management |
 | Projects | `pyra_projects`, `pyra_teams`, `pyra_team_members` | Project and team management |
-| Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_*` (6 tables) | Kanban boards |
+| Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_assignees`, `pyra_task_labels`, `pyra_task_checklist`, `pyra_task_comments`, `pyra_task_attachments`, `pyra_task_activity`, `pyra_task_stage_history`, `pyra_board_task_types`, `pyra_board_templates` | Unified Task Pipeline |
 | Finance | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_expenses`, `pyra_expense_categories`, `pyra_subscriptions`, `pyra_contracts`, `pyra_contract_milestones`, `pyra_cards`, `pyra_recurring_invoices`, `pyra_revenue_targets`, `pyra_stripe_payments` | Billing and finance |
 | Procurement | `pyra_suppliers`, `pyra_purchase_orders`, `pyra_purchase_order_items`, `pyra_credit_notes`, `pyra_credit_note_items` | Vendors and purchase orders |
 | Quotes | `pyra_quotes`, `pyra_quote_items` | Quotations |
 | HR | `pyra_attendance`, `pyra_leave_requests`, `pyra_leave_types`, `pyra_leave_balances_v2`, `pyra_work_schedules`, `pyra_timesheets`, `pyra_timesheet_periods` | Attendance and leave |
 | Payroll | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments`, `pyra_salary_history` | Payroll and compensation |
 | Evaluations | `pyra_evaluation_periods`, `pyra_evaluation_criteria`, `pyra_evaluations`, `pyra_evaluation_scores`, `pyra_kpi_targets` | Performance management |
-| Sales CRM | `pyra_sales_leads`, `pyra_sales_labels`, `pyra_pipeline_stages`, `pyra_sales_follow_ups`, `pyra_lead_activities`, `pyra_wa_instances`, `pyra_wa_messages`, `pyra_wa_templates` | Sales pipeline |
+| Sales CRM | `pyra_sales_leads`, `pyra_sales_labels`, `pyra_pipeline_stages`, `pyra_sales_follow_ups`, `pyra_lead_activities`, `pyra_whatsapp_instances`, `pyra_whatsapp_messages`, `pyra_whatsapp_conversations`, `pyra_whatsapp_assignments` | Sales pipeline + WhatsApp |
 | Automation | `pyra_automation_rules`, `pyra_automation_log`, `pyra_webhooks`, `pyra_webhook_deliveries`, `pyra_api_keys` | Workflows and integrations |
 | Content | `pyra_content_pipeline`, `pyra_pipeline_stages`, `pyra_kb_articles`, `pyra_kb_categories`, `pyra_script_reviews` | Content and knowledge |
 | System | `pyra_activity_log`, `pyra_notifications`, `pyra_client_notifications`, `pyra_login_attempts`, `pyra_announcements` | Audit and notifications |
@@ -295,6 +318,7 @@ components/
   portal/                     # Portal sidebar, topbar, mobile nav, branding
   clients/                    # Client notes, branding editor
   files/                      # File explorer, grid, list, preview, context menu, drop zone
+  sales/                      # WhatsApp chat, conversation list, message bubble, contact sidebar, assign dialog
   quotes/                     # QuoteBuilder, SignaturePad
   finance/                    # Finance charts, revenue reports
   projects/                   # Project components
@@ -317,6 +341,7 @@ lib/
   finance/                    # Finance alerts engine
   automation/                 # Workflow automation
   webhooks/                   # Webhook dispatcher
+  evolution/                  # Evolution API v2 client (WhatsApp)
 
 types/
   database.ts                 # TypeScript interfaces for all database tables
@@ -347,14 +372,15 @@ docs/                         # Technical documentation
 | `/api/leave/*` | 4 | Leave requests and approvals |
 | `/api/kb/*` | 4 | Knowledge base articles and categories |
 | `/api/shares/*` | 4 | Share links, public download |
-| `/api/boards/*` | 4 | Kanban board management |
+| `/api/boards/*` | 12 | Unified Task Pipeline (boards, tasks, advance, approve, attachments, templates) |
 | `/api/teams/*` | 3 | Team CRUD, member management |
 | `/api/notifications/*` | 3 | List, mark read, mark all |
 | `/api/settings/*` | 3 | Config get/update |
 | `/api/stripe/*` | 2 | Stripe checkout, webhooks |
 | `/api/timesheet/*` | 2 | Timesheet CRUD |
 | `/api/roles/*` | 2 | Role management |
-| **Total** | **290+** | |
+| `/api/dashboard/sales/*` | 15 | WhatsApp chat, instances, assignments, sync, webhook |
+| **Total** | **320+** | |
 
 ---
 
@@ -395,7 +421,11 @@ The system uses granular `module.action` permissions:
 | Overtime | `overtime.view`, `overtime.manage` |
 | Work Schedules | `work_schedules.view`, `work_schedules.manage` |
 | Employee Payments | `employee_payments.view`, `employee_payments.manage` |
+| Boards | `boards.view`, `boards.manage` |
+| Tasks | `tasks.view`, `tasks.create`, `tasks.manage` |
 | Content Pipeline | `content_pipeline.view`, `content_pipeline.manage` |
+| Sales WhatsApp | `sales_whatsapp.view`, `sales_whatsapp.send` |
+| Sales Pipeline | `sales_pipeline.view`, `sales_pipeline.manage` |
 | Directory | `directory.view`, `directory.manage` |
 | Announcements | `announcements.view`, `announcements.manage` |
 | Leave Types | `leave_types.view`, `leave_types.manage` |
@@ -448,6 +478,10 @@ SMTP_PORT=587
 SMTP_USER=<your-smtp-user>
 SMTP_PASS=<your-smtp-password>
 SMTP_FROM=noreply@yourdomain.com
+
+# Evolution API (WhatsApp)
+EVOLUTION_API_URL=https://your-evolution-api.com
+EVOLUTION_API_KEY=your-evolution-api-key
 ```
 
 ### Development
@@ -486,7 +520,10 @@ pnpm lint         # ESLint
 | 14 | Sales CRM (pipeline, leads, WhatsApp, follow-ups) | Done |
 | 15 | Finance v2 (credit notes, POs, suppliers, contracts) | Done |
 | 16 | HR-Finance Integration (payroll→expenses, commissions, P&L) | Done |
-| 17 | Docker & Deployment | Pending |
+| 17 | Sales CRM v2 — WhatsApp Web Replacement (7 phases) | Done |
+| 18 | Unified Task Pipeline (9 phases — Pipeline View, Stage Gates, Approval, File System) | Done |
+| 19 | Invoice/Quote PDF Template System + Display Client Name | Done |
+| 20 | Docker & Deployment (Coolify) | Done |
 
 ---
 
