@@ -181,6 +181,18 @@ export async function resolveUserScope(auth: ApiAuthResult): Promise<UserScope> 
     ];
   }
 
+  // 6. Boards where user is a direct member (pyra_board_members)
+  const { data: memberBoards } = await supabase
+    .from('pyra_board_members')
+    .select('board_id')
+    .eq('username', username);
+
+  if (memberBoards) {
+    allBoardIds = [
+      ...new Set([...allBoardIds, ...memberBoards.map((m) => m.board_id)]),
+    ];
+  }
+
   // Also include manual allowed_paths from pyra_users.permissions (legacy/manual overrides)
   const userPerms = (auth.pyraUser as unknown as Record<string, unknown>)
     .permissions as {

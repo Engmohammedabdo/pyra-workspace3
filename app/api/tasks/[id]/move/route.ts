@@ -17,7 +17,8 @@ export async function POST(
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
-  const { column_id, position } = await req.json();
+  const body = await req.json();
+  const { column_id, position, target_board_id } = body;
   if (!column_id) return apiValidationError('column_id is required');
 
   const supabase = await createServerSupabaseClient();
@@ -26,7 +27,7 @@ export async function POST(
   // Get the task's current column to know if it's a cross-column move
   const { data: currentTask, error: taskError } = await supabase
     .from('pyra_tasks')
-    .select('column_id, position')
+    .select('column_id, position, board_id')
     .eq('id', id)
     .single();
 
@@ -86,12 +87,20 @@ export async function POST(
     }
   }
 
+  // Cross-board move
+  const isCrossBoard = target_board_id && target_board_id !== currentTask.board_id;
+
   // Move the task
   const updatePayload: Record<string, unknown> = {
     column_id,
     position: newPosition,
     updated_at: new Date().toISOString(),
   };
+  if (isCrossBoard) {
+    updatePayload.board_id = target_board_id;
+    // Remove board-specific labels when moving cross-board
+    await supabase.from('pyra_task_labels').delete().eq('task_id', id);
+  }
   if (isCrossColumn) {
     updatePayload.stage_entered_at = new Date().toISOString();
   }

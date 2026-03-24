@@ -557,24 +557,39 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               <div className="space-y-1">
                 <label className="text-xs font-medium text-muted-foreground">الوصف</label>
                 {editingDesc ? (
-                  <Textarea
-                    autoFocus
-                    value={editDesc}
-                    onChange={e => setEditDesc(e.target.value)}
-                    onBlur={saveDescription}
-                    rows={4}
-                    className="text-sm"
-                    placeholder="أضف وصف للمهمة..."
-                  />
+                  <div className="space-y-1">
+                    <Textarea
+                      autoFocus
+                      value={editDesc}
+                      onChange={e => setEditDesc(e.target.value)}
+                      onBlur={saveDescription}
+                      rows={5}
+                      className="text-sm font-mono"
+                      placeholder="أضف وصف... يدعم **عريض** و *مائل* و - قوائم"
+                    />
+                    <p className="text-[9px] text-muted-foreground/50">**عريض** · *مائل* · - قائمة · [رابط](url)</p>
+                  </div>
                 ) : (
                   <div
                     className={cn(
-                      'text-sm min-h-[60px] p-3 rounded-lg border border-dashed border-border/50 cursor-pointer hover:border-orange-300 transition-colors whitespace-pre-wrap',
+                      'text-sm min-h-[60px] p-3 rounded-lg border border-dashed border-border/50 cursor-pointer hover:border-orange-300 transition-colors',
                       !task.description && 'text-muted-foreground/40 italic'
                     )}
                     onClick={() => canEdit && setEditingDesc(true)}
                   >
-                    {task.description || 'اضغط لإضافة وصف...'}
+                    {task.description ? (
+                      <div
+                        className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{
+                          __html: task.description
+                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                            .replace(/^- (.+)$/gm, '<li>$1</li>')
+                            .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
+                            .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" class="text-orange-500 underline">$1</a>')
+                        }}
+                      />
+                    ) : 'اضغط لإضافة وصف...'}
                   </div>
                 )}
               </div>
@@ -991,6 +1006,23 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 </PopoverContent>
               </Popover>
 
+              {/* Move to another board */}
+              {canEdit && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <SidebarBtn icon={FolderOpen} label="نقل إلى لوحة أخرى" />
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-2">
+                    <p className="text-[10px] text-muted-foreground mb-2">اختر اللوحة والقائمة</p>
+                    <MoveToBoardPicker
+                      currentBoardId={board.id}
+                      taskId={task.id}
+                      onMoved={() => { onUpdate(); onClose(); toast.success('تم نقل المهمة'); }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+
               {/* Copy/Duplicate */}
               {canEdit && (
                 <button
@@ -1099,5 +1131,67 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue }: {
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/* ── Move to Board Picker ── */
+function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
+  currentBoardId: string; taskId: string; onMoved: () => void;
+}) {
+  const [boards, setBoards] = useState<Array<{ id: string; name: string; pyra_board_columns?: Array<{ id: string; name: string }> }>>([]);
+  const [selectedBoard, setSelectedBoard] = useState('');
+  const [selectedCol, setSelectedCol] = useState('');
+  const [moving, setMoving] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/boards').then(r => r.json()).then(j => {
+      const allBoards = (j.data || []).filter((b: { id: string }) => b.id !== currentBoardId);
+      setBoards(allBoards);
+    }).catch(() => {});
+  }, [currentBoardId]);
+
+  const selectedBoardCols = boards.find(b => b.id === selectedBoard)?.pyra_board_columns || [];
+
+  const handleMove = async () => {
+    if (!selectedBoard || !selectedCol) return;
+    setMoving(true);
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ column_id: selectedCol, target_board_id: selectedBoard, position: 0 }),
+      });
+      if (res.ok) onMoved();
+      else toast.error('فشل نقل المهمة');
+    } catch { toast.error('فشل'); }
+    finally { setMoving(false); }
+  };
+
+  return (
+    <div className="space-y-2">
+      <select
+        value={selectedBoard}
+        onChange={e => { setSelectedBoard(e.target.value); setSelectedCol(''); }}
+        className="w-full h-8 text-xs bg-transparent border border-border rounded px-2"
+      >
+        <option value="">اختر لوحة...</option>
+        {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+      </select>
+      {selectedBoard && (
+        <select
+          value={selectedCol}
+          onChange={e => setSelectedCol(e.target.value)}
+          className="w-full h-8 text-xs bg-transparent border border-border rounded px-2"
+        >
+          <option value="">اختر قائمة...</option>
+          {selectedBoardCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      )}
+      {selectedCol && (
+        <Button size="sm" className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white" disabled={moving} onClick={handleMove}>
+          {moving ? 'جاري النقل...' : 'نقل'}
+        </Button>
+      )}
+    </div>
   );
 }
