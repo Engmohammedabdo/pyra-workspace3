@@ -1,11 +1,11 @@
 'use client';
 
 import jsPDF from 'jspdf';
-import { registerArabicFont } from './pdf-fonts';
+import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
 
 // ============================================================
-// Invoice PDF Generator — Matches quote-pdf.ts style
-// Uses jsPDF to generate professional invoice PDFs
+// Invoice PDF Generator — Unified design with quote-pdf.ts
+// Same pixel-accurate layout as the approved reference design.
 // ============================================================
 
 interface InvoiceItem {
@@ -76,508 +76,662 @@ interface InvoiceData {
   } | null;
 }
 
-const ORANGE = '#f97316';
-const DARK = '#18181b';
-const GRAY = '#71717a';
-const LIGHT_GRAY = '#f4f4f5';
-const GREEN = '#16a34a';
+/* ── Design tokens (matching quote-pdf.ts) ── */
+const C = {
+  orange: [249, 115, 22] as [number, number, number],
+  dark: [24, 24, 27] as [number, number, number],
+  gray: [113, 113, 122] as [number, number, number],
+  lightGray: [160, 160, 165] as [number, number, number],
+  border: [200, 200, 200] as [number, number, number],
+  lightBg: [245, 245, 245] as [number, number, number],
+  white: [255, 255, 255] as [number, number, number],
+  green: [22, 163, 74] as [number, number, number],
+  red: [220, 38, 38] as [number, number, number],
+};
+const PW = 210;          // A4 width
+const PH = 297;          // A4 height
+const M = 15;            // margin
+const CW = PW - M * 2;  // content width = 180mm
 
-function formatCurrency(amount: number, currency: string): string {
+/* ── Helpers ── */
+function fmtNum(n: number): string {
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function fmtCurrency(amount: number, currency: string): string {
   return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-function formatDate(dateStr: string): string {
-  try {
-    return new Date(dateStr).toLocaleDateString('en-GB', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
+function fmtDate(s: string): string {
+  try { const d = new Date(s); return `${d.getDate()}-${d.getMonth() + 1}-${d.getFullYear()}`; }
+  catch { return s; }
+}
+
+/** Draw a dotted line (reference style) */
+function dottedLine(doc: jsPDF, x1: number, y: number, x2: number) {
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.15);
+  for (let x = x1; x < x2; x += 1.8) {
+    doc.line(x, y, Math.min(x + 0.8, x2), y);
   }
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  sent: 'Sent',
-  paid: 'Paid',
-  partially_paid: 'Partially Paid',
-  overdue: 'Overdue',
-  cancelled: 'Cancelled',
-};
-
-const MILESTONE_LABELS: Record<string, string> = {
-  booking_deposit: 'Booking Deposit',
-  initial_delivery: 'Initial Delivery',
-  final_delivery: 'Final Delivery',
+  draft: 'Draft', sent: 'Sent', paid: 'Paid',
+  partially_paid: 'Partially Paid', overdue: 'Overdue', cancelled: 'Cancelled',
 };
 
 const METHOD_LABELS: Record<string, string> = {
-  bank_transfer: 'Bank Transfer',
-  cash: 'Cash',
-  cheque: 'Cheque',
-  credit_card: 'Credit Card',
-  online: 'Online',
-  other: 'Other',
+  bank_transfer: 'Bank Transfer', cash: 'Cash', cheque: 'Cheque',
+  credit_card: 'Credit Card', online: 'Online', other: 'Other',
 };
 
-/**
- * Generate and download a PDF for an invoice.
- * Follows the same design language as generateQuotePDF.
- */
+/* ── Fixed Terms (same as quote-pdf.ts) ── */
+const TERMS: Record<string, string[]> = {
+  Payment: [
+    '- Projects below AED 5,000 require 100% advance payment.',
+    '- Projects above AED 5,000 require 50% advance payment, with the balance payable upon final delivery before release of assets.',
+  ],
+  'Scope & Revisions': [
+    '- This quotation is based on the agreed scope.',
+    '- Any changes outside scope will be charged additionally.',
+    '- Includes up to 2 revision rounds unless stated otherwise.',
+  ],
+  Validity: ['- This quotation is valid for 7 days from the issue date.'],
+  Delivery: [
+    '- Timelines start after advance payment and final brief approval.',
+    '- Client delays may affect delivery schedules.',
+  ],
+  Cancellation: [
+    '- Cancellation within 24 hours: 100% charge.',
+    '- Cancellation within 48 hours: 75% charge.',
+    '- Completed work is fully chargeable.',
+  ],
+  Overtime: ['- Overtime is charged at AED 500/hour unless agreed otherwise.'],
+  'Intellectual Property': [
+    '- All materials remain the service provider\'s property until full payment.',
+    '- Usage rights are granted upon full payment for the agreed purpose only.',
+  ],
+  Liability: ['- Liability is limited to the total value of this quotation.'],
+  'Governing Law': ['- UAE law applies. Jurisdiction: DIFC Courts.'],
+  Acceptance: ['- Advance payment or written confirmation confirms full acceptance of these terms.'],
+};
+
+const FOOTER = { phone: '+971 565799505', social: 'PYRAMEDIA.DXB', web: 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI' };
+
+// ============================================================
 export async function generateInvoicePDF(invoice: InvoiceData) {
-  const doc = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
-  });
-
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await registerArabicFont(doc);
-  const arText = (t: string) => doc.processArabic(t);
+  const ar = (t: string) => doc.processArabic(t);
+  let y = 0;
 
-  const pageWidth = 210;
-  const margin = 20;
-  const contentWidth = pageWidth - margin * 2;
-  let y = margin;
+  // ── Load logo ──
+  let logo: string | null = null;
+  try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ }
 
-  // ── Header bar ──
-  doc.setFillColor(249, 115, 22); // Orange
-  doc.rect(0, 0, pageWidth, 35, 'F');
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  HEADER — Logo (left) | Client Info (right)             ║
+  // ╚══════════════════════════════════════════════════════════╝
+  y = 10;
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(22);
-  doc.setFont('Amiri', 'bold');
-  doc.text(arText(invoice.company_name || 'Pyra Workspace'), pageWidth / 2, 18, { align: 'center' });
-
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text('INVOICE', pageWidth / 2, 28, { align: 'center' });
-
-  y = 45;
-
-  // ── Invoice Info ──
-  doc.setTextColor(24, 24, 27);
-  doc.setFontSize(10);
-
-  // Left side: Invoice details
-  doc.setFont('helvetica', 'bold');
-  doc.text('Invoice No:', margin, y);
-  doc.setFont('helvetica', 'normal');
-  doc.text(invoice.invoice_number, margin + 30, y);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Issue Date:', margin, y + 6);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(invoice.issue_date), margin + 30, y + 6);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Due Date:', margin, y + 12);
-  doc.setFont('helvetica', 'normal');
-  doc.text(formatDate(invoice.due_date), margin + 30, y + 12);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Status:', margin, y + 18);
-  doc.setFont('helvetica', 'normal');
-  doc.text(STATUS_LABELS[invoice.status] || invoice.status, margin + 30, y + 18);
-
-  if (invoice.milestone_type) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('Milestone:', margin, y + 24);
-    doc.setFont('helvetica', 'normal');
-    doc.text(MILESTONE_LABELS[invoice.milestone_type] || invoice.milestone_type, margin + 30, y + 24);
+  // Logo
+  const logoW = 52;
+  const logoH = 26;
+  if (logo) {
+    try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
   }
-
-  if (invoice.quote_id) {
-    const extraY = invoice.milestone_type ? 30 : 24;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Ref Quote:', margin, y + extraY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(invoice.quote_id, margin + 30, y + extraY);
-  }
-
-  // Right side: Client details
-  const rightCol = pageWidth - margin;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Bill To:', rightCol, y, { align: 'right' });
-  doc.setFont('helvetica', 'normal');
-
-  let clientY = y + 6;
-  const pdfClientName = invoice.display_client_name || invoice.client_name;
-  if (pdfClientName) {
-    doc.setTextColor(24, 24, 27);
-    doc.setFont('Amiri', 'normal'); doc.text(arText(pdfClientName), rightCol, clientY, { align: 'right' });
-    clientY += 6;
-  }
-  if (invoice.client_company) {
-    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_company), rightCol, clientY, { align: 'right' });
-    clientY += 6;
-  }
-  if (invoice.client_email) {
-    doc.setTextColor(113, 113, 122);
-    doc.text(invoice.client_email, rightCol, clientY, { align: 'right' });
-    clientY += 5;
-  }
-  if (invoice.client_phone) {
-    doc.text(invoice.client_phone, rightCol, clientY, { align: 'right' });
-    clientY += 5;
-  }
-  if (invoice.client_address) {
-    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_address), rightCol, clientY, { align: 'right' });
-  }
-
-  y += 38;
-
-  // ── Project name ──
-  if (invoice.project_name) {
-    doc.setTextColor(24, 24, 27);
-    doc.setFontSize(11);
+  if (!logo) {
     doc.setFont('Amiri', 'bold');
-    doc.text(`Project: ${arText(invoice.project_name)}`, margin, y);
-    y += 10;
+    doc.setFontSize(20);
+    doc.setTextColor(...C.orange);
+    doc.text(invoice.company_name || 'PYRAMEDIA X', M, y + 14);
   }
 
-  // ── Items Table ──
-  // Table header
-  doc.setFillColor(244, 244, 245);
-  doc.rect(margin, y, contentWidth, 8, 'F');
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(24, 24, 27);
+  // Client info — right side, 3 rows with labels + dotted underlines
+  const infoX = M + 68;
+  const midCol = M + 128;
+  const endLine = PW - M;
 
-  const col1 = margin + 2;         // #
-  const col2 = margin + 12;        // Description
-  const col3 = margin + contentWidth - 60; // Qty
-  const col4 = margin + contentWidth - 40; // Rate
-  const col5 = margin + contentWidth - 2;  // Amount
+  doc.setFontSize(8.5);
 
-  doc.text('#', col1, y + 5.5);
-  doc.text('Description', col2, y + 5.5);
-  doc.text('Qty', col3, y + 5.5);
-  doc.text('Rate', col4, y + 5.5);
-  doc.text('Amount', col5, y + 5.5, { align: 'right' });
+  // Row 1: Client: _____ | Email: _____ | Address: _____
+  let ry = y + 6;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Client:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  const pdfClientName = invoice.display_client_name || invoice.client_company || invoice.client_name || '---';
+  doc.text(pdfClientName.slice(0, 22), infoX + 14, ry);
+  dottedLine(doc, infoX + 14, ry + 1.5, midCol - 3);
 
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Email:', midCol, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((invoice.client_email || '---').slice(0, 24), midCol + 13, ry);
+  dottedLine(doc, midCol + 13, ry + 1.5, endLine);
+
+  // Row 2: Contact: _____ | Phone: _____
+  ry += 9;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Contact:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((invoice.client_name || '---').slice(0, 20), infoX + 17, ry);
+  dottedLine(doc, infoX + 17, ry + 1.5, midCol - 3);
+
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Phone:', midCol, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((invoice.client_phone || '---').slice(0, 20), midCol + 13, ry);
+  dottedLine(doc, midCol + 13, ry + 1.5, endLine);
+
+  // Row 3: Address: _____
+  ry += 9;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...C.dark);
+  doc.text('Address:', infoX, ry);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(...C.gray);
+  doc.text((invoice.client_address || '---').slice(0, 50), infoX + 17, ry);
+  dottedLine(doc, infoX + 17, ry + 1.5, endLine);
+
+  y = Math.max(y + logoH + 4, ry + 6);
+
+  // ── THICK ORANGE SEPARATOR ──
+  doc.setDrawColor(...C.orange);
+  doc.setLineWidth(1.8);
+  doc.line(M, y, PW - M, y);
   y += 8;
 
-  // Table rows
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  INVOICE DETAILS — 4-column grid                        ║
+  // ╚══════════════════════════════════════════════════════════╝
+  const gw = CW / 4;
+  const gLabels = ['Invoice', 'Issue Date', 'Due Date', 'Project Name'];
+  const gValues = [
+    invoice.invoice_number,
+    fmtDate(invoice.issue_date),
+    fmtDate(invoice.due_date),
+    invoice.project_name || '---',
+  ];
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...C.dark);
+  for (let i = 0; i < 4; i++) doc.text(gLabels[i], M + i * gw, y);
+
+  y += 1.5;
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.15);
+  doc.line(M, y, PW - M, y);
+  y += 4.5;
+
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
-
-  invoice.items.forEach((item, index) => {
-    if (y > 260) {
-      doc.addPage();
-      y = margin;
-    }
-
-    const rowY = y + 5;
-
-    if (index % 2 === 0) {
-      doc.setFillColor(250, 250, 250);
-      doc.rect(margin, y, contentWidth, 8, 'F');
-    }
-
-    doc.setTextColor(24, 24, 27);
-    doc.text(String(index + 1), col1, rowY);
-    const desc = item.description.length > 50 ? item.description.slice(0, 50) + '...' : item.description;
-    doc.setFont('Amiri', 'normal');
-    doc.text(arText(desc), col2, rowY);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(item.quantity), col3, rowY);
-    doc.text(item.rate.toFixed(2), col4, rowY);
-    doc.text(item.amount.toFixed(2), col5, rowY, { align: 'right' });
-
-    y += 8;
-  });
-
-  y += 4;
-
-  // ── Totals ──
-  const totalsX = margin + contentWidth - 70;
-  const totalsValueX = margin + contentWidth - 2;
-
-  // Subtotal
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(113, 113, 122);
-  doc.text('Subtotal:', totalsX, y);
-  doc.setTextColor(24, 24, 27);
-  doc.text(formatCurrency(invoice.subtotal, invoice.currency), totalsValueX, y, { align: 'right' });
-  y += 6;
-
-  // Discount (if any)
-  if (invoice.discount_amount && invoice.discount_amount > 0) {
-    doc.setTextColor(220, 38, 38); // Red
-    const discountLabel = invoice.discount_type === 'percentage'
-      ? `Discount (${invoice.discount_value || 0}%):`
-      : 'Discount:';
-    doc.text(discountLabel, totalsX, y);
-    doc.text(`- ${formatCurrency(invoice.discount_amount, invoice.currency)}`, totalsValueX, y, { align: 'right' });
-    y += 6;
-  }
-
-  // Tax
-  doc.setTextColor(113, 113, 122);
-  doc.text(`Tax (${invoice.tax_rate}%):`, totalsX, y);
-  doc.setTextColor(24, 24, 27);
-  doc.text(formatCurrency(invoice.tax_amount, invoice.currency), totalsValueX, y, { align: 'right' });
-  y += 8;
-
-  // Total
-  doc.setFillColor(249, 115, 22);
-  doc.rect(totalsX - 5, y - 4.5, contentWidth - (totalsX - margin) + 7, 10, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(255, 255, 255);
-  doc.text('TOTAL:', totalsX, y + 2);
-  doc.text(formatCurrency(invoice.total, invoice.currency), totalsValueX, y + 2, { align: 'right' });
-
-  y += 14;
-
-  // ── Payment Summary (if partially/fully paid) ──
-  if (invoice.amount_paid > 0) {
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-
-    // Amount Paid
-    doc.setTextColor(22, 163, 74); // GREEN
-    doc.text('Amount Paid:', totalsX, y);
-    doc.text(`- ${formatCurrency(invoice.amount_paid, invoice.currency)}`, totalsValueX, y, { align: 'right' });
-    y += 6;
-
-    // Amount Due
-    if (invoice.amount_due > 0) {
-      doc.setFillColor(254, 242, 242);
-      doc.rect(totalsX - 5, y - 4, contentWidth - (totalsX - margin) + 7, 9, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(220, 38, 38);
-      doc.text('BALANCE DUE:', totalsX, y + 2);
-      doc.text(formatCurrency(invoice.amount_due, invoice.currency), totalsValueX, y + 2, { align: 'right' });
+  doc.setTextColor(...C.gray);
+  for (let i = 0; i < 4; i++) {
+    if (i === 3 && invoice.project_name) {
+      doc.setFont('Amiri', 'normal');
+      doc.text(ar(invoice.project_name).slice(0, 30), M + i * gw, y);
+      doc.setFont('helvetica', 'normal');
     } else {
-      doc.setFillColor(220, 252, 231);
-      doc.rect(totalsX - 5, y - 4, contentWidth - (totalsX - margin) + 7, 9, 'F');
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(22, 163, 74);
-      doc.text('PAID IN FULL', totalsX, y + 2);
+      doc.text(gValues[i], M + i * gw, y);
     }
-    y += 14;
-  } else {
-    y += 4;
   }
 
-  // ── Payment History ──
-  if (invoice.payments && invoice.payments.length > 0) {
-    if (y > 230) { doc.addPage(); y = margin; }
+  // Status badge (right-aligned)
+  const statusText = STATUS_LABELS[invoice.status] || invoice.status;
+  const isPaid = invoice.status === 'paid';
+  const isOverdue = invoice.status === 'overdue';
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(...(isPaid ? C.green : isOverdue ? C.red : C.gray));
+  doc.text(statusText.toUpperCase(), PW - M, y, { align: 'right' });
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text('Payment History', margin, y);
-    y += 7;
+  y += 8;
 
-    // Payment table header
-    doc.setFillColor(244, 244, 245);
-    doc.rect(margin, y, contentWidth, 7, 'F');
+  // ── Thin orange line under details ──
+  doc.setDrawColor(...C.orange);
+  doc.setLineWidth(0.6);
+  doc.line(M, y, PW - M, y);
+  y += 8;
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  ITEMS TABLE                                             ║
+  // ╚══════════════════════════════════════════════════════════╝
+  const colDesc = M;
+  const colQty = M + CW - 60;
+  const colRate = M + CW - 40;
+  const colAmt = M + CW - 20;
+  const colEnd = PW - M;
+
+  // Header row
+  doc.setFillColor(...C.orange);
+  doc.rect(M, y - 2.5, 3, 3, 'F'); // small orange square icon
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...C.dark);
+  doc.text('ITEM & DESCRIPTION', M + 6, y);
+  doc.text('QTY', colQty + 10, y, { align: 'center' });
+  doc.text('RATE', colRate + 10, y, { align: 'center' });
+  doc.text('AMOUNT', colEnd - 2, y, { align: 'right' });
+
+  y += 3;
+  doc.setDrawColor(...C.orange);
+  doc.setLineWidth(0.7);
+  doc.line(M, y, PW - M, y);
+  y += 0.5;
+
+  // Data rows
+  const rowH = 11;
+  const minRows = Math.max(invoice.items.length, 3);
+
+  for (let i = 0; i < minRows; i++) {
+    if (y > 235) { doc.addPage(); y = M; }
+    const item = invoice.items[i];
+    const top = y;
+
+    // Cell borders
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.2);
+    doc.rect(colDesc, top, colQty - colDesc, rowH);
+    doc.rect(colQty, top, 20, rowH);
+    doc.rect(colRate, top, 20, rowH);
+    doc.rect(colAmt, top, colEnd - colAmt, rowH);
+
+    if (item) {
+      const cy = top + rowH / 2 + 1.2;
+      doc.setFontSize(8.5);
+      doc.setTextColor(...C.dark);
+      doc.setFont('Amiri', 'normal');
+      const maxDescW = colQty - colDesc - 8;
+      let desc = item.description;
+      if (doc.getTextWidth(desc) > maxDescW) {
+        while (doc.getTextWidth(desc + '...') > maxDescW && desc.length > 5) desc = desc.slice(0, -1);
+        desc += '...';
+      }
+      doc.text(ar(desc), colDesc + 3, cy);
+      doc.setFont('helvetica', 'normal');
+      doc.text(String(item.quantity), colQty + 10, cy, { align: 'center' });
+      doc.text(fmtNum(item.rate), colRate + 10, cy, { align: 'center' });
+      doc.text(fmtNum(item.amount), colEnd - 3, cy, { align: 'right' });
+    }
+    y += rowH;
+  }
+
+  y += 10;
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  TOTAL BOX — right-aligned with orange border           ║
+  // ╚══════════════════════════════════════════════════════════╝
+  const boxW = 55;
+  const boxX = PW - M - boxW;
+  const hasTax = invoice.tax_amount > 0;
+  const hasDiscount = (invoice.discount_amount || 0) > 0;
+  const hasPaid = invoice.amount_paid > 0;
+  const detailLines = 1 + (hasDiscount ? 1 : 0) + (hasTax ? 1 : 0) + (hasPaid ? 2 : 0);
+  const boxH = detailLines > 1 ? 12 + detailLines * 6 : 14;
+
+  doc.setDrawColor(...C.orange);
+  doc.setLineWidth(0.7);
+  doc.roundedRect(boxX, y, boxW, boxH, 2, 2);
+
+  if (hasDiscount || hasTax || hasPaid) {
+    let ly = y + 6;
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
+    doc.setTextColor(...C.gray);
+    doc.text('Subtotal:', boxX + 4, ly);
+    doc.text(fmtNum(invoice.subtotal), boxX + boxW - 4, ly, { align: 'right' });
+
+    if (hasDiscount) {
+      ly += 6;
+      const discLabel = invoice.discount_type === 'percentage'
+        ? `Discount (${invoice.discount_value || 0}%):`
+        : 'Discount:';
+      doc.text(discLabel, boxX + 4, ly);
+      doc.setTextColor(...C.red);
+      doc.text(`-${fmtNum(invoice.discount_amount || 0)}`, boxX + boxW - 4, ly, { align: 'right' });
+      doc.setTextColor(...C.gray);
+    }
+
+    if (hasTax) {
+      ly += 6;
+      doc.text(`VAT (${invoice.tax_rate}%):`, boxX + 4, ly);
+      doc.text(fmtNum(invoice.tax_amount), boxX + boxW - 4, ly, { align: 'right' });
+    }
+
+    if (hasPaid) {
+      ly += 6;
+      doc.setTextColor(...C.green);
+      doc.text('Paid:', boxX + 4, ly);
+      doc.text(`-${fmtNum(invoice.amount_paid)}`, boxX + boxW - 4, ly, { align: 'right' });
+      doc.setTextColor(...C.gray);
+
+      ly += 6;
+      const isDue = invoice.amount_due > 0;
+      doc.setTextColor(...(isDue ? C.red : C.green));
+      doc.setFont('helvetica', 'bold');
+      doc.text(isDue ? 'Balance Due:' : 'PAID IN FULL', boxX + 4, ly);
+      if (isDue) doc.text(fmtNum(invoice.amount_due), boxX + boxW - 4, ly, { align: 'right' });
+      doc.setFont('helvetica', 'normal');
+    }
+
+    // Divider
+    ly += 3;
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.15);
+    doc.line(boxX + 3, ly, boxX + boxW - 3, ly);
+
+    // Total
     doc.setFont('helvetica', 'bold');
-    doc.text('Date', margin + 2, y + 5);
-    doc.text('Method', margin + 40, y + 5);
-    doc.text('Reference', margin + 80, y + 5);
-    doc.text('Amount', margin + contentWidth - 2, y + 5, { align: 'right' });
-    y += 7;
+    doc.setFontSize(16);
+    doc.setTextColor(...C.orange);
+    doc.text(fmtNum(invoice.total), boxX + boxW / 2, ly + 7, { align: 'center' });
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(...C.orange);
+    doc.text(fmtNum(invoice.total), boxX + boxW / 2, y + 10, { align: 'center' });
+  }
+
+  y += boxH + 8;
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  PAYMENT HISTORY (if any payments recorded)             ║
+  // ╚══════════════════════════════════════════════════════════╝
+  if (invoice.payments && invoice.payments.length > 0) {
+    if (y > 220) { doc.addPage(); y = M; }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...C.dark);
+    doc.text('Payment History', M, y);
+    y += 6;
+
+    // Table header
+    doc.setFillColor(...C.lightBg);
+    doc.setDrawColor(...C.border);
+    doc.setLineWidth(0.2);
+    doc.rect(M, y, CW, 6, 'FD');
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...C.dark);
+    doc.text('Date', M + 3, y + 4);
+    doc.text('Method', M + 40, y + 4);
+    doc.text('Reference', M + 80, y + 4);
+    doc.text('Amount', PW - M - 3, y + 4, { align: 'right' });
+    y += 6;
 
     doc.setFont('helvetica', 'normal');
-    invoice.payments.forEach((pay) => {
-      if (y > 270) { doc.addPage(); y = margin; }
-
-      doc.setTextColor(24, 24, 27);
-      doc.text(formatDate(pay.payment_date), margin + 2, y + 4);
-      doc.text(METHOD_LABELS[pay.method] || pay.method, margin + 40, y + 4);
-      doc.text(pay.reference || '—', margin + 80, y + 4);
-      doc.setTextColor(22, 163, 74);
-      doc.text(formatCurrency(pay.amount, invoice.currency), margin + contentWidth - 2, y + 4, { align: 'right' });
-      y += 6;
-    });
-
+    for (const pay of invoice.payments) {
+      if (y > 260) { doc.addPage(); y = M; }
+      doc.setDrawColor(...C.border);
+      doc.rect(M, y, CW, 5.5);
+      doc.setTextColor(...C.dark);
+      doc.setFontSize(7);
+      doc.text(fmtDate(pay.payment_date), M + 3, y + 4);
+      doc.text(METHOD_LABELS[pay.method] || pay.method, M + 40, y + 4);
+      doc.text(pay.reference || '—', M + 80, y + 4);
+      doc.setTextColor(...C.green);
+      doc.text(fmtCurrency(pay.amount, invoice.currency), PW - M - 3, y + 4, { align: 'right' });
+      y += 5.5;
+    }
     y += 6;
   }
 
-  // ── Contract Summary (if linked to a contract) ──
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  NOTES (italic, matching quote style)                   ║
+  // ╚══════════════════════════════════════════════════════════╝
+  if (invoice.notes) {
+    if (y > 230) { doc.addPage(); y = M; }
+
+    doc.setFont('Amiri', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...C.dark);
+    doc.text('Notes:', M, y);
+    y += 5;
+
+    doc.setFont('Amiri', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...C.gray);
+    const noteLines = doc.splitTextToSize(ar(invoice.notes), CW);
+    doc.text(noteLines, M, y);
+    y += noteLines.length * 3.8 + 5;
+  }
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  BANK ACCOUNT DETAILS (same grid as quote-pdf.ts)       ║
+  // ╚══════════════════════════════════════════════════════════╝
+  if (invoice.bank_details?.bank) {
+    if (y > 215) { doc.addPage(); y = M; }
+
+    // Separator
+    doc.setDrawColor(...C.dark);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, PW - M, y);
+    y += 6;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...C.dark);
+    doc.text('Bank account details', M, y);
+    y += 5;
+
+    // 2×3 grid table
+    const bc = CW / 3;
+    const cellH = 8;
+    const bankRows = [
+      [
+        { l: 'Name of the bank: ', v: invoice.bank_details.bank },
+        { l: 'Account name: ', v: invoice.bank_details.account_name },
+        { l: 'Account Class: ', v: 'CURRENT ACCOUNT' },
+      ],
+      [
+        { l: 'Account Type: ', v: 'AED' },
+        { l: 'Account No: ', v: invoice.bank_details.account_no },
+        { l: 'IBAN: ', v: invoice.bank_details.iban },
+      ],
+    ];
+
+    for (const row of bankRows) {
+      for (let c = 0; c < 3; c++) {
+        const cx = M + c * bc;
+        doc.setFillColor(...C.lightBg);
+        doc.setDrawColor(...C.border);
+        doc.setLineWidth(0.2);
+        doc.rect(cx, y, bc, cellH, 'FD');
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.lightGray);
+        doc.text(row[c].l, cx + 2, y + cellH / 2 + 0.8);
+        const labelW = doc.getTextWidth(row[c].l);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.5);
+        doc.setTextColor(...C.dark);
+        const maxValW = bc - labelW - 5;
+        let val = row[c].v;
+        while (doc.getTextWidth(val) > maxValW && val.length > 3) val = val.slice(0, -1);
+        if (val !== row[c].v) val += '…';
+        doc.text(val, cx + labelW + 3, y + cellH / 2 + 0.8);
+      }
+      y += cellH;
+    }
+    y += 5;
+  }
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  TERMS & CONDITIONS (3-column layout)                   ║
+  // ╚══════════════════════════════════════════════════════════╝
+  // Use custom terms if provided, otherwise use default
+  const hasCustomTerms = invoice.terms_conditions && invoice.terms_conditions.length > 0;
+
+  if (y > 190) { doc.addPage(); y = M; }
+
+  // Separator
+  doc.setDrawColor(...C.dark);
+  doc.setLineWidth(0.35);
+  doc.line(M, y, PW - M, y);
+  y += 5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.setTextColor(...C.dark);
+  doc.text('TERMS & CONDITIONS', M, y);
+  doc.setDrawColor(...C.dark);
+  doc.setLineWidth(0.3);
+  doc.line(M, y + 1.2, M + 40, y + 1.2);
+  y += 5;
+
+  if (!hasCustomTerms) {
+    // Default 3-column terms (matching quote-pdf.ts exactly)
+    const termKeys = Object.keys(TERMS);
+    const tCols = [termKeys.slice(0, 4), termKeys.slice(4, 7), termKeys.slice(7)];
+    const tw = (CW - 6) / 3;
+
+    const tStartY = y;
+    for (let ci = 0; ci < 3; ci++) {
+      let ty = tStartY;
+      const tx = M + ci * (tw + 3);
+
+      for (const key of tCols[ci]) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(...C.dark);
+        doc.text(key, tx, ty);
+        ty += 2.8;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(5.2);
+        doc.setTextColor(...C.gray);
+        for (const line of TERMS[key]) {
+          const wrapped = doc.splitTextToSize(line, tw - 2);
+          doc.text(wrapped, tx, ty);
+          ty += wrapped.length * 2 + 0.4;
+        }
+        ty += 1.8;
+      }
+      y = Math.max(y, ty);
+    }
+  } else {
+    // Custom terms
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...C.gray);
+    for (const term of invoice.terms_conditions!) {
+      if (y > 275) { doc.addPage(); y = M; }
+      const wrapped = doc.splitTextToSize(`• ${term.text}`, CW);
+      doc.text(wrapped, M, y);
+      y += wrapped.length * 2.3 + 1;
+    }
+  }
+
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  CONTRACT SUMMARY (if linked to a contract)             ║
+  // ╚══════════════════════════════════════════════════════════╝
   if (invoice.contract_summary) {
-    if (y > 220) { doc.addPage(); y = margin; }
+    if (y > 240) { doc.addPage(); y = M; }
+
+    y += 3;
+    doc.setDrawColor(...C.dark);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, PW - M, y);
+    y += 6;
 
     const cs = invoice.contract_summary;
     const csCurrency = cs.contract_currency || invoice.currency;
 
-    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text('Contract Summary', margin, y);
-    doc.setFont('Amiri', 'bold');
-    doc.text(arText('ملخص العقد'), pageWidth - margin, y, { align: 'right' });
-    y += 7;
-
-    // Contract title
     doc.setFontSize(9);
-    doc.setFont('Amiri', 'normal');
-    doc.setTextColor(113, 113, 122);
-    doc.text(arText(cs.contract_title || ''), margin, y);
-    y += 7;
-
-    // Summary box
-    doc.setFillColor(250, 250, 250);
-    doc.setDrawColor(229, 231, 235);
-    doc.roundedRect(margin, y - 2, contentWidth, 32, 2, 2, 'FD');
-
-    const csLabelX = margin + 5;
-    const csValueX = margin + 55;
-    const csLabelX2 = margin + contentWidth / 2 + 5;
-    const csValueX2 = margin + contentWidth / 2 + 55;
+    doc.setTextColor(...C.dark);
+    doc.text('Contract Summary', M, y);
+    doc.setFont('Amiri', 'bold');
+    doc.text(ar('ملخص العقد'), PW - M, y, { align: 'right' });
+    y += 5;
 
     doc.setFont('Amiri', 'normal');
-    doc.setTextColor(113, 113, 122);
-    doc.text(arText('قيمة العقد:'), csLabelX, y + 5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text(formatCurrency(cs.contract_total, csCurrency), csValueX, y + 5);
-
-    doc.setFont('Amiri', 'normal');
-    doc.setTextColor(113, 113, 122);
-    doc.text(arText('المفوتر:'), csLabelX2, y + 5);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(24, 24, 27);
-    doc.text(formatCurrency(cs.total_billed, csCurrency), csValueX2, y + 5);
-
-    doc.setFont('Amiri', 'normal');
-    doc.setTextColor(113, 113, 122);
-    doc.text(arText('المحصّل:'), csLabelX, y + 13);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(22, 163, 74);
-    doc.text(formatCurrency(cs.total_collected, csCurrency), csValueX, y + 13);
-
-    doc.setFont('Amiri', 'normal');
-    doc.setTextColor(113, 113, 122);
-    doc.text(arText('المتبقي:'), csLabelX2, y + 13);
-    doc.setFont('helvetica', 'bold');
-    const remainColor = cs.remaining > 0 ? [220, 38, 38] : [22, 163, 74];
-    doc.setTextColor(remainColor[0], remainColor[1], remainColor[2]);
-    doc.text(formatCurrency(cs.remaining, csCurrency), csValueX2, y + 13);
-
-    // Milestones list
-    if (cs.milestones && cs.milestones.length > 0) {
-      doc.setFont('Amiri', 'normal');
-      doc.setTextColor(113, 113, 122);
-      doc.setFontSize(8);
-      doc.text(arText('المراحل:'), csLabelX, y + 22);
-
-      let msX = csValueX;
-      for (const ms of cs.milestones) {
-        const statusIcon = ms.status === 'invoiced' ? '✓' : ms.status === 'completed' ? '●' : '○';
-        const msText = `${statusIcon} ${ms.title} (${formatCurrency(ms.amount, csCurrency)})`;
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(ms.status === 'invoiced' ? 22 : 113, ms.status === 'invoiced' ? 163 : 113, ms.status === 'invoiced' ? 74 : 122);
-        doc.text(msText, msX, y + 22);
-        msX += doc.getTextWidth(msText) + 8;
-        if (msX > pageWidth - margin - 10) break;
-      }
-    }
-
-    y += 38;
-  }
-
-  // ── Bank Details ──
-  if (invoice.bank_details && invoice.bank_details.bank) {
-    if (y > 240) { doc.addPage(); y = margin; }
-
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text('Bank Details', margin, y);
+    doc.setFontSize(8);
+    doc.setTextColor(...C.gray);
+    doc.text(ar(cs.contract_title || ''), M, y);
     y += 6;
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(113, 113, 122);
-
-    const bankInfo: [string, string][] = [
-      ['Bank:', invoice.bank_details.bank],
-      ['Account:', invoice.bank_details.account_name],
-      ['Account No:', invoice.bank_details.account_no],
-      ['IBAN:', invoice.bank_details.iban],
+    // Summary in grid format
+    const halfW = CW / 2;
+    const summaryItems = [
+      { l: 'Contract Total:', v: fmtCurrency(cs.contract_total, csCurrency), color: C.dark },
+      { l: 'Total Billed:', v: fmtCurrency(cs.total_billed, csCurrency), color: C.dark },
+      { l: 'Collected:', v: fmtCurrency(cs.total_collected, csCurrency), color: C.green },
+      { l: 'Remaining:', v: fmtCurrency(cs.remaining, csCurrency), color: cs.remaining > 0 ? C.red : C.green },
     ];
 
-    bankInfo.forEach(([label, value]) => {
-      if (value) {
-        doc.setFont('helvetica', 'bold');
-        doc.text(label, margin, y);
+    for (let i = 0; i < summaryItems.length; i += 2) {
+      const cx1 = M;
+      const cx2 = M + halfW;
+      for (let j = 0; j < 2; j++) {
+        const item = summaryItems[i + j];
+        if (!item) break;
+        const cx = j === 0 ? cx1 : cx2;
         doc.setFont('helvetica', 'normal');
-        doc.text(value, margin + 30, y);
-        y += 5;
+        doc.setFontSize(7.5);
+        doc.setTextColor(...C.gray);
+        doc.text(item.l, cx, y);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...(item.color as [number, number, number]));
+        doc.text(item.v, cx + 30, y);
       }
-    });
-
-    y += 5;
+      y += 5;
+    }
+    y += 3;
   }
 
-  // ── Terms & Conditions ──
-  if (invoice.terms_conditions && invoice.terms_conditions.length > 0) {
-    if (y > 240) { doc.addPage(); y = margin; }
+  // ╔══════════════════════════════════════════════════════════╗
+  // ║  FOOTER — on every page (matching quote-pdf.ts)         ║
+  // ╚══════════════════════════════════════════════════════════╝
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    const fy = PH - 16;
 
-    doc.setFontSize(10);
+    // Orange line
+    doc.setDrawColor(...C.orange);
+    doc.setLineWidth(0.8);
+    doc.line(M, fy, PW - M, fy);
+
+    // Row 1: Phone circle + number | 3 dots | Social handle
+    doc.setFillColor(...C.orange);
+    doc.circle(M + 2.5, fy + 4.5, 2, 'F');
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text('Terms & Conditions', margin, y);
-    y += 6;
+    doc.setFontSize(5.5);
+    doc.setTextColor(...C.white);
+    doc.text('T', M + 2.5, fy + 5.2, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(113, 113, 122);
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.dark);
+    doc.text(FOOTER.phone, M + 7, fy + 5);
 
-    invoice.terms_conditions.forEach((term, i) => {
-      if (y > 275) { doc.addPage(); y = margin; }
-      const text = `${i + 1}. ${arText(term.text)}`;
-      doc.setFont('Amiri', 'normal');
-      const lines = doc.splitTextToSize(text, contentWidth - 5);
-      doc.text(lines, margin, y);
-      doc.setFont('helvetica', 'normal');
-      y += lines.length * 4 + 2;
-    });
+    // 3 orange dots (center)
+    const cx = PW / 2 - 6;
+    doc.setFillColor(...C.orange);
+    doc.circle(cx, fy + 4.5, 1, 'F');
+    doc.circle(cx + 4, fy + 4.5, 1, 'F');
+    doc.circle(cx + 8, fy + 4.5, 1, 'F');
 
-    y += 5;
-  }
-
-  // ── Notes ──
-  if (invoice.notes) {
-    if (y > 250) { doc.addPage(); y = margin; }
-
-    doc.setFontSize(10);
+    // Social handle
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(24, 24, 27);
-    doc.text('Notes', margin, y);
-    y += 6;
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.dark);
+    doc.text(FOOTER.social, cx + 13, fy + 5);
+
+    // Row 2: Web icon + websites
+    doc.setFillColor(...C.orange);
+    doc.circle(M + 2.5, fy + 9.5, 2, 'F');
+    doc.setFontSize(5);
+    doc.setTextColor(...C.white);
+    doc.text('@', M + 2.5, fy + 10.2, { align: 'center' });
 
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(113, 113, 122);
-    doc.setFont('Amiri', 'normal');
-    const noteLines = doc.splitTextToSize(arText(invoice.notes), contentWidth - 5);
-    doc.text(noteLines, margin, y);
-    doc.setFont('helvetica', 'normal');
-    y += noteLines.length * 4 + 5;
-  }
-
-  // ── Footer ──
-  const pageCount = doc.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++) {
-    doc.setPage(i);
-    doc.setFontSize(7);
-    doc.setTextColor(180, 180, 180);
-    doc.text(
-      `Generated by Pyra Workspace — Page ${i} of ${pageCount}`,
-      pageWidth / 2,
-      292,
-      { align: 'center' }
-    );
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.orange);
+    doc.text(FOOTER.web, M + 7, fy + 10);
   }
 
   // Save
