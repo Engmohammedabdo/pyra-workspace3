@@ -29,7 +29,7 @@ export async function GET(
     .from('pyra_boards')
     .select(`
       *,
-      pyra_board_columns(id, name, color, position, wip_limit, is_done_column),
+      pyra_board_columns(id, name, color, position, wip_limit, is_done_column, requires_approval, approval_role, default_assignee, column_type),
       pyra_board_labels(id, name, color),
       pyra_projects!left(id, name)
     `)

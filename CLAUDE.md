@@ -1,384 +1,145 @@
-# Pyra Workspace - Development Guide
+# Pyra Workspace
 
-## Project Overview
-Next.js workspace management app for a UAE-based AI solutions company (Pyramedia X).
-Two interfaces: Admin Dashboard + Client Portal.
+ERP + CRM for Pyramedia X (UAE). Next.js 15 App Router + Supabase + Tailwind + shadcn/ui.
+Arabic RTL UI. Orange brand (`orange-500`/`orange-600`).
 
-## Tech Stack
-- **Framework**: Next.js (App Router)
-- **Database & Auth**: Supabase
-- **Styling**: Tailwind CSS + shadcn/ui
-- **Animations**: framer-motion
-- **Charts**: Recharts
-- **Dark Mode**: next-themes
-- **Icons**: lucide-react
-- **PDF Generation**: jsPDF + Amiri font (Arabic support)
-- **Payments**: Stripe
+## Commands
 
-## Project Structure
-
-### App Routes
-```
-app/
-├── dashboard/          # Admin dashboard (protected)
-│   ├── layout.tsx      # Dashboard layout with sidebar
-│   └── [feature]/      # Feature pages (invoices, quotes, projects, etc.)
-├── portal/             # Client portal (separate auth)
-│   ├── (auth)/         # Portal login/auth pages
-│   └── (main)/         # Portal main pages with layout
-│       ├── layout.tsx  # Portal layout with sidebar
-│       └── [feature]/  # Feature pages (files, projects, quotes, etc.)
-└── api/                # API routes
-    ├── dashboard/      # Admin API endpoints
-    └── portal/         # Portal API endpoints
+```bash
+pnpm dev          # Dev server (turbopack)
+pnpm build        # Production build — MUST pass before push
+pnpm lint         # Lint
+pnpm run check    # TypeScript (tsc --noEmit) — MUST pass before push
 ```
 
-### Components Organization
+## STOP — Ask "WHO?" Before Writing Code
+
+This system has **4 audiences**. Every feature must be evaluated against ALL of them:
+
 ```
-components/
-├── ui/                 # Shared UI primitives (shadcn/ui + custom)
-│   ├── button.tsx, card.tsx, dialog.tsx, etc.
-│   ├── empty-state.tsx # Custom unified empty state
-│   └── page-guide.tsx  # Module guide popover (auto-detects from URL)
-├── layout/             # Shared layout components
-│   ├── sidebar.tsx     # Dashboard sidebar
-│   ├── topbar.tsx      # Dashboard topbar (includes PageGuide)
-│   ├── page-transition.tsx  # Shared page animation
-│   └── ...
-├── portal/             # Portal-specific components
-│   ├── portal-sidebar.tsx
-│   ├── portal-topbar.tsx
-│   └── ...
-├── dashboard/          # Dashboard-specific widgets
-├── finance/            # Finance charts
-├── files/              # File management components
-├── projects/           # Project components
-├── quotes/             # Quote builder + signature
-├── clients/            # Client management
-├── auth/               # Auth components
-├── providers/          # Context providers
-└── reports/            # Report components
+┌─────────────────────────────────────────────────────────┐
+│                    /dashboard (RBAC)                     │
+│  ┌─────────┐  ┌────────────┐  ┌──────────────────────┐ │
+│  │  Admin   │  │  Employee   │  │  Sales Agent /       │ │
+│  │  كل شيء  │  │ مهام،إجازات │  │  Call Center          │ │
+│  │          │  │ حضور،راتبي  │  │  leads,واتساب,عروض   │ │
+│  └─────────┘  └────────────┘  └──────────────────────┘ │
+├─────────────────────────────────────────────────────────┤
+│                /portal (Cookie Auth)                     │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  Client — يشوف بياناته فقط (مشاريع،ملفات،فواتير) │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Libraries
+**BEFORE writing ANY code, answer:**
+1. **Admin** → إيه اللي يتحكم فيه؟ (إعدادات، إدارة، صلاحيات)
+2. **Employee** → هل يشوف حاجة؟ هل ليه view مختلف (self-service)؟
+3. **Sales Agent** → هل مرتبط بمبيعات أو عملاء؟
+4. **Client** → هل يشوفها في البورتال؟ هل يتفاعل معاها؟
+
+**Claude's recurring mistakes — NEVER repeat these:**
+- ❌ Building a feature only for Admin, forgetting Employee has a different view
+- ❌ Adding dashboard feature without portal parity for clients
+- ❌ Building a module without admin settings/controls
+- ❌ Adding something new without connecting it to existing system
+- ❌ Guessing who should see what — ASK THE USER if unsure
+
+**Use `/project:plan-feature` command to generate full impact analysis before coding.**
+
+## Architecture
+
 ```
-lib/
-├── api/          # API helpers (auth, response)
-├── auth/         # Auth guards, permissions
-├── config/       # Centralized configs (module-guide.ts, etc.)
-├── supabase/     # Supabase client, server, middleware
-├── pdf/          # PDF generators (Arabic support via Amiri font)
-├── email/        # Mailer, notifications
-├── utils/        # Utility functions (format, cn, currency, etc.)
-├── automation/   # Workflow automation engine
-├── portal/       # Portal auth, branding
-├── finance/      # Finance alerts
-└── webhooks/     # Webhook dispatcher
-```
-
----
-
-## MANDATORY: New Feature Checklist
-
-> **CRITICAL RULE**: When adding ANY new dashboard page, feature, or module, you MUST complete ALL items in this checklist. No exceptions. This ensures consistency across the entire application.
-
-### Checklist: Adding a New Dashboard Page/Module
-
-Complete every step below. If a step is not applicable, explicitly note why.
-
-#### 1. Module Guide (REQUIRED)
-Every dashboard page MUST have a module guide entry:
-- [ ] **Add guide to `lib/config/module-guide.ts`** in `MODULE_GUIDES` object:
-  ```ts
-  '/dashboard/new-page': {
-    href: '/dashboard/new-page',
-    description: 'وصف قصير بالعربية (سطر واحد)',
-    descriptionEn: 'Short English description',
-    goal: 'شرح الهدف من الصفحة (1-2 جملة)',
-    tips: [
-      'نصيحة 1',
-      'نصيحة 2',
-      'نصيحة 3',
-    ],
-    keywords: ['keyword1', 'keyword2', 'كلمة عربية'],
-  },
-  ```
-- [ ] **Add href to SECTIONS in `app/dashboard/guide/page.tsx`** under the correct section's `hrefs` array
-- The `PageGuide` tooltip in topbar works automatically via URL detection — no per-page code needed
-
-#### 2. Sidebar Navigation (REQUIRED for navigable pages)
-- [ ] **Add nav item to `components/layout/sidebar.tsx`** in the correct `navGroups` section:
-  ```ts
-  { href: '/dashboard/new-page', label: 'الاسم', labelEn: 'Name', icon: IconName, permission: 'module.view' },
-  ```
-- [ ] **Import the icon** from `lucide-react` at the top of sidebar.tsx
-
-#### 3. Empty States (REQUIRED)
-- [ ] **Use `EmptyState` component** from `@/components/ui/empty-state` for any "no data" states
-- [ ] Never create inline empty states — always use the shared component
-
-#### 4. UI/UX Standards (REQUIRED)
-- [ ] **Arabic RTL**: All UI text in Arabic, use `ms-`/`me-`/`ps-`/`pe-` instead of `ml-`/`mr-`/`pl-`/`pr-`
-- [ ] **Dark mode**: Test both light and dark themes — use CSS variables, not hardcoded colors
-- [ ] **Orange brand color**: Primary actions use `orange-500`/`orange-600`
-- [ ] **Loading skeletons**: Use `Skeleton` from `@/components/ui/skeleton` during data loading
-- [ ] **Toast notifications**: Use `toast` from `sonner` for success/error messages
-- [ ] **Shared components**: Use shadcn/ui components as base (Card, Button, Dialog, Badge, etc.)
-
-#### 5. Portal Parity (CONDITIONAL)
-- [ ] If the feature is client-facing, apply matching changes to `app/portal/` as well
-- [ ] Use shared components from `components/ui/` for consistency
-
-#### 6. API Endpoint (CONDITIONAL)
-- [ ] Place in `/api/dashboard/[resource]/route.ts` for admin endpoints
-- [ ] Place in `/api/portal/[resource]/route.ts` for client-facing endpoints
-- [ ] Use `requireApiPermission()` or `requireApiAuth()` from `@/lib/api/auth`
-- [ ] Use `apiSuccess()` and `apiError()` from `@/lib/api/response`
-- [ ] Log activity via `logActivity()` for audit trail
-
-#### 7. Database Changes (CONDITIONAL)
-- [ ] Update `DATABASE-SCHEMA.md` with new tables/columns
-- [ ] Include migration SQL in the schema doc
-- [ ] Add RLS policies if applicable
-
-#### 8. Pre-Commit Verification (REQUIRED)
-- [ ] Run `npx tsc --noEmit` — zero TypeScript errors
-- [ ] Run `npx next build` — build succeeds
-- [ ] Commit per phase/feature with descriptive message
-
----
-
-### Checklist: Modifying an Existing Feature
-
-When enhancing or modifying any existing feature:
-- [ ] Check if the feature exists in BOTH dashboard and portal — apply changes to both
-- [ ] Check if the module guide tips need updating (`lib/config/module-guide.ts`)
-- [ ] Test empty states still render correctly
-- [ ] Test dark mode appearance
-- [ ] Run TypeScript check + build
-
----
-
-## Development Rules
-
-### 1. UI/UX Consistency (MANDATORY)
-All UI/UX improvements MUST be applied to BOTH:
-- Admin Dashboard (`app/dashboard/`)
-- Client Portal (`app/portal/`)
-
-When adding any visual feature, component, or design improvement:
-- Check all matching pages across the entire project
-- Use shared components from `components/ui/` whenever possible
-- Keep visual consistency between dashboard and portal
-
-### 2. Component Placement
-- **Shared by both dashboard & portal** → `components/ui/` or `components/layout/`
-- **Dashboard-only** → `components/dashboard/` or feature folder
-- **Portal-only** → `components/portal/`
-- **Feature-specific** → `components/[feature]/`
-
-### 3. Coding Conventions
-- Language in code: English
-- Language in UI: Arabic (RTL layout)
-- Use `'use client'` directive for interactive components
-- Use shadcn/ui components as base
-- Use lucide-react for icons
-- Use `cn()` from `@/lib/utils/cn` for class merging
-- Use `formatDate()`, `formatCurrency()`, `formatRelativeDate()` from `@/lib/utils/format`
-- Use `toast` from `sonner` for notifications
-- Use `EmptyState` component for empty states (never inline)
-- Use `PageTransition` wrapper in layouts for page animations
-
-### 4. Styling
-- Tailwind CSS with RTL support (use `ms-`, `me-`, `ps-`, `pe-` instead of `ml-`, `mr-`, `pl-`, `pr-`)
-- Orange as primary brand color (`orange-500`, `orange-600`)
-- Dark mode support via CSS variables (hsl format)
-- Recharts dark mode handled via global CSS in `globals.css`
-
-### 5. API Pattern
-```
-/api/portal/[resource]   → Portal endpoints (client-facing, scoped)
-/api/dashboard/[resource] → Admin endpoints (full access)
+app/dashboard/     → Admin + Employee + Sales (Supabase Auth + RBAC)
+app/portal/        → Clients (Cookie Auth, separate from dashboard)
+app/api/dashboard/ → Admin API endpoints
+app/api/portal/    → Client API endpoints (scoped to client data)
+app/api/external/  → External API (n8n, Telegram Bot — API key auth)
+components/ui/     → Shared primitives (both dashboard + portal)
+components/layout/ → Dashboard layout (sidebar, topbar)
+components/portal/ → Portal layout
+lib/auth/rbac.ts   → 79 permissions across 34 modules
+lib/config/module-guide.ts → Guide data for every page
+types/database.ts  → All TypeScript types
 ```
 
-### 6. File Naming
-- Pages: `page.tsx` (Next.js convention)
-- Client wrappers: `[feature]-client.tsx` (for server/client split)
-- Components: PascalCase for components, kebab-case for utilities
-- API routes: `route.ts`
+### Default Roles & What They See
+| Role | Sidebar Groups | Key Pages |
+|------|---------------|-----------|
+| `admin` | ALL (9 groups) | Everything — full control |
+| `employee` | عام + موارد بشرية | my-tasks, timesheet, attendance, leave, my-payslips, directory, announcements, profile |
+| `sales_agent` | عام + مبيعات + أعمال (partial) | sales/*, leads, WhatsApp chat, quotes (view+create), clients.view, follow-ups |
 
----
+Portal (Client) has its own sidebar: `components/portal/portal-sidebar.tsx`
 
-## Key Systems Reference
-
-### Module Guide System
-The module guide provides contextual help on every dashboard page:
-- **Config**: `lib/config/module-guide.ts` — all guide data (descriptions, goals, tips, keywords)
-- **Component**: `components/ui/page-guide.tsx` — popover tooltip (auto-detects current page from URL)
-- **Topbar integration**: `components/layout/topbar.tsx` — renders `<PageGuide />` globally
-- **Guide directory**: `app/dashboard/guide/page.tsx` — full searchable guide page with sections
-- **How it works**: PageGuide reads the URL pathname, looks up matching guide from `MODULE_GUIDES`, and shows the popover. No per-page integration needed — just add the config entry.
-
-### Activity Logging
-- API: `POST /api/activity` with `{ action, target_type, target_id, target_path, details }`
-- Helper: `logActivity()` from `@/lib/utils/activity`
-- Actions: upload, download, rename, move, delete, restore, copy, share, version, etc.
-
-### Email Notifications
-- Config: `lib/email/mailer.ts` — SMTP transport + HTML templates
-- Notify helpers: `lib/email/notify.ts` — high-level notification functions
-- Templates are Arabic RTL with orange branding
-
-### RBAC Permissions
-- Config: `lib/auth/rbac.ts` — `hasPermission()`, `requireApiPermission()`
-- Roles defined in Supabase `pyra_roles` table
-- Format: `module.action` (e.g., `files.view`, `invoices.create`)
-
----
-
-## Common Patterns
-
-### Empty States
-```tsx
-import { EmptyState } from '@/components/ui/empty-state';
-<EmptyState
-  icon={IconComponent}
-  title="عنوان"
-  description="وصف"
-  actionLabel="زر (اختياري)"
-  onAction={() => {}}
-/>
+### Feature Connections (Trace Before Coding)
+```
+Client → Projects → Files (client_visible) → Portal
+      → Invoices → Payments (Stripe) → Statement → Portal
+      → Quotes → Signature → Sales Approval → Portal
+      → Contracts → Milestones → Portal
+      → Scripts → Reviews → Portal
+Lead → Activities → Convert to Client → full chain above
+Employee → Attendance + Leave + Timesheet → Payroll → Expenses
 ```
 
-### Page Transitions
-Already configured in both dashboard and portal layouts via `PageTransition` wrapper.
+## Critical Rules
 
-### Dark Mode
-- Theme provider in `components/providers/theme-provider.tsx`
-- CSS variables in `globals.css`
-- Recharts overrides in `globals.css` (global, covers both interfaces)
+### RTL (ALWAYS)
+NEVER: `ml-`/`mr-`/`pl-`/`pr-`/`left-`/`right-`/`text-left`/`text-right`/`border-l`/`border-r`/`rounded-l`/`rounded-r`/`float-left`/`float-right`
+USE: `ms-`/`me-`/`ps-`/`pe-`/`start-`/`end-`/`text-start`/`text-end`/`border-s`/`border-e`/`rounded-s`/`rounded-e`/`float-start`/`float-end`
+Exception: `left-1/2 -translate-x-1/2` (centering) is OK.
 
----
+### Dark Mode (ALWAYS pair)
+`bg-{c}-50` → add `dark:bg-{c}-950/30` · `bg-{c}-100` → `dark:bg-{c}-900/50`
+`text-{c}-600` → `dark:text-{c}-400` · `text-{c}-700/800` → `dark:text-{c}-300`
+`border-{c}-200` → `dark:border-{c}-800/40` · `bg-white` → `dark:bg-gray-900`
+Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `text-muted-foreground`), shadcn Badge.
 
-## HR & Employee System
+### Components & Patterns
+- Empty states → `<EmptyState>` from `@/components/ui/empty-state` — NEVER inline
+- Loading → `<Skeleton>` from `@/components/ui/skeleton` — NEVER blank pages
+- Notifications → `toast` from `sonner` — NEVER `alert()`
+- API auth → `requireApiPermission()` or `requireApiAuth()` from `@/lib/api/auth`
+- API response → `apiSuccess()`/`apiError()` from `@/lib/api/response` + `logActivity()` for writes
+- No transactions → backup-rollback pattern (see `docs/ARCHITECTURE.md`)
+- Code: English · UI: Arabic · `'use client'` for interactive components
+- `cn()` from `@/lib/utils/cn` · `formatDate()`/`formatCurrency()` from `@/lib/utils/format`
+- Icons: `lucide-react` · Components: `shadcn/ui` base
+- Pages: `page.tsx` · Client wrappers: `[feature]-client.tsx` · API: `route.ts`
 
-### Overview
-Full ERP-style HR system integrated into the dashboard with 14 modules:
-- **Attendance**: Clock-in/out with geolocation + IP tracking
-- **Leave Management**: Request/approve leave with balance tracking
-- **Payroll**: Multi-period payroll with auto-calculation (basic + overtime + deductions)
-- **Evaluations**: Performance reviews with criteria scoring
-- **Timesheets**: Period-based time tracking with project linking
-- **Directory**: Employee profiles + org chart visualization
-- **Announcements**: Company-wide announcements with priority & targeting
-- **Work Schedules**: Shift definitions and assignments
-- **Overtime**: Overtime request and approval workflow
-- **Employee Payments**: Advances, bonuses, deductions tracking
-- **Content Pipeline**: Content production workflow management
+## New Feature Checklist
 
-### HR API Routes
+- [ ] **WHO uses it?** — Answer for all 4 audiences (Admin/Employee/Sales/Client)
+- [ ] **Sidebar** → `components/layout/sidebar.tsx` with correct navGroup + `permission:`
+- [ ] **Module guide** → `lib/config/module-guide.ts` + `app/dashboard/guide/page.tsx` SECTIONS
+- [ ] **RBAC** → `lib/auth/rbac.ts` — `module.view` / `module.manage`
+- [ ] **Portal parity** → If client sees it → portal page + `/api/portal/` endpoint
+- [ ] **Admin controls** → If configurable → settings/management page
+- [ ] **Employee self-service** → If employee-facing → check my-* pattern (my-tasks, my-payslips)
+- [ ] **Empty state + Dark mode + RTL** → Use shared components, pair dark: variants
+- [ ] **DB changes** → `DATABASE-SCHEMA.md` + RLS policies
+- [ ] **Activity logging** → `logActivity()` for all write operations
+- [ ] **Verify** → `pnpm run check` + `pnpm build` → zero errors → git push
+
+## DB Migrations (Run directly — never ask user)
+
+```bash
+curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
+  -H "Content-Type: application/json" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+  -d '{"query": "YOUR SQL HERE"}'
 ```
-/api/dashboard/attendance/          → Clock-in (POST)
-/api/dashboard/attendance/clock-out → Clock-out (POST)
-/api/dashboard/payroll/             → CRUD payroll periods
-/api/dashboard/payroll/[id]/calculate → Auto-calculate payroll
-/api/dashboard/evaluations/         → CRUD evaluations
-/api/dashboard/evaluations/periods/ → Evaluation periods
-/api/dashboard/evaluations/[id]/scores → Save evaluation scores
-/api/dashboard/timesheet-periods/   → Timesheet period management
-/api/dashboard/work-schedules/      → Work schedule definitions
-/api/dashboard/employee-payments/   → Employee payment records
-/api/leave/                         → Leave requests (shared)
-/api/timesheet/                     → Timesheet entries (shared)
-```
-
-### HR Activity Logging
-All HR write operations log to `pyra_activity_log` with action types:
-`attendance_clock_in`, `attendance_clock_out`, `payroll_created`, `payroll_calculated`,
-`payroll_status_changed`, `evaluation_created`, `evaluation_updated`, `evaluation_scores_saved`,
-`evaluation_period_created`, `evaluation_period_updated`, `timesheet_period_created`,
-`timesheet_period_updated`, `timesheet_entry_created`, `timesheet_entry_updated`,
-`timesheet_entry_deleted`, `work_schedule_created`, `employee_payment_created`,
-`employee_payment_updated`, `leave_request_created`, `leave_request_updated`
-
-### HR RBAC Permissions
-```
-attendance.view / attendance.manage
-leave.view / leave.manage
-payroll.view / payroll.manage
-evaluations.view / evaluations.manage
-timesheet.view / timesheet.manage
-overtime.view / overtime.manage
-work_schedules.view / work_schedules.manage
-leave_types.view / leave_types.manage
-employee_payments.view / employee_payments.manage
-content_pipeline.view / content_pipeline.manage
-directory.view / directory.manage
-announcements.view / announcements.manage
-```
-
-### Non-Atomic Operation Pattern
-Supabase JS client doesn't support transactions. Use backup-rollback pattern:
-```ts
-// 1. Backup existing data
-const { data: backup } = await supabase.from('table').select('*').eq('parent_id', id);
-// 2. Delete old data
-await supabase.from('table').delete().eq('parent_id', id);
-// 3. Insert new data
-const { error } = await supabase.from('table').insert(newRows);
-// 4. Rollback on failure
-if (error && backup?.length) {
-  await supabase.from('table').insert(backup);
-  return apiServerError(error.message);
-}
-```
-
-### HR TypeScript Types
-Defined in `types/database.ts`:
-- `PyraLeaveRequest` — Leave request with status workflow
-- `PyraTimesheet` — Timesheet entry with overtime support
-- `PyraAnnouncement` — Announcements with priority & targeting
-- `PyraLeaveBalance` — Annual leave balance tracking
-
----
-
-## Portal Gaps (Pending Implementation)
-
-> **Full details**: `docs/PORTAL-GAPS.md`
-
-### Missing Portal Pages (Priority)
-1. **Contracts** — `pyra_contracts` has `client_id` but no portal page (client can't view contracts)
-2. **Client Statement** — Admin has `/finance/client-statement/[id]` but client has no payment history
-3. **Recurring Invoices** — `pyra_recurring_invoices` has `client_id` but no portal view
-
-### Missing Client Detail Tabs
-Current: Overview, Projects, Invoices, Quotes, Notes, Activity, Branding (7 tabs)
-Missing: Contracts, Payments, Files, Recurring Invoices, Scripts (5 tabs)
-
-### Portal Enhancements
-- Invoice detail: add payment history + remaining balance
-- Project detail: add contract link if project has linked contract
-- Portal dashboard: add financial summary card
-
----
-
-## Documentation Index
-
-| Document | Path | Description |
-|----------|------|-------------|
-| Architecture | `docs/ARCHITECTURE.md` | System architecture overview |
-| Client Management | `docs/CLIENT-MANAGEMENT.md` | Client system documentation |
-| Employee System | `docs/EMPLOYEE-SYSTEM.md` | HR system documentation |
-| Employee PRD | `docs/PRD-EMPLOYEE-SYSTEM.md` | Employee system requirements |
-| Employee Implementation | `docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md` | Implementation details |
-| Portal Branding | `docs/PORTAL-BRANDING.md` | Portal branding system |
-| Portal Gaps | `docs/PORTAL-GAPS.md` | Missing portal features & plan |
-| Database Schema | `DATABASE-SCHEMA.md` | Full database schema (84 tables) |
-| RBAC Migration | `database/rbac-migration.sql` | Role permissions SQL |
-
----
 
 ## Deployment
-- Vercel (auto-deploy on push to main)
-- Package manager: **pnpm** (NOT npm)
-- Commit and push after completing features/fixes
+Vercel auto-deploy on push to `main` · **pnpm** (NEVER npm)
+
+## Documentation (Read don't guess)
+| Doc | What it covers |
+|-----|---------------|
+| `docs/SYSTEM-STRUCTURE.md` | Complete 94-page reference with all tables and integrations |
+| `docs/FEATURE-IMPACT-MAP.md` | What connects to what — READ BEFORE any new feature |
+| `docs/EMPLOYEE-SYSTEM.md` | HR modules (14 modules, attendance→payroll chain) |
+| `docs/ARCHITECTURE.md` | System architecture, backup-rollback pattern |
+| `docs/CLIENT-MANAGEMENT.md` | Client system, portal branding |
+| `DATABASE-SCHEMA.md` | Full schema (~110 tables) |

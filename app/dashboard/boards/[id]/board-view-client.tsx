@@ -99,12 +99,20 @@ interface Column {
   color: string;
   position: number;
   is_done_column: boolean;
+  requires_approval?: boolean;
+  approval_role?: string | null;
+  default_assignee?: string | null;
+  column_type?: string;
 }
 
 interface Board {
   id: string;
   name: string;
   description: string | null;
+  view_mode?: string;
+  is_pipeline?: boolean;
+  auto_advance?: boolean;
+  default_task_type?: string | null;
   pyra_board_columns?: Column[];
 }
 

@@ -1,0 +1,2 @@
+[111110027ms] [ERROR] Failed to load resource: net::ERR_QUIC_PROTOCOL_ERROR @ https://workspace.pyramedia.cloud/api/dashboard/sales/whatsapp/conversations:0
+[111110027ms] [ERROR] Failed to fetch conversations @ https://workspace.pyramedia.cloud/_next/static/chunks/app/dashboard/sales/chat/page-f20d393a9dcf2dec.js:0

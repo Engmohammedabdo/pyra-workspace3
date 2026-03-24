@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   let query = supabase
     .from('pyra_boards')
-    .select('*, pyra_board_columns(id, name, color, position, wip_limit, is_done_column), pyra_projects!left(id, name)')
+    .select('*, pyra_board_columns(id, name, color, position, wip_limit, is_done_column, requires_approval, approval_role, default_assignee, column_type), pyra_projects!left(id, name)')
     .order('position');
 
   if (projectId) {
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
   // Fetch created board with columns
   const { data } = await supabase
     .from('pyra_boards')
-    .select('*, pyra_board_columns(id, name, color, position, wip_limit, is_done_column)')
+    .select('*, pyra_board_columns(id, name, color, position, wip_limit, is_done_column, requires_approval, approval_role, default_assignee, column_type)')
     .eq('id', boardId)
     .single();
 
