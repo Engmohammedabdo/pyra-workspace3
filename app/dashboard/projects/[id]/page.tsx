@@ -51,10 +51,13 @@ import {
   ChevronLeft,
   DollarSign,
   Timer,
+  LayoutGrid,
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ProjectBoardEmbed } from './project-board-embed';
 
 // ---------- Types ----------
 
@@ -526,6 +529,30 @@ export default function ProjectDetailPage() {
           </Card>
         )}
 
+        <Tabs defaultValue="tasks" dir="rtl">
+          <TabsList className="mb-4">
+            <TabsTrigger value="tasks" className="gap-1.5">
+              <LayoutGrid className="h-3.5 w-3.5" />
+              المهام
+            </TabsTrigger>
+            <TabsTrigger value="files" className="gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              الملفات
+            </TabsTrigger>
+            <TabsTrigger value="comments" className="gap-1.5">
+              <MessageSquare className="h-3.5 w-3.5" />
+              التعليقات
+              {(project.unread_team_comments ?? 0) > 0 && (
+                <Badge variant="destructive" className="h-4 px-1 text-[10px] ms-1">{project.unread_team_comments}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="tasks">
+            <ProjectBoardEmbed projectId={project.id} />
+          </TabsContent>
+
+          <TabsContent value="files">
         <div className="grid gap-6 lg:grid-cols-5">
           {/* Files Section — Folder-grouped with visibility checkboxes */}
           <div className="lg:col-span-3 space-y-4">
@@ -794,7 +821,7 @@ export default function ProjectDetailPage() {
             </Card>
           </div>
 
-          {/* Comments Section */}
+          {/* Comments — shown in same grid on files tab, full on comments tab */}
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardHeader className="pb-3">
@@ -889,6 +916,22 @@ export default function ProjectDetailPage() {
             </Card>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="comments">
+            {/* Comments in full width when on dedicated tab */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4" /> جميع التعليقات
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">عرض التعليقات متاح من تاب الملفات حالياً</p>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </TooltipProvider>
   );
