@@ -1383,68 +1383,78 @@ export default function BoardViewClient({
         </div>
       </div>
 
-      {/* Kanban Board — uses LTR direction for horizontal column layout */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCorners}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
-          {columns.map((col) => (
-            <DroppableColumn
-              key={col.id}
-              column={col}
-              tasks={tasks
-                .filter((t) => t.column_id === col.id)
-                .sort((a, b) => a.position - b.position)}
-              onAddTask={canCreate ? openAddTask : () => {}}
-              onTaskClick={(task) => setSelectedTask(task)}
-            />
-          ))}
-        </div>
+      {/* ── Pipeline View ── */}
+      {board.view_mode === 'pipeline' ? (
+        <PipelineView
+          columns={columns}
+          tasks={tasks}
+          onAddTask={canCreate ? openAddTask : () => {}}
+          onTaskClick={(task) => setSelectedTask(task)}
+        />
+      ) : (
+        /* ── Kanban Board — uses LTR direction for horizontal column layout ── */
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
+            {columns.map((col) => (
+              <DroppableColumn
+                key={col.id}
+                column={col}
+                tasks={tasks
+                  .filter((t) => t.column_id === col.id)
+                  .sort((a, b) => a.position - b.position)}
+                onAddTask={canCreate ? openAddTask : () => {}}
+                onTaskClick={(task) => setSelectedTask(task)}
+              />
+            ))}
+          </div>
 
-        <DragOverlay>
-          {activeTask ? (
-            <Card
-              className={`w-[280px] border-s-4 ${
-                PRIORITY_COLORS[activeTask.priority] ||
-                PRIORITY_COLORS.medium
-              } shadow-xl rotate-2`}
-            >
-              <CardContent className="p-3 space-y-1">
-                <p className="text-sm font-medium">{activeTask.title}</p>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <Badge variant="outline" className="text-[9px] h-4">
-                    {PRIORITY_LABELS[activeTask.priority] ||
-                      PRIORITY_LABELS.medium}
-                  </Badge>
-                  {activeTask.due_date && (
-                    <span className="flex items-center gap-0.5">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(activeTask.due_date).toLocaleDateString(
-                        'ar-EG',
-                        { month: 'short', day: 'numeric' }
-                      )}
-                    </span>
-                  )}
-                </div>
-                {(activeTask.pyra_task_assignees?.length ?? 0) > 0 && (
-                  <div className="flex items-center gap-1">
-                    {activeTask.pyra_task_assignees?.slice(0, 3).map((a, i) => (
-                      <Avatar key={i} className="h-4 w-4 border">
-                        <AvatarFallback className="text-[6px] bg-orange-500/10 text-orange-600">
-                          {a.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
+          <DragOverlay>
+            {activeTask ? (
+              <Card
+                className={`w-[280px] border-s-4 ${
+                  PRIORITY_COLORS[activeTask.priority] ||
+                  PRIORITY_COLORS.medium
+                } shadow-xl rotate-2`}
+              >
+                <CardContent className="p-3 space-y-1">
+                  <p className="text-sm font-medium">{activeTask.title}</p>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <Badge variant="outline" className="text-[9px] h-4">
+                      {PRIORITY_LABELS[activeTask.priority] ||
+                        PRIORITY_LABELS.medium}
+                    </Badge>
+                    {activeTask.due_date && (
+                      <span className="flex items-center gap-0.5">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(activeTask.due_date).toLocaleDateString(
+                          'ar-EG',
+                          { month: 'short', day: 'numeric' }
+                        )}
+                      </span>
+                    )}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : null}
-        </DragOverlay>
-      </DndContext>
+                  {(activeTask.pyra_task_assignees?.length ?? 0) > 0 && (
+                    <div className="flex items-center gap-1">
+                      {activeTask.pyra_task_assignees?.slice(0, 3).map((a, i) => (
+                        <Avatar key={i} className="h-4 w-4 border">
+                          <AvatarFallback className="text-[6px] bg-orange-500/10 text-orange-600">
+                            {a.username.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
 
       {/* Enhanced Add Task Dialog */}
       <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
@@ -1537,6 +1547,153 @@ export default function BoardViewClient({
           />
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ── Pipeline View Component ── */
+const STAGE_COLORS: Record<string, string> = {
+  gray: 'bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600',
+  blue: 'bg-blue-50 dark:bg-blue-950/30 border-blue-300 dark:border-blue-700',
+  purple: 'bg-purple-50 dark:bg-purple-950/30 border-purple-300 dark:border-purple-700',
+  pink: 'bg-pink-50 dark:bg-pink-950/30 border-pink-300 dark:border-pink-700',
+  yellow: 'bg-yellow-50 dark:bg-yellow-950/30 border-yellow-300 dark:border-yellow-700',
+  orange: 'bg-orange-50 dark:bg-orange-950/30 border-orange-300 dark:border-orange-700',
+  green: 'bg-green-50 dark:bg-green-950/30 border-green-300 dark:border-green-700',
+  red: 'bg-red-50 dark:bg-red-950/30 border-red-300 dark:border-red-700',
+  indigo: 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-300 dark:border-indigo-700',
+};
+
+const STAGE_DOT_COLORS: Record<string, string> = {
+  gray: 'bg-gray-400', blue: 'bg-blue-500', purple: 'bg-purple-500',
+  pink: 'bg-pink-500', yellow: 'bg-yellow-500', orange: 'bg-orange-500',
+  green: 'bg-green-500', red: 'bg-red-500', indigo: 'bg-indigo-500',
+};
+
+function PipelineView({
+  columns,
+  tasks,
+  onAddTask,
+  onTaskClick,
+}: {
+  columns: Column[];
+  tasks: Task[];
+  onAddTask: (columnId: string) => void;
+  onTaskClick: (task: Task) => void;
+}) {
+  const totalTasks = tasks.length;
+  const doneTasks = tasks.filter(t => {
+    const col = columns.find(c => c.id === t.column_id);
+    return col?.is_done_column;
+  }).length;
+  const progressPercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
+
+  return (
+    <div className="space-y-6">
+      {/* Overall Progress Bar */}
+      <div className="bg-card/50 border border-border/60 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium">التقدم الكلي</span>
+          <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{progressPercent}%</span>
+        </div>
+        <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-l from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+        <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
+          <span>{doneTasks} مكتمل من {totalTasks}</span>
+          <span>{columns.length} مراحل</span>
+        </div>
+      </div>
+
+      {/* Stage Pipeline - Horizontal */}
+      <div className="flex gap-1 overflow-x-auto pb-2" dir="ltr">
+        {columns.map((col, idx) => {
+          const stageTasks = tasks
+            .filter(t => t.column_id === col.id)
+            .sort((a, b) => a.position - b.position);
+          const isLast = idx === columns.length - 1;
+
+          return (
+            <div key={col.id} className="flex items-start min-w-0">
+              {/* Stage */}
+              <div className="min-w-[220px] max-w-[280px] flex-shrink-0">
+                {/* Stage Header */}
+                <div className={`rounded-t-xl border-2 p-3 ${STAGE_COLORS[col.color] || STAGE_COLORS.gray}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${STAGE_DOT_COLORS[col.color] || STAGE_DOT_COLORS.gray}`} />
+                      <span className="text-sm font-semibold" dir="rtl">{col.name}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] h-5">
+                      {stageTasks.length}
+                    </Badge>
+                  </div>
+                  {col.requires_approval && (
+                    <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      يتطلب موافقة
+                    </div>
+                  )}
+                </div>
+
+                {/* Tasks in stage */}
+                <div className="border-x-2 border-b-2 border-border/40 rounded-b-xl bg-card/30 min-h-[80px] p-2 space-y-2">
+                  {stageTasks.map(task => (
+                    <button
+                      key={task.id}
+                      onClick={() => onTaskClick(task)}
+                      className={`w-full text-start p-2.5 rounded-lg border border-border/50 bg-card hover:border-emerald-400/60 transition-colors cursor-pointer border-s-4 ${
+                        PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
+                      }`}
+                      dir="rtl"
+                    >
+                      <p className="text-sm font-medium line-clamp-2">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                        {task.due_date && (
+                          <span className="flex items-center gap-0.5">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(task.due_date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                        {(task.pyra_task_assignees?.length ?? 0) > 0 && (
+                          <div className="flex items-center -space-x-1">
+                            {task.pyra_task_assignees?.slice(0, 2).map((a, i) => (
+                              <Avatar key={i} className="h-4 w-4 border border-card">
+                                <AvatarFallback className="text-[6px] bg-emerald-500/10 text-emerald-600">
+                                  {a.username.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                  {/* Add task button */}
+                  <button
+                    onClick={() => onAddTask(col.id)}
+                    className="w-full p-2 rounded-lg border border-dashed border-border/50 text-muted-foreground/50 hover:border-emerald-400/60 hover:text-emerald-500 transition-colors text-xs flex items-center justify-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span dir="rtl">إضافة مهمة</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Arrow between stages */}
+              {!isLast && (
+                <div className="flex items-center px-1 pt-8 flex-shrink-0">
+                  <div className="w-5 h-0.5 bg-border" />
+                  <div className="w-0 h-0 border-t-[5px] border-t-transparent border-b-[5px] border-b-transparent border-s-[6px] border-s-border" />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
