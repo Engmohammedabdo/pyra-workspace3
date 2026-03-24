@@ -148,6 +148,7 @@ export default function InvoiceDetailPage() {
   const [editNotes, setEditNotes] = useState('');
   const [editDueDate, setEditDueDate] = useState('');
   const [editVatRate, setEditVatRate] = useState(0);
+  const [editDisplayName, setEditDisplayName] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   /* ── action states ── */
@@ -202,6 +203,7 @@ export default function InvoiceDetailPage() {
     setEditNotes(invoice.notes || '');
     setEditDueDate(invoice.due_date);
     setEditVatRate(invoice.tax_rate);
+    setEditDisplayName(invoice.display_client_name || '');
     setEditing(true);
   };
 
@@ -256,6 +258,7 @@ export default function InvoiceDetailPage() {
           notes: editNotes || null,
           due_date: editDueDate,
           tax_rate: editVatRate,
+          display_client_name: editDisplayName.trim() || null,
           items: validItems.map(i => ({
             description: i.description.trim(),
             quantity: i.quantity,
@@ -592,6 +595,19 @@ export default function InvoiceDetailPage() {
                   onChange={e => setEditProjectName(e.target.value)}
                   placeholder="اسم المشروع"
                 />
+              </div>
+
+              {/* Display Client Name */}
+              <div className="space-y-2">
+                <Label>اسم العميل في الـ PDF (اختياري)</Label>
+                <Input
+                  value={editDisplayName}
+                  onChange={e => setEditDisplayName(e.target.value)}
+                  placeholder={invoice?.client_name || 'اسم مختلف حسب الرخصة التجارية'}
+                />
+                <p className="text-xs text-muted-foreground">
+                  اتركه فارغاً لاستخدام الاسم الأصلي ({invoice?.client_name})
+                </p>
               </div>
 
               {/* Due Date */}
