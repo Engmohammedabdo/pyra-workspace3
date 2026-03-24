@@ -56,6 +56,7 @@ interface Invoice {
   client_company: string | null;
   client_phone: string | null;
   client_address: string | null;
+  display_client_name: string | null;
   project_name: string | null;
   status: string;
   issue_date: string;

@@ -41,6 +41,7 @@ export default function NewInvoicePage() {
 
   /* ── form fields ── */
   const [clientId, setClientId] = useState('');
+  const [displayClientName, setDisplayClientName] = useState('');
   const [projectName, setProjectName] = useState('');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [dueDate, setDueDate] = useState('');
@@ -147,6 +148,7 @@ export default function NewInvoicePage() {
       };
 
       if (clientId) body.client_id = clientId;
+      if (displayClientName.trim()) body.display_client_name = displayClientName.trim();
       if (milestoneType) body.milestone_type = milestoneType;
       if (discountType) {
         body.discount_type = discountType;
@@ -231,6 +233,21 @@ export default function NewInvoicePage() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Display Client Name */}
+          {clientId && (
+            <div className="space-y-2">
+              <Label>اسم العميل في الفاتورة (اختياري)</Label>
+              <Input
+                value={displayClientName}
+                onChange={e => setDisplayClientName(e.target.value)}
+                placeholder={clients.find(c => c.id === clientId)?.name || 'اسم مختلف حسب الرخصة التجارية'}
+              />
+              <p className="text-xs text-muted-foreground">
+                اتركه فارغاً لاستخدام اسم العميل الأصلي، أو اكتب اسم مختلف حسب طلب العميل (مثل اسم الرخصة)
+              </p>
+            </div>
+          )}
 
           {/* Project Name */}
           <div className="space-y-2">

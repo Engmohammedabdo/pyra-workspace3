@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       vat_rate: bodyVatRate,
       discount_type: bodyDiscountType,
       discount_value: bodyDiscountValue,
+      display_client_name,
     } = body;
 
     // Scope check: non-admins can only create invoices for their accessible clients
@@ -286,6 +287,7 @@ export async function POST(request: NextRequest) {
         milestone_type: milestone_type || null,
         parent_invoice_id: parent_invoice_id || null,
         contract_id: contract_id || null,
+        display_client_name: display_client_name?.trim() || null,
         created_by: auth.pyraUser.username,
         ...clientData,
       })

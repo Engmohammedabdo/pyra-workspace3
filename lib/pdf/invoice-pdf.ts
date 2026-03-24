@@ -54,6 +54,7 @@ interface InvoiceData {
   client_email: string | null;
   client_phone: string | null;
   client_address: string | null;
+  display_client_name: string | null;
   project_name: string | null;
   milestone_type: string | null;
   items: InvoiceItem[];
@@ -202,9 +203,10 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
   doc.setFont('helvetica', 'normal');
 
   let clientY = y + 6;
-  if (invoice.client_name) {
+  const pdfClientName = invoice.display_client_name || invoice.client_name;
+  if (pdfClientName) {
     doc.setTextColor(24, 24, 27);
-    doc.setFont('Amiri', 'normal'); doc.text(arText(invoice.client_name), rightCol, clientY, { align: 'right' });
+    doc.setFont('Amiri', 'normal'); doc.text(arText(pdfClientName), rightCol, clientY, { align: 'right' });
     clientY += 6;
   }
   if (invoice.client_company) {

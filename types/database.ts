@@ -459,6 +459,7 @@ export interface PyraInvoice {
   client_company: string | null;
   client_phone: string | null;
   client_address: string | null;
+  display_client_name: string | null;
   discount_type: 'percentage' | 'fixed' | null;
   discount_value: number;
   discount_amount: number;
