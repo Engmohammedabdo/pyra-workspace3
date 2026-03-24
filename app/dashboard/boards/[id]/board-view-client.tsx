@@ -52,6 +52,9 @@ import {
   X,
   Send,
   AlertTriangle,
+  Settings,
+  GitBranch,
+  LayoutGrid,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -1101,6 +1104,10 @@ export default function BoardViewClient({
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  // Settings dialog state
+  const [showSettings, setShowSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   // Add task dialog state
   const [showAddTask, setShowAddTask] = useState(false);
   const [addToColumn, setAddToColumn] = useState('');
@@ -1305,6 +1312,25 @@ export default function BoardViewClient({
     );
   }
 
+  const handleSaveSettings = async (updates: Record<string, unknown>) => {
+    setSavingSettings(true);
+    try {
+      const res = await fetch(`/api/boards/${boardId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('تم حفظ الإعدادات');
+      fetchBoard();
+      setShowSettings(false);
+    } catch {
+      toast.error('فشل حفظ الإعدادات');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   const columns: Column[] = (board.pyra_board_columns || []).sort(
     (a, b) => a.position - b.position
   );
@@ -1330,10 +1356,30 @@ export default function BoardViewClient({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{tasks.length} مهمة</span>
-          <span>·</span>
-          <span>{columns.length} أعمدة</span>
+        <div className="flex items-center gap-3">
+          {/* View mode indicator */}
+          {board.is_pipeline && (
+            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0 gap-1">
+              <GitBranch className="h-3.5 w-3.5" />
+              Pipeline
+            </Badge>
+          )}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>{tasks.length} مهمة</span>
+            <span>·</span>
+            <span>{columns.length} {board.is_pipeline ? 'مراحل' : 'أعمدة'}</span>
+          </div>
+          {/* Board Settings Button (admin only) */}
+          {hasPermission(session.pyraUser.rolePermissions, 'boards.manage') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowSettings(true)}
+              title="إعدادات اللوحة"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1477,6 +1523,127 @@ export default function BoardViewClient({
           session={session}
         />
       )}
+
+      {/* Board Settings Dialog */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>إعدادات اللوحة</DialogTitle>
+          </DialogHeader>
+          <BoardSettingsForm
+            board={board}
+            saving={savingSettings}
+            onSave={handleSaveSettings}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/* ── Board Settings Form ── */
+function BoardSettingsForm({
+  board,
+  saving,
+  onSave,
+}: {
+  board: Board;
+  saving: boolean;
+  onSave: (updates: Record<string, unknown>) => void;
+}) {
+  const [name, setName] = useState(board.name);
+  const [description, setDescription] = useState(board.description || '');
+  const [viewMode, setViewMode] = useState(board.view_mode || 'kanban');
+  const [isPipeline, setIsPipeline] = useState(board.is_pipeline || false);
+  const [autoAdvance, setAutoAdvance] = useState(board.auto_advance || false);
+
+  const handleSubmit = () => {
+    if (!name.trim()) return;
+    onSave({
+      name: name.trim(),
+      description: description.trim() || null,
+      view_mode: viewMode,
+      is_pipeline: isPipeline,
+      auto_advance: autoAdvance,
+    });
+  };
+
+  return (
+    <div className="space-y-4 mt-2">
+      {/* Name */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">اسم اللوحة</label>
+        <Input value={name} onChange={e => setName(e.target.value)} />
+      </div>
+
+      {/* Description */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">الوصف</label>
+        <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف مختصر..." />
+      </div>
+
+      {/* View Mode */}
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">نوع العرض</label>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => { setViewMode('kanban'); setIsPipeline(false); }}
+            className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${
+              viewMode === 'kanban'
+                ? 'border-orange-500 bg-orange-500/10'
+                : 'border-border hover:border-orange-300'
+            }`}
+          >
+            <LayoutGrid className="h-4 w-4 text-orange-500" />
+            <div>
+              <p className="text-sm font-medium">كانبان</p>
+              <p className="text-[10px] text-muted-foreground">أعمدة مرنة</p>
+            </div>
+          </button>
+          <button
+            onClick={() => { setViewMode('pipeline'); setIsPipeline(true); }}
+            className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${
+              viewMode === 'pipeline'
+                ? 'border-emerald-500 bg-emerald-500/10'
+                : 'border-border hover:border-emerald-300'
+            }`}
+          >
+            <GitBranch className="h-4 w-4 text-emerald-500" />
+            <div>
+              <p className="text-sm font-medium">Pipeline</p>
+              <p className="text-[10px] text-muted-foreground">مراحل تسلسلية</p>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Auto-advance (only for pipeline) */}
+      {isPipeline && (
+        <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
+          <div>
+            <p className="text-sm font-medium">انتقال تلقائي</p>
+            <p className="text-[10px] text-muted-foreground">المهمة تنتقل تلقائياً بعد الإكمال</p>
+          </div>
+          <button
+            onClick={() => setAutoAdvance(!autoAdvance)}
+            className={`w-10 h-5 rounded-full transition-colors relative ${
+              autoAdvance ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+            }`}
+          >
+            <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${
+              autoAdvance ? 'start-5' : 'start-0.5'
+            }`} />
+          </button>
+        </div>
+      )}
+
+      <Button
+        onClick={handleSubmit}
+        disabled={saving || !name.trim()}
+        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+      >
+        {saving ? 'جاري الحفظ...' : 'حفظ الإعدادات'}
+      </Button>
     </div>
   );
 }

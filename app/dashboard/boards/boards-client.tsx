@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
-  Kanban, Plus, Briefcase,
+  Kanban, Plus, Briefcase, GitBranch, List, LayoutGrid,
   Layout, FileText, Palette, Megaphone, Video, Share2,
 } from 'lucide-react';
 import { BOARD_TEMPLATES } from '@/lib/config/board-templates';
@@ -29,6 +29,8 @@ interface Board {
   description: string | null;
   template: string | null;
   project_id: string | null;
+  view_mode?: string;
+  is_pipeline?: boolean;
   created_at: string;
   pyra_projects?: { name: string } | null;
   pyra_board_columns?: { id: string }[];
@@ -46,6 +48,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('general');
+  const [viewMode, setViewMode] = useState<'kanban' | 'pipeline'>('kanban');
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'boards.manage');
 
   const fetchBoards = useCallback(async () => {
@@ -71,7 +74,13 @@ export default function BoardsClient({ session }: BoardsClientProps) {
       const res = await fetch('/api/boards', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newName, description: newDesc, template: selectedTemplate }),
+        body: JSON.stringify({
+          name: newName,
+          description: newDesc,
+          template: selectedTemplate,
+          view_mode: viewMode,
+          is_pipeline: viewMode === 'pipeline',
+        }),
       });
       if (!res.ok) throw new Error('Failed');
       toast.success('\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0644\u0648\u062D\u0629 \u0628\u0646\u062C\u0627\u062D');
@@ -136,6 +145,41 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                     placeholder={'\u0648\u0635\u0641 \u0645\u062E\u062A\u0635\u0631...'}
                   />
                 </div>
+                {/* View Mode */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">نوع العرض</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => setViewMode('kanban')}
+                      className={`p-3 rounded-lg border text-start transition-colors flex items-center gap-2 ${
+                        viewMode === 'kanban'
+                          ? 'border-orange-500 bg-orange-500/10'
+                          : 'border-border hover:border-orange-300'
+                      }`}
+                    >
+                      <LayoutGrid className="h-5 w-5 text-orange-500" />
+                      <div>
+                        <p className="text-sm font-medium">كانبان</p>
+                        <p className="text-[10px] text-muted-foreground">أعمدة مرنة بسحب وإفلات</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setViewMode('pipeline')}
+                      className={`p-3 rounded-lg border text-start transition-colors flex items-center gap-2 ${
+                        viewMode === 'pipeline'
+                          ? 'border-emerald-500 bg-emerald-500/10'
+                          : 'border-border hover:border-emerald-300'
+                      }`}
+                    >
+                      <GitBranch className="h-5 w-5 text-emerald-500" />
+                      <div>
+                        <p className="text-sm font-medium">Pipeline</p>
+                        <p className="text-[10px] text-muted-foreground">مراحل تسلسلية مع متابعة التقدم</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-sm font-medium">{'\u0627\u062E\u062A\u0631 \u0642\u0627\u0644\u0628'}</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -188,7 +232,11 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base">{board.name}</CardTitle>
-                    <Kanban className="h-5 w-5 text-orange-500" />
+                    {board.is_pipeline ? (
+                      <GitBranch className="h-5 w-5 text-emerald-500" />
+                    ) : (
+                      <Kanban className="h-5 w-5 text-orange-500" />
+                    )}
                   </div>
                   {board.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2">{board.description}</p>
@@ -202,9 +250,14 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                         {board.pyra_projects.name}
                       </Badge>
                     )}
+                    {board.is_pipeline && (
+                      <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">
+                        Pipeline
+                      </Badge>
+                    )}
                     {board.pyra_board_columns && (
                       <Badge variant="outline" className="text-[10px]">
-                        {board.pyra_board_columns.length} {'\u0623\u0639\u0645\u062F\u0629'}
+                        {board.pyra_board_columns.length} {board.is_pipeline ? 'مراحل' : '\u0623\u0639\u0645\u062F\u0629'}
                       </Badge>
                     )}
                   </div>

@@ -53,7 +53,7 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await req.json();
-  const allowed = ['name', 'description', 'position'];
+  const allowed = ['name', 'description', 'position', 'view_mode', 'is_pipeline', 'auto_advance', 'default_task_type'];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
     if (key in body) updates[key] = body[key];

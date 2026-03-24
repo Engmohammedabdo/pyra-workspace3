@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (isApiError(auth)) return auth;
 
   const body = await req.json();
-  const { name, description, project_id, template } = body;
+  const { name, description, project_id, template, view_mode, is_pipeline, auto_advance } = body;
   if (!name) return apiValidationError('اسم اللوحة مطلوب');
 
   const supabase = await createServerSupabaseClient();
@@ -67,6 +67,9 @@ export async function POST(req: NextRequest) {
       description: description || null,
       project_id: project_id || null,
       template: template || null,
+      view_mode: view_mode || 'kanban',
+      is_pipeline: is_pipeline || false,
+      auto_advance: auto_advance || false,
       created_by: auth.pyraUser.username,
     });
 
