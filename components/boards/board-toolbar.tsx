@@ -14,7 +14,7 @@ import {
 // Types
 // ═══════════════════════════════════════════════════════════
 
-export type ViewMode = 'kanban' | 'pipeline' | 'list';
+export type ViewMode = 'kanban' | 'pipeline' | 'list' | 'calendar';
 
 export type SortOption = 'position' | 'newest' | 'oldest' | 'priority' | 'due_date' | 'title';
 
@@ -336,6 +336,15 @@ export function BoardToolbar({
         >
           <List className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">قائمة</span>
+        </button>
+        <button
+          onClick={() => onViewModeChange('calendar')}
+          className={cn('px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors border-s border-border',
+            viewMode === 'calendar' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : 'hover:bg-muted text-muted-foreground'
+          )}
+        >
+          <CalendarClock className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">تقويم</span>
         </button>
       </div>
     </div>

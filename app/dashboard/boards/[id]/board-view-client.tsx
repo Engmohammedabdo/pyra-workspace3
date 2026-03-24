@@ -71,6 +71,7 @@ import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { TaskSheet } from '@/components/boards/task-sheet';
 import { BoardToolbar, applyFilters, EMPTY_FILTERS, type BoardFilters, type ViewMode } from '@/components/boards/board-toolbar';
 import { BoardListView } from '@/components/boards/board-list-view';
+import { BoardCalendarView } from '@/components/boards/board-calendar-view';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 
 // ============================================================
@@ -1858,6 +1859,18 @@ export default function BoardViewClient({
           onTaskClick={(task) => setSelectedTask(task)}
           onUpdate={fetchBoard}
           canEdit={canCreate}
+        />
+      ) : currentViewMode === 'calendar' ? (
+        <BoardCalendarView
+          tasks={filteredTasks}
+          onTaskClick={(task) => setSelectedTask(task)}
+          onQuickAdd={(colId, dueDate) => {
+            setAddToColumn(colId);
+            setNewTaskDueDate(dueDate);
+            setNewTaskTitle('');
+            setShowAddTask(true);
+          }}
+          defaultColumnId={columns[0]?.id || ''}
         />
       ) : (
         /* ── Kanban Board ── */
