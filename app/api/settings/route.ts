@@ -83,6 +83,17 @@ const ALLOWED_KEYS = new Set([
   'commission_rate',
   'commission_trigger',
   'commission_auto_calculate',
+  // Board settings
+  'board_default_template',
+  'board_auto_create_with_project',
+  'board_require_due_date',
+  'board_enable_time_tracking',
+  'board_overdue_notification',
+  'board_notify_on_assign',
+  'board_notify_on_comment',
+  'board_client_portal_visible',
+  'board_max_attachments_mb',
+  'board_done_auto_archive_days',
 ]);
 
 // =============================================================

@@ -16,7 +16,7 @@ import {
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
   CreditCard, Eye, EyeOff, Bell, ArrowDownCircle, Percent, Mail, Lock,
-  Search, Info, Lightbulb, ChevronDown, ChevronUp, AlertCircle,
+  Search, Info, Lightbulb, ChevronDown, ChevronUp, AlertCircle, Kanban,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
@@ -85,6 +85,17 @@ const SETTING_LABELS: Record<string, {
   trash_auto_purge_days: { label: 'مدة حذف سلة المهملات (أيام)', description: 'الملفات المحذوفة تُزال نهائياً بعد هذه المدة', group: 'files', placeholder: '30' },
   allow_public_shares: { label: 'السماح بروابط مشاركة عامة', description: 'عند التعطيل، لا يمكن إنشاء روابط مشاركة خارجية', group: 'files' },
   share_default_expiry_hours: { label: 'انتهاء صلاحية الرابط (ساعات)', description: 'المدة الافتراضية لصلاحية رابط المشاركة', group: 'files', placeholder: '72' },
+  // Boards
+  board_default_template: { label: 'القالب الافتراضي', description: 'القالب المستخدم عند إنشاء لوحة جديدة', group: 'boards', placeholder: 'general' },
+  board_auto_create_with_project: { label: 'إنشاء لوحة تلقائياً مع المشروع', description: 'عند إنشاء مشروع جديد، تُنشأ لوحة مهام تلقائياً', group: 'boards' },
+  board_require_due_date: { label: 'إلزام تاريخ الاستحقاق', description: 'لا يمكن إنشاء مهمة بدون تاريخ استحقاق', group: 'boards' },
+  board_enable_time_tracking: { label: 'تفعيل تتبع الوقت', description: 'إظهار حقول الساعات المقدرة والفعلية في المهام', group: 'boards' },
+  board_overdue_notification: { label: 'إشعار المهام المتأخرة', description: 'إرسال إشعار تلقائي عند تأخر المهمة', group: 'boards' },
+  board_notify_on_assign: { label: 'إشعار عند التعيين', description: 'إرسال إشعار للعضو عند تعيينه على مهمة', group: 'boards' },
+  board_notify_on_comment: { label: 'إشعار عند التعليق', description: 'إرسال إشعار عند إضافة تعليق على مهمة معينة', group: 'boards' },
+  board_client_portal_visible: { label: 'عرض للعملاء في البورتال', description: 'السماح للعملاء بمشاهدة لوحات مشاريعهم (قراءة فقط)', group: 'boards' },
+  board_max_attachments_mb: { label: 'أقصى حجم مرفقات المهمة (MB)', description: 'الحد الأقصى لحجم المرفقات لكل مهمة', group: 'boards', placeholder: '25' },
+  board_done_auto_archive_days: { label: 'أرشفة تلقائية (أيام)', description: 'أرشفة المهام المكتملة تلقائياً بعد هذه المدة (0 = معطّل)', group: 'boards', placeholder: '0' },
   // Security
   session_timeout_minutes: { label: 'مهلة الجلسة (دقائق)', description: 'يتم تسجيل الخروج تلقائياً بعد فترة عدم النشاط', group: 'security', placeholder: '60' },
   max_failed_logins: { label: 'أقصى محاولات دخول فاشلة', description: 'يتم قفل الحساب بعد هذا العدد من المحاولات', group: 'security', placeholder: '5' },
@@ -117,6 +128,8 @@ const GROUPS: GroupDef[] = [
     tip: 'تظهر في ذيل الفواتير لتسهيل التحويل البنكي. تأكد من صحة رقم IBAN.' },
   { key: 'portal', label: 'بورتال العملاء', icon: Globe, gradient: 'from-cyan-500 to-sky-600', category: 'business',
     tip: 'البورتال يتيح للعملاء متابعة مشاريعهم وفواتيرهم. يمكنك تعطيله مؤقتاً عند الحاجة.' },
+  { key: 'boards', label: 'لوحات العمل', icon: Kanban, gradient: 'from-blue-500 to-cyan-600', category: 'business',
+    tip: 'إعدادات لوحات المهام والمشاريع. تتحكم في القوالب الافتراضية والإشعارات وتتبع الوقت.' },
   // Finance
   { key: 'quotes', label: 'عروض الأسعار', icon: FileText, gradient: 'from-blue-500 to-indigo-600', category: 'finance',
     tip: 'البادئة ونسبة الضريبة تُطبق تلقائياً عند إنشاء عرض سعر جديد.' },
@@ -163,7 +176,7 @@ const TABS = [
 
 /* ── Secret fields ── */
 const SECRET_FIELDS = new Set(['stripe_secret_key', 'stripe_webhook_secret', 'smtp_pass']);
-const SWITCH_FIELDS = new Set(['portal_enabled', 'stripe_enabled', 'dunning_enabled', 'expense_approval_required', 'commission_auto_calculate', 'auto_version_on_upload', 'allow_public_shares']);
+const SWITCH_FIELDS = new Set(['portal_enabled', 'stripe_enabled', 'dunning_enabled', 'expense_approval_required', 'commission_auto_calculate', 'auto_version_on_upload', 'allow_public_shares', 'board_auto_create_with_project', 'board_require_due_date', 'board_enable_time_tracking', 'board_overdue_notification', 'board_notify_on_assign', 'board_notify_on_comment', 'board_client_portal_visible']);
 
 /* ── Framer Motion ── */
 const containerMotion = {
