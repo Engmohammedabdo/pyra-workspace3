@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🦊 تقرير تطوير PyraAI — البحث الشامل</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --primary: #6C5CE7;
+  --primary-light: #a29bfe;
+  --secondary: #00B894;
+  --secondary-light: #55efc4;
+  --accent: #FD79A8;
+  --accent-light: #fd9ec5;
+  --dark: #2D3436;
+  --dark-mid: #1e272e;
+  --dark-card: #2f3640;
+  --light: #F8F9FA;
+  --text: #dfe6e9;
+  --text-muted: #b2bec3;
+  --border: rgba(108,92,231,0.2);
+  --shadow: 0 8px 32px rgba(0,0,0,0.3);
+  --shadow-hover: 0 12px 48px rgba(108,92,231,0.3);
+  --radius: 16px;
+  --radius-sm: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Tajawal', 'Cairo', sans-serif;
+  background: var(--dark);
+  color: var(--text);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+h1,h2,h3,h4 { font-family: 'Cairo', sans-serif; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--dark-mid); }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 4px; }
+
+/* Navbar */
+.navbar {
+  position: fixed; top:0; right:0; left:0; z-index:1000;
+  background: rgba(30,39,46,0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  transition: all 0.3s;
+}
+.navbar-inner {
+  max-width: 1400px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.nav-logo {
+  font-family: 'Cairo'; font-weight: 800; font-size: 1.3rem;
+  color: var(--primary-light);
+  display: flex; align-items: center; gap: 8px;
+}
+.nav-links { display: flex; gap: 4px; list-style: none; flex-wrap: wrap; }
+.nav-links a {
+  color: var(--text-muted); text-decoration: none;
+  padding: 8px 14px; border-radius: 8px; font-size: 0.85rem;
+  transition: all 0.3s; font-weight: 500;
+}
+.nav-links a:hover, .nav-links a.active {
+  color: #fff; background: rgba(108,92,231,0.2);
+}
+.nav-toggle { display:none; background:none; border:none; color:var(--text); font-size:1.5rem; cursor:pointer; }
+
+/* Hero */
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  text-align: center; padding: 120px 2rem 80px;
+  background: linear-gradient(135deg, var(--dark-mid) 0%, var(--dark) 50%, #1a1a2e 100%);
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content:''; position:absolute; top:-50%; right:-50%;
+  width:200%; height:200%;
+  background: radial-gradient(circle at 30% 40%, rgba(108,92,231,0.08) 0%, transparent 50%),
+              radial-gradient(circle at 70% 60%, rgba(0,184,148,0.06) 0%, transparent 50%);
+  animation: heroFloat 20s ease-in-out infinite;
+}
+@keyframes heroFloat {
+  0%,100% { transform: translate(0,0) rotate(0deg); }
+  50% { transform: translate(-2%,2%) rotate(1deg); }
+}
+.hero-content { position:relative; z-index:1; max-width:900px; }
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 900;
+  background: linear-gradient(135deg, var(--primary-light), var(--secondary-light), var(--accent-light));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text; margin-bottom: 1rem;
+}
+.hero .subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.3rem); color: var(--text-muted);
+  margin-bottom: 3rem;
+}
+.stats-row {
+  display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap;
+}
+.stat-box {
+  background: rgba(108,92,231,0.1); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem 2.5rem;
+  min-width: 160px;
+}
+.stat-num {
+  font-size: 3rem; font-weight: 900; font-family: 'Cairo';
+  background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label { color: var(--text-muted); font-size: 0.9rem; margin-top: 4px; }
+
+/* Sections */
+.section {
+  max-width: 1400px; margin: 0 auto;
+  padding: 80px 2rem;
+}
+.section-header {
+  text-align: center; margin-bottom: 3rem;
+}
+.section-header h2 {
+  font-size: clamp(1.5rem, 3vw, 2.2rem); font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+.section-header .section-icon {
+  font-size: 2.5rem; margin-bottom: 0.5rem; display:block;
+}
+.section-header p { color: var(--text-muted); max-width:600px; margin:0 auto; }
+.section-divider {
+  width: 80px; height: 4px; border-radius: 2px; margin: 1rem auto 0;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+/* Executive Summary */
+.exec-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+.exec-card {
+  background: var(--dark-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem;
+  display: flex; gap: 1rem; align-items: flex-start;
+  transition: all 0.3s; position:relative; overflow:hidden;
+}
+.exec-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-hover); border-color: var(--primary); }
+.exec-rank {
+  width:48px; height:48px; border-radius:12px;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+  display:flex; align-items:center; justify-content:center;
+  font-weight:900; font-size:1.3rem; color:#fff; flex-shrink:0;
+  font-family:'Cairo';
+}
+.exec-info h4 { font-size:1.05rem; margin-bottom:4px; color:#fff; }
+.exec-info p { font-size:0.85rem; color:var(--text-muted); margin-bottom:8px; }
+.exec-meta { display:flex; gap:8px; flex-wrap:wrap; }
+.badge {
+  display: inline-flex; align-items:center; gap:4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight:600;
+}
+.badge-benefit { background: rgba(0,184,148,0.15); color: var(--secondary-light); }
+.badge-easy { background: rgba(253,121,168,0.15); color: var(--accent-light); }
+.badge-free { background: rgba(108,92,231,0.15); color: var(--primary-light); }
+.badge-ready { background: rgba(0,184,148,0.2); color: #55efc4; }
+.badge-setup { background: rgba(255,165,2,0.15); color: #ffc048; }
+.badge-no { background: rgba(214,48,49,0.15); color: #ff7675; }
+
+/* Filter Tabs */
+.filter-tabs {
+  display: flex; gap: 8px; justify-content: center; margin-bottom: 2rem; flex-wrap: wrap;
+}
+.filter-tab {
+  padding: 8px 20px; border-radius: 25px; border: 1px solid var(--border);
+  background: transparent; color: var(--text-muted); cursor: pointer;
+  font-family: 'Tajawal'; font-size: 0.9rem; font-weight: 500;
+  transition: all 0.3s;
+}
+.filter-tab:hover { border-color: var(--primary); color: var(--primary-light); }
+.filter-tab.active {
+  background: var(--primary); color: #fff; border-color: var(--primary);
+}
+
+/* Cards Grid */
+.cards-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+.tool-card {
+  background: var(--dark-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 1.5rem;
+  transition: all 0.4s; position:relative; overflow:hidden;
+}
+.tool-card:hover {
+  transform: translateY(-6px); box-shadow: var(--shadow-hover);
+  border-color: var(--primary);
+}
+.tool-card.recommended {
+  border-color: var(--secondary);
+  box-shadow: 0 0 20px rgba(0,184,148,0.1);
+}
+.tool-card.recommended::before {
+  content:'⭐ موصى به'; position:absolute; top:12px; left:12px;
+  background: linear-gradient(135deg, var(--secondary), #00cec9);
+  color:#fff; padding:3px 12px; border-radius:20px; font-size:0.7rem; font-weight:700;
+}
+.card-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+.card-title { font-size:1.15rem; font-weight:700; color:#fff; }
+.card-stars { color: var(--text-muted); font-size:0.8rem; display:flex; align-items:center; gap:4px; }
+.card-stars svg { width:14px; height:14px; fill: #fdcb6e; }
+.card-desc { color: var(--text-muted); font-size:0.88rem; margin-bottom:16px; line-height:1.6; }
+
+/* Progress Bar */
+.benefit-row { margin-bottom:12px; }
+.benefit-label { display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:4px; }
+.benefit-label span:first-child { color:var(--text-muted); }
+.benefit-label span:last-child { color:var(--primary-light); font-weight:700; }
+.progress-bar {
+  height: 8px; background: rgba(108,92,231,0.15); border-radius: 4px; overflow:hidden;
+}
+.progress-fill {
+  height: 100%; border-radius: 4px; transition: width 1.5s ease;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.card-meta { display:flex; gap:6px; flex-wrap:wrap; margin-top:12px; }
+
+/* Table */
+.table-wrapper {
+  overflow-x: auto; border-radius: var(--radius);
+  border: 1px solid var(--border); background: var(--dark-card);
+}
+table { width:100%; border-collapse:collapse; min-width:800px; }
+th {
+  background: rgba(108,92,231,0.15); color: var(--primary-light);
+  padding: 14px 16px; text-align: right; font-weight: 700;
+  font-size: 0.88rem; border-bottom: 2px solid var(--border);
+  position: sticky; top:0;
+}
+td {
+  padding: 12px 16px; border-bottom: 1px solid rgba(108,92,231,0.08);
+  font-size: 0.88rem; vertical-align: middle;
+}
+tr:hover td { background: rgba(108,92,231,0.05); }
+.priority-high { color: #ff7675; font-weight:700; }
+.priority-med { color: #ffeaa7; font-weight:600; }
+.priority-low { color: var(--secondary-light); }
+
+/* Timeline */
+.timeline { position:relative; padding:2rem 0; }
+.timeline::before {
+  content:''; position:absolute; top:0; bottom:0;
+  right: 50%; width:3px;
+  background: linear-gradient(to bottom, var(--primary), var(--secondary), var(--accent));
+  border-radius:2px;
+}
+.timeline-item {
+  display:flex; align-items:flex-start; margin-bottom:3rem;
+  position:relative;
+}
+.timeline-item:nth-child(odd) { flex-direction: row-reverse; text-align:left; }
+.timeline-item:nth-child(even) { text-align:right; }
+.timeline-dot {
+  position:absolute; right:calc(50% - 12px);
+  width:24px; height:24px; border-radius:50%;
+  background: var(--primary); border:3px solid var(--dark);
+  z-index:2;
+}
+.timeline-content {
+  width: 44%; background: var(--dark-card); border:1px solid var(--border);
+  border-radius: var(--radius); padding:1.5rem;
+  transition: all 0.3s;
+}
+.timeline-content:hover { border-color:var(--primary); transform:translateY(-4px); }
+.timeline-phase {
+  display:inline-block; padding:4px 14px; border-radius:20px;
+  font-size:0.8rem; font-weight:700; margin-bottom:8px;
+}
+.phase-1 { background:rgba(0,184,148,0.2); color:var(--secondary-light); }
+.phase-2 { background:rgba(108,92,231,0.2); color:var(--primary-light); }
+.phase-3 { background:rgba(253,121,168,0.2); color:var(--accent-light); }
+.phase-4 { background:rgba(255,165,2,0.2); color:#ffc048; }
+.timeline-content h4 { color:#fff; margin-bottom:8px; font-size:1.05rem; }
+.timeline-content ul { list-style:none; }
+.timeline-content li { color:var(--text-muted); font-size:0.88rem; padding:3px 0; }
+.timeline-content li::before { content:'▸ '; color:var(--primary-light); }
+
+/* Footer */
+.footer {
+  text-align:center; padding:3rem 2rem;
+  border-top:1px solid var(--border);
+  color:var(--text-muted); font-size:0.95rem;
+}
+.footer span { 
+  background: linear-gradient(135deg, var(--primary-light), var(--secondary));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  background-clip:text; font-weight:700;
+}
+
+/* Scroll Reveal */
+.reveal {
+  opacity:0; transform:translateY(30px);
+  transition: opacity 0.8s ease, transform 0.8s ease;
+}
+.reveal.visible { opacity:1; transform:translateY(0); }
+
+/* Responsive */
+@media(max-width:900px) {
+  .nav-links { display:none; position:absolute; top:64px; right:0; left:0;
+    background:rgba(30,39,46,0.98); flex-direction:column; padding:1rem;
+    border-bottom:1px solid var(--border);
+  }
+  .nav-links.open { display:flex; }
+  .nav-toggle { display:block; }
+  .stats-row { gap:1rem; }
+  .stat-box { padding:1rem 1.5rem; min-width:120px; }
+  .stat-num { font-size:2rem; }
+  .cards-grid { grid-template-columns:1fr; }
+  .exec-grid { grid-template-columns:1fr; }
+  .timeline::before { right:20px; }
+  .timeline-item, .timeline-item:nth-child(odd) { flex-direction:row; text-align:right; }
+  .timeline-dot { right:8px; }
+  .timeline-content { width:calc(100% - 50px); margin-right:40px; }
+}
+@media(max-width:600px) {
+  .section { padding:50px 1rem; }
+  .hero { padding:100px 1rem 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="nav-logo">🦊 PyraAI Research</div>
+    <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('open')">☰</button>
+    <ul class="nav-links">
+      <li><a href="#hero">الرئيسية</a></li>
+      <li><a href="#summary">الملخص</a></li>
+      <li><a href="#memory">الذاكرة</a></li>
+      <li><a href="#capabilities">القدرات</a></li>
+      <li><a href="#integrations">التكاملات</a></li>
+      <li><a href="#comparison">المقارنة</a></li>
+      <li><a href="#roadmap">خارطة الطريق</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- Hero -->
+<section class="hero" id="hero">
+  <div class="hero-content">
+    <h1>🦊 تقرير تطوير PyraAI — البحث الشامل</h1>
+    <p class="subtitle">أفضل الأدوات والتقنيات لتقوية القدرات — فبراير 2026</p>
+    <div class="stats-row">
+      <div class="stat-box reveal">
+        <div class="stat-num" data-target="34">0</div>
+        <div class="stat-label">أداة تم بحثها</div>
+      </div>
+      <div class="stat-box reveal">
+        <div class="stat-num" data-target="22">0</div>
+        <div class="stat-label">قابلة للتطبيق</div>
+      </div>
+      <div class="stat-box reveal">
+        <div class="stat-num" data-target="3">0</div>
+        <div class="stat-label">فئات رئيسية</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Executive Summary -->
+<section class="section" id="summary">
+  <div class="section-header reveal">
+    <span class="section-icon">📋</span>
+    <h2>الملخص التنفيذي</h2>
+    <p>أهم التوصيات مرتبة بالأولوية — ابدأ من هنا</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="exec-grid">
+    <div class="exec-card reveal">
+      <div class="exec-rank">1</div>
+      <div class="exec-info">
+        <h4>Tool Call Tombstones</h4>
+        <p>ضغط مخرجات الأدوات لملخصات قصيرة — توفير 90%+ من الكونتكست</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">9/10 فائدة</span>
+          <span class="badge badge-easy">⚡ سهل جداً</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">2</div>
+      <div class="exec-info">
+        <h4>Playwright MCP</h4>
+        <p>تحكم بالمتصفح عبر accessibility tree — بدون screenshots أو vision</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">10/10 فائدة</span>
+          <span class="badge badge-easy">⚡ سهل</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">3</div>
+      <div class="exec-info">
+        <h4>Carbone</h4>
+        <p>محرك تقارير — يحول JSON + Template إلى PDF/DOCX/XLSX احترافية</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">9/10 فائدة</span>
+          <span class="badge badge-easy">⚡ سهل</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">4</div>
+      <div class="exec-info">
+        <h4>AI Memory Compression</h4>
+        <p>ضغط المحادثات 20-100x باستخدام Gemini API المجاني</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">9/10 فائدة</span>
+          <span class="badge badge-easy">⚡ سهل</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">5</div>
+      <div class="exec-info">
+        <h4>LanceDB</h4>
+        <p>قاعدة بيانات vector مدمجة — أسرع 10x من SQLite للبحث الدلالي</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">8/10 فائدة</span>
+          <span class="badge badge-setup">🔧 متوسط</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">6</div>
+      <div class="exec-info">
+        <h4>Stagehand</h4>
+        <p>أتمتة المتصفح بالذكاء الاصطناعي — TypeScript native مع self-healing</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">9/10 فائدة</span>
+          <span class="badge badge-easy">⚡ سهل</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+    <div class="exec-card reveal">
+      <div class="exec-rank">7</div>
+      <div class="exec-info">
+        <h4>Crawl4AI</h4>
+        <p>زاحف ويب ذكي يحول الصفحات لـ Markdown نظيف — مثالي للـ RAG</p>
+        <div class="exec-meta">
+          <span class="badge badge-benefit">9/10 فائدة</span>
+          <span class="badge badge-setup">🔧 Docker</span>
+          <span class="badge badge-free">💰 مجاني</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Memory & Context Section -->
+<section class="section" id="memory">
+  <div class="section-header reveal">
+    <span class="section-icon">🧠</span>
+    <h2>الذاكرة وإدارة الكونتكست</h2>
+    <p>أنظمة لتحسين ذاكرة الـ AI وضغط المحادثات وإدارة السياق</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="cards-grid" id="memory-cards">
+    <!-- Tool Call Tombstones -->
+    <div class="tool-card recommended reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">Tool Call Tombstones</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> جديد</div>
+      </div>
+      <div class="card-desc">يضغط مخرجات الأدوات الطويلة إلى ملخصات قصيرة — يوفر 90%+ من الكونتكست. فكرة بسيطة ونتائج مذهلة.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ جاهز للتطبيق</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-easy">⚡ سهل</span>
+      </div>
+    </div>
+    <!-- AI Memory Compression -->
+    <div class="tool-card recommended reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">AI Memory System (Gemini)</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> جديد</div>
+      </div>
+      <div class="card-desc">نظام ذاكرة ثلاثي الطبقات يضغط المحادثات 20-100x باستخدام Gemini API. مصمم خصيصاً لـ OpenClaw!</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ جاهز</span>
+        <span class="badge badge-free">💰 مجاني (Gemini)</span>
+        <span class="badge badge-easy">⚡ سهل</span>
+      </div>
+    </div>
+    <!-- LanceDB -->
+    <div class="tool-card recommended reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">LanceDB</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 9,014</div>
+      </div>
+      <div class="card-desc">قاعدة بيانات vector مدمجة (embedded) — تعمل بدون سيرفر مثل SQLite، أسرع 10x+ للبحث الدلالي. TypeScript native!</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ يشتغل عندنا</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-setup">🔧 يحتاج migration</span>
+      </div>
+    </div>
+    <!-- Mem0 -->
+    <div class="tool-card recommended reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">Mem0</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 47,664</div>
+      </div>
+      <div class="card-desc">طبقة ذاكرة ذكية — يحفظ التفضيلات ويتعلم مع الوقت. +26% دقة أكثر من OpenAI Memory و 91% أسرع.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ يشتغل عندنا</span>
+        <span class="badge badge-free">💰 مجاني (self-hosted)</span>
+        <span class="badge badge-setup">🔧 يحتاج إعداد</span>
+      </div>
+    </div>
+    <!-- Graphiti -->
+    <div class="tool-card reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">Graphiti (by Zep)</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 22,952</div>
+      </div>
+      <div class="card-desc">Knowledge graph مع temporal awareness — يبني graph من المحادثات تلقائياً ويتتبع التغييرات عبر الزمن.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-no">⚠️ يحتاج Neo4j</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-setup">🔧 ثقيل</span>
+      </div>
+    </div>
+    <!-- Letta -->
+    <div class="tool-card reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">Letta (MemGPT)</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 21,173</div>
+      </div>
+      <div class="card-desc">منصة stateful agents مع ذاكرة هرمية — الـ agent يعدل ذاكرته بنفسه. مشابه لنظامنا الحالي.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>6/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="60"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ يشتغل</span>
+        <span class="badge badge-setup">🔧 أعقد من اللازم</span>
+      </div>
+    </div>
+    <!-- ChromaDB -->
+    <div class="tool-card reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">ChromaDB</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 26,202</div>
+      </div>
+      <div class="card-desc">Vector database مفتوح المصدر. يحتاج سيرفر منفصل — فائدة محدودة مقارنة بـ LanceDB لحجم بياناتنا.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>5/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="50"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-no">⚠️ يحتاج سيرفر</span>
+        <span class="badge badge-free">💰 مجاني</span>
+      </div>
+    </div>
+    <!-- Recursive Summarization -->
+    <div class="tool-card reveal" data-cat="memory">
+      <div class="card-header">
+        <div class="card-title">Recursive Summarization</div>
+        <div class="card-stars">تقنية</div>
+      </div>
+      <div class="card-desc">تلخيص المحادثة بشكل متكرر — كل ما يمتلئ الكونتكست، لخص ثم استمر. Context لا ينتهي أبداً.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ نقدر نبنيه</span>
+        <span class="badge badge-free">💰 API فقط</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Capabilities Section -->
+<section class="section" id="capabilities">
+  <div class="section-header reveal">
+    <span class="section-icon">💡</span>
+    <h2>القدرات والإبداعية</h2>
+    <p>أدوات لتوليد التقارير والعروض والمحتوى وتنفيذ الكود</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="cards-grid" id="cap-cards">
+    <!-- Carbone -->
+    <div class="tool-card recommended reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">Carbone</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~2,500</div>
+      </div>
+      <div class="card-desc">محرك تقارير — يحول JSON + Template (DOCX/XLSX) إلى تقارير PDF/DOCX/XLSX احترافية. فواتير، عقود، تقارير تلقائية!</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Node.js</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-easy">⚡ سهل</span>
+      </div>
+    </div>
+    <!-- Presenton -->
+    <div class="tool-card recommended reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">Presenton</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~2,000</div>
+      </div>
+      <div class="card-desc">بديل مفتوح لـ Gamma.app — يولد عروض تقديمية احترافية من prompt. يصدر PPTX و PDF. فيه MCP Server مدمج!</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Docker</span>
+        <span class="badge badge-free">💰 مجاني + API</span>
+        <span class="badge badge-easy">⚡ سهل</span>
+      </div>
+    </div>
+    <!-- PDFKit -->
+    <div class="tool-card recommended reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">PDFKit</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~10,000</div>
+      </div>
+      <div class="card-desc">مكتبة Node.js لإنشاء PDFs برمجياً — نصوص، صور، جداول، charts. بدون أي dependencies خارجية.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Node.js native</span>
+        <span class="badge badge-free">💰 مجاني MIT</span>
+        <span class="badge badge-easy">⚡ سهل جداً</span>
+      </div>
+    </div>
+    <!-- E2B -->
+    <div class="tool-card recommended reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">E2B Sandbox</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 11,000+</div>
+      </div>
+      <div class="card-desc">بيئات sandbox معزولة لتنفيذ الكود بأمان. microVM لكل عملية — أأمن من Docker المباشر. Free tier: 100 ساعة/شهر.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Cloud API</span>
+        <span class="badge badge-free">💰 Free tier</span>
+        <span class="badge badge-setup">🔧 متوسط</span>
+      </div>
+    </div>
+    <!-- CrewAI -->
+    <div class="tool-card recommended reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">CrewAI</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~25,000</div>
+      </div>
+      <div class="card-desc">بناء "فرق" من AI agents — كل agent له دور وأدوات ومهام محددة. أبسط وأسرع من AutoGen.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Python</span>
+        <span class="badge badge-free">💰 مجاني + API</span>
+        <span class="badge badge-setup">🔧 متوسط</span>
+      </div>
+    </div>
+    <!-- Slidev -->
+    <div class="tool-card reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">Slidev</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~35,000</div>
+      </div>
+      <div class="card-desc">يحول Markdown إلى عروض تقديمية جميلة مع code highlighting و animations و themes.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Node.js</span>
+        <span class="badge badge-free">💰 مجاني MIT</span>
+      </div>
+    </div>
+    <!-- DeepL -->
+    <div class="tool-card reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">DeepL API</div>
+        <div class="card-stars">REST API</div>
+      </div>
+      <div class="card-desc">أفضل ترجمة آلية — أدق من Google Translate. Free tier: 500,000 حرف/شهر.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ REST API</span>
+        <span class="badge badge-free">💰 Free tier</span>
+      </div>
+    </div>
+    <!-- Agency Swarm -->
+    <div class="tool-card reveal" data-cat="capabilities">
+      <div class="card-header">
+        <div class="card-title">Agency Swarm</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~4,000</div>
+      </div>
+      <div class="card-desc">Multi-agent orchestration يحاكي هيكل شركة حقيقي (CEO, VA, Developer). يدعم Claude عبر LiteLLM.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Python</span>
+        <span class="badge badge-free">💰 مجاني</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Integrations Section -->
+<section class="section" id="integrations">
+  <div class="section-header reveal">
+    <span class="section-icon">🔗</span>
+    <h2>التكاملات والبراوزر</h2>
+    <p>أدوات التحكم بالمتصفح والتكامل مع الخدمات الخارجية</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="cards-grid" id="int-cards">
+    <!-- Playwright MCP -->
+    <div class="tool-card recommended reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">Playwright MCP</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~10,000</div>
+      </div>
+      <div class="card-desc">MCP server رسمي من Microsoft — يتحكم بالمتصفح عبر accessibility snapshots. لا يحتاج vision models! الأنسب لنظامنا.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>10/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ TypeScript</span>
+        <span class="badge badge-free">💰 مجاني MIT</span>
+        <span class="badge badge-easy">⚡ npx فقط</span>
+      </div>
+    </div>
+    <!-- Stagehand -->
+    <div class="tool-card recommended reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">Stagehand</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~15,000</div>
+      </div>
+      <div class="card-desc">AI browser automation بـ TypeScript — يجمع بين الكود والـ AI. Self-healing و auto-caching. يعمل على Playwright!</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ TypeScript native</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-easy">⚡ npm install</span>
+      </div>
+    </div>
+    <!-- Crawl4AI -->
+    <div class="tool-card recommended reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">Crawl4AI</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~50,000</div>
+      </div>
+      <div class="card-desc">زاحف ويب ذكي يحول المواقع لـ Markdown نظيف. Deep crawl + crash recovery + prefetch 5-10x أسرع. مثالي للـ RAG.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ Docker</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-setup">🔧 Docker setup</span>
+      </div>
+    </div>
+    <!-- browser-use -->
+    <div class="tool-card reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">browser-use</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~55,000</div>
+      </div>
+      <div class="card-desc">الأشهر في مجال browser automation — يجعل المواقع متاحة لـ AI agents. يدعم Claude, GPT-4, أي LLM.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-no">⚠️ Python</span>
+        <span class="badge badge-free">💰 مجاني + Cloud</span>
+      </div>
+    </div>
+    <!-- PipedreamHQ -->
+    <div class="tool-card recommended reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">PipedreamHQ MCP</div>
+        <div class="card-stars">☁️ Cloud</div>
+      </div>
+      <div class="card-desc">2,500+ APIs مع 8,000+ أدوات جاهزة عبر MCP واحد! تكامل فوري مع أي خدمة تقريباً.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>9/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="90"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ TypeScript</span>
+        <span class="badge badge-free">💰 Free tier</span>
+        <span class="badge badge-easy">⚡ سهل</span>
+      </div>
+    </div>
+    <!-- Skyvern -->
+    <div class="tool-card reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">Skyvern</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> ~15,000</div>
+      </div>
+      <div class="card-desc">LLM + Computer Vision لأتمتة المتصفح. يشتغل على مواقع ما شافها قبل. مقاوم لتغييرات الـ layout.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>7/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="70"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-no">⚠️ Python + Docker</span>
+        <span class="badge badge-free">💰 مجاني + Cloud</span>
+      </div>
+    </div>
+    <!-- Claude Computer Use -->
+    <div class="tool-card reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">Claude Computer Use</div>
+        <div class="card-stars">Anthropic</div>
+      </div>
+      <div class="card-desc">تحكم Claude بالديسكتوب مباشرة — ماوس + كيبورد + screenshots. يحتاج display server (Xvfb/VNC).</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>8/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="80"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-no">⚠️ يحتاج Xvfb</span>
+        <span class="badge badge-free">💰 API فقط</span>
+      </div>
+    </div>
+    <!-- MCP Ecosystem -->
+    <div class="tool-card reveal" data-cat="integrations">
+      <div class="card-header">
+        <div class="card-title">MCP Ecosystem</div>
+        <div class="card-stars"><svg viewBox="0 0 16 16"><path d="M8 .25a.75.75 0 01.673.418l1.882 3.815 4.21.612a.75.75 0 01.416 1.279l-3.046 2.97.719 4.192a.75.75 0 01-1.088.791L8 12.347l-3.766 1.98a.75.75 0 01-1.088-.79l.72-4.194L.818 6.374a.75.75 0 01.416-1.28l4.21-.611L7.327.668A.75.75 0 018 .25z"/></svg> 81,200</div>
+      </div>
+      <div class="card-desc">منظومة MCP الكاملة — Supabase, Google Drive, Calendar, GitHub, Memory, Sequential Thinking, والمزيد.</div>
+      <div class="benefit-row">
+        <div class="benefit-label"><span>درجة الفائدة</span><span>10/10</span></div>
+        <div class="progress-bar"><div class="progress-fill" data-width="100"></div></div>
+      </div>
+      <div class="card-meta">
+        <span class="badge badge-ready">✅ TypeScript</span>
+        <span class="badge badge-free">💰 مجاني</span>
+        <span class="badge badge-setup">🔧 حسب الخادم</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison Table -->
+<section class="section" id="comparison">
+  <div class="section-header reveal">
+    <span class="section-icon">📊</span>
+    <h2>جدول المقارنة الشامل</h2>
+    <p>كل الأدوات مرتبة بالأولوية في مكان واحد</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="filter-tabs">
+    <button class="filter-tab active" data-filter="all">الكل</button>
+    <button class="filter-tab" data-filter="memory">🧠 الذاكرة</button>
+    <button class="filter-tab" data-filter="capabilities">💡 القدرات</button>
+    <button class="filter-tab" data-filter="integrations">🔗 التكاملات</button>
+  </div>
+  <div class="table-wrapper reveal">
+    <table id="comparison-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الأداة</th>
+          <th>الفئة</th>
+          <th>الفائدة</th>
+          <th>يشتغل عندنا</th>
+          <th>التكلفة</th>
+          <th>الأولوية</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-cat="integrations"><td>1</td><td>Playwright MCP</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="100" style="width:100%"></div></div> 10/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="memory"><td>2</td><td>Tool Call Tombstones</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="memory"><td>3</td><td>AI Memory Compression</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="capabilities"><td>4</td><td>Carbone</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="capabilities"><td>5</td><td>Presenton</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>مجاني + API</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="integrations"><td>6</td><td>Stagehand</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="integrations"><td>7</td><td>Crawl4AI</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅ Docker</td><td>مجاني</td><td class="priority-med">🟡 أسبوع 3-4</td></tr>
+        <tr data-cat="integrations"><td>8</td><td>PipedreamHQ MCP</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>✅</td><td>Free tier</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="integrations"><td>9</td><td>browser-use</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="90" style="width:90%"></div></div> 9/10</td><td>⚠️ Python</td><td>مجاني</td><td class="priority-med">🟡 أسبوع 3-4</td></tr>
+        <tr data-cat="memory"><td>10</td><td>LanceDB</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>✅</td><td>مجاني</td><td class="priority-med">🟡 أسبوع 3-4</td></tr>
+        <tr data-cat="memory"><td>11</td><td>Mem0</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>✅</td><td>مجاني</td><td class="priority-med">🟡 شهر 2</td></tr>
+        <tr data-cat="capabilities"><td>12</td><td>PDFKit</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>✅</td><td>مجاني</td><td class="priority-high">🔴 فوري</td></tr>
+        <tr data-cat="capabilities"><td>13</td><td>E2B Sandbox</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>✅ API</td><td>Free tier</td><td class="priority-med">🟡 شهر 2</td></tr>
+        <tr data-cat="capabilities"><td>14</td><td>CrewAI</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>✅</td><td>مجاني + API</td><td class="priority-med">🟡 شهر 2</td></tr>
+        <tr data-cat="integrations"><td>15</td><td>Claude Computer Use</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="80" style="width:80%"></div></div> 8/10</td><td>⚠️ Xvfb</td><td>API فقط</td><td class="priority-low">🟢 شهر 3+</td></tr>
+        <tr data-cat="memory"><td>16</td><td>Graphiti (Zep)</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>⚠️ Neo4j</td><td>مجاني</td><td class="priority-low">🟢 شهر 3+</td></tr>
+        <tr data-cat="memory"><td>17</td><td>Recursive Summary</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>✅</td><td>API فقط</td><td class="priority-med">🟡 أسبوع 3-4</td></tr>
+        <tr data-cat="capabilities"><td>18</td><td>Slidev</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>✅</td><td>مجاني</td><td class="priority-med">🟡 شهر 2</td></tr>
+        <tr data-cat="capabilities"><td>19</td><td>DeepL API</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>✅</td><td>Free tier</td><td class="priority-med">🟡 شهر 2</td></tr>
+        <tr data-cat="capabilities"><td>20</td><td>Agency Swarm</td><td>💡 قدرات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>✅</td><td>مجاني</td><td class="priority-low">🟢 شهر 3+</td></tr>
+        <tr data-cat="integrations"><td>21</td><td>Skyvern</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="70" style="width:70%"></div></div> 7/10</td><td>⚠️ Docker</td><td>مجاني</td><td class="priority-low">🟢 شهر 3+</td></tr>
+        <tr data-cat="memory"><td>22</td><td>Letta (MemGPT)</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="60" style="width:60%"></div></div> 6/10</td><td>✅</td><td>مجاني</td><td class="priority-low">🟢 اختياري</td></tr>
+        <tr data-cat="integrations"><td>23</td><td>LaVague</td><td>🔗 تكاملات</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="60" style="width:60%"></div></div> 6/10</td><td>⚠️ Python</td><td>مجاني</td><td class="priority-low">🟢 اختياري</td></tr>
+        <tr data-cat="memory"><td>24</td><td>ChromaDB</td><td>🧠 ذاكرة</td><td><div class="progress-bar" style="width:100px"><div class="progress-fill" data-width="50" style="width:50%"></div></div> 5/10</td><td>⚠️ سيرفر</td><td>مجاني</td><td class="priority-low">🟢 اختياري</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Roadmap -->
+<section class="section" id="roadmap">
+  <div class="section-header reveal">
+    <span class="section-icon">🗺️</span>
+    <h2>خارطة الطريق المقترحة</h2>
+    <p>خطة تنفيذ تدريجية من السهل إلى المتقدم</p>
+    <div class="section-divider"></div>
+  </div>
+  <div class="timeline">
+    <div class="timeline-item reveal">
+      <div class="timeline-dot" style="background:var(--secondary)"></div>
+      <div class="timeline-content">
+        <span class="timeline-phase phase-1">🚀 الأسبوع 1-2</span>
+        <h4>الأدوات السهلة — تأثير فوري</h4>
+        <ul>
+          <li>Tool Call Tombstones — ضغط مخرجات الأدوات 90%</li>
+          <li>AI Memory Compression — ضغط المحادثات بـ Gemini</li>
+          <li>Carbone — توليد تقارير PDF/DOCX</li>
+          <li>PDFKit — إنشاء PDFs برمجياً</li>
+          <li>Presenton — عروض تقديمية تلقائية</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item reveal">
+      <div class="timeline-dot" style="background:var(--primary)"></div>
+      <div class="timeline-content">
+        <span class="timeline-phase phase-2">🔧 الأسبوع 3-4</span>
+        <h4>التكاملات المتوسطة</h4>
+        <ul>
+          <li>Playwright MCP — تحكم بالمتصفح عبر MCP</li>
+          <li>Stagehand — أتمتة متصفح ذكية</li>
+          <li>LanceDB — ترقية vector search</li>
+          <li>Crawl4AI — زحف ويب ذكي عبر Docker</li>
+          <li>PipedreamHQ — 2,500+ API تكامل</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item reveal">
+      <div class="timeline-dot" style="background:var(--accent)"></div>
+      <div class="timeline-content">
+        <span class="timeline-phase phase-3">⚡ الشهر 2</span>
+        <h4>الأدوات المتقدمة</h4>
+        <ul>
+          <li>Mem0 — ذاكرة ذكية adaptive</li>
+          <li>E2B Sandbox — تنفيذ كود معزول</li>
+          <li>CrewAI — فرق AI متعددة الأدوار</li>
+          <li>MCP Ecosystem — Memory, Calendar, Drive</li>
+          <li>DeepL API — ترجمة احترافية</li>
+        </ul>
+      </div>
+    </div>
+    <div class="timeline-item reveal">
+      <div class="timeline-dot" style="background:#ffc048"></div>
+      <div class="timeline-content">
+        <span class="timeline-phase phase-4">🎯 الشهر 3+</span>
+        <h4>المشاريع الطموحة</h4>
+        <ul>
+          <li>Agency Swarm — orchestration متقدم</li>
+          <li>Claude Computer Use — تحكم كامل بالديسكتوب</li>
+          <li>Knowledge Graph — فهم العلاقات بين المعلومات</li>
+          <li>Full MCP Integration — كل الخوادم مربوطة</li>
+          <li>browser-use + Skyvern — أتمتة متصفح كاملة</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <p><span>Pyramedia × PyraAI 🦊</span> — فبراير 2026</p>
+  <p style="margin-top:8px;font-size:0.8rem;color:var(--text-muted)">تم إعداد هذا التقرير تلقائياً من نتائج أبحاث PyraAI Research Agents</p>
+</footer>
+
+<script>
+// Scroll Reveal
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if(e.isIntersecting) { e.target.classList.add('visible'); } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+// Animated Counters
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting && !e.target.dataset.counted) {
+      e.target.dataset.counted = 'true';
+      const target = +e.target.dataset.target;
+      let current = 0;
+      const step = Math.max(1, Math.floor(target / 40));
+      const timer = setInterval(() => {
+        current += step;
+        if(current >= target) { current = target; clearInterval(timer); }
+        e.target.textContent = current;
+      }, 40);
+    }
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('[data-target]').forEach(el => counterObserver.observe(el));
+
+// Progress Bars Animation
+const barObserver = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting) {
+      const w = e.target.dataset.width;
+      if(w) e.target.style.width = w + '%';
+    }
+  });
+}, { threshold: 0.3 });
+document.querySelectorAll('.progress-fill').forEach(el => {
+  if(!el.closest('table')) el.style.width = '0%';
+  barObserver.observe(el);
+});
+
+// Filter Tabs
+document.querySelectorAll('.filter-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    const filter = tab.dataset.filter;
+    document.querySelectorAll('#comparison-table tbody tr').forEach(row => {
+      row.style.display = (filter === 'all' || row.dataset.cat === filter) ? '' : 'none';
+    });
+  });
+});
+
+// Navbar active link
+const sections = document.querySelectorAll('section[id]');
+window.addEventListener('scroll', () => {
+  const scrollY = window.scrollY + 100;
+  sections.forEach(sec => {
+    const top = sec.offsetTop, h = sec.offsetHeight, id = sec.id;
+    const link = document.querySelector(`.nav-links a[href="#${id}"]`);
+    if(link) {
+      if(scrollY >= top && scrollY < top + h) link.classList.add('active');
+      else link.classList.remove('active');
+    }
+  });
+});
+
+// Close mobile nav on link click
+document.querySelectorAll('.nav-links a').forEach(a => {
+  a.addEventListener('click', () => document.querySelector('.nav-links').classList.remove('open'));
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,2320 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة محامين إتمام — تحويل المنافسة إلى شراكة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   RESET & BASE
+   ═══════════════════════════════════════════════════ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --gold: #b89a77;
+  --gold-light: #d4be9c;
+  --gold-dark: #96794e;
+  --navy: #003866;
+  --navy-deep: #001f3f;
+  --navy-light: #004d8c;
+  --terra: #b35434;
+  --terra-light: #d4745a;
+  --white: #ffffff;
+  --off-white: #f8f6f3;
+  --gray-100: #f0ede8;
+  --gray-200: #e0dbd3;
+  --gray-600: #6b6560;
+  --gray-800: #2d2a26;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.15);
+  --shadow-lg: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  --shadow-xl: 0 35px 60px -15px rgba(0, 0, 0, 0.3);
+}
+
+html { scroll-behavior: smooth; font-size: 16px; }
+
+body {
+  font-family: 'Tajawal', 'Cairo', sans-serif;
+  background: var(--off-white);
+  color: var(--gray-800);
+  overflow-x: hidden;
+  line-height: 1.7;
+}
+
+/* ═══════════════════════════════════════════════════
+   UTILITY CLASSES
+   ═══════════════════════════════════════════════════ */
+.section-padding { padding: 100px 0; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+.section-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--white);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 6px 18px;
+  border-radius: 50px;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+  text-transform: uppercase;
+}
+
+.section-title {
+  font-family: 'Cairo', sans-serif;
+  font-size: clamp(1.8rem, 4vw, 2.8rem);
+  font-weight: 800;
+  color: var(--navy);
+  margin-bottom: 16px;
+  line-height: 1.3;
+}
+
+.section-subtitle {
+  font-size: 1.15rem;
+  color: var(--gray-600);
+  max-width: 700px;
+  line-height: 1.8;
+}
+
+.highlight { color: var(--gold-dark); }
+.highlight-terra { color: var(--terra); }
+
+/* Scroll animations */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* Glass card */
+.glass-card {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.6);
+  border-radius: 20px;
+  padding: 36px;
+  box-shadow: 0 8px 32px rgba(0,56,102,0.08);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.glass-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0,56,102,0.12);
+}
+
+/* ═══════════════════════════════════════════════════
+   1. HERO SECTION
+   ═══════════════════════════════════════════════════ */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 40%, var(--navy-light) 100%);
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 50%, rgba(184,154,119,0.15) 0%, transparent 50%),
+              radial-gradient(circle at 70% 80%, rgba(179,84,52,0.1) 0%, transparent 40%);
+  animation: heroGlow 15s ease-in-out infinite alternate;
+}
+
+@keyframes heroGlow {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-5%, 3%) scale(1.05); }
+}
+
+/* Geometric decorations */
+.hero-geo {
+  position: absolute;
+  border: 2px solid rgba(184,154,119,0.2);
+  border-radius: 20px;
+  animation: float 8s ease-in-out infinite;
+}
+.hero-geo-1 { width: 120px; height: 120px; top: 10%; right: 8%; animation-delay: 0s; transform: rotate(30deg); }
+.hero-geo-2 { width: 80px; height: 80px; bottom: 15%; left: 5%; animation-delay: 2s; transform: rotate(60deg); border-radius: 50%; }
+.hero-geo-3 { width: 60px; height: 60px; top: 25%; left: 15%; animation-delay: 4s; transform: rotate(45deg); }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) rotate(30deg); }
+  50% { transform: translateY(-20px) rotate(35deg); }
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.hero-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+  padding: 12px 28px;
+  background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(184,154,119,0.3);
+  border-radius: 60px;
+  animation: fadeInDown 1s ease-out;
+}
+
+.hero-logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  color: white;
+  font-weight: 800;
+}
+
+.hero-logo span {
+  color: var(--gold-light);
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+
+.hero h1 {
+  font-family: 'Cairo', sans-serif;
+  font-size: clamp(2rem, 5vw, 3.8rem);
+  font-weight: 900;
+  color: var(--white);
+  line-height: 1.25;
+  margin-bottom: 20px;
+  animation: fadeInUp 1s ease-out 0.2s both;
+}
+
+.hero h1 .gold-text {
+  background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-tagline {
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  color: rgba(255,255,255,0.7);
+  max-width: 650px;
+  margin: 0 auto 50px;
+  font-weight: 300;
+  line-height: 1.8;
+  animation: fadeInUp 1s ease-out 0.4s both;
+}
+
+.hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+  animation: fadeInUp 1s ease-out 0.6s both;
+}
+
+.hero-stat {
+  text-align: center;
+  padding: 24px 32px;
+  background: rgba(255,255,255,0.06);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(184,154,119,0.2);
+  border-radius: 16px;
+  min-width: 180px;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.hero-stat:hover {
+  transform: scale(1.05);
+  border-color: var(--gold);
+}
+
+.hero-stat-number {
+  font-family: 'Cairo', sans-serif;
+  font-size: 2.6rem;
+  font-weight: 900;
+  color: var(--gold-light);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.hero-stat-label {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.6);
+  font-weight: 400;
+}
+
+.hero-scroll {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.4);
+  font-size: 0.75rem;
+  animation: bounce 2s infinite;
+  cursor: pointer;
+  z-index: 2;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(8px); }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══════════════════════════════════════════════════
+   2. PROBLEM SECTION
+   ═══════════════════════════════════════════════════ */
+.problem { background: var(--white); }
+
+.problem-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  align-items: center;
+  margin-top: 48px;
+}
+
+.problem-visual {
+  position: relative;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.problem-circle {
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  position: absolute;
+  transition: transform 0.4s ease;
+}
+
+.problem-circle.etmam-circle {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: white;
+  left: 0;
+  top: 20px;
+  z-index: 2;
+  font-size: 1.3rem;
+  box-shadow: 0 20px 40px rgba(0,56,102,0.3);
+}
+
+.problem-circle.lawyers-circle {
+  background: linear-gradient(135deg, var(--terra), var(--terra-light));
+  color: white;
+  right: 0;
+  bottom: 20px;
+  z-index: 1;
+  font-size: 1.3rem;
+  box-shadow: 0 20px 40px rgba(179,84,52,0.3);
+}
+
+.problem-circle .circle-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+.problem-x {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 4rem;
+  color: var(--terra);
+  z-index: 3;
+  font-weight: 900;
+  text-shadow: 0 4px 12px rgba(179,84,52,0.3);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.15); }
+}
+
+.problem-points { list-style: none; }
+
+.problem-points li {
+  padding: 16px 0;
+  padding-right: 40px;
+  position: relative;
+  font-size: 1.05rem;
+  color: var(--gray-800);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.problem-points li::before {
+  content: '✗';
+  position: absolute;
+  right: 0;
+  top: 16px;
+  width: 28px;
+  height: 28px;
+  background: rgba(179,84,52,0.1);
+  color: var(--terra);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.problem-points li strong { color: var(--navy); }
+
+/* ═══════════════════════════════════════════════════
+   3. SOLUTION SECTION
+   ═══════════════════════════════════════════════════ */
+.solution {
+  background: linear-gradient(180deg, var(--off-white), var(--white));
+  position: relative;
+}
+
+.solution-bridge {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 24px;
+  align-items: center;
+  margin-top: 48px;
+}
+
+.solution-side {
+  padding: 40px;
+  border-radius: 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.solution-side.etmam-side {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: white;
+  box-shadow: 0 20px 40px rgba(0,56,102,0.2);
+}
+
+.solution-side.lawyers-side {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  color: white;
+  box-shadow: 0 20px 40px rgba(184,154,119,0.2);
+}
+
+.solution-side-icon { font-size: 3rem; margin-bottom: 16px; }
+.solution-side h3 { font-family: 'Cairo', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; }
+.solution-side p { font-size: 0.95rem; opacity: 0.85; line-height: 1.7; }
+
+.solution-side ul {
+  list-style: none;
+  margin-top: 16px;
+  text-align: right;
+}
+.solution-side ul li {
+  padding: 6px 0;
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+.solution-side ul li::before { content: '✓ '; font-weight: 700; }
+
+.solution-bridge-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.bridge-icon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--terra), var(--terra-light));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  color: white;
+  box-shadow: 0 12px 30px rgba(179,84,52,0.3);
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.bridge-label {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  color: var(--terra);
+  font-size: 0.9rem;
+}
+
+.bridge-arrow {
+  font-size: 1.8rem;
+  color: var(--gold);
+  animation: arrowPulse 2s ease-in-out infinite;
+}
+
+@keyframes arrowPulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════
+   4. MARKET SIZE
+   ═══════════════════════════════════════════════════ */
+.market { background: var(--navy-deep); color: var(--white); position: relative; overflow: hidden; }
+
+.market::before {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(184,154,119,0.08), transparent 70%);
+  top: -200px;
+  left: -200px;
+}
+
+.market .section-title { color: var(--white); }
+.market .section-subtitle { color: rgba(255,255,255,0.6); }
+
+.market-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.market-card {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(184,154,119,0.2);
+  border-radius: 20px;
+  padding: 36px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, border-color 0.3s ease;
+}
+.market-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--gold);
+}
+
+.market-card-icon {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+}
+
+.market-card-value {
+  font-family: 'Cairo', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--gold-light);
+  margin-bottom: 4px;
+}
+
+.market-card-growth {
+  display: inline-block;
+  background: rgba(184,154,119,0.15);
+  color: var(--gold-light);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.market-card-label {
+  color: rgba(255,255,255,0.7);
+  font-size: 0.95rem;
+}
+
+.market-card-sub {
+  color: rgba(255,255,255,0.4);
+  font-size: 0.8rem;
+  margin-top: 8px;
+}
+
+.market-bar-section {
+  margin-top: 60px;
+  padding: 40px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.market-bar-title {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  margin-bottom: 24px;
+  color: var(--gold-light);
+}
+
+.market-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.market-bar-label {
+  width: 180px;
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+  text-align: left;
+  flex-shrink: 0;
+}
+
+.market-bar-track {
+  flex: 1;
+  height: 32px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+}
+
+.market-bar-fill {
+  height: 100%;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+  width: 0;
+  transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.market-bar-fill.gold-bar { background: linear-gradient(90deg, var(--gold-dark), var(--gold-light)); }
+.market-bar-fill.navy-bar { background: linear-gradient(90deg, var(--navy-light), #0080cc); }
+.market-bar-fill.terra-bar { background: linear-gradient(90deg, var(--terra), var(--terra-light)); }
+
+/* ═══════════════════════════════════════════════════
+   5. COMPETITORS
+   ═══════════════════════════════════════════════════ */
+.competitors { background: var(--white); }
+
+.competitors-table-wrap {
+  margin-top: 48px;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.competitors-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.competitors-table thead th {
+  background: var(--navy);
+  color: var(--white);
+  padding: 16px 14px;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.competitors-table tbody td {
+  padding: 14px;
+  text-align: center;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+
+.competitors-table tbody tr:last-child td { border-bottom: none; }
+
+.competitors-table tbody tr:nth-child(even) { background: var(--gray-100); }
+
+.competitors-table tbody tr:hover { background: rgba(184,154,119,0.08); }
+
+.competitors-table tbody tr.etmam-row {
+  background: linear-gradient(135deg, rgba(0,56,102,0.06), rgba(184,154,119,0.08));
+  font-weight: 700;
+}
+.competitors-table tbody tr.etmam-row td { color: var(--navy); }
+
+.comp-yes { color: #27ae60; font-weight: 700; }
+.comp-no { color: var(--terra); font-weight: 700; }
+.comp-partial { color: var(--gold-dark); font-weight: 600; }
+
+.gap-callout {
+  margin-top: 32px;
+  padding: 28px 36px;
+  background: linear-gradient(135deg, rgba(0,56,102,0.04), rgba(184,154,119,0.06));
+  border-right: 4px solid var(--gold);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.gap-callout-icon { font-size: 2.5rem; }
+.gap-callout-text { font-size: 1.1rem; color: var(--navy); }
+.gap-callout-text strong { color: var(--terra); }
+
+/* ═══════════════════════════════════════════════════
+   6. REVENUE MODEL
+   ═══════════════════════════════════════════════════ */
+.revenue { background: var(--off-white); }
+
+.revenue-streams {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.revenue-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 32px;
+  border: 1px solid var(--gray-200);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+.revenue-card:hover {
+  border-color: var(--gold);
+  box-shadow: 0 12px 40px rgba(184,154,119,0.12);
+  transform: translateY(-4px);
+}
+
+.revenue-card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.revenue-card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+.revenue-card-icon.gold-bg { background: linear-gradient(135deg, var(--gold), var(--gold-dark)); color: white; }
+.revenue-card-icon.navy-bg { background: linear-gradient(135deg, var(--navy), var(--navy-light)); color: white; }
+.revenue-card-icon.terra-bg { background: linear-gradient(135deg, var(--terra), var(--terra-light)); color: white; }
+
+.revenue-card h4 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.revenue-card p {
+  color: var(--gray-600);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.revenue-card .price-tag {
+  margin-top: 12px;
+  font-family: 'Cairo', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--gold-dark);
+}
+
+.revenue-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.revenue-summary-card {
+  text-align: center;
+  padding: 36px 24px;
+  border-radius: 20px;
+  position: relative;
+}
+.revenue-summary-card.card-navy {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: white;
+}
+.revenue-summary-card.card-gold {
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  color: white;
+}
+.revenue-summary-card.card-terra {
+  background: linear-gradient(135deg, var(--terra), var(--terra-light));
+  color: white;
+}
+
+.revenue-summary-number {
+  font-family: 'Cairo', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+.revenue-summary-label {
+  font-size: 0.95rem;
+  opacity: 0.85;
+}
+
+/* ═══════════════════════════════════════════════════
+   7. STRATEGY TIMELINE
+   ═══════════════════════════════════════════════════ */
+.strategy { background: var(--white); }
+
+.timeline {
+  position: relative;
+  margin-top: 60px;
+  padding: 20px 0;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  right: 50%;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold), var(--navy), var(--terra));
+  border-radius: 4px;
+  transform: translateX(50%);
+}
+
+.timeline-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 48px;
+  position: relative;
+}
+
+.timeline-item:nth-child(odd) {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.timeline-item:nth-child(even) {
+  text-align: left;
+}
+
+.timeline-content {
+  width: 42%;
+  padding: 28px;
+  background: var(--white);
+  border-radius: 16px;
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+  position: relative;
+}
+.timeline-content:hover {
+  border-color: var(--gold);
+  box-shadow: 0 8px 30px rgba(184,154,119,0.12);
+}
+
+.timeline-dot {
+  position: absolute;
+  right: 50%;
+  transform: translateX(50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 4px solid var(--white);
+  z-index: 2;
+}
+.timeline-dot.dot-gold { background: var(--gold); box-shadow: 0 0 0 4px rgba(184,154,119,0.2); }
+.timeline-dot.dot-navy { background: var(--navy); box-shadow: 0 0 0 4px rgba(0,56,102,0.2); }
+.timeline-dot.dot-terra { background: var(--terra); box-shadow: 0 0 0 4px rgba(179,84,52,0.2); }
+
+.timeline-date {
+  display: inline-block;
+  background: var(--gray-100);
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+
+.timeline-content h4 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 8px;
+}
+
+.timeline-content p {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  line-height: 1.6;
+}
+
+.timeline-content .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.timeline-content .tag {
+  background: rgba(184,154,119,0.1);
+  color: var(--gold-dark);
+  padding: 3px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════
+   8. MARKETING
+   ═══════════════════════════════════════════════════ */
+.marketing { background: var(--off-white); }
+
+.marketing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.marketing-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 36px;
+  border: 1px solid var(--gray-200);
+  transition: all 0.3s ease;
+}
+.marketing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.08);
+}
+
+.marketing-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin-bottom: 20px;
+}
+
+.marketing-card h4 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+
+.marketing-card ul {
+  list-style: none;
+}
+
+.marketing-card ul li {
+  padding: 6px 0;
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  padding-right: 24px;
+  position: relative;
+}
+.marketing-card ul li::before {
+  content: '→';
+  position: absolute;
+  right: 0;
+  color: var(--gold-dark);
+  font-weight: 700;
+}
+
+.go-to-market {
+  margin-top: 48px;
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  border-radius: 24px;
+  padding: 48px;
+  color: white;
+}
+
+.go-to-market h3 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: 32px;
+  text-align: center;
+}
+
+.gtm-steps {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.gtm-step {
+  text-align: center;
+  padding: 24px 16px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  position: relative;
+}
+
+.gtm-step-num {
+  width: 36px;
+  height: 36px;
+  background: var(--gold);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: white;
+  margin: 0 auto 12px;
+  font-size: 0.9rem;
+}
+
+.gtm-step h5 {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.gtm-step p {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  line-height: 1.5;
+}
+
+/* ═══════════════════════════════════════════════════
+   9. COMPETITIVE ADVANTAGE
+   ═══════════════════════════════════════════════════ */
+.advantage {
+  background: linear-gradient(180deg, var(--white), var(--off-white));
+}
+
+.advantage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.advantage-card {
+  background: var(--white);
+  border-radius: 20px;
+  padding: 36px;
+  text-align: center;
+  border: 2px solid transparent;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.advantage-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 20px 20px 0 0;
+}
+.advantage-card:nth-child(1)::before { background: linear-gradient(90deg, var(--gold), var(--gold-light)); }
+.advantage-card:nth-child(2)::before { background: linear-gradient(90deg, var(--navy), var(--navy-light)); }
+.advantage-card:nth-child(3)::before { background: linear-gradient(90deg, var(--terra), var(--terra-light)); }
+
+.advantage-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-xl);
+}
+
+.advantage-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin: 0 auto 20px;
+}
+.advantage-icon.gold-bg { background: linear-gradient(135deg, rgba(184,154,119,0.15), rgba(184,154,119,0.05)); color: var(--gold-dark); }
+.advantage-icon.navy-bg { background: linear-gradient(135deg, rgba(0,56,102,0.12), rgba(0,56,102,0.04)); color: var(--navy); }
+.advantage-icon.terra-bg { background: linear-gradient(135deg, rgba(179,84,52,0.12), rgba(179,84,52,0.04)); color: var(--terra); }
+
+.advantage-card h4 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 12px;
+}
+
+.advantage-card p {
+  font-size: 0.95rem;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+
+.advantage-card .moat-tag {
+  display: inline-block;
+  margin-top: 16px;
+  background: rgba(0,56,102,0.06);
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+}
+
+/* ═══════════════════════════════════════════════════
+   10. OBJECTIONS
+   ═══════════════════════════════════════════════════ */
+.objections { background: var(--white); }
+
+.objections-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.objection-card {
+  background: var(--white);
+  border-radius: 20px;
+  border: 1px solid var(--gray-200);
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.objection-card:hover {
+  box-shadow: 0 12px 40px rgba(0,0,0,0.06);
+}
+
+.objection-q {
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(179,84,52,0.06), rgba(179,84,52,0.02));
+  border-bottom: 1px solid var(--gray-100);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.objection-q-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--terra);
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.objection-q p {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 700;
+  color: var(--terra);
+  font-size: 0.95rem;
+}
+
+.objection-a {
+  padding: 20px 24px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.objection-a-icon {
+  width: 36px;
+  height: 36px;
+  background: var(--navy);
+  color: white;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.objection-a p {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  line-height: 1.7;
+}
+.objection-a p strong { color: var(--navy); }
+
+/* ═══════════════════════════════════════════════════
+   11. KPIs
+   ═══════════════════════════════════════════════════ */
+.kpis { background: var(--navy-deep); color: var(--white); position: relative; overflow: hidden; }
+
+.kpis::after {
+  content: '';
+  position: absolute;
+  bottom: -100px;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(184,154,119,0.06), transparent);
+}
+
+.kpis .section-title { color: var(--white); }
+.kpis .section-subtitle { color: rgba(255,255,255,0.6); }
+
+.kpis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  margin-top: 48px;
+}
+
+.kpi-column {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 20px;
+  padding: 36px;
+}
+
+.kpi-column-header {
+  text-align: center;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.kpi-column-header h3 {
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.kpi-column-header.six-months h3 { color: var(--gold-light); }
+.kpi-column-header.twelve-months h3 { color: var(--terra-light); }
+
+.kpi-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.kpi-label {
+  font-size: 0.9rem;
+  color: rgba(255,255,255,0.7);
+}
+
+.kpi-value {
+  font-family: 'Cairo', sans-serif;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.kpi-column-header.six-months ~ .kpi-row .kpi-value { color: var(--gold-light); }
+.kpi-column-header.twelve-months ~ .kpi-row .kpi-value { color: var(--terra-light); }
+
+/* Fix: use container class */
+.kpi-column:first-child .kpi-value { color: var(--gold-light); }
+.kpi-column:last-child .kpi-value { color: var(--terra-light); }
+
+/* ═══════════════════════════════════════════════════
+   12. CTA
+   ═══════════════════════════════════════════════════ */
+.cta-section {
+  background: linear-gradient(135deg, var(--navy-deep), var(--navy));
+  padding: 100px 0;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.cta-section::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 60% 40%, rgba(184,154,119,0.1), transparent 60%);
+}
+
+.cta-content {
+  position: relative;
+  z-index: 2;
+}
+
+.cta-badge {
+  display: inline-block;
+  background: rgba(184,154,119,0.15);
+  border: 1px solid rgba(184,154,119,0.3);
+  color: var(--gold-light);
+  padding: 8px 24px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  margin-bottom: 24px;
+  animation: fadeInUp 1s ease-out;
+}
+
+.cta-title {
+  font-family: 'Cairo', sans-serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  color: var(--white);
+  margin-bottom: 16px;
+  line-height: 1.3;
+}
+
+.cta-subtitle {
+  font-size: 1.2rem;
+  color: rgba(255,255,255,0.6);
+  max-width: 600px;
+  margin: 0 auto 40px;
+  line-height: 1.8;
+}
+
+.cta-boxes {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 48px;
+}
+
+.cta-box {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(184,154,119,0.2);
+  border-radius: 16px;
+  padding: 24px 32px;
+  text-align: center;
+  min-width: 160px;
+}
+
+.cta-box-number {
+  font-family: 'Cairo', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--gold-light);
+}
+
+.cta-box-label {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 4px;
+}
+
+.cta-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--white);
+  font-family: 'Cairo', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  padding: 18px 48px;
+  border-radius: 60px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 30px rgba(184,154,119,0.4);
+  transition: all 0.3s ease;
+}
+.cta-button:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 40px rgba(184,154,119,0.5);
+}
+
+.cta-footer {
+  margin-top: 48px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.3);
+  font-size: 0.85rem;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════ */
+@media (max-width: 968px) {
+  .problem-grid { grid-template-columns: 1fr; gap: 40px; }
+  .problem-visual { height: 300px; }
+  .solution-bridge { grid-template-columns: 1fr; }
+  .solution-bridge-center { flex-direction: row; padding: 16px 0; }
+  .bridge-arrow { transform: rotate(90deg); }
+  .market-cards { grid-template-columns: 1fr; }
+  .revenue-streams { grid-template-columns: 1fr; }
+  .revenue-summary { grid-template-columns: 1fr; }
+  .timeline::before { right: 20px; transform: none; }
+  .timeline-item, .timeline-item:nth-child(odd) {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-right: 50px;
+    text-align: right;
+  }
+  .timeline-content { width: 100%; }
+  .timeline-dot { right: 10px; transform: none; }
+  .marketing-grid { grid-template-columns: 1fr; }
+  .gtm-steps { grid-template-columns: repeat(2, 1fr); }
+  .advantage-grid { grid-template-columns: 1fr; }
+  .objections-grid { grid-template-columns: 1fr; }
+  .kpis-grid { grid-template-columns: 1fr; }
+  .hero-stats { gap: 16px; }
+  .hero-stat { min-width: 140px; padding: 16px 20px; }
+  .hero-stat-number { font-size: 2rem; }
+  .competitors-table-wrap { overflow-x: auto; }
+  .market-bar-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .market-bar-label { width: auto; text-align: right; }
+}
+
+@media (max-width: 480px) {
+  .section-padding { padding: 60px 0; }
+  .hero-stat { min-width: 120px; }
+  .gtm-steps { grid-template-columns: 1fr; }
+  .cta-boxes { flex-direction: column; align-items: center; }
+}
+
+/* ═══════════════════════════════════════════════════
+   PRINT STYLES
+   ═══════════════════════════════════════════════════ */
+@media print {
+  .hero { min-height: auto; padding: 60px 0; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .hero-scroll { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     1. HERO SECTION
+     ═══════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-geo hero-geo-1"></div>
+  <div class="hero-geo hero-geo-2"></div>
+  <div class="hero-geo hero-geo-3"></div>
+
+  <div class="hero-content">
+    <div class="hero-logo">
+      <div class="hero-logo-icon">إ</div>
+      <span>مركز إتمام للخدمات القضائية</span>
+    </div>
+
+    <h1>
+      منصة محامين إتمام<br>
+      <span class="gold-text">تحويل المنافسة إلى شراكة</span>
+    </h1>
+
+    <p class="hero-tagline">
+      المنصة القانونية الأولى في الإمارات التي تجمع المحامين والعملاء<br>
+      بتقنيات الذكاء الاصطناعي — مدعومة بشراكة دائرة القضاء في الشارقة
+    </p>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-number" data-counter="5">0</div>
+        <div class="hero-stat-label">مليار $ حجم السوق</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number" data-counter="1710">0</div>
+        <div class="hero-stat-label">محامي مرخص في الإمارات</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-number" data-counter="0">0</div>
+        <div class="hero-stat-label">منافس حقيقي</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero-scroll" onclick="document.getElementById('problem').scrollIntoView({behavior:'smooth'})">
+    <span>اكتشف المزيد</span>
+    <span>▼</span>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     2. المشكلة
+     ═══════════════════════════════════════════════════ -->
+<section class="problem section-padding" id="problem">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-badge">🔍 التحدي</span>
+      <h2 class="section-title">المشكلة: المحامون يرون إتمام <span class="highlight-terra">كمنافس</span></h2>
+      <p class="section-subtitle">لا يوجد جسر يربط بين خدمات إتمام الروتينية وخبرات المحامين المتخصصة — مما يخلق احتكاكاً يعيق نمو الطرفين.</p>
+    </div>
+
+    <div class="problem-grid">
+      <div class="problem-visual reveal reveal-delay-1">
+        <div class="problem-circle etmam-circle">
+          <span class="circle-icon">🏛️</span>
+          إتمام
+        </div>
+        <div class="problem-x">✗</div>
+        <div class="problem-circle lawyers-circle">
+          <span class="circle-icon">⚖️</span>
+          المحامون
+        </div>
+      </div>
+
+      <div class="reveal reveal-delay-2">
+        <ul class="problem-points">
+          <li><strong>صراع غير معلن:</strong> المحامون يشعرون أن إتمام يأخذ من حصتهم في الخدمات القضائية الروتينية</li>
+          <li><strong>فرص ضائعة:</strong> عملاء إتمام يحتاجون محامين للقضايا المعقدة — لكن لا آلية لتحويلهم</li>
+          <li><strong>فجوة رقمية:</strong> لا توجد منصة Legal Marketplace حقيقية في الإمارات بمعنى Avvo أو LegalZoom</li>
+          <li><strong>غياب الثقة:</strong> لا تقييمات، لا محتوى فيديو، لا AI matching — العميل تائه</li>
+          <li><strong>70% من العملاء</strong> يبحثون عن محامي أونلاين أولاً — والسوق لا يقدم حلاً عربياً متكاملاً</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     3. الحل
+     ═══════════════════════════════════════════════════ -->
+<section class="solution section-padding" id="solution">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">💡 الحل</span>
+      <h2 class="section-title">المنصة: <span class="highlight">جسر بين إتمام والمحامين</span></h2>
+      <p class="section-subtitle" style="margin: 0 auto;">تقسيم واضح: إتمام = الخدمات الروتينية، المحامون = القضايا المعقدة. المنصة تربط بينهما.</p>
+    </div>
+
+    <div class="solution-bridge reveal">
+      <div class="solution-side etmam-side">
+        <div class="solution-side-icon">🏛️</div>
+        <h3>مركز إتمام</h3>
+        <p>الخدمات القضائية الروتينية</p>
+        <ul>
+          <li>توثيق وتصديق</li>
+          <li>تسجيل شركات</li>
+          <li>تنفيذ أحكام</li>
+          <li>ترجمة قانونية</li>
+        </ul>
+      </div>
+
+      <div class="solution-bridge-center">
+        <span class="bridge-arrow">←</span>
+        <div class="bridge-icon">🔗</div>
+        <span class="bridge-label">المنصة</span>
+        <span class="bridge-arrow">→</span>
+      </div>
+
+      <div class="solution-side lawyers-side">
+        <div class="solution-side-icon">⚖️</div>
+        <h3>المحامون</h3>
+        <p>القضايا المعقدة والمتخصصة</p>
+        <ul>
+          <li>قضايا أسرية</li>
+          <li>نزاعات تجارية</li>
+          <li>قضايا عقارية</li>
+          <li>استشارات متخصصة</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     4. حجم السوق
+     ═══════════════════════════════════════════════════ -->
+<section class="market section-padding" id="market">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">📊 السوق</span>
+      <h2 class="section-title">سوق ضخم <span class="highlight">ينتظر</span> من يخدمه</h2>
+      <p class="section-subtitle" style="margin: 0 auto;">سوق الخدمات القانونية في الإمارات ينمو بسرعة — ولا يوجد لاعب رقمي حقيقي يلبي الطلب.</p>
+    </div>
+
+    <div class="market-cards">
+      <div class="market-card reveal reveal-delay-1">
+        <div class="market-card-icon">💰</div>
+        <div class="market-card-value" data-counter-prefix="$" data-counter="5.0" data-counter-suffix="B">$0</div>
+        <div class="market-card-growth">→ $7.6B بحلول 2030</div>
+        <div class="market-card-label">سوق الخدمات القانونية — الإمارات</div>
+        <div class="market-card-sub">CAGR 6.2% سنوياً</div>
+      </div>
+
+      <div class="market-card reveal reveal-delay-2">
+        <div class="market-card-icon">🚀</div>
+        <div class="market-card-value">$234M</div>
+        <div class="market-card-growth">→ $449M بحلول 2030</div>
+        <div class="market-card-label">سوق Legal Tech — الإمارات</div>
+        <div class="market-card-sub">نمو ~12% سنوياً</div>
+      </div>
+
+      <div class="market-card reveal reveal-delay-3">
+        <div class="market-card-icon">👨‍⚖️</div>
+        <div class="market-card-value" data-counter="1710">0</div>
+        <div class="market-card-growth">60% من محامي الشرق الأوسط</div>
+        <div class="market-card-label">محامي مرخص في الإمارات</div>
+        <div class="market-card-sub">يختارون الإمارات كمقر رئيسي</div>
+      </div>
+    </div>
+
+    <div class="market-bar-section reveal">
+      <div class="market-bar-title">📈 أكثر التخصصات القانونية طلباً</div>
+
+      <div class="market-bar-row">
+        <div class="market-bar-label">قانون الأسرة</div>
+        <div class="market-bar-track"><div class="market-bar-fill gold-bar" data-width="95%">🔥🔥🔥🔥🔥</div></div>
+      </div>
+      <div class="market-bar-row">
+        <div class="market-bar-label">قانون العمل</div>
+        <div class="market-bar-track"><div class="market-bar-fill gold-bar" data-width="92%">🔥🔥🔥🔥🔥</div></div>
+      </div>
+      <div class="market-bar-row">
+        <div class="market-bar-label">العقارات والإيجارات</div>
+        <div class="market-bar-track"><div class="market-bar-fill navy-bar" data-width="80%">🔥🔥🔥🔥</div></div>
+      </div>
+      <div class="market-bar-row">
+        <div class="market-bar-label">القانون التجاري</div>
+        <div class="market-bar-track"><div class="market-bar-fill navy-bar" data-width="75%">🔥🔥🔥🔥</div></div>
+      </div>
+      <div class="market-bar-row">
+        <div class="market-bar-label">القضايا الجنائية</div>
+        <div class="market-bar-track"><div class="market-bar-fill terra-bar" data-width="60%">🔥🔥🔥</div></div>
+      </div>
+      <div class="market-bar-row">
+        <div class="market-bar-label">التنفيذ القضائي</div>
+        <div class="market-bar-track"><div class="market-bar-fill terra-bar" data-width="55%">🔥🔥🔥</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     5. تحليل المنافسين
+     ═══════════════════════════════════════════════════ -->
+<section class="competitors section-padding" id="competitors">
+  <div class="container">
+    <div class="reveal">
+      <span class="section-badge">🎯 المنافسة</span>
+      <h2 class="section-title">المنافسون <span class="highlight-terra">ضعفاء</span> — الفجوة <span class="highlight">واضحة</span></h2>
+      <p class="section-subtitle">لا توجد منصة Legal Marketplace متكاملة في الإمارات. كل المنصات الحالية بسيطة وغير مؤثرة.</p>
+    </div>
+
+    <div class="competitors-table-wrap reveal">
+      <table class="competitors-table">
+        <thead>
+          <tr>
+            <th>المنصة</th>
+            <th>AI Matching</th>
+            <th>محتوى فيديو</th>
+            <th>تقييمات عملاء</th>
+            <th>حجز مباشر</th>
+            <th>عربي</th>
+            <th>تكامل قضائي</th>
+            <th>التهديد</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Legal Marketplace UAE</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-partial">جزئي</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td>❌ منخفض</td>
+          </tr>
+          <tr>
+            <td><strong>UAE Lawyer</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-partial">جزئي</td>
+            <td class="comp-no">✗</td>
+            <td>⚠️ متوسط</td>
+          </tr>
+          <tr>
+            <td><strong>PathLegal UAE</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-partial">جزئي</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td>❌ منخفض</td>
+          </tr>
+          <tr>
+            <td><strong>Legal500</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-yes">✓</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td>❌ منخفض</td>
+          </tr>
+          <tr>
+            <td><strong>Muhami.ae</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-partial">جزئي</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-yes">✓</td>
+            <td class="comp-no">✗</td>
+            <td>⚠️ ناشئ</td>
+          </tr>
+          <tr>
+            <td><strong>دليل وزارة العدل</strong></td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-no">✗</td>
+            <td class="comp-yes">✓</td>
+            <td class="comp-partial">جزئي</td>
+            <td>❌ لا يوجد</td>
+          </tr>
+          <tr class="etmam-row">
+            <td>⭐ <strong>منصة إتمام</strong></td>
+            <td class="comp-yes">✓ AI</td>
+            <td class="comp-yes">✓ استوديو</td>
+            <td class="comp-yes">✓ نظام</td>
+            <td class="comp-yes">✓ WhatsApp</td>
+            <td class="comp-yes">✓ أصلي</td>
+            <td class="comp-yes">✓ حصري</td>
+            <td>🏆 الأول</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="gap-callout reveal">
+      <div class="gap-callout-icon">🏆</div>
+      <div class="gap-callout-text">
+        <strong>الخلاصة:</strong> لا منافس حقيقي في السوق! المنصات العالمية (Avvo, LegalZoom) غائبة عن الخليج بسبب اللغة والقانون والثقافة. <strong>الفرصة مفتوحة لمن يتحرك أولاً.</strong>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     6. نموذج الإيرادات
+     ═══════════════════════════════════════════════════ -->
+<section class="revenue section-padding" id="revenue">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">💰 الإيرادات</span>
+      <h2 class="section-title">نموذج إيرادات <span class="highlight">متعدد المصادر</span></h2>
+      <p class="section-subtitle" style="margin:0 auto;">مصادر دخل متنوعة ومتكررة — مبنية على أفضل ممارسات Legal Marketplaces العالمية.</p>
+    </div>
+
+    <div class="revenue-streams">
+      <div class="revenue-card reveal reveal-delay-1">
+        <div class="revenue-card-header">
+          <div class="revenue-card-icon gold-bg">📋</div>
+          <h4>رسم ظهور سنوي</h4>
+        </div>
+        <p>المحامي يدفع رسم سنوي للتواجد على المنصة مع بروفايل احترافي وشارة "إتمام موثق".</p>
+        <div class="price-tag">5,000 – 10,000 د.إ / سنة</div>
+      </div>
+
+      <div class="revenue-card reveal reveal-delay-2">
+        <div class="revenue-card-header">
+          <div class="revenue-card-icon navy-bg">🔄</div>
+          <h4>عمولة تحويل</h4>
+        </div>
+        <p>نسبة 8-15% على كل قضية تتم عبر تحويل من إتمام للمحامي عبر المنصة.</p>
+        <div class="price-tag">200 – 500 د.إ / قضية</div>
+      </div>
+
+      <div class="revenue-card reveal reveal-delay-3">
+        <div class="revenue-card-header">
+          <div class="revenue-card-icon terra-bg">🎬</div>
+          <h4>رعاية محتوى</h4>
+        </div>
+        <p>تسجيل فيديوهات "نصيحة في دقيقة" احترافية في استوديو إتمام للمحامين.</p>
+        <div class="price-tag">2,000 – 5,000 د.إ / فيديو</div>
+      </div>
+
+      <div class="revenue-card reveal reveal-delay-4">
+        <div class="revenue-card-header">
+          <div class="revenue-card-icon gold-bg">📢</div>
+          <h4>إعلان داخلي</h4>
+        </div>
+        <p>أولوية ظهور في صفحة التحويل ونتائج البحث — باقات شهرية متدرجة.</p>
+        <div class="price-tag">1,000 – 3,000 د.إ / شهر</div>
+      </div>
+    </div>
+
+    <div class="revenue-summary reveal">
+      <div class="revenue-summary-card card-navy">
+        <div class="revenue-summary-number">850K–1.2M</div>
+        <div class="revenue-summary-label">د.إ إيرادات متوقعة — السنة الأولى</div>
+      </div>
+      <div class="revenue-summary-card card-gold">
+        <div class="revenue-summary-number">200–350%</div>
+        <div class="revenue-summary-label">ROI متوقع — اقتراح B</div>
+      </div>
+      <div class="revenue-summary-card card-terra">
+        <div class="revenue-summary-number">4–6</div>
+        <div class="revenue-summary-label">أشهر لنقطة التعادل</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     7. الاستراتيجية: B ثم A
+     ═══════════════════════════════════════════════════ -->
+<section class="strategy section-padding" id="strategy">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">🗺️ خارطة الطريق</span>
+      <h2 class="section-title">الاستراتيجية: <span class="highlight">ابدأ بـ B</span> ← ثم <span class="highlight-terra">تطوّر لـ A</span></h2>
+      <p class="section-subtitle" style="margin:0 auto;">ابدأ صغيراً بقسم مدمج (تكلفة منخفضة، سرعة عالية) — ثم ابنِ المنصة المستقلة بناءً على بيانات حقيقية.</p>
+    </div>
+
+    <div class="timeline">
+      <!-- Phase 1 -->
+      <div class="timeline-item reveal">
+        <div class="timeline-dot dot-gold"></div>
+        <div class="timeline-content">
+          <span class="timeline-date">الأشهر 1–3</span>
+          <h4>🚀 إطلاق "مستشارو إتمام"</h4>
+          <p>قسم مدمج على موقع إتمام — 15-20 محامي مؤسس، صفحة بروفايلات، أول 10 فيديوهات "نصيحة في دقيقة"، WhatsApp integration للحجز.</p>
+          <div class="tag-list">
+            <span class="tag">MVP</span>
+            <span class="tag">15-20 محامي</span>
+            <span class="tag">فيديوهات</span>
+            <span class="tag">150-250K د.إ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="timeline-item reveal">
+        <div class="timeline-dot dot-gold"></div>
+        <div class="timeline-content">
+          <span class="timeline-date">الأشهر 4–6</span>
+          <h4>📈 نمو المحتوى والقاعدة</h4>
+          <p>30+ محامي، سلسلة محتوى أسبوعية على كل المنصات، AI chatbot على واتساب (v1)، نظام تتبع التحويلات. قياس: معدل التحويل، رضا المحامين.</p>
+          <div class="tag-list">
+            <span class="tag">30+ محامي</span>
+            <span class="tag">محتوى أسبوعي</span>
+            <span class="tag">AI Chatbot</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 3 -->
+      <div class="timeline-item reveal">
+        <div class="timeline-dot dot-navy"></div>
+        <div class="timeline-content">
+          <span class="timeline-date">الأشهر 7–9</span>
+          <h4>📊 تقييم وقرار</h4>
+          <p>تحليل البيانات: هل النموذج يعمل؟ إذا نعم → بدء تطوير المنصة المستقلة. بناء الفريق التقني. إذا لا → تعديل النموذج.</p>
+          <div class="tag-list">
+            <span class="tag">تحليل بيانات</span>
+            <span class="tag">قرار استراتيجي</span>
+            <span class="tag">50-80K د.إ</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Phase 4 -->
+      <div class="timeline-item reveal">
+        <div class="timeline-dot dot-terra"></div>
+        <div class="timeline-content">
+          <span class="timeline-date">الأشهر 10–15</span>
+          <h4>🏗️ إطلاق المنصة المستقلة</h4>
+          <p>نقل كل شيء لمنصة مستقلة (etmam-lawyers.ae). AI matching متقدم، Gamification، تطبيق موبايل. هدف: 100+ محامي، 500+ استشارة/شهر.</p>
+          <div class="tag-list">
+            <span class="tag">منصة مستقلة</span>
+            <span class="tag">100+ محامي</span>
+            <span class="tag">تطبيق موبايل</span>
+            <span class="tag">400-600K د.إ</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     8. خطة التسويق
+     ═══════════════════════════════════════════════════ -->
+<section class="marketing section-padding" id="marketing">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">📢 التسويق</span>
+      <h2 class="section-title">خطة تسويق <span class="highlight">متكاملة</span></h2>
+      <p class="section-subtitle" style="margin:0 auto;">استراتيجية ذات شقين: جذب المحامين (B2B) وجذب العملاء (B2C) — مع محتوى يبني ثقة طويلة الأمد.</p>
+    </div>
+
+    <div class="marketing-grid">
+      <div class="marketing-card reveal reveal-delay-1">
+        <div class="marketing-card-icon" style="background:linear-gradient(135deg,var(--navy),var(--navy-light));color:white;">👔</div>
+        <h4>جذب المحامين (B2B)</h4>
+        <ul>
+          <li>دعوة رسمية من إتمام — "تحالف مهني" وليس إعلان</li>
+          <li>أول 20 محامي مجاناً لمدة 6 أشهر</li>
+          <li>فيديو "نصيحة في دقيقة" مجاني في استوديو إتمام</li>
+          <li>LinkedIn كقناة #1 + مؤتمرات قانونية</li>
+          <li>برنامج إحالة: محامي يجيب محامي</li>
+        </ul>
+      </div>
+
+      <div class="marketing-card reveal reveal-delay-2">
+        <div class="marketing-card-icon" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold));color:white;">👥</div>
+        <h4>جذب العملاء (B2C)</h4>
+        <ul>
+          <li>SEO: صفحة لكل تخصص وكل سؤال شائع</li>
+          <li>فيديوهات "نصيحة في دقيقة" — 3 أسبوعياً</li>
+          <li>Instagram Reels + TikTok + YouTube Shorts</li>
+          <li>Google Ads + Meta Ads: 18-28K د.إ/شهر</li>
+          <li>Q&A Community: كل سؤال = صفحة SEO</li>
+        </ul>
+      </div>
+
+      <div class="marketing-card reveal reveal-delay-3">
+        <div class="marketing-card-icon" style="background:linear-gradient(135deg,var(--terra),var(--terra-light));color:white;">🎬</div>
+        <h4>استراتيجية المحتوى</h4>
+        <ul>
+          <li>أسبوع 1: قانون الأسرة (طلاق، حضانة، نفقة)</li>
+          <li>أسبوع 2: قانون العمل (فصل، مستحقات)</li>
+          <li>أسبوع 3: العقارات (إيجار، تأمين)</li>
+          <li>أسبوع 4: تجاري (شيكات، تأسيس شركات)</li>
+          <li>Carousels + مقالات SEO + بودكاست</li>
+        </ul>
+      </div>
+
+      <div class="marketing-card reveal reveal-delay-4">
+        <div class="marketing-card-icon" style="background:linear-gradient(135deg,#27ae60,#2ecc71);color:white;">🤝</div>
+        <h4>شراكات استراتيجية</h4>
+        <ul>
+          <li>دائرة القضاء — الشارقة (موجودة)</li>
+          <li>جمعية الحقوقيين الإماراتية</li>
+          <li>غرفة تجارة الشارقة</li>
+          <li>كليات القانون (جامعة الشارقة)</li>
+          <li>منصات عقارية (بيوت، دوبيزل)</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Go-to-Market -->
+    <div class="go-to-market reveal">
+      <h3>🚀 خطة Go-to-Market — أول 90 يوم</h3>
+      <div class="gtm-steps">
+        <div class="gtm-step">
+          <div class="gtm-step-num">1</div>
+          <h5>أسبوع 1-2</h5>
+          <p>Landing page + قائمة 50 محامي + مواد العرض + Domain</p>
+        </div>
+        <div class="gtm-step">
+          <div class="gtm-step-num">2</div>
+          <h5>أسبوع 3-4</h5>
+          <p>اجتماعات شخصية مع 20 محامي + أول 5 فيديوهات + بناء MVP</p>
+        </div>
+        <div class="gtm-step">
+          <div class="gtm-step-num">3</div>
+          <h5>أسبوع 5-8</h5>
+          <p>نشر 10 فيديوهات + 20 مقال SEO + Q&A + Beta test</p>
+        </div>
+        <div class="gtm-step">
+          <div class="gtm-step-num">4</div>
+          <h5>أسبوع 9-12</h5>
+          <p>Soft launch + 100 عميل تجريبي + Google Ads + تحسين</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     9. الميزة التنافسية
+     ═══════════════════════════════════════════════════ -->
+<section class="advantage section-padding" id="advantage">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">🛡️ الميزة التنافسية</span>
+      <h2 class="section-title">ثلاث ميزات <span class="highlight">لا يملكها أحد</span></h2>
+      <p class="section-subtitle" style="margin:0 auto;">هذه الميزات تشكّل خندقاً تنافسياً (Competitive Moat) يصعب على أي منافس تقليده.</p>
+    </div>
+
+    <div class="advantage-grid">
+      <div class="advantage-card reveal reveal-delay-1">
+        <div class="advantage-icon gold-bg">🏛️</div>
+        <h4>شراكة دائرة القضاء</h4>
+        <p>شراكة رسمية مع دائرة القضاء في الشارقة — مصداقية مؤسسية لا تُشترى. كل محامي يريد أن يكون حليفاً لمن يملك هذه العلاقة.</p>
+        <span class="moat-tag">🔒 ميزة حصرية</span>
+      </div>
+
+      <div class="advantage-card reveal reveal-delay-2">
+        <div class="advantage-icon navy-bg">👥</div>
+        <h4>قاعدة عملاء جاهزة</h4>
+        <p>عملاء إتمام يبحثون عن محامين يومياً. هذا يخفض تكلفة اكتساب العميل (CAC) بنسبة 60-80% مقارنة بأي منافس يبدأ من صفر.</p>
+        <span class="moat-tag">📉 CAC أقل 60-80%</span>
+      </div>
+
+      <div class="advantage-card reveal reveal-delay-3">
+        <div class="advantage-icon terra-bg">🎬</div>
+        <h4>استوديو إنتاج محتوى</h4>
+        <p>استوديو إتمام الاحترافي لتصوير "نصيحة في دقيقة" — محتوى عالي الجودة يبني ثقة العميل ويعزز Personal Brand للمحامي.</p>
+        <span class="moat-tag">🎥 محتوى حصري</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     10. الاعتراضات والردود
+     ═══════════════════════════════════════════════════ -->
+<section class="objections section-padding" id="objections">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">❓ أسئلة وأجوبة</span>
+      <h2 class="section-title">الاعتراضات المحتملة — <span class="highlight">والردود المقنعة</span></h2>
+    </div>
+
+    <div class="objections-grid">
+      <div class="objection-card reveal reveal-delay-1">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"ليش نستثمر في منصة محامين وإحنا مركز خدمات قضائية؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>بالعكس — هذا بالضبط ليش أنتم الأنسب! عندكم <strong>قاعدة عملاء جاهزة</strong>، سمعة في السوق القانوني، وفهم عميق لاحتياجات العملاء. <strong>Avvo</strong> أسسها مستشار قانوني وباعها بـ $500M+.</p>
+        </div>
+      </div>
+
+      <div class="objection-card reveal reveal-delay-2">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"هل هذا بيأثر على سمعتنا إذا محامي سيء؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>لهذا نظام التحقق والتقييم أساسي: <strong>توثيق ترخيص</strong> رسمي، شارة "إتمام موثق"، نظام تقييم شفاف مع حق الرد، وآلية إزالة فورية للمخالفين.</p>
+        </div>
+      </div>
+
+      <div class="objection-card reveal reveal-delay-3">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"كم الـ ROI الحقيقي؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>سيناريو متحفظ (اقتراح B): استثمار <strong>200-310K د.إ</strong> → إيراد <strong>850K-1.2M د.إ</strong> في السنة الأولى. نقطة التعادل: <strong>4-6 أشهر</strong>. ROI: <strong>200-350%</strong>.</p>
+        </div>
+      </div>
+
+      <div class="objection-card reveal reveal-delay-4">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"مين بيبني ويدير المنصة؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>البداية بـ <strong>MVP مع شريك تقني</strong> — فريق صغير (2-3 أشخاص): مدير منصة، مسؤول محتوى، ومطور. <strong>Rocket Lawyer</strong> بدأت بتمويل $2M فقط وحققت $5M في سنتها الثانية.</p>
+        </div>
+      </div>
+
+      <div class="objection-card reveal reveal-delay-1">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"هل في طلب حقيقي على هذا؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>سوق <strong>$5 مليار</strong> ينمو 6.2% سنوياً. بحث "محامي قريب مني" ارتفع <strong>+200%</strong> في الخليج. "استشارة قانونية أونلاين" ارتفع <strong>+300%</strong> بعد كوفيد. السؤال مش "هل في طلب؟" — <strong>السؤال "مين بيخدم هذا الطلب؟"</strong></p>
+        </div>
+      </div>
+
+      <div class="objection-card reveal reveal-delay-2">
+        <div class="objection-q">
+          <div class="objection-q-icon">؟</div>
+          <p>"ليش ما نستخدم الميزانية على التسويق المباشر بدال؟"</p>
+        </div>
+        <div class="objection-a">
+          <div class="objection-a-icon">💡</div>
+          <p>التسويق المباشر = <strong>إيجار</strong> (تدفع كل شهر، ما تملك شيء). المنصة = <strong>عقار رقمي</strong> (تستثمر مرة، تحصد لسنوات). <strong>LegalZoom</strong> بنت منصة بدل الإعلانات — النتيجة؟ شركة بقيمة $2+ مليار في البورصة.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     11. KPIs
+     ═══════════════════════════════════════════════════ -->
+<section class="kpis section-padding" id="kpis">
+  <div class="container">
+    <div class="reveal" style="text-align:center;">
+      <span class="section-badge">📊 مؤشرات النجاح</span>
+      <h2 class="section-title">أهداف واضحة <span class="highlight">وقابلة للقياس</span></h2>
+      <p class="section-subtitle" style="margin:0 auto;">مؤشرات أداء محددة لكل مرحلة — نعرف بالضبط متى ننجح ومتى نحتاج نعدّل.</p>
+    </div>
+
+    <div class="kpis-grid">
+      <!-- 6 أشهر -->
+      <div class="kpi-column reveal reveal-delay-1">
+        <div class="kpi-column-header six-months">
+          <h3>🎯 أهداف 6 أشهر</h3>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">المحامين المشاركين</span>
+          <span class="kpi-value">25</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">معدل التحويل (عميل → محامي)</span>
+          <span class="kpi-value">5%</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">الفيديوهات المنشورة</span>
+          <span class="kpi-value">30</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">مشاهدات المحتوى / شهر</span>
+          <span class="kpi-value">10K</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">استشارات محجوزة / شهر</span>
+          <span class="kpi-value">50</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">الإيراد الشهري</span>
+          <span class="kpi-value">20K د.إ</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">رضا المحامين</span>
+          <span class="kpi-value">4.0/5</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">تكلفة اكتساب عميل (CAC)</span>
+          <span class="kpi-value">50 د.إ</span>
+        </div>
+      </div>
+
+      <!-- 12 شهر -->
+      <div class="kpi-column reveal reveal-delay-2">
+        <div class="kpi-column-header twelve-months">
+          <h3>🚀 أهداف 12 شهر</h3>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">المحامين المشاركين</span>
+          <span class="kpi-value">50</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">معدل التحويل (عميل → محامي)</span>
+          <span class="kpi-value">12%</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">الفيديوهات المنشورة</span>
+          <span class="kpi-value">100</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">مشاهدات المحتوى / شهر</span>
+          <span class="kpi-value">50K</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">استشارات محجوزة / شهر</span>
+          <span class="kpi-value">200</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">الإيراد الشهري</span>
+          <span class="kpi-value">90K د.إ</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">رضا المحامين</span>
+          <span class="kpi-value">4.5/5</span>
+        </div>
+        <div class="kpi-row">
+          <span class="kpi-label">تكلفة اكتساب عميل (CAC)</span>
+          <span class="kpi-value">30 د.إ</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     12. CTA
+     ═══════════════════════════════════════════════════ -->
+<section class="cta-section" id="cta">
+  <div class="container">
+    <div class="cta-content reveal">
+      <div class="cta-badge">🏁 الخطوة التالية</div>
+
+      <h2 class="cta-title">
+        نبدأ Phase B:<br>
+        <span style="background:linear-gradient(135deg,var(--gold-light),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">20 محامي، 3 أشهر</span>
+      </h2>
+
+      <p class="cta-subtitle">
+        ابدأ صغيراً، أثبت القيمة، كبّر.<br>
+        اقتراح B يعطيك السرعة والأمان — اقتراح A يعطيك الطموح والتوسع.<br>
+        الذكاء أن تبدأ بالأول وتتطور للثاني.
+      </p>
+
+      <div class="cta-boxes">
+        <div class="cta-box">
+          <div class="cta-box-number">20</div>
+          <div class="cta-box-label">محامي مؤسس</div>
+        </div>
+        <div class="cta-box">
+          <div class="cta-box-number">3</div>
+          <div class="cta-box-label">أشهر للإطلاق</div>
+        </div>
+        <div class="cta-box">
+          <div class="cta-box-number">200K</div>
+          <div class="cta-box-label">د.إ استثمار أولي</div>
+        </div>
+        <div class="cta-box">
+          <div class="cta-box-number">350%</div>
+          <div class="cta-box-label">ROI متوقع</div>
+        </div>
+      </div>
+
+      <button class="cta-button" onclick="alert('شكراً لاهتمامكم! سنتواصل معكم قريباً لبدء Phase B.')">
+        🚀 نبدأ الآن
+      </button>
+
+      <div class="cta-footer">
+        <p>إعداد: Pyramedia X — شريككم التقني في بناء المستقبل الرقمي</p>
+        <p style="margin-top:8px;">مركز إتمام للخدمات القضائية × مجموعة إنجازات × دائرة القضاء — الشارقة</p>
+        <p style="margin-top:8px;">فبراير 2026</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT
+     ═══════════════════════════════════════════════════ -->
+<script>
+// ─── Scroll Reveal ───
+const revealElements = document.querySelectorAll('.reveal');
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+revealElements.forEach(el => revealObserver.observe(el));
+
+// ─── Animated Counters ───
+function animateCounter(el, target, duration = 2000) {
+  const isFloat = String(target).includes('.');
+  const start = 0;
+  const startTime = performance.now();
+
+  function update(currentTime) {
+    const elapsed = currentTime - startTime;
+    const progress = Math.min(elapsed / duration, 1);
+    // Ease out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = start + (target - start) * eased;
+
+    if (isFloat) {
+      el.textContent = current.toFixed(1);
+    } else {
+      el.textContent = Math.round(current).toLocaleString();
+    }
+
+    if (progress < 1) {
+      requestAnimationFrame(update);
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+// Hero counters
+const counterElements = document.querySelectorAll('[data-counter]');
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const target = parseFloat(el.getAttribute('data-counter'));
+      animateCounter(el, target);
+      counterObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+
+counterElements.forEach(el => counterObserver.observe(el));
+
+// ─── Market Bars Animation ───
+const barElements = document.querySelectorAll('.market-bar-fill');
+const barObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const bar = entry.target;
+      const width = bar.getAttribute('data-width');
+      setTimeout(() => {
+        bar.style.width = width;
+      }, 200);
+      barObserver.unobserve(bar);
+    }
+  });
+}, { threshold: 0.3 });
+
+barElements.forEach(el => barObserver.observe(el));
+
+// ─── Smooth scroll for anchor links ───
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+  anchor.addEventListener('click', function(e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+
+</body>
+</html>

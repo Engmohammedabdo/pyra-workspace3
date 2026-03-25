@@ -1,0 +1,111 @@
+{
+  "version": "1.0.0",
+  "templates": {
+    "dashboard": {
+      "name": "Dashboard Analysis",
+      "description": "Analyze dashboards, analytics screens, and reporting interfaces",
+      "prompt": "You are an expert data analyst. Analyze this dashboard screenshot with extreme precision.\n\n## Required Extraction:\n\n### 1. Metrics & KPIs\nFor EVERY visible metric, extract:\n- **Name**: exact label as shown\n- **Value**: exact number/percentage\n- **Trend**: up/down/flat + percentage change if shown\n- **Period**: what time period this metric covers\n- **Comparison**: vs previous period if shown\n\n### 2. Charts & Graphs\nFor each chart visible:\n- Chart type (line/bar/pie/area/funnel/etc.)\n- Data series names\n- Approximate values at key points\n- Trend direction\n- Axis labels and ranges\n\n### 3. Alerts & Anomalies\n- Any red/warning indicators\n- Metrics that are significantly above/below normal\n- Any error states or missing data indicators\n\n### 4. Context\n- Dashboard title/name\n- Date range or time period shown\n- Filters applied (if visible)\n- Platform/tool (Google Analytics, Meta Ads, etc.)\n- Currency if monetary values shown\n\n### 5. Insights\n- Top 3 observations a marketing manager should know\n- Any concerning trends\n- Recommendations based on the data\n\nOutput as structured JSON with these exact keys:\n```json\n{\n  \"dashboard\": { \"title\": \"\", \"platform\": \"\", \"period\": \"\", \"filters\": [] },\n  \"metrics\": [{ \"name\": \"\", \"value\": \"\", \"trend\": \"\", \"change\": \"\", \"period\": \"\" }],\n  \"charts\": [{ \"type\": \"\", \"title\": \"\", \"series\": [], \"keyPoints\": [] }],\n  \"alerts\": [{ \"type\": \"\", \"message\": \"\", \"severity\": \"\" }],\n  \"insights\": [{ \"observation\": \"\", \"importance\": \"high|medium|low\", \"recommendation\": \"\" }]\n}\n```",
+      "outputFormat": "json",
+      "fields": ["dashboard", "metrics", "charts", "alerts", "insights"],
+      "preprocessType": "screenshot"
+    },
+    "design": {
+      "name": "Design Review",
+      "description": "Professional review of designs, creatives, and visual assets",
+      "prompt": "You are a senior creative director with 15+ years of experience in digital design, branding, and UX. Review this design with professional rigor.\n\n## Detailed Analysis Required:\n\n### 1. First Impression (2 seconds)\n- What catches your eye first?\n- What's the immediate emotional response?\n- Is the purpose/message clear instantly?\n\n### 2. Visual Hierarchy\n- Primary focal point\n- Secondary elements\n- Reading flow (F-pattern, Z-pattern, or custom)\n- Are CTAs prominent enough?\n- Information density assessment\n\n### 3. Color Palette\n- List all colors used (approximate hex codes)\n- Color harmony type (complementary, analogous, triadic, etc.)\n- Emotional associations of the palette\n- Contrast ratios (accessibility concern?)\n- Does the palette match the brand/industry?\n\n### 4. Typography\n- Font families identified (or closest match)\n- Font sizes and hierarchy\n- Readability assessment\n- Line height and spacing\n- Font pairing quality\n\n### 5. Layout & Composition\n- Grid system used\n- White space utilization\n- Balance (symmetrical/asymmetrical)\n- Alignment consistency\n- Responsive considerations\n\n### 6. Brand Consistency\n- Does it follow brand guidelines (if apparent)?\n- Logo placement and sizing\n- Tone and voice alignment\n- Industry appropriateness\n\n### 7. Technical Quality\n- Image resolution and quality\n- Text rendering clarity\n- Edge cases (dark mode, small screens)\n- File optimization notes\n\n### 8. Specific Improvements\nList exactly 5 actionable improvements, prioritized:\n1. [Highest impact change]\n2. ...\n3. ...\n4. ...\n5. [Nice to have]\n\n### 9. Overall Score\n- **Score: X/10**\n- Reasoning for score\n- What would make it a 10/10?\n\n### 10. Competitive Context\n- How does this compare to industry standards?\n- Similar designs that do it well (references)",
+      "outputFormat": "text",
+      "fields": ["firstImpression", "visualHierarchy", "colorPalette", "typography", "layout", "brandConsistency", "technicalQuality", "improvements", "score", "competitiveContext"],
+      "preprocessType": "design"
+    },
+    "document": {
+      "name": "Document Extraction",
+      "description": "Extract text and structured data from documents, invoices, contracts",
+      "prompt": "You are an expert document analyst and OCR specialist. Extract ALL information from this document with maximum accuracy.\n\n## Extraction Requirements:\n\n### 1. Document Classification\n- **Type**: invoice / contract / receipt / letter / form / certificate / ID / report / other\n- **Language(s)**: primary and any secondary languages\n- **Quality**: clear / slightly blurry / poor quality / partially obscured\n\n### 2. Header Information\n- Organization/company name\n- Logo description\n- Address, phone, email, website\n- Document number/reference\n- Date(s) — issue date, due date, etc.\n\n### 3. Key Data Fields\nExtract ALL of these if present:\n- Names (people, companies)\n- Dates (all dates found)\n- Amounts (all monetary values with currency)\n- Reference numbers (invoice #, PO #, account #)\n- Addresses (billing, shipping, registered)\n\n### 4. Body Content\n- Full text transcription (preserve formatting)\n- For invoices: line items with description, quantity, unit price, total\n- For contracts: key clauses, terms, conditions\n- For forms: all field labels and their values\n\n### 5. Tables\nExtract any tables as structured data:\n```json\n{\n  \"headers\": [\"col1\", \"col2\"],\n  \"rows\": [[\"val1\", \"val2\"]]\n}\n```\n\n### 6. Signatures & Stamps\n- Signature present? (yes/no, position)\n- Official stamps/seals? (description)\n- Handwritten notes? (transcribe)\n\n### 7. Totals & Calculations\n- Subtotal\n- Tax (rate and amount)\n- Discounts\n- Grand total\n- Payment terms\n\nOutput as structured JSON:\n```json\n{\n  \"documentType\": \"\",\n  \"language\": [],\n  \"header\": { \"company\": \"\", \"date\": \"\", \"reference\": \"\" },\n  \"keyData\": { \"names\": [], \"dates\": [], \"amounts\": [], \"references\": [] },\n  \"content\": \"\",\n  \"tables\": [],\n  \"signatures\": [],\n  \"totals\": { \"subtotal\": \"\", \"tax\": \"\", \"total\": \"\" },\n  \"confidence\": \"high|medium|low\"\n}\n```",
+      "outputFormat": "json",
+      "fields": ["documentType", "language", "header", "keyData", "content", "tables", "signatures", "totals", "confidence"],
+      "preprocessType": "document"
+    },
+    "social": {
+      "name": "Social Media Analysis",
+      "description": "Analyze social media posts, ads, and content",
+      "prompt": "You are a social media marketing expert and content strategist. Analyze this social media content in detail.\n\n## Analysis Framework:\n\n### 1. Platform Identification\n- **Platform**: Instagram / Facebook / LinkedIn / Twitter/X / TikTok / YouTube / Snapchat / Other\n- **Content type**: feed post / story / reel / ad / carousel / video thumbnail / profile\n- **Evidence**: UI elements that confirm the platform\n\n### 2. Content Breakdown\n- **Visual elements**: photo / graphic / screenshot / illustration / video frame\n- **Text overlay**: all text visible on the image\n- **Caption text**: if visible in the screenshot\n- **Hashtags**: listed separately\n- **Mentions/tags**: @ mentions visible\n\n### 3. Creative Assessment\n- **Hook strength**: 1-10 (does it stop the scroll?)\n- **Visual quality**: 1-10\n- **Message clarity**: 1-10\n- **Brand alignment**: 1-10\n- **CTA presence and effectiveness**: describe the call-to-action\n\n### 4. Copy Analysis\n- Tone of voice (professional / casual / urgent / inspirational / humorous)\n- Key message in one sentence\n- Emotional triggers used\n- Power words identified\n- Length assessment (too long / just right / too short)\n\n### 5. Target Audience\n- Estimated demographic (age, gender, interests)\n- Pain points addressed\n- Desires/aspirations targeted\n- Geographic targeting clues\n\n### 6. Engagement Metrics (if visible)\n- Likes / reactions count\n- Comments count\n- Shares / reposts\n- Views (for video)\n- Engagement rate estimate\n\n### 7. Ad-Specific (if it's an ad)\n- Ad format\n- Offer/promotion details\n- Landing page clues\n- Urgency/scarcity tactics\n- Compliance issues (disclaimers, etc.)\n\n### 8. Effectiveness Score\n- **Overall Score: X/10**\n- Top 3 strengths\n- Top 3 weaknesses\n- 3 specific improvements to boost performance\n\n### 9. Competitive Insights\n- What category/industry is this?\n- Best practices being followed\n- Best practices being missed\n- Suggested A/B test ideas",
+      "outputFormat": "text",
+      "fields": ["platform", "contentType", "creative", "copy", "audience", "metrics", "adDetails", "score", "improvements"],
+      "preprocessType": "screenshot"
+    },
+    "comparison": {
+      "name": "Image Comparison",
+      "description": "Compare before/after images or A/B variants",
+      "prompt": "You are an expert analyst specializing in visual comparison and A/B testing. Compare the provided images systematically.\n\n## Comparison Framework:\n\n### 1. Overview\n- What are we comparing? (before/after, A/B variants, competitor comparison)\n- Are these the same type of content?\n- Key context clues\n\n### 2. Visual Differences\nList EVERY difference you can spot:\n- Layout changes\n- Color differences\n- Typography changes\n- Image/graphic differences\n- Size/proportion changes\n- Element additions or removals\n- Positioning shifts\n\n### 3. Impact Assessment\nFor each difference:\n- **Change**: what changed\n- **Impact**: positive / negative / neutral\n- **Reasoning**: why this matters\n- **Confidence**: high / medium / low\n\n### 4. Winner Declaration\n- **Winner**: Image A / Image B / Tie\n- **By how much**: marginal / clear / significant\n- **Key deciding factors** (top 3)\n\n### 5. Recommendations\n- What to keep from each version\n- Suggested hybrid approach\n- Next test to run\n- Predicted performance difference (%)\n\n### 6. Detailed Scoring\n| Criteria | Image A | Image B |\n|----------|---------|----------|\n| Visual Appeal | /10 | /10 |\n| Clarity | /10 | /10 |\n| CTA Effectiveness | /10 | /10 |\n| Brand Consistency | /10 | /10 |\n| Overall | /10 | /10 |",
+      "outputFormat": "text",
+      "fields": ["overview", "differences", "impact", "winner", "recommendations", "scoring"],
+      "preprocessType": "photo"
+    },
+    "chart": {
+      "name": "Chart Data Extraction",
+      "description": "Extract data and insights from charts, graphs, and data visualizations",
+      "prompt": "You are a data visualization expert. Extract ALL data and insights from this chart/graph with maximum precision.\n\n## Extraction Requirements:\n\n### 1. Chart Identification\n- **Chart type**: bar / line / pie / donut / area / scatter / funnel / gauge / heatmap / table / mixed\n- **Title**: exact title as shown\n- **Subtitle**: if present\n- **Source**: if credited\n\n### 2. Axes & Labels\n- **X-axis**: label, units, range (min-max), tick intervals\n- **Y-axis**: label, units, range (min-max), tick intervals\n- **Secondary Y-axis**: if present\n- **Legend**: all series names and their colors\n\n### 3. Data Extraction\nExtract ALL visible data points:\n```json\n{\n  \"series\": [\n    {\n      \"name\": \"Series Name\",\n      \"color\": \"approximate color\",\n      \"dataPoints\": [\n        { \"x\": \"label/value\", \"y\": \"value\" }\n      ]\n    }\n  ]\n}\n```\n\nFor pie/donut charts:\n```json\n{\n  \"segments\": [\n    { \"label\": \"\", \"value\": \"\", \"percentage\": \"\", \"color\": \"\" }\n  ]\n}\n```\n\n### 4. Statistical Summary\n- Total / sum (if applicable)\n- Average / mean\n- Min and max values\n- Notable outliers\n- Growth rate (if time series)\n\n### 5. Trends & Patterns\n- Overall trend (increasing / decreasing / flat / cyclical)\n- Inflection points (where trends change)\n- Seasonality patterns\n- Correlation between series (if multiple)\n\n### 6. Annotations\n- Any callouts or annotations on the chart\n- Reference lines (targets, averages, benchmarks)\n- Highlighted regions\n\n### 7. Key Takeaways\n- Top 3 insights from this data\n- What story does this chart tell?\n- Questions this data raises\n- Recommended next analysis\n\nOutput as structured JSON:\n```json\n{\n  \"chartType\": \"\",\n  \"title\": \"\",\n  \"axes\": { \"x\": {}, \"y\": {} },\n  \"data\": {},\n  \"statistics\": {},\n  \"trends\": [],\n  \"annotations\": [],\n  \"takeaways\": []\n}\n```",
+      "outputFormat": "json",
+      "fields": ["chartType", "title", "axes", "data", "statistics", "trends", "annotations", "takeaways"],
+      "preprocessType": "screenshot"
+    },
+    "general": {
+      "name": "General Image Analysis",
+      "description": "Comprehensive general-purpose image analysis",
+      "prompt": "Analyze this image comprehensively. Provide a thorough analysis covering:\n\n### 1. Overview\n- What is this image? (photo / screenshot / design / document / chart / meme / etc.)\n- Brief description in one sentence\n- Setting/context\n\n### 2. Content Details\n- All text visible (transcribe exactly)\n- People (count, apparent demographics, expressions, actions)\n- Objects (list all identifiable objects)\n- Brands/logos visible\n- Colors dominant in the image\n\n### 3. Technical Assessment\n- Image quality (resolution, focus, exposure)\n- Composition (rule of thirds, leading lines, etc.)\n- Lighting conditions\n- Any post-processing evident\n\n### 4. Context & Purpose\n- What's the likely purpose of this image?\n- Target audience\n- Where might this be used? (social media, website, print, etc.)\n- Cultural or regional context clues\n\n### 5. Notable Details\n- Anything unusual or noteworthy\n- Hidden details or easter eggs\n- Potential issues (copyright, sensitivity, etc.)\n\n### 6. Summary\n- 3-sentence summary of the image\n- Key metadata: estimated date, location, platform\n- Suggested tags/keywords for this image",
+      "outputFormat": "text",
+      "fields": ["overview", "content", "technical", "context", "details", "summary"],
+      "preprocessType": "photo"
+    },
+    "product": {
+      "name": "Product Image Analysis",
+      "description": "Analyze product photos for e-commerce and marketing",
+      "prompt": "You are an e-commerce product photography expert. Analyze this product image for marketing readiness.\n\n### 1. Product Identification\n- What is the product?\n- Brand (if visible)\n- Category\n- Variant (color, size, model)\n\n### 2. Photography Quality\n- Background (white/lifestyle/contextual)\n- Lighting quality (even, shadows, highlights)\n- Focus and sharpness\n- Color accuracy assessment\n- Angle (front/side/top/lifestyle)\n\n### 3. E-commerce Readiness\n- Suitable for main listing image? (yes/no + why)\n- Suitable for Amazon/Noon standards?\n- Background removal needed?\n- Retouching needed?\n- Score: /10\n\n### 4. Marketing Potential\n- Best platform for this image\n- Suggested crop ratios (1:1, 4:5, 16:9)\n- Text overlay potential\n- A+ content suitability\n\n### 5. Improvements\n- Top 5 specific improvements\n- Suggested additional shots needed\n- Props or styling suggestions",
+      "outputFormat": "text",
+      "fields": ["product", "photographyQuality", "ecommerceReadiness", "marketingPotential", "improvements"],
+      "preprocessType": "photo"
+    },
+    "arabic_content": {
+      "name": "Arabic Content Analysis",
+      "description": "Specialized analysis for Arabic text and content (UAE/GCC focus)",
+      "prompt": "You are a bilingual (Arabic/English) content specialist with deep knowledge of UAE and GCC markets. Analyze this image containing Arabic content.\n\n### 1. Text Extraction (Arabic)\n- Extract ALL Arabic text exactly as written\n- Extract ALL English text if present\n- Note any transliteration or mixed text\n\n### 2. Language Quality\n- Dialect: MSA / Gulf / Egyptian / Levantine / Mixed\n- Grammar correctness\n- Spelling errors\n- Awkward phrasing\n- Cultural appropriateness for UAE market\n\n### 3. Design Assessment (RTL)\n- Is the layout properly RTL?\n- Text alignment correctness\n- Arabic font choice (quality, readability)\n- Tashkeel/diacritics usage\n- Number format (Arabic-Indic ٠١٢ vs Western 012)\n\n### 4. Cultural Sensitivity\n- UAE/GCC cultural appropriateness\n- Religious considerations\n- Government/regulatory compliance clues\n- Seasonal relevance (Ramadan, National Day, etc.)\n\n### 5. Marketing Effectiveness\n- Message clarity for Arab audience\n- Emotional resonance\n- Local market fit\n- Suggested improvements for UAE market\n\nProvide response in BOTH Arabic and English.",
+      "outputFormat": "text",
+      "fields": ["arabicText", "englishText", "languageQuality", "designAssessment", "culturalSensitivity", "marketingEffectiveness"],
+      "preprocessType": "screenshot"
+    }
+  },
+  "preprocessingProfiles": {
+    "screenshot": {
+      "description": "Optimize screenshots for text and UI element clarity",
+      "operations": ["sharpen", "normalize", "resize"],
+      "maxWidth": 2048,
+      "maxHeight": 2048,
+      "quality": 90,
+      "format": "png"
+    },
+    "document": {
+      "description": "Optimize documents for OCR and text extraction",
+      "operations": ["grayscale", "normalize", "sharpen", "threshold"],
+      "maxWidth": 2400,
+      "maxHeight": 3200,
+      "quality": 95,
+      "format": "png"
+    },
+    "photo": {
+      "description": "Optimize photos while preserving visual quality",
+      "operations": ["normalize", "resize"],
+      "maxWidth": 2048,
+      "maxHeight": 2048,
+      "quality": 85,
+      "format": "jpeg"
+    },
+    "design": {
+      "description": "Optimize designs preserving colors and details",
+      "operations": ["resize"],
+      "maxWidth": 2048,
+      "maxHeight": 2048,
+      "quality": 95,
+      "format": "png"
+    }
+  }
+}

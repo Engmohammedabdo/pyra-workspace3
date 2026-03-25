@@ -1,0 +1,308 @@
+/**
+ * Bayra Memory System — Embedding Engine
+ * Handles text embedding via OpenAI, caching, similarity, and serialization.
+ */
+
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import OpenAI from 'openai';
+
+// ─── API Key Resolution ───────────────────────────────────────────────
+
+function resolveApiKey() {
+  if (process.env.OPENAI_API_KEY) return process.env.OPENAI_API_KEY;
+  try {
+    const env = readFileSync('/home/node/.openclaw/credentials/pyra-voice.env', 'utf8');
+    const m = env.match(/^OPENAI_API_KEY=(.+)$/m);
+    if (m) return m[1].trim();
+  } catch {}
+  throw new Error('OPENAI_API_KEY not found in env or credentials file');
+}
+
+const openai = new OpenAI({ apiKey: resolveApiKey() });
+
+const DEFAULT_MODEL = 'text-embedding-3-small';
+const DEFAULT_DIMS = 512;
+
+// ─── Embedding Cache (LRU, in-memory with optional SQLite) ───────────
+
+export class EmbeddingCache {
+  constructor(db = null) {
+    this.db = db;
+    this.memCache = new Map();
+    this.maxMemCache = 1000;
+  }
+
+  get(hash) {
+    // Try memory first
+    if (this.memCache.has(hash)) {
+      // LRU: move to end
+      const val = this.memCache.get(hash);
+      this.memCache.delete(hash);
+      this.memCache.set(hash, val);
+      return val;
+    }
+    // Try SQLite if available
+    if (this.db) {
+      try {
+        const row = this.db.prepare('SELECT embedding FROM embedding_cache WHERE text_hash = ?').get(hash);
+        if (row) {
+          const emb = bufferToEmbedding(row.embedding);
+          this._memSet(hash, emb);
+          return emb;
+        }
+      } catch {}
+    }
+    return null;
+  }
+
+  set(hash, embedding) {
+    this._memSet(hash, embedding);
+    if (this.db) {
+      try {
+        this.db.prepare(
+          'INSERT OR REPLACE INTO embedding_cache (text_hash, embedding) VALUES (?, ?)'
+        ).run(hash, embeddingToBuffer(embedding));
+      } catch {}
+    }
+  }
+
+  has(hash) {
+    if (this.memCache.has(hash)) return true;
+    if (this.db) {
+      try {
+        const row = this.db.prepare('SELECT 1 FROM embedding_cache WHERE text_hash = ? LIMIT 1').get(hash);
+        return !!row;
+      } catch {}
+    }
+    return false;
+  }
+
+  _memSet(hash, embedding) {
+    // Evict oldest if at capacity
+    if (this.memCache.size >= this.maxMemCache) {
+      const oldest = this.memCache.keys().next().value;
+      this.memCache.delete(oldest);
+    }
+    this.memCache.set(hash, embedding);
+  }
+}
+
+// Singleton cache
+const cache = new EmbeddingCache();
+
+/** Attach a SQLite db to the cache (call once db.mjs is ready). */
+export function setCacheDb(db) {
+  cache.db = db;
+}
+
+// ─── Core Functions ───────────────────────────────────────────────────
+
+/**
+ * Embed a single text string.
+ * @returns {Promise<Float32Array>} Normalized embedding vector
+ */
+export async function embed(text, options = {}) {
+  const {
+    model = DEFAULT_MODEL,
+    dimensions = DEFAULT_DIMS,
+    cache: useCache = true,
+  } = options;
+
+  if (useCache) {
+    const hash = textHash(text);
+    const cached = cache.get(hash);
+    if (cached) return cached;
+  }
+
+  const res = await openai.embeddings.create({
+    model,
+    input: text,
+    dimensions,
+  });
+
+  const vec = normalizeVector(new Float32Array(res.data[0].embedding));
+
+  if (useCache) {
+    cache.set(textHash(text), vec);
+  }
+
+  return vec;
+}
+
+/**
+ * Embed multiple texts in a single API call.
+ * @returns {Promise<Float32Array[]>}
+ */
+export async function embedBatch(texts, options = {}) {
+  const {
+    model = DEFAULT_MODEL,
+    dimensions = DEFAULT_DIMS,
+    cache: useCache = true,
+  } = options;
+
+  // Check cache for all, collect misses
+  const results = new Array(texts.length);
+  const misses = []; // { index, text }
+
+  if (useCache) {
+    for (let i = 0; i < texts.length; i++) {
+      const hash = textHash(texts[i]);
+      const cached = cache.get(hash);
+      if (cached) {
+        results[i] = cached;
+      } else {
+        misses.push({ index: i, text: texts[i] });
+      }
+    }
+  } else {
+    for (let i = 0; i < texts.length; i++) {
+      misses.push({ index: i, text: texts[i] });
+    }
+  }
+
+  if (misses.length === 0) return results;
+
+  const res = await openai.embeddings.create({
+    model,
+    input: misses.map((m) => m.text),
+    dimensions,
+  });
+
+  // OpenAI returns embeddings in same order as input
+  for (let j = 0; j < misses.length; j++) {
+    const vec = normalizeVector(new Float32Array(res.data[j].embedding));
+    results[misses[j].index] = vec;
+    if (useCache) {
+      cache.set(textHash(misses[j].text), vec);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Embed with retry + exponential backoff.
+ * @returns {Promise<Float32Array|null>}
+ */
+// ─── Failure Cooldown (ZeroClaw-inspired) ─────────────────────────────
+let _lastFailureAt = null;
+const FAILURE_COOLDOWN_MS = 15000; // 15 seconds
+
+function inFailureCooldown() {
+  if (!_lastFailureAt) return false;
+  return (Date.now() - _lastFailureAt) < FAILURE_COOLDOWN_MS;
+}
+
+export async function embedWithRetry(text, maxRetries = 3) {
+  // Skip if in failure cooldown
+  if (inFailureCooldown()) {
+    console.warn(`[embedWithRetry] In failure cooldown (${Math.round((FAILURE_COOLDOWN_MS - (Date.now() - _lastFailureAt)) / 1000)}s remaining), skipping`);
+    return null;
+  }
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await embed(text);
+      _lastFailureAt = null; // Clear cooldown on success
+      return result;
+    } catch (err) {
+      const status = err?.status || err?.response?.status;
+      const retryable = status === 429 || status >= 500 || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
+      if (!retryable || attempt === maxRetries) {
+        console.error(`[embedWithRetry] Failed after ${attempt + 1} attempts:`, err.message);
+        _lastFailureAt = Date.now(); // Enter cooldown
+        return null;
+      }
+      const delay = Math.min(1000 * 2 ** attempt + Math.random() * 500, 30000);
+      console.warn(`[embedWithRetry] Attempt ${attempt + 1} failed (${status || err.code}), retrying in ${Math.round(delay)}ms…`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  _lastFailureAt = Date.now();
+  return null;
+}
+
+// ─── Embedding Queue ──────────────────────────────────────────────────
+
+export class EmbeddingQueue {
+  constructor() {
+    this.pending = []; // { memoryId, content }
+  }
+
+  enqueue(memoryId, content) {
+    this.pending.push({ memoryId, content });
+  }
+
+  async processQueue() {
+    const results = [];
+    const remaining = [];
+    for (const item of this.pending) {
+      const vec = await embedWithRetry(item.content);
+      if (vec) {
+        results.push({ memoryId: item.memoryId, embedding: vec });
+      } else {
+        remaining.push(item);
+      }
+    }
+    this.pending = remaining;
+    return results;
+  }
+
+  getPendingCount() {
+    return this.pending.length;
+  }
+}
+
+// ─── Vector Math ──────────────────────────────────────────────────────
+
+/**
+ * Cosine similarity between two vectors.
+ * @returns {number} -1 to 1
+ */
+export function cosineSimilarity(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
+}
+
+/**
+ * L2-normalize a vector (unit length).
+ * @returns {Float32Array}
+ */
+export function normalizeVector(vec) {
+  let sum = 0;
+  for (let i = 0; i < vec.length; i++) sum += vec[i] * vec[i];
+  const norm = Math.sqrt(sum);
+  if (norm === 0) return new Float32Array(vec.length);
+  const out = new Float32Array(vec.length);
+  for (let i = 0; i < vec.length; i++) out[i] = vec[i] / norm;
+  return out;
+}
+
+// ─── Serialization ────────────────────────────────────────────────────
+
+/** Float32Array → Buffer for SQLite BLOB storage. */
+export function embeddingToBuffer(embedding) {
+  return Buffer.from(embedding.buffer, embedding.byteOffset, embedding.byteLength);
+}
+
+/** Buffer → Float32Array. */
+export function bufferToEmbedding(buffer) {
+  const ab = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+  return new Float32Array(ab);
+}
+
+// ─── Hashing ──────────────────────────────────────────────────────────
+
+/** SHA-256 hex hash of text (stable cache key). */
+export function textHash(text) {
+  return createHash('sha256').update(text).digest('hex');
+}
+
+export { cache, openai };

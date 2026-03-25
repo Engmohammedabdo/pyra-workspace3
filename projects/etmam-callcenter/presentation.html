@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مركز الاتصال الذكي — مركز إتمام للخدمات القضائية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--navy:#0f172a;--navy2:#1e293b;--navy3:#334155;
+--orange:#F97316;--orange2:#FB923C;--orangeGlow:rgba(249,115,22,.15);
+--white:#f8fafc;--gray:#94a3b8;--green:#22c55e;--red:#ef4444;--blue:#3b82f6;
+}
+html{scroll-behavior:smooth;scroll-snap-type:y mandatory}
+body{font-family:'Tajawal',sans-serif;background:var(--navy);color:var(--white);overflow-x:hidden}
+/* Progress bar */
+#progress{position:fixed;top:0;right:0;height:3px;background:linear-gradient(90deg,var(--orange),var(--orange2));z-index:1000;transition:width .3s;width:0}
+/* Navigation dots */
+#nav-dots{position:fixed;left:20px;top:50%;transform:translateY(-50%);z-index:999;display:flex;flex-direction:column;gap:12px}
+.nav-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--gray);background:transparent;cursor:pointer;transition:.3s}
+.nav-dot.active{background:var(--orange);border-color:var(--orange);box-shadow:0 0 12px var(--orange)}
+.nav-dot:hover{border-color:var(--orange)}
+/* Sections */
+section{min-height:100vh;scroll-snap-align:start;display:flex;align-items:center;justify-content:center;padding:60px 40px;position:relative;overflow:hidden}
+.container{max-width:1200px;width:100%;margin:0 auto}
+/* Animations */
+.fade-up{opacity:0;transform:translateY(40px);transition:opacity .8s,transform .8s}
+.fade-up.visible{opacity:1;transform:translateY(0)}
+.fade-right{opacity:0;transform:translateX(60px);transition:opacity .7s,transform .7s}
+.fade-right.visible{opacity:1;transform:translateX(0)}
+.fade-left{opacity:0;transform:translateX(-60px);transition:opacity .7s,transform .7s}
+.fade-left.visible{opacity:1;transform:translateX(0)}
+/* Section titles */
+.section-title{font-size:2.8rem;font-weight:800;margin-bottom:15px;background:linear-gradient(135deg,var(--white),var(--orange2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.section-sub{font-size:1.2rem;color:var(--gray);margin-bottom:40px;line-height:1.8}
+/* Cover */
+#cover{background:linear-gradient(135deg,#0f172a 0%,#1a1a3e 50%,#0f172a 100%);text-align:center}
+#cover::before{content:'';position:absolute;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(249,115,22,.08),transparent 70%);top:-100px;left:50%;transform:translateX(-50%)}
+.cover-badge{display:inline-block;padding:8px 24px;border:1px solid var(--orange);border-radius:50px;color:var(--orange);font-size:.9rem;margin-bottom:30px;letter-spacing:1px}
+.cover-title{font-size:3.8rem;font-weight:900;line-height:1.3;margin-bottom:20px;background:linear-gradient(135deg,#fff,var(--orange2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.cover-subtitle{font-size:1.5rem;color:var(--gray);margin-bottom:50px;font-weight:300}
+.cover-by{color:var(--gray);font-size:1rem;position:absolute;bottom:40px;width:100%;text-align:center}
+.cover-by span{color:var(--orange);font-weight:700}
+/* Challenge cards */
+.challenge-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px}
+.challenge-card{background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(239,68,68,.02));border:1px solid rgba(239,68,68,.2);border-radius:16px;padding:30px;transition:.3s}
+.challenge-card:hover{transform:translateY(-5px);border-color:var(--red);box-shadow:0 10px 40px rgba(239,68,68,.1)}
+.challenge-icon{font-size:2.5rem;margin-bottom:15px}
+.challenge-card h3{font-size:1.2rem;color:var(--red);margin-bottom:10px}
+.challenge-card p{color:var(--gray);font-size:.95rem;line-height:1.7}
+/* Vision */
+#vision{background:linear-gradient(180deg,var(--navy),#0c1222)}
+.vision-pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:30px;margin-top:40px}
+.pillar{text-align:center;padding:40px 25px;border-radius:20px;background:linear-gradient(135deg,var(--navy2),var(--navy));border:1px solid var(--navy3);transition:.3s}
+.pillar:hover{border-color:var(--orange);transform:translateY(-8px);box-shadow:0 20px 60px rgba(249,115,22,.1)}
+.pillar-icon{font-size:3.5rem;margin-bottom:20px}
+.pillar h3{font-size:1.4rem;margin-bottom:12px;color:var(--orange)}
+.pillar p{color:var(--gray);line-height:1.7;font-size:.95rem}
+/* Flowchart */
+#architecture{background:var(--navy)}
+.flow-wrapper{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:30px}
+.flow-row{display:flex;justify-content:center;align-items:center;gap:30px;flex-wrap:wrap;position:relative}
+.flow-box{padding:18px 28px;border-radius:14px;font-weight:700;font-size:1rem;text-align:center;cursor:pointer;transition:.3s;position:relative;min-width:160px}
+.flow-box:hover{transform:scale(1.08);z-index:2}
+.flow-box .tooltip{position:absolute;bottom:calc(100% + 12px);right:50%;transform:translateX(50%);background:var(--navy);border:1px solid var(--orange);border-radius:10px;padding:12px 16px;font-size:.85rem;font-weight:400;color:var(--gray);white-space:nowrap;opacity:0;pointer-events:none;transition:.3s;z-index:10}
+.flow-box:hover .tooltip{opacity:1}
+.flow-client{background:linear-gradient(135deg,var(--orange),var(--orange2));color:#fff;font-size:1.2rem;box-shadow:0 8px 30px rgba(249,115,22,.3)}
+.flow-ai{background:linear-gradient(135deg,#3b82f6,#60a5fa);color:#fff;box-shadow:0 8px 30px rgba(59,130,246,.2)}
+.flow-human{background:linear-gradient(135deg,#22c55e,#4ade80);color:#0f172a;box-shadow:0 8px 30px rgba(34,197,94,.2)}
+.flow-route{background:linear-gradient(135deg,var(--navy2),var(--navy3));border:2px solid var(--orange);color:var(--orange)}
+.flow-arrow{color:var(--orange);font-size:2rem;margin:8px 0;animation:bounce-down 1.5s infinite}
+.flow-arrow-h{color:var(--orange);font-size:1.5rem;margin:0 5px}
+@keyframes bounce-down{0%,100%{transform:translateY(0)}50%{transform:translateY(6px)}}
+/* Channels */
+.channels-grid{display:grid;grid-template-columns:1fr 1fr;gap:30px}
+.channel-card{border-radius:20px;padding:40px;border:1px solid var(--navy3);transition:.3s;position:relative;overflow:hidden}
+.channel-card::before{content:'';position:absolute;top:0;right:0;width:100%;height:4px}
+.channel-phone{background:linear-gradient(135deg,rgba(59,130,246,.05),transparent)}.channel-phone::before{background:var(--blue)}
+.channel-wa{background:linear-gradient(135deg,rgba(34,197,94,.05),transparent)}.channel-wa::before{background:var(--green)}
+.channel-card:hover{transform:translateY(-5px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.channel-icon{font-size:3rem;margin-bottom:20px}
+.channel-card h3{font-size:1.5rem;margin-bottom:15px}
+.channel-card ul{list-style:none;padding:0}
+.channel-card li{padding:8px 0;color:var(--gray);font-size:.95rem;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:8px}
+.channel-card li::before{content:'✓';color:var(--green);font-weight:700}
+/* AI Features */
+.ai-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:25px}
+.ai-card{background:var(--navy2);border:1px solid var(--navy3);border-radius:20px;padding:35px;transition:.3s}
+.ai-card:hover{border-color:var(--orange);box-shadow:0 15px 50px rgba(249,115,22,.08);transform:translateY(-3px)}
+.ai-card-icon{font-size:2.8rem;margin-bottom:18px}
+.ai-card h3{font-size:1.3rem;margin-bottom:10px;color:var(--orange)}
+.ai-card p{color:var(--gray);line-height:1.7}
+/* Tickets */
+.ticket-flow{display:flex;justify-content:center;align-items:center;gap:0;margin:40px 0;flex-wrap:wrap}
+.ticket-step{text-align:center;padding:25px 20px;border-radius:16px;min-width:160px;transition:.3s}
+.ticket-step:hover{transform:scale(1.05)}
+.ticket-num{width:45px;height:45px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.2rem;margin:0 auto 12px}
+.ts1{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3)}.ts1 .ticket-num{background:var(--blue);color:#fff}
+.ts2{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3)}.ts2 .ticket-num{background:var(--orange);color:#fff}
+.ts3{background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3)}.ts3 .ticket-num{background:#a855f7;color:#fff}
+.ts4{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3)}.ts4 .ticket-num{background:var(--green);color:#fff}
+.ticket-arrow{font-size:1.8rem;color:var(--orange);margin:0 8px}
+.ticket-step h4{font-size:1rem;margin-bottom:6px}
+.ticket-step p{font-size:.8rem;color:var(--gray)}
+.ticket-features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:30px}
+.tf{text-align:center;padding:25px;border-radius:14px;background:var(--navy2);border:1px solid var(--navy3)}
+.tf-icon{font-size:2rem;margin-bottom:10px}
+.tf h4{font-size:1rem;margin-bottom:6px;color:var(--orange)}
+.tf p{font-size:.85rem;color:var(--gray)}
+/* Dashboard */
+.dash-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-bottom:35px}
+.kpi{text-align:center;padding:25px;border-radius:16px;background:var(--navy2);border:1px solid var(--navy3)}
+.kpi-val{font-size:2.5rem;font-weight:900;color:var(--orange)}
+.kpi-label{font-size:.9rem;color:var(--gray);margin-top:5px}
+.dash-charts{display:grid;grid-template-columns:1.3fr 1fr;gap:25px}
+.chart-box{background:var(--navy2);border:1px solid var(--navy3);border-radius:16px;padding:30px}
+.chart-box h4{margin-bottom:20px;font-size:1.1rem}
+.bar-chart{display:flex;align-items:flex-end;gap:12px;height:200px;padding-top:10px}
+.bar{border-radius:8px 8px 0 0;min-width:40px;transition:height 1s ease;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;position:relative}
+.bar-label{font-size:.7rem;color:var(--gray);position:absolute;bottom:-22px;white-space:nowrap;width:60px;text-align:center}
+.bar-val{font-size:.75rem;color:#fff;margin-bottom:4px;font-weight:700}
+.pie-container{display:flex;justify-content:center;align-items:center;gap:30px}
+.pie{width:180px;height:180px;border-radius:50%;background:conic-gradient(var(--orange) 0% 65%,var(--blue) 65% 100%);position:relative}
+.pie::after{content:'65%';position:absolute;inset:30px;background:var(--navy2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:800;color:var(--orange)}
+.pie-legend{display:flex;flex-direction:column;gap:12px}
+.legend-item{display:flex;align-items:center;gap:8px;font-size:.9rem;color:var(--gray)}
+.legend-dot{width:14px;height:14px;border-radius:50%}
+/* Services */
+.services-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.service-card{text-align:center;padding:30px 15px;border-radius:16px;background:var(--navy2);border:1px solid var(--navy3);transition:.3s}
+.service-card:hover{border-color:var(--orange);transform:translateY(-5px);box-shadow:0 15px 40px rgba(249,115,22,.1)}
+.service-icon{font-size:2.5rem;margin-bottom:12px}
+.service-card h4{font-size:1.1rem;margin-bottom:6px}
+.service-card p{font-size:.8rem;color:var(--gray)}
+/* Results */
+.results-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:25px;text-align:center}
+.result-card{padding:35px 20px;border-radius:20px;background:linear-gradient(135deg,var(--navy2),var(--navy));border:1px solid var(--navy3);transition:.3s}
+.result-card:hover{border-color:var(--orange);transform:scale(1.03)}
+.result-val{font-size:3rem;font-weight:900;color:var(--orange)}
+.result-unit{font-size:1.2rem;color:var(--orange2);font-weight:700}
+.result-label{font-size:.95rem;color:var(--gray);margin-top:8px}
+/* Timeline */
+.timeline{display:flex;justify-content:center;gap:0;margin-top:40px;position:relative}
+.timeline::before{content:'';position:absolute;top:50px;right:15%;left:15%;height:3px;background:var(--navy3)}
+.phase{text-align:center;flex:1;max-width:320px;position:relative;padding:0 15px}
+.phase-dot{width:24px;height:24px;border-radius:50%;background:var(--orange);margin:0 auto 25px;position:relative;z-index:2;box-shadow:0 0 20px rgba(249,115,22,.3)}
+.phase-card{background:var(--navy2);border:1px solid var(--navy3);border-radius:16px;padding:25px;transition:.3s}
+.phase-card:hover{border-color:var(--orange);transform:translateY(-5px)}
+.phase-num{color:var(--orange);font-weight:800;font-size:1.1rem;margin-bottom:6px}
+.phase-title{font-size:1.2rem;font-weight:700;margin-bottom:10px}
+.phase-card ul{list-style:none;text-align:right;padding:0}
+.phase-card li{padding:5px 0;color:var(--gray);font-size:.9rem}
+.phase-card li::before{content:'◈';color:var(--orange);margin-left:6px}
+/* Why us */
+.why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:25px}
+.why-card{display:flex;gap:20px;align-items:flex-start;padding:30px;border-radius:16px;background:var(--navy2);border:1px solid var(--navy3);transition:.3s}
+.why-card:hover{border-color:var(--orange);transform:translateX(-5px)}
+.why-icon{font-size:2.5rem;flex-shrink:0}
+.why-card h3{font-size:1.2rem;margin-bottom:8px;color:var(--orange)}
+.why-card p{color:var(--gray);line-height:1.7}
+/* Contact */
+#contact{background:linear-gradient(135deg,#0f172a,#1a1a3e);text-align:center}
+.contact-cards{display:flex;justify-content:center;gap:30px;margin-top:40px;flex-wrap:wrap}
+.contact-item{padding:25px 35px;border-radius:14px;background:var(--navy2);border:1px solid var(--navy3);transition:.3s;min-width:200px}
+.contact-item:hover{border-color:var(--orange);transform:translateY(-5px)}
+.contact-item .ci-icon{font-size:2rem;margin-bottom:10px}
+.contact-item p{color:var(--gray);font-size:1rem}
+.contact-item a{color:var(--orange);text-decoration:none}
+.pyramedia-brand{margin-top:50px;font-size:1.8rem;font-weight:900;color:var(--orange);letter-spacing:3px}
+.pyramedia-sub{color:var(--gray);font-size:.9rem;margin-top:5px}
+/* Responsive */
+@media(max-width:900px){
+  .cover-title{font-size:2.5rem}
+  .section-title{font-size:2rem}
+  .vision-pillars,.channels-grid,.ai-grid,.dash-charts,.why-grid{grid-template-columns:1fr}
+  .services-grid{grid-template-columns:repeat(2,1fr)}
+  .dash-kpis{grid-template-columns:repeat(2,1fr)}
+  .timeline{flex-direction:column;align-items:center;gap:20px}
+  .timeline::before{display:none}
+  .flow-row{flex-direction:column;gap:15px}
+  section{padding:40px 20px}
+  #nav-dots{display:none}
+  .ticket-flow{flex-direction:column}
+  .ticket-arrow{transform:rotate(90deg)}
+}
+@media(max-width:600px){
+  .services-grid{grid-template-columns:1fr}
+  .results-grid{grid-template-columns:1fr 1fr}
+  .dash-kpis{grid-template-columns:1fr 1fr}
+  .contact-cards{flex-direction:column;align-items:center}
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div id="progress"></div>
+
+<!-- Navigation Dots -->
+<nav id="nav-dots"></nav>
+
+<!-- 1. الغلاف -->
+<section id="cover" data-title="الغلاف">
+<div class="container" style="text-align:center;position:relative;z-index:1">
+  <div class="fade-up">
+    <div class="cover-badge">مركز إتمام للخدمات القضائية</div>
+    <h1 class="cover-title">مركز الاتصال الذكي</h1>
+    <p class="cover-subtitle">نظام خدمة عملاء متكامل مدعوم بالذكاء الاصطناعي</p>
+    <div style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:8px;color:var(--gray)"><span style="color:var(--green);font-size:1.2rem">⚡</span> أتمتة ذكية</div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--gray)"><span style="color:var(--blue);font-size:1.2rem">🤖</span> ذكاء اصطناعي</div>
+      <div style="display:flex;align-items:center;gap:8px;color:var(--gray)"><span style="color:var(--orange);font-size:1.2rem">📊</span> تحليلات فورية</div>
+    </div>
+  </div>
+  <div class="cover-by">إعداد: <span>PYRAMEDIA X</span> — For AI Solutions</div>
+</div>
+</section>
+
+<!-- 2. التحدي -->
+<section id="challenge" data-title="التحدي">
+<div class="container">
+  <div class="fade-up">
+    <h2 class="section-title">التحديات الحالية</h2>
+    <p class="section-sub">مشاكل حقيقية تحتاج حلول ذكية</p>
+  </div>
+  <div class="challenge-grid">
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">😰</div>
+      <h3>ضغط على الموظفين</h3>
+      <p>موظفتان فقط في مركز الاتصال لخدمة جميع العملاء — ضغط مستمر وأوقات انتظار طويلة</p>
+    </div>
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">🔍</div>
+      <h3>لا يوجد نظام تتبع</h3>
+      <p>المعاملات تضيع بين الأقسام — لا توجد تذاكر ولا سجل متابعة لرحلة العميل</p>
+    </div>
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">📵</div>
+      <h3>فقدان الاستفسارات</h3>
+      <p>مكالمات لا يُرد عليها، رسائل بدون متابعة — عملاء يضيعون للأبد</p>
+    </div>
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">⚖️</div>
+      <h3>توزيع غير عادل</h3>
+      <p>بعض القانونيين مثقلون بالعمل وآخرون فارغون — لا يوجد نظام توزيع ذكي</p>
+    </div>
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">🌙</div>
+      <h3>لا خدمة خارج الدوام</h3>
+      <p>بعد ساعات العمل؟ عطلة نهاية الأسبوع؟ لا أحد يرد — فرص ضائعة كل يوم</p>
+    </div>
+    <div class="challenge-card fade-up">
+      <div class="challenge-icon">🧠</div>
+      <h3>لا ذاكرة مؤسسية</h3>
+      <p>العميل يتصل ويعيد شرح مشكلته كل مرة — لا يوجد سجل تراكمي</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 3. الرؤية -->
+<section id="vision" data-title="الرؤية">
+<div class="container" style="text-align:center">
+  <div class="fade-up">
+    <h2 class="section-title">الرؤية</h2>
+    <p class="section-sub">نظام متكامل يجمع بين الذكاء الاصطناعي والكفاءة البشرية</p>
+  </div>
+  <div class="vision-pillars">
+    <div class="pillar fade-up">
+      <div class="pillar-icon">🤖</div>
+      <h3>Chatbot ذكي</h3>
+      <p>يرد على استفسارات العملاء على الواتساب فوراً — 24 ساعة، 7 أيام في الأسبوع</p>
+    </div>
+    <div class="pillar fade-up">
+      <div class="pillar-icon">💡</div>
+      <h3>مساعد الموظف</h3>
+      <p>يساعد أفراح بشاشة ذكية — اقتراح ردود، سحب بيانات العميل، تصنيف تلقائي للحالة</p>
+    </div>
+    <div class="pillar fade-up">
+      <div class="pillar-icon">🎯</div>
+      <h3>توجيه ذكي</h3>
+      <p>يصنّف كل حالة تلقائياً ويوجهها للشخص المناسب — طلب عادي أو قضية قانونية</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 4. هيكل النظام -->
+<section id="architecture" data-title="هيكل النظام">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">هيكل النظام</h2>
+    <p class="section-sub">مسار العميل من أول تواصل حتى إتمام الخدمة</p>
+  </div>
+  <div class="flow-wrapper fade-up">
+    <!-- Client -->
+    <div class="flow-row">
+      <div class="flow-box flow-client">
+        👤 العميل
+        <div class="tooltip">نقطة البداية — العميل يتواصل مع إتمام</div>
+      </div>
+    </div>
+    <div class="flow-arrow">⬇</div>
+    <!-- Channels -->
+    <div class="flow-row">
+      <div class="flow-box flow-ai" style="background:linear-gradient(135deg,#3b82f6,#60a5fa)">
+        📞 اتصال هاتفي
+        <div class="tooltip">أفراح ترد على المكالمة وتدخل البيانات في شاشة AI</div>
+      </div>
+      <div style="color:var(--gray);font-size:1.2rem;align-self:center">أو</div>
+      <div class="flow-box flow-ai" style="background:linear-gradient(135deg,#22c55e,#4ade80);color:#0f172a">
+        💬 واتساب
+        <div class="tooltip">AI Chatbot يرد مباشرة — 24/7 بدون تدخل بشري</div>
+      </div>
+    </div>
+    <div class="flow-arrow">⬇</div>
+    <!-- AI Brain -->
+    <div class="flow-row">
+      <div class="flow-box flow-route" style="font-size:1.1rem;min-width:250px;">
+        🧠 الذكاء الاصطناعي يحلل ويصنّف
+        <div class="tooltip">يحلل نوع الطلب، يسحب تاريخ العميل، ويقرر التحويل</div>
+      </div>
+    </div>
+    <div class="flow-arrow">⬇</div>
+    <!-- Routing -->
+    <div class="flow-row" style="gap:50px">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div class="flow-box flow-human" style="min-width:200px">
+          📋 طلب عادي
+          <div class="tooltip">وكالات، تنازلات، إخطارات — لا يحتاج خبرة قانونية عميقة</div>
+        </div>
+        <div class="flow-arrow">⬇</div>
+        <div class="flow-box" style="background:var(--navy2);border:2px solid var(--green);color:var(--green);min-width:200px">
+          👩‍💻 خلود
+          <div class="tooltip">تقدم الطلبات الإلكترونية على الأنظمة</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div class="flow-box" style="background:linear-gradient(135deg,#a855f7,#c084fc);color:#fff;min-width:200px">
+          ⚖️ قضية قانونية
+          <div class="tooltip">خلع، شيكات، دعاوى مدنية/تجارية، جنائي</div>
+        </div>
+        <div class="flow-arrow">⬇</div>
+        <div class="flow-box" style="background:var(--navy2);border:2px solid #a855f7;color:#a855f7;min-width:200px">
+          👨‍⚖️ القانونيين (8)
+          <div class="tooltip">توزيع تلقائي بالتساوي حسب المتاح — Round Robin</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 5. قنوات التواصل -->
+<section id="channels" data-title="قنوات التواصل">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">قنوات التواصل</h2>
+    <p class="section-sub">خدمة موحّدة عبر كل القنوات</p>
+  </div>
+  <div class="channels-grid">
+    <div class="channel-card channel-phone fade-right">
+      <div class="channel-icon">📞</div>
+      <h3>الاتصال الهاتفي</h3>
+      <ul>
+        <li>أفراح ترد على المكالمات كالمعتاد</li>
+        <li>شاشة ذكية تعرض بيانات العميل فوراً</li>
+        <li>AI يقترح ردود وإجراءات</li>
+        <li>تصنيف تلقائي لنوع الحالة</li>
+        <li>تحويل ذكي بضغطة زر</li>
+        <li>تسجيل كل مكالمة وربطها بالتذكرة</li>
+      </ul>
+    </div>
+    <div class="channel-card channel-wa fade-left">
+      <div class="channel-icon">💬</div>
+      <h3>واتساب</h3>
+      <ul>
+        <li>AI Chatbot يرد فوراً — 24/7</li>
+        <li>يجيب على الأسئلة الشائعة تلقائياً</li>
+        <li>يجمع بيانات العميل والمستندات</li>
+        <li>يحجز مواعيد ويتابع المعاملات</li>
+        <li>يحوّل للبشري عند الحاجة مع كل السياق</li>
+        <li>رسائل تذكير ومتابعة تلقائية</li>
+      </ul>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 6. الذكاء الاصطناعي -->
+<section id="ai-features" data-title="الذكاء الاصطناعي">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">قدرات الذكاء الاصطناعي</h2>
+    <p class="section-sub">العقل المدبر وراء النظام</p>
+  </div>
+  <div class="ai-grid">
+    <div class="ai-card fade-up">
+      <div class="ai-card-icon">🤖</div>
+      <h3>Chatbot ذكي</h3>
+      <p>يعالج 60-70% من الاستفسارات تلقائياً. يفهم اللهجة المحلية، يجيب بدقة، ويتعلم من كل محادثة ليتحسن باستمرار.</p>
+    </div>
+    <div class="ai-card fade-up">
+      <div class="ai-card-icon">💡</div>
+      <h3>مساعد الموظف</h3>
+      <p>يعرض لأفراح اقتراحات فورية أثناء المكالمة — ردود جاهزة، نماذج معبأة، وتاريخ العميل الكامل على الشاشة.</p>
+    </div>
+    <div class="ai-card fade-up">
+      <div class="ai-card-icon">🎯</div>
+      <h3>توجيه ذكي</h3>
+      <p>يصنّف كل حالة حسب النوع والأولوية، ويوزع على القانونيين بالتساوي. Round Robin مع مراعاة الحمل الحالي لكل واحد.</p>
+    </div>
+    <div class="ai-card fade-up">
+      <div class="ai-card-icon">🧠</div>
+      <h3>ذاكرة مستمرة</h3>
+      <p>كل عميل له ملف كامل — كل مكالماته، رسائله، طلباته، والنتائج. العميل ما يحتاج يعيد الشرح أبداً.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 7. نظام التذاكر -->
+<section id="tickets" data-title="نظام التذاكر">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">نظام التذاكر والمتابعة</h2>
+    <p class="section-sub">كل معاملة مرقّمة ومتابعة من البداية للنهاية</p>
+  </div>
+  <div class="ticket-flow fade-up">
+    <div class="ticket-step ts1">
+      <div class="ticket-num">1</div>
+      <h4>تذكرة جديدة</h4>
+      <p>العميل يتواصل ← رقم تذكرة فريد</p>
+    </div>
+    <div class="ticket-arrow">←</div>
+    <div class="ticket-step ts2">
+      <div class="ticket-num">2</div>
+      <h4>قيد المعالجة</h4>
+      <p>AI يصنّف ويحوّل للقسم المناسب</p>
+    </div>
+    <div class="ticket-arrow">←</div>
+    <div class="ticket-step ts3">
+      <div class="ticket-num">3</div>
+      <h4>تم التحويل</h4>
+      <p>خلود أو القانونيين يعملون عليها</p>
+    </div>
+    <div class="ticket-arrow">←</div>
+    <div class="ticket-step ts4">
+      <div class="ticket-num">4</div>
+      <h4>مكتملة</h4>
+      <p>الخدمة تمت ← تقييم العميل</p>
+    </div>
+  </div>
+  <div class="ticket-features fade-up">
+    <div class="tf">
+      <div class="tf-icon">🔢</div>
+      <h4>رقم تذكرة فريد</h4>
+      <p>كل عميل يحصل على رقم يتابع به معاملته</p>
+    </div>
+    <div class="tf">
+      <div class="tf-icon">📜</div>
+      <h4>تاريخ كامل</h4>
+      <p>كل تفاعل مسجل — مكالمات، رسائل، إجراءات</p>
+    </div>
+    <div class="tf">
+      <div class="tf-icon">⏱️</div>
+      <h4>تتبع فوري</h4>
+      <p>العميل يعرف وين وصلت معاملته في أي لحظة</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 8. لوحة التحكم -->
+<section id="dashboard" data-title="لوحة التحكم">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">لوحة التحكم</h2>
+    <p class="section-sub">رؤية شاملة لكل شيء في الوقت الفعلي</p>
+  </div>
+  <div class="dash-kpis fade-up">
+    <div class="kpi">
+      <div class="kpi-val"><span class="counter" data-target="1250">0</span></div>
+      <div class="kpi-label">إجمالي المعاملات</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val"><span class="counter" data-target="48">0</span></div>
+      <div class="kpi-label">معاملات نشطة</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val"><span class="counter" data-target="1180">0</span></div>
+      <div class="kpi-label">تم إنجازها</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-val"><span class="counter" data-target="3">0</span> <span style="font-size:1rem">د</span></div>
+      <div class="kpi-label">متوسط وقت الرد</div>
+    </div>
+  </div>
+  <div class="dash-charts fade-up">
+    <div class="chart-box">
+      <h4>المعاملات حسب نوع الخدمة</h4>
+      <div class="bar-chart">
+        <div class="bar" style="height:0;background:var(--orange)" data-height="85%"><div class="bar-val">340</div><div class="bar-label">الخلع</div></div>
+        <div class="bar" style="height:0;background:var(--blue)" data-height="70%"><div class="bar-val">280</div><div class="bar-label">شيكات</div></div>
+        <div class="bar" style="height:0;background:#a855f7" data-height="55%"><div class="bar-val">220</div><div class="bar-label">مدنية</div></div>
+        <div class="bar" style="height:0;background:var(--green)" data-height="45%"><div class="bar-val">180</div><div class="bar-label">تجارية</div></div>
+        <div class="bar" style="height:0;background:#f59e0b" data-height="38%"><div class="bar-val">150</div><div class="bar-label">كاتب عدل</div></div>
+        <div class="bar" style="height:0;background:#ec4899" data-height="25%"><div class="bar-val">100</div><div class="bar-label">تسويات</div></div>
+        <div class="bar" style="height:0;background:#14b8a6" data-height="15%"><div class="bar-val">60</div><div class="bar-label">جنائية</div></div>
+        <div class="bar" style="height:0;background:#8b5cf6" data-height="20%"><div class="bar-val">80</div><div class="bar-label">توكيلات</div></div>
+      </div>
+    </div>
+    <div class="chart-box">
+      <h4>AI مقابل البشري</h4>
+      <div class="pie-container">
+        <div class="pie"></div>
+        <div class="pie-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>AI تلقائي — 65%</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>تدخل بشري — 35%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 9. الخدمات -->
+<section id="services" data-title="الخدمات">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">الخدمات المغطاة</h2>
+    <p class="section-sub">جميع الخدمات القضائية في نظام واحد</p>
+  </div>
+  <div class="services-grid">
+    <div class="service-card fade-up"><div class="service-icon">⚖️</div><h4>الخلع</h4><p>طلبات الخلع والفسخ</p></div>
+    <div class="service-card fade-up"><div class="service-icon">📄</div><h4>الشيكات</h4><p>دائن ومدين</p></div>
+    <div class="service-card fade-up"><div class="service-icon">🏛️</div><h4>الدعاوى المدنية</h4><p>كل أنواع القضايا المدنية</p></div>
+    <div class="service-card fade-up"><div class="service-icon">💼</div><h4>الدعاوى التجارية</h4><p>النزاعات التجارية</p></div>
+    <div class="service-card fade-up"><div class="service-icon">✍️</div><h4>كاتب العدل</h4><p>وكالات، تنازلات، إخطارات، توثيقات</p></div>
+    <div class="service-card fade-up"><div class="service-icon">🤝</div><h4>التسويات الودية</h4><p>حل النزاعات بالتراضي</p></div>
+    <div class="service-card fade-up"><div class="service-icon">🔒</div><h4>القضايا الجنائية</h4><p>التمثيل في القضايا الجنائية</p></div>
+    <div class="service-card fade-up"><div class="service-icon">📋</div><h4>التوكيلات</h4><p>كل أنواع التوكيلات القانونية</p></div>
+  </div>
+</div>
+</section>
+
+<!-- 10. النتائج المتوقعة -->
+<section id="results" data-title="النتائج المتوقعة">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">النتائج المتوقعة</h2>
+    <p class="section-sub">أرقام حقيقية قابلة للقياس</p>
+  </div>
+  <div class="results-grid fade-up">
+    <div class="result-card">
+      <div class="result-val"><span class="counter" data-target="70">0</span><span class="result-unit">%</span></div>
+      <div class="result-label">من الاستفسارات يعالجها AI تلقائياً</div>
+    </div>
+    <div class="result-card">
+      <div class="result-val">24<span class="result-unit">/7</span></div>
+      <div class="result-label">توفر الخدمة على واتساب</div>
+    </div>
+    <div class="result-card">
+      <div class="result-val"><span class="counter" data-target="50">0</span><span class="result-unit">%</span></div>
+      <div class="result-label">تقليل وقت الاستجابة</div>
+    </div>
+    <div class="result-card">
+      <div class="result-val"><span class="counter" data-target="0" data-prefix="صفر">0</span></div>
+      <div class="result-label">استفسارات مفقودة</div>
+    </div>
+    <div class="result-card">
+      <div class="result-val"><span class="counter" data-target="100">0</span><span class="result-unit">%</span></div>
+      <div class="result-label">تتبع لكل معاملة</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 11. خطة التنفيذ -->
+<section id="roadmap" data-title="خطة التنفيذ">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">خطة التنفيذ</h2>
+    <p class="section-sub">خطة عملية من 3 مراحل</p>
+  </div>
+  <div class="timeline fade-up">
+    <div class="phase">
+      <div class="phase-dot"></div>
+      <div class="phase-card">
+        <div class="phase-num">المرحلة الأولى</div>
+        <div class="phase-title">شهر 1 — 2</div>
+        <ul>
+          <li>إعداد البنية التحتية</li>
+          <li>تشغيل Chatbot واتساب</li>
+          <li>قاعدة بيانات العملاء</li>
+          <li>نظام التذاكر الأساسي</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-dot"></div>
+      <div class="phase-card">
+        <div class="phase-num">المرحلة الثانية</div>
+        <div class="phase-title">شهر 2 — 3</div>
+        <ul>
+          <li>شاشة مساعد الموظف</li>
+          <li>التوجيه الذكي للقانونيين</li>
+          <li>ذاكرة العملاء</li>
+          <li>ربط مع الأنظمة الداخلية</li>
+        </ul>
+      </div>
+    </div>
+    <div class="phase">
+      <div class="phase-dot"></div>
+      <div class="phase-card">
+        <div class="phase-num">المرحلة الثالثة</div>
+        <div class="phase-title">شهر 3 — 4</div>
+        <ul>
+          <li>لوحة التحكم والتحليلات</li>
+          <li>تقارير الأداء التلقائية</li>
+          <li>التحسين المستمر بالـ AI</li>
+          <li>التدريب والدعم الفني</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 12. لماذا Pyramedia -->
+<section id="why-us" data-title="لماذا Pyramedia">
+<div class="container">
+  <div class="fade-up" style="text-align:center">
+    <h2 class="section-title">لماذا Pyramedia؟</h2>
+    <p class="section-sub">شريكك في التحول الرقمي</p>
+  </div>
+  <div class="why-grid">
+    <div class="why-card fade-up">
+      <div class="why-icon">🧠</div>
+      <div>
+        <h3>خبرة في الذكاء الاصطناعي</h3>
+        <p>فريق متخصص في بناء حلول AI مخصصة — مش حلول جاهزة. كل نظام نبنيه مصمم حسب احتياجاتكم.</p>
+      </div>
+    </div>
+    <div class="why-card fade-up">
+      <div class="why-icon">⚖️</div>
+      <div>
+        <h3>فهم عميق لمركز إتمام</h3>
+        <p>سبق تعاملنا مع إتمام — نفهم طبيعة الخدمات القضائية ومتطلبات العملاء والتحديات الفريدة.</p>
+      </div>
+    </div>
+    <div class="why-card fade-up">
+      <div class="why-icon">🎯</div>
+      <div>
+        <h3>حلول مخصصة 100%</h3>
+        <p>ما نستخدم أدوات جاهزة ونبيعها — نبني النظام من الصفر ليناسب طريقة عملكم بالضبط.</p>
+      </div>
+    </div>
+    <div class="why-card fade-up">
+      <div class="why-icon">🛠️</div>
+      <div>
+        <h3>دعم فني مستمر</h3>
+        <p>ما نسلم ونمشي — فريقنا معاكم خطوة بخطوة. تدريب، تحسين، وتطوير مستمر.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 13. التواصل -->
+<section id="contact" data-title="التواصل">
+<div class="container" style="text-align:center">
+  <div class="fade-up">
+    <h2 class="section-title">تواصل معنا</h2>
+    <p class="section-sub">مستعدون لنبدأ معاكم</p>
+  </div>
+  <div class="contact-cards fade-up">
+    <div class="contact-item">
+      <div class="ci-icon">📧</div>
+      <p><a href="mailto:info@pyramedia.info">info@pyramedia.info</a></p>
+    </div>
+    <div class="contact-item">
+      <div class="ci-icon">📱</div>
+      <p style="direction:ltr"><a href="tel:+971565799505">+971 56 579 9505</a></p>
+    </div>
+    <div class="contact-item">
+      <div class="ci-icon">🌐</div>
+      <p><a href="https://pyramedia.info">pyramedia.info</a></p>
+    </div>
+  </div>
+  <div class="fade-up">
+    <div class="pyramedia-brand">PYRAMEDIA X</div>
+    <div class="pyramedia-sub">For AI Solutions</div>
+  </div>
+</div>
+</section>
+
+<script>
+// Sections & nav dots
+const sections = document.querySelectorAll('section');
+const navContainer = document.getElementById('nav-dots');
+sections.forEach((s,i)=>{
+  const dot = document.createElement('div');
+  dot.className = 'nav-dot';
+  dot.title = s.dataset.title||'';
+  dot.onclick = ()=> s.scrollIntoView({behavior:'smooth'});
+  navContainer.appendChild(dot);
+});
+const dots = document.querySelectorAll('.nav-dot');
+
+// Scroll observer for active section
+const secObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      const idx = [...sections].indexOf(e.target);
+      dots.forEach((d,i)=> d.classList.toggle('active',i===idx));
+      // Progress
+      const pct = ((idx+1)/sections.length)*100;
+      document.getElementById('progress').style.width = pct+'%';
+    }
+  });
+},{threshold:0.4});
+sections.forEach(s=>secObs.observe(s));
+
+// Scroll animations
+const animObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){e.target.classList.add('visible');animObs.unobserve(e.target)}
+  });
+},{threshold:0.15});
+document.querySelectorAll('.fade-up,.fade-right,.fade-left').forEach(el=>animObs.observe(el));
+
+// Animated counters
+let countersAnimated = false;
+const counterObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting && !e.target.dataset.done){
+      e.target.dataset.done='1';
+      const target = +e.target.dataset.target;
+      const prefix = e.target.dataset.prefix;
+      if(prefix){e.target.textContent=prefix;return;}
+      const duration = 1500;
+      const step = target / (duration/16);
+      let current = 0;
+      const timer = setInterval(()=>{
+        current += step;
+        if(current >= target){current=target;clearInterval(timer)}
+        e.target.textContent = Math.round(current);
+      },16);
+    }
+  });
+},{threshold:0.5});
+document.querySelectorAll('.counter').forEach(c=>counterObs.observe(c));
+
+// Bar chart animation
+const barObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.querySelectorAll('.bar').forEach((b,i)=>{
+        setTimeout(()=>{b.style.height=b.dataset.height},i*100);
+      });
+      barObs.unobserve(e.target);
+    }
+  });
+},{threshold:0.3});
+document.querySelectorAll('.bar-chart').forEach(c=>barObs.observe(c));
+
+// Keyboard navigation
+document.addEventListener('keydown',e=>{
+  const active = [...sections].findIndex(s=>{
+    const r=s.getBoundingClientRect();
+    return r.top>=0&&r.top<window.innerHeight/2;
+  });
+  if(e.key==='ArrowDown'&&active<sections.length-1) sections[active+1].scrollIntoView({behavior:'smooth'});
+  if(e.key==='ArrowUp'&&active>0) sections[active-1].scrollIntoView({behavior:'smooth'});
+});
+</script>
+</body>
+</html>

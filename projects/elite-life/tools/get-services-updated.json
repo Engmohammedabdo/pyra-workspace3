@@ -1,0 +1,31 @@
+{
+  "name": "Get Services",
+  "type": "n8n-nodes-base.postgresTool",
+  "description": "جلب الخدمات مع الأطباء المرتبطين بها.\n\nالمُدخلات:\n• department_code: كود القسم (اختياري) - DEP-0001/DEP-0002/DEP-0003\n\nالمُخرجات:\n• service_id, service_code, service_name_ar/en\n• doctor_id, doctor_code, doctor_name_ar/en\n• department_code, department_name_ar\n• duration_minutes, service_type\n\n💡 هذا الـ View يربط الخدمة بالطبيب مباشرة",
+  "operation": "select",
+  "table": "doctor_available_services",
+  "where": {
+    "values": [
+      {
+        "column": "department_code",
+        "value": "={{ $fromAI('department_code', 'Optional: DEP-0001, DEP-0002, or DEP-0003', 'string') }}"
+      }
+    ]
+  },
+  "options": {
+    "outputColumns": [
+      "service_id",
+      "service_code", 
+      "service_name_ar",
+      "service_name_en",
+      "doctor_id",
+      "doctor_code",
+      "doctor_name_ar",
+      "department_code",
+      "department_name_ar",
+      "duration_minutes",
+      "service_type"
+    ]
+  },
+  "returnAll": true
+}

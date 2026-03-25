@@ -1,0 +1,415 @@
+/**
+ * search.mjs — Hybrid Search Engine for Bayra's Memory System
+ * 
+ * Combines FTS5 keyword search, sqlite-vec vector search, and
+ * Reciprocal Rank Fusion with multi-signal scoring.
+ */
+
+// ==========================================
+// HELPERS
+// ==========================================
+
+/**
+ * Sanitize a query string for FTS5 MATCH.
+ * Escapes special characters and wraps tokens in quotes.
+ */
+function sanitizeFTS(query) {
+  if (!query || typeof query !== 'string') return '';
+  // Remove FTS5 special operators/chars, keep alphanumeric + spaces + unicode
+  const cleaned = query
+    .replace(/["""*^~(){}[\]:]/g, ' ')
+    .replace(/\b(AND|OR|NOT|NEAR)\b/gi, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+  if (!cleaned) return '';
+  // Wrap each token in double quotes for safety
+  return cleaned.split(' ').map(t => `"${t}"`).join(' ');
+}
+
+// ==========================================
+// CORE SEARCH FUNCTIONS
+// ==========================================
+
+/**
+ * FTS5 keyword search using BM25 ranking.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} query
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function keywordSearch(db, query, options = {}) {
+  const {
+    limit = 50,
+    types = null,
+    minImportance = 0,
+    status = 'active'
+  } = options;
+
+  const sanitized = sanitizeFTS(query);
+  if (!sanitized) return [];
+
+  let sql = `
+    SELECT m.*, fts.rank
+    FROM memories_fts fts
+    JOIN memories m ON m.rowid = fts.rowid
+    WHERE memories_fts MATCH ?
+      AND m.status = ?
+      AND m.importance >= ?
+  `;
+  const params = [sanitized, status, minImportance];
+
+  if (types && Array.isArray(types) && types.length > 0) {
+    sql += ` AND m.type IN (${types.map(() => '?').join(',')})`;
+    params.push(...types);
+  }
+
+  sql += ` ORDER BY fts.rank LIMIT ?`;
+  params.push(limit);
+
+  try {
+    return db.prepare(sql).all(...params);
+  } catch (e) {
+    // FTS match can fail on edge-case input
+    if (e.message.includes('fts5')) return [];
+    throw e;
+  }
+}
+
+/**
+ * Vector similarity search using sqlite-vec.
+ * @param {import('better-sqlite3').Database} db
+ * @param {Float32Array|Buffer} queryEmbedding
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function vectorSearch(db, queryEmbedding, options = {}) {
+  const {
+    limit = 50,
+    types = null,
+    minImportance = 0,
+    status = 'active'
+  } = options;
+
+  if (!queryEmbedding || queryEmbedding.length === 0) return [];
+
+  // Ensure we have a Buffer for sqlite-vec MATCH
+  const buf = queryEmbedding instanceof Buffer
+    ? queryEmbedding
+    : Buffer.from(queryEmbedding.buffer, queryEmbedding.byteOffset, queryEmbedding.byteLength);
+
+  // First get candidate memory_ids from vec0
+  // We fetch more than limit to allow post-filtering
+  const fetchLimit = limit * 3;
+  let vecResults;
+  try {
+    vecResults = db.prepare(`
+      SELECT memory_id, distance
+      FROM memory_embeddings
+      WHERE embedding MATCH ?
+      ORDER BY distance
+      LIMIT ?
+    `).all(buf, fetchLimit);
+  } catch (e) {
+    return [];
+  }
+
+  if (vecResults.length === 0) return [];
+
+  // Join with memories table for full data + filtering
+  const rowids = vecResults.map(r => r.memory_id);
+  const distanceMap = new Map(vecResults.map(r => [r.memory_id, r.distance]));
+
+  const placeholders = rowids.map(() => '?').join(',');
+  let sql = `
+    SELECT m.*
+    FROM memories m
+    WHERE m.id IN (${placeholders})
+      AND m.status = ?
+      AND m.importance >= ?
+  `;
+  const params = [...rowids, status, minImportance];
+
+  if (types && Array.isArray(types) && types.length > 0) {
+    sql += ` AND m.type IN (${types.map(() => '?').join(',')})`;
+    params.push(...types);
+  }
+
+  const memories = db.prepare(sql).all(...params);
+
+  // Attach distance and sort
+  const results = memories.map(m => ({
+    ...m,
+    distance: distanceMap.get(m.id) ?? Infinity
+  }));
+
+  results.sort((a, b) => a.distance - b.distance);
+  return results.slice(0, limit);
+}
+
+/**
+ * Hybrid search combining keyword + vector via RRF + multi-signal scoring.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} query
+ * @param {Float32Array|Buffer} queryEmbedding
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function hybridSearch(db, query, queryEmbedding, options = {}) {
+  const {
+    limit = 10,
+    keywordWeight = 0.3,
+    vectorWeight = 0.7,
+    k = 60
+  } = options;
+
+  // 1. Run both searches
+  const kwResults = keywordSearch(db, query, { ...options, limit: 50 });
+  const vecResults = vectorSearch(db, queryEmbedding, { ...options, limit: 50 });
+
+  // 2. Build rankings for RRF
+  const kwRanking = kwResults.map((r, i) => ({ id: r.id, rank: i + 1 }));
+  const vecRanking = vecResults.map((r, i) => ({ id: r.id, rank: i + 1 }));
+
+  // Apply weights to rankings
+  const weightedRankings = [];
+  if (kwRanking.length > 0) weightedRankings.push({ items: kwRanking, weight: keywordWeight });
+  if (vecRanking.length > 0) weightedRankings.push({ items: vecRanking, weight: vectorWeight });
+
+  if (weightedRankings.length === 0) return [];
+
+  // 3. RRF fusion with weights
+  const scoreMap = new Map();
+  for (const { items, weight } of weightedRankings) {
+    for (const { id, rank } of items) {
+      const prev = scoreMap.get(id) || 0;
+      scoreMap.set(id, prev + weight * (1 / (k + rank)));
+    }
+  }
+
+  // 4. Collect all unique memories
+  const memoryMap = new Map();
+  for (const m of kwResults) memoryMap.set(m.id, m);
+  for (const m of vecResults) if (!memoryMap.has(m.id)) memoryMap.set(m.id, m);
+
+  // 5. Apply multi-signal scoring
+  const results = [];
+  for (const [id, rrfScore] of scoreMap) {
+    const memory = memoryMap.get(id);
+    if (!memory) continue;
+
+    const finalScore = multiSignalScore(memory, { relevance: rrfScore * k }); // normalize rrfScore
+    results.push({ ...memory, rrfScore, finalScore });
+  }
+
+  // 6. Sort by finalScore descending
+  results.sort((a, b) => b.finalScore - a.finalScore);
+  return results.slice(0, limit);
+}
+
+// ==========================================
+// MULTI-SIGNAL SCORING
+// ==========================================
+
+/**
+ * Calculate recency score from a date string.
+ * Returns 0-1 (1 = now, decays exponentially with half-life ~33h).
+ * ~0.5 at 24h, ~0.1 at 7 days.
+ * @param {string} dateStr
+ * @returns {number}
+ */
+export function recencyScore(dateStr) {
+  if (!dateStr) return 0;
+  const then = new Date(dateStr).getTime();
+  if (isNaN(then)) return 0;
+  const hoursSince = Math.max(0, (Date.now() - then) / (1000 * 60 * 60));
+  return Math.exp(-hoursSince / 48);
+}
+
+/**
+ * Combine multiple signals for final ranking score.
+ * @param {object} memory - Memory object with importance, access_count, created_at, last_accessed
+ * @param {object} signals - { relevance: 0-1 }
+ * @returns {number} Combined score 0-1
+ */
+export function multiSignalScore(memory, signals = {}) {
+  const weights = {
+    relevance: 0.45,
+    recency: 0.25,
+    importance: 0.20,
+    access: 0.10
+  };
+
+  const relevance = Math.min(signals.relevance ?? 0, 1);
+  const recency = recencyScore(memory.last_accessed || memory.created_at);
+  const importance = (memory.importance || 0) / 10;
+  const access = Math.min((memory.access_count || 0) / 20, 1.0);
+
+  return (
+    weights.relevance * relevance +
+    weights.recency * recency +
+    weights.importance * importance +
+    weights.access * access
+  );
+}
+
+// ==========================================
+// CONTEXT-AWARE RETRIEVAL
+// ==========================================
+
+/**
+ * Find all memories linked to a specific entity.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} entityName
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function entitySearch(db, entityName, options = {}) {
+  const { limit = 50, status = 'active' } = options;
+
+  if (!entityName) return [];
+
+  const pattern = `%${entityName}%`;
+  const sql = `
+    SELECT m.*, e.name AS entity_name, e.type AS entity_type, me.role
+    FROM memory_entities me
+    JOIN memories m ON m.id = me.memory_id
+    JOIN entities e ON e.id = me.entity_id
+    WHERE (e.name LIKE ? OR e.aliases LIKE ?)
+      AND m.status = ?
+    ORDER BY m.importance DESC, m.created_at DESC
+    LIMIT ?
+  `;
+
+  try {
+    return db.prepare(sql).all(pattern, pattern, status, limit);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Find memories related to a given memory (graph traversal).
+ * @param {import('better-sqlite3').Database} db
+ * @param {number|string} memoryId
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function relatedMemories(db, memoryId, options = {}) {
+  const { maxHops = 1, relations = null, limit = 50 } = options;
+
+  if (!memoryId) return [];
+
+  let sql = `
+    SELECT m.*, mr.relation, mr.weight,
+      CASE WHEN mr.source_id = ? THEN 'outgoing' ELSE 'incoming' END AS direction
+    FROM memory_relations mr
+    JOIN memories m ON (
+      (mr.source_id = ? AND m.id = mr.target_id) OR
+      (mr.target_id = ? AND m.id = mr.source_id)
+    )
+    WHERE m.status = 'active'
+  `;
+  const params = [memoryId, memoryId, memoryId];
+
+  if (relations && Array.isArray(relations) && relations.length > 0) {
+    sql += ` AND mr.relation IN (${relations.map(() => '?').join(',')})`;
+    params.push(...relations);
+  }
+
+  sql += ` ORDER BY mr.weight DESC LIMIT ?`;
+  params.push(limit);
+
+  try {
+    return db.prepare(sql).all(...params);
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Find memories within a time range.
+ * @param {import('better-sqlite3').Database} db
+ * @param {string} startDate
+ * @param {string} endDate
+ * @param {object} options
+ * @returns {Array<object>}
+ */
+export function timeRangeSearch(db, startDate, endDate, options = {}) {
+  const { limit = 100, types = null, status = 'active' } = options;
+
+  let sql = `
+    SELECT m.*
+    FROM memories m
+    WHERE m.created_at >= ? AND m.created_at <= ?
+      AND m.status = ?
+  `;
+  const params = [startDate, endDate, status];
+
+  if (types && Array.isArray(types) && types.length > 0) {
+    sql += ` AND m.type IN (${types.map(() => '?').join(',')})`;
+    params.push(...types);
+  }
+
+  sql += ` ORDER BY m.created_at DESC LIMIT ?`;
+  params.push(limit);
+
+  try {
+    return db.prepare(sql).all(...params);
+  } catch (e) {
+    return [];
+  }
+}
+
+// ==========================================
+// RECIPROCAL RANK FUSION
+// ==========================================
+
+/**
+ * Merge multiple rankings using Reciprocal Rank Fusion.
+ * @param {Array<Array<{id: any, rank: number}>>} rankings
+ * @param {number} k - Smoothing constant (default 60)
+ * @returns {Array<{id: any, rrfScore: number}>}
+ */
+export function reciprocalRankFusion(rankings, k = 60) {
+  const scoreMap = new Map();
+
+  for (const ranking of rankings) {
+    for (const { id, rank } of ranking) {
+      const prev = scoreMap.get(id) || 0;
+      scoreMap.set(id, prev + 1 / (k + rank));
+    }
+  }
+
+  const results = Array.from(scoreMap.entries())
+    .map(([id, rrfScore]) => ({ id, rrfScore }))
+    .sort((a, b) => b.rrfScore - a.rrfScore);
+
+  return results;
+}
+
+// ==========================================
+// DECAYED IMPORTANCE
+// ==========================================
+
+/**
+ * Calculate current importance considering time decay and reinforcement.
+ * @param {object} memory
+ * @returns {number}
+ */
+export function decayedImportance(memory) {
+  if (!memory || memory.importance == null) return 0;
+
+  const lastAccessed = memory.last_accessed || memory.created_at;
+  const daysSinceAccess = lastAccessed
+    ? Math.max(0, (Date.now() - new Date(lastAccessed).getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  const accessCount = memory.access_count || 0;
+  const importance = memory.importance || 0;
+
+  const timeDecay = 1 / (1 + Math.log(1 + daysSinceAccess / 30));
+  const reinforcement = Math.min(accessCount / 10, 1.0);
+  const importanceShield = importance / 10;
+
+  return importance * (timeDecay * 0.5 + reinforcement * 0.3 + importanceShield * 0.2);
+}

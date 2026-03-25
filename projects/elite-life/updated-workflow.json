@@ -1,0 +1,2647 @@
+{
+  "updatedAt": "2026-02-03T23:14:48.176Z",
+  "createdAt": "2026-01-30T22:14:55.655Z",
+  "id": "2qL4Hys4Vv3VmHE2",
+  "name": "Elite Life Medical Centre - WhatsApp Booking Agent",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "dataType": "binary",
+        "textSplittingMode": "custom",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [
+        -688,
+        1824
+      ],
+      "id": "d497e7cb-134f-4a5d-ba9c-252d195fd0aa",
+      "name": "Default Data Loader",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "chunkSize": 500,
+        "chunkOverlap": 150
+      },
+      "type": "@n8n/n8n-nodes-langchain.textSplitterTokenSplitter",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        2032
+      ],
+      "id": "049e026c-9d0d-42e2-8ded-c6869d2da385",
+      "name": "Token Splitter",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2208,
+        1568
+      ],
+      "id": "313a5396-d7c7-44e2-9b52-e5c1ef83c0ad",
+      "name": "When clicking ‘Execute workflow’",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": {
+          "__rl": true,
+          "value": "https://drive.google.com/file/d/1EQsLRAqTWh8bzpiK5agjptv4-HcPqjET/view?usp=drive_link",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -1808,
+        1568
+      ],
+      "id": "c91ced06-f424-4d0e-a2b5-6c0207d5a4dd",
+      "name": "Download file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "Pf1fVOWHcEtHObjo",
+          "name": "eng.moabdo22 Google Drive account"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "faq_embeddings",
+          "mode": "list",
+          "cachedResultName": "faq_embeddings"
+        },
+        "options": {
+          "queryName": "match_faq_embeddings"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        -128,
+        1152
+      ],
+      "id": "7001079f-c9ae-4a40-a53d-1f82ef38154d",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "sSuGq6agAQPb4d8a",
+          "name": "elitelife db"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "content": "## Patient\n\n\n**Double click** to edit me. [Guide](https://docs.n8n.io/workflows/components/sticky-notes/)",
+        "height": 480,
+        "width": 912
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        528,
+        1040
+      ],
+      "typeVersion": 1,
+      "id": "9a171e52-4137-4584-8f91-56a75e4aa306",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "elitelife-whatsapp",
+        "options": {}
+      },
+      "id": "67402bf0-c4bf-41fc-8668-6929ab465ae4",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1824,
+        -320
+      ],
+      "webhookId": "de324814-ed84-4069-892a-1ada23e43bcb"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "condition-message",
+              "leftValue": "={{ $json.body.data.message.conversation }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b665e84d-1195-4a26-9ed2-f72bc5fc249a",
+      "name": "Has Message?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        -656,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"message\": \"{{ $json.body.data.message.conversation }}\",\n  \"whatsapp_number\": \"{{ $json.body.data.key.remoteJid.replace('@s.whatsapp.net', '') }}\",\n  \"instance_name\": \"{{ $json.body.instance || 'default' }}\",\n  \"push_name\": \"{{ $json.body.data.pushName || '' }}\"\n}",
+        "options": {}
+      },
+      "id": "dc97892f-26e6-4fbc-aff9-deee1d6dcf50",
+      "name": "Extract Message Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -432,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=جلب بيانات المريض من قاعدة البيانات.\n\n⚠️ ملاحظة: بيانات المريض تأتي تلقائياً في Patient Data - لا تحتاج استدعاء هذه الأداة إلا للتحقق.\n\nمتى تستخدمه:\n• للتأكد من وجود patient_id قبل الحجز\n• إذا طلب العميل معلومات عن حسابه\n\nلا تستخدمه:\n• للتحيات العادية\n• إذا كانت البيانات موجودة في Patient Data\n\nالمُدخلات: لا شيء (يستخدم whatsapp_number تلقائياً)\n\nالمُخرجات:\n• id: UUID المريض (مطلوب للحجز)\n• code: كود المريض (PAT-XXXX)\n• name: اسم المريض\n• whatsapp_number: رقم الواتساب\n• total_visits: عدد الزيارات السابقة\n• reliability_score: مستوى الموثوقية (high/medium/low)",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "patients",
+          "mode": "list",
+          "cachedResultName": "patients"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "whatsapp_number",
+              "value": "={{ $('Extract Message Data').item.json.whatsapp_number }}"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "id",
+            "code",
+            "name",
+            "age",
+            "gender",
+            "whatsapp_number",
+            "total_visits",
+            "reliability_score"
+          ]
+        }
+      },
+      "id": "c0043d45-80d8-48bd-b251-af2ce571a471",
+      "name": "Get Patient",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1184,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=تسجيل مريض جديد في النظام.\n\n⚠️ مهم جداً:\n• استخدم هذه الأداة فقط إذا كان Patient Data يظهر \"NEW PATIENT\"\n• لا تسأل العميل عن العمر أو الجنس - استخدم القيم الافتراضية\n• الاسم يؤخذ تلقائياً من WhatsApp (push_name)\n\nمتى تستخدمه:\n• عند الحجز لمريض جديد غير مسجل\n• بعد التأكد أن Get Patient لم يجد نتائج\n\nلا تستخدمه:\n• إذا كان المريض موجوداً (سيسبب خطأ duplicate)\n• قبل التحقق من Patient Data\n\nالمُدخلات:\n• name: اسم المريض (من push_name) - مطلوب\n• whatsapp_number: رقم الواتساب - تلقائي\n• source_instance: مصدر الرسالة - تلقائي\n\nالمُخرجات:\n• id: UUID المريض الجديد\n• code: كود المريض (PAT-XXXX)",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "patients",
+          "mode": "list",
+          "cachedResultName": "patients"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "whatsapp_number": "={{ $('Extract Message Data').item.json.whatsapp_number }}",
+            "name": "={{ $fromAI('name', 'Patient full name collected from user', 'string') }}",
+            "age": "=30",
+            "gender": "={{ $fromAI('gender', 'male or female', 'string') }}",
+            "source_instance": "={{ $('Extract Message Data').item.json.instance_name }}",
+            "total_visits": 0,
+            "total_spent": 0,
+            "google_review_given": false
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "whatsapp_number",
+              "displayName": "whatsapp_number",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "age",
+              "displayName": "age",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "gender",
+              "displayName": "gender",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_instance",
+              "displayName": "source_instance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "total_visits",
+              "displayName": "total_visits",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_spent",
+              "displayName": "total_spent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "reliability_score",
+              "displayName": "reliability_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "last_visit_date",
+              "displayName": "last_visit_date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "google_review_given",
+              "displayName": "google_review_given",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e9d31719-ea3d-4e41-bcda-4f2c4acfbac0",
+      "name": "Add Patient",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2224,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=جلب الخدمات مع الأطباء المرتبطين.\n\nالمُدخلات:\n• department_code (اختياري): DEP-0001/DEP-0002/DEP-0003\n\nالمُخرجات:\n• service_id, service_name_ar\n• doctor_id, doctor_name_ar\n• department_code, duration_minutes\n\n💡 يربط الخدمة بالطبيب مباشرة",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "doctor_available_services",
+          "mode": "list",
+          "cachedResultName": "doctor_available_services"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "is_active",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "service_id",
+            "service_code",
+            "service_name_ar",
+            "service_name_en",
+            "doctor_id",
+            "doctor_code",
+            "doctor_name_ar",
+            "department_code",
+            "department_name_ar",
+            "duration_minutes",
+            "service_type"
+          ]
+        }
+      },
+      "id": "83b201c5-f235-47fe-bba0-c67213d153d9",
+      "name": "Get Services",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1312,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=جلب قائمة الأطباء والأخصائيين.\n\nمتى تستخدمه:\n• بعد اختيار خدمة من قسم الأسنان (فيه طبيبين)\n• عندما يسأل العميل \"مين الدكتور؟\"\n\nلا تستخدمه:\n• لخدمات البشرة والليزر (أ. شيماء فقط - لا داعي للسؤال)\n• قبل معرفة القسم المطلوب\n\nالمُدخلات: لا شيء (يجلب كل الأطباء النشطين)\n\nالمُخرجات:\n• id: UUID الطبيب (مطلوب للحجز)\n• code: كود الطبيب (DOC-XXXX)\n• name_ar: اسم الطبيب بالعربي\n• name_en: اسم الطبيب بالإنجليزي\n• department_id: UUID القسم\n• specialization_ar: التخصص بالعربي\n\nالأطباء الحاليين:\n• DOC-0001: د. إياد (أسنان)\n• DOC-0002: د. منير (أسنان)\n• DOC-0003: أ. شيماء (بشرة وليزر)\n• DOC-0004: priya (اخصائية الليزر)\n• DOC-0005: Joyse (اخصائية الليزر)",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "doctors",
+          "mode": "list",
+          "cachedResultName": "doctors"
+        },
+        "returnAll": true,
+        "where": {
+          "values": [
+            {
+              "column": "is_active",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "outputColumns": [
+            "id",
+            "code",
+            "name_ar",
+            "name_en",
+            "department_id",
+            "specialization_ar"
+          ]
+        }
+      },
+      "id": "d87a0432-9e98-4e60-bc13-0118d0c17688",
+      "name": "Get Doctors",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1440,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=جلب السلوتات المتاحة فعلياً للحجز.\n\n⭐ هذه الأداة ذكية:\n• ترجع أوقات محددة (11:00، 11:30، 12:00...) مش فترات\n• تستثني المواعيد المحجوزة تلقائياً\n• ترجع أقرب 20 موعد متاح\n\nالمُدخلات:\n• department_code: كود القسم (DEP-0001/DEP-0002/DEP-0003) - مطلوب\n• target_date: التاريخ المطلوب (YYYY-MM-DD) - اختياري، افتراضي اليوم\n\nالمُخرجات:\n• schedule_date: تاريخ الموعد\n• day_name_ar: اسم اليوم\n• slot_time: ⭐ الوقت المحدد المتاح (HH:MM)\n• doctor_id, doctor_code, doctor_name_ar\n• department_code",
+        "operation": "executeQuery",
+        "query": "=SELECT DISTINCT\n  ds.schedule_date,\n  CASE EXTRACT(DOW FROM ds.schedule_date)\n    WHEN 0 THEN 'الأحد'\n    WHEN 1 THEN 'الإثنين'\n    WHEN 2 THEN 'الثلاثاء'\n    WHEN 3 THEN 'الأربعاء'\n    WHEN 4 THEN 'الخميس'\n    WHEN 5 THEN 'الجمعة'\n    WHEN 6 THEN 'السبت'\n  END as day_name_ar,\n  to_char(gs.slot_time, 'HH24:MI') as slot_time,\n  d.id as doctor_id,\n  d.code as doctor_code,\n  d.name_ar as doctor_name_ar,\n  dep.code as department_code\nFROM doctor_schedules ds\nCROSS JOIN LATERAL generate_series(\n  ds.start_time::time,\n  ds.end_time::time - interval '1 minute',\n  (ds.slot_duration_minutes || ' minutes')::interval\n) as gs(slot_time)\nJOIN doctors d ON d.id = ds.doctor_id\nJOIN departments dep ON dep.id = d.department_id\nWHERE dep.code = '{{ $fromAI('department_code', 'DEP-0001 or DEP-0002 or DEP-0003', 'string') }}'\n  AND ds.schedule_date >= CURRENT_DATE\n  AND ds.schedule_date <= CURRENT_DATE + interval '14 days'\n  AND ds.is_available = true\n  AND NOT EXISTS (\n    SELECT 1 FROM appointments a\n    WHERE a.doctor_id = ds.doctor_id\n      AND a.date = ds.schedule_date\n      AND a.time = gs.slot_time::time\n      AND a.status IN ('pending', 'confirmed')\n  )\nORDER BY ds.schedule_date, gs.slot_time\nLIMIT 20",
+        "options": {}
+      },
+      "id": "e40ea338-0fe5-487d-9fcd-b70d9a5d3f91",
+      "name": "Get Available Slots",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1584,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=جلب مواعيد المريض القادمة.\n\nمتى تستخدمه:\n• عندما يسأل العميل \"مواعيدي\" أو \"عندي موعد؟\"\n• قبل عملية الإلغاء (لمعرفة appointment_id)\n\nلا تستخدمه:\n• للمرضى الجدد (ما عندهم مواعيد)\n• للتحيات العادية\n\nالمُدخلات:\n• patient_id: UUID المريض (من Get Patient أو Patient Data) - مطلوب\n\nالمُخرجات:\n• id: UUID الموعد (مطلوب للإلغاء)\n• code: كود الموعد (APT-XXXX)\n• date: تاريخ الموعد\n• time: وقت الموعد\n• status: حالة الموعد (pending/confirmed)\n• doctor_id: UUID الطبيب\n• service_id: UUID الخدمة\n• department_id: UUID القسم\n\n⚠️ يُرجع فقط المواعيد القادمة (pending/confirmed)",
+        "operation": "executeQuery",
+        "query": "SELECT \n  id, \n  code, \n  date, \n  time, \n  status, \n  doctor_id, \n  service_id,\n  department_id\nFROM appointments\nWHERE patient_id = '{{ $fromAI('patient_id') }}'::uuid\n  AND status IN ('pending', 'confirmed')\n  AND date >= CURRENT_DATE\nORDER BY date ASC, time ASC",
+        "options": {}
+      },
+      "id": "b70a8e2a-f3c4-4270-9a57-1b6d0623a19e",
+      "name": "Get Patient Appointments",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1728,
+        704
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=حجز موعد جديد مع التحقق من التوفر.\n\n⚠️ قواعد صارمة:\n• لا تستدعِ بدون تأكيد صريح من العميل\n• تأكد أن الوقت من نتائج Get Available Slots\n• كل الـ IDs لازم من نتائج Tools سابقة\n\nالمُدخلات (كلها مطلوبة):\n• patient_id: UUID المريض\n• service_id: UUID الخدمة  \n• doctor_id: UUID الطبيب\n• department_id: UUID القسم\n• date: التاريخ (YYYY-MM-DD)\n• time: الوقت (HH:MM) - ⭐ لازم يكون من slot_time\n• duration_minutes: المدة (افتراضي 30)\n• booking_type: نوع الحجز (consultation/procedure)",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "patient_id": "={{ $fromAI('patient_id') }}",
+            "department_id": "={{ $fromAI('department_id') }}",
+            "doctor_id": "={{ $fromAI('doctor_id') }}",
+            "service_id": "={{ $fromAI('service_id') }}",
+            "date": "={{ $fromAI('date') }}",
+            "time": "={{ $fromAI('time') }}",
+            "duration_minutes": "={{ $fromAI('duration_minutes', 'Duration in minutes, default 30', 'number') }}",
+            "status": "confirmed",
+            "booking_type": "={{ $fromAI('booking_type', 'procedure') }}",
+            "source_instance": "={{ $('Extract Message Data').item.json.instance_name }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "patient_id",
+              "displayName": "patient_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "department_id",
+              "displayName": "department_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "doctor_id",
+              "displayName": "doctor_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "service_id",
+              "displayName": "service_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "time",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "duration_minutes",
+              "displayName": "duration_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "booking_type",
+              "displayName": "booking_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confirmation_status",
+              "displayName": "confirmation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "confirmation_time",
+              "displayName": "confirmation_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source_instance",
+              "displayName": "source_instance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reminder_sent_24h",
+              "displayName": "reminder_sent_24h",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "reminder_sent_today",
+              "displayName": "reminder_sent_today",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "followup_sent",
+              "displayName": "followup_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "clinic_notified",
+              "displayName": "clinic_notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "attended",
+              "displayName": "attended",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "visit_notes",
+              "displayName": "visit_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_request_sent",
+              "displayName": "review_request_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_request_time",
+              "displayName": "review_request_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "code",
+              "displayName": "code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "1505b2e8-ecca-4627-ba8b-a119f9dc85ef",
+      "name": "Book Appointment",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        1888,
+        720
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "=إلغاء موعد قائم.\n\n⚠️ مهم:\n• يجب تأكيد من العميل قبل الإلغاء\n• appointment_id يجب أن يأتي من Get Patient Appointments\n\nمتى تستخدمه:\n• عندما يطلب العميل إلغاء موعده\n• بعد تأكيد العميل للإلغاء\n\nلا تستخدمه:\n• بدون تأكيد صريح\n• بدون معرفة appointment_id الصحيح\n\nالمُدخلات:\n• appointment_id: UUID الموعد (من Get Patient Appointments) - مطلوب\n\nالمُخرجات:\n• status: حالة العملية\n• message: رسالة التأكيد\n\nبعد الإلغاء، اسأل:\n\"تم إلغاء موعدك. تبي تحجز موعد جديد؟\"",
+        "operation": "update",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "appointments",
+          "mode": "list",
+          "cachedResultName": "appointments"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $fromAI('appointment_id') }}",
+            "status": "cancelled",
+            "updated_at": "={{ $now.toISO() }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patient_id",
+              "displayName": "patient_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "department_id",
+              "displayName": "department_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "doctor_id",
+              "displayName": "doctor_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "service_id",
+              "displayName": "service_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "date",
+              "displayName": "date",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "time",
+              "displayName": "time",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "time",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "duration_minutes",
+              "displayName": "duration_minutes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "booking_type",
+              "displayName": "booking_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confirmation_status",
+              "displayName": "confirmation_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "confirmation_time",
+              "displayName": "confirmation_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "source_instance",
+              "displayName": "source_instance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "reminder_sent_24h",
+              "displayName": "reminder_sent_24h",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "reminder_sent_today",
+              "displayName": "reminder_sent_today",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "followup_sent",
+              "displayName": "followup_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "clinic_notified",
+              "displayName": "clinic_notified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "attended",
+              "displayName": "attended",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "visit_notes",
+              "displayName": "visit_notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "rating",
+              "displayName": "rating",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_request_sent",
+              "displayName": "review_request_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "review_request_time",
+              "displayName": "review_request_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "updated_at",
+              "displayName": "updated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "code",
+              "displayName": "code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ddf88546-5cca-4a62-9d0a-4f12bbaea325",
+      "name": "Cancel Appointment",
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.6,
+      "position": [
+        2048,
+        720
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "99a08a10-f5a2-434b-849e-07e3f128216a",
+      "name": "OpenAI Embeddings",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1,
+      "position": [
+        1520,
+        2176
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "usg19UbPU82riDwQ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Search FAQ and knowledge base for answers about services, procedures, prices, and clinic information.\n\nWHEN TO USE:\n- User asks questions about treatments/procedures\n- User asks about preparation or aftercare\n- User asks about the clinic\n- Any question that needs factual information\n\nEXAMPLES:\n- 'ما هو الفيشيال؟' → Search for facial info\n- 'كيف أستعد للجلسة؟' → Search for preparation\n- 'وين العيادة؟' → Search for location",
+        "tableName": {
+          "__rl": true,
+          "value": "faq_embeddings",
+          "mode": "list",
+          "cachedResultName": "faq_embeddings"
+        },
+        "topK": 5,
+        "options": {
+          "queryName": "match_faq_embeddings"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1.3,
+      "position": [
+        2464,
+        704
+      ],
+      "id": "0013492c-9030-499a-93f6-5e3184309fe1",
+      "name": "FAQ Search",
+      "credentials": {
+        "supabaseApi": {
+          "id": "sSuGq6agAQPb4d8a",
+          "name": "elitelife db"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "elite-shahd",
+        "remoteJid": "={{ $('WhatsApp Webhook').first().json.body.data.key.remoteJid }}",
+        "messageText": "={{ $('Elite Life AI Agent').item.json.output }}",
+        "options_message": {
+          "delay": 3200
+        }
+      },
+      "id": "b75053ee-345a-4f4f-b57f-14e161688f71",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        2944,
+        208
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "1GBY7rr1tbr9jRMV",
+          "name": "elite-shahd"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=User Message: {{ $('Extract Message Data').item.json.message }}\n---\n📋 Patient Data (from database):\n{{ $('Auto Get Patient').item.json.id ? 'EXISTING PATIENT - ID: ' + $('Auto Get Patient').item.json.id + ', Name: ' + $('Auto Get Patient').item.json.name + ', Code: ' + $('Auto Get Patient').item.json.code : 'NEW PATIENT - Not registered yet, Name from WhatsApp: ' + $('Extract Message Data').item.json.push_name }}\n---\n📞 WhatsApp Number: {{ $('Extract Message Data').item.json.whatsapp_number }}\n📅 Today's Date: {{ $now.setZone('Asia/Dubai').toFormat('cccc, MMMM d, yyyy') }}\n⏰ Current Time: {{ $now.setZone('Asia/Dubai').toFormat('hh:mm a') }}",
+        "needsFallback": true,
+        "options": {
+          "systemMessage": "# Elite Life AI Agent - System Prompt v2.0\n\nأنت **بايرا**، مساعدة حجوزات مركز إيليت لايف الطبي - دبي.\n\n---\n\n## 🎯 Core Behavior\n\n### Language Rule\n- **اقرأ لغة العميل → رد بنفسها**\n- عربي ← عربي | English ← English\n\n### Communication Style\n- **قصيرة ومباشرة** — جملة أو جملتين\n- **سؤال واحد** في كل رد\n- **إيموجي واحد** فقط\n- **لا قوائم مرقمة** — تكلم بشكل طبيعي\n- **مهنية ودافئة** — مش رسمية زيادة\n\n---\n\n## 📊 Patient Context (Dynamic)\n\nاستخدم `Get Patient Context` أول شي لتعرف:\n\n```\n{{ patient_context }}\n\ntier: VIP | Regular | New\nreliability_score: high | medium | low\ndepartments_visited: الأقسام السابقة\nnoshow_count: عدد الغيابات\n```\n\n### Personalization by Tier\n\n| Tier | Greeting |\n|------|----------|\n| **New** | \"أهلاً وسهلاً في إيليت لايف! 👋\" |\n| **Regular** | \"أهلاً {name}! سعيدة برجوعك 😊\" |\n| **VIP** | \"أهلاً {name}! شكراً لثقتك المستمرة ⭐\" |\n\n### Reliability Handling\n\n| Score | Action |\n|-------|--------|\n| **high/medium** | Standard flow |\n| **low** (noshow ≥ 2) | طلب تأكيد صريح قبل الحجز |\n| **very low** (noshow ≥ 3) | حوّل للعيادة مباشرة |\n\n---\n\n## 🛠️ Tools (Use in Order)\n\n### 1. Get Patient Context ⭐\n**أول شي دايماً!** يعطيك كل سياق المريض.\n\n### 2. Get Services\n**متى:** العميل يسأل عن الخدمات أو \"ايش عندكم\"\n**تخطى لو:** العميل حدد الخدمة بالاسم\n\n### 3. Get Available Slots ⭐⭐\n**متى:** بعد معرفة القسم/الخدمة\n**يرجع:** `slot_time` = الوقت المحدد المتاح (مش فترة!)\n**مهم:** لو فاضي = \"مافي مواعيد حالياً\"\n\n### 4. Book Appointment\n**متى:** بعد تأكيد صريح فقط (نعم/أكيد/تمام)\n**⚠️ لو low reliability:** اطلب تأكيد إضافي أولاً\n\n### 5. Get Patient Appointments\n**متى:** \"مواعيدي\" أو قبل الإلغاء\n\n### 6. Cancel Appointment\n**متى:** بعد تأكيد الإلغاء\n\n---\n\n## 🎯 Booking Flow\n\n```\n1. Get Patient Context ← تعرف مين هو\n2. حدد القسم/الخدمة ← من كلامه أو اسأله\n3. Get Available Slots ← اعرض أقرب 5\n4. العميل يختار ← تأكد إنه ضمن المتاح\n5. اطلب تأكيد ← \"تأكيد: [الخدمة] يوم [التاريخ] الساعة [الوقت]؟\"\n6. Book Appointment ← بعد \"نعم\" فقط\n7. رسالة النجاح + الموقع\n```\n\n---\n\n## 💰 Cross-Selling (Smart)\n\n### متى تقترح ✅\n- بعد تأكيد الحجز\n- لو العميل مرتاح ومش مستعجل\n- لو عنده تاريخ معنا (departments_visited)\n\n### متى لا ❌\n- العميل low reliability\n- العميل مستعجل أو frustrated\n- أثناء شكوى\n\n### الاقتراحات\n| لو زار | اقترح |\n|--------|-------|\n| بشرة | \"كتير من عميلاتنا يحبوا الليزر بعد الفيشيال 💫\" |\n| ليزر | \"الـ EMS ممتاز للتنحيف!\" |\n| أسنان تنظيف | \"التبييض يكمّل التنظيف ✨\" |\n\n---\n\n## 🏥 Clinic Info (من Config)\n\n- **الاسم:** {{ config.clinic_name_ar }}\n- **الهاتف:** {{ config.clinic_phone }}\n- **العنوان:** {{ config.clinic_address }}\n- **الموقع:** {{ config.google_maps_link }}\n- **ساعات العمل:** {{ config.working_hours_start }} - {{ config.working_hours_end }}\n\n**💰 الاستشارة مجانية — لا تذكري أسعار**\n\n---\n\n## 🚨 Special Cases\n\n### حالة طارئة\n← \"هذه حالة تحتاج اهتمام فوري 🚨 اتصل: {{ config.clinic_phone }}\"\n\n### شكوى\n← \"أعتذر عن الإزعاج. للتواصل مع الإدارة: {{ config.clinic_phone }}\"\n\n### سؤال طبي\n← \"هذا يحتاج استشارة الطبيب. أحجز لك موعد استشارة مجانية؟\"\n\n### خارج النطاق\n← \"أنا مختصة بالحجوزات. كيف أقدر أساعدك بموعد؟\"\n\n---\n\n## ⛔ Critical Rules\n\n**ممنوع:**\n1. اختراع مواعيد من خيالك\n2. سؤال عن العمر/الجنس\n3. الحجز بدون تأكيد صريح\n4. ذكر أسعار\n5. نصائح طبية\n\n**مطلوب:**\n1. استخدام Get Patient Context أولاً\n2. المواعيد من slot_time فقط\n3. Personalization حسب tier\n4. تأكيد مشدد لـ low reliability\n\n---\n\n## 📅 Date Understanding\n\n| العميل قال | التحويل |\n|------------|---------|\n| بكرة/tomorrow | اليوم + 1 |\n| بعد بكرة | اليوم + 2 |\n| الأسبوع الجاي | اسأل \"أي يوم بالضبط؟\" |\n| بعد أسبوعين | اليوم + 14 |\n\n---\n\n**تذكري: أنتِ بايرا — ذكية، دافئة، ومحترفة 🦊**\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1360,
+        160
+      ],
+      "id": "8cfd3a22-1041-4cbd-a476-a8c5325e3e88",
+      "name": "Elite Life AI Agent",
+      "retryOnFail": false,
+      "notesInFlow": true,
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-3-flash-preview",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        768,
+        704
+      ],
+      "id": "365f0e1a-02c9-4e0b-8742-ce98020cd2cb",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "8wV5dZWbPCKkr4ng",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Extract Message Data').item.json.whatsapp_number }}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.3,
+      "position": [
+        912,
+        704
+      ],
+      "id": "a768c45b-df32-4d2c-bf94-10132374192f",
+      "name": "Postgres Chat Memory",
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.*, \n       s.name_ar as service_name_ar, \n       d.name_ar as doctor_name_ar\nFROM appointments a\nLEFT JOIN services s ON a.service_id = s.id\nLEFT JOIN doctors d ON a.doctor_id = d.id\nWHERE a.patient_id IN (\n  SELECT id FROM patients WHERE whatsapp_number = '{{ $json.whatsapp_number }}'\n)\nAND a.status = 'confirmed'\nAND a.confirmation_status = 'pending'\nAND a.date >= CURRENT_DATE\nORDER BY a.date ASC, a.time ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "get-pending-apt-confirm",
+      "name": "Get Pending Appointment (Confirm)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        784,
+        -624
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT a.*, s.name_ar as service_name, d.name_ar as doctor_name\nFROM appointments a\nLEFT JOIN services s ON a.service_id = s.id\nLEFT JOIN doctors d ON a.doctor_id = d.id\nWHERE a.patient_id IN (\n  SELECT id FROM patients WHERE whatsapp_number = '{{ $json.whatsapp_number }}'\n)\nAND a.status = 'confirmed'\nAND a.confirmation_status = 'pending'\nAND a.date >= CURRENT_DATE\nORDER BY a.date ASC, a.time ASC\nLIMIT 1;",
+        "options": {}
+      },
+      "id": "get-pending-apt-cancel",
+      "name": "Get Pending Appointment (Cancel)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        768,
+        -320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments\nSET confirmation_status = 'confirmed',\n    updated_at = NOW()\nWHERE id = '{{ $json.id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "update-confirmed",
+      "name": "Update to Confirmed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        -624
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE appointments\nSET status = 'cancelled',\n    confirmation_status = 'cancelled',\n    updated_at = NOW()\nWHERE id = '{{ $json.id }}'\nRETURNING *;",
+        "options": {}
+      },
+      "id": "update-cancelled",
+      "name": "Update to Cancelled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        1024,
+        -320
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "elite-shahd",
+        "remoteJid": "={{ $('WhatsApp Webhook').item.json.body.data.key.remoteJid }}",
+        "messageText": "=✅ *تم تأكيد موعدك بنجاح!*\n\n📅 التاريخ: {{ $('Get Pending Appointment (Confirm)').item.json.date ? $('Get Pending Appointment (Confirm)').item.json.date.split('T')[0].split('-').reverse().join('-') : '' }}\n⏰ الوقت: {{ $('Get Pending Appointment (Confirm)').item.json.time.substring(0, 5) }}\n👨‍⚕️ الدكتور: {{ $('Get Pending Appointment (Confirm)').item.json.doctor_name_ar ?? 'سيتم تحديده' }}\n💆 الخدمة: {{ $('Get Pending Appointment (Confirm)').item.json.service_name_ar ?? '' }}\n\n📍 العنوان: Jumeirah Beach Road, Near Jumeirah Plaza Villa No.87\nhttps://maps.app.goo.gl/ZNCn5KmogNX1eMnX6\n\nنتطلع لرؤيتك! 💙",
+        "options_message": {
+          "delay": 1500
+        }
+      },
+      "id": "send-confirm-reply",
+      "name": "Send Confirm Reply",
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1232,
+        -624
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "1GBY7rr1tbr9jRMV",
+          "name": "elite-shahd"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "messages-api",
+        "instanceName": "elite-shahd",
+        "remoteJid": "={{ $('WhatsApp Webhook').item.json.body.data.key.remoteJid }}",
+        "messageText": "تم إلغاء موعدك ❌\n\nلو تبي تحجز موعد جديد، أنا موجود أساعدك 🙏",
+        "options_message": {
+          "delay": 1500
+        }
+      },
+      "id": "send-cancel-reply",
+      "name": "Send Cancel Reply",
+      "type": "n8n-nodes-evolution-api-english.evolutionApi",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        -320
+      ],
+      "credentials": {
+        "evolutionApi": {
+          "id": "1GBY7rr1tbr9jRMV",
+          "name": "elite-shahd"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.toLowerCase() }}",
+                    "rightValue": "=^(✅|تم|اكيد|حاضر|ok|yes|نعم|اوكي|تمام)$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    },
+                    "id": "68cb2cd5-875d-4647-9db2-576f752de778"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Confirm"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "760c79ce-d967-416d-91bb-51ff35e95b89",
+                    "leftValue": "={{ $json.message.toLowerCase() }}",
+                    "rightValue": "=^(❌|الغي|لا|no|cancel|الغاء|مش هينفع)$",
+                    "operator": {
+                      "type": "string",
+                      "operation": "regex"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Cancel"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        0,
+        -304
+      ],
+      "id": "29caa530-4a9b-4375-bc07-73c3f40a4ec0",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "options": {
+          "timezone": "Asia/Dubai"
+        }
+      },
+      "type": "n8n-nodes-base.dateTimeTool",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        704
+      ],
+      "id": "72d91a6d-3271-4676-8c73-fbe893382301",
+      "name": "Date & Time"
+    },
+    {
+      "parameters": {
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "patients",
+          "mode": "list",
+          "cachedResultName": "patients"
+        },
+        "where": {
+          "values": [
+            {
+              "column": "whatsapp_number",
+              "value": "={{ $('Extract Message Data').item.json.whatsapp_number }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        592,
+        16
+      ],
+      "id": "a33956b5-8366-4975-830f-26cb50588210",
+      "name": "Auto Get Patient",
+      "alwaysOutputData": true,
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8d63bb25-cfab-4240-b438-651eecfe2529",
+              "leftValue": "={{ $json.body.data.key.fromMe }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -1568,
+        -320
+      ],
+      "id": "aaec13bf-9ea1-40df-a173-73f0b501bbc8",
+      "name": "If"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -864,
+        -16
+      ],
+      "id": "987c685c-67a9-4474-a4a6-b02b56bb1018",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $input.first().json.output || '';\nconst message = output.toLowerCase();\n\n// Check if bot is asking a confirmation question\nconst isBookingConfirmation = \n  message.includes('أأكد') ||\n  message.includes('أكد لي') ||\n  message.includes('تأكيد الحجز') ||\n  message.includes('أحجز لك') ||\n  message.includes('نحجز') ||\n  message.includes('confirm');\n\nconst isTimeSelection = \n  message.includes('أي وقت') ||\n  message.includes('يناسبك') ||\n  message.includes('متى تبين') ||\n  message.includes('أي يوم');\n\nconst isServiceSelection =\n  message.includes('أي خدمة') ||\n  message.includes('إيش تبين') ||\n  message.includes('شو تحبين');\n\nconst isQuestion = message.includes('؟') || message.includes('?');\n\nlet questionType = null;\nif (isBookingConfirmation) questionType = 'booking_confirm';\nelse if (isTimeSelection) questionType = 'time_select';\nelse if (isServiceSelection) questionType = 'service_select';\nelse if (isQuestion) questionType = 'general';\n\nreturn {\n  json: {\n    ...$input.first().json,\n    is_bot_question: questionType !== null,\n    question_type: questionType\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1712,
+        160
+      ],
+      "id": "b9551056-e070-4e9b-800e-f5e34768f2e8",
+      "name": "Check If Bot Question"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "72c7b33f-4ca7-44a6-a3dd-3d37fd89bb19",
+              "leftValue": "={{ $json.is_bot_question }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1920,
+        160
+      ],
+      "id": "66bad3f2-ea23-452e-a330-3688b61e3a8a",
+      "name": "Is Bot Question?"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "conversation_logs",
+          "mode": "list",
+          "cachedResultName": "conversation_logs"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "is_bot_question": true,
+            "followup_sent": false,
+            "resolved": false,
+            "followup_count": 0,
+            "whatsapp_number": "={{ $('Extract Message Data').item.json.whatsapp_number }}",
+            "patient_id": "={{ $('Auto Get Patient').item.json.id || null }}",
+            "message_type": "outgoing",
+            "message_content": "={{ $json.output }}",
+            "question_type": "={{ $json.question_type }}",
+            "source_instance": "={{ $('Extract Message Data').item.json.instance_name }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "whatsapp_number",
+              "displayName": "whatsapp_number",
+              "required": true,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "patient_id",
+              "displayName": "patient_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_type",
+              "displayName": "message_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "message_content",
+              "displayName": "message_content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_instance",
+              "displayName": "source_instance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_bot_question",
+              "displayName": "is_bot_question",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "question_type",
+              "displayName": "question_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "followup_sent",
+              "displayName": "followup_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "followup_sent_at",
+              "displayName": "followup_sent_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "followup_count",
+              "displayName": "followup_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved",
+              "displayName": "resolved",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "resolved_at",
+              "displayName": "resolved_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        2448,
+        0
+      ],
+      "id": "ce14e661-091b-4dd1-a4f6-d2144f11ae87",
+      "name": "Log Bot Question",
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE conversation_logs\nSET resolved = TRUE,\n    resolved_at = NOW()\nWHERE whatsapp_number = '{{ $json.whatsapp_number }}'\n  AND is_bot_question = TRUE\n  AND resolved = FALSE;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -224,
+        -304
+      ],
+      "id": "3105ef68-59ef-4a1c-b512-998565696f20",
+      "name": "Resolve Old Questions",
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "rowNotExists",
+        "dataTableId": {
+          "__rl": true,
+          "value": "0HBN8JJyZSFY73xD",
+          "mode": "list",
+          "cachedResultName": "EliteWABlockNumber",
+          "cachedResultUrl": "/projects/11wixSbtTqb4Osvx/datatables/0HBN8JJyZSFY73xD"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "number",
+              "keyValue": "={{ $json.body.data.key.remoteJid }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        -1168,
+        -496
+      ],
+      "id": "fc9d69b9-b408-4b54-b4c9-841fcf54a62c",
+      "name": "If row does not exist",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "038e5a26-16f5-40c2-896b-0ea1eb0a02b5",
+              "leftValue": "={{ $json.headers }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -960,
+        -496
+      ],
+      "id": "2e74157c-04c0-40e6-af96-a3aa0d0e7e8f",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-5-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-5-mini"
+        },
+        "responsesApiEnabled": false,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        304,
+        656
+      ],
+      "id": "1736dc69-ed6f-4f82-b2b4-9b2bcdb5e299",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "usg19UbPU82riDwQ",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO n8n_chat_histories (session_id, message)\nVALUES (\n  '{{ $json.body.data.key.remoteJid }}',\n  '{\n    \"type\": \"ai\",\n    \"content\": {{ JSON.stringify($json.body.data.message.conversation) }},\n    \"tool_calls\": [],\n    \"additional_kwargs\": {},\n    \"response_metadata\": {}\n  }'::jsonb\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -1280,
+        -144
+      ],
+      "id": "b1e79acd-d967-4761-b5bd-c8b9ce803ba3",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "id": "patient-context-tool-001",
+      "name": "Get Patient Context",
+      "type": "n8n-nodes-base.postgresTool",
+      "position": [
+        3144,
+        500
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "جلب السياق الكامل للمريض - بياناته + مواعيده.\n\n⭐ استخدم هذه الأداة أول شي في كل محادثة!\n\nالمُخرجات:\n• patient: بيانات المريض (name, reliability_score, total_visits, noshow_count, departments_visited)\n• appointments: آخر 5 مواعيد\n• tier: VIP/Regular/New\n• is_new: هل عميل جديد\n\n💡 استخدم للـ personalization والـ cross-selling",
+        "operation": "executeQuery",
+        "query": "=SELECT json_build_object(\n  'patient', (\n    SELECT row_to_json(p.*)\n    FROM patient_profiles p\n    WHERE p.whatsapp_number = '{{ $('Extract Message Data').item.json.whatsapp_number }}'\n  ),\n  'appointments', (\n    SELECT COALESCE(json_agg(a ORDER BY a.date DESC), '[]'::json)\n    FROM (\n      SELECT \n        id, date, time, status, attended,\n        (SELECT name_ar FROM doctors WHERE id = appointments.doctor_id) as doctor_name,\n        (SELECT name_ar FROM services WHERE id = appointments.service_id) as service_name\n      FROM appointments\n      WHERE patient_id = (\n        SELECT id FROM patients WHERE whatsapp_number = '{{ $('Extract Message Data').item.json.whatsapp_number }}'\n      )\n      ORDER BY date DESC\n      LIMIT 5\n    ) a\n  ),\n  'tier', CASE\n    WHEN (SELECT total_spent FROM patient_profiles WHERE whatsapp_number = '{{ $('Extract Message Data').item.json.whatsapp_number }}') >= 5000 THEN 'VIP'\n    WHEN (SELECT total_visits FROM patient_profiles WHERE whatsapp_number = '{{ $('Extract Message Data').item.json.whatsapp_number }}') >= 5 THEN 'Regular'\n    ELSE 'New'\n  END,\n  'is_new', NOT EXISTS (\n    SELECT 1 FROM patients WHERE whatsapp_number = '{{ $('Extract Message Data').item.json.whatsapp_number }}'\n  )\n) as context",
+        "options": {}
+      },
+      "typeVersion": 2.5,
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    },
+    {
+      "id": "config-tool-001",
+      "name": "Get Clinic Config",
+      "type": "n8n-nodes-base.postgresTool",
+      "position": [
+        3144,
+        700
+      ],
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "جلب إعدادات العيادة.\n\nيرجع:\n• clinic_name_ar/en\n• clinic_phone\n• clinic_address\n• google_maps_link\n• google_review_link\n• working_hours_start/end\n• assistant_name_ar: بايرا\n\n💡 استخدم بدل الـ hardcoded values",
+        "operation": "executeQuery",
+        "query": "SELECT json_object_agg(key, value) as config FROM config",
+        "options": {}
+      },
+      "typeVersion": 2.5,
+      "credentials": {
+        "postgres": {
+          "id": "VbqLWnfnH4sOet0U",
+          "name": "elitelife DB"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Download file",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download file": {
+      "main": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Message?": {
+      "main": [
+        [
+          {
+            "node": "Extract Message Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Patient": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Services": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Doctors": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Available Slots": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Patient Appointments": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Book Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cancel Appointment": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "FAQ Search": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Embeddings": {
+      "ai_embedding": [
+        [
+          {
+            "node": "FAQ Search",
+            "type": "ai_embedding",
+            "index": 0
+          },
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Elite Life AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Check If Bot Question",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Message Data": {
+      "main": [
+        [
+          {
+            "node": "Resolve Old Questions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Appointment (Confirm)": {
+      "main": [
+        [
+          {
+            "node": "Update to Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending Appointment (Cancel)": {
+      "main": [
+        [
+          {
+            "node": "Update to Cancelled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update to Confirmed": {
+      "main": [
+        [
+          {
+            "node": "Send Confirm Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update to Cancelled": {
+      "main": [
+        [
+          {
+            "node": "Send Cancel Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get Pending Appointment (Confirm)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get Pending Appointment (Cancel)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Auto Get Patient",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Date & Time": {
+      "ai_tool": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Auto Get Patient": {
+      "main": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "If row does not exist",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Bot Question": {
+      "main": [
+        [
+          {
+            "node": "Is Bot Question?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Bot Question?": {
+      "main": [
+        [
+          {
+            "node": "Log Bot Question",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Bot Question": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Old Questions": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If row does not exist": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Has Message?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Elite Life AI Agent",
+            "type": "ai_languageModel",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "pinData": {
+    "WhatsApp Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "n8n.pyramedia.info",
+            "user-agent": "axios/1.13.2",
+            "content-length": "1531",
+            "accept": "application/json, text/plain, */*",
+            "accept-encoding": "gzip, compress, deflate, br",
+            "content-type": "application/json",
+            "x-forwarded-for": "10.0.1.1",
+            "x-forwarded-host": "n8n.pyramedia.info",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "3316baf5bb4e",
+            "x-real-ip": "10.0.1.1"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "event": "messages.upsert",
+            "instance": "test1",
+            "data": {
+              "key": {
+                "remoteJid": "971509147100@s.whatsapp.net",
+                "remoteJidAlt": "971509147100@s.whatsapp.net",
+                "fromMe": false,
+                "id": "3EB07F7D57F3A88C9D4D49",
+                "participant": "",
+                "addressingMode": "lid"
+              },
+              "pushName": "الهرم",
+              "status": "DELIVERY_ACK",
+              "message": {
+                "conversation": "علي العامري",
+                "messageContextInfo": {
+                  "threadId": [],
+                  "deviceListMetadata": {
+                    "senderKeyIndexes": [],
+                    "recipientKeyIndexes": [],
+                    "senderKeyHash": {
+                      "0": 80,
+                      "1": 80,
+                      "2": 28,
+                      "3": 245,
+                      "4": 163,
+                      "5": 235,
+                      "6": 254,
+                      "7": 95,
+                      "8": 253,
+                      "9": 100
+                    },
+                    "senderTimestamp": {
+                      "low": 1769898791,
+                      "high": 0,
+                      "unsigned": true
+                    },
+                    "senderAccountType": 0,
+                    "receiverAccountType": 0,
+                    "recipientKeyHash": {
+                      "0": 88,
+                      "1": 240,
+                      "2": 154,
+                      "3": 244,
+                      "4": 46,
+                      "5": 130,
+                      "6": 74,
+                      "7": 210,
+                      "8": 252,
+                      "9": 157
+                    },
+                    "recipientTimestamp": {
+                      "low": 1768630122,
+                      "high": 0,
+                      "unsigned": true
+                    }
+                  },
+                  "deviceListMetadataVersion": 2,
+                  "messageSecret": {
+                    "0": 84,
+                    "1": 190,
+                    "2": 251,
+                    "3": 5,
+                    "4": 81,
+                    "5": 86,
+                    "6": 96,
+                    "7": 156,
+                    "8": 102,
+                    "9": 169,
+                    "10": 220,
+                    "11": 116,
+                    "12": 34,
+                    "13": 136,
+                    "14": 5,
+                    "15": 109,
+                    "16": 111,
+                    "17": 212,
+                    "18": 246,
+                    "19": 92,
+                    "20": 68,
+                    "21": 58,
+                    "22": 52,
+                    "23": 127,
+                    "24": 46,
+                    "25": 255,
+                    "26": 88,
+                    "27": 175,
+                    "28": 77,
+                    "29": 155,
+                    "30": 246,
+                    "31": 84
+                  },
+                  "limitSharingV2": {
+                    "trigger": 0,
+                    "initiatedByMe": false
+                  }
+                }
+              },
+              "messageType": "conversation",
+              "messageTimestamp": 1769914349,
+              "instanceId": "e6e029e9-12b4-48dc-a9a9-f301bb4dc543",
+              "source": "web"
+            },
+            "destination": "https://n8n.pyramedia.info/webhook/elitelife-whatsapp",
+            "date_time": "2026-01-31T23:52:29.813Z",
+            "sender": "971521990611@s.whatsapp.net",
+            "server_url": "https://evo.pyramedia.info",
+            "apikey": "2A5431FD3FEA-4061-8ECE-0CC5B32BB379"
+          },
+          "webhookUrl": "https://n8n.pyramedia.info/webhook/elitelife-whatsapp",
+          "executionMode": "production"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "versionId": "0bdfbbfe-4c46-45f4-994b-d16d818ceb0b",
+  "activeVersionId": null,
+  "versionCounter": 864,
+  "triggerCount": 1,
+  "shared": [
+    {
+      "updatedAt": "2026-01-30T22:14:55.655Z",
+      "createdAt": "2026-01-30T22:14:55.655Z",
+      "role": "workflow:owner",
+      "workflowId": "2qL4Hys4Vv3VmHE2",
+      "projectId": "11wixSbtTqb4Osvx",
+      "project": {
+        "updatedAt": "2025-10-23T22:27:29.065Z",
+        "createdAt": "2025-10-23T21:09:10.225Z",
+        "id": "11wixSbtTqb4Osvx",
+        "name": "Mohamd Abdou <elharm.marketing@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "b3693aa5-fb49-4f93-8ac6-88d3b2144fe3",
+        "projectRelations": [
+          {
+            "updatedAt": "2025-10-23T21:09:10.225Z",
+            "createdAt": "2025-10-23T21:09:10.225Z",
+            "userId": "b3693aa5-fb49-4f93-8ac6-88d3b2144fe3",
+            "projectId": "11wixSbtTqb4Osvx",
+            "user": {
+              "updatedAt": "2026-02-03T20:38:37.537Z",
+              "createdAt": "2025-10-23T21:09:09.382Z",
+              "id": "b3693aa5-fb49-4f93-8ac6-88d3b2144fe3",
+              "email": "elharm.marketing@gmail.com",
+              "firstName": "Mohamd",
+              "lastName": "Abdou",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2025-10-23T22:27:45.365Z",
+                "personalization_survey_n8n_version": "1.114.4",
+                "companySize": "<20",
+                "companyType": "saas",
+                "role": "business-owner",
+                "reportedSource": "friend"
+              },
+              "settings": {
+                "userActivated": true,
+                "easyAIWorkflowOnboarded": true,
+                "firstSuccessfulWorkflowId": "umF0i1zHg3yqM7qDrRfta",
+                "userActivatedAt": 1770038246528,
+                "npsSurvey": {
+                  "responded": true,
+                  "lastShownAt": 1763563162633
+                }
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-04",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

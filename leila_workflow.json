@@ -1,0 +1,133 @@
+{
+  "name": "Leila WhatsApp Monitor",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leila-monitor",
+        "options": {}
+      },
+      "id": "e7c65633-5c8c-4a37-b6f4-123456789001",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n.pyramedia.info/webhook/pyraai",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "e7c65633-5c8c-4a37-b6f4-123456789002",
+      "name": "Forward to PyraAI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-1",
+              "leftValue": "={{ $json.data?.key?.remoteJid }}",
+              "rightValue": "971545586754@s.whatsapp.net",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-2",
+              "leftValue": "={{ $json.data?.key?.fromMe }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e7c65633-5c8c-4a37-b6f4-123456789003",
+      "name": "Check if Leila",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [600, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot***REMOVED***/sendMessage",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "7990837012"
+            },
+            {
+              "name": "text",
+              "value": "=📩 ليلى ردت على الواتساب:\n\n{{ $json.data?.message?.conversation || $json.data?.message?.extendedTextMessage?.text || '[رسالة وسائط أو غير نصية]' }}\n\nرد عليها بطريقة بايرا المهنية الدافية. السياق: عرض تقديمي لمشروع إتمام"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e7c65633-5c8c-4a37-b6f4-123456789004",
+      "name": "Telegram Notify",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [800, 200]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Forward to PyraAI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forward to PyraAI": {
+      "main": [
+        [
+          {
+            "node": "Check if Leila",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check if Leila": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

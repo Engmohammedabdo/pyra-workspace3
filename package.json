@@ -1,0 +1,21 @@
+{
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "@supabase/supabase-js": "^2.97.0",
+    "arquero": "^8.0.3",
+    "better-sqlite3": "^12.6.2",
+    "docx": "^9.5.1",
+    "exceljs": "^4.4.0",
+    "googleapis": "^171.4.0",
+    "imapflow": "^1.2.10",
+    "mailparser": "^3.9.3",
+    "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
+    "pg": "^8.18.0",
+    "playwright": "^1.58.1",
+    "puppeteer": "^24.36.1",
+    "sharp": "^0.34.5",
+    "socket.io-client": "^4.8.3",
+    "tesseract.js": "^7.0.0"
+  }
+}

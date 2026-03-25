@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>سكريبتات التدريب — مركز إتمام</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0f0f0f; color: #e0e0e0; padding: 16px; max-width: 900px; margin: 0 auto; }
+h1 { text-align: center; color: #ffd700; font-size: 1.6em; margin-bottom: 8px; }
+.subtitle { text-align: center; color: #888; margin-bottom: 16px; font-size: 0.9em; }
+
+/* Speaker Filter */
+.filter-bar { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-btn { padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.8em; font-weight: 600; border: 2px solid #333; background: #1a1a1a; color: #ccc; transition: all 0.2s; }
+.filter-btn:hover { border-color: #555; }
+.filter-btn.active { background: #ffd700; color: #000; border-color: #ffd700; }
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 16px; padding-bottom: 8px; }
+.tab { padding: 10px 14px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-size: 0.82em; font-weight: 600; border: 2px solid #333; background: #1a1a1a; color: #ccc; transition: all 0.2s; flex-shrink: 0; }
+.tab:hover { border-color: #555; }
+.tab.active { background: #ffd700; color: #000; border-color: #ffd700; }
+.tab .person { font-size: 0.7em; display: block; color: #999; margin-top: 2px; }
+.tab.active .person { color: #333; }
+.tab.hidden { display: none; }
+
+/* Filming Guide */
+.filming-guide { background: linear-gradient(135deg, #1a1a2e, #16213e); border: 2px solid #ffd700; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.filming-guide h2 { color: #ffd700; font-size: 1.2em; margin-bottom: 14px; text-align: center; }
+.filming-toggle { text-align: center; margin-bottom: 16px; }
+.filming-toggle button { padding: 8px 20px; border-radius: 20px; cursor: pointer; font-size: 0.85em; font-weight: 700; border: 2px solid #ffd700; background: #ffd700; color: #000; transition: all 0.2s; }
+.filming-section { margin-bottom: 16px; }
+.filming-section h3 { color: #ff6b6b; font-size: 1em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #333; }
+.filming-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.filming-item { background: #0f0f1a; padding: 10px 12px; border-radius: 8px; font-size: 0.88em; line-height: 1.6; border-right: 3px solid #ffd700; }
+.filming-item .fi-label { color: #ffd700; font-weight: 700; display: block; margin-bottom: 2px; }
+.filming-item .fi-warn { color: #ff4444; font-weight: 600; }
+.filming-item .fi-good { color: #4CAF50; font-weight: 600; }
+.do-dont { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.do-box, .dont-box { padding: 12px; border-radius: 8px; font-size: 0.88em; line-height: 1.7; }
+.do-box { background: #1e2a1e; border: 1px solid #2d4a2d; }
+.do-box h4 { color: #4CAF50; margin-bottom: 6px; }
+.dont-box { background: #2a1e1e; border: 1px solid #4a2d2d; }
+.dont-box h4 { color: #ff4444; margin-bottom: 6px; }
+@media (max-width: 600px) { .filming-grid, .do-dont { grid-template-columns: 1fr; } }
+
+/* Filming Directions */
+.filming-directions { background: linear-gradient(135deg, #1a1a2e, #16213e); border: 2px solid #e74c3c; border-radius: 10px; padding: 16px; margin-top: 14px; }
+.filming-directions .fd-title { color: #e74c3c; font-size: 1.05em; font-weight: 700; margin-bottom: 12px; }
+.fd-mood { background: #0f0f1a; padding: 10px 12px; border-radius: 8px; margin-bottom: 10px; border-right: 3px solid #e74c3c; font-size: 0.9em; line-height: 1.6; }
+.fd-mood .fd-label { color: #e74c3c; font-weight: 700; display: block; margin-bottom: 4px; }
+.fd-moments { margin-top: 10px; }
+.fd-moment { background: #0f0f1a; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; font-size: 0.88em; line-height: 1.6; border-right: 3px solid #ffd700; }
+.fd-moment .fd-time { color: #ffd700; font-weight: 700; }
+.fd-moment .fd-warn { color: #ff4444; font-weight: 600; }
+.fd-moment .fd-good { color: #4CAF50; font-weight: 600; }
+
+/* Script Card */
+.script-card { display: none; background: #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.script-card.active { display: block; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.meta-item { background: #252525; padding: 8px 12px; border-radius: 8px; font-size: 0.85em; }
+.meta-item .label { color: #ffd700; font-weight: 600; }
+
+/* Scenes */
+.section { margin: 16px 0; }
+.section-title { color: #ffd700; font-size: 1.1em; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid #333; }
+.scene { background: #222; border-radius: 8px; padding: 14px; margin-bottom: 10px; border-right: 4px solid #555; }
+.scene.hook { border-right-color: #ff4444; }
+.scene.intro { border-right-color: #ffbb33; }
+.scene.content { border-right-color: #00C851; }
+.scene.details { border-right-color: #aa66cc; }
+.scene.cta { border-right-color: #ff4444; }
+.scene-label { font-size: 0.75em; color: #888; margin-bottom: 4px; font-weight: 600; }
+.scene-label.hook-label { color: #ff4444; }
+.scene-label.cta-label { color: #ff4444; }
+.dialogue { font-size: 1.05em; line-height: 1.7; color: #fff; }
+.direction { color: #666; font-size: 0.8em; margin-top: 6px; font-style: italic; }
+
+/* Fulltext */
+.fulltext { background: #1e2a1e; border: 1px solid #2d4a2d; border-radius: 8px; padding: 16px; margin: 16px 0; line-height: 1.8; font-size: 1em; }
+.fulltext-label { color: #4CAF50; font-weight: 700; margin-bottom: 8px; }
+
+/* Hooks */
+.hooks-section { background: #2a1e1e; border: 1px solid #4a2d2d; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.hooks-title { color: #ff6b6b; font-weight: 700; margin-bottom: 12px; font-size: 1em; }
+.hook-option { padding: 10px; margin-bottom: 8px; background: #1a1a1a; border-radius: 6px; border-right: 3px solid #ff4444; }
+.hook-label-tag { color: #ff4444; font-weight: 600; font-size: 0.8em; }
+
+/* Notes */
+.notes-section { background: #1e1e2a; border: 1px solid #2d2d4a; border-radius: 8px; padding: 16px; margin: 16px 0; }
+.notes-title { color: #6b9fff; font-weight: 700; margin-bottom: 8px; }
+.note-item { padding: 6px 0; border-bottom: 1px solid #252540; font-size: 0.9em; line-height: 1.5; }
+.note-item:last-child { border: none; }
+
+/* Badges */
+.person-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+.badge-nada { background: #4a3a1e; color: #e0b366; }
+.badge-ohoud { background: #4a1e4a; color: #e066e0; }
+.badge-fadi { background: #1e4a2a; color: #66e08a; }
+.badge-abdullah { background: #1e3a4a; color: #66b3e0; }
+.badge-ahmed { background: #2a1e1e; color: #e09966; }
+.badge-ahmed { background: #2a1e1e; color: #e09966; }
+
+@media (max-width: 600px) { .meta { grid-template-columns: 1fr; } .tabs { flex-wrap: nowrap; } }
+</style>
+</head>
+<body>
+
+<h1>🎬 سكريبتات التدريب — مركز إتمام</h1>
+<p class="subtitle">جاهزة للتدريب والتصوير | ندى · عهود · فادي · عبدالله · أحمد</p>
+
+<!-- Filming Guide -->
+<div class="filming-guide" id="filmingGuide">
+  <h2>📋 تشيك لست — قبل ما تبدأ</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:0.88em;">
+    <div class="filming-item"><span class="fi-label">📷</span> كاميرا ثابتة + فورمات 9:16</div>
+    <div class="filming-item"><span class="fi-label">💡</span> إضاءة أمامية ناعمة — لا ظلال</div>
+    <div class="filming-item"><span class="fi-label">🎙️</span> مايك لاسلكي — تسجيل تجريبي 10 ثواني</div>
+    <div class="filming-item"><span class="fi-label">🏢</span> خلفية نظيفة + لوغو إتمام</div>
+    <div class="filming-item"><span class="fi-label">👔</span> ملابس رسمية — لا مخطط/أبيض صافي/أسود صافي</div>
+    <div class="filming-item"><span class="fi-label">🔇</span> هواتف صامتة + ماء جاهز</div>
+  </div>
+</div>
+
+<!-- Speaker Filter -->
+<div class="filter-bar">
+  <div class="filter-btn active" onclick="filterSpeaker('all')">الكل</div>
+  <div class="filter-btn" onclick="filterSpeaker('nada')">ندى</div>
+  <div class="filter-btn" onclick="filterSpeaker('ohoud')">عهود</div>
+  <div class="filter-btn" onclick="filterSpeaker('fadi')">فادي</div>
+  <div class="filter-btn" onclick="filterSpeaker('abdullah')">عبدالله</div>
+  <div class="filter-btn" onclick="filterSpeaker('ahmed')">أحمد</div>
+</div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-speaker="nada" onclick="show(0)">#2 طلاق للضرر<span class="person">ندى</span></div>
+  <div class="tab" data-speaker="nada" onclick="show(1)">#3 الخلع<span class="person">ندى</span></div>
+  <div class="tab" data-speaker="ohoud" onclick="show(2)">#4 شيكات (دائن)<span class="person">عهود</span></div>
+  <div class="tab" data-speaker="fadi" onclick="show(3)">#5 شيكات (مدين)<span class="person">فادي</span></div>
+  <div class="tab" data-speaker="abdullah" onclick="show(4)">#6 مطالبات مدنية<span class="person">عبدالله</span></div>
+  <div class="tab" data-speaker="ohoud" onclick="show(5)">#7 مطالبات تجارية<span class="person">عهود</span></div>
+  <div class="tab" data-speaker="ohoud" onclick="show(6)">#8 كاتب العدل<span class="person">عهود</span></div>
+  <div class="tab" data-speaker="ahmed" onclick="show(7)">#9 تسويات ودية<span class="person">أحمد</span></div>
+  <div class="tab" data-speaker="ahmed" onclick="show(8)">#10 أحكام غيابية<span class="person">أحمد</span></div>
+</div>
+
+<!-- ===== VIDEO 2 - Nada - Divorce ===== -->
+<div class="script-card active" id="s0">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #2 — الطلاق للضرر</h2>
+    <span class="person-badge badge-nada">ندى</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 50-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~120 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v6</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> حقوق المرأة في الطلاق للضرر</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">متضررة… وساكتة؟ القانون ما يبي منج تسكتين. يبي منج تتحركين.</div>
+      <div class="direction">كلوز أب مباشر على ندى — نظرة حادة وجادة. صوت واطي وقوي بأول كلمتين. وقفة قصيرة بعد "متضررة… وساكتة؟"</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا ندى، من مركز إتمام. وهاي أول خطوة لازم تسويها.</div>
+      <div class="direction">ابتسامة خفيفة سريعة. "أول خطوة" بنبرة حماسية.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 متى يحق لج (0:07 – 0:15)</div>
+      <div class="dialogue">لو متضررة من حياتج الزوجية — وعندج شي يثبت هالضرر — القانون يعطيج حق تطلبين الطلاق من المحكمة. اسمه: <b>طلاق للضرر</b>.</div>
+      <div class="direction">"وعندج شي يثبت هالضرر" بنبرة تأكيدية. وقفة قصيرة قبل "اسمه:"</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:15 – 0:27)</div>
+      <div class="dialogue">الموضوع أبسط مما تتوقعين: تقدّمين دعوى بالمحكمة. القاضي يحوّلها لجلسة صلح. الصلح ما نفع؟ المحكمة تنظر بالموضوع — وإذا ثبت الضرر، يُحكم بالطلاق.</div>
+      <div class="direction">"أبسط مما تتوقعين" بنبرة مطمئنة. "الصلح ما نفع؟" ترفع حاجبها.</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 حقوقج بعد الطلاق (0:27 – 0:42)</div>
+      <div class="dialogue">وبعد الطلاق؟ أكو حقوق لازم تعرفيها. نفقتج مغطاة طول فترة العدة. تعويض عن الطلاق تحدده المحكمة. مهرج المؤخر — هذا فلوسج، تاخذيه كامل. والأطفال؟ حضانتهم محفوظة للأم مع نفقاتهم حسب القانون.</div>
+      <div class="direction">"هذا فلوسج" بنبرة حازمة. "والأطفال؟" وقفة قصيرة تبني ترقب.</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:42 – 0:50)</div>
+      <div class="dialogue">جاهزة تاخذين حقج؟ كلّمينا في مركز إتمام — الرابط بالبايو.</div>
+      <div class="direction">نبرة تحفيزية. إنهاء بابتسامة دافية.</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    متضررة… وساكتة؟ القانون ما يبي منج تسكتين. يبي منج تتحركين. أنا ندى، من مركز إتمام. وهاي أول خطوة لازم تسويها. لو متضررة من حياتج الزوجية — وعندج شي يثبت هالضرر — القانون يعطيج حق تطلبين الطلاق من المحكمة. اسمه: طلاق للضرر. الموضوع أبسط مما تتوقعين: تقدّمين دعوى بالمحكمة. القاضي يحوّلها لجلسة صلح. الصلح ما نفع؟ المحكمة تنظر بالموضوع — وإذا ثبت الضرر، يُحكم بالطلاق. وبعد الطلاق؟ أكو حقوق لازم تعرفيها. نفقتج مغطاة طول فترة العدة. تعويض عن الطلاق تحدده المحكمة. مهرج المؤخر — هذا فلوسج، تاخذيه كامل. والأطفال؟ حضانتهم محفوظة للأم مع نفقاتهم حسب القانون. جاهزة تاخذين حقج؟ كلّمينا في مركز إتمام — الرابط بالبايو.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> "متضررة… وساكتة؟ القانون ما يبي منج تسكتين. يبي منج تتحركين."</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> "حقوقج بعد الطلاق أكثر مما تتوقعين. خليني أعدّهملج."</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> "نفقة. تعويض. مهر. حضانة. كلها من حقج — بس لازم تعرفين الخطوة الأولى."</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> "أكثر سؤال يوصلنا: أقدر أطلب طلاق بدون موافقته؟ الجواب: نعم."</div>
+  </div>
+  <div class="hooks-section" style="background:#1e2a1e;border-color:#2d4a2d;">
+    <div class="hooks-title" style="color:#4CAF50;">📢 CTA بديلة (3 زوايا مختلفة)</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">A ⭐</span> تحفيزي: "جاهزة تاخذين حقج؟ كلّمينا في مركز إتمام — الرابط بالبايو."</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">B 🤝</span> تطمين + دعم: "تبين تعرفين أكثر عن وضعج؟ تواصلي ويانا — ورح نساعدج."</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">C 🎯</span> عملي: "أول خطوة؟ استشارة. تواصلي مع مركز إتمام — الرابط بالبايو."</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• Hook: "متضررة… وساكتة؟" — صوت واطي ثم ترفع بثقة عند "يبي منج تتحركين"</div>
+    <div class="note-item">• Pattern interrupts: "الصلح ما نفع؟" / "والأطفال؟" / "هذا فلوسج" — وقفات تبني ترقب</div>
+    <div class="note-item">• "أبسط مما تتوقعين" — نبرة مطمئنة، مش محاضرة</div>
+    <div class="note-item">• ⚠️ V6: لهجة عراقية — "يعطيج" مش "يعطيك"، "حياتج" مش "حياتك"</div>
+    <div class="note-item">• CTA: "جاهزة تاخذين حقج؟" — تحفيزي مباشر + ابتسامة</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #2</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    الفيديو ده عن امرأة متضررة — الجو لازم يكون <b>جدي وقوي من البداية</b>، بعدين يتحول لتطمين. ندى تحكي كأنها تنصح صديقتها مش تقرأ قانون.<br>
+    ⚠️ <b>لهجة عراقية</b> — لو ندى بتلخبط بين العراقي والخليجي، وقّفها وذكّرها: "يعطيج" مش "يعطيك"
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> قوللها: "متضررة… وساكتة؟" — <span class="fd-good">صوت واطي جداً بأول كلمتين</span>. وقفة بعد "وساكتة؟". بعدين ترفع صوتها بثقة "يبي منج تتحركين". <span class="fd-warn">لو قالتها بنبرة مسطّحة = أعد التيك</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:15-0:27 — الخطوات:</span> "أبسط مما تتوقعين" = <span class="fd-good">نبرة مطمئنة</span>. "الصلح ما نفع؟" = <span class="fd-good">ترفع حاجبها + وقفة نص ثانية</span>. هاي pattern interrupt — لو ما سوّتها، وجّهها</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:27-0:42 — الحقوق:</span> أهم جزء! <span class="fd-good">"هذا فلوسج" = نبرة حازمة — لحظة تمكين</span>. "والأطفال؟" = <span class="fd-good">وقفة تبني ترقب ثم تطمين</span>. لو مرّت عليهم بسرعة بدون وقفات = أعد التيك</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:42-0:50 — CTA:</span> "جاهزة تاخذين حقج؟" = <span class="fd-good">تحفيزي + ابتسامة دافية</span>. تنهي بنظرة مباشرة للكاميرا</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ انتبه:</span> هالفيديو فيه 3 pattern interrupts ("الصلح ما نفع؟" + "والأطفال؟" + "هذا فلوسج"). لو ندى ما وقفت عندهم = الفيديو بيطلع مسطّح. <b>درّبها عليهم قبل التصوير</b></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 3 - Nada - Khula ===== -->
+<div class="script-card" id="s1">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #3 — الخلع</h2>
+    <span class="person-badge badge-nada">ندى</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 50-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~120 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v5</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> حق المرأة في الخلع</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">ما تقدرين تثبتين الضرر… وزوجج رافض يطلق؟ عندج حل قانوني اسمه الخلع.</div>
+      <div class="direction">كلوز أب — نظرة مباشرة حادة. "ما تقدرين تثبتين الضرر" بنبرة واطية. "عندج حل" ترفع صوتها بثقة.</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا ندى من مركز إتمام، ورح أشرحلج الخلع بكل بساطة.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 إيش هو الخلع (0:07 – 0:15)</div>
+      <div class="dialogue">الخلع يعني إنج تطلبين الانفصال من المحكمة، مقابل إنج تردين المهر أو المبلغ المتفق عليه. الميزة؟ ما تحتاجين تثبتين أي ضرر.</div>
+      <div class="direction">"الميزة؟" — وقفة قصيرة + رفع حاجب = pattern interrupt</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الإجراءات (0:15 – 0:27)</div>
+      <div class="dialogue">الإجراءات؟ أول شي تقدّمين دعوى بالمحكمة. بعدها تمر القضية بجلسة صلح. الصلح ما نفع؟ المحكمة تنظر بالدعوى. والأهم: القاضي يقدر يحكم بالخلع حتى بدون موافقة الزوج.</div>
+      <div class="direction">"الصلح ما نفع؟" ترفع حاجبها. "حتى بدون موافقة الزوج" نبرة حازمة.</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 حقوقج محفوظة (0:27 – 0:40)</div>
+      <div class="dialogue">وأهم نقطة لازم تعرفيها: حقوق أولادج محفوظة. الحضانة تبقى عندج وما راح تتأثر. ونفقة الأطفال؟ تظل على الأب — ما لها علاقة بالخلع.</div>
+      <div class="direction">"ونفقة الأطفال؟" وقفة قصيرة تبني ترقب. "ما لها علاقة بالخلع" حازمة وتطمينية.</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:40 – 0:50)</div>
+      <div class="dialogue">تبين تعرفين أكثر عن وضعج؟ تواصلي ويانا في مركز إتمام — ورح نساعدج.</div>
+      <div class="direction">نبرة دافية وتشجيعية. إنهاء بابتسامة.</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    ما تقدرين تثبتين الضرر… وزوجج رافض يطلق؟ عندج حل قانوني اسمه الخلع. أنا ندى من مركز إتمام، ورح أشرحلج الخلع بكل بساطة. الخلع يعني إنج تطلبين الانفصال من المحكمة، مقابل إنج تردين المهر أو المبلغ المتفق عليه. الميزة؟ ما تحتاجين تثبتين أي ضرر. الإجراءات؟ أول شي تقدّمين دعوى بالمحكمة. بعدها تمر القضية بجلسة صلح. الصلح ما نفع؟ المحكمة تنظر بالدعوى. والأهم: القاضي يقدر يحكم بالخلع حتى بدون موافقة الزوج. وأهم نقطة لازم تعرفيها: حقوق أولادج محفوظة. الحضانة تبقى عندج وما راح تتأثر. ونفقة الأطفال؟ تظل على الأب — ما لها علاقة بالخلع. تبين تعرفين أكثر عن وضعج؟ تواصلي ويانا في مركز إتمام — ورح نساعدج.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> "ما تقدرين تثبتين الضرر… وزوجج رافض يطلق؟ عندج حل قانوني اسمه الخلع."</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> "زوجج رافض يطلق؟ ما يحتاج موافقته — القاضي يقدر يحكم بالخلع بدونه."</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> "حضانتج… نفقة أولادج… كلها محفوظة. حتى لو طلبتِ الخلع."</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> "مستحيل تكمّلين… بس ما عندج دليل ضرر؟ الخلع ما يحتاج دليل."</div>
+  </div>
+  <div class="hooks-section" style="background:#1e2a1e;border-color:#2d4a2d;">
+    <div class="hooks-title" style="color:#4CAF50;">📢 CTA بديلة (3 زوايا مختلفة)</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">A ⭐</span> تطمين + دعم: "تبين تعرفين أكثر عن وضعج؟ تواصلي ويانا في مركز إتمام — ورح نساعدج."</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">B 💪</span> تحفيزي مباشر: "جاهزة تاخذين حقج؟ كلمينا في مركز إتمام — الرابط بالبايو."</div>
+    <div class="hook-option" style="border-right-color:#4CAF50;"><span class="hook-label-tag" style="color:#4CAF50;">C 🎯</span> عملي + عرض: "أول خطوة؟ استشارة مجانية. تواصلي ويانا — الرابط بالبايو."</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• Hook: مشكلة + حل فوري — "عندج حل" بنبرة واثقة</div>
+    <div class="note-item">• Pattern interrupts: "الميزة؟" / "الصلح ما نفع؟" / "ونفقة الأطفال؟" — وقفات تبني ترقب</div>
+    <div class="note-item">• "حتى بدون موافقة الزوج" — أقوى لحظة بالسكريبت — نبرة حازمة</div>
+    <div class="note-item">• ⚠️ V5: لهجة عراقية — "عندج" مش "عندك"، "أولادج" مش "أطفالك"</div>
+    <div class="note-item">• CTA: دافئ وتشجيعي + 3 بدائل بزوايا مختلفة</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #3</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    فيديو الخلع أقوى من الطلاق — لأن الرسالة هي <b>"ما تحتاجين موافقته"</b>. الجو يبدأ بمشكلة (ما تقدرين تثبتين) وينتهي بتمكين (القاضي يحكم بدونه).<br>
+    ⚠️ <b>لهجة عراقية</b> — "عندج" مش "عندك"، "أولادج" مش "أطفالك"
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> "ما تقدرين تثبتين الضرر" = <span class="fd-good">نبرة واطية — كأنها تفهم المشكلة</span>. "عندج حل" = <span class="fd-good">ترفع صوتها بثقة</span>. التحول من المشكلة للحل لازم يكون واضح</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:07-0:15 — إيش هو الخلع:</span> <span class="fd-good">"الميزة؟" = أول pattern interrupt</span> — وقفة + رفع حاجب. <span class="fd-warn">لو ما وقفت = أعد</span>. "ما تحتاجين تثبتين أي ضرر" = تقولها بنبرة مطمئنة</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:15-0:27 — الإجراءات:</span> "الصلح ما نفع؟" = <span class="fd-good">pattern interrupt ثاني — رفع حاجب</span>. <b>"حتى بدون موافقة الزوج" = أقوى لحظة بالسكريبت كله</b> — <span class="fd-good">نبرة حازمة وحاسمة</span>. <span class="fd-warn">لو قالتها عادي = وقّفها وقوللها: "هاي أهم جملة — قوليها بثقة"</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:27-0:40 — الحقوق:</span> "ونفقة الأطفال؟" = <span class="fd-good">وقفة تبني ترقب</span>. "ما لها علاقة بالخلع" = <span class="fd-good">حازمة + تطمينية</span>. هالجزء يطمّن الأمهات</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:40-0:50 — CTA:</span> <span class="fd-good">نبرة دافية وتشجيعية + ابتسامة</span>. أهدأ من باقي الفيديو</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ الفرق عن فيديو #2:</span> الطلاق = عندها دليل ضرر. الخلع = <b>ما عندها دليل بس تبي تطلع</b>. وجّه ندى إن النبرة هنا أكثر "تمكين" — "ما تحتاجين إذنه"</div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 4 - Ohoud - Cheques Creditor ===== -->
+<div class="script-card" id="s2">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #4 — تنفيذ الشيكات (الدائن)</h2>
+    <span class="person-badge badge-ohoud">عهود</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 45-60 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~112 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v4</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> حقوق الدائن في تنفيذ شيك مرتجع</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">عندك شيك مرتجع ومش عارف كيف تاخذ فلوسك؟ القانون صار بصفّك.</div>
+      <div class="direction">كلوز أب، نبرة واثقة ومطمئنة — التركيز على "صار بصفّك"</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا عهود، من مركز إتمام للخدمات القضائية.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 متى يحق لك (0:07 – 0:14)</div>
+      <div class="dialogue">من 2022، الشيك في الإمارات صار <b>سند تنفيذي</b> — يعني لو البنك رفض يصرف شيكك، تقدر تنفّذه مباشرة بدون قضية وبدون شرطة.</div>
+      <div class="direction">نصوص شاشة: ❌ عدم كفاية رصيد | ❌ حساب مغلق | ❌ تجميد رصيد</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:14 – 0:28)</div>
+      <div class="dialogue">والخطوات بسيطة:<br>أول شي، تاخذ <b>شهادة رفض</b> من البنك — ورقة تثبت إن الشيك ما انصرف.<br>ثاني شي، تجهّز الشيك الأصلي وهويتك، ولو الشيك بغير العربي تترجمه <b>ترجمة معتمدة</b>.<br>ثالث شي، تقدّم طلب تنفيذ عن طريق <b>مركز إتمام</b> — واحنا نتكفل بكل شي.</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 الحقوق (0:28 – 0:47)</div>
+      <div class="dialogue">وبعد ما تقدّم الطلب، من حقك تطلب:<br><b>حجز أموال</b> المدين — حساباته وأملاكه.<br>و<b>منع من السفر</b> — عشان ما يطلع من البلد قبل ما يسدد.<br>والمهم: المدين عنده <b>مهلة</b> يسدد، وإذا ما سدد — التنفيذ الجبري يبدأ.</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:47 – 0:55)</div>
+      <div class="dialogue">عندك شيك مرتجع؟ كلّم مركز إتمام، واحنا نبدأ معك من أول خطوة.</div>
+      <div class="direction">ابتسامة + شعار إتمام + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    عندك شيك مرتجع ومش عارف كيف تاخذ فلوسك؟ القانون صار بصفّك. أنا عهود، من مركز إتمام للخدمات القضائية. من 2022، الشيك في الإمارات صار سند تنفيذي — يعني لو البنك رفض يصرف شيكك، تقدر تنفّذه مباشرة بدون قضية وبدون شرطة. والخطوات بسيطة: أول شي، تاخذ شهادة رفض من البنك — ورقة تثبت إن الشيك ما انصرف. ثاني شي، تجهّز الشيك الأصلي وهويتك، ولو الشيك بغير العربي تترجمه ترجمة معتمدة. ثالث شي، تقدّم طلب تنفيذ عن طريق مركز إتمام — واحنا نتكفل بكل شي. وبعد ما تقدّم الطلب، من حقك تطلب: حجز أموال المدين — حساباته وأملاكه. ومنع من السفر — عشان ما يطلع من البلد قبل ما يسدد. والمهم: المدين عنده مهلة يسدد، وإذا ما سدد — التنفيذ الجبري يبدأ. عندك شيك مرتجع؟ كلّم مركز إتمام، واحنا نبدأ معك من أول خطوة.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> عندك شيك مرتجع ومش عارف كيف تاخذ فلوسك؟ القانون صار بصفّك.</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> تعرف إنك تقدر تحجز أموال اللي أعطاك شيك بدون رصيد؟ بدون ما ترفع قضية.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> قبل كنت تحتاج شرطة ونيابة عشان شيك مرتجع — اليوم ثلاث خطوات بس وتاخذ فلوسك.</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> شيك بدون رصيد؟ القانون الإماراتي يعطيك حجز أموال ومنع سفر — مباشرة.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>Hook:</b> نبرة "أنا بساعدك" مش تخويف</div>
+    <div class="note-item">• <b>مشهد 3:</b> ركّزي على "مباشرة" و"بدون شرطة" — معلومة جديدة على الناس</div>
+    <div class="note-item">• <b>مشهد 4:</b> وقفة خفيفة بين كل خطوة</div>
+    <div class="note-item">• <b>مشهد 5:</b> نبرة أقوى عند "حجز أموال" و"منع سفر"</div>
+    <div class="note-item">• <b>CTA:</b> ابتسامة + نبرة دافئة</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #4</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    عهود هنا تحكي لشخص <b>ضايعة فلوسه</b> ومش عارف وش يسوي. الجو: <b>"أنا بساعدك تاخذ حقك"</b> — واثقة ومطمئنة، مش تخويف.<br>
+    الفيديو فيه معلومة جديدة على أغلب الناس (الشيك صار سند تنفيذي من 2022) — لازم تقولها بوضوح
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> "القانون صار بصفّك" = <span class="fd-good">نبرة واثقة ومطمئنة</span>. التركيز على كلمة "بصفّك" — <span class="fd-warn">مش تخويف</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:07-0:14 — سند تنفيذي:</span> <b>"بدون قضية وبدون شرطة"</b> = <span class="fd-good">أهم معلومة — قوللها تأكد عليها</span>. هاي اللي بتفاجئ المشاهد. لو قالتها عادي بدون تأكيد = <span class="fd-warn">أعد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:14-0:28 — الخطوات:</span> 3 خطوات — <span class="fd-good">عدّ بالأصابع + وقفة بين كل خطوة</span>. "واحنا نتكفل بكل شي" = <span class="fd-good">ابتسامة خفيفة — هاي الـ sell</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:28-0:47 — الحقوق:</span> <span class="fd-good">"حجز أموال" و"منع من السفر" = نبرة أقوى</span> — بدون ما يكون تخويف. مجرد حقائق</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ نبرة عهود:</span> في هالفيديو عهود = "المحامية اللي تساعدك". واثقة ومنظمة. لو صارت تحكي بسرعة أو بنبرة رتيبة = وقّفها وقوللها: "احكي كأنك تنصحي صديقتك"</div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 5 - Fadi - Cheques Debtor ===== -->
+<div class="script-card" id="s3">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #5 — تنفيذ الشيكات (المدين)</h2>
+    <span class="person-badge badge-fadi">فادي</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 45-50 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~105 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v4</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> خيارات المدين القانونية</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">عليك شيك مرتجع وخايف من التنفيذ؟ القانون الإماراتي الجديد يحميك — وصار عندك خيارات قانونية واضحة.</div>
+      <div class="direction">كلوز أب، تعبير جدّي ومتعاطف</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا فادي من مركز إتمام، وبقولك إيش خياراتك القانونية.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 الخيارات (0:07 – 0:23)</div>
+      <div class="dialogue">عندك أربع خيارات:<br>أولاً: <b>السداد الكامل</b> — تدفع وتُقفل القضية ويُرفع المنع والحجز.<br>ثانياً: <b>التقسيط</b> — تطلب من القاضي جدولة المبلغ حسب دخلك.<br>ثالثاً: <b>المهلة</b> — لو عندك مبلغ بيوصلك قريب، تطلب مهلة للسداد.</div>
+      <div class="direction">أرقام 1، 2، 3 تظهر مع كل خيار — عدّ بالأصابع</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 الحقوق (0:23 – 0:38)</div>
+      <div class="dialogue">ورابعاً: <b>الاعتراض</b> — لو الشيك فيه خطأ، أو سبق ودفعت، أو انتهت مدة المطالبة، تقدر تعترض خلال سبعة أيام عمل.<br>وتذكّر — ما يُحجز أكثر من <b>ربع راتبك</b>، واللي يثبت إنه ما يقدر يدفع ما يُحبس.</div>
+      <div class="direction">كابشن مميز: "ما يُحجز أكثر من ¼ الراتب"</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:38 – 0:48)</div>
+      <div class="dialogue">لا تنتظر لين يصير الوضع أصعب. تواصل مع مركز إتمام ونساعدك تختار الخطوة الصح.</div>
+      <div class="direction">ابتسامة خفيفة + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    عليك شيك مرتجع وخايف من التنفيذ؟ القانون الإماراتي الجديد يحميك — وصار عندك خيارات قانونية واضحة. أنا فادي من مركز إتمام، وبقولك إيش خياراتك القانونية. عندك أربع خيارات: أولاً: السداد الكامل — تدفع وتُقفل القضية ويُرفع المنع والحجز. ثانياً: التقسيط — تطلب من القاضي جدولة المبلغ حسب دخلك. ثالثاً: المهلة — لو عندك مبلغ بيوصلك قريب، تطلب مهلة للسداد. ورابعاً: الاعتراض — لو الشيك فيه خطأ، أو سبق ودفعت، أو انتهت مدة المطالبة، تقدر تعترض خلال سبعة أيام عمل. وتذكّر — ما يُحجز أكثر من ربع راتبك، واللي يثبت إنه ما يقدر يدفع ما يُحبس. لا تنتظر لين يصير الوضع أصعب. تواصل مع مركز إتمام ونساعدك تختار الخطوة الصح.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> عليك شيك مرتجع وخايف من التنفيذ؟ القانون الإماراتي الجديد يحميك.</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> عليك شيك مرتجع؟ القانون يعطيك أربع خيارات — وأكثر من واحد منها يحميك.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> وصلك إعلان تنفيذ بسبب شيك وما تدري وش تسوي؟ القانون الجديد يحميك أكثر مما تتوقع.</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> تعرف إن القانون الإماراتي يمنع حجز أكثر من ربع راتبك؟ ولو ما تقدر تدفع — ما يحق لأحد يحبسك.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>النبرة:</b> متعاطفة وواثقة — تنصح صديق مو تقرأ قانون</div>
+    <div class="note-item">• <b>حركة اليدين:</b> عدّ بالأصابع مع كل خيار (1، 2، 3، 4)</div>
+    <div class="note-item">• <b>وقفات:</b> توقف قصير بين كل خيار</div>
+    <div class="note-item">• <b>لحظة مفتاحية:</b> "ما يُحجز أكثر من ربع الراتب" — تعبير مطمئن + إيماءة</div>
+    <div class="note-item">• <b>⚠️ محذوف:</b> لا تذكر الحبس الجزائي — الفيديو عن التنفيذ المدني فقط</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #5</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    الفيديو ده عكس فيديو عهود — هنا الشخص <b>خايف ومديون</b>. فادي لازم يكون <b>متعاطف ومطمئن</b> مش حاكم عليه. النبرة: "ما تخاف — عندك خيارات".<br>
+    ⚠️ أصعب فيديو بالأداء — لأن لازم يوازن بين التعاطف والمهنية
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> "خايف من التنفيذ؟" = <span class="fd-good">تعبير جدي ومتعاطف — يفهم خوفه</span>. "يحميك" = <span class="fd-good">نبرة مطمئنة</span>. <span class="fd-warn">ممنوع يكون الـ hook مخيف أكثر — هدفه يطمّن</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:07-0:23 — الخيارات الأربعة:</span> <span class="fd-good">عدّ بالأصابع (1، 2، 3، 4) + وقفة بين كل خيار</span>. كل خيار لازم يحس إنه "باب أمل". <span class="fd-warn">لو حكاهم كلهم ورا بعض بدون وقفات = أعد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:23-0:38 — الحقوق:</span> <b>"ما يُحجز أكثر من ربع راتبك"</b> = <span class="fd-good">أهم لحظة — تعبير مطمئن + إيماءة "لا تخاف"</span>. "ما يُحبس" = <span class="fd-good">مطمئنة جداً</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:38-0:48 — CTA:</span> "لا تنتظر لين يصير الوضع أصعب" = <span class="fd-good">نبرة ناصحة مش مخيفة</span>. ابتسامة خفيفة</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ تنبيه مهم:</span> لا نذكر الحبس الجزائي — الفيديو عن التنفيذ المدني فقط. لو فادي أضاف أي شي من عنده عن الحبس = <b>وقّفه فوراً</b></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 6 - Abdullah - Civil Claims ===== -->
+<div class="script-card" id="s4">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #6 — المطالبات المدنية</h2>
+    <span class="person-badge badge-abdullah">عبدالله</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 45-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~115 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v4</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> التوفيق والمصالحة قبل المحكمة</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">واحد عليه لك فلوس وما يبي يدفع… تدري إيش أول خطوة قانونية؟</div>
+      <div class="direction">كلوز أب، تعبير استفهام مباشر، نبرة حادة وسريعة</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا عبدالله من مركز إتمام، وبوريك الطريق.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 الموضوع (0:07 – 0:14)</div>
+      <div class="dialogue">في الإمارات، سواء حقك من عقد أو تعويض عن ضرر — القانون المحدَّث يلزمك تمر بمرحلة <b>التوفيق والمصالحة</b> قبل ما تروح المحكمة.</div>
+      <div class="direction">نص شاشة: "⚖️ التوفيق والمصالحة = خطوة إلزامية"</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:14 – 0:30)</div>
+      <div class="dialogue">الموضوع بسيط:<br>أول شي — تقدم طلبك عن طريق مركز إتمام.<br>ثاني شي — يُعيَّن لك موفِّق يسمع الطرفين ويحاول يوصّلكم لاتفاق.<br>والمركز يحدد المدة حسب القضية.</div>
+      <div class="direction">خطوات مرقمة: 1️⃣ طلب → 2️⃣ موفِّق → ⏱️ المدة حسب القضية</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 التفاصيل (0:30 – 0:45)</div>
+      <div class="dialogue">لو اتفقتوا — محضر الصلح يصير <b>سند تنفيذي</b>، يعني تقدر تنفّذه على طول بدون محكمة.<br>لو ما صار اتفاق — يطلع محضر عدم صلح، وقضيتك تروح المحكمة المدنية.</div>
+      <div class="direction">سبليت شاشة: ✅ تسوية → تنفيذ (أخضر) | ❌ فشل → محكمة (أزرق)</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:45 – 0:53)</div>
+      <div class="dialogue">عندك مطالبة مدنية وتبي تعرف حقك؟ تواصل مع مركز إتمام — نساعدك من أول خطوة لين تاخذ حقك.</div>
+      <div class="direction">ابتسامة + شعار إتمام بارز + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    واحد عليه لك فلوس وما يبي يدفع… تدري إيش أول خطوة قانونية؟ أنا عبدالله من مركز إتمام، وبوريك الطريق. في الإمارات، سواء حقك من عقد أو تعويض عن ضرر — القانون المحدَّث يلزمك تمر بمرحلة التوفيق والمصالحة قبل ما تروح المحكمة. الموضوع بسيط: أول شي — تقدم طلبك عن طريق مركز إتمام. ثاني شي — يُعيَّن لك موفِّق يسمع الطرفين ويحاول يوصّلكم لاتفاق. والمركز يحدد المدة حسب القضية. لو اتفقتوا — محضر الصلح يصير سند تنفيذي، يعني تقدر تنفّذه على طول بدون محكمة. لو ما صار اتفاق — يطلع محضر عدم صلح، وقضيتك تروح المحكمة المدنية. عندك مطالبة مدنية وتبي تعرف حقك؟ تواصل مع مركز إتمام — نساعدك من أول خطوة لين تاخذ حقك.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> واحد عليه لك فلوس وما يبي يدفع… تدري إيش أول خطوة قانونية؟</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> كثير ناس تضيّع حقها لأنها ما تدري إن في خطوة قبل المحكمة.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> تدري إنك ممكن تسترد فلوسك بدون ما تدخل محكمة أصلاً؟</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> عقد ما اتنفّذ؟ فلوس ضايعة؟ القانون المحدَّث في الإمارات يحميك.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>Hook:</b> حادة وسريعة — سؤال مباشر يشد الانتباه</div>
+    <div class="note-item">• <b>مشهد 3:</b> "التوفيق والمصالحة" كلمة مفتاحية — إيقاع توضيحي</div>
+    <div class="note-item">• <b>مشهد 4:</b> وقفات بين الخطوات + إيماءات يد بسيطة</div>
+    <div class="note-item">• <b>مشهد 5:</b> مطمئن عند التسوية، جدي عند المحكمة — تغيير نبرة</div>
+    <div class="note-item">• <b>CTA:</b> أبطأ من باقي المشاهد — ابتسامة صادقة</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #6</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    عبدالله يحكي لشخص <b>ضايع حقه ومش عارف من وين يبدأ</b>. النبرة: مباشرة وعملية — "بوريك الطريق". الجو: <b>ثقة + بساطة</b>.<br>
+    الفيديو فيه مفهوم جديد (التوفيق والمصالحة) — لازم يشرحه ببساطة
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> سؤال مباشر: "واحد عليه لك فلوس…" = <span class="fd-good">نبرة حادة وسريعة + تعبير استفهام</span>. الهدف: المشاهد يقول "أيوا هذا أنا!"</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:07-0:14 — التوفيق والمصالحة:</span> <span class="fd-good">"التوفيق والمصالحة" = يقولها بإيقاع توضيحي</span> — كأنه يعرّف المشاهد بمصطلح جديد. مش يقرأها بسرعة</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:14-0:30 — الخطوات:</span> <span class="fd-good">وقفات بين الخطوات + إيماءات يد بسيطة</span>. "يسمع الطرفين" = نبرة عادلة</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:30-0:45 — النتائج:</span> سبليت بين نتيجتين: اتفاق ✅ = <span class="fd-good">نبرة مطمئنة</span> | ما صار اتفاق ❌ = <span class="fd-good">نبرة جدية بس مش مخيفة</span>. "سند تنفيذي" = <span class="fd-good">تأكيد — معلومة قوية</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:45-0:53 — CTA:</span> <span class="fd-good">أبطأ من باقي الفيديو — ابتسامة صادقة</span></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 7 - Ohoud - Commercial Claims ===== -->
+<div class="script-card" id="s5">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #7 — المطالبات التجارية</h2>
+    <span class="person-badge badge-ohoud">عهود</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 45-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~120 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v4</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> ذمم مالية عالقة + أمر أداء + صياغة عقود</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">شركة تأخرت تدفع لك؟ لا تنتظر… القانون يرجّع لك فلوسك.</div>
+      <div class="direction">كلوز أب، تعبير جاد وواثق، إيقاع سريع</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا عهود من مركز إتمام، وبكلمك عن المطالبات التجارية.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 متى يحق لك (0:07 – 0:14)</div>
+      <div class="dialogue">لو شركتك عندها ذمم مالية عالقة — فواتير ما تسددت، أو طرف أخلّ بالعقد — من حقك تطالب وتاخذ فلوسك.</div>
+      <div class="direction">رسوم: فاتورة معلقة + عقد مكسور + علامة ✅</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:14 – 0:28)</div>
+      <div class="dialogue">الخطوات واضحة:<br>أول شي — جهّز مستنداتك: العقد، الفواتير، وأي مراسلات.<br>ثاني شي — أرسل إنذار رسمي عن طريق كاتب العدل.<br>ثالث شي — لو ما استجاب… نقيّد الدعوى بالمحكمة التجارية.</div>
+      <div class="direction">نص مرقّم مع أيقونات (مستندات، إنذار، محكمة) — وقفة بين كل خطوة</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 التفاصيل (0:28 – 0:45)</div>
+      <div class="dialogue">ولو الدين واضح ومحدد المبلغ، في طريق مختصر اسمه <b>"أمر الأداء"</b> — تاخذ حقك بأيام بدل أشهر.<br>والأهم: العقد القوي هو اللي يحميك من البداية. إذا ما عندك عقد واضح — نساعدك نصيغه صح.</div>
+      <div class="direction">تركيز على "أيام بدل أشهر"، نبرة ناصحة عند الصياغة</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:45 – 0:55)</div>
+      <div class="dialogue">عندك مطالبة تجارية أو تبي تحمي شركتك بعقود واضحة؟ كلّم مركز إتمام.</div>
+      <div class="direction">ابتسامة + شعار إتمام بارز + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    شركة تأخرت تدفع لك؟ لا تنتظر… القانون يرجّع لك فلوسك. أنا عهود من مركز إتمام، وبكلمك عن المطالبات التجارية. لو شركتك عندها ذمم مالية عالقة — فواتير ما تسددت، أو طرف أخلّ بالعقد — من حقك تطالب وتاخذ فلوسك. الخطوات واضحة: أول شي — جهّز مستنداتك: العقد، الفواتير، وأي مراسلات. ثاني شي — أرسل إنذار رسمي عن طريق كاتب العدل. ثالث شي — لو ما استجاب… نقيّد الدعوى بالمحكمة التجارية. ولو الدين واضح ومحدد المبلغ، في طريق مختصر اسمه "أمر الأداء" — تاخذ حقك بأيام بدل أشهر. والأهم: العقد القوي هو اللي يحميك من البداية. إذا ما عندك عقد واضح — نساعدك نصيغه صح. عندك مطالبة تجارية أو تبي تحمي شركتك بعقود واضحة؟ كلّم مركز إتمام.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> شركة تأخرت تدفع لك؟ لا تنتظر… القانون يرجّع لك فلوسك.</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> فلوسك عند شركة ومش راضية تسدد؟ في طريق مختصر تاخذ حقك بأيام.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> فواتير معلقة وما أحد يرد عليك؟ القانون الإماراتي يحميك.</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> أكبر غلطة تسوّيها الشركات؟ إنها ما تصيغ عقودها صح من البداية.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>Hook:</b> حازمة من أول كلمة، إيقاع سريع</div>
+    <div class="note-item">• <b>الخطوات:</b> واثقة ومنظمة — وقفة بين كل خطوة</div>
+    <div class="note-item">• <b>"أيام بدل أشهر":</b> تركيز صوتي — هذي اللحظة المفتاحية</div>
+    <div class="note-item">• <b>الصياغة:</b> نبرة ناصحة — ربط الحماية بالعقد</div>
+    <div class="note-item">• <b>CTA:</b> دافئة وتطمينية، إيقاع أبطأ</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #7</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    عهود هنا تحكي <b>لصاحب شركة</b> — النبرة أكثر مهنية من فيديو الشيكات. الجو: <b>حازمة ومنظمة</b> — "اعرف حقك وخذه".<br>
+    الفيديو فيه "أمر الأداء" — مصطلح مهم لازم يوصل واضح
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> "لا تنتظر…" = <span class="fd-good">حازمة من أول كلمة — إيقاع سريع</span>. كأنها تنبّه صاحب شركة يتأخر</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:14-0:28 — الخطوات:</span> 3 خطوات بإيقاع واضح. <span class="fd-good">"لو ما استجاب…" = وقفة قصيرة ثم "نقيّد الدعوى"</span> — تصعيد بالنبرة</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:28-0:45 — أمر الأداء:</span> <b>"أيام بدل أشهر" = اللحظة المفتاحية</b> — <span class="fd-good">تركيز صوتي + وقفة بعدها</span>. <span class="fd-warn">لو مرّت عليها بسرعة = أعد التيك</span>. بعدها "العقد القوي" = <span class="fd-good">نبرة ناصحة — كأنها تعطي نصيحة ذهبية</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:45-0:55 — CTA:</span> <span class="fd-good">دافئة وتطمينية — إيقاع أبطأ من باقي الفيديو</span></div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ الفرق عن فيديو #4:</span> فيديو الشيكات = شخص عادي ضايعة فلوسه. هنا = <b>صاحب شركة أو رجل أعمال</b>. النبرة أكثر مهنية واحترافية</div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 8 - Ohoud - Notary ===== -->
+<div class="script-card" id="s6">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #8 — خدمات كاتب العدل</h2>
+    <span class="person-badge badge-ohoud">عهود</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 50-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~110 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v3 (محدّثة)</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> وكالات، تنازلات، اعتماد توقيعات، إقرارات</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">عليك قضية ومحتاج حد يمثلك؟ أو عندك عقار وتبي حد يديره عنك؟</div>
+      <div class="direction">كلوز أب، نبرة مباشرة وعملية، إيقاع سريع</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا عهود من مركز إتمام، وبسهّل عليك كل شي.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 المواقف (0:07 – 0:14)</div>
+      <div class="dialogue">سواء تبي وكالة قضائية لمحامي يترافع عنك، أو وكالة لشخص يدير عقارك…</div>
+      <div class="direction">أيقونات: ميزان عدل 🏛️ + مبنى 🏢</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخدمات (0:14 – 0:25)</div>
+      <div class="dialogue">أو حتى محتاج تتنازل عن قضية — كل هذي خدمات كاتب العدل. وكالات، تنازلات، <b>اعتماد توقيعات</b>، إقرارات… كلها نسويها لك.</div>
+      <div class="direction">قائمة بعلامات ✓ تظهر تباعاً — التشديد على "كلها نسويها لك"</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 السهولة (0:25 – 0:45)</div>
+      <div class="dialogue">والأحلى؟ ما تحتاج تروح وتجي. بس أرسل لنا الأوراق المطلوبة واحنا بنقوم بكل شي — من الصياغة للتوثيق الرسمي — <b>وأنت في مكانك</b>. كل ورقة نوثقها تصير لها <b>قوة قانونية كاملة</b> ما يقدر أحد ينكرها.</div>
+      <div class="direction">وقفة بعد "والأحلى؟" لخلق تشويق — تشديد على "وأنت في مكانك"</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:45 – 0:55)</div>
+      <div class="dialogue">أرسل لنا أوراقك وخلّنا نتكفّل بالباقي. تواصل مع مركز إتمام الحين.</div>
+      <div class="direction">ابتسامة ودية + شعار إتمام + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    عليك قضية ومحتاج حد يمثلك؟ أو عندك عقار وتبي حد يديره عنك؟ أنا عهود من مركز إتمام، وبسهّل عليك كل شي. سواء تبي وكالة قضائية لمحامي يترافع عنك، أو وكالة لشخص يدير عقارك… أو حتى محتاج تتنازل عن قضية — كل هذي خدمات كاتب العدل. وكالات، تنازلات، اعتماد توقيعات، إقرارات… كلها نسويها لك. والأحلى؟ ما تحتاج تروح وتجي. بس أرسل لنا الأوراق المطلوبة واحنا بنقوم بكل شي — من الصياغة للتوثيق الرسمي — وأنت في مكانك. كل ورقة نوثقها تصير لها قوة قانونية كاملة ما يقدر أحد ينكرها. أرسل لنا أوراقك وخلّنا نتكفّل بالباقي. تواصل مع مركز إتمام الحين.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> عليك قضية ومحتاج حد يمثلك؟ أو عندك عقار وتبي حد يديره عنك؟</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> داخل شريك في مشروع وما وثّقت شي؟ هذي أكبر غلطة ممكن تسويها.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> محتاج تتنازل عن قضية أو تسوي وكالة وما عندك وقت تروح وتجي؟</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> وكالات، تنازلات، اعتمادات… كل هذا نسويه لك وأنت في مكانك.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>النبرة:</b> عملية ومباشرة — "لا تشيل هم"</div>
+    <div class="note-item">• <b>"والأحلى؟":</b> وقفة! تشويق — ثم "وأنت في مكانك" هي الـ payoff</div>
+    <div class="note-item">• <b>الخدمات:</b> تعداد بالأصابع — "كلها نسويها لك"</div>
+    <div class="note-item">• <b>⚠️ تصحيح:</b> نقول "اعتماد توقيعات" مش "تصديق توقيعات"</div>
+    <div class="note-item">• <b>⚠️ تصحيح:</b> لا نقول "توثيق عقود" — الكاتب العدل لا يوثق عقود</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #8</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    الفيديو ده <b>أخف</b> من باقي فيديوهات عهود — مفيش نزاع ومفيش خوف. مجرد خدمات عملية. النبرة: <b>عملية ومباشرة وودية</b> — "بسهّل عليك كل شي".<br>
+    الـ sell هنا هو <b>الراحة</b>: "وأنت في مكانك"
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> سؤالين متتاليين = <span class="fd-good">إيقاع سريع ومباشر</span>. مش لازم تكون حادة — <span class="fd-good">عملية أكثر</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:14-0:25 — الخدمات:</span> تعداد: وكالات، تنازلات، اعتماد توقيعات، إقرارات = <span class="fd-good">تعداد بالأصابع</span>. "كلها نسويها لك" = <span class="fd-good">ابتسامة</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:25-0:45 — السهولة:</span> <b>"والأحلى؟" = pattern interrupt</b> — <span class="fd-good">وقفة تشويقية!</span> ثم "وأنت في مكانك" = <span class="fd-good">الـ payoff — نبرة مريحة</span>. "قوة قانونية كاملة" = <span class="fd-good">تأكيد جدي وسط الجو الخفيف</span></div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ تصحيحات لغوية مهمة:</span> نقول <b>"اعتماد توقيعات"</b> مش "تصديق توقيعات". <b>لا نقول "توثيق عقود"</b> — كاتب العدل لا يوثق عقود. <span class="fd-warn">لو عهود قالت أي منهم = وقّفها وصحّح</span></div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 9 - Sara - Settlements ===== -->
+<div class="script-card" id="s7">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #9 — التسويات الودية</h2>
+    <span class="person-badge badge-ahmed">أحمد</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 45-50 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~105 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v5</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> حل نزاعات الشركاء بقوة القانون</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:04)</div>
+      <div class="dialogue">مشكلة مع شريكك وخايف توصل المحاكم؟ فيه حل أسرع وأقوى.</div>
+      <div class="direction">كلوز أب، نظرة مباشرة، تعبير واثق ومطمئن</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:04 – 0:07)</div>
+      <div class="dialogue">أنا أحمد من مركز إتمام للخدمات القضائية.</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 الموضوع (0:07 – 0:14)</div>
+      <div class="dialogue">سواء نزاعك مع شريك أو شركة — عندنا <b>نخبة من القانونيين</b> يساعدونك توصل لاتفاق عادل.</div>
+      <div class="direction">رسم: طرفين بينهم موفّق — التأكيد على "نخبة"</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:14 – 0:25)</div>
+      <div class="dialogue">الخطوات بسيطة:<br>أولاً، تقدّم طلبك إلكترونياً أو حضورياً.<br>ثانياً، يُعيّن لك موفّق متخصص يسمع الطرفين ويقرّب بينهم.<br>ثالثاً، لو اتفقتوا — تُوثَّق الاتفاقية رسمياً من خلال المحكمة.</div>
+      <div class="direction">تعداد رقمي (1، 2، 3) مع أيقونات بسيطة</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 المزايا (0:25 – 0:40)</div>
+      <div class="dialogue">وأهم شي؟ هذي الاتفاقية لها <b>قوة حكم المحكمة</b> — يعني تُنفَّذ مباشرة بدون قضية جديدة.<br>وتقدر تحل نزاعك حتى عن بُعد بجلسة فيديو.</div>
+      <div class="direction">واثقة — التركيز على "قوة حكم المحكمة". يبطّئ قليلاً.</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:40 – 0:50)</div>
+      <div class="dialogue">عندك نزاع مع شريك أو شركة؟ تواصل مع مركز إتمام — نحله لك بسرعة وبقوة القانون.</div>
+      <div class="direction">ابتسامة + شعار إتمام + معلومات التواصل</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    مشكلة مع شريكك وخايف توصل المحاكم؟ فيه حل أسرع وأقوى. أنا أحمد من مركز إتمام للخدمات القضائية. سواء نزاعك مع شريك أو شركة — عندنا نخبة من القانونيين يساعدونك توصل لاتفاق عادل. الخطوات بسيطة: أولاً، تقدّم طلبك إلكترونياً أو حضورياً. ثانياً، يُعيّن لك موفّق متخصص يسمع الطرفين ويقرّب بينهم. ثالثاً، لو اتفقتوا — تُوثَّق الاتفاقية رسمياً من خلال المحكمة. وأهم شي؟ هذي الاتفاقية لها قوة حكم المحكمة — يعني تُنفَّذ مباشرة بدون قضية جديدة. وتقدر تحل نزاعك حتى عن بُعد بجلسة فيديو. عندك نزاع مع شريك أو شركة؟ تواصل مع مركز إتمام — نحله لك بسرعة وبقوة القانون.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> مشكلة مع شريكك وخايف توصل المحاكم؟ فيه حل أسرع وأقوى.</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> اتفاقية بقوة حكم المحكمة… من غير ما تطول عليك الإجراءات.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> نزاع مع شريك؟ ممكن ينحل بأسابيع — بسرية تامة.</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> خلاف تجاري؟ تسوية ودية بقوة القانون — تواصل مع إتمام.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>النبرة:</b> واثقة، مهنية، مُطمئنة — "فيه حل سهل"</div>
+    <div class="note-item">• <b>"قوة حكم المحكمة":</b> أهم لحظة — إبطاء خفيف + تركيز</div>
+    <div class="note-item">• <b>الخطوات:</b> تعداد بالأصابع، إيقاع واضح</div>
+    <div class="note-item">• <b>⚠️ v5:</b> لا نقول "بدون محكمة" — التسوية جزء من المنظومة القضائية</div>
+    <div class="note-item">• <b>CTA:</b> دافئة وتشجيعية</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #9</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    أحمد يحكي لشخص <b>عنده مشكلة مع شريكه</b> وخايف توصل المحاكم. الجو: <b>واثق ومطمئن ومهني</b> — "فيه حل أسرع". أحمد = الشخص اللي يعرف الحل وبيوريك إياه.<br>
+    ⚠️ لا نقول "بدون محكمة" — التسوية جزء من المنظومة القضائية
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:04 — HOOK:</span> "خايف توصل المحاكم؟" = <span class="fd-good">يفهم الخوف</span>. "أسرع وأقوى" = <span class="fd-good">واثق — عنده الحل</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:07-0:14 — الموضوع:</span> "نخبة من القانونيين" = <span class="fd-good">تأكيد على الجودة — مش أي حد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:14-0:25 — الخطوات:</span> 3 خطوات = <span class="fd-good">تعداد بالأصابع + إيقاع واضح</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:25-0:40 — المزايا:</span> <b>"قوة حكم المحكمة" = أهم لحظة</b> — <span class="fd-good">إبطاء خفيف + تركيز</span>. <span class="fd-warn">لو قالها بسرعة = أعد</span>. "حتى عن بُعد" = <span class="fd-good">ميزة إضافية — نبرة خفيفة</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:40-0:50 — CTA:</span> <span class="fd-good">دافئة وتشجيعية</span>. "بقوة القانون" = كلمة ختامية قوية</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ تنبيه:</span> أحمد عنده فيديوهين (#9 و #10). هالفيديو = <b>هادئ وواثق</b>. الفيديو الجاي (#10) = <b>عاجل ومُلح</b>. لازم يفهم الفرق بالنبرة</div>
+  </div>
+</div>
+</div>
+
+<!-- ===== VIDEO 10 - Khaled - Criminal Absence ===== -->
+<div class="script-card" id="s8">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h2 style="color:#ffd700">فيديو #10 — الأحكام الغيابية (المعارضة)</h2>
+    <span class="person-badge badge-ahmed">أحمد</span>
+  </div>
+  <div class="meta">
+    <div class="meta-item"><span class="label">المدة:</span> 50-55 ثانية</div>
+    <div class="meta-item"><span class="label">الكلمات:</span> ~128 كلمة</div>
+    <div class="meta-item"><span class="label">النسخة:</span> v4</div>
+    <div class="meta-item"><span class="label">الفكرة:</span> حكم غيابي جزائي — 7 أيام للمعارضة</div>
+  </div>
+  <div class="section">
+    <div class="section-title">📝 المشاهد</div>
+    <div class="scene hook">
+      <div class="scene-label hook-label">🔴 HOOK (0:00 – 0:05)</div>
+      <div class="dialogue">حكم غيابي صدر ضدك؟ عندك <b>7 أيام بس</b> قبل ما تخسر حقك.</div>
+      <div class="direction">كلوز أب، نظرة جادة مباشرة. نص "7 أيام فقط" بخط أحمر عريض. نبرة حازمة وصادمة.</div>
+    </div>
+    <div class="scene intro">
+      <div class="scene-label">🟡 تعريف (0:05 – 0:09)</div>
+      <div class="dialogue">أنا أحمد من مركز إتمام بالشارقة، وبقولك إيش تسوّي.</div>
+      <div class="direction">ودود وواثق — انتقال من الصدمة للطمأنينة</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🟢 الموضوع (0:09 – 0:22)</div>
+      <div class="dialogue">لو صدر حكم جزائي ضدك وأنت ما حضرت الجلسة، هذا اسمه <b>حكم غيابي</b>. والمشرع الإماراتي يعطيك حق تطعن عن طريق <b>المعارضة</b>.</div>
+      <div class="direction">وقفة بعد "حكم غيابي" لتثبيت المصطلح. تركيز على "المشرع الإماراتي" و"المعارضة".</div>
+    </div>
+    <div class="scene content">
+      <div class="scene-label">🔵 الخطوات (0:22 – 0:37)</div>
+      <div class="dialogue">إيش الخطوات؟<br>أولاً، قدّم معارضة خلال <b>7 أيام</b> من تاريخ علمك بالحكم.<br>ثانياً، المحكمة تحدد لك جلسة جديدة.<br>ثالثاً، القاضي ينظر قضيتك من جديد كأنها أول مرة.</div>
+      <div class="direction">عدّ بالأصابع (1، 2، 3). وقفة صغيرة بين كل خطوة. تركيز على "7 أيام" و"من جديد".</div>
+    </div>
+    <div class="scene details">
+      <div class="scene-label">🟣 الحقوق والتفاصيل (0:37 – 0:49)</div>
+      <div class="dialogue"><b>المادة 229</b> من قانون الإجراءات الجزائية أعطاك الصلاحية إنك تعيد محاكمتك. بس انتبه، الـ 7 أيام تبدأ من لحظة ما تعرف بالحكم — مش من تاريخ صدوره. <b>لا تأجّل</b>، لأن كل يوم تأخير ممكن يضيّع عليك فرصتك.</div>
+      <div class="direction">جادة ومُلحّة. نظرة مباشرة عند "لا تأجّل". وقفة درامية قبل "فرصتك".</div>
+    </div>
+    <div class="scene cta">
+      <div class="scene-label cta-label">🔴 CTA (0:49 – 0:55)</div>
+      <div class="dialogue">صدر حكم غيابي ضدك؟ لا تضيّع الـ 7 أيام. تواصل مع مركز إتمام للخدمات القضائية بالشارقة، ونبدأ إجراءات المعارضة <b>فوراً</b>.</div>
+      <div class="direction">ابتسامة واثقة + شعار إتمام + معلومات التواصل. تركيز على "فوراً" ككلمة ختامية.</div>
+    </div>
+  </div>
+  <div class="fulltext">
+    <div class="fulltext-label">📜 النص المتصل (للتسجيل)</div>
+    حكم غيابي صدر ضدك؟ عندك 7 أيام بس قبل ما تخسر حقك. أنا أحمد من مركز إتمام بالشارقة، وبقولك إيش تسوّي. لو صدر حكم جزائي ضدك وأنت ما حضرت الجلسة، هذا اسمه حكم غيابي. والمشرع الإماراتي يعطيك حق تطعن عن طريق المعارضة. إيش الخطوات؟ أولاً، قدّم معارضة خلال 7 أيام من تاريخ علمك بالحكم. ثانياً، المحكمة تحدد لك جلسة جديدة. ثالثاً، القاضي ينظر قضيتك من جديد كأنها أول مرة. المادة 229 من قانون الإجراءات الجزائية أعطاك الصلاحية إنك تعيد محاكمتك. بس انتبه، الـ 7 أيام تبدأ من لحظة ما تعرف بالحكم — مش من تاريخ صدوره. لا تأجّل، لأن كل يوم تأخير ممكن يضيّع عليك فرصتك. صدر حكم غيابي ضدك؟ لا تضيّع الـ 7 أيام. تواصل مع مركز إتمام للخدمات القضائية بالشارقة، ونبدأ إجراءات المعارضة فوراً.
+  </div>
+  <div class="hooks-section">
+    <div class="hooks-title">🎣 Hooks بديلة (A/B Testing)</div>
+    <div class="hook-option"><span class="hook-label-tag">A ⭐</span> حكم غيابي صدر ضدك؟ عندك 7 أيام بس قبل ما تخسر حقك.</div>
+    <div class="hook-option"><span class="hook-label-tag">B</span> 7 أيام فقط… هذي المدة اللي عندك تعترض على حكم غيابي.</div>
+    <div class="hook-option"><span class="hook-label-tag">C</span> ما حضرت الجلسة وصدر حكم ضدك؟ ما خسرت — لسه عندك فرصة.</div>
+    <div class="hook-option"><span class="hook-label-tag">D</span> المادة 229 تعطيك حق تعيد محاكمتك — بس لازم تتحرك بسرعة.</div>
+  </div>
+  <div class="notes-section">
+    <div class="notes-title">📌 ملاحظات التدريب</div>
+    <div class="note-item">• <b>Hook:</b> حازمة وصادمة — تنبيه حقيقي مش تخويف</div>
+    <div class="note-item">• <b>"7 أيام":</b> تتكرر 3 مرات — في كل مرة بنبرة مختلفة (صدمة → شرح → إلحاح)</div>
+    <div class="note-item">• <b>"لا تأجّل":</b> أقوى لحظة — نظرة مباشرة + وقفة درامية</div>
+    <div class="note-item">• <b>مشهد 5:</b> يبدأ هادئ (المادة القانونية) ويتسارع تدريجياً (التحذير)</div>
+    <div class="note-item">• <b>"فوراً":</b> الكلمة الختامية — واثقة ومطمئنة</div>
+    <div class="note-item">• <b>⚠️ v4:</b> لا نقول "فرصتك الوحيدة" — مش دقيقة قانونياً</div>
+  </div>
+  <div class="filming-directions">
+  <div class="fd-title">🎬 توجيهات التصوير — فيديو #10</div>
+  <div class="fd-mood">
+    <span class="fd-label">🎭 المود العام:</span>
+    هذا <b>أعجل فيديو بالسلسلة</b> — فيه deadline حقيقي (7 أيام). الجو: <b>عاجل ومُلح</b> من البداية للنهاية. أحمد لازم يحس المشاهد إن الوقت يمشي عليه.<br>
+    ⚠️ الإلحاح مش تخويف — هو تنبيه حقيقي لأن كل يوم تأخير = خسارة فعلية
+  </div>
+  <div class="fd-moments">
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:00-0:05 — HOOK:</span> <b>"7 أيام بس" = صدمة</b> — <span class="fd-good">نظرة جادة مباشرة + نبرة حازمة وصادمة</span>. "قبل ما تخسر حقك" = <span class="fd-good">تحذير حقيقي</span>. <span class="fd-warn">أقوى hook بالسلسلة — لو طلع ضعيف = أعد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:05-0:09 — التعريف:</span> <span class="fd-good">انتقال مفاجئ من الصدمة للطمأنينة</span> — "وبقولك إيش تسوّي" = ودود وواثق. هالتحول مهم جداً</div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:09-0:22 — الموضوع:</span> "حكم غيابي" = <span class="fd-good">وقفة بعدها لتثبيت المصطلح</span>. "المعارضة" = <span class="fd-good">تركيز — مصطلح جديد على المشاهد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:22-0:37 — الخطوات:</span> <span class="fd-good">عدّ بالأصابع (1، 2، 3)</span>. "7 أيام" المرة الثانية = <span class="fd-good">شرح هادئ هالمرة (مش صدمة)</span>. "من جديد كأنها أول مرة" = <span class="fd-good">مطمئنة — فيه أمل</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:37-0:49 — المادة القانونية:</span> يبدأ <b>هادئ</b> (المادة 229) ويتسارع تدريجياً. <b>"لا تأجّل" = أقوى لحظة</b> — <span class="fd-good">نظرة مباشرة + وقفة درامية</span>. "فرصتك" = <span class="fd-good">بنبرة إلحاح حقيقية</span>. <span class="fd-warn">لو ما حس بالإلحاح = أعد</span></div>
+    <div class="fd-moment"><span class="fd-time">⏱️ 0:49-0:55 — CTA:</span> "7 أيام" المرة الثالثة = <span class="fd-good">إلحاح أخير</span>. <b>"فوراً" = الكلمة الأخيرة — واثقة ومطمئنة</b></div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ "7 أيام" تتكرر 3 مرات:</span> المرة 1 (hook) = صدمة | المرة 2 (خطوات) = شرح | المرة 3 (CTA) = إلحاح. <b>كل مرة بنبرة مختلفة!</b> درّب أحمد على هالفرق</div>
+    <div class="fd-moment"><span class="fd-warn">⚠️ لا نقول "فرصتك الوحيدة"</span> — مش دقيقة قانونياً</div>
+  </div>
+</div>
+</div>
+
+<script>
+function show(idx) {
+  document.querySelectorAll('.script-card').forEach((c,i) => c.classList.toggle('active', i===idx));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+}
+
+function filterSpeaker(speaker) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  
+  const tabs = document.querySelectorAll('.tab');
+  let firstVisible = -1;
+  
+  tabs.forEach((tab, i) => {
+    if (speaker === 'all' || tab.dataset.speaker === speaker) {
+      tab.classList.remove('hidden');
+      if (firstVisible === -1) firstVisible = i;
+    } else {
+      tab.classList.add('hidden');
+    }
+  });
+  
+  // Show first visible script
+  if (firstVisible !== -1) show(firstVisible);
+}
+</script>
+
+</body>
+</html>

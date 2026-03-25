@@ -1,0 +1,18 @@
+{
+  "characters": {
+    "dr-ahmed": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/dr-ahmed.png",
+    "noura": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/noura.png",
+    "angry-patient": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/angry-patient.png",
+    "ahmed-friend": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/ahmed-friend.png",
+    "mohammed": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/mohammed.png",
+    "bayra": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/bayra.png"
+  },
+  "scenes": {
+    "hook-schedule": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/hook-schedule.png",
+    "empty-clinic": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/empty-clinic.png",
+    "noura-phone": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/noura-phone.png",
+    "angry-patient-reception": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/angry-patient-reception.png",
+    "ahmed-breakdown": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/ahmed-breakdown.png",
+    "cafe-scene": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/cafe-scene.png"
+  }
+}

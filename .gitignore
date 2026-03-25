@@ -1,0 +1,14 @@
+node_modules/
+*.db
+*.db-journal
+*.lock
+/tmp/
+/backups/
+__pycache__/
+*.pyc
+.env
+/tools/email/node_modules/
+/tools/memory/node_modules/
+/antigravity-awesome-skills/
+.persistent-bin/
+docs/n8n-raw/

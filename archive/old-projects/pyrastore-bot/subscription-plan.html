@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PyraStore Bot - خطط الاشتراكات الشهرية</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap');
+
+        :root {
+            --primary: #1a237e;
+            --primary-light: #283593;
+            --primary-dark: #0d1147;
+            --gold: #ffd700;
+            --gold-light: #ffe44d;
+            --gold-dark: #c7a600;
+            --bg: #f8f9fc;
+            --card-bg: #ffffff;
+            --text: #2c3e50;
+            --text-light: #7f8c8d;
+            --success: #27ae60;
+            --border: #e8eaf6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.8;
+            direction: rtl;
+        }
+
+        /* ─── HEADER ─── */
+        .header {
+            background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-light) 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 70%, rgba(255,215,0,0.08) 0%, transparent 50%),
+                        radial-gradient(circle at 70% 30%, rgba(255,215,0,0.05) 0%, transparent 50%);
+            animation: shimmer 8s ease-in-out infinite alternate;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-5%); }
+            100% { transform: translateX(5%); }
+        }
+        .header-content { position: relative; z-index: 1; }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .logo-icon {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            font-weight: 900;
+            color: var(--primary-dark);
+            box-shadow: 0 8px 32px rgba(255,215,0,0.3);
+        }
+        .logo-text {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        .logo-text span { color: var(--gold); }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--gold-light);
+        }
+        .header p {
+            font-size: 17px;
+            opacity: 0.85;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(255,215,0,0.15);
+            border: 1px solid rgba(255,215,0,0.3);
+            color: var(--gold-light);
+            padding: 6px 20px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 16px;
+        }
+
+        /* ─── CONTAINER ─── */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        /* ─── SECTION ─── */
+        .section {
+            padding: 60px 0;
+        }
+        .section-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 12px;
+        }
+        .section-subtitle {
+            text-align: center;
+            font-size: 16px;
+            color: var(--text-light);
+            margin-bottom: 48px;
+        }
+
+        /* ─── PRICING CARDS ─── */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 28px;
+            align-items: start;
+        }
+        .pricing-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 36px 28px;
+            border: 2px solid var(--border);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .pricing-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 60px rgba(26,35,126,0.12);
+        }
+        .pricing-card.featured {
+            border-color: var(--gold);
+            box-shadow: 0 12px 48px rgba(255,215,0,0.15);
+            transform: scale(1.04);
+        }
+        .pricing-card.featured:hover {
+            transform: scale(1.04) translateY(-6px);
+        }
+        .popular-badge {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--primary-dark);
+            padding: 4px 24px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            margin-bottom: 20px;
+        }
+        .card-icon.basic { background: #e8eaf6; }
+        .card-icon.pro { background: linear-gradient(135deg, #fff8e1, #ffe082); }
+        .card-icon.enterprise { background: linear-gradient(135deg, var(--primary), var(--primary-light)); color: white; }
+        .card-tier {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-light);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .card-name {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 4px 0 16px;
+        }
+        .card-price {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+        .price-amount {
+            font-size: 42px;
+            font-weight: 900;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .price-currency { font-size: 18px; font-weight: 700; color: var(--primary); }
+        .price-period { font-size: 14px; color: var(--text-light); }
+        .card-desc {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+        }
+        .feature-list { list-style: none; margin-bottom: 28px; }
+        .feature-list li {
+            padding: 6px 0;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .feature-list li::before {
+            content: '✓';
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 22px;
+            height: 22px;
+            background: #e8f5e9;
+            color: var(--success);
+            border-radius: 50%;
+            font-size: 12px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .cta-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .cta-btn.outline {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .cta-btn.outline:hover { background: var(--primary); color: white; }
+        .cta-btn.primary {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--primary-dark);
+            box-shadow: 0 4px 16px rgba(255,215,0,0.3);
+        }
+        .cta-btn.primary:hover { box-shadow: 0 8px 32px rgba(255,215,0,0.4); transform: translateY(-2px); }
+        .cta-btn.dark {
+            background: var(--primary);
+            color: white;
+        }
+        .cta-btn.dark:hover { background: var(--primary-light); }
+
+        /* ─── COMPARISON TABLE ─── */
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            font-size: 14px;
+        }
+        .comparison-table thead th {
+            background: var(--primary);
+            color: white;
+            padding: 16px 20px;
+            font-weight: 700;
+            font-size: 15px;
+            white-space: nowrap;
+        }
+        .comparison-table thead th:first-child { border-radius: 0 12px 0 0; }
+        .comparison-table thead th:last-child { border-radius: 12px 0 0 0; }
+        .comparison-table thead th.gold-col {
+            background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+            color: var(--primary-dark);
+        }
+        .comparison-table tbody td {
+            padding: 14px 20px;
+            border-bottom: 1px solid var(--border);
+            text-align: center;
+        }
+        .comparison-table tbody td:first-child {
+            text-align: right;
+            font-weight: 600;
+            color: var(--primary);
+        }
+        .comparison-table tbody tr:hover { background: #f5f6ff; }
+        .check { color: var(--success); font-size: 18px; font-weight: 700; }
+        .cross { color: #ccc; font-size: 16px; }
+
+        /* ─── HOW IT WORKS ─── */
+        .steps-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+        }
+        .step-card {
+            text-align: center;
+            padding: 32px 20px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            position: relative;
+        }
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: var(--gold);
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            font-weight: 900;
+            margin-bottom: 16px;
+        }
+        .step-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .step-card p {
+            font-size: 13px;
+            color: var(--text-light);
+            line-height: 1.7;
+        }
+
+        /* ─── WHY SECTION ─── */
+        .why-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+        .why-card {
+            padding: 28px 24px;
+            background: white;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        .why-card:hover {
+            border-color: var(--gold);
+            box-shadow: 0 8px 32px rgba(255,215,0,0.1);
+        }
+        .why-icon {
+            font-size: 36px;
+            margin-bottom: 14px;
+        }
+        .why-card h3 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .why-card p {
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        /* ─── CTA SECTION ─── */
+        .cta-section {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white;
+            text-align: center;
+            padding: 64px 40px;
+            border-radius: 24px;
+            margin: 0 24px 60px;
+            position: relative;
+            overflow: hidden;
+        }
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle at 50% 120%, rgba(255,215,0,0.1) 0%, transparent 60%);
+        }
+        .cta-section * { position: relative; z-index: 1; }
+        .cta-section h2 {
+            font-size: 28px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: var(--gold-light);
+        }
+        .cta-section p {
+            font-size: 16px;
+            opacity: 0.85;
+            margin-bottom: 32px;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .cta-buttons a {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            border-radius: 12px;
+            font-family: 'Cairo', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        .cta-buttons .btn-gold {
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            color: var(--primary-dark);
+        }
+        .cta-buttons .btn-gold:hover { box-shadow: 0 8px 32px rgba(255,215,0,0.4); }
+        .cta-buttons .btn-outline {
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+        }
+        .cta-buttons .btn-outline:hover { border-color: white; background: rgba(255,255,255,0.1); }
+
+        .contact-info {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 32px;
+            flex-wrap: wrap;
+        }
+        .contact-item {
+            font-size: 14px;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* ─── FOOTER ─── */
+        .footer {
+            text-align: center;
+            padding: 24px;
+            font-size: 13px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 900px) {
+            .pricing-grid, .steps-grid { grid-template-columns: 1fr; }
+            .why-grid { grid-template-columns: 1fr 1fr; }
+            .pricing-card.featured { transform: none; }
+            .pricing-card.featured:hover { transform: translateY(-6px); }
+        }
+        @media (max-width: 600px) {
+            .why-grid { grid-template-columns: 1fr; }
+            .header { padding: 40px 20px; }
+            .logo-text { font-size: 24px; }
+            .header h1 { font-size: 22px; }
+            .price-amount { font-size: 32px; }
+        }
+
+        /* ─── PRINT ─── */
+        @media print {
+            body { background: white; }
+            .header { padding: 40px 24px; }
+            .pricing-card:hover, .pricing-card.featured:hover { transform: none; box-shadow: none; }
+            .pricing-card.featured { transform: none; }
+            .cta-section { margin: 40px 0; }
+            .section { padding: 40px 0; }
+            @page { margin: 0; size: A4; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ════════ HEADER ════════ -->
+<header class="header">
+    <div class="header-content">
+        <div class="logo-area">
+            <div class="logo-icon">P</div>
+            <div class="logo-text">PYRA<span>MEDIA</span></div>
+        </div>
+        <h1>🤖 PyraStore Bot — خطط الاشتراكات الشهرية</h1>
+        <p>بوت تلغرام ذكي لإدارة متجرك الإلكتروني — خدمة عملاء آلية، كتالوج منتجات، وإدارة طلبات بتقنية الذكاء الاصطناعي</p>
+        <div class="badge">✨ عرض خاص — خصم 20% على الاشتراك السنوي</div>
+    </div>
+</header>
+
+<!-- ════════ PRICING ════════ -->
+<section class="section">
+    <div class="container">
+        <h2 class="section-title">اختر الخطة المناسبة لعملك</h2>
+        <p class="section-subtitle">جميع الخطط تشمل إعداد مجاني وتجربة 7 أيام بدون التزام</p>
+
+        <div class="pricing-grid">
+            <!-- BASIC -->
+            <div class="pricing-card">
+                <div class="card-icon basic">📦</div>
+                <div class="card-tier">BASIC</div>
+                <div class="card-name">الباقة الأساسية</div>
+                <div class="card-price">
+                    <span class="price-amount">500</span>
+                    <span class="price-currency">د.إ</span>
+                    <span class="price-period">/ شهرياً</span>
+                </div>
+                <div class="card-desc">مثالية للمتاجر الصغيرة والمشاريع الناشئة</div>
+                <ul class="feature-list">
+                    <li>كتالوج منتجات تفاعلي</li>
+                    <li>بحث ذكي في المنتجات</li>
+                    <li>ردود آلية على الأسئلة الشائعة</li>
+                    <li>حتى 500 منتج</li>
+                    <li>إشعارات الطلبات الأساسية</li>
+                    <li>لوحة تحكم بسيطة</li>
+                    <li>دعم فني عبر البريد الإلكتروني</li>
+                </ul>
+                <a href="#contact" class="cta-btn outline">ابدأ الآن</a>
+            </div>
+
+            <!-- PRO -->
+            <div class="pricing-card featured">
+                <div class="popular-badge">⭐ الأكثر طلباً</div>
+                <div class="card-icon pro">🚀</div>
+                <div class="card-tier">PRO</div>
+                <div class="card-name">الباقة الاحترافية</div>
+                <div class="card-price">
+                    <span class="price-amount">1,500</span>
+                    <span class="price-currency">د.إ</span>
+                    <span class="price-period">/ شهرياً</span>
+                </div>
+                <div class="card-desc">للمتاجر المتوسطة التي تريد نمواً سريعاً</div>
+                <ul class="feature-list">
+                    <li>جميع مميزات الباقة الأساسية</li>
+                    <li>إدارة الطلبات المتكاملة</li>
+                    <li>ربط بوابات الدفع (Stripe, PayTabs)</li>
+                    <li>لوحة تحليلات متقدمة</li>
+                    <li>حتى 2,000 منتج</li>
+                    <li>إدارة العروض والخصومات</li>
+                    <li>تخصيص رسائل البوت</li>
+                    <li>دعم فني ذو أولوية (24 ساعة)</li>
+                </ul>
+                <a href="#contact" class="cta-btn primary">ابدأ تجربتك المجانية</a>
+            </div>
+
+            <!-- ENTERPRISE -->
+            <div class="pricing-card">
+                <div class="card-icon enterprise">🏢</div>
+                <div class="card-tier">ENTERPRISE</div>
+                <div class="card-name">باقة المؤسسات</div>
+                <div class="card-price">
+                    <span class="price-amount">3,500</span>
+                    <span class="price-currency">د.إ</span>
+                    <span class="price-period">/ شهرياً</span>
+                </div>
+                <div class="card-desc">للشركات الكبيرة والعلامات التجارية</div>
+                <ul class="feature-list">
+                    <li>جميع مميزات الباقة الاحترافية</li>
+                    <li>تدريب ذكاء اصطناعي مخصص</li>
+                    <li>دعم متعدد اللغات (عربي، إنجليزي، +)</li>
+                    <li>واتساب + تلغرام + إنستغرام</li>
+                    <li>منتجات غير محدودة</li>
+                    <li>مدير حساب مخصص</li>
+                    <li>تكاملات مخصصة (ERP, CRM)</li>
+                    <li>تقارير أداء أسبوعية</li>
+                    <li>SLA مضمون 99.9%</li>
+                </ul>
+                <a href="#contact" class="cta-btn dark">تواصل معنا</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════ COMPARISON TABLE ════════ -->
+<section class="section" style="background: white; padding-top: 40px; padding-bottom: 60px;">
+    <div class="container">
+        <h2 class="section-title">مقارنة تفصيلية بين الخطط</h2>
+        <p class="section-subtitle">كل ما تحتاج معرفته لاتخاذ القرار الصحيح</p>
+        <div class="table-wrapper">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>المميزات</th>
+                        <th>أساسي<br><small>500 د.إ/شهر</small></th>
+                        <th class="gold-col">احترافي ⭐<br><small>1,500 د.إ/شهر</small></th>
+                        <th>مؤسسات<br><small>3,500 د.إ/شهر</small></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>عدد المنتجات</td>
+                        <td>500</td>
+                        <td>2,000</td>
+                        <td>غير محدود</td>
+                    </tr>
+                    <tr>
+                        <td>كتالوج منتجات تفاعلي</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>بحث ذكي</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>ردود آلية</td>
+                        <td>أساسية</td>
+                        <td>متقدمة</td>
+                        <td>ذكاء اصطناعي مخصص</td>
+                    </tr>
+                    <tr>
+                        <td>إدارة الطلبات</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>بوابات الدفع</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>لوحة تحليلات</td>
+                        <td>بسيطة</td>
+                        <td>متقدمة</td>
+                        <td>متقدمة + تقارير مخصصة</td>
+                    </tr>
+                    <tr>
+                        <td>إدارة العروض والخصومات</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>تخصيص رسائل البوت</td>
+                        <td>محدود</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>القنوات المدعومة</td>
+                        <td>تلغرام</td>
+                        <td>تلغرام</td>
+                        <td>تلغرام + واتساب + إنستغرام</td>
+                    </tr>
+                    <tr>
+                        <td>دعم متعدد اللغات</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>تكاملات مخصصة (ERP/CRM)</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>مدير حساب مخصص</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>الدعم الفني</td>
+                        <td>بريد إلكتروني</td>
+                        <td>أولوية (24 ساعة)</td>
+                        <td>مخصص + SLA 99.9%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ════════ HOW IT WORKS ════════ -->
+<section class="section">
+    <div class="container">
+        <h2 class="section-title">كيف يعمل PyraStore Bot؟</h2>
+        <p class="section-subtitle">أربع خطوات بسيطة لتحويل متجرك إلى تجربة رقمية متكاملة</p>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">١</div>
+                <h3>اختر خطتك</h3>
+                <p>حدد الباقة المناسبة لحجم عملك واحتياجاتك. يمكنك الترقية في أي وقت.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">٢</div>
+                <h3>أضف منتجاتك</h3>
+                <p>ارفع كتالوج منتجاتك بسهولة عبر لوحة التحكم أو ملف Excel. نتولى الإعداد التقني.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">٣</div>
+                <h3>خصّص البوت</h3>
+                <p>اضبط الردود التلقائية، رسائل الترحيب، وتصنيفات المنتجات حسب علامتك التجارية.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">٤</div>
+                <h3>انطلق وابدأ البيع!</h3>
+                <p>شارك رابط البوت مع عملائك وابدأ باستقبال الطلبات والاستفسارات تلقائياً.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════ WHY PYRASTORE ════════ -->
+<section class="section" style="background: white;">
+    <div class="container">
+        <h2 class="section-title">لماذا PyraStore Bot؟</h2>
+        <p class="section-subtitle">المميزات التي تجعلنا الخيار الأمثل لمتجرك الإلكتروني</p>
+        <div class="why-grid">
+            <div class="why-card">
+                <div class="why-icon">🤖</div>
+                <h3>ذكاء اصطناعي متقدم</h3>
+                <p>ردود ذكية تفهم سياق المحادثة وتقدم تجربة شبيهة بالتحدث مع موظف حقيقي</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">⚡</div>
+                <h3>سرعة فائقة</h3>
+                <p>استجابة فورية للعملاء على مدار الساعة — لا انتظار، لا تأخير</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">📊</div>
+                <h3>تحليلات ذكية</h3>
+                <p>تعرف على سلوك عملائك، المنتجات الأكثر طلباً، وأوقات الذروة</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🔒</div>
+                <h3>أمان عالي</h3>
+                <p>تشفير كامل للبيانات، حماية معلومات العملاء، والامتثال لمعايير الأمان</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🌍</div>
+                <h3>دعم متعدد المنصات</h3>
+                <p>تلغرام، واتساب، وإنستغرام — عملاؤك أينما كانوا</p>
+            </div>
+            <div class="why-card">
+                <div class="why-icon">🇦🇪</div>
+                <h3>مصمم للسوق الإماراتي</h3>
+                <p>دعم كامل للعربية، الدرهم الإماراتي، وبوابات الدفع المحلية</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════ CTA ════════ -->
+<section class="section" id="contact">
+    <div class="cta-section">
+        <h2>جاهز لتحويل متجرك إلى تجربة ذكية؟</h2>
+        <p>تواصل معنا اليوم واحصل على استشارة مجانية وتجربة 7 أيام بدون أي التزام</p>
+        <div class="cta-buttons">
+            <a href="https://t.me/pyramedia" class="btn-gold">💬 تواصل عبر تلغرام</a>
+            <a href="https://t.me/pyrastore1_bot" class="btn-outline">🤖 جرّب البوت الآن</a>
+        </div>
+        <div class="contact-info">
+            <div class="contact-item">📧 info@pyramedia.ae</div>
+            <div class="contact-item">📱 +971 XX XXX XXXX</div>
+            <div class="contact-item">🌐 www.pyramedia.ae</div>
+        </div>
+    </div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer class="footer">
+    <p>© 2026 Pyramedia Digital Solutions — جميع الحقوق محفوظة</p>
+    <p style="margin-top: 4px; font-size: 12px;">الأسعار بالدرهم الإماراتي ولا تشمل ضريبة القيمة المضافة (5%)</p>
+</footer>
+
+</body>
+</html>

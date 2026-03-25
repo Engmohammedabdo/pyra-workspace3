@@ -1,0 +1,24 @@
+[
+  {
+    "id": "99f6454f-4b37-4f4f-8615-cf1d3f285f4a",
+    "source": "test",
+    "type": "manual",
+    "message": "Test event from subagent",
+    "priority": "high",
+    "urgency": "soon",
+    "timestamp": "2026-02-21T12:20:52.449Z",
+    "processed": true,
+    "processedAt": "2026-02-21T12:20:55.327Z"
+  },
+  {
+    "id": "b1fd075b-451c-41cd-b06f-9b5177b2f543",
+    "source": "system",
+    "type": "manual",
+    "message": "Proactive engine online — test alert",
+    "priority": "critical",
+    "urgency": "immediate",
+    "timestamp": "2026-02-21T12:20:59.225Z",
+    "processed": true,
+    "processedAt": "2026-02-21T12:21:00.236Z"
+  }
+]

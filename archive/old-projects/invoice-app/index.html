@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyramedia — Invoice Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+/* ===== Reset & Base ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --orange: #F97316;
+  --dark: #1a1a2e;
+  --bg: #f4f5f7;
+  --card: #ffffff;
+  --border: #e2e4e9;
+  --text: #333;
+  --muted: #666;
+  --radius: 8px;
+}
+html { font-size: 14px; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+
+/* ===== Top Bar ===== */
+.topbar { background: var(--dark); color: #fff; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.topbar-brand { font-size: 1.4rem; font-weight: 800; letter-spacing: 2px; color: var(--orange); }
+.topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 8px 18px; border: none; border-radius: var(--radius); cursor: pointer; font-size: .85rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: .15s; }
+.btn-orange { background: var(--orange); color: #fff; }
+.btn-orange:hover { background: #e0650e; }
+.btn-outline { background: transparent; color: #fff; border: 1px solid rgba(255,255,255,.3); }
+.btn-outline:hover { border-color: #fff; }
+.btn-dark { background: var(--dark); color: #fff; border: 1px solid var(--border); }
+.btn-dark:hover { background: #2a2a4e; }
+.btn-danger { background: #ef4444; color: #fff; }
+.btn-danger:hover { background: #dc2626; }
+.btn-sm { padding: 5px 12px; font-size: .8rem; }
+
+/* ===== Layout ===== */
+.container { max-width: 1400px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+@media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+
+/* ===== Form Panel ===== */
+.form-panel { display: flex; flex-direction: column; gap: 16px; }
+.card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 18px; }
+.card-title { font-size: .85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--orange); margin-bottom: 12px; border-bottom: 2px solid var(--orange); padding-bottom: 6px; }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: .78rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+.field input, .field textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: .85rem; transition: .15s; }
+.field input:focus, .field textarea:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(249,115,22,.15); }
+
+/* Items table in form */
+.items-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.items-table th { text-align: left; font-size: .72rem; text-transform: uppercase; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.items-table td { padding: 4px 6px; vertical-align: top; }
+.items-table input { width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 4px; font-size: .82rem; }
+.items-table .col-desc { width: 45%; }
+.items-table .col-qty, .items-table .col-rate { width: 18%; }
+.items-table .col-amt { width: 14%; text-align: right; font-weight: 600; }
+.items-table .col-del { width: 5%; }
+.remove-row { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 2px; }
+.remove-row:hover { color: #dc2626; }
+.form-total { text-align: right; font-size: 1rem; font-weight: 700; padding-top: 8px; border-top: 2px solid var(--dark); margin-top: 4px; }
+
+/* ===== Invoice Preview ===== */
+.preview-wrapper { position: sticky; top: 20px; align-self: start; }
+#invoice-preview {
+  background: #fff; padding: 40px 44px; border-radius: var(--radius);
+  border: 1px solid var(--border); box-shadow: 0 2px 12px rgba(0,0,0,.06);
+  font-size: 11px; color: #222; line-height: 1.45; min-height: 900px;
+}
+
+/* Invoice header */
+.inv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.inv-logo { font-size: 28px; font-weight: 900; letter-spacing: 3px; color: var(--orange); }
+.inv-logo-sub { font-size: 9px; color: var(--muted); letter-spacing: 1px; }
+.inv-client { text-align: right; font-size: 11px; }
+.inv-client strong { display: block; font-size: 13px; color: var(--dark); }
+.inv-client div { color: #555; margin-top: 2px; }
+
+/* Invoice title */
+.inv-title { text-align: center; font-size: 20px; font-weight: 300; letter-spacing: 6px; text-transform: lowercase; color: var(--dark); margin: 16px 0 14px; }
+
+/* Meta row */
+.inv-meta { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 18px; }
+.inv-meta-cell { padding: 8px 10px; border-right: 1px solid var(--border); }
+.inv-meta-cell:last-child { border-right: none; }
+.inv-meta-label { font-size: 8px; text-transform: uppercase; font-weight: 700; color: var(--muted); letter-spacing: .5px; }
+.inv-meta-value { font-size: 11px; font-weight: 600; color: var(--dark); margin-top: 2px; word-break: break-word; }
+
+/* Items table preview */
+.inv-items { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+.inv-items thead th { background: var(--dark); color: #fff; font-size: 8px; text-transform: uppercase; letter-spacing: .7px; padding: 8px 10px; text-align: left; }
+.inv-items thead th:nth-child(2),
+.inv-items thead th:nth-child(3),
+.inv-items thead th:nth-child(4) { text-align: right; }
+.inv-items tbody td { padding: 8px 10px; border-bottom: 1px solid #f0f0f0; font-size: 11px; }
+.inv-items tbody td:nth-child(2),
+.inv-items tbody td:nth-child(3),
+.inv-items tbody td:nth-child(4) { text-align: right; }
+.inv-total-row td { border-top: 2px solid var(--dark); font-weight: 800; font-size: 13px; padding-top: 10px; }
+
+/* Terms */
+.inv-terms { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border); }
+.inv-terms h4 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: var(--dark); margin-bottom: 8px; font-weight: 700; }
+.inv-terms-body { font-size: 8.5px; color: #555; columns: 2; column-gap: 20px; }
+.inv-terms-body h5 { font-weight: 700; color: var(--dark); margin-top: 6px; margin-bottom: 1px; font-size: 8.5px; break-after: avoid; }
+.inv-terms-body p { margin-bottom: 1px; break-inside: avoid; }
+
+/* Signature */
+.inv-signature { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); align-items: flex-end; }
+.inv-sig-block { width: 45%; }
+.inv-sig-label { font-size: 9px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+.inv-sig-line { border-bottom: 1px solid #999; min-height: 50px; position: relative; }
+.inv-sig-line img { max-height: 50px; position: absolute; bottom: 2px; left: 0; }
+
+/* Footer */
+.inv-footer { margin-top: 20px; padding-top: 14px; border-top: 2px solid var(--orange); text-align: center; }
+.inv-footer-contact { font-size: 10px; font-weight: 700; color: var(--dark); margin-bottom: 4px; }
+.inv-footer-brand { font-size: 12px; font-weight: 900; color: var(--orange); letter-spacing: 2px; }
+.inv-footer-links { font-size: 8.5px; color: var(--muted); margin-bottom: 10px; }
+.inv-bank { text-align: left; font-size: 8.5px; color: #555; background: #fafafa; padding: 10px; border-radius: 4px; margin-top: 8px; }
+.inv-bank strong { color: var(--dark); }
+.inv-bank div { margin-top: 1px; }
+
+/* Signature pad area (form) */
+.sig-canvas-wrap { border: 1px solid var(--border); border-radius: 4px; background: #fafafa; position: relative; }
+.sig-canvas-wrap canvas { width: 100%; height: 120px; display: block; }
+
+/* ===== Print Styles ===== */
+@media print {
+  body { background: #fff !important; }
+  .topbar, .form-panel, .preview-wrapper > .btn, .no-print { display: none !important; }
+  .container { display: block !important; padding: 0 !important; max-width: 100% !important; }
+  .preview-wrapper { position: static !important; }
+  #invoice-preview { box-shadow: none !important; border: none !important; padding: 20px 30px !important; min-height: auto !important; }
+  .inv-terms-body { columns: 2; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<div class="topbar">
+  <div class="topbar-brand">PYRAMEDIA</div>
+  <div class="topbar-actions">
+    <button class="btn btn-outline" onclick="saveDraft()" title="Save to browser">💾 Save Draft</button>
+    <button class="btn btn-outline" onclick="loadDraft()" title="Load saved draft">📂 Load Draft</button>
+    <button class="btn btn-outline" onclick="printInvoice()">🖨️ Print</button>
+    <button class="btn btn-orange" onclick="downloadPDF()">📄 Download PDF</button>
+  </div>
+</div>
+
+<!-- ===== Main Layout ===== -->
+<div class="container">
+
+  <!-- LEFT: Form Panel -->
+  <div class="form-panel">
+
+    <!-- Client Info -->
+    <div class="card">
+      <div class="card-title">Client Information</div>
+      <div class="field"><label>Client / Company Name</label><input type="text" id="f-client" placeholder="e.g. Acme Corp"></div>
+      <div class="field"><label>Contact Person</label><input type="text" id="f-contact" placeholder="e.g. John Doe"></div>
+      <div class="field"><label>Address</label><input type="text" id="f-address" placeholder="e.g. Dubai, UAE"></div>
+      <div class="field"><label>Email</label><input type="email" id="f-email" placeholder="e.g. john@acme.com"></div>
+      <div class="field"><label>Phone</label><input type="text" id="f-phone" placeholder="e.g. +971 50 123 4567"></div>
+    </div>
+
+    <!-- Invoice Details -->
+    <div class="card">
+      <div class="card-title">Invoice Details</div>
+      <div class="field"><label>Invoice Number</label><input type="text" id="f-invnum"></div>
+      <div class="field"><label>Estimate Date</label><input type="date" id="f-date"></div>
+      <div class="field"><label>Expiry Date</label><input type="date" id="f-expiry"></div>
+      <div class="field"><label>Project Name</label><input type="text" id="f-project" placeholder="e.g. Website Redesign"></div>
+    </div>
+
+    <!-- Line Items -->
+    <div class="card">
+      <div class="card-title">Services / Items</div>
+      <table class="items-table">
+        <thead><tr>
+          <th class="col-desc">Description</th>
+          <th class="col-qty">Qty</th>
+          <th class="col-rate">Rate (AED)</th>
+          <th class="col-amt">Amount</th>
+          <th class="col-del"></th>
+        </tr></thead>
+        <tbody id="items-body"></tbody>
+      </table>
+      <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-dark btn-sm" onclick="addItem()">＋ Add Item</button>
+        <div class="form-total" id="form-total">Total: AED 0.00</div>
+      </div>
+    </div>
+
+    <!-- Signature -->
+    <div class="card">
+      <div class="card-title">Client Signature</div>
+      <div class="sig-canvas-wrap">
+        <canvas id="sig-canvas"></canvas>
+      </div>
+      <div style="margin-top:8px; display:flex; gap:8px;">
+        <button class="btn btn-sm btn-dark" onclick="clearSignature()">Clear Signature</button>
+      </div>
+    </div>
+
+  </div><!-- /form-panel -->
+
+  <!-- RIGHT: Invoice Preview -->
+  <div class="preview-wrapper">
+    <div id="invoice-preview">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+/* ==========================================================
+   Pyramedia Invoice Generator — Logic
+   ========================================================== */
+
+// ---- Signature Pad ----
+const sigCanvas = document.getElementById('sig-canvas');
+const sigPad = new SignaturePad(sigCanvas, {
+  backgroundColor: 'rgba(255,255,255,0)',
+  penColor: '#1a1a2e'
+});
+function resizeSigCanvas() {
+  const wrap = sigCanvas.parentElement;
+  const ratio = Math.max(window.devicePixelRatio || 1, 1);
+  sigCanvas.width = wrap.offsetWidth * ratio;
+  sigCanvas.height = 120 * ratio;
+  sigCanvas.getContext('2d').scale(ratio, ratio);
+  sigPad.clear();
+}
+window.addEventListener('resize', resizeSigCanvas);
+resizeSigCanvas();
+function clearSignature() { sigPad.clear(); renderPreview(); }
+
+// ---- Date Helpers ----
+function fmtDate(dateStr) {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+function addDays(iso, n) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+// ---- Auto Invoice Number ----
+function nextInvoiceNum() {
+  let n = parseInt(localStorage.getItem('pyra_inv_last') || '1000', 10) + 1;
+  localStorage.setItem('pyra_inv_last', n);
+  return 'PYR-' + n;
+}
+
+// ---- Initialise Fields ----
+document.getElementById('f-invnum').value = nextInvoiceNum();
+document.getElementById('f-date').value = todayISO();
+document.getElementById('f-expiry').value = addDays(todayISO(), 7);
+
+// ---- Line Items ----
+let itemCounter = 0;
+function addItem(desc = '', qty = 1, rate = '') {
+  itemCounter++;
+  const id = itemCounter;
+  const tr = document.createElement('tr');
+  tr.id = 'row-' + id;
+  tr.innerHTML = `
+    <td><input type="text" data-field="desc" value="${esc(desc)}" placeholder="Service description"></td>
+    <td><input type="number" data-field="qty" value="${qty}" min="1" step="1"></td>
+    <td><input type="number" data-field="rate" value="${rate}" min="0" step="0.01" placeholder="0.00"></td>
+    <td class="col-amt" id="amt-${id}">0.00</td>
+    <td><button class="remove-row" onclick="removeItem(${id})">✕</button></td>`;
+  document.getElementById('items-body').appendChild(tr);
+  tr.querySelectorAll('input').forEach(i => i.addEventListener('input', () => { calcRow(id); renderPreview(); }));
+  calcRow(id);
+  renderPreview();
+}
+function removeItem(id) {
+  const row = document.getElementById('row-' + id);
+  if (row) row.remove();
+  updateTotal();
+  renderPreview();
+}
+function calcRow(id) {
+  const row = document.getElementById('row-' + id);
+  if (!row) return;
+  const qty = parseFloat(row.querySelector('[data-field="qty"]').value) || 0;
+  const rate = parseFloat(row.querySelector('[data-field="rate"]').value) || 0;
+  const amt = qty * rate;
+  document.getElementById('amt-' + id).textContent = amt.toFixed(2);
+  updateTotal();
+}
+function updateTotal() {
+  let total = 0;
+  document.querySelectorAll('.col-amt[id^="amt-"]').forEach(el => { total += parseFloat(el.textContent) || 0; });
+  document.getElementById('form-total').textContent = 'Total: AED ' + total.toFixed(2);
+}
+function getItems() {
+  const items = [];
+  document.querySelectorAll('#items-body tr').forEach(tr => {
+    const desc = tr.querySelector('[data-field="desc"]').value;
+    const qty = parseFloat(tr.querySelector('[data-field="qty"]').value) || 0;
+    const rate = parseFloat(tr.querySelector('[data-field="rate"]').value) || 0;
+    items.push({ desc, qty, rate, amount: qty * rate });
+  });
+  return items;
+}
+
+// Escape HTML
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ---- Live Preview ----
+function renderPreview() {
+  const v = (id) => document.getElementById(id).value;
+  const items = getItems();
+  const total = items.reduce((s, i) => s + i.amount, 0);
+  const sigData = sigPad.isEmpty() ? '' : sigPad.toDataURL('image/png');
+
+  let itemsHTML = items.map(i => `
+    <tr>
+      <td>${esc(i.desc) || '<span style="color:#ccc">—</span>'}</td>
+      <td>${i.qty}</td>
+      <td>${i.rate.toFixed(2)}</td>
+      <td>${i.amount.toFixed(2)}</td>
+    </tr>`).join('');
+  if (!items.length) itemsHTML = '<tr><td colspan="4" style="color:#ccc;text-align:center;padding:16px;">No items added</td></tr>';
+
+  document.getElementById('invoice-preview').innerHTML = `
+    <!-- Header -->
+    <div class="inv-header">
+      <div>
+        <div class="inv-logo">PYRAMEDIA</div>
+        <div class="inv-logo-sub">AI DEVELOPING SERVICES</div>
+      </div>
+      <div class="inv-client">
+        <strong>${esc(v('f-client')) || 'Client Name'}</strong>
+        <div>Contact: ${esc(v('f-contact')) || '—'}</div>
+        <div>Address: ${esc(v('f-address')) || '—'}</div>
+        <div>Email: ${esc(v('f-email')) || '—'}</div>
+        <div>Phone: ${esc(v('f-phone')) || '—'}</div>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <div class="inv-title">invoice</div>
+
+    <!-- Meta -->
+    <div class="inv-meta">
+      <div class="inv-meta-cell"><div class="inv-meta-label">Invoice #</div><div class="inv-meta-value">${esc(v('f-invnum'))}</div></div>
+      <div class="inv-meta-cell"><div class="inv-meta-label">Estimate Date</div><div class="inv-meta-value">${fmtDate(v('f-date'))}</div></div>
+      <div class="inv-meta-cell"><div class="inv-meta-label">Expiry Date</div><div class="inv-meta-value">${fmtDate(v('f-expiry'))}</div></div>
+      <div class="inv-meta-cell"><div class="inv-meta-label">Project Name</div><div class="inv-meta-value">${esc(v('f-project')) || '—'}</div></div>
+    </div>
+
+    <!-- Items -->
+    <table class="inv-items">
+      <thead><tr><th>Item &amp; Description</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead>
+      <tbody>
+        ${itemsHTML}
+        <tr class="inv-total-row">
+          <td colspan="3" style="text-align:right; padding-right:10px;">TOTAL (AED)</td>
+          <td style="text-align:right;">${total.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Terms -->
+    <div class="inv-terms">
+      <h4>Terms &amp; Conditions</h4>
+      <div class="inv-terms-body">
+        <h5>Payment</h5>
+        <p>- Projects below AED 5,000 require 100% advance payment.</p>
+        <p>- Projects above AED 5,000 require 50% advance payment, with the balance payable upon final delivery before release of assets.</p>
+        <h5>Scope &amp; Revisions</h5>
+        <p>- This quotation is based on the agreed scope.</p>
+        <p>- Any changes outside scope will be charged additionally.</p>
+        <p>- Includes up to 2 revision rounds unless stated otherwise.</p>
+        <h5>Validity</h5>
+        <p>- This quotation is valid for 7 days from the issue date.</p>
+        <h5>Delivery</h5>
+        <p>- Timelines start after advance payment and final brief approval.</p>
+        <p>- Client delays may affect delivery schedules.</p>
+        <h5>Cancellation</h5>
+        <p>- Cancellation within 24 hours: 100% charge.</p>
+        <p>- Cancellation within 48 hours: 75% charge.</p>
+        <p>- Completed work is fully chargeable.</p>
+        <h5>Overtime</h5>
+        <p>- Overtime is charged at AED 500/hour unless agreed otherwise.</p>
+        <h5>Intellectual Property</h5>
+        <p>- All materials remain the service provider's property until full payment.</p>
+        <p>- Usage rights are granted upon full payment for the agreed purpose only.</p>
+        <h5>Liability</h5>
+        <p>- Liability is limited to the total value of this quotation.</p>
+        <h5>Governing Law</h5>
+        <p>- UAE law applies. Jurisdiction: DIFC Courts.</p>
+        <h5>Acceptance</h5>
+        <p>- Advance payment or written confirmation confirms full acceptance of these terms.</p>
+      </div>
+    </div>
+
+    <!-- Signature -->
+    <div class="inv-signature">
+      <div class="inv-sig-block">
+        <div class="inv-sig-label">Client Signature</div>
+        <div class="inv-sig-line">${sigData ? `<img src="${sigData}" alt="signature">` : ''}</div>
+      </div>
+      <div class="inv-sig-block">
+        <div class="inv-sig-label">Date</div>
+        <div class="inv-sig-line" style="min-height:30px;"></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="inv-footer">
+      <div class="inv-footer-contact">+971 58 912 1011</div>
+      <div class="inv-footer-brand">PYRAMEDIA.DXB</div>
+      <div class="inv-footer-links">WWW.PYRAMEDIA.INFO &mdash; WWW.PYRAMEDIA.AI</div>
+      <div class="inv-bank">
+        <strong>Bank Account Details</strong>
+        <div>Name of the bank: <strong>Adib</strong></div>
+        <div>Account name: <strong>PYRAMEDIAX AI DEVELOPING SERVICES</strong></div>
+        <div>Account Type: AED - Business Connect Current Acc</div>
+        <div>Account Class: CURRENT ACCOUNT</div>
+        <div>Account No: <strong>19593331</strong></div>
+        <div>IBAN: <strong>AE950500000000019593331</strong></div>
+      </div>
+    </div>`;
+}
+
+// ---- Bind live preview to all form inputs ----
+document.querySelectorAll('.form-panel input, .form-panel textarea').forEach(el => {
+  el.addEventListener('input', renderPreview);
+});
+// Also update preview when signature changes
+sigCanvas.addEventListener('pointerup', () => setTimeout(renderPreview, 50));
+
+// ---- Save / Load Draft (localStorage) ----
+function getDraftData() {
+  const fields = ['f-client','f-contact','f-address','f-email','f-phone','f-invnum','f-date','f-expiry','f-project'];
+  const data = {};
+  fields.forEach(id => data[id] = document.getElementById(id).value);
+  data.items = [];
+  document.querySelectorAll('#items-body tr').forEach(tr => {
+    data.items.push({
+      desc: tr.querySelector('[data-field="desc"]').value,
+      qty: tr.querySelector('[data-field="qty"]').value,
+      rate: tr.querySelector('[data-field="rate"]').value
+    });
+  });
+  if (!sigPad.isEmpty()) data.signature = sigPad.toDataURL();
+  return data;
+}
+function saveDraft() {
+  localStorage.setItem('pyra_inv_draft', JSON.stringify(getDraftData()));
+  showToast('Draft saved ✓');
+}
+function loadDraft() {
+  const raw = localStorage.getItem('pyra_inv_draft');
+  if (!raw) { showToast('No saved draft found', true); return; }
+  const data = JSON.parse(raw);
+  ['f-client','f-contact','f-address','f-email','f-phone','f-invnum','f-date','f-expiry','f-project'].forEach(id => {
+    if (data[id] !== undefined) document.getElementById(id).value = data[id];
+  });
+  // Clear items & rebuild
+  document.getElementById('items-body').innerHTML = '';
+  itemCounter = 0;
+  (data.items || []).forEach(i => addItem(i.desc, i.qty, i.rate));
+  // Signature
+  if (data.signature) {
+    sigPad.fromDataURL(data.signature);
+  }
+  renderPreview();
+  showToast('Draft loaded ✓');
+}
+
+// ---- Print ----
+function printInvoice() { window.print(); }
+
+// ---- Download PDF ----
+function downloadPDF() {
+  const el = document.getElementById('invoice-preview');
+  const invNum = document.getElementById('f-invnum').value || 'invoice';
+  const opt = {
+    margin: [8, 8, 8, 8],
+    filename: invNum + '.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  showToast('Generating PDF…');
+  html2pdf().set(opt).from(el).save().then(() => showToast('PDF downloaded ✓'));
+}
+
+// ---- Toast ----
+function showToast(msg, isErr) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position: 'fixed', bottom: '24px', right: '24px', padding: '10px 20px',
+    background: isErr ? '#ef4444' : '#1a1a2e', color: '#fff', borderRadius: '8px',
+    fontSize: '13px', fontWeight: '600', zIndex: '9999', boxShadow: '0 4px 12px rgba(0,0,0,.2)',
+    transition: 'opacity .3s', opacity: '1'
+  });
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2500);
+}
+
+// ---- Init: add one empty row & render ----
+addItem();
+renderPreview();
+</script>
+</body>
+</html>

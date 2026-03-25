@@ -1,0 +1,30 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem", "/tmp", "/home/node/openclaw"],
+      "env": {},
+      "description": "File system access (read/write/search files)"
+    },
+    "google-calendar": {
+      "command": "npx",
+      "args": ["@cocal/google-calendar-mcp"],
+      "env": {
+        "GOOGLE_OAUTH_CREDENTIALS": "/home/node/.openclaw/credentials/google-oauth-credentials.json"
+      },
+      "description": "Google Calendar — events, scheduling, free/busy"
+    },
+    "gmail": {
+      "command": "node",
+      "args": ["/home/node/openclaw/tools/mcp/google-services.mjs", "gmail"],
+      "env": {},
+      "description": "Gmail — read, send, search emails"
+    },
+    "drive": {
+      "command": "node",
+      "args": ["/home/node/openclaw/tools/mcp/google-services.mjs", "drive"],
+      "env": {},
+      "description": "Google Drive — files, folders, sharing"
+    }
+  }
+}

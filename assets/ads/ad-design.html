@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyra AI - Instagram Ad</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .ad-container {
+            width: 1080px;
+            height: 1080px;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 50%, #0f2847 100%);
+            border-radius: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .top-section {
+            background: linear-gradient(180deg, #ff6b6b 0%, #ee5a5a 100%);
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .pain-points {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .pain-point {
+            font-size: 32px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .hook-question {
+            font-size: 38px;
+            font-weight: 800;
+            color: #fff;
+            margin-top: 20px;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+        }
+        
+        .middle-section {
+            background: linear-gradient(180deg, #00c9a7 0%, #00b894 100%);
+            padding: 30px 40px;
+            text-align: center;
+        }
+        
+        .brand-intro {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .brand-icon {
+            font-size: 50px;
+        }
+        
+        .brand-name {
+            font-size: 48px;
+            font-weight: 800;
+            color: white;
+        }
+        
+        .brand-tagline {
+            font-size: 28px;
+            color: rgba(255,255,255,0.95);
+            font-weight: 600;
+        }
+        
+        .benefits-section {
+            background: #ffffff;
+            padding: 35px 50px;
+        }
+        
+        .benefits-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 28px;
+            color: #1a1a2e;
+            font-weight: 600;
+        }
+        
+        .benefit-check {
+            color: #00c9a7;
+            font-size: 32px;
+        }
+        
+        .bottom-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 35px 40px;
+            text-align: center;
+        }
+        
+        .results {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin-bottom: 25px;
+        }
+        
+        .result-item {
+            text-align: center;
+        }
+        
+        .result-text {
+            font-size: 26px;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .result-icon {
+            font-size: 40px;
+        }
+        
+        .cta {
+            background: white;
+            color: #764ba2;
+            padding: 18px 50px;
+            border-radius: 50px;
+            font-size: 28px;
+            font-weight: 800;
+            display: inline-block;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+        
+        .logo-corner {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            background: rgba(255,255,255,0.95);
+            padding: 12px 25px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 24px;
+            color: #1a1a2e;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="ad-container">
+        <div class="logo-corner">🦊 PYRA AI</div>
+        
+        <div class="top-section">
+            <div class="pain-points">
+                <div class="pain-point">😩 المريض حجز وما جاش...</div>
+                <div class="pain-point">📞 التليفون مبيوقفش...</div>
+                <div class="pain-point">📋 المواعيد متلخبطة...</div>
+            </div>
+            <div class="hook-question">مين بيعاني من الـ No-Shows؟ 🙋‍♂️</div>
+        </div>
+        
+        <div class="middle-section">
+            <div class="brand-intro">
+                <span class="brand-icon">✨</span>
+                <span class="brand-name">بيرا AI</span>
+            </div>
+            <div class="brand-tagline">ريسيبشنست ذكية لعيادتك</div>
+        </div>
+        
+        <div class="benefits-section">
+            <div class="benefits-list">
+                <div class="benefit-item">
+                    <span class="benefit-check">✅</span>
+                    <span>بتأكد مع المريض قبل الموعد</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-check">✅</span>
+                    <span>بتبعت Payment Link وتتأكد إنه دفع</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-check">✅</span>
+                    <span>بتفكّر المريض بمواعيد الـ Follow-up</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-check">✅</span>
+                    <span>بتحجز وتنظم 24/7</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-check">✅</span>
+                    <span>مبتنساش حد — حتى لو عدت سنة!</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bottom-section">
+            <div class="results">
+                <div class="result-item">
+                    <div class="result-icon">🔻</div>
+                    <div class="result-text">قلل الـ No-Shows</div>
+                </div>
+                <div class="result-item">
+                    <div class="result-icon">📈</div>
+                    <div class="result-text">زوّد الحجوزات</div>
+                </div>
+            </div>
+            <div class="cta">🔗 جرّب بيرا مجاناً</div>
+        </div>
+    </div>
+</body>
+</html>

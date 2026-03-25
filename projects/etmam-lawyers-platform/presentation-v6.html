@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محامين مركز إتمام | PyramediaX</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root {
+            --bg: #0a0a1a;
+            --gold: #c5a572;
+            --gold-light: #d4b896;
+            --gold-dark: #a08050;
+            --white: #f0f0f0;
+            --gray: #8a8a9a;
+            --glass: rgba(255,255,255,0.04);
+            --glass-border: rgba(197,165,114,0.15);
+            --green: #4ecdc4;
+            --red: #ff6b6b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Cairo', sans-serif;
+            background: var(--bg);
+            color: var(--white);
+            overflow: hidden;
+            height: 100vh;
+        }
+        /* Progress */
+        .progress { position: fixed; top: 0; left: 0; height: 4px; background: linear-gradient(90deg, var(--gold), var(--gold-light)); z-index: 1000; transition: width 0.5s; }
+        .counter-display { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); font-size: 0.8rem; color: var(--gray); z-index: 100; background: rgba(0,0,0,0.6); padding: 4px 16px; border-radius: 20px; }
+
+        /* Particles */
+        #particles { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+
+        /* Slides */
+        .slide {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            padding: 50px 80px; opacity: 0; transform: scale(0.95);
+            transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none; text-align: center; z-index: 1;
+        }
+        .slide.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+        /* Typography */
+        .title {
+            font-size: 3.2rem; font-weight: 900; line-height: 1.3;
+            background: linear-gradient(135deg, var(--gold), var(--gold-light), var(--gold));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 0.8rem;
+        }
+        .subtitle { font-size: 1.5rem; color: var(--gray); font-weight: 300; margin-bottom: 2rem; }
+        .big-text { font-size: 1.8rem; color: var(--white); font-weight: 600; margin-bottom: 1rem; }
+        .small-text { font-size: 1rem; color: var(--gray); }
+        .highlight { color: var(--gold); font-weight: 700; }
+        .emoji-big { font-size: 3rem; margin-bottom: 1rem; }
+
+        /* Cards */
+        .card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 2rem; backdrop-filter: blur(10px);
+            transition: all 0.4s; text-align: center;
+        }
+        .card:hover { transform: translateY(-8px); border-color: var(--gold); box-shadow: 0 20px 60px rgba(197,165,114,0.1); }
+        .card-icon { font-size: 2.5rem; color: var(--gold); margin-bottom: 1rem; }
+        .card-title { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--white); }
+        .card-text { font-size: 0.95rem; color: var(--gray); line-height: 1.7; }
+
+        /* Grid */
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; width: 100%; max-width: 900px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem; width: 100%; max-width: 1000px; }
+
+        /* Stats Row */
+        .stats-row { display: flex; gap: 3rem; justify-content: center; flex-wrap: wrap; margin: 2rem 0; }
+        .stat { text-align: center; }
+        .stat-num { font-size: 3.5rem; font-weight: 900; color: var(--gold); font-family: 'Tajawal'; }
+        .stat-label { font-size: 0.9rem; color: var(--gray); margin-top: 5px; }
+
+        /* Flow */
+        .flow { display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; margin: 2rem 0; }
+        .flow-step { text-align: center; width: 160px; }
+        .flow-circle {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 0.8rem; font-size: 2rem; color: #000;
+            box-shadow: 0 10px 30px rgba(197,165,114,0.3);
+        }
+        .flow-label { font-size: 0.85rem; color: var(--gray); }
+        .flow-arrow { color: var(--gold); font-size: 1.5rem; opacity: 0.5; }
+
+        /* Timeline */
+        .timeline { display: flex; gap: 2rem; width: 100%; max-width: 1000px; justify-content: center; }
+        .phase {
+            flex: 1; background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 20px; padding: 1.5rem; text-align: center;
+            position: relative; transition: all 0.4s;
+        }
+        .phase:hover { border-color: var(--gold); }
+        .phase-num {
+            position: absolute; top: -15px; right: 50%; transform: translateX(50%);
+            background: var(--gold); color: #000; width: 30px; height: 30px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 0.85rem;
+        }
+        .phase-title { color: var(--gold); font-weight: 700; font-size: 1.1rem; margin: 0.8rem 0 0.5rem; }
+        .phase-detail { font-size: 0.85rem; color: var(--gray); line-height: 1.8; }
+
+        /* Joke bubble */
+        .joke {
+            background: rgba(197,165,114,0.08); border: 1px dashed rgba(197,165,114,0.3);
+            border-radius: 16px; padding: 1rem 1.5rem; margin-top: 1.5rem;
+            font-size: 0.95rem; color: var(--gold-light); max-width: 700px;
+            font-style: italic;
+        }
+
+        /* PyramediaX Special */
+        .pyra-name {
+            font-size: 5rem; font-weight: 900; letter-spacing: 3px;
+            background: linear-gradient(135deg, #c5a572, #f0d9a0, #c5a572, #f0d9a0);
+            background-size: 300% 300%;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            animation: shimmer 3s ease infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .pyra-glow { animation: glow 2s ease-in-out infinite alternate; }
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px rgba(197,165,114,0.2)); }
+            to { filter: drop-shadow(0 0 50px rgba(197,165,114,0.5)); }
+        }
+        .pyra-services { display: flex; gap: 2.5rem; justify-content: center; margin: 2rem 0; flex-wrap: wrap; }
+        .pyra-service { text-align: center; }
+        .pyra-service i { font-size: 2rem; color: var(--gold); display: block; margin-bottom: 0.5rem; }
+        .pyra-service span { font-size: 0.85rem; color: var(--gray); }
+
+        /* Nav */
+        .nav-btn {
+            position: fixed; top: 50%; z-index: 100;
+            background: rgba(197,165,114,0.1); border: 1px solid var(--glass-border);
+            color: var(--gold); width: 50px; height: 50px; border-radius: 50%;
+            cursor: pointer; font-size: 1.2rem; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .nav-btn:hover { background: rgba(197,165,114,0.25); transform: scale(1.1); }
+        #prevBtn { right: 20px; }
+        #nextBtn { left: 20px; }
+
+        /* Animations */
+        .anim { opacity: 0; transform: translateY(25px); transition: all 0.6s ease; }
+        .anim.show { opacity: 1; transform: translateY(0); }
+        .d1 { transition-delay: 0.1s; } .d2 { transition-delay: 0.2s; }
+        .d3 { transition-delay: 0.3s; } .d4 { transition-delay: 0.4s; }
+        .d5 { transition-delay: 0.5s; } .d6 { transition-delay: 0.6s; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .slide { padding: 20px 25px; }
+            .title { font-size: 2rem; }
+            .grid-2, .grid-3 { grid-template-columns: 1fr; }
+            .stats-row { gap: 1.5rem; }
+            .stat-num { font-size: 2.2rem; }
+            .flow { gap: 0.5rem; }
+            .flow-step { width: 100px; }
+            .timeline { flex-direction: column; }
+            .pyra-name { font-size: 3rem; }
+            .nav-btn { width: 40px; height: 40px; font-size: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="progress" id="progressBar"></div>
+    <canvas id="particles"></canvas>
+    <div class="counter-display"><span id="cur">1</span> / <span id="tot">10</span></div>
+    <button class="nav-btn" id="prevBtn"><i class="fa-solid fa-chevron-right"></i></button>
+    <button class="nav-btn" id="nextBtn"><i class="fa-solid fa-chevron-left"></i></button>
+
+    <div class="slides-container">
+
+        <!-- ========== SLIDE 1: فكرة حسين ========== -->
+        <div class="slide" id="s1" style="background: url('https://pyraworkspacedb.pyramedia.cloud/storage/v1/object/public/pyraai-workspace/shared/etmam-lawyers-platform/img/scales-justice.jpg') center/cover no-repeat; position: relative;">
+            <div style="position: absolute; inset: 0; background: rgba(10,10,26,0.85); z-index: 0;"></div>
+            <div style="position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div class="emoji-big anim">⚖️</div>
+            <div class="title anim d1">المحامين مش أعداءنا</div>
+            <div class="subtitle anim d2">هم أكبر فرصة لمركز إتمام</div>
+
+            <div class="card anim d3" style="max-width: 700px; margin-top: 1rem;">
+                <div class="big-text" style="font-size: 1.3rem; line-height: 2;">
+                    مركز إتمام بيقدم خدمات قضائية...<br>
+                    نفس الخدمات اللي المحامين بياخدوا عليها فلوس.<br><br>
+                    <span class="highlight">السؤال:</span> المحامين هيشوفونا منافس... ولا شريك؟<br><br>
+                    <span style="font-size: 1.5rem;">🤝</span> <span class="highlight">الجواب عندنا.</span>
+                </div>
+            </div>
+
+            <div class="joke anim d4">
+                💡 "لما المحامي يسمع إن فيه مركز بيسوّي شغله... أول شي بيفكر فيه: أرفع قضية!" 😅
+            </div>
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 2: المشكلة والفرصة ========== -->
+        <div class="slide" id="s2">
+            <div class="title anim">القصة من زاويتين</div>
+            <div class="subtitle anim d1">المحامي خايف... والعميل تايه</div>
+
+            <div class="grid-2 anim d2">
+                <div class="card">
+                    <div class="card-icon"><i class="fa-solid fa-user-slash"></i></div>
+                    <div class="card-title" style="color: var(--red);">العميل 😩</div>
+                    <div class="card-text">
+                        عنده مشكلة قانونية<br>
+                        مش عارف يلاقي محامي موثوق<br>
+                        خايف من التكاليف المفاجئة<br>
+                        <strong style="color: var(--white);">بيحتاج حد يمسكه من إيده</strong>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                    <div class="card-title" style="color: var(--gold);">المحامي 😤</div>
+                    <div class="card-text">
+                        عنده خبرة بس مفيش عملاء<br>
+                        المكاتب الكبيرة ماخدة السوق<br>
+                        الإعلانات غالية ومش فعالة<br>
+                        <strong style="color: var(--white);">بيحتاج حد يجيبله قضايا</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="big-text anim d3" style="margin-top: 2rem;">
+                <span class="highlight">إتمام</span> يقدر يكون الحل للاثنين ⚡
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 3: الحل ========== -->
+        <div class="slide" id="s3" style="background: url('https://pyraworkspacedb.pyramedia.cloud/storage/v1/object/public/pyraai-workspace/shared/etmam-lawyers-platform/img/courthouse-bg.jpg') center/cover no-repeat; position: relative;">
+            <div style="position: absolute; inset: 0; background: rgba(10,10,26,0.85); z-index: 0;"></div>
+            <div style="position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <div class="title anim">اقلب المعادلة 🔄</div>
+            <div class="subtitle anim d1">بدل ما المحامي يحاربنا... يتمنى يشتغل معنا</div>
+
+            <div class="flow anim d2">
+                <div class="flow-step">
+                    <div class="flow-circle"><i class="fa-solid fa-user"></i></div>
+                    <div class="flow-label"><strong>العميل</strong><br>يجي لإتمام بمشكلته</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="flow-circle" style="background: linear-gradient(135deg, #fff, #f0f0f0);"><i class="fa-solid fa-handshake" style="color: var(--gold);"></i></div>
+                    <div class="flow-label"><strong style="color: var(--gold);">إتمام</strong><br>يوصّي بمحامي مناسب<br>يتابع ويتفاوض</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step">
+                    <div class="flow-circle"><i class="fa-solid fa-gavel"></i></div>
+                    <div class="flow-label"><strong>المحامي</strong><br>يستلم قضية جاهزة<br>عميل مؤهل ✅</div>
+                </div>
+            </div>
+
+            <div class="card anim d3" style="max-width: 600px; margin-top: 1rem;">
+                <div style="font-size: 1.1rem; line-height: 1.8;">
+                    <i class="fa-solid fa-file-contract" style="color: var(--gold);"></i>
+                    <strong class="highlight"> عقد ثلاثي</strong> — زي الاستشاري الهندسي<br>
+                    <span class="small-text">المالك + الاستشاري + المقاول = العميل + إتمام + المحامي</span>
+                </div>
+            </div>
+
+            <div class="joke anim d4">
+                🏗️ "المقاول بدون استشاري = فوضى... والمحامي بدون إتمام = عميل ضايع!"
+            </div>
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 4: الأرقام — مع صور ========== -->
+        <div class="slide" id="s4" style="background: url('https://pyraworkspacedb.pyramedia.cloud/storage/v1/object/public/pyraai-workspace/shared/etmam-lawyers-platform/img/arena-bg.jpg') center/cover no-repeat; position: relative;">
+            <!-- Dark overlay for readability -->
+            <div style="position: absolute; inset: 0; background: rgba(10,10,26,0.82); z-index: 0;"></div>
+            <div style="position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+
+                <div class="title anim" style="font-size: 3rem;">تخيّل... سوق فارغ بمليارات</div>
+
+                <!-- Story-style reveal -->
+                <div class="anim d1" style="margin: 1.5rem 0;">
+                    <div style="display: flex; gap: 2.5rem; justify-content: center; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="stat">
+                            <div class="stat-num counter" data-target="18.4" data-suffix=" مليار" style="font-size: 4rem;">0</div>
+                            <div class="stat-label" style="font-size: 1rem;">حجم السوق القانوني 💰<br>درهم إماراتي</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-num counter" data-target="1710" data-suffix="+" style="font-size: 3rem;">0</div>
+                            <div class="stat-label">محامي مرخص<br>يدوّروا على عملاء</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- The ZERO hero moment -->
+                <div class="anim d2" style="margin: 1rem 0; padding: 1.5rem 3rem; border: 2px solid var(--gold); border-radius: 20px; background: rgba(197,165,114,0.08); text-align: center;">
+                    <div style="font-size: 1rem; color: var(--gray); margin-bottom: 0.5rem;">وعدد المنصات المنافسة؟</div>
+                    <div style="font-size: 6rem; font-weight: 900; color: var(--gold); line-height: 1; font-family: 'Tajawal'; text-shadow: 0 0 60px rgba(197,165,114,0.4);">0</div>
+                    <div style="font-size: 1.3rem; color: var(--green); font-weight: 700; margin-top: 0.3rem;">الميدان فارغ تماماً! 🎯</div>
+                </div>
+
+                <!-- Comparison with real companies -->
+                <div class="card anim d3" style="max-width: 800px; padding: 1.5rem;">
+                    <div style="font-size: 1rem; color: var(--gray); margin-bottom: 1rem;">اللي دخلوا أسواق فارغة قبلنا...</div>
+                    <div style="display: flex; justify-content: center; gap: 3rem; flex-wrap: wrap;">
+                        <div style="text-align: center; max-width: 200px;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Uber_logo_2018.svg/200px-Uber_logo_2018.svg.png" style="height: 24px; filter: brightness(0) invert(0.7); margin-bottom: 6px;" alt="Uber">
+                            <div class="small-text">بدأت بـ 3 سيارات<br>→ اليوم <strong style="color: var(--white);">$150 مليار</strong></div>
+                        </div>
+                        <div style="text-align: center; max-width: 200px;">
+                            <div style="font-size: 1.1rem; font-weight: 700; color: var(--green); margin-bottom: 6px;">Careem 🚗</div>
+                            <div class="small-text">بدأت بـ 3 سواقين في دبي<br>→ اتباعت بـ <strong style="color: var(--white);">$3.1 مليار</strong></div>
+                        </div>
+                        <div style="text-align: center; max-width: 200px;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/LinkedIn_Logo_2013_%282%29.svg/200px-LinkedIn_Logo_2013_%282%29.svg.png" style="height: 22px; filter: brightness(0) invert(0.7); margin-bottom: 6px;" alt="LinkedIn">
+                            <div class="small-text">ربطت المحترفين ببعض<br>→ اتباعت بـ <strong style="color: var(--white);">$26 مليار</strong></div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; font-size: 1.2rem; font-weight: 700; color: var(--gold);">
+                        واحنا عندنا سوق 18 مليار... وما حد دخله 🔥
+                    </div>
+                </div>
+
+                <div class="small-text anim d4" style="margin-top: 0.8rem; opacity: 0.4;">
+                    المصدر: Grand View Research 2024 + وزارة العدل الإماراتية
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 5: AI + التسويق ========== -->
+        <div class="slide" id="s5">
+            <div class="title anim">السلاح السري 🤖</div>
+            <div class="subtitle anim d1">ذكاء اصطناعي + تسويق = لا أحد يقدر ينافسنا</div>
+
+            <div class="grid-3 anim d2">
+                <div class="card">
+                    <div class="card-icon"><i class="fa-solid fa-video"></i></div>
+                    <div class="card-title">إنتاج فيديو</div>
+                    <div class="card-text">
+                        فيديوهات احترافية لكل محامي<br>
+                        تنعرض على منصة إتمام<br>
+                        <strong>+ المحامي يعرضها عنده</strong><br>
+                        <span class="highlight">= دعم متبادل</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fa-solid fa-robot"></i></div>
+                    <div class="card-title">ذكاء اصطناعي</div>
+                    <div class="card-text">
+                        تحليل القضية تلقائياً<br>
+                        توصية بالمحامي المناسب<br>
+                        متابعة ذكية للعميل<br>
+                        <span class="highlight">= تجربة لا مثيل لها</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-icon"><i class="fa-solid fa-bullhorn"></i></div>
+                    <div class="card-title">تسويق رقمي</div>
+                    <div class="card-text">
+                        حملات سوشيال ميديا<br>
+                        SEO + إعلانات مستهدفة<br>
+                        محتوى قانوني يجذب العملاء<br>
+                        <span class="highlight">= تدفق مستمر للقضايا</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="joke anim d3">
+                🤖 "المحامي يشتغل بالقانون... واحنا نشتغل بالخوارزميات — مين بيكسب؟ الاثنين!"
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 6: الخطة + نموذج الربح ========== -->
+        <div class="slide" id="s6">
+            <div class="title anim">الخطة — 3 مراحل وبس 🗺️</div>
+            <div class="subtitle anim d1">نبدأ صغير... ونكبر بثقة — ونكسب من أول قضية</div>
+
+            <div class="timeline anim d2">
+                <div class="phase">
+                    <div class="phase-num">1</div>
+                    <div class="card-icon"><i class="fa-brands fa-instagram"></i></div>
+                    <div class="phase-title">الشهور 1-3</div>
+                    <div class="phase-detail">
+                        حساب انستجرام<br>
+                        <strong>3 محامين</strong> كبداية<br>
+                        فيديوهات + توصيات<br>
+                        <span class="highlight">تكلفة: 19K درهم</span><br><br>
+                        <span style="background: rgba(78,205,196,0.15); padding: 4px 10px; border-radius: 8px; color: var(--green); font-size: 0.8rem;">
+                            💰 عمولة على كل قضية
+                        </span>
+                    </div>
+                </div>
+                <div class="phase">
+                    <div class="phase-num">2</div>
+                    <div class="card-icon"><i class="fa-solid fa-globe"></i></div>
+                    <div class="phase-title">الشهور 3-6</div>
+                    <div class="phase-detail">
+                        موقع إلكتروني<br>
+                        <strong>10 محامين</strong><br>
+                        عقد ثلاثي رسمي<br>
+                        <span class="highlight">الإيرادات تبدأ 💰</span><br><br>
+                        <span style="background: rgba(78,205,196,0.15); padding: 4px 10px; border-radius: 8px; color: var(--green); font-size: 0.8rem;">
+                            💰 عمولة + ظهور مميز
+                        </span>
+                    </div>
+                </div>
+                <div class="phase">
+                    <div class="phase-num">3</div>
+                    <div class="card-icon"><i class="fa-solid fa-mobile-screen"></i></div>
+                    <div class="phase-title">الشهور 6-12</div>
+                    <div class="phase-detail">
+                        تطبيق موبايل<br>
+                        <strong>30+ محامي</strong><br>
+                        المحامين يجوا لنا<br>
+                        <span class="highlight">المحامي يركض ورانا 🏃</span><br><br>
+                        <span style="background: rgba(197,165,114,0.2); padding: 4px 10px; border-radius: 8px; color: var(--gold); font-size: 0.8rem;">
+                            💰 اشتراكات + عمولة + ترشيحات
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card anim d3" style="max-width: 700px; margin-top: 1.5rem;">
+                <div style="font-size: 1rem; line-height: 2;">
+                    <strong class="highlight">نفس نموذج الكبار:</strong><br>
+                    <div style="display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                        <div style="text-align: center;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Uber_logo_2018.svg/200px-Uber_logo_2018.svg.png" style="height: 28px; filter: brightness(0) invert(1); opacity: 0.7; margin-bottom: 4px;" alt="Uber"><br>
+                            <span class="small-text">بدأت بدون رسوم على السواقين<br>اليوم تاخد 25% من كل رحلة</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a9/Amazon_logo.svg/200px-Amazon_logo.svg.png" style="height: 28px; filter: brightness(0) invert(1); opacity: 0.7; margin-bottom: 4px;" alt="Amazon"><br>
+                            <span class="small-text">بدأت تبيع بالخسارة<br>اليوم أكبر شركة تجارة</span>
+                        </div>
+                        <div style="text-align: center;">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/LinkedIn_Logo_2013_%282%29.svg/200px-LinkedIn_Logo_2013_%282%29.svg.png" style="height: 28px; filter: brightness(0) invert(1); opacity: 0.7; margin-bottom: 4px;" alt="LinkedIn"><br>
+                            <span class="small-text">مجاني للمستخدمين<br>Premium للشركات والتوظيف</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="joke anim d4">
+                🎯 "ابدأ بالقيمة... والفلوس تجي وراك. مش العكس!"
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 7: الاستراتيجية — المحامي يجي لنا ========== -->
+        <div class="slide" id="s7">
+            <div class="title anim">ليش المحامي هيركض ورانا؟ 🏃</div>
+            <div class="subtitle anim d1">عندنا شي ما عند حد تاني</div>
+
+            <div class="card anim d2" style="max-width: 750px; margin-bottom: 2rem;">
+                <div style="font-size: 1.3rem; line-height: 2;">
+                    <i class="fa-solid fa-building-columns" style="color: var(--gold); font-size: 2rem;"></i><br>
+                    مركز إتمام = <span class="highlight">جهة رسمية معتمدة من دائرة القضاء</span><br>
+                    <span class="small-text">يعني مش شركة عادية — دي ختم الحكومة</span>
+                </div>
+            </div>
+
+            <div class="grid-3 anim d3">
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">🧲</div>
+                    <div class="card-title">المرحلة 1: نجذبهم</div>
+                    <div class="card-text">
+                        نعرض المحامين على منصتنا <strong>مجاناً</strong><br>
+                        فيديوهات احترافية بأسماءهم<br>
+                        نقولهم: "احنا هنا نساعدكم"<br>
+                        <span class="highlight">المحامي يحس بالأمان</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">🔥</div>
+                    <div class="card-title">المرحلة 2: نثبت القيمة</div>
+                    <div class="card-text">
+                        أول 3 محامين يبدأوا ياخدوا قضايا<br>
+                        العميل جاهز ومؤهل — مش lead بارد<br>
+                        المحامي يشوف <strong>فلوس حقيقية</strong><br>
+                        <span class="highlight">الكلمة تنتشر بين المحامين</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">👑</div>
+                    <div class="card-title">المرحلة 3: هم يجونا</div>
+                    <div class="card-text">
+                        المحامين يشوفوا زملاءهم يكسبوا<br>
+                        <strong>FOMO</strong> — "ليش أنا مش معاهم؟"<br>
+                        يبدأوا يتواصلوا معنا يبغوا ينضموا<br>
+                        <span class="highlight">احنا نختار... مش هم 😏</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="joke anim d4">
+                🎣 "القاعدة الذهبية في البزنس: لا تركض ورا العميل — خلّي العميل يركض وراك. ونفس الشي مع المحامين!"
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 8: كيف نبني الثقة ========== -->
+        <div class="slide" id="s8">
+            <div class="title anim">الخطة التسويقية 📣</div>
+            <div class="subtitle anim d1">نبني "جاذبية" مش "مطاردة"</div>
+
+            <div class="grid-2 anim d2">
+                <div class="card" style="text-align: right;">
+                    <div class="card-icon"><i class="fa-solid fa-users"></i></div>
+                    <div class="card-title">للعملاء — نجيب الطلب</div>
+                    <div class="card-text" style="line-height: 2;">
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> محتوى قانوني توعوي (ريلز + تيكتوك)<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> "حقك في دقيقة" — سلسلة فيديوهات قصيرة<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> إعلانات مستهدفة: "عندك مشكلة قانونية؟"<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> SEO: نظهر أول نتيجة في Google<br>
+                        <br>
+                        <span class="highlight">النتيجة: تدفق مستمر من العملاء المحتاجين محامي</span>
+                    </div>
+                </div>
+                <div class="card" style="text-align: right;">
+                    <div class="card-icon"><i class="fa-solid fa-scale-balanced"></i></div>
+                    <div class="card-title">للمحامين — نبني الرغبة</div>
+                    <div class="card-text" style="line-height: 2;">
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> "تعرّف على محامينا" — فيديوهات احترافية<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> نشارك قصص نجاح: "المحامي X استلم 15 قضية"<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> ختم "معتمد من إتمام" — المحامي يفتخر فيه<br>
+                        <i class="fa-solid fa-check" style="color: var(--green);"></i> ندعوهم لفعاليات وورش عمل<br>
+                        <br>
+                        <span class="highlight">النتيجة: المحامي يبغى يكون "من محامين إتمام" 🏅</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="big-text anim d3" style="margin-top: 1.5rem; font-size: 1.1rem;">
+                <span class="highlight">المعادلة:</span> كل ما جبنا عملاء أكثر ← المحامين يبغوا ينضموا أكثر ← العملاء يثقوا أكثر<br>
+                <span style="font-size: 1.8rem;">♾️</span> <span class="small-text">دورة لا تنتهي!</span>
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 9: الخطوة القادمة ========== -->
+        <div class="slide" id="s9" style="background: radial-gradient(ellipse at center, rgba(197,165,114,0.08) 0%, transparent 70%);">
+            <div style="position: relative; width: 100%; max-width: 800px;">
+
+                <!-- Big visual number -->
+                <div class="anim" style="font-size: 8rem; font-weight: 900; color: rgba(197,165,114,0.1); position: absolute; top: -60px; right: -20px; font-family: 'Tajawal'; pointer-events: none;">ONE</div>
+
+                <div class="title anim" style="font-size: 3.5rem;">قرار واحد... ونبدأ 🚀</div>
+                <div class="subtitle anim d1" style="font-size: 1.2rem; margin-bottom: 2.5rem;">مش محتاجين ميزانية ضخمة ولا سنة تخطيط</div>
+
+                <!-- Visual timeline: 4 weeks -->
+                <div class="anim d2" style="display: flex; gap: 0; width: 100%; margin-bottom: 2rem;">
+                    <div style="flex: 1; padding: 1.5rem 1rem; background: rgba(197,165,114,0.08); border-right: 3px solid var(--gold); border-radius: 0 16px 16px 0; text-align: center; position: relative;">
+                        <div style="position: absolute; top: -12px; right: 50%; transform: translateX(50%); background: var(--gold); color: #000; padding: 2px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">أسبوع 1</div>
+                        <div style="font-size: 2rem; margin: 0.8rem 0 0.5rem;">🤝</div>
+                        <div style="font-size: 0.85rem; color: var(--gray); line-height: 1.7;">نجلس مع بعض<br>نختار <strong style="color: var(--white);">3 محامين</strong><br>نوقّع الاتفاق</div>
+                    </div>
+                    <div style="flex: 1; padding: 1.5rem 1rem; background: rgba(197,165,114,0.06); border-right: 2px solid rgba(197,165,114,0.3); text-align: center; position: relative;">
+                        <div style="position: absolute; top: -12px; right: 50%; transform: translateX(50%); background: rgba(197,165,114,0.3); color: var(--gold); padding: 2px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">أسبوع 2</div>
+                        <div style="font-size: 2rem; margin: 0.8rem 0 0.5rem;">🎬</div>
+                        <div style="font-size: 0.85rem; color: var(--gray); line-height: 1.7;">نصوّر فيديوهات<br><strong style="color: var(--white);">لكل محامي</strong><br>محتوى احترافي</div>
+                    </div>
+                    <div style="flex: 1; padding: 1.5rem 1rem; background: rgba(197,165,114,0.04); border-right: 2px solid rgba(197,165,114,0.2); text-align: center; position: relative;">
+                        <div style="position: absolute; top: -12px; right: 50%; transform: translateX(50%); background: rgba(197,165,114,0.2); color: var(--gold-light); padding: 2px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">أسبوع 3</div>
+                        <div style="font-size: 2rem; margin: 0.8rem 0 0.5rem;">📱</div>
+                        <div style="font-size: 0.85rem; color: var(--gray); line-height: 1.7;">نطلق الحساب<br><strong style="color: var(--white);">+ أول حملة إعلانية</strong><br>5,000 درهم</div>
+                    </div>
+                    <div style="flex: 1; padding: 1.5rem 1rem; background: rgba(78,205,196,0.05); border-radius: 16px 0 0 16px; text-align: center; position: relative;">
+                        <div style="position: absolute; top: -12px; right: 50%; transform: translateX(50%); background: var(--green); color: #000; padding: 2px 12px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">أسبوع 4</div>
+                        <div style="font-size: 2rem; margin: 0.8rem 0 0.5rem;">🎯</div>
+                        <div style="font-size: 0.85rem; color: var(--gray); line-height: 1.7;"><strong style="color: var(--green);">أول 10 عملاء</strong><br>أول إحالات<br>نقيس النتائج ✅</div>
+                    </div>
+                </div>
+
+                <!-- The CTA -->
+                <div class="anim d3" style="background: linear-gradient(135deg, rgba(197,165,114,0.15), rgba(197,165,114,0.05)); border: 2px solid var(--gold); border-radius: 20px; padding: 2rem; text-align: center; position: relative; overflow: hidden;">
+                    <!-- Decorative corner -->
+                    <div style="position: absolute; top: 0; left: 0; width: 60px; height: 60px; background: linear-gradient(135deg, var(--gold), transparent); opacity: 0.15; border-radius: 0 0 60px 0;"></div>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: var(--gold); margin-bottom: 0.5rem;">
+                        30 يوم من اليوم... أول محامي يستلم أول قضية عن طريقنا
+                    </div>
+                    <div style="font-size: 1.1rem; color: var(--gray);">
+                        المطلوب: <span class="highlight">موافقة + اختيار 3 محامين</span> — الباقي علينا
+                    </div>
+                </div>
+
+                <div class="anim d4" style="margin-top: 1.5rem; font-size: 0.9rem; color: var(--gray); opacity: 0.6;">
+                    "أحسن وقت تبدأ كان من سنة... ثاني أحسن وقت هو <span class="highlight">اليوم</span>" ⏰
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== SLIDE 10: PyramediaX ========== -->
+        <div class="slide" id="s10">
+            <div class="pyra-name pyra-glow anim">PyramediaX</div>
+            <div class="subtitle anim d1" style="font-size: 1.3rem; margin-top: 0.5rem;">
+                شريككم الاستراتيجي في التسويق والذكاء الاصطناعي
+            </div>
+
+            <div class="pyra-services anim d2">
+                <div class="pyra-service">
+                    <i class="fa-solid fa-magnifying-glass-chart"></i>
+                    <span>دراسة السوق</span>
+                </div>
+                <div class="pyra-service">
+                    <i class="fa-solid fa-chess"></i>
+                    <span>التخطيط الاستراتيجي</span>
+                </div>
+                <div class="pyra-service">
+                    <i class="fa-solid fa-film"></i>
+                    <span>إنتاج المحتوى</span>
+                </div>
+                <div class="pyra-service">
+                    <i class="fa-solid fa-robot"></i>
+                    <span>حلول الذكاء الاصطناعي</span>
+                </div>
+                <div class="pyra-service">
+                    <i class="fa-solid fa-bullseye"></i>
+                    <span>التسويق الرقمي</span>
+                </div>
+            </div>
+
+            <div class="card anim d3" style="max-width: 650px;">
+                <div style="font-size: 1.15rem; line-height: 2;">
+                    <span class="highlight">إنجازات</span> عندها الثقة والمصداقية<br>
+                    <span class="highlight">PyramediaX</span> عندها الأدوات والقدرات<br><br>
+                    <span style="font-size: 1.4rem;">🤝</span><br>
+                    <strong style="font-size: 1.3rem; color: var(--gold);">مع بعض... نبني شي ما حد سواه قبل</strong>
+                </div>
+            </div>
+
+            <div style="margin-top: 2rem; opacity: 0.5;" class="anim d4">
+                <span class="small-text">pyramedia.info — تم إعداد هذه الدراسة بواسطة PyramediaX لصالح إنجازات | إتمام</span>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Navigation
+        let cur = 0;
+        const slides = document.querySelectorAll('.slide');
+        const total = slides.length;
+        document.getElementById('tot').textContent = total;
+
+        function go(n) {
+            slides.forEach(s => s.classList.remove('active'));
+            cur = Math.max(0, Math.min(n, total - 1));
+            slides[cur].classList.add('active');
+            document.getElementById('cur').textContent = cur + 1;
+            document.getElementById('progressBar').style.width = ((cur + 1) / total * 100) + '%';
+            slides[cur].querySelectorAll('.anim').forEach((el, i) => setTimeout(() => el.classList.add('show'), i * 80));
+            slides[cur].querySelectorAll('.counter').forEach(el => animCounter(el));
+        }
+
+        function animCounter(el) {
+            if (el.dataset.done) return;
+            el.dataset.done = '1';
+            const target = parseFloat(el.dataset.target);
+            const suffix = el.dataset.suffix || '';
+            const start = performance.now();
+            function tick(now) {
+                const p = Math.min((now - start) / 1500, 1);
+                const e = 1 - Math.pow(1 - p, 3);
+                const v = target * e;
+                el.textContent = (Number.isInteger(target) ? Math.round(v) : (Math.round(v * 10) / 10)) + suffix;
+                if (p < 1) requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        // Controls
+        document.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') go(cur - 1);
+        });
+        document.getElementById('nextBtn').onclick = () => go(cur + 1);
+        document.getElementById('prevBtn').onclick = () => go(cur - 1);
+        let tx = 0;
+        document.addEventListener('touchstart', e => tx = e.touches[0].clientX);
+        document.addEventListener('touchend', e => { const d = tx - e.changedTouches[0].clientX; if (Math.abs(d) > 50) d > 0 ? go(cur + 1) : go(cur - 1); });
+
+        // Particles
+        const c = document.getElementById('particles'), ctx = c.getContext('2d');
+        c.width = innerWidth; c.height = innerHeight;
+        onresize = () => { c.width = innerWidth; c.height = innerHeight; };
+        const pts = Array.from({length: 60}, () => ({
+            x: Math.random() * c.width, y: Math.random() * c.height,
+            s: Math.random() * 2 + 0.5, dx: (Math.random() - 0.5) * 0.6, dy: (Math.random() - 0.5) * 0.6,
+            a: Math.random() * 0.2
+        }));
+        function drawP() {
+            ctx.clearRect(0, 0, c.width, c.height);
+            pts.forEach(p => {
+                p.x += p.dx; p.y += p.dy;
+                if (p.x > c.width) p.x = 0; if (p.x < 0) p.x = c.width;
+                if (p.y > c.height) p.y = 0; if (p.y < 0) p.y = c.height;
+                ctx.fillStyle = `rgba(197,165,114,${p.a})`;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.s, 0, Math.PI * 2); ctx.fill();
+            });
+            requestAnimationFrame(drawP);
+        }
+        drawP();
+        go(0);
+    </script>
+</body>
+</html>

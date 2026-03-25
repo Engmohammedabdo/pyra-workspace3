@@ -1,0 +1,335 @@
+import Database from 'better-sqlite3';
+import * as sqliteVec from 'sqlite-vec';
+import { readFileSync, mkdirSync, statSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import crypto from 'node:crypto';
+import os from 'node:os';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const DB_DIR = join(os.homedir(), '.openclaw', 'memory');
+const DB_PATH = join(DB_DIR, 'bayra.db');
+const SCHEMA_PATH = join(__dirname, 'schema.sql');
+
+let _db = null;
+
+/**
+ * Open (or return cached) database connection.
+ */
+export function getDb() {
+  if (_db) return _db;
+
+  mkdirSync(DB_DIR, { recursive: true });
+
+  const db = new Database(DB_PATH);
+
+  // Load sqlite-vec extension
+  sqliteVec.load(db);
+
+  // Run pragmas first (they can't be inside transactions)
+  db.pragma('journal_mode = WAL');
+  db.pragma('busy_timeout = 5000');
+  db.pragma('synchronous = NORMAL');
+  db.pragma('foreign_keys = ON');
+
+  // Run schema migration — strip PRAGMAs (already applied via db.pragma)
+  const schema = readFileSync(SCHEMA_PATH, 'utf-8');
+  const cleanedSchema = schema
+    .split('\n')
+    .filter(line => !line.trim().toUpperCase().startsWith('PRAGMA'))
+    .join('\n');
+  db.exec(cleanedSchema);
+
+  // Create vec0 virtual table for vector embeddings
+  db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS memory_embeddings USING vec0(memory_id TEXT PRIMARY KEY, embedding float[512])`);
+
+  // Composite indexes for common query patterns
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_memories_status_type_importance ON memories(status, type, importance DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_memories_status_created ON memories(status, created_at DESC)`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_memories_last_accessed ON memories(last_accessed_at)`);
+
+  _db = db;
+  return db;
+}
+
+/**
+ * Close the database connection.
+ */
+export function closeDb() {
+  if (_db) {
+    _db.close();
+    _db = null;
+  }
+}
+
+/**
+ * Replace the singleton DB connection (for testing / custom paths).
+ * The caller is responsible for loading extensions, pragmas, and schema.
+ */
+export function setDb(db) {
+  _db = db;
+}
+
+// ─── Memory CRUD ───────────────────────────────────────────
+
+export function createMemory(memory) {
+  const db = getDb();
+  const id = memory.id || crypto.randomUUID();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  const stmt = db.prepare(`
+    INSERT INTO memories (id, type, subtype, content, summary, importance, confidence,
+      event_at, expires_at, source, session_id, channel, tags, metadata, status,
+      parent_id, visibility, created_at, updated_at)
+    VALUES (@id, @type, @subtype, @content, @summary, @importance, @confidence,
+      @event_at, @expires_at, @source, @session_id, @channel, @tags, @metadata, @status,
+      @parent_id, @visibility, @created_at, @updated_at)
+  `);
+
+  const row = {
+    id,
+    type: memory.type || 'episodic',
+    subtype: memory.subtype || null,
+    content: memory.content,
+    summary: memory.summary || null,
+    importance: memory.importance ?? 5.0,
+    confidence: memory.confidence ?? 1.0,
+    event_at: memory.event_at || null,
+    expires_at: memory.expires_at || null,
+    source: memory.source || null,
+    session_id: memory.session_id || null,
+    channel: memory.channel || null,
+    tags: memory.tags || null,
+    metadata: memory.metadata ? (typeof memory.metadata === 'string' ? memory.metadata : JSON.stringify(memory.metadata)) : null,
+    status: memory.status || 'active',
+    parent_id: memory.parent_id || null,
+    visibility: memory.visibility || 'private',
+    created_at: memory.created_at || now,
+    updated_at: now,
+  };
+
+  stmt.run(row);
+  return { id, ...row };
+}
+
+export function getMemory(id) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM memories WHERE id = ?').get(id) || null;
+}
+
+export function updateMemory(id, updates) {
+  const db = getDb();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  const allowed = [
+    'type', 'subtype', 'content', 'summary', 'importance', 'confidence',
+    'event_at', 'expires_at', 'source', 'session_id', 'channel', 'tags',
+    'metadata', 'status', 'parent_id', 'visibility', 'version',
+  ];
+
+  const sets = [];
+  const params = { id };
+
+  for (const key of allowed) {
+    if (key in updates) {
+      let val = updates[key];
+      if (key === 'metadata' && typeof val === 'object') val = JSON.stringify(val);
+      sets.push(`${key} = @${key}`);
+      params[key] = val;
+    }
+  }
+
+  if (sets.length === 0) return null;
+
+  sets.push('updated_at = @updated_at');
+  params.updated_at = now;
+
+  const sql = `UPDATE memories SET ${sets.join(', ')} WHERE id = @id`;
+  const result = db.prepare(sql).run(params);
+  return result.changes > 0 ? getMemory(id) : null;
+}
+
+export function deleteMemory(id, hard = false) {
+  const db = getDb();
+  if (hard) {
+    const result = db.prepare('DELETE FROM memories WHERE id = ?').run(id);
+    return result.changes > 0;
+  } else {
+    return updateMemory(id, { status: 'deleted' }) !== null;
+  }
+}
+
+export function listMemories(filters = {}) {
+  const db = getDb();
+  const conditions = [];
+  const params = {};
+
+  if (filters.type) {
+    conditions.push('type = @type');
+    params.type = filters.type;
+  }
+  if (filters.status) {
+    conditions.push('status = @status');
+    params.status = filters.status;
+  } else {
+    // Default: exclude deleted
+    conditions.push("status != 'deleted'");
+  }
+  if (filters.visibility) {
+    conditions.push('visibility = @visibility');
+    params.visibility = filters.visibility;
+  }
+  if (filters.minImportance != null) {
+    conditions.push('importance >= @minImportance');
+    params.minImportance = filters.minImportance;
+  }
+  if (filters.maxImportance != null) {
+    conditions.push('importance <= @maxImportance');
+    params.maxImportance = filters.maxImportance;
+  }
+  if (filters.since) {
+    conditions.push('created_at >= @since');
+    params.since = filters.since;
+  }
+  if (filters.until) {
+    conditions.push('created_at <= @until');
+    params.until = filters.until;
+  }
+  if (filters.source) {
+    conditions.push('source = @source');
+    params.source = filters.source;
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const limit = filters.limit || 100;
+  const offset = filters.offset || 0;
+
+  const sql = `SELECT * FROM memories ${where} ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`;
+  return db.prepare(sql).all(params);
+}
+
+// ─── Entity CRUD ───────────────────────────────────────────
+
+export function createEntity(entity) {
+  const db = getDb();
+  const id = entity.id || crypto.randomUUID();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  db.prepare(`
+    INSERT INTO entities (id, type, name, aliases, properties, created_at, updated_at)
+    VALUES (@id, @type, @name, @aliases, @properties, @created_at, @updated_at)
+  `).run({
+    id,
+    type: entity.type,
+    name: entity.name,
+    aliases: entity.aliases || null,
+    properties: entity.properties ? (typeof entity.properties === 'string' ? entity.properties : JSON.stringify(entity.properties)) : null,
+    created_at: now,
+    updated_at: now,
+  });
+
+  return { id, ...entity };
+}
+
+export function getEntity(id) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM entities WHERE id = ?').get(id) || null;
+}
+
+export function findEntity(name) {
+  const db = getDb();
+  // Search by exact name or in aliases JSON array
+  const entity = db.prepare('SELECT * FROM entities WHERE name = ? COLLATE NOCASE').get(name);
+  if (entity) return entity;
+
+  // Search aliases using JSON1 (no full table scan)
+  return db.prepare(`
+    SELECT * FROM entities
+    WHERE EXISTS (SELECT 1 FROM json_each(aliases) WHERE json_each.value = ? COLLATE NOCASE)
+    LIMIT 1
+  `).get(name) || null;
+}
+
+// ─── Relations ─────────────────────────────────────────────
+
+export function linkMemoryEntity(memoryId, entityId, role = null) {
+  const db = getDb();
+  db.prepare(`
+    INSERT OR REPLACE INTO memory_entities (memory_id, entity_id, role)
+    VALUES (?, ?, ?)
+  `).run(memoryId, entityId, role);
+  return { memoryId, entityId, role };
+}
+
+export function createRelation(sourceId, targetId, relation, weight = 1.0) {
+  const db = getDb();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  db.prepare(`
+    INSERT INTO memory_relations (source_id, target_id, relation, weight, created_at)
+    VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(source_id, target_id, relation) DO UPDATE SET
+      weight = MAX(weight, excluded.weight),
+      created_at = excluded.created_at
+  `).run(sourceId, targetId, relation, weight, now);
+  return { sourceId, targetId, relation, weight };
+}
+
+// ─── Reinforcement ─────────────────────────────────────────
+
+export function reinforceMemory(id) {
+  const db = getDb();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  const result = db.prepare(`
+    UPDATE memories
+    SET access_count = access_count + 1,
+        last_accessed_at = ?,
+        importance = MIN(10.0, importance + 0.2),
+        updated_at = ?
+    WHERE id = ?
+  `).run(now, now, id);
+
+  return result.changes > 0 ? getMemory(id) : null;
+}
+
+// ─── Stats ─────────────────────────────────────────────────
+
+export function getStats() {
+  const db = getDb();
+
+  const typeCounts = db.prepare(`
+    SELECT type, COUNT(*) as count FROM memories WHERE status != 'deleted' GROUP BY type
+  `).all();
+
+  const total = db.prepare(`SELECT COUNT(*) as count FROM memories WHERE status != 'deleted'`).get();
+  const totalAll = db.prepare(`SELECT COUNT(*) as count FROM memories`).get();
+
+  let dbSize = 0;
+  try {
+    dbSize = statSync(DB_PATH).size;
+  } catch { /* file may not exist yet */ }
+
+  return {
+    byType: Object.fromEntries(typeCounts.map(r => [r.type, r.count])),
+    totalActive: total.count,
+    totalAll: totalAll.count,
+    dbSizeBytes: dbSize,
+    dbSizeMB: (dbSize / 1024 / 1024).toFixed(2),
+    dbPath: DB_PATH,
+  };
+}
+
+// ─── FTS Search ────────────────────────────────────────────
+
+export function searchMemories(query, limit = 20) {
+  const db = getDb();
+  const results = db.prepare(`
+    SELECT m.* FROM memories_fts f
+    JOIN memories m ON m.rowid = f.rowid
+    WHERE memories_fts MATCH ?
+    AND m.status != 'deleted'
+    ORDER BY rank
+    LIMIT ?
+  `).all(query, limit);
+  return results;
+}

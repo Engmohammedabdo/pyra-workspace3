@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EP01 — عيادة دكتور أحمد | يوميات Pyramedia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0a1628;
+  --navy-light: #111d35;
+  --navy-card: #162040;
+  --gold: #d4a543;
+  --gold-light: #f0d080;
+  --gold-dim: rgba(212,165,67,0.15);
+  --text: #e8e0d4;
+  --text-dim: #9a9080;
+  --accent-red: #e05555;
+  --accent-green: #4ecb71;
+  --accent-blue: #5ba4e6;
+  --radius: 14px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body {
+  font-family: 'Cairo', sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+}
+/* Header */
+.header {
+  background: linear-gradient(135deg, #0d1f3c 0%, #162040 50%, #1a1a3e 100%);
+  padding: 40px 20px 30px;
+  text-align: center;
+  border-bottom: 3px solid var(--gold);
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '🌙';
+  position: absolute;
+  top: 12px;
+  left: 20px;
+  font-size: 36px;
+  opacity: 0.5;
+}
+.header::after {
+  content: '✨';
+  position: absolute;
+  top: 16px;
+  right: 24px;
+  font-size: 28px;
+  opacity: 0.4;
+}
+.header h1 {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+.header .subtitle {
+  font-size: 1.1rem;
+  color: var(--text-dim);
+}
+.header .badge-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gold-dim);
+  color: var(--gold-light);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+/* Container */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+/* Sections */
+.section {
+  margin-bottom: 20px;
+  border: 1px solid rgba(212,165,67,0.2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--navy-light);
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--navy-card);
+  transition: background 0.2s;
+}
+.section-header:hover { background: rgba(22,32,64,0.9); }
+.section-header h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.section-header .toggle {
+  font-size: 1.3rem;
+  color: var(--gold);
+  transition: transform 0.3s;
+}
+.section.collapsed .toggle { transform: rotate(-90deg); }
+.section-body {
+  padding: 20px;
+  display: block;
+}
+.section.collapsed .section-body { display: none; }
+/* Cards */
+.card {
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.12);
+  border-radius: 12px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.card:last-child { margin-bottom: 0; }
+/* Character grid */
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.char-card {
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.15);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.char-card img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  background: #0d1a2e;
+}
+.char-card .info {
+  padding: 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.char-card h3 {
+  color: var(--gold);
+  font-size: 1.05rem;
+  margin-bottom: 4px;
+}
+.char-card .desc {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+.char-card .voice-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(91,164,230,0.15);
+  color: var(--accent-blue);
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  width: fit-content;
+}
+/* Prompt box */
+.prompt-box {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(212,165,67,0.1);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-top: auto;
+  position: relative;
+}
+.prompt-box p {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-bottom: 8px;
+  direction: ltr;
+  text-align: left;
+}
+.prompt-box .prompt-label {
+  font-size: 0.7rem;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 4px;
+  direction: rtl;
+  text-align: right;
+}
+/* Copy button */
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  border: 1px solid rgba(212,165,67,0.3);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.copy-btn:hover { background: rgba(212,165,67,0.25); }
+.copy-btn.copied {
+  background: rgba(78,203,113,0.2);
+  color: var(--accent-green);
+  border-color: rgba(78,203,113,0.3);
+}
+/* Scene cards */
+.scene-card {
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.12);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.scene-card:last-child { margin-bottom: 0; }
+.scene-top {
+  display: flex;
+  gap: 0;
+}
+.scene-img {
+  width: 240px;
+  min-height: 180px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: #0d1a2e;
+}
+.scene-info {
+  padding: 16px;
+  flex: 1;
+}
+.scene-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--gold-dim);
+  color: var(--gold);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.scene-info h3 {
+  color: var(--gold-light);
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+.scene-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  font-size: 0.82rem;
+}
+.scene-details .label {
+  color: var(--gold);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.scene-details .value { color: var(--text-dim); }
+.scene-prompt {
+  padding: 14px 16px;
+  border-top: 1px solid rgba(212,165,67,0.08);
+}
+/* Dialogue */
+.dialogue-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px;
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.08);
+  border-radius: 10px;
+  margin-bottom: 10px;
+}
+.dialogue-item:last-child { margin-bottom: 0; }
+.dialogue-char {
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: center;
+}
+.dialogue-char .name {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.dialogue-char .voice {
+  color: var(--accent-blue);
+  font-size: 0.7rem;
+}
+.dialogue-content {
+  flex: 1;
+}
+.dialogue-content .line {
+  font-size: 0.95rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.dialogue-content audio {
+  width: 100%;
+  height: 36px;
+  border-radius: 6px;
+}
+/* Music */
+.music-item {
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.1);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.music-item:last-child { margin-bottom: 0; }
+.music-item h4 { color: var(--gold); margin-bottom: 4px; }
+.music-item .music-desc { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 8px; }
+.music-item audio { width: 100%; height: 36px; }
+/* Caption box */
+.caption-box {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(212,165,67,0.1);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 14px;
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  position: relative;
+}
+.caption-box h4 {
+  color: var(--gold);
+  margin-bottom: 8px;
+}
+.caption-box .text { color: var(--text-dim); }
+.caption-actions {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+/* Checklist */
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--navy-card);
+  border: 1px solid rgba(212,165,67,0.08);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.92rem;
+}
+.checklist-item:hover { border-color: rgba(212,165,67,0.25); }
+.checklist-item input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+.checklist-item.done {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+/* Responsive */
+@media (max-width: 640px) {
+  .header h1 { font-size: 1.5rem; }
+  .scene-top { flex-direction: column; }
+  .scene-img { width: 100%; min-height: 200px; }
+  .char-grid { grid-template-columns: 1fr; }
+  .dialogue-item { flex-direction: column; gap: 8px; }
+  .dialogue-char { min-width: auto; text-align: right; }
+  .container { padding: 12px 10px 40px; }
+}
+/* Audio webkit */
+audio::-webkit-media-controls-panel { background: var(--navy-card); }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>📺 يوميات Pyramedia — الحلقة 1</h1>
+  <div class="subtitle">عيادة دكتور أحمد: المواعيد الضايعة 😤</div>
+  <div class="badge-row">
+    <span class="badge">🎬 النوع: المشكلة</span>
+    <span class="badge">⏱ المدة: 50 ثانية</span>
+    <span class="badge">📐 9:16 عمودي</span>
+    <span class="badge">🌙 رمضان 2026</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- A. OVERVIEW -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>🎯 نظرة عامة</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div class="card">
+      <p style="font-size:1rem; margin-bottom:12px;">
+        الحلقة الأولى من مسلسل <strong style="color:var(--gold)">يوميات Pyramedia</strong> — سلسلة رمضانية قصيرة تحكي قصة دكتور أحمد، طبيب أسنان في دبي بيعاني من مشاكل إدارة العيادة التقليدية.
+      </p>
+      <p style="color:var(--text-dim); font-size:0.9rem;">
+        في الحلقة دي، بنعرض <strong style="color:var(--accent-red)">المشكلة</strong>: المواعيد الضايعة، المرضى اللي مش بييجوا (no-shows)، النظام الورقي الفوضوي، ومريض زعلان مشي من العيادة. الحلقة بتنتهي بتشويق — صاحب الدكتور بيقوله إنه يعرف حد يقدر يساعده...
+      </p>
+      <div style="margin-top:14px; display:flex; gap:8px; flex-wrap:wrap;">
+        <span class="badge">🏥 عيادة أسنان</span>
+        <span class="badge">📉 No-Shows</span>
+        <span class="badge">😤 مريض زعلان</span>
+        <span class="badge">🤔 تشويق للحلقة 2</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- B. CHARACTERS -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>👥 الشخصيات</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div class="char-grid">
+
+      <!-- Dr Ahmed -->
+      <div class="char-card">
+        <img src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/dr-ahmed.png" alt="دكتور أحمد" loading="lazy">
+        <div class="info">
+          <h3>دكتور أحمد</h3>
+          <div class="desc">طبيب أسنان، 40 سنة، صاحب عيادة خاصة في دبي. بيعاني من مشاكل إدارة المواعيد والنظام الورقي.</div>
+          <span class="voice-tag">🎙 Haytham — Egyptian Male</span>
+          <div class="prompt-box">
+            <div class="prompt-label">📝 Image Generation Prompt</div>
+            <p>A 40-year-old Arab male dentist with short black hair, neatly trimmed beard, and rectangular glasses. Wearing a crisp white lab coat over light blue scrubs. Tired, frustrated expression with slight dark circles under his eyes. Standing in a modern, clean dental clinic with white and light blue decor. Soft fluorescent lighting. Professional medical portrait, photorealistic, cinematic lighting, 3:4 aspect ratio.</p>
+            <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Noura -->
+      <div class="char-card">
+        <img src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/noura.png" alt="نورا" loading="lazy">
+        <div class="info">
+          <h3>نورا</h3>
+          <div class="desc">الممرضة / السكرتيرة، 30 سنة. بتدير الريسبشن وبتحاول تتواصل مع المرضى بدون نجاح.</div>
+          <span class="voice-tag">🎙 Farah — Arabic Female</span>
+          <div class="prompt-box">
+            <div class="prompt-label">📝 Image Generation Prompt</div>
+            <p>A 30-year-old Arab woman wearing blue medical scrubs and a white hijab. She has a worried, stressed expression on her face. Sitting at a white reception desk with a computer monitor, papers, and a telephone. Modern dental clinic reception area with clean minimalist decor. Fluorescent overhead lighting. Professional portrait, photorealistic, cinematic, 3:4 aspect ratio.</p>
+            <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Angry Patient -->
+      <div class="char-card">
+        <img src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/angry-patient.png" alt="المريض" loading="lazy">
+        <div class="info">
+          <h3>المريض الزعلان</h3>
+          <div class="desc">رجل 35 سنة، جاي العيادة وهو ماسك خده من وجع الأسنان. حاجز من يومين بس اسمه مش موجود في السجلات.</div>
+          <span class="voice-tag">🎙 Masry — Egyptian Male</span>
+          <div class="prompt-box">
+            <div class="prompt-label">📝 Image Generation Prompt</div>
+            <p>A 35-year-old Arab man in casual clothes (beige shirt, dark pants) holding his right cheek in obvious dental pain. Angry, frustrated expression. Standing at a medical clinic reception desk. He looks agitated, slightly leaning forward confrontationally. Modern clinic interior with white walls. Natural and fluorescent mixed lighting. Photorealistic, cinematic, 3:4 aspect ratio.</p>
+            <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Friend -->
+      <div class="char-card">
+        <img src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/characters/ahmed-friend.png" alt="صاحب أحمد" loading="lazy">
+        <div class="info">
+          <h3>صاحب أحمد</h3>
+          <div class="desc">رجل 40 سنة، صاحب دكتور أحمد. لبسه كاجوال. بيقابل أحمد في كافيه وبيقوله على حل لمشكلته.</div>
+          <span class="voice-tag">🎙 Abdullah — MSA Male</span>
+          <div class="prompt-box">
+            <div class="prompt-label">📝 Image Generation Prompt</div>
+            <p>A 40-year-old Arab man with a friendly, confident smile. Wearing smart casual clothes — a navy polo shirt. Well-groomed short beard. Sitting in a modern, upscale café in Dubai Marina with warm ambient lighting, holding a coffee cup. Relaxed, approachable demeanor. Background shows city lights through large windows. Photorealistic, cinematic warm tones, 3:4 aspect ratio.</p>
+            <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- C. STORYBOARD -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>🎬 الستوري بورد — مشهد بمشهد</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+
+    <!-- Hook -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/hook-schedule.png" alt="Hook" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">🪝 Hook — 0:00–0:03</span>
+          <h3>جدول المواعيد المشطوب</h3>
+          <div class="scene-details">
+            <span class="label">المكان:</span><span class="value">كلوز أب على جدول مواعيد ورقي</span>
+            <span class="label">الأكشن:</span><span class="value">يد تشطب على 3 أسماء بقلم أحمر واحد ورا التاني</span>
+            <span class="label">نص الشاشة:</span><span class="value">"3 مرضى محجوزين… ومحدش جه! 😤"</span>
+            <span class="label">صوت:</span><span class="value">صوت قلم بيشطب (scratch) + نغمة توتر خفيفة</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>Extreme close-up of a hand-written Arabic appointment schedule on white paper. A man's hand holding a red pen crosses out three patient names one after another with aggressive strokes. The paper shows a grid with times (9:00, 9:30, 10:00) and Arabic names. Red ink streaks across the names. Clean white desk surface. Top-down camera angle, shallow depth of field. Warm fluorescent office lighting. Tense, frustrated mood. Photorealistic, cinematic. 9:16 vertical, 3 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 1 -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/empty-clinic.png" alt="Scene 1" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">مشهد 1 — 0:03–0:10</span>
+          <h3>العيادة الفاضية</h3>
+          <div class="scene-details">
+            <span class="label">الوقت:</span><span class="value">الصبح، ~9:00 AM</span>
+            <span class="label">المكان:</span><span class="value">عيادة أسنان خاصة في دبي — ديكور نظيف أبيض وأزرق فاتح</span>
+            <span class="label">الشخصيات:</span><span class="value">دكتور أحمد (40 سنة، بالطو أبيض، نضارة)</span>
+            <span class="label">الأكشن:</span><span class="value">الدكتور واقف في غرفة الكشف، 3 كراسي انتظار فاضية ورا الزجاج. بيبص على ساعته ثم على الكراسي. يتنهد.</span>
+            <span class="label">موسيقى:</span><span class="value">بيانو حزين خفيف + تيك توك ساعة في الخلفية</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>A 40-year-old Arab male dentist in a white lab coat and rectangular glasses stands alone in a modern dental clinic examination room. He looks at his wristwatch, then turns to gaze through a glass partition at three empty blue waiting chairs. He sighs with visible frustration, shoulders dropping. Clean white and light blue interior decor, dental equipment visible, fluorescent ceiling lights. Slow tracking shot from medium to close-up. Morning light filtering through blinds. Melancholic, lonely mood. Photorealistic, cinematic. 9:16 vertical, 7 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 2 -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/noura-phone.png" alt="Scene 2" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">مشهد 2 — 0:10–0:20</span>
+          <h3>الاتصالات الفاشلة</h3>
+          <div class="scene-details">
+            <span class="label">المكان:</span><span class="value">ريسبشن العيادة — كاونتر أبيض، كمبيوتر قديم، ورق وملفات</span>
+            <span class="label">الشخصيات:</span><span class="value">نورا (30 سنة، سكراب طبي أزرق)</span>
+            <span class="label">الأكشن:</span><span class="value">نورا ماسكة التليفون، بتتصل. الشاشة: "جاري الاتصال… لا يوجد رد". تجرب رقم تاني — نفس النتيجة. تحط التليفون وتمسك راسها.</span>
+            <span class="label">صوت:</span><span class="value">رنين تليفون متكرر + صوت "المشترك غير متاح"</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>A 30-year-old Arab woman in blue medical scrubs and white hijab sits at a clinic reception desk. She holds a desk phone to her ear, waiting. A computer screen beside her shows "Calling... No Answer" in Arabic. She hangs up, dials again, waits — same result. She puts the phone down in frustration and rubs her temples with both hands. White reception counter, scattered papers and folders, old desktop computer. Medium shot, slight push-in. Cool fluorescent lighting with warm desk lamp accent. Stressed, defeated mood. Photorealistic, cinematic. 9:16 vertical, 10 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 3 -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/angry-patient-reception.png" alt="Scene 3" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">مشهد 3 — 0:20–0:35</span>
+          <h3>مريض بدون ميعاد</h3>
+          <div class="scene-details">
+            <span class="label">المكان:</span><span class="value">ريسبشن العيادة</span>
+            <span class="label">الشخصيات:</span><span class="value">دكتور أحمد + نورا + المريض (35 سنة، ماسك خده من الألم)</span>
+            <span class="label">الأكشن:</span><span class="value">المريض يدخل ماسك خده. يروح للريسبشن. نورا تدور في الأوراق. مش لاقية اسمه. الدكتور يجي. المريض يتعصب ويمشي.</span>
+            <span class="label">صوت:</span><span class="value">صوت باب يتفتح + ورق بيتقلب بسرعة</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>A 35-year-old Arab man in casual beige shirt bursts into a dental clinic reception, holding his right cheek in pain. He approaches the white reception desk where a young woman in blue scrubs and white hijab frantically flips through paper files looking for his name. A 40-year-old male dentist in a white lab coat approaches from behind, hands raised in a calming gesture. The patient gestures angrily, pointing at the papers. He turns and storms out through the glass door. Modern clinic interior, white walls, glass partitions. Dynamic handheld camera movement, medium wide shot. Tense fluorescent lighting. Confrontational, chaotic mood. Photorealistic, cinematic. 9:16 vertical, 15 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 4 -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/ahmed-breakdown.png" alt="Scene 4" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">مشهد 4 — 0:35–0:42</span>
+          <h3>نقطة الانهيار</h3>
+          <div class="scene-details">
+            <span class="label">المكان:</span><span class="value">مكتب الدكتور أحمد — مكتب صغير، شهادات على الحيطة، لابتوب مفتوح</span>
+            <span class="label">الشخصيات:</span><span class="value">دكتور أحمد لوحده</span>
+            <span class="label">الأكشن:</span><span class="value">الدكتور قاعد على الكرسي، بيمسح على وشه بإيده. بيبص على شاشة اللابتوب — جدول إكسل فوضوي. يقفل اللابتوب بعصبية.</span>
+            <span class="label">موسيقى:</span><span class="value">الموسيقى الحزينة بتوصل لذروتها</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>A 40-year-old Arab male dentist in a white lab coat sits alone at a small office desk, rubbing his face with both hands in exhaustion. Framed medical certificates hang on the wall behind him. He looks down at an open laptop showing a messy, colorful Excel spreadsheet with crossed-out entries. He slams the laptop shut with frustration and leans back in his chair, staring at the ceiling. Small office, warm desk lamp light contrasting with cold overhead fluorescent. Slow dolly-in from medium to tight close-up on his determined face. Peak emotional moment, dramatic. Photorealistic, cinematic. 9:16 vertical, 7 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 5 -->
+    <div class="scene-card">
+      <div class="scene-top">
+        <img class="scene-img" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/storyboard/EP01/cafe-scene.png" alt="Scene 5" loading="lazy">
+        <div class="scene-info">
+          <span class="scene-badge">مشهد 5 — 0:42–0:50</span>
+          <h3>التمهيد + CTA</h3>
+          <div class="scene-details">
+            <span class="label">المكان:</span><span class="value">كافيه عصري في دبي مارينا — إضاءة دافئة</span>
+            <span class="label">الشخصيات:</span><span class="value">دكتور أحمد + صاحبه (40 سنة، كاجوال، بيشرب قهوة)</span>
+            <span class="label">الأكشن:</span><span class="value">الدكتور بيشتكي لصاحبه. صاحبه يطلع موبايله ويوريه حاجة على الشاشة. الكاميرا تعمل زووم — نشوف لوجو Pyramedia.</span>
+            <span class="label">صوت:</span><span class="value">موسيقى تتحول لنغمة أمل خفيفة</span>
+            <span class="label">نص الشاشة:</span><span class="value">"بكرة دكتور أحمد هيقابل محمد… يا ترى إيه اللي هيحصل؟ 👀"</span>
+          </div>
+        </div>
+      </div>
+      <div class="scene-prompt">
+        <div class="prompt-box">
+          <div class="prompt-label">🎥 Video Generation Prompt</div>
+          <p>Two 40-year-old Arab men sit across from each other in an upscale modern café in Dubai Marina. One wears a white lab coat (the dentist, looking stressed), the other wears a casual navy polo shirt (his friend, smiling confidently). The friend pulls out his smartphone and shows the screen to the dentist. The camera slowly pushes in toward the phone screen which displays a glowing golden logo. Warm ambient café lighting, city lights visible through large windows, coffee cups on the marble table. Bokeh background. Transition from melancholic to hopeful mood. Soft golden hour tones. Photorealistic, cinematic. 9:16 vertical, 8 seconds.</p>
+          <button class="copy-btn" onclick="copyText(this)">📋 نسخ البرومبت</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- D. DIALOGUE & AUDIO -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>🎤 الحوار والصوت</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div style="margin-bottom:14px; padding:10px 14px; background:var(--gold-dim); border-radius:8px; font-size:0.85rem;">
+      <strong style="color:var(--gold);">أصوات ElevenLabs المستخدمة:</strong>
+      دكتور أحمد → <span style="color:var(--accent-blue)">Haytham</span> (Egyptian Male) &nbsp;|&nbsp;
+      نورا → <span style="color:var(--accent-blue)">Farah</span> (Arabic Female) &nbsp;|&nbsp;
+      المريض → <span style="color:var(--accent-blue)">Masry</span> (Egyptian Male) &nbsp;|&nbsp;
+      صاحب أحمد → <span style="color:var(--accent-blue)">Abdullah</span> (MSA Male)
+    </div>
+
+    <!-- Dialogue Lines -->
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">دكتور أحمد</div><div class="voice">🎙 Haytham</div></div>
+      <div class="dialogue-content">
+        <div class="line">"تلات مرضى… محجوزين من أسبوع… ومحدش جه."</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-1.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">نورا</div><div class="voice">🎙 Farah</div></div>
+      <div class="dialogue-content">
+        <div class="line">"مش بيرد… التاني مش بيرد… التالت كمان!"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/nora-2.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">المريض</div><div class="voice">🎙 Masry</div></div>
+      <div class="dialogue-content">
+        <div class="line">"أنا حاجز من يومين يا جماعة!"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-3.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">نورا</div><div class="voice">🎙 Farah</div></div>
+      <div class="dialogue-content">
+        <div class="line">"اسمك مش موجود عندي يا أستاذ…"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/nora-4.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">المريض</div><div class="voice">🎙 Masry</div></div>
+      <div class="dialogue-content">
+        <div class="line">"إزاي مش موجود؟! أنا اتصلت وحجزت!"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-5.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">دكتور أحمد</div><div class="voice">🎙 Haytham</div></div>
+      <div class="dialogue-content">
+        <div class="line">"حقك عليا يا أستاذ… بس احنا—"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-6.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">المريض</div><div class="voice">🎙 Masry</div></div>
+      <div class="dialogue-content">
+        <div class="line">"لا مش حقي عليك! أنا هروح عيادة تانية!"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-7.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">دكتور أحمد</div><div class="voice">🎙 Haytham</div></div>
+      <div class="dialogue-content">
+        <div class="line">"كده مش هينفع… لازم ألاقي حل!"</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-8.mp3"></audio>
+      </div>
+    </div>
+
+    <div class="dialogue-item">
+      <div class="dialogue-char"><div class="name">صاحب أحمد</div><div class="voice">🎙 Abdullah</div></div>
+      <div class="dialogue-content">
+        <div class="line">"أحمد… أنا عارف واحد حل لي نفس المشكلة بالظبط."</div>
+        <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/friend-9.mp3"></audio>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- E. MUSIC -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>🎵 الموسيقى</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div class="music-item">
+      <h4>🎹 Clinic Sadness — موسيقى الحزن والتوتر</h4>
+      <div class="music-desc">تُستخدم في المشاهد 1 إلى 4 — بيانو حزين خفيف مع إحساس بالتوتر والإحباط. تبدأ هادئة وتوصل لذروتها في مشهد الانهيار (مشهد 4).</div>
+      <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/clinic-sadness.mp3"></audio>
+    </div>
+    <div class="music-item">
+      <h4>🌅 Hope Theme — نغمة الأمل</h4>
+      <div class="music-desc">تُستخدم في المشهد الأخير (مشهد 5 — الكافيه) — الموسيقى بتتحول من حزينة لنغمة أمل خفيفة لما صاحب أحمد بيقوله على الحل.</div>
+      <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/hope-theme.mp3"></audio>
+    </div>
+    <div class="music-item">
+      <h4>🌙 Ramadan Intro — إنترو رمضاني</h4>
+      <div class="music-desc">إنترو المسلسل الرمضاني — يُستخدم في بداية كل حلقة مع لوجو "يوميات Pyramedia" والهلال. وفي الأوت‌رو كمان مع "تابعونا بكرة! 🌙"</div>
+      <audio controls preload="none" src="https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/ramadan-intro.mp3"></audio>
+    </div>
+  </div>
+</div>
+
+<!-- F. CAPTIONS -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>📱 الكابشنز والهاشتاجز</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+
+    <div class="caption-box">
+      <h4>📸 Instagram Caption</h4>
+      <div class="text" id="ig-caption">المواعيد ضايعة… المرضى مش بييجوا… والعيادة فاضية 😤
+
+دكتور أحمد بيعاني من مشكلة بيعاني منها كل دكتور:
+📉 No-shows كل يوم
+📞 اتصالات بدون رد
+📋 نظام ورقي بيضيّع المرضى
+
+إيه الحل؟ 🤔 تابعونا بكرة!
+
+حلقة 1 من #يوميات_Pyramedia 🌙
+المسلسل اللي هيغير نظرتك للـ AI في شغلك!
+
+💬 حصل معاك نفس الموقف؟ قولنا في الكومنتس!</div>
+      <div class="caption-actions">
+        <button class="copy-btn" onclick="copyById('ig-caption', this)">📋 نسخ</button>
+      </div>
+    </div>
+
+    <div class="caption-box">
+      <h4>🎵 TikTok Caption</h4>
+      <div class="text" id="tt-caption">المرضى حجزوا ومجوش 😤💔 مين عنده نفس المشكلة؟
+
+الحلقة 1 من يوميات Pyramedia 🌙
+بكرة الحل! 👀🔥
+
+#يوميات_Pyramedia #رمضان</div>
+      <div class="caption-actions">
+        <button class="copy-btn" onclick="copyById('tt-caption', this)">📋 نسخ</button>
+      </div>
+    </div>
+
+    <div class="caption-box">
+      <h4>#️⃣ Hashtags</h4>
+      <div class="text" id="hashtags">#يوميات_Pyramedia #رمضان_2026 #PyraAI #ذكاء_اصطناعي #AI_للأعمال #حلول_ذكية #رمضان_كريم #عيادات #مواعيد_طبية #no_show #إدارة_عيادات #دبي #الإمارات #طبيب_أسنان #نظام_حجز</div>
+      <div class="caption-actions">
+        <button class="copy-btn" onclick="copyById('hashtags', this)">📋 نسخ</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- G. PRODUCTION CHECKLIST -->
+<div class="section">
+  <div class="section-header" onclick="toggleSection(this)">
+    <h2>✅ قائمة الإنتاج</h2>
+    <span class="toggle">▼</span>
+  </div>
+  <div class="section-body">
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🖼 توليد صور مرجعية للشخصيات (4 شخصيات)</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🎨 توليد صور الستوري بورد (6 مشاهد)</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🎬 توليد فيديو كليبات (6 كليبات × 3-15 ثانية)</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🎤 تسجيل الحوار بالأصوات (9 تسجيلات — ElevenLabs)</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🎵 توليد الموسيقى الخلفية (3 تراكات — Suno)</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>🔧 مونتاج وتجميع الفيديو النهائي</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>📝 إضافة النصوص والترجمة على الفيديو</span>
+    </div>
+    <div class="checklist-item" onclick="toggleCheck(this)">
+      <input type="checkbox" onclick="event.stopPropagation(); toggleCheck(this.parentElement)">
+      <span>📤 تصدير الفيديو النهائي 9:16 عمودي (1080×1920)</span>
+    </div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<!-- Footer -->
+<div style="text-align:center; padding:20px; color:var(--text-dim); font-size:0.8rem; border-top:1px solid rgba(212,165,67,0.1);">
+  🌙 يوميات Pyramedia — رمضان 2026 &nbsp;|&nbsp; لوحة إنتاج الحلقة 1
+</div>
+
+<script>
+function toggleSection(header) {
+  header.parentElement.classList.toggle('collapsed');
+}
+
+function copyText(btn) {
+  const text = btn.parentElement.querySelector('p').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ تم النسخ!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function copyById(id, btn) {
+  const text = document.getElementById(id).textContent.trim();
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '✅ تم النسخ!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+function toggleCheck(item) {
+  const cb = item.querySelector('input[type="checkbox"]');
+  cb.checked = !cb.checked;
+  item.classList.toggle('done', cb.checked);
+  saveChecklist();
+}
+
+function saveChecklist() {
+  const states = [...document.querySelectorAll('.checklist-item input')].map(cb => cb.checked);
+  try { localStorage.setItem('ep01-checklist', JSON.stringify(states)); } catch(e) {}
+}
+
+function loadChecklist() {
+  try {
+    const states = JSON.parse(localStorage.getItem('ep01-checklist'));
+    if (states) {
+      document.querySelectorAll('.checklist-item').forEach((item, i) => {
+        if (states[i]) {
+          item.querySelector('input').checked = true;
+          item.classList.add('done');
+        }
+      });
+    }
+  } catch(e) {}
+}
+
+loadChecklist();
+</script>
+</body>
+</html>

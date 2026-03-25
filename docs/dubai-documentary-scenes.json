@@ -1,0 +1,83 @@
+[
+  {
+    "scene": 1,
+    "name": "fishing-village",
+    "filename": "scene-1-fishing-village.mp4",
+    "taskId": "d57cfec6426d1b364ef2e5ea8c2c7c8e",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/d57cfec6426d1b364ef2e5ea8c2c7c8e_1770660191.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-1-fishing-village.mp4"
+  },
+  {
+    "scene": 2,
+    "name": "oil-discovery",
+    "filename": "scene-2-oil-discovery.mp4",
+    "taskId": "af11ffe4cbc02201ee02d663d43c8ae6",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/af11ffe4cbc02201ee02d663d43c8ae6_1770660179.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-2-oil-discovery.mp4"
+  },
+  {
+    "scene": 3,
+    "name": "the-vision",
+    "filename": "scene-3-the-vision.mp4",
+    "taskId": "127cd5cb5a74f0135783678a74adb94b",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/127cd5cb5a74f0135783678a74adb94b_1770660194.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-3-the-vision.mp4"
+  },
+  {
+    "scene": 4,
+    "name": "infrastructure-growth",
+    "filename": "scene-4-infrastructure-growth.mp4",
+    "taskId": "70689f66f51f8953aaa64e4cc44bea52",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/70689f66f51f8953aaa64e4cc44bea52_1770660210.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-4-infrastructure-growth.mp4"
+  },
+  {
+    "scene": 5,
+    "name": "burj-al-arab",
+    "filename": "scene-5-burj-al-arab.mp4",
+    "taskId": "448497850ad378983c5e22170648f13e",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/448497850ad378983c5e22170648f13e_1770660199.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-5-burj-al-arab.mp4"
+  },
+  {
+    "scene": 6,
+    "name": "palm-jumeirah",
+    "filename": "scene-6-palm-jumeirah.mp4",
+    "taskId": "fe4d197380af9ee432b8ee0ebc603dbd",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/fe4d197380af9ee432b8ee0ebc603dbd_1770660195.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-6-palm-jumeirah.mp4"
+  },
+  {
+    "scene": 7,
+    "name": "burj-khalifa",
+    "filename": "scene-7-burj-khalifa.mp4",
+    "taskId": "609e0cf79c55ddd1b6d9206ac619b597",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/609e0cf79c55ddd1b6d9206ac619b597_1770660210.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-7-burj-khalifa.mp4"
+  },
+  {
+    "scene": 8,
+    "name": "modern-dubai",
+    "filename": "scene-8-modern-dubai.mp4",
+    "taskId": "3f1ce70cb09db2b31372af250dc2be50",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/3f1ce70cb09db2b31372af250dc2be50_1770660195.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-8-modern-dubai.mp4"
+  },
+  {
+    "scene": 9,
+    "name": "finale-transformation",
+    "filename": "scene-9-finale-transformation.mp4",
+    "taskId": "4c7adf5a0b5c2b5ab869aac5232f3925",
+    "status": "success",
+    "videoUrl": "https://tempfile.aiquickdraw.com/v/4c7adf5a0b5c2b5ab869aac5232f3925_1770660194.mp4",
+    "storageUrl": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/content/dubai-documentary/scene-9-finale-transformation.mp4"
+  }
+]

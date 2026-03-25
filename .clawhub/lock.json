@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "skills": {
+    "self-improving-agent": {
+      "version": "1.0.11",
+      "installedAt": 1772231300851
+    },
+    "humanizer": {
+      "version": "1.0.0",
+      "installedAt": 1772231308494
+    },
+    "ontology": {
+      "version": "0.1.2",
+      "installedAt": 1772231316789
+    },
+    "mcporter": {
+      "version": "1.0.0",
+      "installedAt": 1772231566651
+    },
+    "frontend-design": {
+      "version": "1.0.0",
+      "installedAt": 1772231587559
+    },
+    "automation-workflows": {
+      "version": "0.1.0",
+      "installedAt": 1772231670698
+    },
+    "youtube-watcher": {
+      "version": "1.0.0",
+      "installedAt": 1772232875810
+    },
+    "n8n-workflow-automation": {
+      "version": "1.0.0",
+      "installedAt": 1772232921080
+    },
+    "markdown-converter": {
+      "version": "1.0.0",
+      "installedAt": 1772232999225
+    },
+    "proactive-agent": {
+      "version": "3.1.0",
+      "installedAt": 1772233035985
+    }
+  }
+}

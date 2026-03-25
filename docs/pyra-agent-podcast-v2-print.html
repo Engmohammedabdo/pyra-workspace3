@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>بودكاست Pyra Agent — السكريبت الكامل (V2)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1a1a2e;
+    --navy-light: #16213e;
+    --accent: #e67e22;
+    --accent-light: #f39c12;
+    --accent-glow: rgba(243, 156, 18, 0.12);
+    --text: #2c3e50;
+    --text-light: #5a6c7d;
+    --bg: #ffffff;
+    --bg-alt: #f8f9fa;
+    --border: #e0e4e8;
+    --border-light: #eef1f4;
+    --success: #27ae60;
+    --danger: #e74c3c;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.9;
+    color: var(--text);
+    background: var(--bg);
+    direction: rtl;
+  }
+
+  /* ============ COVER PAGE ============ */
+  .cover-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: linear-gradient(160deg, var(--navy) 0%, var(--navy-light) 60%, #0f3460 100%);
+    color: #fff;
+    padding: 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover-page::before {
+    content: '';
+    position: absolute;
+    top: -100px; right: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(243,156,18,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover-page::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; left: -80px;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(243,156,18,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover-logo {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 12px;
+    color: var(--accent-light);
+    margin-bottom: 10px;
+    direction: ltr;
+    position: relative;
+  }
+  .cover-logo-sub {
+    font-size: 13px;
+    font-weight: 400;
+    letter-spacing: 4px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 60px;
+    direction: ltr;
+  }
+  .cover-icon {
+    font-size: 64px;
+    margin-bottom: 30px;
+  }
+  .cover-title {
+    font-size: 38px;
+    font-weight: 800;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+  .cover-subtitle {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.8);
+    max-width: 700px;
+    margin-bottom: 50px;
+    line-height: 2;
+  }
+  .cover-meta {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .cover-badge {
+    display: inline-block;
+    padding: 8px 24px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .cover-badge.version {
+    background: var(--accent);
+    color: #fff;
+  }
+  .cover-badge.date {
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.9);
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .cover-badge.duration {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .cover-footer {
+    position: absolute;
+    bottom: 30px;
+    font-size: 13px;
+    color: rgba(255,255,255,0.35);
+    direction: ltr;
+    letter-spacing: 2px;
+  }
+
+  /* ============ TOC PAGE ============ */
+  .toc-page {
+    padding: 60px 60px 40px;
+    page-break-before: always;
+  }
+  .toc-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 10px;
+    padding-bottom: 15px;
+    border-bottom: 3px solid var(--accent);
+    display: inline-block;
+  }
+  .toc-subtitle {
+    font-size: 15px;
+    color: var(--text-light);
+    margin-bottom: 40px;
+  }
+  .toc-list {
+    list-style: none;
+    padding: 0;
+  }
+  .toc-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-light);
+    transition: background 0.2s;
+  }
+  .toc-item:hover { background: var(--bg-alt); }
+  .toc-num {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--navy);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 700;
+    margin-left: 18px;
+    flex-shrink: 0;
+  }
+  .toc-emoji {
+    font-size: 22px;
+    margin-left: 14px;
+    flex-shrink: 0;
+  }
+  .toc-text {
+    flex: 1;
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .toc-duration {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-glow);
+    padding: 4px 14px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    margin-right: 10px;
+  }
+
+  /* ============ CONTENT ============ */
+  .content {
+    padding: 0 60px 40px;
+  }
+
+  /* SEGMENT */
+  .segment {
+    page-break-before: always;
+    padding-top: 50px;
+  }
+  .segment-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .segment-number {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 800;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(26,26,46,0.2);
+  }
+  .segment-emoji {
+    font-size: 32px;
+    flex-shrink: 0;
+  }
+  .segment-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: var(--navy);
+    flex: 1;
+  }
+  .duration-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 25px;
+    border: 1px solid rgba(230, 126, 34, 0.2);
+    flex-shrink: 0;
+  }
+  .duration-badge::before {
+    content: '⏱️';
+    font-size: 14px;
+  }
+  .segment-divider {
+    height: 3px;
+    background: linear-gradient(to left, var(--accent), transparent);
+    margin: 16px 0 30px;
+    border-radius: 3px;
+  }
+
+  /* SCRIPT TEXT */
+  .script-block {
+    background: var(--bg-alt);
+    border-right: 4px solid var(--accent);
+    border-radius: 0 12px 12px 0;
+    padding: 30px 35px;
+    margin: 20px 0;
+    font-size: 17px;
+    line-height: 2;
+  }
+  .script-block p {
+    margin-bottom: 16px;
+  }
+  .script-block p:last-child {
+    margin-bottom: 0;
+  }
+  .script-block strong {
+    color: var(--navy);
+  }
+
+  /* QUOTE HIGHLIGHT */
+  .quote-highlight {
+    background: linear-gradient(135deg, #fff9e6, #fff3cd);
+    border-right: 5px solid var(--accent-light);
+    border-radius: 0 10px 10px 0;
+    padding: 20px 30px;
+    margin: 25px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--navy);
+    line-height: 2;
+    position: relative;
+  }
+  .quote-highlight::before {
+    content: '"';
+    position: absolute;
+    top: -5px;
+    right: 20px;
+    font-size: 60px;
+    color: var(--accent-light);
+    opacity: 0.3;
+    font-family: Georgia, serif;
+  }
+
+  /* STAGE DIRECTION */
+  .stage-direction {
+    font-style: italic;
+    color: var(--text-light);
+    font-size: 15px;
+    margin: 12px 0;
+  }
+
+  /* TRANSITION */
+  .transition {
+    background: linear-gradient(135deg, var(--navy), var(--navy-light));
+    color: #fff;
+    padding: 20px 30px;
+    border-radius: 12px;
+    margin: 35px 0;
+    font-style: italic;
+    font-size: 16px;
+    line-height: 1.9;
+    position: relative;
+    overflow: hidden;
+  }
+  .transition::before {
+    content: '🔗';
+    font-style: normal;
+    margin-left: 10px;
+    font-size: 18px;
+  }
+  .transition::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+
+  /* TABLES */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 25px 0;
+    font-size: 15px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  thead th {
+    background: var(--navy);
+    color: #fff;
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 15px;
+    text-align: right;
+  }
+  tbody td {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: top;
+  }
+  tbody tr:nth-child(even) {
+    background: var(--bg-alt);
+  }
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+  /* comparison table highlight last row */
+  .summary-table tbody tr:last-child {
+    background: var(--accent-glow);
+    font-weight: 700;
+  }
+  .summary-table tbody tr:last-child td {
+    border-top: 2px solid var(--accent);
+  }
+
+  /* RESULT BOX */
+  .result-box {
+    background: #eafaf1;
+    border-right: 4px solid var(--success);
+    border-radius: 0 10px 10px 0;
+    padding: 20px 28px;
+    margin: 20px 0;
+  }
+  .result-box h4 {
+    color: var(--success);
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+  .result-box ul {
+    list-style: none;
+    padding: 0;
+  }
+  .result-box li {
+    padding: 4px 0;
+    position: relative;
+    padding-right: 20px;
+  }
+  .result-box li::before {
+    content: '✓';
+    position: absolute;
+    right: 0;
+    color: var(--success);
+    font-weight: 700;
+  }
+
+  /* BEFORE/AFTER */
+  .before-after {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 25px 0;
+  }
+  .ba-card {
+    padding: 25px;
+    border-radius: 12px;
+  }
+  .ba-card.before {
+    background: #fdf2f2;
+    border: 1px solid #f5c6cb;
+  }
+  .ba-card.after {
+    background: #eafaf1;
+    border: 1px solid #b7e4c7;
+  }
+  .ba-card h4 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ba-card.before h4 { color: var(--danger); }
+  .ba-card.after h4 { color: var(--success); }
+  .ba-card ul {
+    list-style: none;
+    padding: 0;
+  }
+  .ba-card li {
+    padding: 6px 0;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  /* SUB-SECTION (stories) */
+  .sub-section {
+    margin: 35px 0;
+    padding: 30px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .sub-section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--border-light);
+  }
+  .sub-section-icon {
+    font-size: 28px;
+  }
+  .sub-section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--navy);
+  }
+
+  /* NOTES CALLOUT */
+  .notes-callout {
+    page-break-before: always;
+    margin-top: 50px;
+    background: linear-gradient(135deg, #fff9e6, #fff5eb);
+    border: 2px solid var(--accent-light);
+    border-radius: 16px;
+    padding: 40px;
+    position: relative;
+  }
+  .notes-callout::before {
+    content: '🎯';
+    position: absolute;
+    top: -20px;
+    right: 30px;
+    font-size: 36px;
+    background: #fff;
+    padding: 4px 10px;
+    border-radius: 50%;
+  }
+  .notes-callout h2 {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--navy);
+    margin-bottom: 25px;
+    padding-top: 5px;
+  }
+  .notes-callout ol {
+    padding-right: 25px;
+  }
+  .notes-callout li {
+    padding: 8px 0;
+    line-height: 2;
+    font-size: 16px;
+  }
+  .notes-callout li strong {
+    color: var(--accent);
+  }
+
+  /* NUMBERED LIST ITEMS */
+  .numbered-point {
+    display: flex;
+    gap: 15px;
+    margin: 16px 0;
+    align-items: flex-start;
+  }
+  .point-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+
+  /* COLOPHON */
+  .colophon {
+    text-align: center;
+    padding: 40px;
+    margin-top: 40px;
+    border-top: 2px solid var(--border);
+    color: var(--text-light);
+    font-size: 14px;
+    line-height: 2;
+  }
+  .colophon strong {
+    color: var(--accent);
+  }
+
+  /* ============ PRINT STYLES ============ */
+  @media print {
+    body { font-size: 15px; }
+
+    @page {
+      size: A4;
+      margin: 2cm 1.8cm 2.5cm 1.8cm;
+    }
+    @page :first { margin: 0; }
+
+    .cover-page {
+      min-height: auto;
+      height: 100vh;
+      background: var(--navy) !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .content { padding: 0 20px 20px; }
+    .toc-page { padding: 30px 20px 20px; }
+
+    .segment { page-break-before: always; padding-top: 20px; }
+    .sub-section { box-shadow: none; border: 1px solid #ccc; }
+    .transition {
+      background: var(--bg-alt) !important;
+      color: var(--navy) !important;
+      border: 1px solid var(--border);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .transition::after { background: var(--accent); }
+
+    .script-block { background: #fafafa !important; }
+    .result-box { background: #f5fdf8 !important; }
+    .notes-callout { background: #fffcf5 !important; }
+
+    thead th {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .segment-number {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .toc-num {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .point-num {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .duration-badge {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* Running header/footer */
+    @page {
+      @bottom-center {
+        content: "Pyramedia — Pyra Agent Podcast Script V2.0";
+        font-size: 10px;
+        color: #999;
+      }
+    }
+  }
+
+  /* Emoji sizing */
+  .emoji { font-size: 1.2em; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER PAGE ==================== -->
+<div class="cover-page">
+  <div class="cover-logo">PYRAMEDIA</div>
+  <div class="cover-logo-sub">MEDIA &amp; AI SOLUTIONS</div>
+  <div class="cover-icon">🎙️</div>
+  <h1 class="cover-title">بودكاست Pyra Agent — السكريبت الكامل</h1>
+  <p class="cover-subtitle">"موظف ما ينام، ما يطلب إجازة، وما يغلط في الرد — هل هذا ممكن؟"</p>
+  <div class="cover-meta">
+    <span class="cover-badge version">V2.0</span>
+    <span class="cover-badge date">فبراير 2026</span>
+    <span class="cover-badge duration">28–32 دقيقة</span>
+  </div>
+  <div class="cover-footer">CONFIDENTIAL — FOR INTERNAL USE ONLY</div>
+</div>
+
+<!-- ==================== TABLE OF CONTENTS ==================== -->
+<div class="toc-page">
+  <h2 class="toc-title">فهرس المحتوى</h2>
+  <p class="toc-subtitle">الأسلوب: محادثة طبيعية — كأنك تحكي لصاحبك عن اكتشاف غيّر بيزنسك | الجمهور: أصحاب بيزنس في الإمارات والخليج</p>
+  <ul class="toc-list">
+    <li class="toc-item">
+      <span class="toc-num">1</span>
+      <span class="toc-emoji">🎬</span>
+      <span class="toc-text">الـ Hook — "القصة اللي غيّرت كل شي"</span>
+      <span class="toc-duration">1–2 دقيقة</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">2</span>
+      <span class="toc-emoji">🔥</span>
+      <span class="toc-text">ليش الذكاء الاصطناعي صار ضرورة — مش رفاهية؟</span>
+      <span class="toc-duration">4–5 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">3</span>
+      <span class="toc-emoji">🚀</span>
+      <span class="toc-text">شو تغيّر في الذكاء الاصطناعي؟ — مش شات بوت أبوك</span>
+      <span class="toc-duration">3–4 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">4</span>
+      <span class="toc-emoji">🤝</span>
+      <span class="toc-text">هل الـ AI بديل عن البشر؟ — الجواب الصريح</span>
+      <span class="toc-duration">3 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">5</span>
+      <span class="toc-emoji">🧠</span>
+      <span class="toc-text">تعرّف على Pyra Agent — الموظف اللي ما يقدّم استقالة</span>
+      <span class="toc-duration">4–5 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">6</span>
+      <span class="toc-emoji">🏪</span>
+      <span class="toc-text">قصص من أرض الواقع — بايرا في كل مكان</span>
+      <span class="toc-duration">8–10 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">7</span>
+      <span class="toc-emoji">💪</span>
+      <span class="toc-text">ليش بايرا مش زي غيره — نقاط القوة</span>
+      <span class="toc-duration">3–4 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">8</span>
+      <span class="toc-emoji">📊</span>
+      <span class="toc-text">قبل وبعد — الفرق بالأرقام</span>
+      <span class="toc-duration">2–3 دقائق</span>
+    </li>
+    <li class="toc-item">
+      <span class="toc-num">9</span>
+      <span class="toc-emoji">🎬</span>
+      <span class="toc-text">الخاتمة + CTA — "الخطوة الأولى"</span>
+      <span class="toc-duration">2–3 دقائق</span>
+    </li>
+  </ul>
+</div>
+
+<!-- ==================== CONTENT ==================== -->
+<div class="content">
+
+  <!-- ===== SEGMENT 1 ===== -->
+  <div class="segment" id="seg1">
+    <div class="segment-header">
+      <div class="segment-number">1</div>
+      <span class="segment-emoji">🎬</span>
+      <h2 class="segment-title">الـ Hook — "القصة اللي غيّرت كل شي"</h2>
+      <span class="duration-badge">1–2 دقيقة</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>تخيّل معي هالموقف...</p>
+      <p>صاحب مطعم في دبي، شغّال من الصبح، الطلبات كثيرة، الموظفين مشغولين. الساعة 11 بالليل — يعني بعد ما أغلب الناس خلصت شغلها — جاه رسالة على واتساب:</p>
+      <p><strong>"حابب أطلب لعشاء عائلي، 12 شخص، يوم الخميس. عندكم خيارات؟"</strong></p>
+      <p>عميل جاهز يصرف. بس الموظف راح البيت. والرسالة ضاعت بين 47 رسالة ثانية.</p>
+      <p>الخميس جا... العميل حجز عند المنافس.</p>
+      <p class="stage-direction">*(وقفة قصيرة)*</p>
+      <p>هالقصة تتكرر كل يوم — مش بس في المطاعم. في العيادات، في شركات الخدمات، في العقارات. كل رسالة ما ترد عليها في الوقت المناسب... هي فلوس طارت.</p>
+      <p>طيب، ماذا لو كان فيه "موظف" يرد في ثانيتين، يفهم شو يبي العميل، ويحجزله — حتى لو الساعة 3 الفجر؟</p>
+      <p>هذا اللي بنحكي عنه اليوم.</p>
+      <p>أنا [اسم المقدم]، وهذا بودكاست <strong>Pyramedia</strong> — واليوم بنتكلم عن <strong>Pyra Agent</strong>، الموظف الذكي اللي ما ينام.</p>
+    </div>
+
+    <div class="transition">
+      "بس قبل ما ندخل في التفاصيل، خلونا نرجع خطوة ونفهم ليش هالموضوع صار ضروري الحين بالذات..."
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 2 ===== -->
+  <div class="segment" id="seg2">
+    <div class="segment-header">
+      <div class="segment-number">2</div>
+      <span class="segment-emoji">🔥</span>
+      <h2 class="segment-title">ليش الذكاء الاصطناعي صار ضرورة — مش رفاهية؟</h2>
+      <span class="duration-badge">4–5 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>خلني أعطيك أرقام سريعة تفهم الصورة:</p>
+      <p>في الإمارات، متوسط راتب موظف خدمة عملاء — بين <strong>4,000 و 7,000 درهم</strong> شهريًا. ضيف عليها تأشيرة، تأمين، سكن... أنت تتكلم عن <strong>10,000+ درهم</strong> شهريًا لشخص واحد. واحد. يشتغل 8 ساعات بس.</p>
+      <p>طيب العميل؟ العميل في 2026 ما عنده صبر. دراسة من <strong>HubSpot</strong> تقول إن <strong>78% من العملاء</strong> يشترون من أول شركة ترد عليهم. مش أحسن شركة — <strong>أول شركة ترد</strong>.</p>
+      <p>يعني التأخير مش بس إزعاج — التأخير = خسارة مباشرة.</p>
+      <p>وفوق هذا كله، العميل اليوم يكلمك من واتساب، من إنستجرام، من الموقع، من إيميل... قنوات كثيرة. موظف واحد يقدر يتابع كل هالقنوات بنفس الجودة؟ صعب.</p>
+      <p class="stage-direction">*(بنبرة تحليلية)*</p>
+      <p>المنافسة في الخليج صارت شرسة. كل يوم فيه بيزنس جديد يفتح. اللي يقدر يرد بسرعة ويتابع بذكاء — هذا اللي يكسب. واللي يعتمد على الطرق التقليدية بس... الله يعينه.</p>
+    </div>
+
+    <div class="quote-highlight">
+      الخلاصة البسيطة: الذكاء الاصطناعي ما صار "شي حلو نجربه" — صار <strong>أداة بقاء</strong>. زي ما كان الإنترنت قبل 20 سنة. اللي ما دخل وقتها، تأخر كثير.
+    </div>
+
+    <div class="transition">
+      "طيب يمكن واحد يقول: أنا جربت شات بوت قبل وما نفع. كان يرد ردود غبية والعملاء يتضايقون. فيش صار في هالتقنية؟ خلني أشرحلك..."
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 3 ===== -->
+  <div class="segment" id="seg3">
+    <div class="segment-header">
+      <div class="segment-number">3</div>
+      <span class="segment-emoji">🚀</span>
+      <h2 class="segment-title">شو تغيّر في الذكاء الاصطناعي؟ — مش شات بوت أبوك</h2>
+      <span class="duration-badge">3–4 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>لازم نفرّق بين شيئين مهمين:</p>
+      <p><strong>الشات بوت التقليدي</strong> — اللي كلنا نعرفه — هذا يشتغل بنظام "إذا العميل قال كذا، رد كذا". يعني Decision Tree. العميل يغيّر كلمة وحدة والبوت يضيع.</p>
+      <p><strong>الـ AI Agent</strong> — وهذا الجيل الجديد — يفهم <strong>نية</strong> العميل، مش بس كلماته.</p>
+      <p>يعني لو عميل كتب: "عندكم شي للبشرة الدهنية؟" — الشات بوت القديم يدوّر على كلمة "بشرة" في القائمة ويرسل كل المنتجات.</p>
+      <p>الـ AI Agent يفهم إنك تسأل عن <strong>بشرة دهنية تحديدًا</strong>، يقترحلك المنتجات المناسبة، ويسألك "هل تبي شي للتنظيف ولا للترطيب؟" — يعني يسوّي <strong>محادثة حقيقية</strong>.</p>
+      <p>وأهم تطور؟ <strong>فهم اللغة العربية واللهجات</strong>. يفهم إماراتي، مصري، سعودي، لبناني. يفهم الاختصارات والإيموجي. يعرف إن "حبيبي وينكم" يعني "أبي أعرف العنوان" 😄</p>
+      <p>والأحلى من كذا — الـ AI Agent يتكامل مع أنظمتك. يقدر يحجز موعد في النظام مباشرة، يسجل طلب، يرسل فاتورة. مش بس يحكي — <strong>يسوّي</strong>.</p>
+      <p>وكل ما استخدمه عملاء أكثر، كل ما تعلّم أكثر وصار أذكى.</p>
+    </div>
+
+    <div class="transition">
+      "أوكي، بس السؤال اللي كل صاحب بيزنس يسأله — وحق عليه يسأله: هل هالشي بيشيل وظايف الناس؟"
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 4 ===== -->
+  <div class="segment" id="seg4">
+    <div class="segment-header">
+      <div class="segment-number">4</div>
+      <span class="segment-emoji">🤝</span>
+      <h2 class="segment-title">هل الـ AI بديل عن البشر؟ — الجواب الصريح</h2>
+      <span class="duration-badge">3 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>الجواب المختصر: <strong>لا.</strong></p>
+      <p>الجواب الطويل: <strong>لا، بس بيغيّر شكل شغلهم — للأحسن.</strong></p>
+      <p>خلني أعطيك مثال. موظفة اسمها سارة تشتغل في عيادة أسنان. قبل الـ AI، سارة كانت تقضي <strong>70% من وقتها</strong> ترد على نفس الأسئلة: "كم سعر التنظيف؟"، "عندكم تقويم شفاف؟"، "فيه موعد يوم السبت؟"</p>
+      <p>نفس الأسئلة. كل يوم. مئات المرات.</p>
+      <p>بعد ما دخل الـ AI Agent، سارة صارت تركز على الشي اللي البشر بس يقدرون يسوونه — <strong>بناء علاقة مع المريض</strong>، متابعة الحالات المعقدة، التنسيق مع الدكتور.</p>
+      <p>إنتاجيتها ارتفعت. رضاها عن شغلها ارتفع. وحتى العيادة بدأت تستقبل مرضى أكثر لأن ما فيه رسائل ضايعة.</p>
+    </div>
+
+    <div class="quote-highlight">
+      الذكاء الاصطناعي يشيل عنك الشغل الممل والمتكرر، ويخلي فريقك يركز على الشغل اللي فعلاً يحتاج لمسة إنسانية. مش تقليل وظائف — <strong>تعظيم قيمة كل موظف</strong>.
+    </div>
+
+    <div class="transition">
+      "طيب خلونا ندخل في صلب الموضوع. شو هو Pyra Agent بالضبط؟ وليش نحن نقول إنه مختلف؟"
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 5 ===== -->
+  <div class="segment" id="seg5">
+    <div class="segment-header">
+      <div class="segment-number">5</div>
+      <span class="segment-emoji">🧠</span>
+      <h2 class="segment-title">تعرّف على Pyra Agent — الموظف اللي ما يقدّم استقالة</h2>
+      <span class="duration-badge">4–5 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p><strong>Pyra Agent</strong> — أو "بايرا" كما نسميه — هو <strong>موظف ذكي افتراضي</strong> من تطوير <strong>Pyramedia</strong>.</p>
+      <p>بس خلني أوضحلك ليش ما نسميه "شات بوت":</p>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>الشات بوت التقليدي</th>
+          <th>Pyra Agent</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>يرد بردود جاهزة</td>
+          <td>يفهم السياق ويبني رد مخصص</td>
+        </tr>
+        <tr>
+          <td>يضيع لو العميل غيّر الموضوع</td>
+          <td>يتابع المحادثة بسلاسة</td>
+        </tr>
+        <tr>
+          <td>يحتاج تبرمجه لكل سيناريو</td>
+          <td>يتعلم ويتطور مع كل محادثة</td>
+        </tr>
+        <tr>
+          <td>يشتغل لحاله</td>
+          <td>يتكامل مع أنظمتك (CRM، حجوزات، فواتير)</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="script-block">
+      <p class="stage-direction">*(بنبرة حماسية)*</p>
+      <p>بايرا يشتغل <strong>24 ساعة، 7 أيام بالأسبوع، 365 يوم بالسنة</strong>. ما يمرض، ما يطلب إجازة، ما يجيه مزاج سيّئ.</p>
+      <p>والأهم — بايرا <strong>مش واحد لكل الناس</strong>. كل بيزنس ناخذ وقت نفهم طبيعته، جمهوره، أهدافه، ونصمم البايرا حسب احتياجه. يعني بايرا اللي يشتغل عند مطعم <strong>مختلف تمامًا</strong> عن بايرا اللي يشتغل عند عيادة أو شركة عقارات.</p>
+      <p>فلسفتنا في Pyramedia بسيطة:</p>
+    </div>
+
+    <div class="quote-highlight">
+      "بنجيبلك العميل بالماركتينج، وبنخلصولك بالـ AI."
+    </div>
+
+    <div class="script-block">
+      <p>يعني ما نجيبلك عملاء وبعدين تخسرهم لأن ما فيه أحد يرد عليهم. الحلقة كاملة — من الإعلان لين الإغلاق.</p>
+    </div>
+
+    <div class="transition">
+      "جميل، بس الكلام النظري سهل. خلونا ننزل عالأرض ونشوف بايرا كيف يشتغل في بيزنسات حقيقية..."
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 6 ===== -->
+  <div class="segment" id="seg6">
+    <div class="segment-header">
+      <div class="segment-number">6</div>
+      <span class="segment-emoji">🏪</span>
+      <h2 class="segment-title">قصص من أرض الواقع — بايرا في كل مكان</h2>
+      <span class="duration-badge">8–10 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <!-- Story 1: Restaurants -->
+    <div class="sub-section">
+      <div class="sub-section-header">
+        <span class="sub-section-icon">🍕</span>
+        <h3 class="sub-section-title">المطاعم — "الطلب اللي جا الساعة 2 الفجر"</h3>
+      </div>
+      <div class="script-block">
+        <p>تخيل مطعم في الشارقة. الشباب سهرانين ويبون يطلبون أكل الساعة 2 الفجر.</p>
+        <p>قبل بايرا؟ لازم يتصلون. بس المطعم يقفل الخط 12. العميل يروح لتطبيق التوصيل — والمطعم يدفع عمولة <strong>25-30%</strong> للتطبيق.</p>
+        <p>بعد بايرا؟ العميل يرسل واتساب، بايرا يرد فورًا، يعرض القائمة، يقترح: "تبي تضيف مشروب بارد مع الطلب؟ عندنا عرض اليوم!" — <strong>Upselling تلقائي</strong>.</p>
+        <p>العميل يطلب، بايرا يسجل الطلب في النظام، يرسل التأكيد. بدون عمولة تطبيق.</p>
+      </div>
+      <div class="result-box">
+        <h4>النتيجة؟</h4>
+        <ul>
+          <li>طلبات أكثر بـ <strong>35%</strong> لأن ما فيه رسالة ضايعة</li>
+          <li>Upselling يرفع قيمة كل طلب بـ <strong>15-20%</strong></li>
+          <li>توفير عمولة التطبيقات = آلاف الدراهم شهريًا</li>
+        </ul>
+      </div>
+      <div class="script-block">
+        <p class="stage-direction">*(بابتسامة)*</p>
+        <p>وبعد ما العميل يستلم طلبه، بايرا يرسله رسالة: "كيف كان الأكل؟ 😊" — يعني حتى متابعة ما بعد البيع.</p>
+      </div>
+    </div>
+
+    <!-- Story 2: Clinics -->
+    <div class="sub-section">
+      <div class="sub-section-header">
+        <span class="sub-section-icon">🏥</span>
+        <h3 class="sub-section-title">العيادات — "المريض اللي كان بيضيع"</h3>
+      </div>
+      <div class="script-block">
+        <p>عيادة جلدية في أبوظبي. عندهم مشكلة كلاسيكية: <strong>40% من المواعيد المحجوزة ما يجون</strong>.</p>
+        <p>ليش؟ لأن المريض يحجز وينسى. أو يحجز ويغير رأيه بس ما يلغي.</p>
+        <p>دخل بايرا وبدأ يسوي ثلاث أشياء:</p>
+        <div class="numbered-point"><span class="point-num">1</span><span><strong>أولاً:</strong> يرد على استفسارات المرضى فورًا — أسعار، خدمات، دكاترة متاحين.</span></div>
+        <div class="numbered-point"><span class="point-num">2</span><span><strong>ثانيًا:</strong> يحجز الموعد مباشرة في النظام ويرسل تأكيد.</span></div>
+        <div class="numbered-point"><span class="point-num">3</span><span><strong>ثالثًا:</strong> يرسل تذكير قبل الموعد بـ 24 ساعة وقبلها بساعتين.</span></div>
+      </div>
+      <div class="result-box">
+        <h4>النتيجة؟</h4>
+        <ul>
+          <li>الـ No-show نزل من <strong>40% لـ 12%</strong></li>
+          <li>موظفة الاستقبال صارت تركز على المرضى الموجودين بدل ما ترد على الهاتف طول اليوم</li>
+          <li>المرضى حسوا إن العيادة "راقية ومنظمة" — لأن كل شي سريع واحترافي</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Story 3: B2B -->
+    <div class="sub-section">
+      <div class="sub-section-header">
+        <span class="sub-section-icon">🏢</span>
+        <h3 class="sub-section-title">شركات B2B — "الـ Lead اللي كان بيبرد"</h3>
+      </div>
+      <div class="script-block">
+        <p>شركة خدمات في دبي. يصرفون <strong>50,000 درهم</strong> شهريًا على إعلانات. الـ Leads تجي — 200 lead شهريًا.</p>
+        <p>المشكلة؟ فريق المبيعات مكوّن من 3 أشخاص. يقدرون يتابعون 60-70 lead بس. الباقي؟ يبرد.</p>
+        <p>والـ lead البارد = فلوس إعلانات ضاعت.</p>
+        <p>بايرا دخل وبدأ <strong>يصفّي ويؤهل</strong> كل lead فور ما يوصل. يسأله أسئلة ذكية: "شو طبيعة بيزنسك؟"، "كم موظف عندك؟"، "شو ميزانيتك التقريبية؟"</p>
+        <p>الـ lead الجاهز — يحوله مباشرة لموظف المبيعات مع ملف كامل.<br>
+        الـ lead المتردد — يتابعه تلقائيًا بعروض مخصصة على مدى أسابيع.<br>
+        الـ lead الغير مناسب — يستبعده بأدب ويوفر وقت الفريق.</p>
+      </div>
+      <div class="result-box">
+        <h4>النتيجة؟</h4>
+        <ul>
+          <li>معدل التحويل ارتفع <strong>من 5% لـ 14%</strong></li>
+          <li>فريق المبيعات يتكلم فقط مع عملاء مؤهلين</li>
+          <li>الـ ROI على الإعلانات تضاعف تقريبًا</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Story 4: Small Business -->
+    <div class="sub-section">
+      <div class="sub-section-header">
+        <span class="sub-section-icon">🛍️</span>
+        <h3 class="sub-section-title">المشاريع الصغيرة — "البيزنس اللي كان بيده وحده"</h3>
+      </div>
+      <div class="script-block">
+        <p>أحمد عنده مشروع عطور أونلاين. هو لحاله — يسوي كل شي. تصوير، تغليف، توصيل، ورد على العملاء.</p>
+        <p>المشكلة: كل ما يشتغل على التغليف، يفوته رسائل. وكل ما يرد على الرسائل، يتأخر بالتوصيل. حلقة ما تنتهي.</p>
+        <p class="stage-direction">*(بنبرة تعاطفية)*</p>
+        <p>صاحب المشروع الصغير ما عنده ميزانية يوظف فريق خدمة عملاء. بس عنده نفس احتياج الشركة الكبيرة.</p>
+        <p>بايرا صار <strong>فريقه الافتراضي</strong>:</p>
+        <ul style="list-style: none; padding: 0;">
+          <li style="padding: 4px 0;">• يرد على العملاء فورًا ويعرض المنتجات</li>
+          <li style="padding: 4px 0;">• يسجل الطلبات وينظمها</li>
+          <li style="padding: 4px 0;">• يتابع العملاء اللي ما أكملوا الطلب</li>
+          <li style="padding: 4px 0;">• يرسل عروض مخصصة للعملاء السابقين</li>
+        </ul>
+        <p>أحمد صار يركز على <strong>تطوير منتجاته</strong> — اللي هو يحبه ويبدع فيه — وبايرا يدير التواصل.</p>
+      </div>
+      <div class="quote-highlight">
+        تكلفة بايرا بالشهر؟ أقل من ربع راتب موظف واحد. والشغل أسرع وأدق.
+      </div>
+    </div>
+
+    <div class="transition">
+      "شفتوا كيف بايرا يشتغل في بيئات مختلفة تمامًا؟ بس شو اللي يخليه فعلاً مختلف عن الحلول الثانية؟"
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 7 ===== -->
+  <div class="segment" id="seg7">
+    <div class="segment-header">
+      <div class="segment-number">7</div>
+      <span class="segment-emoji">💪</span>
+      <h2 class="segment-title">ليش بايرا مش زي غيره — نقاط القوة</h2>
+      <span class="duration-badge">3–4 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>فيه حلول AI كثيرة في السوق. خلني أكون صريح معك. بس بايرا عنده أشياء تميّزه:</p>
+    </div>
+
+    <div class="script-block">
+      <div class="numbered-point"><span class="point-num">1</span><span><strong>يتكلم عربي — بجد.</strong><br>مش ترجمة Google مكسّرة. يفهم اللهجات، يفهم السياق الثقافي. يعرف إن "الله يعطيك العافية" ممكن تكون ختام محادثة مش طلب.</span></div>
+      <div class="numbered-point"><span class="point-num">2</span><span><strong>مفصّل على بيزنسك.</strong><br>ما نعطيك بوت جاهز ونقولك "شغّله". نقعد معك، نفهم بيزنسك، ونبني بايرا حسب احتياجك. كل بيزنس فريد، وبايرا حقه لازم يكون فريد.</span></div>
+      <div class="numbered-point"><span class="point-num">3</span><span><strong>يتكامل مع أنظمتك.</strong><br>عندك CRM؟ يتكامل معه. عندك نظام حجوزات؟ يحجز فيه. عندك Inventory system؟ يتشيك عالمخزون قبل ما يأكد الطلب.</span></div>
+      <div class="numbered-point"><span class="point-num">4</span><span><strong>يتعلم ويتطور.</strong><br>كل محادثة يسويها بايرا، يصير أذكى. يحلل أنماط العملاء، يعرف شو الأسئلة الشائعة، ويقترح عليك تحسينات.</span></div>
+      <div class="numbered-point"><span class="point-num">5</span><span><strong>يعيد استهداف العملاء.</strong><br>عميل اشترى منك قبل 3 شهور؟ بايرا يقدر يتابعه بعرض جديد. عميل حط منتج بالسلة وما أكمل؟ بايرا يذكّره.</span></div>
+    </div>
+
+    <div class="quote-highlight">
+      <p class="stage-direction">*(بنبرة واثقة)*</p>
+      باختصار — بايرا مش مجرد أداة رد. <strong>هو عضو في فريقك</strong> يفهم بيزنسك ويشتغل على أهدافك.
+    </div>
+
+    <div class="transition">
+      "طيب خلونا نسوي تمرين سريع... نقارن بيزنس قبل وبعد بايرا. والأرقام تحكي..."
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 8 ===== -->
+  <div class="segment" id="seg8">
+    <div class="segment-header">
+      <div class="segment-number">8</div>
+      <span class="segment-emoji">📊</span>
+      <h2 class="segment-title">قبل وبعد — الفرق بالأرقام</h2>
+      <span class="duration-badge">2–3 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>خلني أرسملك صورة واضحة:</p>
+    </div>
+
+    <div class="before-after">
+      <div class="ba-card before">
+        <h4>❌ قبل Pyra Agent</h4>
+        <ul style="list-style: none; padding: 0;">
+          <li style="padding: 6px 0;">• متوسط وقت الرد على العميل: <strong>4–6 ساعات</strong> (أو أكثر بالليل)</li>
+          <li style="padding: 6px 0;">• نسبة الرسائل المفقودة: <strong>20–30%</strong></li>
+          <li style="padding: 6px 0;">• العملاء المحتملين اللي يتحولون لمبيعات: <strong>5–8%</strong></li>
+          <li style="padding: 6px 0;">• ضغط الموظفين: <strong>عالي</strong> — burnout وأخطاء</li>
+          <li style="padding: 6px 0;">• تكلفة خدمة العملاء الشهرية: <strong>15,000–25,000 درهم</strong></li>
+        </ul>
+      </div>
+      <div class="ba-card after">
+        <h4>✅ بعد Pyra Agent</h4>
+        <ul style="list-style: none; padding: 0;">
+          <li style="padding: 6px 0;">• متوسط وقت الرد: <strong>أقل من 10 ثوانٍ</strong> ⚡</li>
+          <li style="padding: 6px 0;">• نسبة الرسائل المفقودة: <strong>0%</strong> — كل رسالة ترد</li>
+          <li style="padding: 6px 0;">• معدل التحويل: <strong>12–18%</strong> — لأن المتابعة مستمرة وذكية</li>
+          <li style="padding: 6px 0;">• ضغط الموظفين: <strong>أقل بكثير</strong> — يركزون على الشغل المهم</li>
+          <li style="padding: 6px 0;">• التكلفة: <strong>جزء بسيط</strong> من تكلفة الفريق التقليدي</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="script-block">
+      <p class="stage-direction">*(وقفة)*</p>
+      <p>مش بس توفير — <strong>نمو</strong>. أنت ما بس تقلل تكاليف، أنت تزيد مبيعات. وهذا الفرق.</p>
+    </div>
+
+    <div class="transition">
+      "خلني أختم بشي مهم..."
+    </div>
+  </div>
+
+  <!-- ===== SEGMENT 9 ===== -->
+  <div class="segment" id="seg9">
+    <div class="segment-header">
+      <div class="segment-number">9</div>
+      <span class="segment-emoji">🎬</span>
+      <h2 class="segment-title">الخاتمة + CTA — "الخطوة الأولى"</h2>
+      <span class="duration-badge">2–3 دقائق</span>
+    </div>
+    <div class="segment-divider"></div>
+
+    <div class="script-block">
+      <p>الذكاء الاصطناعي اليوم <strong>مش تقنية مستقبلية</strong>. هو أداة موجودة، مُجرّبة، وتشتغل.</p>
+      <p>وكل يوم تأخره بدون ما تبدأ — منافسك اللي بدأ يسبقك بخطوة.</p>
+      <p><strong>Pyra Agent مش بس يغيّر طريقة ردك على العملاء — هو يرفع مستوى بيزنسك بالكامل.</strong> من سرعة الرد، لجودة المتابعة، لذكاء البيع.</p>
+      <p class="stage-direction">*(بنبرة شخصية ودافئة)*</p>
+      <p>ونحن في <strong>Pyramedia</strong> — المؤسس محمد عبده بنى هالمشروع من خبرة سنوات في التسويق العقاري. يعرف شو يعني تخسر عميل لأن أحد ما رد بالوقت. وبنى بايرا عشان هالشي ما يصير مرة ثانية — لأي بيزنس.</p>
+      <p><strong>طيب، شو الخطوة الأولى؟</strong></p>
+      <p>بسيطة. تواصل معنا. <strong>مجرد رسالة على واتساب</strong> — واللي بيرد عليك؟ أيوا... بايرا 😄</p>
+      <p>لأن أحسن طريقة تفهم شو يسوي بايرا... إنك <strong>تجربه بنفسك</strong>.</p>
+      <p>🔗 <strong>زورونا على pyramedia.info أو راسلونا مباشرة على واتساب.</strong></p>
+    </div>
+
+    <div class="quote-highlight">
+      شكرًا إنكم كنتوا معنا اليوم. ولا تنسون — <strong>"بنجيبلك العميل بالماركتينج، وبنخلصولك بالـ AI."</strong><br><br>إلى اللقاء! ✌️
+    </div>
+  </div>
+
+  <!-- ===== SUMMARY TABLE ===== -->
+  <div class="segment" id="summary">
+    <div class="segment-header">
+      <div class="segment-number">📋</div>
+      <h2 class="segment-title">ملخص الهيكل والتوقيت</h2>
+    </div>
+    <div class="segment-divider"></div>
+
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Segment</th>
+          <th>المدة المقدرة</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>🎬 Hook — القصة الافتتاحية</td>
+          <td>1–2 دقيقة</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>🔥 ليش الـ AI ضرورة الحين؟</td>
+          <td>4–5 دقائق</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>🚀 شو تغيّر في الـ AI؟</td>
+          <td>3–4 دقائق</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>🤝 هل الـ AI بديل عن البشر؟</td>
+          <td>3 دقائق</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>🧠 تعرّف على Pyra Agent</td>
+          <td>4–5 دقائق</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>🏪 قصص واقعية (مطاعم، عيادات، شركات، مشاريع صغيرة)</td>
+          <td>8–10 دقائق</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>💪 نقاط القوة</td>
+          <td>3–4 دقائق</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>📊 قبل وبعد بالأرقام</td>
+          <td>2–3 دقائق</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>🎬 الخاتمة + CTA</td>
+          <td>2–3 دقائق</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td><strong>الإجمالي</strong></td>
+          <td><strong>28–32 دقيقة</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== PRESENTER NOTES ===== -->
+  <div class="notes-callout">
+    <h2>🎯 ملاحظات للمقدم</h2>
+    <ol>
+      <li><strong>خلي صوتك طبيعي</strong> — مش قراءة. حاول تحفظ النقاط الرئيسية وتحكيها بأسلوبك.</li>
+      <li><strong>الوقفات مهمة</strong> — خصوصًا بعد الأرقام والقصص. خل المستمع يستوعب.</li>
+      <li><strong>القصص هي اللي تبيع</strong> — لا تستعجل فيها. خل المستمع يحس إنها قصة حقيقية.</li>
+      <li><strong>المزح الخفيف</strong> — زي موضوع "اللي بيرد عليك بايرا" — يخلي الجو خفيف بدون ما يقلل من المصداقية.</li>
+      <li><strong>الـ CTA لازم يكون سهل</strong> — واتساب أسهل من "سجّل في الموقع" أو "احجز استشارة". خلها بسيطة.</li>
+      <li><strong>إذا تبي تقسمها حلقتين:</strong> قص بعد Segment 5 وابدأ الحلقة الثانية من القصص الواقعية.</li>
+    </ol>
+  </div>
+
+  <!-- ===== COLOPHON ===== -->
+  <div class="colophon">
+    <p>تم إعداد هذا السكريبت بواسطة <strong>Pyramedia Content Team</strong> — V2.0</p>
+    <p>التاريخ: فبراير 2026</p>
+    <p style="margin-top: 15px; font-size: 12px; color: #aaa; direction: ltr;">PYRAMEDIA &bull; pyramedia.info</p>
+  </div>
+
+</div><!-- /content -->
+
+</body>
+</html>

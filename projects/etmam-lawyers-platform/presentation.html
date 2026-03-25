@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>منصة محامين إتمام — الاستراتيجية الشاملة</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --gold: #b89a77;
+  --gold-light: #d4bc9a;
+  --gold-dark: #9a7d5c;
+  --navy: #003866;
+  --navy-dark: #002244;
+  --navy-light: #0a5a9e;
+  --terracotta: #b35434;
+  --terracotta-light: #d4714f;
+  --warm-gray: #e6dfd7;
+  --warm-gray-light: #f5f1ec;
+  --white: #ffffff;
+  --text-dark: #1a1a2e;
+  --text-light: #f0eae2;
+  --glass-bg: rgba(255,255,255,0.12);
+  --glass-border: rgba(255,255,255,0.2);
+  --shadow: 0 8px 32px rgba(0,56,102,0.15);
+  --shadow-lg: 0 16px 48px rgba(0,56,102,0.2);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Cairo', 'Tajawal', sans-serif;
+  background: var(--warm-gray-light);
+  color: var(--text-dark);
+  line-height: 1.8;
+  overflow-x: hidden;
+}
+
+/* Progress Bar */
+#progress-bar {
+  position: fixed; top:0; right:0; height:4px; z-index:10000;
+  background: linear-gradient(90deg, var(--gold), var(--terracotta), var(--gold));
+  transition: width 0.2s;
+  border-radius: 0 0 0 2px;
+}
+
+/* Navbar */
+.navbar {
+  position: fixed; top:0; right:0; left:0; z-index:9999;
+  background: rgba(0,56,102,0.95);
+  backdrop-filter: blur(20px);
+  padding: 0 2rem;
+  transition: all 0.3s;
+  border-bottom: 1px solid rgba(184,154,119,0.3);
+}
+.navbar.scrolled { box-shadow: var(--shadow); }
+.nav-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 64px;
+}
+.nav-logo {
+  font-size: 1.3rem; font-weight: 800; color: var(--gold);
+  text-decoration: none; display: flex; align-items: center; gap: 8px;
+}
+.nav-logo span { font-size: 1.5rem; }
+.nav-links { display: flex; gap: 0.2rem; flex-wrap: wrap; }
+.nav-links a {
+  color: var(--warm-gray); text-decoration: none; font-size: 0.82rem;
+  padding: 6px 10px; border-radius: 8px; transition: all 0.3s;
+  font-weight: 500; white-space: nowrap;
+}
+.nav-links a:hover, .nav-links a.active {
+  background: rgba(184,154,119,0.2); color: var(--gold);
+}
+.nav-toggle {
+  display: none; background: none; border: none; color: var(--gold);
+  font-size: 1.5rem; cursor: pointer;
+}
+
+/* Sections */
+section { padding: 5rem 1.5rem; position: relative; }
+.container { max-width: 1100px; margin: 0 auto; }
+
+.section-title {
+  text-align: center; margin-bottom: 3rem;
+}
+.section-title h2 {
+  font-size: 2.2rem; font-weight: 800; color: var(--navy);
+  margin-bottom: 0.5rem; position: relative; display: inline-block;
+}
+.section-title h2::after {
+  content:''; position:absolute; bottom:-8px; right:50%; transform:translateX(50%);
+  width:60px; height:4px; background: linear-gradient(90deg, var(--gold), var(--terracotta));
+  border-radius:2px;
+}
+.section-title .emoji { font-size: 2.5rem; display: block; margin-bottom: 0.5rem; }
+.section-title p { color: #666; font-size: 1.05rem; margin-top: 1rem; }
+
+/* Hero */
+.hero {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy) 40%, #0a4a7a 70%, var(--navy-dark) 100%);
+  position: relative; overflow: hidden; padding-top: 64px;
+}
+.hero::before {
+  content:''; position:absolute; inset:0;
+  background: radial-gradient(circle at 30% 50%, rgba(184,154,119,0.15) 0%, transparent 60%),
+              radial-gradient(circle at 70% 80%, rgba(179,84,52,0.1) 0%, transparent 50%);
+}
+.hero-particles {
+  position:absolute; inset:0; overflow:hidden;
+}
+.particle {
+  position:absolute; border-radius:50%; background: rgba(184,154,119,0.3);
+  animation: float-particle linear infinite;
+}
+@keyframes float-particle {
+  0% { transform: translateY(100vh) scale(0); opacity:0; }
+  10% { opacity:1; }
+  90% { opacity:1; }
+  100% { transform: translateY(-10vh) scale(1); opacity:0; }
+}
+.hero-content {
+  text-align: center; position: relative; z-index: 2;
+  animation: fadeInUp 1s ease-out;
+}
+.hero-icon {
+  font-size: 5rem; margin-bottom: 1rem;
+  animation: pulse-glow 2s infinite;
+}
+@keyframes pulse-glow {
+  0%,100% { filter: drop-shadow(0 0 20px rgba(184,154,119,0.5)); }
+  50% { filter: drop-shadow(0 0 40px rgba(184,154,119,0.8)); }
+}
+.hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.8rem); font-weight: 900;
+  color: var(--white); margin-bottom: 1rem;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.hero h1 .gold { color: var(--gold); }
+.hero .subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.4rem); color: var(--gold-light);
+  font-weight: 400; max-width: 700px; margin: 0 auto 2rem;
+  font-family: 'Tajawal', sans-serif;
+}
+.hero-badges {
+  display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+  margin-top: 2rem;
+}
+.hero-badge {
+  background: var(--glass-bg); border: 1px solid var(--glass-border);
+  backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 50px;
+  color: var(--warm-gray); font-size: 0.9rem; font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+}
+.hero-cta {
+  display:inline-block; margin-top:2.5rem; padding:14px 40px;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--navy-dark); font-weight:700; font-size:1.1rem;
+  border-radius:50px; text-decoration:none; transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(184,154,119,0.4);
+}
+.hero-cta:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(184,154,119,0.6);
+}
+
+/* Cards */
+.card {
+  background: var(--white);
+  border-radius: 20px; padding: 2rem;
+  box-shadow: var(--shadow);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid rgba(184,154,119,0.1);
+  position: relative; overflow: hidden;
+}
+.card::before {
+  content:''; position:absolute; top:0; right:0; left:0; height:4px;
+  background: linear-gradient(90deg, var(--gold), var(--terracotta));
+  opacity:0; transition: opacity 0.3s;
+}
+.card:hover { transform: translateY(-6px); box-shadow: var(--shadow-lg); }
+.card:hover::before { opacity:1; }
+.card-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.card h3 { font-size: 1.25rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
+.card p { color: #555; font-size: 0.95rem; line-height: 1.8; }
+
+/* Glass Cards */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 20px; padding: 2rem;
+  transition: all 0.4s;
+}
+.glass-card:hover { background: rgba(255,255,255,0.18); transform: translateY(-4px); }
+
+/* Executive Summary */
+.exec-summary { background: var(--warm-gray-light); }
+.exec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 2rem; }
+.exec-card { text-align: center; }
+.exec-card .card-icon { display: block; }
+
+/* Market Stats */
+.market-section {
+  background: linear-gradient(135deg, var(--navy-dark), var(--navy), #0a4a7a);
+  color: var(--white);
+}
+.stats-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 2rem; margin-top: 2rem;
+}
+.stat-card {
+  text-align: center; padding: 2rem;
+}
+.stat-card .stat-number {
+  font-size: clamp(2rem, 4vw, 3rem); font-weight: 900; color: var(--gold);
+  margin-bottom: 0.5rem; direction: ltr;
+}
+.stat-card .stat-label {
+  font-size: 1rem; color: var(--warm-gray); font-weight: 500;
+}
+.stat-card .stat-sub {
+  font-size: 0.85rem; color: var(--gold-light); margin-top: 0.3rem;
+  font-family: 'Tajawal'; direction: ltr;
+}
+
+/* Competitors */
+.competitors-section { background: var(--warm-gray-light); }
+.comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px,1fr)); gap: 2rem; }
+.comp-card { position: relative; }
+.comp-card .comp-logo { font-size: 2rem; margin-bottom: 0.5rem; }
+.comp-card .comp-name { font-size: 1.3rem; font-weight: 700; color: var(--navy); }
+.comp-card .comp-country { font-size: 0.85rem; color: var(--gold-dark); margin-bottom: 1rem; font-weight: 500; }
+.tag-list { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.8rem 0; }
+.tag {
+  padding: 4px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+}
+.tag-green { background: #e8f5e9; color: #2e7d32; }
+.tag-red { background: #fce4ec; color: #c62828; }
+.tag-blue { background: #e3f2fd; color: #1565c0; }
+
+/* Gap Section */
+.gap-section {
+  background: linear-gradient(135deg, var(--terracotta), #d4714f, var(--terracotta));
+  color: var(--white); text-align: center;
+}
+.gap-section .section-title h2 { color: var(--white); }
+.gap-section .section-title h2::after { background: linear-gradient(90deg, var(--gold), var(--white)); }
+.gap-highlight {
+  font-size: clamp(1.5rem, 3.5vw, 2.5rem); font-weight: 800;
+  max-width: 800px; margin: 2rem auto; line-height: 1.5;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+.gap-sub { font-size: 1.1rem; max-width: 600px; margin: 0 auto; opacity: 0.9; font-family:'Tajawal'; }
+
+/* Proposals Tabs */
+.proposals-section { background: var(--white); }
+.tabs-container { margin-top: 2rem; }
+.tabs-header {
+  display: flex; justify-content: center; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap;
+}
+.tab-btn {
+  padding: 14px 32px; border-radius: 50px; border: 2px solid var(--navy);
+  background: transparent; color: var(--navy); font-family: 'Cairo';
+  font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s;
+}
+.tab-btn.active, .tab-btn:hover {
+  background: var(--navy); color: var(--white);
+  box-shadow: 0 4px 20px rgba(0,56,102,0.3);
+}
+.tab-content { display: none; animation: fadeInUp 0.5s ease-out; }
+.tab-content.active { display: block; }
+
+.proposal-header {
+  text-align: center; margin-bottom: 2.5rem;
+  padding: 2rem; border-radius: 20px;
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: var(--white);
+}
+.proposal-header h3 { font-size: 1.8rem; margin-bottom: 0.5rem; }
+.proposal-header p { color: var(--gold-light); font-family:'Tajawal'; }
+
+.revenue-table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  border-radius: 16px; overflow: hidden;
+  box-shadow: var(--shadow); margin: 2rem 0;
+}
+.revenue-table th {
+  background: var(--navy); color: var(--white); padding: 14px 16px;
+  font-weight: 700; font-size: 0.9rem; text-align: right;
+}
+.revenue-table td {
+  padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 0.88rem;
+}
+.revenue-table tr:nth-child(even) td { background: var(--warm-gray-light); }
+.revenue-table tr:last-child td { border-bottom: none; }
+.revenue-table .total-row td {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--navy-dark); font-weight: 800; font-size: 1rem;
+}
+
+.journey-box {
+  background: var(--warm-gray-light); border-radius: 20px; padding: 2rem;
+  margin: 2rem 0;
+}
+.journey-box h4 { font-size: 1.2rem; color: var(--navy); margin-bottom: 1.5rem; }
+.journey-steps { display: flex; flex-direction: column; gap: 1rem; }
+.journey-step {
+  display: flex; align-items: flex-start; gap: 1rem;
+  padding: 1rem; background: var(--white); border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.step-num {
+  min-width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--white); display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 0.9rem;
+}
+.step-text { font-size: 0.92rem; color: #444; }
+
+.phase-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1.5rem; margin: 2rem 0; }
+.phase-card {
+  background: var(--white); border-radius: 16px; padding: 1.5rem;
+  border-right: 4px solid var(--gold); box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.phase-card h4 { color: var(--navy); font-size: 1.05rem; margin-bottom: 0.3rem; }
+.phase-card .phase-time { color: var(--terracotta); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.8rem; }
+.phase-card ul { list-style: none; }
+.phase-card li { padding: 3px 0; font-size: 0.88rem; color: #555; }
+.phase-card li::before { content: '✦ '; color: var(--gold); }
+.phase-card .phase-budget {
+  margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed #ddd;
+  font-weight: 700; color: var(--terracotta); font-size: 0.9rem; direction: ltr; text-align: left;
+}
+
+/* Comparison Table */
+.comparison-section {
+  background: linear-gradient(180deg, var(--warm-gray-light), var(--white));
+}
+.comparison-table-wrap {
+  overflow-x: auto; border-radius: 20px; box-shadow: var(--shadow-lg);
+}
+.comparison-table {
+  width: 100%; border-collapse: collapse; min-width: 700px;
+}
+.comparison-table th {
+  padding: 16px; font-size: 1rem; text-align: center;
+}
+.comparison-table th:first-child { text-align: right; }
+.comparison-table thead th {
+  background: var(--navy); color: var(--white); font-weight: 700;
+}
+.comparison-table thead th:nth-child(2) { background: var(--navy-light); }
+.comparison-table thead th:nth-child(3) { background: var(--terracotta); }
+.comparison-table td {
+  padding: 12px 16px; border-bottom: 1px solid #eee; font-size: 0.88rem;
+}
+.comparison-table td:first-child { font-weight: 600; color: var(--navy); background: var(--warm-gray-light); }
+.comparison-table td:nth-child(2), .comparison-table td:nth-child(3) { text-align: center; }
+.comparison-table tr:hover td { background: rgba(184,154,119,0.08); }
+.comparison-table tr:hover td:first-child { background: rgba(184,154,119,0.15); }
+
+/* Creative Ideas */
+.ideas-section { background: var(--white); }
+.ideas-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px,1fr)); gap: 1.5rem; }
+.idea-card {
+  padding: 2rem; text-align: center;
+  border-radius: 20px; background: var(--warm-gray-light);
+  border: 1px solid transparent; transition: all 0.4s;
+}
+.idea-card:hover {
+  border-color: var(--gold);
+  background: var(--white);
+  box-shadow: var(--shadow);
+  transform: translateY(-5px);
+}
+.idea-card .idea-icon { font-size: 2.8rem; margin-bottom: 1rem; }
+.idea-card h3 { font-size: 1.1rem; color: var(--navy); margin-bottom: 0.5rem; }
+.idea-card p { font-size: 0.88rem; color: #666; }
+
+/* Recommendation */
+.recommend-section {
+  background: linear-gradient(135deg, var(--navy-dark), var(--navy));
+  color: var(--white);
+}
+.recommend-section .section-title h2 { color: var(--gold); }
+.recommend-section .section-title h2::after { background: linear-gradient(90deg, var(--gold), var(--terracotta)); }
+.recommend-section .section-title p { color: var(--warm-gray); }
+.recommend-quote {
+  text-align: center; font-size: clamp(1.3rem, 3vw, 1.8rem);
+  font-weight: 700; color: var(--gold-light); max-width: 700px;
+  margin: 0 auto 3rem; line-height: 1.6;
+}
+
+/* Timeline */
+.timeline { position: relative; padding: 2rem 0; }
+.timeline::before {
+  content:''; position:absolute; top:0; bottom:0;
+  right: 50%; width: 3px;
+  background: linear-gradient(180deg, var(--gold), var(--terracotta), var(--gold));
+  border-radius: 2px;
+}
+.timeline-item {
+  position: relative; width: 45%; margin-bottom: 2.5rem;
+}
+.timeline-item:nth-child(odd) { margin-right: auto; padding-left: 2rem; text-align: right; padding-right: 2rem; }
+.timeline-item:nth-child(even) { margin-left: auto; padding-right: 2rem; text-align: right; padding-left: 0; margin-right: 0; }
+.timeline-item::before {
+  content:''; position:absolute; width:16px; height:16px;
+  background: var(--gold); border:3px solid var(--white); border-radius:50%;
+  top: 10px;
+  box-shadow: 0 0 10px rgba(184,154,119,0.5);
+}
+.timeline-item:nth-child(odd)::before { left: -8px; }
+.timeline-item:nth-child(even)::before { right: calc(100% + 42px); right: -8px; }
+.timeline-card {
+  background: rgba(255,255,255,0.08); backdrop-filter: blur(10px);
+  border: 1px solid rgba(184,154,119,0.2); border-radius: 16px;
+  padding: 1.5rem;
+}
+.timeline-card h4 { color: var(--gold); font-size: 1.1rem; margin-bottom: 0.3rem; }
+.timeline-card .tl-period { color: var(--terracotta-light); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.8rem; }
+.timeline-card ul { list-style: none; }
+.timeline-card li { padding: 2px 0; font-size: 0.88rem; color: var(--warm-gray); }
+.timeline-card li::before { content: '◆ '; color: var(--gold); font-size: 0.7rem; }
+
+/* Budget */
+.budget-section { background: var(--warm-gray-light); }
+.budget-table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  border-radius: 20px; overflow: hidden; box-shadow: var(--shadow-lg);
+}
+.budget-table th {
+  background: linear-gradient(135deg, var(--navy), var(--navy-light));
+  color: var(--white); padding: 16px; font-weight: 700; text-align: right;
+}
+.budget-table td {
+  padding: 14px 16px; border-bottom: 1px solid #eee; background: var(--white);
+}
+.budget-table tr:last-child td { border-bottom: none; }
+.budget-table .budget-total td {
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  color: var(--navy-dark); font-weight: 800; font-size: 1.05rem;
+}
+.budget-table .budget-emoji { font-size: 1.2rem; }
+
+/* Footer */
+.footer {
+  background: var(--navy-dark); color: var(--warm-gray); text-align: center;
+  padding: 3rem 1.5rem;
+}
+.footer-brand { font-size: 1.5rem; font-weight: 800; color: var(--gold); margin-bottom: 0.5rem; }
+.footer p { font-size: 0.95rem; }
+.footer .footer-fox { font-size: 2rem; margin: 1rem 0; }
+
+/* Back to top */
+.back-to-top {
+  position: fixed; bottom: 2rem; left: 2rem; z-index: 9999;
+  width: 50px; height: 50px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+  color: var(--white); border: none; font-size: 1.3rem; cursor: pointer;
+  box-shadow: 0 4px 20px rgba(184,154,119,0.4);
+  opacity: 0; transform: translateY(20px);
+  transition: all 0.3s; display: flex; align-items: center; justify-content: center;
+}
+.back-to-top.visible { opacity: 1; transform: translateY(0); }
+.back-to-top:hover { transform: translateY(-3px); box-shadow: 0 6px 25px rgba(184,154,119,0.6); }
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity:0; transform:translateY(30px); }
+  to { opacity:1; transform:translateY(0); }
+}
+.reveal {
+  opacity: 0; transform: translateY(40px);
+  transition: all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  section { padding: 3.5rem 1rem; }
+  .nav-links { 
+    display: none; position: absolute; top: 64px; right:0; left:0;
+    background: rgba(0,56,102,0.98); padding: 1rem;
+    flex-direction: column; gap: 0; backdrop-filter: blur(20px);
+  }
+  .nav-links.open { display: flex; }
+  .nav-links a { padding: 12px 16px; border-radius: 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .nav-toggle { display: block; }
+  
+  .timeline::before { right: 20px; }
+  .timeline-item { width: 100% !important; margin-right: 0 !important; margin-left: 0 !important; padding-right: 3rem !important; padding-left: 0 !important; text-align: right !important; }
+  .timeline-item::before { right: 12px !important; left: auto !important; }
+  
+  .comparison-table { font-size: 0.8rem; }
+  .hero-badges { flex-direction: column; align-items: center; }
+  .tab-btn { padding: 10px 20px; font-size: 0.9rem; }
+  .section-title h2 { font-size: 1.7rem; }
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .phase-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div id="progress-bar" style="width:0%"></div>
+
+<!-- Navbar -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="#hero" class="nav-logo"><span>⚖️</span> محامين إتمام</a>
+    <button class="nav-toggle" id="navToggle" aria-label="القائمة">☰</button>
+    <div class="nav-links" id="navLinks">
+      <a href="#summary">الملخص</a>
+      <a href="#market">السوق</a>
+      <a href="#competitors">المنافسين</a>
+      <a href="#gap">الفجوة</a>
+      <a href="#proposals">الاقتراحات</a>
+      <a href="#comparison">المقارنة</a>
+      <a href="#ideas">الأفكار</a>
+      <a href="#recommendation">التوصية</a>
+      <a href="#budget">الميزانية</a>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="hero">
+  <div class="hero-particles" id="particles"></div>
+  <div class="hero-content">
+    <div class="hero-icon">⚖️</div>
+    <h1>منصة <span class="gold">محامين إتمام</span></h1>
+    <p class="subtitle">تحويل العلاقة من "منافسة" إلى "شراكة" — منصة تجعل المحامين حلفاء لمركز إتمام للخدمات القضائية</p>
+    <div class="hero-badges">
+      <span class="hero-badge">🏛️ شراكة دائرة القضاء — الشارقة</span>
+      <span class="hero-badge">📊 سوق بقيمة $5 مليار</span>
+      <span class="hero-badge">🚀 فرصة LegalTech فريدة</span>
+    </div>
+    <a href="#summary" class="hero-cta">استكشف الاستراتيجية ↓</a>
+  </div>
+</section>
+
+<!-- Executive Summary -->
+<section class="exec-summary" id="summary">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">📋</span>
+      <h2>الملخص التنفيذي</h2>
+      <p>من المشكلة إلى الحل — المبدأ الذهبي لمنصة إتمام</p>
+    </div>
+    <div class="exec-grid">
+      <div class="card exec-card reveal">
+        <div class="card-icon">🔴</div>
+        <h3>المشكلة</h3>
+        <p>المحامون في الشارقة يرون إتمام كمنافس يأخذ من حصتهم السوقية. هذا يخلق احتكاكاً يعيق نمو المركز ويُبطئ التوسع.</p>
+      </div>
+      <div class="card exec-card reveal reveal-delay-1">
+        <div class="card-icon">💡</div>
+        <h3>الحل</h3>
+        <p>تحويل العلاقة من "منافسة" إلى "شراكة" عبر منصة تجعل المحامين حلفاء — يستفيدون من إتمام كمصدر عملاء وليس كتهديد.</p>
+      </div>
+      <div class="card exec-card reveal reveal-delay-2">
+        <div class="card-icon">🔑</div>
+        <h3>المبدأ الذهبي</h3>
+        <p>إتمام يتعامل مع الخدمات القضائية الروتينية ← المحامون يتعاملون مع القضايا المعقدة ← المنصة هي الجسر بينهم.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Market Stats -->
+<section class="market-section" id="market">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">📊</span>
+      <h2 style="color:var(--gold)">بحث السوق</h2>
+      <p style="color:var(--warm-gray)">أرقام تؤكد الفرصة الذهبية في سوق الخدمات القانونية الإماراتي</p>
+    </div>
+    <div class="stats-grid">
+      <div class="glass-card stat-card reveal">
+        <div class="stat-number" data-target="5.0" data-prefix="$" data-suffix="B">$0</div>
+        <div class="stat-label">سوق الخدمات القانونية 2024</div>
+        <div class="stat-sub">→ $7.6B بحلول 2030</div>
+      </div>
+      <div class="glass-card stat-card reveal reveal-delay-1">
+        <div class="stat-number" data-target="234" data-prefix="$" data-suffix="M">$0</div>
+        <div class="stat-label">سوق LegalTech 2024</div>
+        <div class="stat-sub">→ $449M بحلول 2030</div>
+      </div>
+      <div class="glass-card stat-card reveal reveal-delay-2">
+        <div class="stat-number" data-target="1710" data-prefix="" data-suffix="">0</div>
+        <div class="stat-label">محامي مسجل في الإمارات</div>
+        <div class="stat-sub">+6.5% نمو سنوي 📈</div>
+      </div>
+      <div class="glass-card stat-card reveal reveal-delay-3">
+        <div class="stat-number" data-target="982" data-prefix="" data-suffix="">0</div>
+        <div class="stat-label">مكتب محاماة مسجل</div>
+        <div class="stat-sub">~141 مكتب في دبي وحدها</div>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:2.5rem;">
+      <div class="glass-card reveal" style="display:inline-block; padding:1.2rem 2.5rem;">
+        <span style="font-size:1.1rem; color:var(--gold); font-weight:700;">📈 نمو LegalTech: 11-12% سنوياً</span>
+        <span style="display:block; font-size:0.9rem; color:var(--warm-gray); margin-top:0.3rem;">90+ شركة LegalTech في الخليج | 20,000+ مهني قانوني</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Competitors -->
+<section class="competitors-section" id="competitors">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">🏢</span>
+      <h2>المنافسون الرئيسيون</h2>
+      <p>تحليل أبرز المنصات القانونية في المنطقة</p>
+    </div>
+    <div class="comp-grid">
+      <div class="card comp-card reveal">
+        <div class="comp-logo">🌐</div>
+        <div class="comp-name">Muhami.ae</div>
+        <div class="comp-country">🇦🇪 الإمارات — منصة ربط عملاء بمحامين</div>
+        <p style="font-size:0.9rem; color:#555; margin-bottom:0.8rem;">بروفايلات محامين + نشر محتوى قانوني + دليل حسب التخصص والموقع واللغة. بدون عمولة.</p>
+        <div class="tag-list">
+          <span class="tag tag-green">✅ تصميم احترافي</span>
+          <span class="tag tag-green">✅ محتوى متنوع</span>
+          <span class="tag tag-green">✅ بدون عمولة</span>
+        </div>
+        <div class="tag-list">
+          <span class="tag tag-red">❌ جديد (2024)</span>
+          <span class="tag tag-red">❌ بدون فيديو عربي</span>
+          <span class="tag tag-red">❌ 23 likes فقط</span>
+        </div>
+      </div>
+      <div class="card comp-card reveal reveal-delay-1">
+        <div class="comp-logo">⚡</div>
+        <div class="comp-name">Shwra (شورى)</div>
+        <div class="comp-country">🇸🇦 السعودية — استشارات قانونية + AI</div>
+        <p style="font-size:0.9rem; color:#555; margin-bottom:0.8rem;">منصة تجمع نخبة المحامين المرخصين من وزارة العدل. أطلقوا Shwra AI بالذكاء الاصطناعي.</p>
+        <div class="tag-list">
+          <span class="tag tag-green">✅ مرخصة رسمياً</span>
+          <span class="tag tag-green">✅ نسخة AI</span>
+          <span class="tag tag-green">✅ قصة نجاح خليجية</span>
+        </div>
+        <div class="tag-list">
+          <span class="tag tag-red">❌ سعودية فقط</span>
+          <span class="tag tag-red">❌ أسعار غير معلنة</span>
+        </div>
+      </div>
+      <div class="card comp-card reveal reveal-delay-2">
+        <div class="comp-logo">🤖</div>
+        <div class="comp-name">Qanooni (قانوني)</div>
+        <div class="comp-country">🇦🇪 الإمارات — AI للمحامين</div>
+        <p style="font-size:0.9rem; color:#555; margin-bottom:0.8rem;">أداة AI تتكامل مع Microsoft Word و Outlook. جمعت $2M تمويل. أدوات إنتاجية فقط — ليست منصة ربط.</p>
+        <div class="tag-list">
+          <span class="tag tag-green">✅ تمويل $2M</span>
+          <span class="tag tag-green">✅ تكامل Office</span>
+          <span class="tag tag-blue">🔵 SaaS Model</span>
+        </div>
+        <div class="tag-list">
+          <span class="tag tag-red">❌ ليست marketplace</span>
+          <span class="tag tag-red">❌ للمحامين فقط</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Market Gap -->
+<section class="gap-section" id="gap">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">🎯</span>
+      <h2>الفجوة في السوق</h2>
+    </div>
+    <div class="gap-highlight reveal">
+      "لا توجد منصة واحدة تقدم فيديوهات نصائح قانونية بالعربي بشكل منظم في الإمارات"
+    </div>
+    <p class="gap-sub reveal reveal-delay-1">
+      Muhami يركز على المقالات بالإنجليزي. الفيديو أكثر جاذبية وثقة من النص.<br>
+      90% من المحامين ليس لديهم حضور أونلاين قوي — هذه فرصتنا الذهبية! ✨
+    </p>
+  </div>
+</section>
+
+<!-- Proposals -->
+<section class="proposals-section" id="proposals">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">💼</span>
+      <h2>الاقتراحات الاستراتيجية</h2>
+      <p>مساران مختلفان لتحقيق نفس الهدف — اختر ما يناسب المرحلة</p>
+    </div>
+    <div class="tabs-container">
+      <div class="tabs-header">
+        <button class="tab-btn active" data-tab="tabA">🚀 اقتراح A — منصة مستقلة</button>
+        <button class="tab-btn" data-tab="tabB">🔗 اقتراح B — قسم مدمج</button>
+      </div>
+
+      <!-- Tab A -->
+      <div class="tab-content active" id="tabA">
+        <div class="proposal-header reveal">
+          <h3>🚀 اقتراح A — منصة مستقلة "محامين إتمام"</h3>
+          <p>موقع/تطبيق مستقل ببراند خاص يعمل كسوق قانوني يربط الجمهور بالمحامين المعتمدين</p>
+        </div>
+
+        <h3 style="color:var(--navy); margin-bottom:1rem;">💰 نموذج الإيرادات</h3>
+        <table class="revenue-table reveal">
+          <thead>
+            <tr><th>مصدر الإيراد</th><th>الوصف</th><th>السعر</th><th>الإيراد الشهري</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>اشتراك أساسي</td><td>بروفايل + ظهور في البحث</td><td>500 د.إ/شهر</td><td>25,000 د.إ</td></tr>
+            <tr><td>اشتراك متقدم</td><td>بروفايل مميز + أولوية + تحليلات</td><td>1,500 د.إ/شهر</td><td>30,000 د.إ</td></tr>
+            <tr><td>اشتراك بريميوم</td><td>كل شيء + فيديوهات مروّجة + AI boost</td><td>3,000 د.إ/شهر</td><td>30,000 د.إ</td></tr>
+            <tr><td>عمولة تحويل</td><td>5-10% على كل استشارة</td><td>50-200 د.إ</td><td>20,000 د.إ</td></tr>
+            <tr><td>إعلانات مستهدفة</td><td>مكاتب محاماة تروّج خدماتها</td><td>2K-10K د.إ/حملة</td><td>15,000 د.إ</td></tr>
+            <tr><td>محتوى مدفوع</td><td>إنتاج فيديوهات احترافية</td><td>3K-5K د.إ/فيديو</td><td>40,000 د.إ</td></tr>
+            <tr class="total-row"><td colspan="3">الإجمالي المتوقع (بعد 12 شهر)</td><td>130K - 180K د.إ/شهر</td></tr>
+          </tbody>
+        </table>
+        <p style="text-align:center; color:var(--terracotta); font-weight:700; font-size:1.1rem; margin-bottom:2rem;">📈 ~1.5 - 2 مليون د.إ / سنة</p>
+
+        <div class="journey-box reveal">
+          <h4>🗺️ رحلة العميل</h4>
+          <div class="journey-steps">
+            <div class="journey-step"><div class="step-num">1</div><div class="step-text">يواجه مشكلة قانونية ← يبحث في Google أو يشاهد فيديو على سوشيال ميديا</div></div>
+            <div class="journey-step"><div class="step-num">2</div><div class="step-text">يدخل المنصة ← AI Chatbot يسأله عن نوع القضية والإمارة والميزانية</div></div>
+            <div class="journey-step"><div class="step-num">3</div><div class="step-text">AI يعرض 3-5 محامين مناسبين مع التقييم والتخصص وفيديو تعريفي</div></div>
+            <div class="journey-step"><div class="step-num">4</div><div class="step-text">يختار محامي ← يحجز استشارة عبر التقويم أو WhatsApp</div></div>
+            <div class="journey-step"><div class="step-num">5</div><div class="step-text">بعد الاستشارة ← يقيّم المحامي. إذا احتاج خدمات إتمام ← يتحول</div></div>
+          </div>
+        </div>
+
+        <h3 style="color:var(--navy); margin:2rem 0 1rem;">📅 خطة الإطلاق</h3>
+        <div class="phase-grid">
+          <div class="card reveal" style="border-right:4px solid var(--gold);">
+            <h4>Phase 0 — التأسيس</h4>
+            <div class="phase-time">شهر 1-2</div>
+            <ul><li>بحث السوق وتحليل المنافسين</li><li>تصميم UI/UX</li><li>تعيين الفريق التقني</li><li>البنية التحتية</li></ul>
+            <div class="phase-budget">80K - 120K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-1" style="border-right:4px solid var(--terracotta);">
+            <h4>Phase 1 — MVP</h4>
+            <div class="phase-time">شهر 3-5</div>
+            <ul><li>موقع بسيط: بروفايلات + بحث</li><li>نظام حجز استشارة</li><li>لوحة تحكم للمحامي</li><li>10-20 محامي مؤسس</li></ul>
+            <div class="phase-budget">150K - 250K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-2" style="border-right:4px solid var(--navy);">
+            <h4>Phase 2 — الإطلاق العام</h4>
+            <div class="phase-time">شهر 6-8</div>
+            <ul><li>AI Chatbot v1</li><li>نظام التقييم والمراجعات</li><li>منصة الفيديو</li><li>50+ محامي</li></ul>
+            <div class="phase-budget">200K - 300K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-3" style="border-right:4px solid var(--gold-dark);">
+            <h4>Phase 3 — النمو</h4>
+            <div class="phase-time">شهر 9-12</div>
+            <ul><li>تطبيق موبايل iOS + Android</li><li>نظام الدفع المدمج</li><li>Gamification</li><li>برنامج الإحالة</li></ul>
+            <div class="phase-budget">250K - 400K د.إ</div>
+          </div>
+        </div>
+        <p style="text-align:center; margin-top:1rem; color:var(--navy); font-weight:700;">إجمالي الاستثمار (سنة 1): <span style="color:var(--terracotta);">680K - 1.07M د.إ</span></p>
+      </div>
+
+      <!-- Tab B -->
+      <div class="tab-content" id="tabB">
+        <div class="proposal-header reveal" style="background:linear-gradient(135deg, var(--terracotta), var(--terracotta-light));">
+          <h3>🔗 اقتراح B — قسم مندمج "مستشارو إتمام"</h3>
+          <p>قسم مدمج داخل موقع إتمام الحالي — "اكتملت معاملتك؟ تحتاج محامي متخصص؟ هنا مستشارونا"</p>
+        </div>
+
+        <h3 style="color:var(--navy); margin-bottom:1rem;">💰 نموذج الإيرادات</h3>
+        <table class="revenue-table reveal">
+          <thead>
+            <tr><th>مصدر الإيراد</th><th>الوصف</th><th>السعر</th><th>الإيراد الشهري</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>رسم ظهور سنوي</td><td>المحامي يدفع رسم سنوي للتواجد</td><td>5K-10K د.إ/سنة</td><td>18,750 د.إ</td></tr>
+            <tr><td>عمولة تحويل</td><td>8-15% على كل قضية من إتمام</td><td>200-500 د.إ/قضية</td><td>24,000 د.إ</td></tr>
+            <tr><td>رعاية محتوى</td><td>تسجيل "نصيحة في دقيقة"</td><td>2K-5K د.إ/فيديو</td><td>28,000 د.إ</td></tr>
+            <tr><td>إعلان داخلي</td><td>أولوية ظهور في صفحة التحويل</td><td>1K-3K د.إ/شهر</td><td>20,000 د.إ</td></tr>
+            <tr class="total-row"><td colspan="3">الإجمالي المتوقع (بعد 12 شهر)</td><td>70K - 100K د.إ/شهر</td></tr>
+          </tbody>
+        </table>
+        <p style="text-align:center; color:var(--terracotta); font-weight:700; font-size:1.1rem; margin-bottom:2rem;">📈 ~850K - 1.2 مليون د.إ / سنة</p>
+
+        <div class="journey-box reveal">
+          <h4>🗺️ رحلة العميل (تحويل طبيعي)</h4>
+          <div class="journey-steps">
+            <div class="journey-step"><div class="step-num">1</div><div class="step-text">عميل يستخدم خدمات إتمام (توثيق / تسجيل / تنفيذ)</div></div>
+            <div class="journey-step"><div class="step-num">2</div><div class="step-text">النظام يكتشف أن قضيته تحتاج محامي: "هل تحتاج مساعدة قانونية؟"</div></div>
+            <div class="journey-step"><div class="step-num">3</div><div class="step-text">يضغط "نعم" ← يرى قائمة مستشارين في تخصصه</div></div>
+            <div class="journey-step"><div class="step-num">4</div><div class="step-text">يختار محامي ← يتواصل مباشرة عبر WhatsApp أو اتصال</div></div>
+            <div class="journey-step"><div class="step-num">5</div><div class="step-text">المحامي يتولى القضية ← تتبع التحويل والنتائج</div></div>
+          </div>
+        </div>
+
+        <h3 style="color:var(--navy); margin:2rem 0 1rem;">📅 خطة الإطلاق</h3>
+        <div class="phase-grid">
+          <div class="card reveal" style="border-right:4px solid var(--terracotta);">
+            <h4>Phase 0 — التحضير</h4>
+            <div class="phase-time">شهر 1</div>
+            <ul><li>تحديد 15-20 محامي مهتمين</li><li>تصميم القسم الجديد</li></ul>
+            <div class="phase-budget">20K - 30K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-1" style="border-right:4px solid var(--gold);">
+            <h4>Phase 1 — الإطلاق الناعم</h4>
+            <div class="phase-time">شهر 2-3</div>
+            <ul><li>صفحة "مستشارو إتمام"</li><li>بروفايلات بسيطة</li><li>أول 10 فيديوهات</li><li>زر "تحتاج محامي؟"</li></ul>
+            <div class="phase-budget">40K - 60K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-2" style="border-right:4px solid var(--navy);">
+            <h4>Phase 2 — المحتوى والنمو</h4>
+            <div class="phase-time">شهر 4-6</div>
+            <ul><li>محتوى أسبوعي</li><li>AI chatbot واتساب</li><li>تتبع التحويلات</li><li>30+ محامي</li></ul>
+            <div class="phase-budget">60K - 100K د.إ</div>
+          </div>
+          <div class="card reveal reveal-delay-3" style="border-right:4px solid var(--gold-dark);">
+            <h4>Phase 3 — التطوير</h4>
+            <div class="phase-time">شهر 7-12</div>
+            <ul><li>تقييمات ومراجعات</li><li>Dashboard للمحامي</li><li>نظام حجز مدمج</li></ul>
+            <div class="phase-budget">80K - 120K د.إ</div>
+          </div>
+        </div>
+        <p style="text-align:center; margin-top:1rem; color:var(--navy); font-weight:700;">إجمالي الاستثمار (سنة 1): <span style="color:var(--terracotta);">200K - 310K د.إ</span></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Comparison Table -->
+<section class="comparison-section" id="comparison">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">⚖️</span>
+      <h2>المقارنة التفصيلية</h2>
+      <p>16 معيار لمساعدتك في اتخاذ القرار الصحيح</p>
+    </div>
+    <div class="comparison-table-wrap reveal">
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>المعيار</th>
+            <th>🚀 اقتراح A — منصة مستقلة</th>
+            <th>🔗 اقتراح B — قسم مدمج</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>💰 الاستثمار (سنة 1)</td><td>680K - 1.07M د.إ</td><td>200K - 310K د.إ</td></tr>
+          <tr><td>📈 الإيراد المتوقع (سنة 1)</td><td>1.5 - 2M د.إ</td><td>850K - 1.2M د.إ</td></tr>
+          <tr><td>🔄 ROI المتوقع</td><td>80 - 120%</td><td>200 - 350%</td></tr>
+          <tr><td>⏱️ وقت الوصول للسوق</td><td>6 - 8 أشهر</td><td>2 - 3 أشهر</td></tr>
+          <tr><td>⚖️ نقطة التعادل</td><td>8 - 12 شهر</td><td>4 - 6 أشهر</td></tr>
+          <tr><td>🔧 التعقيد التقني</td><td>عالي</td><td>منخفض - متوسط</td></tr>
+          <tr><td>👥 حجم الفريق</td><td>5 - 8 أشخاص</td><td>2 - 3 أشخاص</td></tr>
+          <tr><td>⚠️ المخاطر</td><td>عالية</td><td>منخفضة</td></tr>
+          <tr><td>📐 قابلية التوسع</td><td>ممتازة</td><td>محدودة</td></tr>
+          <tr><td>🏷️ استقلالية البراند</td><td>عالية</td><td>منخفضة</td></tr>
+          <tr><td>🤝 جذب محامين جدد</td><td>أسهل</td><td>أصعب</td></tr>
+          <tr><td>✨ تجربة المستخدم</td><td>غنية ومخصصة</td><td>محدودة</td></tr>
+          <tr><td>🔍 SEO Impact</td><td>عالي (domain مستقل)</td><td>متوسط (صفحات داخلية)</td></tr>
+          <tr><td>📊 البيانات والرؤى</td><td>شاملة</td><td>جزئية</td></tr>
+          <tr><td>🔗 الاعتماد على إتمام</td><td>جزئي</td><td>كلي</td></tr>
+          <tr><td>🌐 تأثير الشبكة</td><td>قوي (ثنائي الاتجاه)</td><td>ضعيف (أحادي)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- Creative Ideas -->
+<section class="ideas-section" id="ideas">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">💡</span>
+      <h2>الأفكار الإبداعية</h2>
+      <p>8 أفكار مبتكرة لجعل المنصة لا تُقاوم</p>
+    </div>
+    <div class="ideas-grid">
+      <div class="idea-card reveal">
+        <div class="idea-icon">🤖</div>
+        <h3>AI Legal Matching</h3>
+        <p>بوت ذكي يفهم مشكلتك القانونية بالعربي العامي ويربطك بأنسب محامي — عبر WhatsApp!</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-1">
+        <div class="idea-icon">🎮</div>
+        <h3>Gamification للمحامين</h3>
+        <p>نظام نقاط ومستويات: مستشار ← مستشار أول ← خبير إتمام ← نخبة إتمام 💎 مع Leaderboard شهري</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-2">
+        <div class="idea-icon">📹</div>
+        <h3>نصائح في دقيقة</h3>
+        <p>فيديوهات 60 ثانية — محامي يشرح حق قانوني واحد. 3 فيديوهات أسبوعياً على TikTok وInstagram</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-3">
+        <div class="idea-icon">🔗</div>
+        <h3>برنامج الإحالة</h3>
+        <p>محامي يحيل محامي = شهر مجاني. عميل يحيل عميل = قسيمة 200 د.إ. رابط إحالة فريد لكل محامي</p>
+      </div>
+      <div class="idea-card reveal">
+        <div class="idea-icon">💬</div>
+        <h3>مجتمع Q&A</h3>
+        <p>منتدى أسئلة وأجوبة — الناس يسألون والمحامين يجاوبون. SEO Machine + Trust Builder + Lead Gen</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-1">
+        <div class="idea-icon">🌟</div>
+        <h3>Lawyer Spotlight</h3>
+        <p>كل شهر محامي واحد يُختار كنجم الشهر — مقابلة فيديو + بوست مخصص + newsletter. يحفّز الجميع!</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-2">
+        <div class="idea-icon">📱</div>
+        <h3>WhatsApp Integration</h3>
+        <p>حجز + تذكير + تقييم + مستندات — كل شيء عبر واتساب. 98% من سكان الإمارات يستخدمونه!</p>
+      </div>
+      <div class="idea-card reveal reveal-delay-3">
+        <div class="idea-icon">🧠</div>
+        <h3>AI Summaries</h3>
+        <p>كل فيديو → Whisper يحوّله لنص → AI يلخصه في 3 نقاط → carousel على Instagram + مقال SEO</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Recommendation -->
+<section class="recommend-section" id="recommendation">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">🏆</span>
+      <h2>التوصية النهائية</h2>
+      <p>استراتيجية الهجين التدريجي — أذكى طريقة للبدء</p>
+    </div>
+    <div class="recommend-quote reveal">
+      "ابدأ بـ B ثم تطوّر لـ A"<br>
+      <span style="font-size:0.7em; font-weight:400; color:var(--warm-gray);">ابدأ صغير، أثبت القيمة، كبّر. بناءً على بيانات حقيقية وليس افتراضات.</span>
+    </div>
+
+    <div class="timeline reveal">
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <h4>🚀 المرحلة الأولى</h4>
+          <div class="tl-period">الأشهر 1-3</div>
+          <ul>
+            <li>إطلاق "مستشارو إتمام" (اقتراح B)</li>
+            <li>15-20 محامي مؤسس</li>
+            <li>صفحة على موقع إتمام</li>
+            <li>أول 10 فيديوهات "نصيحة في دقيقة"</li>
+            <li>WhatsApp integration للحجز</li>
+          </ul>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <h4>📈 نمو المحتوى</h4>
+          <div class="tl-period">الأشهر 4-6</div>
+          <ul>
+            <li>30+ محامي</li>
+            <li>سلسلة محتوى أسبوعية</li>
+            <li>AI chatbot على واتساب (v1)</li>
+            <li>قياس: معدل التحويل، رضا المحامين</li>
+          </ul>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <h4>🔍 تقييم + قرار</h4>
+          <div class="tl-period">الأشهر 7-9</div>
+          <ul>
+            <li>تحليل البيانات: هل النموذج يعمل؟</li>
+            <li>إذا نعم → بدء تطوير المنصة المستقلة</li>
+            <li>إذا لا → تعديل النموذج أو pivot</li>
+            <li>بداية بناء فريق تقني</li>
+          </ul>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <h4>🎯 إطلاق المنصة المستقلة</h4>
+          <div class="tl-period">الأشهر 10-15</div>
+          <ul>
+            <li>نقل البروفايلات والمحتوى</li>
+            <li>AI matching متقدم</li>
+            <li>Gamification كامل + تطبيق موبايل</li>
+            <li>هدف: 100+ محامي، 500+ استشارة/شهر</li>
+          </ul>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-card">
+          <h4>🌍 التوسع</h4>
+          <div class="tl-period">السنة 2+</div>
+          <ul>
+            <li>إمارات أخرى + خدمات إضافية</li>
+            <li>300+ محامي</li>
+            <li>2000+ استشارة / شهر</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="glass-card reveal" style="text-align:center; max-width:700px; margin:2rem auto; padding:2rem;">
+      <p style="font-size:1.1rem; color:var(--gold); font-weight:700; margin-bottom:0.5rem;">💎 الميزة التنافسية الكبرى</p>
+      <p style="color:var(--warm-gray); font-size:1rem;">مركز إتمام عنده ميزة لا يملكها أحد: <strong style="color:var(--gold);">شراكة رسمية مع دائرة القضاء</strong>.<br>هذه الميزة وحدها تكفي لجعل أي محامي يريد أن يكون حليفاً وليس منافساً.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Budget -->
+<section class="budget-section" id="budget">
+  <div class="container">
+    <div class="section-title">
+      <span class="emoji">💸</span>
+      <h2>الميزانية الإجمالية</h2>
+      <p>خطة الهجين التدريجي — 15 شهر من البداية حتى المنصة المستقلة</p>
+    </div>
+    <table class="budget-table reveal">
+      <thead>
+        <tr>
+          <th>المرحلة</th>
+          <th>الفترة</th>
+          <th>الميزانية (د.إ)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Phase B</strong> — القسم المدمج</td>
+          <td>أشهر 1-6</td>
+          <td style="direction:ltr; text-align:left;">150,000 - 250,000</td>
+          <td class="budget-emoji">🔗</td>
+        </tr>
+        <tr>
+          <td><strong>Transition</strong> — التقييم والتخطيط</td>
+          <td>أشهر 7-9</td>
+          <td style="direction:ltr; text-align:left;">50,000 - 80,000</td>
+          <td class="budget-emoji">🔍</td>
+        </tr>
+        <tr>
+          <td><strong>Phase A</strong> — المنصة المستقلة</td>
+          <td>أشهر 10-15</td>
+          <td style="direction:ltr; text-align:left;">400,000 - 600,000</td>
+          <td class="budget-emoji">🚀</td>
+        </tr>
+        <tr class="budget-total">
+          <td><strong>الإجمالي</strong></td>
+          <td><strong>15 شهر</strong></td>
+          <td style="direction:ltr; text-align:left;"><strong>600,000 - 930,000 د.إ</strong></td>
+          <td class="budget-emoji">💰</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="text-align:center; margin-top:2rem;">
+      <div class="card reveal" style="display:inline-block; padding:1.5rem 2.5rem; background: linear-gradient(135deg, var(--navy), var(--navy-light)); color:var(--white);">
+        <p style="font-size:1.1rem; font-weight:700; color:var(--gold);">🎯 ROI المتوقع مع الخطة الهجينة</p>
+        <p style="font-size:0.95rem; margin-top:0.5rem;">Phase B: <strong>200-350%</strong> ROI | Phase A: <strong>80-120%</strong> ROI</p>
+        <p style="font-size:0.85rem; color:var(--warm-gray); margin-top:0.3rem;">نقطة التعادل: 4-6 أشهر (B) → 8-12 شهر (A)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-fox">🦊</div>
+  <div class="footer-brand">Pyramedia × PyraAI</div>
+  <p>استراتيجية منصة محامين إتمام — فبراير 2026</p>
+  <p style="margin-top:0.5rem; font-size:0.85rem; color:var(--gold-dark);">مركز إتمام للخدمات القضائية | شراكة مجموعة إنجازات × دائرة القضاء في الشارقة</p>
+</footer>
+
+<!-- Back to Top -->
+<button class="back-to-top" id="backToTop" aria-label="العودة للأعلى">↑</button>
+
+<script>
+// Particles
+(function(){
+  const container = document.getElementById('particles');
+  for(let i=0; i<30; i++){
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = Math.random()*6+2;
+    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${Math.random()*8+6}s;animation-delay:${Math.random()*5}s;`;
+    container.appendChild(p);
+  }
+})();
+
+// Progress Bar
+window.addEventListener('scroll', function(){
+  const winScroll = document.documentElement.scrollTop;
+  const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  document.getElementById('progress-bar').style.width = (winScroll/height*100)+'%';
+});
+
+// Navbar scroll
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', function(){
+  navbar.classList.toggle('scrolled', window.scrollY > 50);
+});
+
+// Mobile nav toggle
+document.getElementById('navToggle').addEventListener('click', function(){
+  document.getElementById('navLinks').classList.toggle('open');
+});
+document.querySelectorAll('.nav-links a').forEach(a => {
+  a.addEventListener('click', () => document.getElementById('navLinks').classList.remove('open'));
+});
+
+// Active nav link
+const sections = document.querySelectorAll('section[id]');
+window.addEventListener('scroll', function(){
+  const scrollY = window.scrollY + 100;
+  sections.forEach(sec => {
+    const top = sec.offsetTop - 100;
+    const bottom = top + sec.offsetHeight;
+    const id = sec.getAttribute('id');
+    const link = document.querySelector(`.nav-links a[href="#${id}"]`);
+    if(link) link.classList.toggle('active', scrollY >= top && scrollY < bottom);
+  });
+});
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+    document.getElementById(this.dataset.tab).classList.add('active');
+  });
+});
+
+// Scroll Reveal
+const revealElements = document.querySelectorAll('.reveal');
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
+revealElements.forEach(el => revealObserver.observe(el));
+
+// Animated Counters
+const counterElements = document.querySelectorAll('.stat-number');
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if(entry.isIntersecting && !entry.target.dataset.counted) {
+      entry.target.dataset.counted = 'true';
+      animateCounter(entry.target);
+    }
+  });
+}, { threshold: 0.5 });
+counterElements.forEach(el => counterObserver.observe(el));
+
+function animateCounter(el) {
+  const target = parseFloat(el.dataset.target);
+  const prefix = el.dataset.prefix || '';
+  const suffix = el.dataset.suffix || '';
+  const duration = 2000;
+  const start = performance.now();
+  const isDecimal = target % 1 !== 0;
+  
+  function update(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = target * eased;
+    
+    if(isDecimal) {
+      el.textContent = prefix + current.toFixed(1) + suffix;
+    } else {
+      el.textContent = prefix + Math.floor(current).toLocaleString() + suffix;
+    }
+    
+    if(progress < 1) requestAnimationFrame(update);
+    else {
+      if(isDecimal) el.textContent = prefix + target.toFixed(1) + suffix;
+      else el.textContent = prefix + target.toLocaleString() + suffix;
+    }
+  }
+  requestAnimationFrame(update);
+}
+
+// Back to top
+const backToTop = document.getElementById('backToTop');
+window.addEventListener('scroll', function(){
+  backToTop.classList.toggle('visible', window.scrollY > 500);
+});
+backToTop.addEventListener('click', function(){
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+</script>
+
+</body>
+</html>

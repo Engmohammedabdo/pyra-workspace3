@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>عرض خدمات التسويق الرقمي — مركز إتمام للخدمات القضائية</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+@page{size:A4;margin:20mm 18mm 25mm 18mm}
+body{font-family:'Tajawal',sans-serif;background:#fff;color:#1a1a1a;font-size:14px;line-height:1.8;direction:rtl}
+
+/* Header & Footer */
+.page-header{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:2px solid #F97316;margin-bottom:30px}
+.page-header .logo{font-size:18px;font-weight:800;letter-spacing:2px;color:#111}
+.page-header .logo span{color:#F97316}
+.page-header .page-num{color:#999;font-size:12px}
+.page-footer{text-align:center;color:#aaa;font-size:11px;padding-top:20px;border-top:1px solid #eee;margin-top:40px}
+
+/* Page breaks */
+.page{page-break-before:always;padding:0;min-height:auto}
+.page:first-child{page-break-before:avoid}
+
+/* Cover */
+.cover{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;background:linear-gradient(135deg,#fff 0%,#fff5eb 100%);position:relative;page-break-after:always}
+.cover-logo{font-size:36px;font-weight:800;letter-spacing:4px;color:#111;margin-bottom:8px}
+.cover-logo span{color:#F97316}
+.cover-tagline{font-size:14px;color:#F97316;letter-spacing:3px;margin-bottom:60px;font-weight:500}
+.cover-line{width:80px;height:3px;background:#F97316;margin:0 auto 40px}
+.cover-title{font-size:32px;font-weight:800;color:#111;margin-bottom:12px;line-height:1.4}
+.cover-client{font-size:24px;font-weight:700;color:#F97316;margin-bottom:50px}
+.cover-date{font-size:16px;color:#666;margin-bottom:8px}
+.cover-from{font-size:14px;color:#888}
+.cover-conf{position:absolute;bottom:40px;font-size:11px;color:#bbb;letter-spacing:1px}
+
+/* Section titles */
+.section-title{font-size:22px;font-weight:800;color:#111;padding-right:16px;border-right:4px solid #F97316;margin-bottom:20px;line-height:1.5}
+.section-subtitle{font-size:17px;font-weight:700;color:#F97316;margin-bottom:14px;margin-top:28px}
+
+/* Content */
+.content{padding:0 10px}
+.intro-text{font-size:15px;line-height:2;color:#333;margin-bottom:16px;text-align:justify}
+
+/* Lists */
+.task-list{list-style:none;padding:0;margin:0 0 20px 0}
+.task-list li{padding:10px 16px;margin-bottom:8px;background:#fafafa;border-radius:8px;border-right:3px solid #F97316;font-size:14px;line-height:1.7;display:flex;align-items:flex-start;gap:10px}
+.task-list li .num{background:#F97316;color:#fff;min-width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:2px}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:16px 0 24px}
+table th{background:#F97316;color:#fff;padding:12px 16px;font-weight:700;font-size:13px;text-align:right}
+table td{padding:10px 16px;border-bottom:1px solid #eee;font-size:13px;color:#333}
+table tr:nth-child(even) td{background:#fafafa}
+table.pricing td,table.pricing th{text-align:center}
+table.pricing td:first-child,table.pricing th:first-child{text-align:right}
+
+/* Highlight box */
+.highlight-box{background:linear-gradient(135deg,#fff7ed,#fff);border:2px solid #F97316;border-radius:12px;padding:20px 24px;margin:20px 0}
+.highlight-box h4{color:#F97316;font-size:15px;margin-bottom:8px}
+.highlight-box p,.highlight-box li{font-size:13px;color:#444;line-height:1.8}
+.highlight-box ul{padding-right:20px;margin:8px 0 0}
+
+/* Note */
+.note{background:#f8f9fa;border-radius:8px;padding:14px 18px;margin:14px 0;font-size:13px;color:#555;border-right:3px solid #ddd;line-height:1.8}
+.note strong{color:#F97316}
+
+/* Pricing highlight */
+.pricing-recommended{background:#fff7ed !important}
+.pricing-recommended td{font-weight:700;color:#111 !important}
+.badge{display:inline-block;background:#F97316;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;margin-right:6px;font-weight:700}
+
+/* Signature */
+.sig-section{margin-top:30px}
+.sig-grid{display:grid;grid-template-columns:1fr 1fr;gap:40px;margin-top:20px}
+.sig-box{border:1px solid #ddd;border-radius:12px;padding:24px;background:#fafafa}
+.sig-box h4{font-size:15px;font-weight:700;color:#F97316;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid #eee}
+.sig-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;font-size:13px}
+.sig-row span:first-child{color:#888;min-width:100px}
+.sig-line{flex:1;border-bottom:1px dashed #ccc;margin-right:12px;min-height:20px}
+.approval-table{margin-top:20px}
+.approval-table td{padding:8px 12px}
+
+/* Print */
+@media print{
+  body{font-size:12px}
+  .cover{min-height:auto;height:auto;padding:120px 0}
+  .page{page-break-before:always}
+  .no-break{page-break-inside:avoid}
+  .task-list li{background:#f8f8f8 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  table th{background:#F97316 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .highlight-box,.note{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+
+<!-- ==================== COVER ==================== -->
+<div class="cover">
+  <div class="cover-logo">PYRAMEDIA<span>X</span></div>
+  <div class="cover-tagline">FOR AI SOLUTIONS</div>
+  <div class="cover-line"></div>
+  <div class="cover-title">عرض خدمات التسويق الرقمي الشامل</div>
+  <div class="cover-client">مركز إتمام للخدمات القضائية</div>
+  <div class="cover-date">مارس 2026</div>
+  <div class="cover-from">مقدم من: Pyramedia X — For AI Solutions</div>
+  <div class="cover-conf">سري وخاص — هذا العرض مقدم حصرياً للمعني بالأمر</div>
+</div>
+
+<!-- ==================== PAGE 2: INTRO ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">2</div>
+  </div>
+  <div class="content">
+    <div class="section-title">المقدمة</div>
+    <p class="intro-text">
+      تتشرّف شركة <strong>Pyramedia X</strong> بتقديم هذا العرض الشامل لخدمات التسويق الرقمي وإدارة المحتوى والعلامة التجارية لصالح <strong>مركز إتمام للخدمات القضائية</strong>. نضع في هذا العرض خبراتنا المتراكمة في التسويق الرقمي وإنتاج المحتوى الاحترافي وإدارة الحملات الإعلانية في خدمة المركز لتعزيز حضوره الرقمي وبناء سمعة قوية تليق بمكانته.
+    </p>
+    <p class="intro-text">
+      نؤمن بأن المؤسسات القضائية والقانونية تستحق تسويقاً رقمياً يعكس هيبتها ومصداقيتها، ولهذا صُمّمت خدماتنا لتراعي الطابع المهني والاحترافي مع الوصول الفعّال للجمهور المستهدف عبر مختلف القنوات الرقمية.
+    </p>
+    <p class="intro-text">
+      يتضمن هذا العرض تفاصيل نطاق العمل، الكميات، التسعير، والشروط التعاقدية الكاملة.
+    </p>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 3: SETUP ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">3</div>
+  </div>
+  <div class="content">
+    <div class="section-title">نطاق العمل — مهام التأسيس (Setup)</div>
+    <p style="color:#666;margin-bottom:16px;font-size:14px;">مهام تُنفّذ مرة واحدة في بداية التعاقد لتهيئة البنية التسويقية الرقمية الكاملة للمركز.</p>
+    
+    <ol class="task-list">
+      <li><span class="num">1</span>إنشاء وتأسيس الحسابات الرسمية على: Instagram, Facebook, TikTok, LinkedIn</li>
+      <li><span class="num">2</span>تطبيق الهوية البصرية على جميع المنصات (قوالب، أيقونات، أغلفة، الوصف التعريفي)</li>
+      <li><span class="num">3</span>إعداد الأعمدة التحريرية (Content Pillars) والخطوط التحريرية</li>
+      <li><span class="num">4</span>إعداد حسابات الإعلانات (Meta Business Suite, Google Ads)</li>
+      <li><span class="num">5</span>إعداد Google Business Profile</li>
+      <li><span class="num">6</span>بناء الخطة التسويقية الأولى (أول 3 أشهر)</li>
+      <li><span class="num">7</span>تحليل المنافسين الأولي</li>
+      <li><span class="num">8</span>تحديد الجمهور المستهدف وبناء شخصيات العملاء (Personas)</li>
+      <li><span class="num">9</span>بناء خطة إدارة الأزمات (Crisis Communication Protocol)</li>
+    </ol>
+
+    <div class="highlight-box">
+      <h4>⏱ مدة التأسيس</h4>
+      <p>من <strong>17 إلى 25 يوم عمل</strong> من تاريخ بدء التعاقد</p>
+      <p style="margin-top:6px">💰 تكلفة التأسيس: <strong>مشمولة بالكامل ضمن قيمة العقد</strong></p>
+    </div>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 4: MONTHLY - SOCIAL + CONTENT ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">4</div>
+  </div>
+  <div class="content">
+    <div class="section-title">نطاق العمل — المهام الشهرية المستمرة</div>
+    
+    <div class="section-subtitle">أولاً: إدارة منصات التواصل الاجتماعي</div>
+    <ol class="task-list">
+      <li><span class="num">1</span>إعداد تقويم محتوى شهري معتمد</li>
+      <li><span class="num">2</span>كتابة وتصميم ونشر المحتوى على 4 منصات (Instagram, Facebook, TikTok, LinkedIn)</li>
+      <li><span class="num">3</span>إدارة التعليقات والرسائل على مدار الساعة (24/7)</li>
+      <li><span class="num">4</span>متابعة التريندات والمناسبات القانونية ذات الصلة</li>
+    </ol>
+
+    <div class="section-subtitle">ثانياً: إنتاج المحتوى</div>
+    <ol class="task-list" start="5">
+      <li><span class="num">5</span>كتابة سكريبتات الفيديو (ريلز / تيكتوك)</li>
+      <li><span class="num">6</span>تصوير ومونتاج المحتوى المرئي</li>
+      <li><span class="num">7</span>جلسات تصوير احترافية — <strong>جلستين شهرياً (يوم كامل لكل جلسة)</strong> تشمل: تصوير فريق العمل، المقر، ومحتوى السوشيال ميديا</li>
+      <li><span class="num">8</span>تصميم الجرافيك (بوستات + ستوريز + كاروسيل)</li>
+      <li><span class="num">9</span>كتابة المحتوى باللغتين العربية والإنجليزية</li>
+    </ol>
+
+    <div class="note">
+      <strong>ملاحظة:</strong> يتم توفير المحتوى بلغات إضافية (الأوردو / الهندية) كميزة تعزيزية للمنشورات والفيديوهات عند ملاءمة الفكرة والسياق، دون أن يشكّل ذلك التزاماً تعاقدياً.
+    </div>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 5: QUANTITIES ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">5</div>
+  </div>
+  <div class="content">
+    <div class="section-subtitle">الكميات الشهرية</div>
+    <table>
+      <thead>
+        <tr><th>البند</th><th style="text-align:center">الكمية</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>منشورات (بوست + ريلز + كاروسيل)</td><td style="text-align:center"><strong>28 منشور/شهر</strong></td></tr>
+        <tr><td>ستوريز</td><td style="text-align:center"><strong>يومياً</strong></td></tr>
+        <tr><td>مقالات قانونية للموقع الإلكتروني</td><td style="text-align:center"><strong>6 مقالات/شهر</strong></td></tr>
+        <tr><td>فيديوهات قانونية (ريلز) ضمن الـ 28 منشور</td><td style="text-align:center"><strong>حتى 5 فيديوهات/شهر</strong></td></tr>
+        <tr><td>جلسات تصوير احترافية</td><td style="text-align:center"><strong>جلستين/شهر (يوم كامل)</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>ملاحظة:</strong> توزيع الـ 28 منشور بين بوستات وريلز وكاروسيل يكون مرناً حسب الخطة الشهرية واحتياجات المحتوى. الفيديوهات القانونية الخمسة هي ضمن الـ 28 منشور وليست إضافية.
+    </div>
+
+    <div class="section-subtitle">ثالثاً: الإعلانات المدفوعة</div>
+    <ol class="task-list" start="10">
+      <li><span class="num">10</span>إدارة حملات Meta (Instagram + Facebook)</li>
+      <li><span class="num">11</span>إدارة حملات Google Ads</li>
+      <li><span class="num">12</span>استهداف وتحسين مستمر واختبارات A/B Testing</li>
+      <li><span class="num">13</span>إعداد تقارير أداء الحملات</li>
+    </ol>
+
+    <div class="note">
+      <strong>ملاحظة:</strong> رسوم إدارة الحملات الإعلانية مشمولة بالكامل ضمن قيمة العقد. الميزانية الإعلانية تكون على حساب العميل مباشرةً.
+    </div>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 6: SEO + REPUTATION + STRATEGY ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">6</div>
+  </div>
+  <div class="content">
+    <div class="section-subtitle">رابعاً: تحسين محركات البحث (SEO) وتسويق المحتوى</div>
+    <ol class="task-list" start="14">
+      <li><span class="num">14</span>تحسين SEO للموقع الإلكتروني (بعد تسليمه من العميل)</li>
+      <li><span class="num">15</span>كتابة مقالات قانونية تعليمية (6 مقالات شهرياً)</li>
+      <li><span class="num">16</span>تحسين Local SEO</li>
+    </ol>
+
+    <div class="section-subtitle">خامساً: إدارة السمعة والعلامة التجارية</div>
+    <ol class="task-list" start="17">
+      <li><span class="num">17</span>متابعة وإدارة تقييمات Google Reviews</li>
+      <li><span class="num">18</span>تشجيع العملاء على التقييم</li>
+      <li><span class="num">19</span>مراقبة العلامة التجارية أونلاين (Mentions + تنبيهات)</li>
+      <li><span class="num">20</span>جمع شهادات العملاء (تصوير / كتابة قصص نجاح)</li>
+    </ol>
+
+    <div class="section-subtitle">سادساً: التخطيط الاستراتيجي</div>
+    <ol class="task-list" start="21">
+      <li><span class="num">21</span>تحديث الخطة التسويقية كل ربع سنة</li>
+      <li><span class="num">22</span>تحليل منافسين دوري</li>
+      <li><span class="num">23</span>اقتراح حملات موسمية ومبادرات</li>
+      <li><span class="num">24</span>تحديث خطة الأزمات ربع سنوي</li>
+    </ol>
+
+    <div class="section-subtitle">سابعاً: التقارير والمتابعة</div>
+    <ol class="task-list" start="25">
+      <li><span class="num">25</span>تقرير أداء شهري شامل</li>
+      <li><span class="num">26</span>اجتماع شهري مع الإدارة</li>
+      <li><span class="num">27</span>متابعة مؤشرات الأداء (KPIs)</li>
+    </ol>
+
+    <div class="section-subtitle">ثامناً: التنسيق والإشراف</div>
+    <ol class="task-list" start="28">
+      <li><span class="num">28</span>التنسيق بين مركز إتمام وموردي الخدمات (مطبوعات، فعاليات، مؤتمرات) والإشراف على جودة التنفيذ بما يضمن تقديم المركز بالصورة اللائقة بدائرة القضاء</li>
+    </ol>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 7: ADDITIONAL VIDEOS + EXTRA SERVICES ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">7</div>
+  </div>
+  <div class="content">
+    <div class="section-title">الفيديوهات القانونية الإضافية</div>
+    <p style="margin-bottom:16px;color:#444;font-size:14px;">يشمل العقد إنتاج حتى <strong>5 فيديوهات قانونية (ريلز)</strong> شهرياً ضمن الـ 28 منشور. أي فيديو إضافي يُسعّر على النحو التالي:</p>
+    
+    <div class="highlight-box">
+      <h4>💰 سعر الفيديو القانوني الإضافي: 650 درهم</h4>
+      <ul>
+        <li>✅ كتابة السكريبت</li>
+        <li>✅ تدريب المتحدث</li>
+        <li>✅ التصوير</li>
+        <li>✅ المونتاج</li>
+        <li>❌ غير شامل إيجار الاستوديو في حالة التصوير خارج مقر المركز</li>
+      </ul>
+    </div>
+
+    <div class="section-title" style="margin-top:40px">خدمات إضافية (حسب الطلب — بتسعير منفصل)</div>
+    <p style="margin-bottom:20px;color:#444;font-size:14px;">يمكن طلب أي من الخدمات التالية بتسعير يُحدد بناءً على متطلبات كل مشروع على حدة:</p>
+
+    <div class="section-subtitle">الإنتاج</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>تغطية فعاليات ومؤتمرات</li>
+      <li><span class="num">•</span>إنتاج فيديوهات مؤسسية (Brand Film)</li>
+      <li><span class="num">•</span>موشن جرافيك</li>
+    </ul>
+
+    <div class="section-subtitle">التسويق</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>حملات موسمية خاصة</li>
+      <li><span class="num">•</span>علاقات عامة وإعلامية (PR)</li>
+      <li><span class="num">•</span>التسويق عبر المؤثرين</li>
+    </ul>
+
+    <div class="section-subtitle">التسويق التقليدي</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>مطبوعات (بروشورات، فلايرز، بانرات)</li>
+      <li><span class="num">•</span>تصميم أكشاك ومعارض</li>
+      <li><span class="num">•</span>لوحات إعلانية خارجية</li>
+    </ul>
+
+    <div class="section-subtitle">الخدمات الرقمية</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>تصميم صفحات هبوط (Landing Pages)</li>
+      <li><span class="num">•</span>إنتاج بودكاست قانوني</li>
+    </ul>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 8: PRICING ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">8</div>
+  </div>
+  <div class="content">
+    <div class="section-title">التسعير</div>
+    
+    <table class="pricing">
+      <thead>
+        <tr>
+          <th>خيار الدفع</th>
+          <th>السعر الشهري</th>
+          <th>إجمالي الفترة</th>
+          <th>التوفير السنوي</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ربع سنوي (كل 3 أشهر)</td>
+          <td>18,000 درهم</td>
+          <td>54,000 درهم</td>
+          <td>—</td>
+        </tr>
+        <tr class="pricing-recommended">
+          <td><span class="badge">موصى به</span>نصف سنوي (كل 6 أشهر)</td>
+          <td>16,000 درهم</td>
+          <td>96,000 درهم</td>
+          <td style="color:#F97316;font-weight:700">توفير 12,000 درهم</td>
+        </tr>
+        <tr>
+          <td>سنوي (دفعة واحدة)</td>
+          <td>15,000 درهم</td>
+          <td>180,000 درهم</td>
+          <td style="color:#F97316;font-weight:700">توفير 36,000 درهم</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="color:#888;font-size:12px;margin-bottom:24px;">* جميع الأسعار بالدرهم الإماراتي وغير شاملة ضريبة القيمة المضافة (إن وُجدت)</p>
+
+    <div class="highlight-box">
+      <h4>✅ يشمل السعر</h4>
+      <ul>
+        <li>جميع مهام التأسيس (Setup) — 9 بنود</li>
+        <li>جميع المهام الشهرية المستمرة — 28 بنداً</li>
+        <li>إدارة الحملات الإعلانية على Meta وGoogle</li>
+        <li>إنتاج حتى 5 فيديوهات قانونية شهرياً</li>
+      </ul>
+    </div>
+
+    <div class="note" style="border-right-color:#F97316">
+      <strong>لا يشمل السعر:</strong>
+      <br>• الميزانية الإعلانية (على حساب العميل مباشرةً)
+      <br>• الخدمات الإضافية (بتسعير منفصل حسب الطلب)
+      <br>• إيجار الاستوديو للفيديوهات القانونية الإضافية
+    </div>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 9: TERMS ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">9</div>
+  </div>
+  <div class="content">
+    <div class="section-title">الشروط والأحكام</div>
+
+    <div class="section-subtitle">مدة العقد</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>مدة العقد <strong>سنة واحدة</strong> تبدأ من تاريخ التوقيع</li>
+      <li><span class="num">•</span>يُجدد العقد تلقائياً ما لم يُخطر أحد الطرفين الآخر خطياً قبل <strong>30 يوماً</strong> من انتهاء مدته</li>
+    </ul>
+
+    <div class="section-subtitle">آلية العمل والاعتماد</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>يُقدَّم تقويم المحتوى الشهري للاعتماد قبل بداية كل شهر</li>
+      <li><span class="num">•</span>يتم اعتماد المحتوى من قبل الشخص أو الأشخاص المخولين من طرف العميل (بحد أقصى شخصين)</li>
+      <li><span class="num">•</span>يُشترط تقديم طلبات التعديل قبل <strong>48 ساعة</strong> من موعد النشر المُحدد</li>
+      <li><span class="num">•</span>في حال تأخر العميل عن اعتماد المحتوى لأكثر من <strong>5 أيام عمل</strong> من تاريخ التقديم، يُعتبر المحتوى معتمداً ضمنياً ويُنشر حسب الخطة</li>
+    </ul>
+
+    <div class="section-subtitle">المراجعات والتعديلات</div>
+    <ul class="task-list">
+      <li><span class="num">✨</span><strong>الباقة النصف سنوية والسنوية:</strong> تعديلات مفتوحة وغير محدودة على جميع المحتوى — لأننا شركاء نجاح وما نوقف عند رقم</li>
+      <li><span class="num">•</span><strong>الباقة الربع سنوية:</strong> حتى <strong>5 جولات تعديل</strong> لكل قطعة محتوى. أي تعديلات إضافية تُسعّر منفصلاً</li>
+    </ul>
+
+    <div class="section-subtitle">الدفع</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>يُستحق الدفع خلال <strong>7 أيام عمل</strong> من بداية كل فترة تعاقدية</li>
+      <li><span class="num">•</span>في حالة التأخر عن السداد لأكثر من <strong>15 يوماً</strong>، يحق لبيراميديا <strong>تعليق جميع الخدمات</strong> حتى استلام المستحقات المالية كاملة</li>
+    </ul>
+
+    <div class="section-subtitle">الإلغاء</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>يحق لأي من الطرفين إنهاء العقد بإشعار خطي مسبق لا يقل عن <strong>30 يوماً</strong></li>
+      <li><span class="num">•</span>لا يحق للعميل الإلغاء خلال <strong>أول 3 أشهر</strong> من التعاقد (فترة التأسيس والبناء)</li>
+      <li><span class="num">•</span>في حال الإلغاء المبكر للعقد السنوي أو النصف سنوي، تُحتسب الأشهر المنقضية بسعر <strong>الباقة الربع سنوية (18,000 درهم/شهر)</strong> ويُرد الفارق إن وُجد</li>
+      <li><span class="num">•</span>في حالة الإلغاء، يلتزم العميل بسداد جميع المستحقات عن الفترة المنقضية حتى تاريخ الإنهاء الفعلي</li>
+    </ul>
+
+    <div class="section-subtitle">الملكية الفكرية</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>جميع المحتوى والمواد الإبداعية المُنتجة خصيصاً للعميل تؤول ملكيتها <strong>بالكامل إلى العميل</strong> بعد سداد جميع المستحقات المالية</li>
+      <li><span class="num">•</span>تحتفظ بيراميديا بحقها في استخدام الأعمال المُنجزة ضمن معرض أعمالها (Portfolio) ما لم يُتفق على خلاف ذلك</li>
+    </ul>
+
+    <div class="section-subtitle">السرية</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>يلتزم الطرفان بالحفاظ على سرية جميع المعلومات والبيانات المتبادلة وعدم إفشائها لأي طرف ثالث طوال مدة العقد وبعد انتهائه</li>
+    </ul>
+
+    <div class="section-subtitle">القوة القاهرة</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>لا يتحمل أي من الطرفين المسؤولية عن التأخير أو عدم التنفيذ الناتج عن ظروف خارجة عن الإرادة</li>
+    </ul>
+
+    <div class="section-subtitle">الاختصاص القضائي</div>
+    <ul class="task-list">
+      <li><span class="num">•</span>تخضع هذه الاتفاقية لقوانين دولة الإمارات العربية المتحدة، وتختص <strong>محاكم أبوظبي</strong> بالنظر في أي نزاع ينشأ عنها</li>
+    </ul>
+
+    <div class="section-subtitle">ملاحظات عامة</div>
+    <ul class="task-list">
+      <li><span class="num">•</span><strong>الهوية البصرية:</strong> تم تسليمها مسبقاً بعقد منفصل</li>
+      <li><span class="num">•</span><strong>الموقع الإلكتروني:</strong> مسؤولية العميل — تعمل بيراميديا على تحسين SEO فقط بعد تسليم الموقع</li>
+      <li><span class="num">•</span><strong>منصة المحامين:</strong> مشروع منفصل بعقد مستقل</li>
+      <li><span class="num">•</span><strong>مشروع الكول سنتر:</strong> مشروع منفصل بعقد مستقل</li>
+    </ul>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+<!-- ==================== PAGE 10: SIGNATURE ==================== -->
+<div class="page">
+  <div class="page-header">
+    <div class="logo">PYRAMEDIA<span>X</span></div>
+    <div class="page-num">10</div>
+  </div>
+  <div class="content">
+    <div class="section-title">التوقيع والاعتماد</div>
+    <p style="color:#666;margin-bottom:24px;font-size:14px;">بتوقيع الطرفين أدناه، يُعتبر هذا العرض اتفاقاً ملزماً ونافذاً بالشروط والأحكام المذكورة أعلاه.</p>
+
+    <div class="sig-grid">
+      <!-- الطرف الأول -->
+      <div class="sig-box">
+        <h4>الطرف الأول — بيراميديا</h4>
+        <div class="sig-row"><span>الاسم:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>المسمى الوظيفي:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>التوقيع:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>التاريخ:</span><div class="sig-line"></div></div>
+      </div>
+
+      <!-- الطرف الثاني -->
+      <div class="sig-box">
+        <h4>الطرف الثاني — مركز إتمام للخدمات القضائية</h4>
+        <div class="sig-row"><span>الاسم:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>المسمى الوظيفي:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>رقم التواصل:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>التوقيع:</span><div class="sig-line"></div></div>
+        <div class="sig-row"><span>التاريخ:</span><div class="sig-line"></div></div>
+      </div>
+    </div>
+
+    <!-- أشخاص الاعتماد -->
+    <div style="margin-top:30px">
+      <div class="section-subtitle">أشخاص اعتماد المحتوى (بحد أقصى شخصين)</div>
+      <table>
+        <thead>
+          <tr><th style="width:40px">#</th><th>الاسم</th><th>رقم التواصل</th></tr>
+        </thead>
+        <tbody>
+          <tr><td style="text-align:center">1</td><td style="min-height:30px">&nbsp;</td><td>&nbsp;</td></tr>
+          <tr><td style="text-align:center">2</td><td style="min-height:30px">&nbsp;</td><td>&nbsp;</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:40px;text-align:center">
+      <div class="section-subtitle" style="text-align:center">خيار الدفع المُختار</div>
+      <table style="max-width:400px;margin:0 auto">
+        <tbody>
+          <tr><td style="text-align:center">☐ ربع سنوي (18,000 درهم/شهر)</td></tr>
+          <tr><td style="text-align:center">☐ نصف سنوي (16,000 درهم/شهر)</td></tr>
+          <tr><td style="text-align:center">☐ سنوي (15,000 درهم/شهر)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="page-footer">سري وخاص — Pyramedia X © 2026</div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,82 @@
+{
+  "dialogue": [
+    {
+      "character": "دكتور أحمد",
+      "line": "تلات مرضى… محجوزين من أسبوع… ومحدش جه.",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-1.mp3"
+    },
+    {
+      "character": "نورا",
+      "line": "مش بيرد… التاني مش بيرد… التالت كمان!",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/nora-2.mp3"
+    },
+    {
+      "character": "المريض",
+      "line": "أنا حاجز من يومين يا جماعة!",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-3.mp3"
+    },
+    {
+      "character": "نورا",
+      "line": "اسمك مش موجود عندي يا أستاذ…",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/nora-4.mp3"
+    },
+    {
+      "character": "المريض",
+      "line": "إزاي مش موجود؟! أنا اتصلت وحجزت!",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-5.mp3"
+    },
+    {
+      "character": "دكتور أحمد",
+      "line": "حقك عليا يا أستاذ… بس احنا—",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-6.mp3"
+    },
+    {
+      "character": "المريض",
+      "line": "لا مش حقي عليك! أنا هروح عيادة تانية!",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/patient-7.mp3"
+    },
+    {
+      "character": "دكتور أحمد",
+      "line": "كده مش هينفع… لازم ألاقي حل!",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/ahmed-8.mp3"
+    },
+    {
+      "character": "صاحب أحمد",
+      "line": "أحمد… أنا عارف واحد حل لي نفس المشكلة بالظبط.",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/EP01/friend-9.mp3"
+    }
+  ],
+  "music": [
+    {
+      "name": "clinic-sadness",
+      "description": "موسيقى حزينة/توتر للمشاهد 1-4",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/clinic-sadness.mp3",
+      "sourceUrl": "https://tempfile.aiquickdraw.com/r/4424e5eaaa9f4999a4b1c9a58674dda0.mp3",
+      "duration": 240.0,
+      "sunoId": "66b7b235-90ff-49ea-8d8a-3db08b5ac3e3"
+    },
+    {
+      "name": "hope-theme",
+      "description": "نغمة أمل للمشهد الأخير",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/hope-theme.mp3",
+      "sourceUrl": "https://tempfile.aiquickdraw.com/r/46b26b738e0341798b6318aa09b34d1c.mp3",
+      "duration": 72.56,
+      "sunoId": "7719b330-fbed-49ec-93e8-a088a8aa6330"
+    },
+    {
+      "name": "ramadan-intro",
+      "description": "إنترو رمضاني",
+      "url": "https://db.pyramedia.info/storage/v1/object/public/pyraai-workspace/projects/ramadan-series/audio/music/ramadan-intro.mp3",
+      "sourceUrl": "https://tempfile.aiquickdraw.com/r/d6b89ec4503949d9ad158680daf73c1d.mp3",
+      "duration": 189.48,
+      "sunoId": "701e13a7-ffdd-4108-9652-5ca5f8a15f02"
+    }
+  ],
+  "metadata": {
+    "episode": "EP01",
+    "title": "عيادة دكتور أحمد: المواعيد الضايعة",
+    "generatedAt": "2026-02-10T14:03:00Z",
+    "ttsModel": "eleven_multilingual_v2",
+    "musicModel": "chirp-v4 (Suno V4 via Kie.ai)"
+  }
+}

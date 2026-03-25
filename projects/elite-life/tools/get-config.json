@@ -1,0 +1,8 @@
+{
+  "name": "Get Clinic Config",
+  "type": "n8n-nodes-base.postgresTool", 
+  "description": "جلب إعدادات العيادة من قاعدة البيانات.\n\nاستخدمها للحصول على:\n• clinic_name_ar/en: اسم العيادة\n• clinic_phone: رقم الهاتف\n• clinic_address: العنوان\n• google_maps_link: رابط الخريطة\n• google_review_link: رابط التقييم\n• working_hours_start/end: ساعات العمل\n• assistant_name_ar: اسم المساعد (بايرا)\n\n💡 استخدم هذه البيانات بدل الـ hardcoded values",
+  "operation": "executeQuery",
+  "query": "SELECT json_object_agg(key, value) as config FROM config",
+  "parameters": {}
+}

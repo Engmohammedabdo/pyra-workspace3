@@ -1,0 +1,24 @@
+{
+  "totalProcessed": 2,
+  "lastRun": "2026-02-21T12:21:00.237Z",
+  "history": [
+    {
+      "timestamp": "2026-02-21T12:20:55.327Z",
+      "processed": 1,
+      "critical": 0,
+      "high": 1,
+      "medium": 0,
+      "low": 0,
+      "telegramSent": 0
+    },
+    {
+      "timestamp": "2026-02-21T12:21:00.237Z",
+      "processed": 1,
+      "critical": 1,
+      "high": 0,
+      "medium": 0,
+      "low": 0,
+      "telegramSent": 1
+    }
+  ]
+}
