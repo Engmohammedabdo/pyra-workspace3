@@ -158,6 +158,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   // Billing history state (retainer)
   const [billingHistory, setBillingHistory] = useState<BillingHistory | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
+  const [generatingRetainerInvoice, setGeneratingRetainerInvoice] = useState(false);
 
   // Filter projects by selected client
   const filteredProjects = form.client_id
@@ -439,6 +440,35 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   };
 
   // ==========================================
+  // Generate retainer invoice
+  // ==========================================
+  const handleGenerateRetainerInvoice = async () => {
+    // The API will auto-detect the amount from billing_structure or retainer_amount
+    // Just confirm with user
+    if (!confirm(`سيتم إنشاء فاتورة للفترة الحالية. متابعة؟`)) return;
+
+    setGeneratingRetainerInvoice(true);
+    try {
+      const res = await fetch(`/api/finance/contracts/${id}/generate-invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const j = await res.json();
+      if (res.ok && j.data) {
+        toast.success(`تم إنشاء الفاتورة ${j.data.invoice_number}`);
+        fetchBillingHistory();
+      } else {
+        toast.error(j?.error || 'فشل في إنشاء الفاتورة');
+      }
+    } catch {
+      toast.error('فشل في إنشاء الفاتورة');
+    } finally {
+      setGeneratingRetainerInvoice(false);
+    }
+  };
+
+  // ==========================================
   // Render
   // ==========================================
 
@@ -627,11 +657,28 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                 <CalendarClock className="h-4 w-4" />
                 سجل الفوترة الشهرية
               </CardTitle>
-              {billingHistory?.recurring_invoice && (
-                <Badge variant={billingHistory.recurring_invoice.status === 'active' ? 'default' : 'secondary'}>
-                  {billingHistory.recurring_invoice.status === 'active' ? 'فوترة نشطة' : 'فوترة متوقفة'}
-                </Badge>
-              )}
+              <div className="flex items-center gap-2">
+                {billingHistory?.recurring_invoice && (
+                  <Badge variant={billingHistory.recurring_invoice.status === 'active' ? 'default' : 'secondary'}>
+                    {billingHistory.recurring_invoice.status === 'active' ? 'فوترة نشطة' : 'فوترة متوقفة'}
+                  </Badge>
+                )}
+                {form.status === 'active' && (
+                  <Button
+                    size="sm"
+                    className="h-8 text-xs bg-orange-500 hover:bg-orange-600 text-white"
+                    onClick={handleGenerateRetainerInvoice}
+                    disabled={generatingRetainerInvoice}
+                  >
+                    {generatingRetainerInvoice ? (
+                      <Loader2 className="h-3.5 w-3.5 me-1 animate-spin" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5 me-1" />
+                    )}
+                    إصدار فاتورة
+                  </Button>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
