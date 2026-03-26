@@ -116,7 +116,7 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Expenses** — Expense tracking with categories, VAT, receipts, approval workflow
 - **Expense Categories** — Custom categories with Arabic names, icons, and colors
 - **Subscriptions** — Recurring subscription management with auto-renewal expense creation
-- **Contracts** — Contract management with milestones, billing structure, auto-billed amounts
+- **Contracts** — Contract management with milestones + retainer billing, manual invoice generation from contract, auto-billed amounts tracking
 - **Purchase Orders** — PO creation, approval, and auto-expense on receipt
 - **Suppliers** — Vendor management with bank details and payment terms
 - **Payment Cards** — Company card management
@@ -140,22 +140,32 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
   - Auto-deduction for unpaid leave (daily rate = salary ÷ 22 working days)
   - Auto-creation of expense records on payroll approval
   - Commission payments from invoice payments (manual + Stripe)
+  - Payment creation dialog — register commissions, task payments, bonuses directly
+  - Support for 4 employee types: monthly salary, hourly, per-task, commission
 - **Salary History** — Automatic tracking of salary/hourly rate changes
 - **Evaluations** — Performance reviews with criteria scoring and bonus recommendations
 - **Timesheets** — Period-based time tracking with project linking, billable hours support
-- **Employee Payments** — Advances, bonuses, deductions, commission tracking
+- **Employee Payments** — Advances, bonuses, deductions, commission tracking with "أتعاب مستقلين" expense category
 - **Work Schedules** — Shift definitions and assignments
 - **Overtime** — Overtime request and approval workflow
 - **Directory** — Employee profiles + org chart visualization
 - **Announcements** — Company-wide announcements with priority and targeting
-- **My Payslips** — Employee self-service payslip viewing
+- **My Payments (كشف حسابي)** — Unified self-service page showing payroll items + all employee payments (commissions, tasks, bonuses) — works for ALL employee types including freelancers
 
 #### Unified Task Pipeline
 - **Kanban Boards** — Full kanban with drag-and-drop, labels, checklists, comments, attachments
-- **Pipeline View** — Sequential stage-based workflow with progress tracking and arrows
-- **View Mode Switcher** — Toggle between Kanban and Pipeline views per board
-- **Board Templates** — 6 built-in templates (General, Content, Design, Campaign, Video, Social Media) + custom admin-configurable templates
+- **4 View Modes** — Kanban (default) | List (sortable table) | Calendar (monthly grid) | Pipeline (sequential stages)
+- **Board Templates** — 6 built-in templates + custom admin-configurable templates
 - **Board Settings** — Admin panel for configuring view mode, pipeline toggle, auto-advance, column settings
+- **Board Members** — Per-board access control (viewer/editor/admin roles), integrated into scope system
+- **Board Starring** — Favorite boards, starred boards sorted first
+- **Task Numbering** — Auto-increment `#N` per board, shown on cards and task sheet
+- **Task Duplication** — Copy task with all relations (labels, checklist, assignees)
+- **Cross-Board Move/Copy** — Move tasks between boards with label cleanup
+- **Due Date Badges** — Color-coded: green (>3d), yellow (1-3d), orange (today), red (overdue)
+- **Task Sorting** — Sort within columns by newest/oldest/priority/due date/title
+- **Markdown Description** — Bold, italic, lists, links with live preview
+- **Trello-Style Task Sheet** — Full-featured card modal with sidebar actions, comments, attachments, activity log
 - **Stage Gates** — Configurable approval gates on columns (requires_approval, approval_role)
 - **Task Advance API** — Sequential stage advancement with completion percentage tracking
 - **Approve/Reject Flow** — Admin approves or rejects task advancement with notes and notifications
@@ -165,6 +175,7 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Auto-advance** — Automatic task movement to next stage on completion
 - **Default Assignees** — Auto-assign users when tasks enter specific stages
 - **My Tasks** — Enhanced personal dashboard with pipeline progress bars, completion %, stage context
+- **Scope-Protected APIs** — All task GET/PATCH/DELETE endpoints enforce board-access scope check
 - **Content Pipeline** — Legacy content production workflow (being replaced by unified pipeline)
 
 #### Knowledge Base
@@ -172,10 +183,10 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Help Center** — Client-facing help articles
 
 #### System Administration
-- **User Management** — CRUD with role-based access (admin/employee), path-based permissions
-- **Roles & Permissions** — RBAC with `module.action` format (60+ permissions)
+- **User Management** — CRUD with role-based access, user detail page with financial statement, projects, and employment info tabs
+- **Roles & Permissions** — RBAC with `module.action` format (79+ permissions across 34+ modules)
 - **Teams** — Team management with member add/remove
-- **Settings** — Company info, quotes, bank details, storage, commission rates
+- **Settings** — Company info, quotes, bank details, storage, commission rates, board settings
 - **Integrations** — Automation rules, webhooks, API keys
 - **Activity Log** — Filterable audit trail (40+ action types)
 - **Login History** — Security monitoring
@@ -270,7 +281,7 @@ The system unifies HR and Finance with these key integrations:
 | Clients | `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding` | CRM and portal |
 | Files | `pyra_file_index`, `pyra_file_versions`, `pyra_project_files`, `pyra_favorites`, `pyra_trash` | File management |
 | Projects | `pyra_projects`, `pyra_teams`, `pyra_team_members` | Project and team management |
-| Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_assignees`, `pyra_task_labels`, `pyra_task_checklist`, `pyra_task_comments`, `pyra_task_attachments`, `pyra_task_activity`, `pyra_task_stage_history`, `pyra_board_task_types`, `pyra_board_templates` | Unified Task Pipeline |
+| Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_assignees`, `pyra_task_labels`, `pyra_task_checklist`, `pyra_task_comments`, `pyra_task_attachments`, `pyra_task_activity`, `pyra_task_stage_history`, `pyra_board_task_types`, `pyra_board_templates`, `pyra_board_stars`, `pyra_board_members` | Unified Task Pipeline |
 | Finance | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_expenses`, `pyra_expense_categories`, `pyra_subscriptions`, `pyra_contracts`, `pyra_contract_milestones`, `pyra_cards`, `pyra_recurring_invoices`, `pyra_revenue_targets`, `pyra_stripe_payments` | Billing and finance |
 | Procurement | `pyra_suppliers`, `pyra_purchase_orders`, `pyra_purchase_order_items`, `pyra_credit_notes`, `pyra_credit_note_items` | Vendors and purchase orders |
 | Quotes | `pyra_quotes`, `pyra_quote_items` | Quotations |
@@ -372,7 +383,8 @@ docs/                         # Technical documentation
 | `/api/leave/*` | 4 | Leave requests and approvals |
 | `/api/kb/*` | 4 | Knowledge base articles and categories |
 | `/api/shares/*` | 4 | Share links, public download |
-| `/api/boards/*` | 12 | Unified Task Pipeline (boards, tasks, advance, approve, attachments, templates) |
+| `/api/boards/*` | 18 | Unified Task Pipeline (boards, tasks, advance, approve, attachments, templates, members, star) |
+| `/api/tasks/*` | 6 | Task CRUD, move, duplicate (scope-protected) |
 | `/api/teams/*` | 3 | Team CRUD, member management |
 | `/api/notifications/*` | 3 | List, mark read, mark all |
 | `/api/settings/*` | 3 | Config get/update |
@@ -390,7 +402,9 @@ docs/                         # Technical documentation
 |----------|------|-------------|
 | Architecture | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, component structure, API patterns |
 | Database Schema | [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md) | Full database schema (100 tables) |
-| Development Guide | [`CLAUDE.md`](./CLAUDE.md) | Coding conventions, mandatory checklists, key systems |
+| Development Guide | [`CLAUDE.md`](./CLAUDE.md) | Coding conventions, mandatory checklists, Orchestra development process |
+| Feature Impact Map | [`docs/FEATURE-IMPACT-MAP.md`](./docs/FEATURE-IMPACT-MAP.md) | Feature connections and 4-audience impact analysis |
+| System Structure | [`docs/SYSTEM-STRUCTURE.md`](./docs/SYSTEM-STRUCTURE.md) | Complete system reference (all pages, tables, integrations) |
 | Employee System | [`docs/EMPLOYEE-SYSTEM.md`](./docs/EMPLOYEE-SYSTEM.md) | HR system documentation (14 modules) |
 | Employee PRD | [`docs/PRD-EMPLOYEE-SYSTEM.md`](./docs/PRD-EMPLOYEE-SYSTEM.md) | Employee system requirements |
 | Employee Implementation | [`docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md`](./docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md) | Implementation details |
@@ -524,6 +538,9 @@ pnpm lint         # ESLint
 | 18 | Unified Task Pipeline (9 phases — Pipeline View, Stage Gates, Approval, File System) | Done |
 | 19 | Invoice/Quote PDF Template System + Display Client Name | Done |
 | 20 | Docker & Deployment (Coolify) | Done |
+| 21 | Board System v2 — 9 features (numbering, duplicate, stars, sort, calendar, members, move, markdown, due badges) | Done |
+| 22 | Unified Employee Payments — "كشف حسابي" for all employee types + User Detail Page | Done |
+| 23 | Logic Bug Audit — 8 fixes (2 critical, 4 high, 2 medium) | Done |
 
 ---
 
