@@ -4,7 +4,7 @@ set -euo pipefail
 
 KIE_KEY="bb95f4d46f57be29c3181d55e246d403"
 SUPA_URL="https://db.pyramedia.info"
-SUPA_KEY="***REMOVED***"
+SUPA_KEY="REDACTED_SUPABASE_SERVICE_KEY_1"
 BUCKET="pyraai-workspace"
 OUTDIR="/home/node/openclaw/ramadan-series/images"
 ASSETS_JSON="/home/node/openclaw/ramadan-series/EP01-assets.json"

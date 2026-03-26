@@ -3,42 +3,6 @@
     "n8n": {
       "responseTimes": [
         {
-          "time": 1773921760332,
-          "ms": 291
-        },
-        {
-          "time": 1773928617525,
-          "ms": 286
-        },
-        {
-          "time": 1773928958037,
-          "ms": 309
-        },
-        {
-          "time": 1773935946671,
-          "ms": 249
-        },
-        {
-          "time": 1773936158727,
-          "ms": 299
-        },
-        {
-          "time": 1773943367497,
-          "ms": 308
-        },
-        {
-          "time": 1773944341458,
-          "ms": 381
-        },
-        {
-          "time": 1773950565840,
-          "ms": 382
-        },
-        {
-          "time": 1773957758311,
-          "ms": 330
-        },
-        {
           "time": 1773964958408,
           "ms": 288
         },
@@ -401,53 +365,53 @@
         {
           "time": 1774472948414,
           "ms": 340
+        },
+        {
+          "time": 1774475142668,
+          "ms": 251
+        },
+        {
+          "time": 1774476175687,
+          "ms": 337
+        },
+        {
+          "time": 1774483372734,
+          "ms": 269
+        },
+        {
+          "time": 1774490566537,
+          "ms": 760
+        },
+        {
+          "time": 1774497768709,
+          "ms": 326
+        },
+        {
+          "time": 1774504971961,
+          "ms": 1824
+        },
+        {
+          "time": 1774512169961,
+          "ms": 315
+        },
+        {
+          "time": 1774519369478,
+          "ms": 294
+        },
+        {
+          "time": 1774526567373,
+          "ms": 382
         }
       ],
       "transitions": [],
       "up": true,
-      "lastCheck": 1774472948414,
+      "lastCheck": 1774526567373,
       "lastStatus": 200,
       "lastError": null,
-      "lastResponseTime": 340
+      "lastResponseTime": 382
     },
     "Supabase DB": {
       "responseTimes": [
-        {
-          "time": 1773921760290,
-          "ms": 211
-        },
-        {
-          "time": 1773928617489,
-          "ms": 201
-        },
-        {
-          "time": 1773928957998,
-          "ms": 226
-        },
-        {
-          "time": 1773935946684,
-          "ms": 224
-        },
-        {
-          "time": 1773936158682,
-          "ms": 218
-        },
-        {
-          "time": 1773943367433,
-          "ms": 207
-        },
-        {
-          "time": 1773944341380,
-          "ms": 199
-        },
-        {
-          "time": 1773950566039,
-          "ms": 544
-        },
-        {
-          "time": 1773957758286,
-          "ms": 267
-        },
         {
           "time": 1773964958411,
           "ms": 248
@@ -811,53 +775,53 @@
         {
           "time": 1774472948431,
           "ms": 280
+        },
+        {
+          "time": 1774475142686,
+          "ms": 226
+        },
+        {
+          "time": 1774476175693,
+          "ms": 278
+        },
+        {
+          "time": 1774483372758,
+          "ms": 250
+        },
+        {
+          "time": 1774490566200,
+          "ms": 372
+        },
+        {
+          "time": 1774497768717,
+          "ms": 281
+        },
+        {
+          "time": 1774504971988,
+          "ms": 1795
+        },
+        {
+          "time": 1774512169969,
+          "ms": 263
+        },
+        {
+          "time": 1774519369503,
+          "ms": 263
+        },
+        {
+          "time": 1774526567330,
+          "ms": 274
         }
       ],
       "transitions": [],
       "up": true,
-      "lastCheck": 1774472948431,
+      "lastCheck": 1774526567330,
       "lastStatus": 401,
       "lastError": null,
-      "lastResponseTime": 280
+      "lastResponseTime": 274
     },
     "Workspace DB": {
       "responseTimes": [
-        {
-          "time": 1773921760306,
-          "ms": 225
-        },
-        {
-          "time": 1773928617886,
-          "ms": 596
-        },
-        {
-          "time": 1773928958045,
-          "ms": 271
-        },
-        {
-          "time": 1773935946749,
-          "ms": 287
-        },
-        {
-          "time": 1773936158690,
-          "ms": 225
-        },
-        {
-          "time": 1773943367466,
-          "ms": 239
-        },
-        {
-          "time": 1773944341442,
-          "ms": 258
-        },
-        {
-          "time": 1773950565845,
-          "ms": 348
-        },
-        {
-          "time": 1773957758286,
-          "ms": 266
-        },
         {
           "time": 1773964958383,
           "ms": 218
@@ -1221,53 +1185,53 @@
         {
           "time": 1774472948432,
           "ms": 277
+        },
+        {
+          "time": 1774475142674,
+          "ms": 212
+        },
+        {
+          "time": 1774476175699,
+          "ms": 280
+        },
+        {
+          "time": 1774483372740,
+          "ms": 231
+        },
+        {
+          "time": 1774490566236,
+          "ms": 406
+        },
+        {
+          "time": 1774497768719,
+          "ms": 281
+        },
+        {
+          "time": 1774504971964,
+          "ms": 1769
+        },
+        {
+          "time": 1774512169969,
+          "ms": 258
+        },
+        {
+          "time": 1774519369470,
+          "ms": 227
+        },
+        {
+          "time": 1774526567328,
+          "ms": 270
         }
       ],
       "transitions": [],
       "up": true,
-      "lastCheck": 1774472948432,
+      "lastCheck": 1774526567328,
       "lastStatus": 401,
       "lastError": null,
-      "lastResponseTime": 277
+      "lastResponseTime": 270
     },
     "Pyramedia Website": {
       "responseTimes": [
-        {
-          "time": 1773921760942,
-          "ms": 860
-        },
-        {
-          "time": 1773928618844,
-          "ms": 1553
-        },
-        {
-          "time": 1773928959558,
-          "ms": 1783
-        },
-        {
-          "time": 1773935948156,
-          "ms": 1693
-        },
-        {
-          "time": 1773936160005,
-          "ms": 1538
-        },
-        {
-          "time": 1773943368118,
-          "ms": 889
-        },
-        {
-          "time": 1773944342776,
-          "ms": 1591
-        },
-        {
-          "time": 1773950566493,
-          "ms": 995
-        },
-        {
-          "time": 1773957759595,
-          "ms": 1574
-        },
         {
           "time": 1773964959738,
           "ms": 1572
@@ -1631,6 +1595,42 @@
         {
           "time": 1774472949230,
           "ms": 1074
+        },
+        {
+          "time": 1774475144054,
+          "ms": 1591
+        },
+        {
+          "time": 1774476177304,
+          "ms": 1882
+        },
+        {
+          "time": 1774483374089,
+          "ms": 1578
+        },
+        {
+          "time": 1774490567813,
+          "ms": 1981
+        },
+        {
+          "time": 1774497770441,
+          "ms": 2000
+        },
+        {
+          "time": 1774504972563,
+          "ms": 2366
+        },
+        {
+          "time": 1774512171521,
+          "ms": 1808
+        },
+        {
+          "time": 1774519370165,
+          "ms": 922
+        },
+        {
+          "time": 1774526568858,
+          "ms": 1799
         }
       ],
       "transitions": [
@@ -1681,10 +1681,10 @@
         }
       ],
       "up": true,
-      "lastCheck": 1774472949230,
+      "lastCheck": 1774526568858,
       "lastStatus": 302,
       "lastError": null,
-      "lastResponseTime": 1074,
+      "lastResponseTime": 1799,
       "lastAlertTime": 1774170247390
     },
     "Test Service": {
@@ -20672,6 +20672,267 @@
           "up": true,
           "status": 302,
           "ms": 1074
+        }
+      ]
+    },
+    {
+      "time": 1774475144055,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 251
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 226
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 212
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1591
+        }
+      ]
+    },
+    {
+      "time": 1774476177304,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 337
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 278
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 280
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1882
+        }
+      ]
+    },
+    {
+      "time": 1774483374089,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 269
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 250
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 231
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1578
+        }
+      ]
+    },
+    {
+      "time": 1774490567813,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 760
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 372
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 406
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1981
+        }
+      ]
+    },
+    {
+      "time": 1774497770441,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 326
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 281
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 281
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 2000
+        }
+      ]
+    },
+    {
+      "time": 1774504972563,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 1824
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 1795
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 1769
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 2366
+        }
+      ]
+    },
+    {
+      "time": 1774512171524,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 315
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 263
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 258
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1808
+        }
+      ]
+    },
+    {
+      "time": 1774519370167,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 294
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 263
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 227
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 922
+        }
+      ]
+    },
+    {
+      "time": 1774526568860,
+      "results": [
+        {
+          "name": "n8n",
+          "up": true,
+          "status": 200,
+          "ms": 382
+        },
+        {
+          "name": "Supabase DB",
+          "up": true,
+          "status": 401,
+          "ms": 274
+        },
+        {
+          "name": "Workspace DB",
+          "up": true,
+          "status": 401,
+          "ms": 270
+        },
+        {
+          "name": "Pyramedia Website",
+          "up": true,
+          "status": 302,
+          "ms": 1799
         }
       ]
     }

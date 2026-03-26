@@ -1,7 +1,7 @@
 # Bayra Knowledge Base
 
-> Auto-synced from bayra.db — 2026-03-25T20:03:11 UTC
-> 1228 memories | Do not edit manually
+> Auto-synced from bayra.db — 2026-03-26T08:03:22 UTC
+> 1243 memories | Do not edit manually
 
 ## Weaknesses of the LinkedIn workflow include a lack of Arabic content, no Ramadan/seasonal adaptation, absence of emotional triggers, weak CTAs, limited persona, and no repurposing for other platforms.
 - Type: semantic/fact | Importance: 10
@@ -206,6 +206,11 @@
 - Type: semantic/fact | Importance: 9.5
 - Tags: AI bot,customer interaction,auto-ingest,2026-02-19,name inquiry
 - Entities: PyraWhatsapp_Agent,WhatsApp
+
+## Git push فاشل بسبب انتهاء صلاحية GitHub PAT.
+- Type: semantic/fact | Importance: 9
+- Tags: Git,push,PAT,auto-ingest,2026-03-25
+- Entities: GitHub
 
 ## الإجمالي السنوي للعقد هو 156,000 درهم.
 - Type: semantic/price | Importance: 9
@@ -837,7 +842,7 @@
 ## ## كتابة Caption لريل انستجرام 🎬
 - محمد بعث فيديو من Google Drive (7.3MB, QuickTime MOV, 16 ثانية)
 - **Google API Key المحفوظ (`GOOGLE_API_KEY` env) منتهي الصلاحية!** ⚠️
-- استخدمت Gemini key من n8n workflows: `***REMOVED***` — شغال
+- استخدمت Gemini key من n8n workflows: `REDACTED_GOOGLE_API_KEY_1` — شغال
 - **Whisper رفض الملف** — format QuickTime مش مدعوم بدون ffmpeg لتحويله
 - **Gemini Vision حلل الفيديو بنجاح** عبر Files API (upload → process → analyze)
 - الفيديو: تحويل صندوق خشبي تقليدي لقطعة ديكور فخمة (Before/After)
@@ -1471,6 +1476,16 @@ This ensures AI never starts from zero when taking over a conversation.
 - Tags: ["coolify"]
 - Entities: Mohammed,Coolify
 
+## فحص فعلي: كل شي شغال (browser launch test, crawl4ai import, DB read, node modules).
+- Type: episodic/event | Importance: 8
+- Tags: testing,functionality,auto-ingest,2026-03-25
+- Entities: Crawl4AI
+
+## Repair script رجّع: 10 fixes, 0 errors.
+- Type: semantic/fact | Importance: 8
+- Tags: repair,script,fixes,auto-ingest,2026-03-25
+- Entities: repair script
+
 ## الدفع سيكون ربع سنوي بمبلغ 39,000 درهم كل 3 أشهر.
 - Type: semantic/price | Importance: 8
 - Tags: دفع,ربع سنوي,auto-extracted
@@ -1817,7 +1832,7 @@ This ensures AI never starts from zero when taking over a conversation.
 - Tags: gpt-4o-mini,fallback,Anthropic,Google,auto-extracted
 - Entities: Google,Anthropic,GPT-4o
 
-## The Google AI Studio key was updated to `***REMOVED***` in the config.
+## The Google AI Studio key was updated to `REDACTED_GOOGLE_API_KEY_3` in the config.
 - Type: semantic/fact | Importance: 8
 - Tags: Google AI Studio,key update,config,auto-extracted
 - Entities: Google,Google AI Studio
@@ -2693,6 +2708,11 @@ Full prompt stored in: `/home/node/openclaw/pyramedia-whatsapp-prompt-final.md`
 - Tags: ["whatsapp","voice","pyramedia"]
 - Entities: Pyramedia X,Bayra
 
+## Binaries (yt-dlp, ffmpeg, ffprobe, deno, crawl) were sourced from persistent-bin.
+- Type: semantic/fact | Importance: 7.5
+- Tags: binaries,persistent-bin,auto-extracted,auto-ingest,2026-03-25
+- Entities: persistent-bin
+
 ## Leila Monitor (PID 1749) was verified running via cron.
 - Type: semantic/fact | Importance: 7.5
 - Tags: monitoring,cron,verification,auto-extracted,Leila Monitor,heartbeat,auto-ingest,2026-03-24
@@ -3038,6 +3058,11 @@ Full prompt stored in: `/home/node/openclaw/pyramedia-whatsapp-prompt-final.md`
 - Type: episodic/general | Importance: 7.2
 - Entities: Mohammed
 
+## Python packages (Crawl4AI + 98 حزمة) تم إعادة تثبيتها باستخدام pip.
+- Type: semantic/fact | Importance: 7
+- Tags: Python,packages,pip,auto-ingest,2026-03-25
+- Entities: Crawl4AI
+
 ## الكميات تشمل 28 منشور شهري، ستوريز يومي، 6 مقالات، 5 فيديوهات، و جلستين تصوير.
 - Type: semantic/fact | Importance: 7
 - Tags: كميات,محتوى,تسويق,auto-extracted
@@ -3370,7 +3395,7 @@ Full prompt stored in: `/home/node/openclaw/pyramedia-whatsapp-prompt-final.md`
 - Tags: Fallback,إضافة,auto-extracted
 - Entities: GPT-4o
 
-## تم تحديث مفتاح Google AI Studio الجديد إلى '***REMOVED***'.
+## تم تحديث مفتاح Google AI Studio الجديد إلى 'REDACTED_GOOGLE_API_KEY_3'.
 - Type: semantic/fact | Importance: 7
 - Tags: مفتاح,Google AI Studio,auto-extracted
 - Entities: Google AI Studio
@@ -4438,7 +4463,7 @@ Full prompt stored in: `/home/node/openclaw/pyramedia-whatsapp-prompt-final.md`
 
 ## ## PyraStore Telegram Bot (Customer Service Demo)
 - **الهدف:** ديمو بوت خدمة عملاء على تيليجرام لمتجر PyraStore UAE — يُعرض على عملاء Pyramedia بتوع المتاجر الإلكترونية
-- **Bot:** @pyrastore1_bot | Token: `***REMOVED***` (saved in pyra-voice.env)
+- **Bot:** @pyrastore1_bot | Token: `REDACTED_TELEGRAM_BOT_TOKEN_2` (saved in pyra-voice.env)
 - **Store URL:** `https://events.pyramedia.info/` (API: `/api/products.php`, `/api/search_suggestions.php`)
 - **Store Data:** 50 منتج، 5 categories (electronics, beauty, fashion, toys, home)، كلهم بصور + أسعار AED + روابط أمازون
 - **الميزات المطلوبة:**
@@ -4630,6 +4655,11 @@ timestamp, jid, conversation (AI response), client sayes (user message)
 - Tags: pyramedia,uae,company
 - Entities: Pyramedia X
 
+## Playwright browsers (Chrome Headless 145.0) were redownloaded.
+- Type: semantic/fact | Importance: 6.5
+- Tags: Playwright,browsers,auto-extracted,auto-ingest,2026-03-25
+- Entities: Playwright
+
 ## الدفع لعقد التسويق يتم ربع سنوي بمبلغ 39,000 درهم كل 3 أشهر.
 - Type: semantic/fact | Importance: 6.5
 - Tags: دفع,عقد,تسويق,auto-ingest,2026-03-24,إجمالي,سنوي
@@ -4748,6 +4778,20 @@ timestamp, jid, conversation (AI response), client sayes (user message)
 - Type: semantic/fact | Importance: 6.5
 - Tags: unique messages,contacts,auto-ingest,2026-02-19,data extraction,messages
 - Entities: WhatsApp
+
+## The repair script returned 10 fixes and 0 errors.
+- Type: semantic/fact | Importance: 6
+- Tags: repair,script,fixes,auto-extracted
+
+## Chromium dependencies (37 libs) تم استرجاعها من persistent-bin.
+- Type: semantic/fact | Importance: 6
+- Tags: Chromium,dependencies,auto-ingest,2026-03-25
+- Entities: persistent-bin
+
+## The repair script returned 10 fixes and 0 errors.
+- Type: semantic/fact | Importance: 6
+- Tags: repair,script,fixes,auto-extracted
+- Entities: repair script
 
 ## Monitoring of `leila-monitor.mjs` resumed after confirming PID 4202.
 - Type: semantic/decision | Importance: 6
@@ -5044,7 +5088,7 @@ timestamp, jid, conversation (AI response), client sayes (user message)
 - Tags: تحديث,Google AI Studio,auto-extracted
 - Entities: Google AI Studio
 
-## A new Google AI Studio key was sent by Mohamed: `***REMOVED***`.
+## A new Google AI Studio key was sent by Mohamed: `REDACTED_GOOGLE_API_KEY_3`.
 - Type: semantic/fact | Importance: 6
 - Tags: Google,API key,auto-extracted
 - Entities: Google AI Studio,Mohamed Abdou
@@ -5810,6 +5854,26 @@ Human Handoff: Via Email (send lead tool)
 - Type: semantic/fact | Importance: 5.5
 - Tags: AI bot,interaction,auto-ingest,2026-02-19,EliteLife
 - Entities: EliteLife
+
+## Python packages (Crawl4AI + 98 packages) were reinstalled via pip.
+- Type: semantic/fact | Importance: 5
+- Tags: Python,packages,pip,auto-extracted
+- Entities: Crawl4AI
+
+## OpenClaw was manually updated by محمد.
+- Type: semantic/fact | Importance: 5
+- Tags: update,OpenClaw,auto-extracted
+- Entities: OpenClaw,Mohammed
+
+## gh كان missing من قائمة الـ repair وتم إضافته يدوياً.
+- Type: semantic/fact | Importance: 5
+- Tags: repair,gh,auto-ingest,2026-03-25
+- Entities: gh
+
+## Python packages (Crawl4AI + 98 packages) were reinstalled via pip.
+- Type: semantic/fact | Importance: 5
+- Tags: Python,pip,packages,auto-extracted
+- Entities: Crawl4AI
 
 ## فيديو إضافي يكلف 650 درهم.
 - Type: semantic/price | Importance: 5
@@ -6632,6 +6696,15 @@ Human Handoff: Via Email (send lead tool)
 - Type: semantic/fact | Importance: 4.5
 - Tags: ملف,محلي,سكريبت,auto-ingest,2026-02-27,سوبابيز
 - Entities: Etmam,فيديو 10,Injazat
+
+## Binaries (yt-dlp, ffmpeg, ffprobe, deno, crawl) were sourced from persistent-bin.
+- Type: semantic/fact | Importance: 4
+- Tags: binaries,persistent-bin,auto-extracted
+
+## Chromium dependencies (37 libs) were sourced from persistent-bin.
+- Type: semantic/fact | Importance: 4
+- Tags: Chromium,dependencies,auto-extracted
+- Entities: persistent-bin
 
 ## فيديو إضافي يمكن إضافته مقابل 650 درهم.
 - Type: semantic/fact | Importance: 4

@@ -296,11 +296,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "***REMOVED***"
+              "value": "REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Authorization",
-              "value": "Bearer ***REMOVED***"
+              "value": "Bearer REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Content-Type",
@@ -331,11 +331,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "***REMOVED***"
+              "value": "REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Authorization",
-              "value": "Bearer ***REMOVED***"
+              "value": "Bearer REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Content-Type",
@@ -366,11 +366,11 @@
           "parameters": [
             {
               "name": "apikey",
-              "value": "***REMOVED***"
+              "value": "REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Authorization",
-              "value": "Bearer ***REMOVED***"
+              "value": "Bearer REDACTED_SUPABASE_SERVICE_KEY_1"
             },
             {
               "name": "Content-Type",

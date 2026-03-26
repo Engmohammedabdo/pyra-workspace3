@@ -952,7 +952,7 @@ Tags: ["api"]
 ## كتابة Caption لريل انستجرام 🎬
 - محمد بعث فيديو من Google Drive (7.3MB, QuickTime MOV, 16 ثانية)
 - **Google API Key المحفوظ (`GOOGLE_API_KEY` env) منتهي الصلاحية!** ⚠️
-- استخدمت Gemini key من n8n workflows: `***REMOVED***` — شغال
+- استخدمت Gemini key من n8n workflows: `REDACTED_GOOGLE_API_KEY_1` — شغال
 - **Whisper رفض الملف** — format QuickTime مش مدعوم بدون ffmpeg لتحويله
 - **Gemini Vision حلل الفيديو بنجاح** عبر Files API (upload → process → analyze)
 - الفيديو: تحويل صندوق خشبي تقليدي لقطعة ديكور فخمة (Before/After)

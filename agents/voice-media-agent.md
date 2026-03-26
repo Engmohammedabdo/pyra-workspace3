@@ -69,7 +69,7 @@
 - **Script:** `/home/node/openclaw/tools/gemini-tts.mjs`
 - **Usage:**
   ```bash
-  export GOOGLE_API_KEY="***REMOVED***"
+  export GOOGLE_API_KEY="REDACTED_GOOGLE_API_KEY_2"
   node /home/node/openclaw/tools/gemini-tts.mjs "النص" Leda flash-tts /tmp/voice.opus
   ```
 - **Multi-speaker:** يدعم محادثات بين أصوات مختلفة
@@ -838,7 +838,7 @@ audio_stream = client.text_to_speech.convert_as_stream(
 ### 9.2 Gemini TTS Quick Reference
 ```bash
 # Basic usage
-export GOOGLE_API_KEY="***REMOVED***"
+export GOOGLE_API_KEY="REDACTED_GOOGLE_API_KEY_2"
 node /home/node/openclaw/tools/gemini-tts.mjs "مرحبا" Leda flash-tts /tmp/output.opus
 
 # All voices

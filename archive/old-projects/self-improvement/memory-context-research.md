@@ -325,7 +325,7 @@ async function compressToolOutput(toolName, output) {
 **كيف نطبقه:**
 ```bash
 git clone https://github.com/jamesarslan/ai-memory-system.git
-export GEMINI_API_KEY="***REMOVED***"
+export GEMINI_API_KEY="REDACTED_GOOGLE_API_KEY_2"
 
 # ضغط محادثة
 memory compress "We decided to use PostgreSQL for the project. Mohammed prefers dark mode."

@@ -5,11 +5,11 @@
 **Default Voice:** Leda (أنثى، ناعمة وواضحة)
 **Default Model:** `gemini-2.5-flash-preview-tts` (سريع)
 **Script:** `/home/node/openclaw/tools/gemini-tts.mjs`
-**Requires:** `GOOGLE_API_KEY=***REMOVED***`
+**Requires:** `GOOGLE_API_KEY=REDACTED_GOOGLE_API_KEY_2`
 
 ### Usage:
 ```bash
-export GOOGLE_API_KEY="***REMOVED***"
+export GOOGLE_API_KEY="REDACTED_GOOGLE_API_KEY_2"
 cd /tmp && node /home/node/openclaw/tools/gemini-tts.mjs "النص" [voice] [model] [output]
 ```
 

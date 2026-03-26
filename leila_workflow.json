@@ -69,7 +69,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot***REMOVED***/sendMessage",
+        "url": "https://api.telegram.org/botREDACTED_TELEGRAM_BOT_TOKEN_2/sendMessage",
         "sendBody": true,
         "bodyParameters": {
           "parameters": [

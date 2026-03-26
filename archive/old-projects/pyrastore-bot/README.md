@@ -44,7 +44,7 @@ n8n Workflow (vcO2gtud9oEXGf9C)
 
 | What | Value | Location |
 |------|-------|----------|
-| Bot Token | `***REMOVED***` | pyra-voice.env (`PYRASTORE_BOT_TOKEN`) |
+| Bot Token | `REDACTED_TELEGRAM_BOT_TOKEN_2` | pyra-voice.env (`PYRASTORE_BOT_TOKEN`) |
 | n8n Credential ID | `GuTBWkUJ9qMyL8KA` | n8n (type: `telegramApi`) |
 | n8n Workflow ID | `vcO2gtud9oEXGf9C` | n8n |
 | Store API | `https://events.pyramedia.info/api/products.php` | Public |

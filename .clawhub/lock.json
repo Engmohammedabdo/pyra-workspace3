@@ -40,6 +40,10 @@
     "proactive-agent": {
       "version": "3.1.0",
       "installedAt": 1772233035985
+    },
+    "seo-competitor-analysis": {
+      "version": "1.0.0",
+      "installedAt": 1774485310943
     }
   }
 }

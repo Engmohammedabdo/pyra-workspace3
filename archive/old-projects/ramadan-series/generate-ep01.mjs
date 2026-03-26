@@ -5,7 +5,7 @@ import path from 'path';
 
 const KIE_KEY = 'bb95f4d46f57be29c3181d55e246d403';
 const SUPA_URL = 'https://db.pyramedia.info';
-const SUPA_KEY = '***REMOVED***';
+const SUPA_KEY = 'REDACTED_SUPABASE_SERVICE_KEY_1';
 const BUCKET = 'pyraai-workspace';
 const OUTDIR = '/home/node/openclaw/ramadan-series/images';
 const ASSETS_FILE = '/home/node/openclaw/ramadan-series/EP01-assets.json';

@@ -3,7 +3,7 @@ set -e
 
 ELEVEN_KEY="sk_e36c12a0303527db9964630c0243a9d84b93154b8cad6517"
 SUPA_URL="https://db.pyramedia.info"
-SUPA_KEY="***REMOVED***"
+SUPA_KEY="REDACTED_SUPABASE_SERVICE_KEY_1"
 BUCKET="pyraai-workspace"
 BASE_PATH="projects/ramadan-series/audio/EP01"
 AUDIO_DIR="/home/node/openclaw/ramadan-series/audio/EP01"

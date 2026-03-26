@@ -1138,7 +1138,7 @@ This ensures AI never starts from zero when taking over a conversation.
 - Tags: gpt-4o-mini,fallback,Anthropic,Google,auto-extracted
 
 
-## The Google AI Studio key was updated to `***REMOVED***` in the config.
+## The Google AI Studio key was updated to `REDACTED_GOOGLE_API_KEY_3` in the config.
 - Type: semantic/fact | Importance: 8
 - Tags: Google AI Studio,key update,config,auto-extracted
 
@@ -2120,7 +2120,7 @@ This ensures AI never starts from zero when taking over a conversation.
 - Tags: Fallback,إضافة,auto-extracted
 
 
-## تم تحديث مفتاح Google AI Studio الجديد إلى '***REMOVED***'.
+## تم تحديث مفتاح Google AI Studio الجديد إلى 'REDACTED_GOOGLE_API_KEY_3'.
 - Type: semantic/fact | Importance: 7
 - Tags: مفتاح,Google AI Studio,auto-extracted
 
@@ -3249,7 +3249,7 @@ This ensures AI never starts from zero when taking over a conversation.
 - Tags: تحديث,Google AI Studio,auto-extracted
 
 
-## A new Google AI Studio key was sent by Mohamed: `***REMOVED***`.
+## A new Google AI Studio key was sent by Mohamed: `REDACTED_GOOGLE_API_KEY_3`.
 - Type: semantic/fact | Importance: 6
 - Tags: Google,API key,auto-extracted
 

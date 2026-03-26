@@ -227,7 +227,7 @@
 ## ## كتابة Caption لريل انستجرام 🎬
 - محمد بعث فيديو من Google Drive (7.3MB, QuickTime MOV, 16 ثانية)
 - **Google API Key المحفوظ (`GOOGLE_API_KEY` env) منتهي الصلاحية!** ⚠️
-- استخدمت Gemini key من n8n workflows: `***REMOVED***` — شغال
+- استخدمت Gemini key من n8n workflows: `REDACTED_GOOGLE_API_KEY_1` — شغال
 - **Whisper رفض الملف** — format QuickTime مش مدعوم بدون ffmpeg لتحويله
 - **Gemini Vision حلل الفيديو بنجاح** عبر Files API (upload → process → analyze)
 - الفيديو: تحويل صندوق خشبي تقليدي لقطعة ديكور فخمة (Before/After)
@@ -1212,7 +1212,7 @@ Full prompt stored in: `/home/node/openclaw/pyramedia-whatsapp-prompt-final.md`
 
 ## ## PyraStore Telegram Bot (Customer Service Demo)
 - **الهدف:** ديمو بوت خدمة عملاء على تيليجرام لمتجر PyraStore UAE — يُعرض على عملاء Pyramedia بتوع المتاجر الإلكترونية
-- **Bot:** @pyrastore1_bot | Token: `***REMOVED***` (saved in pyra-voice.env)
+- **Bot:** @pyrastore1_bot | Token: `REDACTED_TELEGRAM_BOT_TOKEN_2` (saved in pyra-voice.env)
 - **Store URL:** `https://events.pyramedia.info/` (API: `/api/products.php`, `/api/search_suggestions.php`)
 - **Store Data:** 50 منتج، 5 categories (electronics, beauty, fashion, toys, home)، كلهم بصور + أسعار AED + روابط أمازون
 - **الميزات المطلوبة:**
