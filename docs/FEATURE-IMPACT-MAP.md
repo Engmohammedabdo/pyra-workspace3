@@ -29,8 +29,8 @@ Every feature in this system is seen by up to 4 different audiences.
 | Clients | CRUD + all tabs | ❌ | View own clients | — (they ARE the client) | — | projects, invoices, quotes, contracts, portal branding |
 | Quotes | CRUD + send | ❌ | Create + view own | ✅ View + sign | Approval workflow | clients, invoices (convert), sales approvals |
 | Invoices | CRUD + payments | ❌ | View client invoices | ✅ View + Stripe pay | — | clients, projects, payments, recurring, credit notes, statement |
-| Contracts | CRUD + milestones | ❌ | ❌ | ✅ View + milestones | — | clients, projects, invoices (milestone billing) |
-| Boards/Tasks | CRUD + assign | ✅ View assigned (my-tasks) | ❌ | ❌ | — | projects, users (assignees) |
+| Contracts | CRUD + milestones + retainer billing | ❌ | ❌ | ✅ View + milestones | — | clients, projects, invoices (milestone + retainer generate), recurring billing |
+| Boards/Tasks | CRUD + all views (kanban/list/calendar/pipeline) | ✅ View assigned (my-tasks) + board member access | ❌ | ✅ Read-only (if board_client_portal_visible) | Board settings, templates, columns, labels | projects, users (assignees), teams (board members), scope system |
 | Files | Full access | View shared files | View client files | ✅ View + download + approve | — | projects, clients (visibility), versions, shares |
 | Script Reviews | Manage | ❌ | ❌ | ✅ Review + reply | — | clients, projects, files |
 | Knowledge Base | CRUD articles | ✅ Read articles | ✅ Read articles | ✅ Help page | Categories management | — |
@@ -41,7 +41,7 @@ Every feature in this system is seen by up to 4 different audiences.
 |---------|-------|----------|-------|-----------------|---------------|-------------|
 | Sales Overview | ✅ All stats | ❌ | ✅ Own stats | ❌ | — | leads, pipeline |
 | Leads | CRUD + assign | ❌ | ✅ CRUD own leads | ❌ | Pipeline settings | activities, quotes, convert to client |
-| WhatsApp Chat | View all | ❌ | ✅ Own conversations | ❌ | Instance management | leads, templates |
+| WhatsApp Chat | View all + assign | ❌ | ✅ Own instance + assigned conversations | ❌ | Instance management, webhook, auto-sync | leads (auto-match), quotes (send from chat), invoices, follow-ups, notes, contact sidebar |
 | Quote Approvals | Approve/reject | ❌ | ✅ Submit for approval | ❌ | — | quotes, leads |
 | Follow-ups | View all | ❌ | ✅ Own follow-ups | ❌ | — | leads |
 | Sales Reports | ✅ All agents | ❌ | ✅ Own performance | ❌ | — | leads, activities |
@@ -54,7 +54,7 @@ Every feature in this system is seen by up to 4 different audiences.
 | Attendance | View all + summary | ✅ Own clock-in/out | ✅ Own clock-in/out | ❌ | Summary dashboard | users, geolocation |
 | Leave | Approve + manage | ✅ Request own | ✅ Request own | ❌ | Leave types + settings | balances, calendar, payroll |
 | Timesheet | View all + periods | ✅ Log own hours | ❌ | ❌ | Period management | projects, payroll |
-| Payroll | Run + approve | ❌ (sees my-payslips) | ❌ | ❌ | Full payroll management | attendance, overtime, expenses |
+| Payroll | Run + approve + add payments (commission/task/bonus) | ❌ (sees my-payslips) | ❌ | ❌ | Full payroll management + payment dialog | attendance, overtime, expenses, employee_payments, user detail page |
 | My Payslips | — | ✅ View own payslips | ✅ View own payslips | ❌ | — | payroll runs |
 | Evaluations | Create + score | ✅ View own evaluation | ✅ View own evaluation | ❌ | Periods + criteria settings | users |
 | Directory | ✅ All info | ✅ Contact info | ✅ Contact info | ❌ | — | users, teams |
@@ -81,7 +81,7 @@ Every feature in this system is seen by up to 4 different audiences.
 
 | Feature | Admin | Employee | Sales | Client (Portal) | Admin Controls |
 |---------|-------|----------|-------|-----------------|---------------|
-| Users | CRUD | ❌ | ❌ | ❌ | ✅ |
+| Users | CRUD + detail page (financial/projects/info) | ❌ | ❌ | ❌ | ✅ |
 | Teams | CRUD | ❌ | ❌ | ❌ | ✅ |
 | Roles/Permissions | CRUD | ❌ | ❌ | ❌ | ✅ |
 | Settings | Full config | ❌ | ❌ | ❌ | ✅ |
@@ -132,3 +132,8 @@ Every feature in this system is seen by up to 4 different audiences.
 | New entity with status | Email notification on status change to relevant audience |
 | Configurable module | Admin settings page in dashboard |
 | HR module | Employee self-service + admin management + payroll connection |
+| Board feature | Board members scope + my-tasks integration + project link |
+| WhatsApp feature | Agent scoping + lead matching + quote/invoice integration |
+| Freelancer payment | pyra_employee_payments + pyra_expenses (both!) + user detail page |
+| Contract feature | Invoice generation (milestone OR retainer) + billing history |
+| New user type | Scope system (lib/auth/scope.ts) + board members + team members |

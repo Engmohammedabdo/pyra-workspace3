@@ -2433,3 +2433,59 @@ Tracks salary and hourly rate changes for employees over time.
 
 **PK**: `id`
 **Indexes**: `idx_salary_history_user` on `username`
+
+---
+
+## New Tables (March 2026)
+
+### pyra_board_stars
+Board favoriting per user.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| board_id | varchar(20) | NOT NULL | FK → pyra_boards.id CASCADE |
+| username | varchar | NOT NULL | — |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+**Unique**: `(board_id, username)`
+**Indexes**: `idx_board_stars_user` on `username`
+
+### pyra_board_members
+Per-board access control — direct board membership.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| board_id | varchar(20) | NOT NULL | FK → pyra_boards.id CASCADE |
+| username | varchar | NOT NULL | — |
+| role | varchar(20) | NOT NULL | `'editor'` (viewer/editor/admin) |
+| added_by | varchar | NULL | — |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+**Unique**: `(board_id, username)`
+**Indexes**: `idx_board_members_user` on `username`, `idx_board_members_board` on `board_id`
+**Note**: Integrated into scope.ts — resolveUserScope() includes boards where user is a member.
+
+### pyra_tasks — New columns
+| Column | Type | Note |
+|--------|------|------|
+| task_number | integer | Auto-increment per board. Backfilled for existing tasks. |
+
+### pyra_whatsapp_assignments
+WhatsApp conversation assignment to agents.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| remote_jid | varchar | NOT NULL | — |
+| instance_name | varchar | NOT NULL | — |
+| assigned_to | varchar | NOT NULL | — |
+| assigned_by | varchar | NOT NULL | — |
+| is_pinned | boolean | NOT NULL | `false` |
+| is_archived | boolean | NOT NULL | `false` |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**Unique**: `(remote_jid, instance_name)`

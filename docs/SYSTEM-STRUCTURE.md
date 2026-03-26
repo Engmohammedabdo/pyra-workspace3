@@ -62,7 +62,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 | **العملاء** | `/dashboard/clients` | CRUD كامل • 7 تبويبات (نظرة عامة، مشاريع، فواتير، عروض أسعار، ملاحظات، نشاط، برندنج) • وسوم • حالة نشط/غير نشط | `pyra_clients`, `pyra_client_notes`, `pyra_client_tags`, `pyra_client_branding` |
 | **عروض الأسعار** | `/dashboard/quotes` | CRUD + PDF عربي • إرسال بالإيميل • توقيع رقمي • تحويل لفاتورة • بنود مخصصة • خصومات | `pyra_quotes`, `pyra_quote_items` |
 | **الفواتير** | `/dashboard/invoices` | CRUD + PDF • Stripe رابط دفع • تسجيل مدفوعات يدوية • حالات (مسودة/مرسلة/مدفوعة جزئياً/مدفوعة/متأخرة) • خصم مبكر • ربط بمشروع وعقد | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_stripe_payments` |
-| **لوحات العمل** | `/dashboard/boards` | إنشاء من 6 قوالب جاهزة • Kanban drag-and-drop • أعمدة ديناميكية • WIP limits • تسميات ملونة | `pyra_boards`, `pyra_board_columns`, `pyra_board_labels` |
+| **لوحات العمل** | `/dashboard/boards` | إنشاء من 6 قوالب • 4 أوضاع عرض (Kanban/List/Calendar/Pipeline) • task numbering • board starring • task duplication • cross-board move • board members (viewer/editor/admin) • markdown description • due date color badges • sort (أحدث/أقدم/أولوية/تاريخ/اسم) • Trello-style task sheet (assignees, labels, checklists, comments, attachments, activity log) | `pyra_boards`, `pyra_board_columns`, `pyra_board_labels`, `pyra_tasks`, `pyra_board_stars`, `pyra_board_members` |
 | **تفاصيل اللوحة** | `/dashboard/boards/[id]` | سحب وإفلات المهام • بطاقة مهمة مفصلة (عنوان، أولوية، تاريخ، مسندة لـ، قوائم مرجعية، تعليقات، مرفقات) | `pyra_tasks`, `pyra_task_assignees`, `pyra_task_labels`, `pyra_task_checklist`, `pyra_task_comments` |
 
 #### ← روابط التكامل:
@@ -101,7 +101,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 |--------|--------|----------|---------|
 | **نظرة عامة** | `/dashboard/sales` | إحصائيات المبيعات • مراحل Pipeline • رسوم بيانية • أداء الفريق | `pyra_sales_leads`, `pyra_sales_pipeline_stages` |
 | **العملاء المحتملين** | `/dashboard/sales/leads` | CRUD • مصادر (واتساب/موقع/إحالة/إعلان) • نقاط تقييم • أولوية • تحويل لعميل | `pyra_sales_leads`, `pyra_lead_activities` |
-| **محادثات واتساب** | `/dashboard/sales/chat` | ربط واتساب • رسائل واردة/صادرة • قوالب رسائل • ربط بعملاء محتملين | `pyra_whatsapp_messages`, `pyra_whatsapp_instances`, `pyra_whatsapp_templates` |
+| **محادثات واتساب** | `/dashboard/sales/chat` | WhatsApp Web replacement • رسائل واردة/صادرة (نص/صوت/صور/فيديو/مستندات) • agent scoping • conversation assignments • contact sidebar (lead + quotes) • quick actions bar (إرسال عرض/فاتورة، إنشاء lead، ملاحظات، متابعة) • voice recording • drag-drop files • clipboard paste | `pyra_whatsapp_messages`, `pyra_whatsapp_instances`, `pyra_whatsapp_conversations`, `pyra_whatsapp_assignments` |
 | **موافقات العروض** | `/dashboard/sales/approvals` | سير عمل اعتماد عروض الأسعار • موافقة/رفض • تعليقات | `pyra_quote_approvals`, `pyra_quotes` |
 | **المتابعات** | `/dashboard/sales/follow-ups` | تذكيرات متابعة • حالة (بانتظار/مكتمل/ملغى) • ربط بعميل محتمل | `pyra_sales_follow_ups` |
 | **تقارير المبيعات** | `/dashboard/sales/reports` | معدل التحويل • أداء المندوبين • مصادر العملاء • تحليلات | `pyra_sales_leads`, `pyra_lead_activities` |
@@ -154,7 +154,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 | **أوامر الشراء** | `/dashboard/finance/purchase-orders` | PO كامل • بنود • حالات (مسودة→مرسل→مستلم→مفوتر) • تحويل لمصروف عند الاستلام | `pyra_purchase_orders`, `pyra_purchase_order_items` |
 | **التقارير المالية** | `/dashboard/finance/reports` | P&L (ربح وخسارة) • VAT • Aging • Cashflow • ربحية العملاء • ربحية المشاريع | `pyra_invoices`, `pyra_expenses`, `pyra_payments` |
 | **أهداف الإيرادات** | `/dashboard/finance/targets` | أهداف شهرية/ربعية/سنوية • مقارنة بالفعلي • نسبة الإنجاز | `pyra_revenue_targets` |
-| **الرواتب** | `/dashboard/payroll` | دورات رواتب شهرية • حساب تلقائي (أساسي + أوفرتايم + مكافآت - خصومات) • اعتماد → صرف | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments` |
+| **الرواتب** | `/dashboard/payroll` | دورات رواتب شهرية • حساب تلقائي (أساسي + أوفرتايم + مكافآت + عمولات - خصومات) • اعتماد → صرف • تاب المدفوعات (إضافة عمولة/مهمة/مكافأة/خصم مباشرة) | `pyra_payroll_runs`, `pyra_payroll_items`, `pyra_employee_payments` |
 
 #### ← روابط التكامل:
 - **رواتب معتمدة → مصاريف**: إنشاء تلقائي بتصنيف `ec_salaries`
@@ -174,6 +174,7 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 | الشاشة | المسار | المميزات | الجداول |
 |--------|--------|----------|---------|
 | **المستخدمون** | `/dashboard/users` | CRUD • أدوار • راتب • نوع دفع (ثابت/ساعة/عمولة) • حالة نشط/غير نشط | `pyra_users`, `pyra_roles`, `pyra_auth_mapping` |
+| **تفاصيل الموظف** | `/dashboard/users/[username]` | كشف الحساب (جميع المدفوعات/العمولات) • المشاريع المرتبطة • بيانات التوظيف والتعويضات والبنك • إحصائيات (مدفوع/معلق/عدد) | `pyra_employee_payments`, `pyra_users`, `pyra_projects` |
 | **الفرق** | `/dashboard/teams` | CRUD • أعضاء • صلاحيات المجلدات | `pyra_teams`, `pyra_team_members` |
 | **الأدوار** | `/dashboard/roles` | CRUD • صلاحيات مخصصة • ألوان وأيقونات | `pyra_roles` |
 | **الصلاحيات** | `/dashboard/permissions` | عرض مصفوفة الصلاحيات • Legacy (مؤرشف) | `pyra_roles` |

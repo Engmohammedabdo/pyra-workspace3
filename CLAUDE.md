@@ -47,20 +47,56 @@ This system has **4 audiences**. Every feature must be evaluated against ALL of 
 
 **Use `/project:plan-feature` command to generate full impact analysis before coding.**
 
+## ⚠️ MANDATORY: Orchestra Development Process
+
+**When the user asks to ADD or DEVELOP any feature, you MUST follow this exact process:**
+
+### Phase 1: Research (لا تكتب أي كود)
+1. Read ALL documentation files: `CLAUDE.md`, `DATABASE-SCHEMA.md`, `docs/SYSTEM-STRUCTURE.md`, `docs/FEATURE-IMPACT-MAP.md`
+2. Read all related source files (pages, APIs, components, types)
+3. Understand the full dependency chain — what connects to what
+4. Map which of the 4 audiences are affected
+
+### Phase 2: Ask Questions
+5. Ask the user **at least 3-5 clarifying questions** before writing any plan
+6. Questions must cover: scope, audience, edge cases, integration points
+7. Wait for answers — NEVER assume
+
+### Phase 3: Plan
+8. Build a comprehensive phased plan with clear deliverables per phase
+9. Present the plan to the user for approval
+10. Adjust based on feedback
+
+### Phase 4: Execute (Orchestra Mode)
+11. Execute phase by phase — each phase: code → `pnpm run check` → `pnpm build` → commit → push
+12. Use parallel agents for independent research tasks
+13. After each phase, verify on the live system if possible
+14. Update documentation after all phases complete
+
+**NEVER skip phases. NEVER start coding without completing Phase 1-3.**
+**The user has explicitly requested this workflow. Violating it wastes time.**
+
 ## Architecture
 
 ```
-app/dashboard/     → Admin + Employee + Sales (Supabase Auth + RBAC)
-app/portal/        → Clients (Cookie Auth, separate from dashboard)
-app/api/dashboard/ → Admin API endpoints
-app/api/portal/    → Client API endpoints (scoped to client data)
-app/api/external/  → External API (n8n, Telegram Bot — API key auth)
-components/ui/     → Shared primitives (both dashboard + portal)
-components/layout/ → Dashboard layout (sidebar, topbar)
-components/portal/ → Portal layout
-lib/auth/rbac.ts   → 79 permissions across 34 modules
+app/dashboard/            → Admin + Employee + Sales (Supabase Auth + RBAC)
+app/portal/               → Clients (Cookie Auth, separate from dashboard)
+app/api/dashboard/        → Admin API endpoints
+app/api/portal/           → Client API endpoints (scoped to client data)
+app/api/external/         → External API (n8n, Telegram Bot — API key auth)
+app/api/boards/           → Board CRUD, columns, tasks, labels, members, star
+app/api/tasks/            → Task CRUD, move, duplicate
+app/api/finance/contracts → Contract management + invoice generation
+components/ui/            → Shared primitives (both dashboard + portal)
+components/layout/        → Dashboard layout (sidebar, topbar)
+components/portal/        → Portal layout
+components/boards/        → Board components (toolbar, task-sheet, calendar, list, settings)
+components/sales/chat/    → WhatsApp chat (conversation list, chat window, contact sidebar)
+lib/auth/rbac.ts          → 79+ permissions across 34+ modules
+lib/auth/scope.ts         → Dynamic scoping (team → project → board → member chain)
+lib/evolution/client.ts   → Evolution API v2 client (WhatsApp)
 lib/config/module-guide.ts → Guide data for every page
-types/database.ts  → All TypeScript types
+types/database.ts         → All TypeScript types
 ```
 
 ### Default Roles & What They See
@@ -77,10 +113,20 @@ Portal (Client) has its own sidebar: `components/portal/portal-sidebar.tsx`
 Client → Projects → Files (client_visible) → Portal
       → Invoices → Payments (Stripe) → Statement → Portal
       → Quotes → Signature → Sales Approval → Portal
-      → Contracts → Milestones → Portal
+      → Contracts → Milestones → Generate Invoice → Portal
       → Scripts → Reviews → Portal
 Lead → Activities → Convert to Client → full chain above
 Employee → Attendance + Leave + Timesheet → Payroll → Expenses
+         → Employee Payments (commission/task/bonus) → Payslips
+         → User Detail Page (/dashboard/users/[username])
+Board → Columns → Tasks → Assignees + Labels + Checklist + Comments
+     → Calendar View + List View + Pipeline View
+     → Board Members (per-board access) → Scope System
+WhatsApp → Conversations → Messages → Lead matching
+        → Agent Scoping → Assignments → Contact Sidebar
+        → Quick Actions (send quote/invoice, create lead, notes, follow-ups)
+Contract (retainer) → Generate Invoice → Billing History
+Contract (milestone) → Complete Milestone → Generate Invoice
 ```
 
 ## Critical Rules
@@ -132,7 +178,8 @@ curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
 ```
 
 ## Deployment
-Vercel auto-deploy on push to `main` · **pnpm** (NEVER npm)
+Coolify (Docker) auto-deploy on push to `main` · **pnpm** (NEVER npm)
+Production URL: `https://workspace.pyramedia.cloud`
 
 ## Documentation (Read don't guess)
 | Doc | What it covers |
