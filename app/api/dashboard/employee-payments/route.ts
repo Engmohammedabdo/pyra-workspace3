@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabase
       .from('pyra_employee_payments')
-      .select('*, pyra_users(display_name)')
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(200);
 
@@ -68,14 +68,19 @@ export async function GET(req: NextRequest) {
 
     if (error) return apiServerError(error.message);
 
-    // Flatten nested pyra_users join so client gets flat display_name
-    const flattened = (data || []).map((p: Record<string, unknown>) => ({
+    // Enrich with display_name from pyra_users
+    const usernames = [...new Set((data || []).map((p: { username: string }) => p.username))];
+    const { data: users } = usernames.length > 0
+      ? await supabase.from('pyra_users').select('username, display_name').in('username', usernames)
+      : { data: [] };
+    const userMap = new Map((users || []).map((u: { username: string; display_name: string }) => [u.username, u.display_name]));
+
+    const enriched = (data || []).map((p: Record<string, unknown>) => ({
       ...p,
-      display_name: (p as { pyra_users?: { display_name?: string } }).pyra_users?.display_name || null,
-      pyra_users: undefined,
+      display_name: userMap.get(p.username as string) || p.username,
     }));
 
-    return apiSuccess(flattened);
+    return apiSuccess(enriched);
   } catch (err) {
     console.error('GET /api/dashboard/employee-payments error:', err);
     return apiServerError();

@@ -18,12 +18,24 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('pyra_board_members')
-    .select('*, pyra_users!left(display_name)')
+    .select('*')
     .eq('board_id', boardId)
     .order('created_at');
 
   if (error) return apiServerError(error.message);
-  return apiSuccess(data);
+
+  // Enrich with display_name
+  const usernames = (data || []).map((m: { username: string }) => m.username);
+  const { data: users } = usernames.length > 0
+    ? await supabase.from('pyra_users').select('username, display_name').in('username', usernames)
+    : { data: [] };
+  const userMap = new Map((users || []).map((u: { username: string; display_name: string }) => [u.username, u.display_name]));
+  const enriched = (data || []).map((m: Record<string, unknown>) => ({
+    ...m,
+    display_name: userMap.get(m.username as string) || m.username,
+  }));
+
+  return apiSuccess(enriched);
 }
 
 // POST /api/boards/[id]/members — add member
