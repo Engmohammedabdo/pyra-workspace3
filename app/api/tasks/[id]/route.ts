@@ -1,8 +1,19 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiNotFound } from '@/lib/api/response';
+import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
+import { apiSuccess, apiServerError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { resolveUserScope } from '@/lib/auth/scope';
+
+/** Check if user has access to the task's board via scope */
+async function checkTaskScope(taskId: string, auth: ApiAuthResult) {
+  const scope = await resolveUserScope(auth);
+  if (scope.isAdmin) return true;
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase.from('pyra_tasks').select('board_id').eq('id', taskId).maybeSingle();
+  if (!data) return false;
+  return scope.boardIds.includes(data.board_id);
+}
 
 // =============================================================
 // GET /api/tasks/[id]
@@ -16,6 +27,10 @@ export async function GET(
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
+
+  // Scope check: user must have access to the task's board
+  if (!(await checkTaskScope(id, auth))) return apiForbidden();
+
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase
@@ -48,6 +63,10 @@ export async function PATCH(
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
+
+  // Scope check
+  if (!(await checkTaskScope(id, auth))) return apiForbidden();
+
   const body = await req.json();
   const supabase = await createServerSupabaseClient();
 
@@ -134,6 +153,10 @@ export async function DELETE(
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
+
+  // Scope check
+  if (!(await checkTaskScope(id, auth))) return apiForbidden();
+
   const supabase = await createServerSupabaseClient();
   const { error } = await supabase.from('pyra_tasks').delete().eq('id', id);
   if (error) return apiServerError(error.message);

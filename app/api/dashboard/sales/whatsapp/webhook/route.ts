@@ -180,8 +180,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             }
           }
 
-          // Create notification for the assigned agent
-          if (assignedAgent) {
+          // Create notification ONLY for new conversations (first message), not every message
+          if (assignedAgent && !existingAssignment) {
             const senderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
             const preview = content ? (content.length > 60 ? content.slice(0, 60) + '...' : content) : (messageType !== 'text' ? `${messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 رسالة صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف'}` : 'رسالة جديدة');
             await supabase.from('pyra_notifications').insert({

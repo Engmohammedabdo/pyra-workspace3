@@ -136,20 +136,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // 5c. Fetch commission employee_payments (auto-generated from invoice payments)
-    const { data: commissionPayments } = await supabase
-      .from('pyra_employee_payments')
-      .select('id, username, source_type, amount, status, payroll_id, created_at')
-      .eq('source_type', 'commission')
-      .eq('status', 'approved')
-      .is('payroll_id', null)
-      .gte('created_at', startDate + 'T00:00:00')
-      .lte('created_at', endDate + 'T23:59:59');
-
     // Build lookup maps
+    // NOTE: allPayments already includes ALL source_types (task, commission, bonus, deduction, overtime)
+    // Do NOT fetch commissions separately — that would double-count them!
     const paymentsByUser: Record<string, Array<{ id: string; source_type: string; amount: number }>> = {};
-    // Merge allPayments + commissionPayments
-    const allPaymentsCombined = [...(allPayments || []), ...(commissionPayments || [])];
+    const allPaymentsCombined = [...(allPayments || [])];
     allPaymentsCombined.forEach((p: { id: string; username: string; source_type: string; amount: number }) => {
       if (!paymentsByUser[p.username]) paymentsByUser[p.username] = [];
       paymentsByUser[p.username].push({ id: p.id, source_type: p.source_type, amount: p.amount });
@@ -227,8 +218,8 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         }
       }
 
-      // Net pay (include commissions as income)
-      const netPay = baseSalary + taskPayments + overtimeAmount + bonus + commissions - deductions;
+      // Net pay (include commissions as income) — floor at 0 to prevent negative payroll items
+      const netPay = Math.max(0, baseSalary + taskPayments + overtimeAmount + bonus + commissions - deductions);
 
       payrollItems.push({
         id: generateId('pi'),

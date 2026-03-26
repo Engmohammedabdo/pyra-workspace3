@@ -60,27 +60,24 @@ export async function POST(
   }
 
   // Calculate completion % for pipeline boards
+  // Use TARGET board (not source) for cross-board moves
   let completionPct: number | undefined;
   if (isCrossColumn) {
-    const { data: taskFull } = await supabase
-      .from('pyra_tasks')
-      .select('board_id')
-      .eq('id', id)
+    const effectiveBoardId = target_board_id || currentTask.board_id;
+    const { data: board } = await supabase
+      .from('pyra_boards')
+      .select('is_pipeline')
+      .eq('id', effectiveBoardId)
       .single();
-    if (taskFull) {
-      const { data: board } = await supabase
-        .from('pyra_boards')
-        .select('is_pipeline')
-        .eq('id', taskFull.board_id)
-        .single();
-      if (board?.is_pipeline) {
-        const { data: allCols } = await supabase
-          .from('pyra_board_columns')
-          .select('id, position')
-          .eq('board_id', taskFull.board_id)
-          .order('position');
-        if (allCols) {
-          const colIdx = allCols.findIndex(c => c.id === column_id);
+    if (board?.is_pipeline) {
+      const { data: allCols } = await supabase
+        .from('pyra_board_columns')
+        .select('id, position')
+        .eq('board_id', effectiveBoardId)
+        .order('position');
+      if (allCols) {
+        const colIdx = allCols.findIndex(c => c.id === column_id);
+        if (colIdx >= 0) {
           completionPct = Math.round(((colIdx + 1) / allCols.length) * 100);
         }
       }

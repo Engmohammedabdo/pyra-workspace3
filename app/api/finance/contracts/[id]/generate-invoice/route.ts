@@ -135,10 +135,11 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return apiServerError(insertError.message);
     }
 
-    // 10. Insert items
+    // 10. Insert items — verify at least one succeeds before updating amount_billed
+    let itemsInserted = 0;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      await supabase.from('pyra_invoice_items').insert({
+      const { error: itemErr } = await supabase.from('pyra_invoice_items').insert({
         id: generateId('ii'),
         invoice_id: invoiceId,
         sort_order: i + 1,
@@ -147,13 +148,17 @@ export async function POST(req: NextRequest, context: RouteContext) {
         rate: item.rate || amount,
         amount: (item.quantity || 1) * (item.rate || amount),
       });
+      if (!itemErr) itemsInserted++;
+      else console.error('Invoice item insert error:', itemErr);
     }
 
-    // 11. Update contract amount_billed
-    await supabase.from('pyra_contracts').update({
-      amount_billed: (contract.amount_billed || 0) + subtotal,
-      updated_at: new Date().toISOString(),
-    }).eq('id', id);
+    // 11. Update contract amount_billed — only if items were inserted
+    if (itemsInserted > 0) {
+      await supabase.from('pyra_contracts').update({
+        amount_billed: (contract.amount_billed || 0) + subtotal,
+        updated_at: new Date().toISOString(),
+      }).eq('id', id);
+    }
 
     // 12. Activity log
     supabase.from('pyra_activity_log').insert({
