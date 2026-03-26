@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pyra Workspace — System Map</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0a0a0a; color: #fff; min-height: 100vh; padding: 30px; overflow-y: auto; }
+
+h1 { text-align: center; font-size: 22px; color: #f97316; margin-bottom: 6px; }
+.subtitle { text-align: center; font-size: 12px; color: #666; margin-bottom: 40px; }
+
+/* 3 Pillars */
+.pillars { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; max-width: 1200px; margin: 0 auto; }
+
+.pillar { border-radius: 20px; padding: 24px; position: relative; }
+.pillar-admin { background: linear-gradient(135deg, #1a0a00 0%, #0a0a0a 100%); border: 2px solid #f97316; }
+.pillar-employee { background: linear-gradient(135deg, #001a1a 0%, #0a0a0a 100%); border: 2px solid #06b6d4; }
+.pillar-client { background: linear-gradient(135deg, #0a001a 0%, #0a0a0a 100%); border: 2px solid #a855f7; }
+
+.pillar-header { text-align: center; margin-bottom: 20px; }
+.pillar-icon { font-size: 36px; margin-bottom: 8px; }
+.pillar-title { font-size: 18px; font-weight: 700; }
+.pillar-desc { font-size: 11px; color: #888; margin-top: 4px; }
+.pillar-admin .pillar-title { color: #f97316; }
+.pillar-employee .pillar-title { color: #06b6d4; }
+.pillar-client .pillar-title { color: #a855f7; }
+
+/* Module cards */
+.module { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; position: relative; }
+.module:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateX(-2px); }
+.module-name { font-size: 13px; font-weight: 600; }
+.module-desc { font-size: 10px; color: #777; margin-top: 2px; }
+.module-path { font-size: 9px; color: #444; font-family: monospace; direction: ltr; text-align: left; margin-top: 3px; }
+
+/* Section dividers */
+.section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #555; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #222; }
+
+/* Employee types */
+.emp-types { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0; }
+.emp-type { background: rgba(6,182,212,0.08); border: 1px solid rgba(6,182,212,0.2); border-radius: 10px; padding: 10px; text-align: center; }
+.emp-type-name { font-size: 12px; font-weight: 600; color: #06b6d4; }
+.emp-type-desc { font-size: 9px; color: #888; margin-top: 3px; }
+
+/* Connection arrows between pillars */
+.connections { max-width: 1200px; margin: 30px auto; display: flex; justify-content: center; gap: 60px; }
+.conn-box { background: rgba(255,255,255,0.03); border: 1px dashed #333; border-radius: 12px; padding: 12px 20px; text-align: center; }
+.conn-arrow { font-size: 20px; color: #444; }
+.conn-label { font-size: 10px; color: #666; }
+.conn-items { font-size: 9px; color: #555; margin-top: 4px; }
+
+/* Shared services row */
+.shared { max-width: 1200px; margin: 30px auto 0; }
+.shared-title { font-size: 14px; font-weight: 700; color: #ef4444; margin-bottom: 12px; text-align: center; }
+.shared-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.shared-item { background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.15); border-radius: 8px; padding: 8px 12px; text-align: center; }
+.shared-item-name { font-size: 11px; font-weight: 600; color: #ef4444; }
+.shared-item-desc { font-size: 9px; color: #666; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h1>🏢 Pyra Workspace — خريطة النظام</h1>
+<p class="subtitle">3 محاور رئيسية: الإدارة • الموظفين • العملاء</p>
+
+<!-- ═══════════ 3 Pillars ═══════════ -->
+<div class="pillars">
+
+  <!-- ═══ ADMIN ═══ -->
+  <div class="pillar pillar-admin">
+    <div class="pillar-header">
+      <div class="pillar-icon">👑</div>
+      <div class="pillar-title">الإدارة</div>
+      <div class="pillar-desc">التحكم الكامل في كل شيء</div>
+    </div>
+
+    <div class="section-label">💼 الأعمال</div>
+    <div class="module"><div class="module-name">المشاريع</div><div class="module-desc">إنشاء + فريق + ملفات + مراحل</div></div>
+    <div class="module"><div class="module-name">العملاء</div><div class="module-desc">بيانات + مشاريع + فواتير + عقود</div></div>
+    <div class="module"><div class="module-name">عروض الأسعار</div><div class="module-desc">إنشاء + إرسال + توقيع + تحويل لفاتورة</div></div>
+    <div class="module"><div class="module-name">الفواتير</div><div class="module-desc">إصدار + PDF + دفع Stripe + كشف حساب</div></div>
+    <div class="module"><div class="module-name">العقود</div><div class="module-desc">Milestone + Retainer + فوترة تلقائية</div></div>
+    <div class="module"><div class="module-name">لوحات العمل</div><div class="module-desc">Kanban + List + Calendar + Pipeline • 9 ميزات</div></div>
+
+    <div class="section-label">💰 المالية</div>
+    <div class="module"><div class="module-name">المصاريف</div><div class="module-desc">تصنيفات + اعتماد + موردين</div></div>
+    <div class="module"><div class="module-name">الرواتب</div><div class="module-desc">مسيرات + عمولات + مكافآت + خصومات</div></div>
+    <div class="module"><div class="module-name">الاشتراكات + البطاقات</div><div class="module-desc">تجديد + تنبيهات</div></div>
+
+    <div class="section-label">📊 المبيعات</div>
+    <div class="module"><div class="module-name">العملاء المحتملين (Leads)</div><div class="module-desc">Kanban + تقييم + تحويل لعميل</div></div>
+    <div class="module"><div class="module-name">واتساب</div><div class="module-desc">WhatsApp Web كامل + ربط بكل النظام</div></div>
+    <div class="module"><div class="module-name">تقارير المبيعات</div><div class="module-desc">أداء + تحويل + مصادر</div></div>
+
+    <div class="section-label">⚙️ إدارة الفريق</div>
+    <div class="module"><div class="module-name">المستخدمون</div><div class="module-desc">إنشاء + تفاصيل + كشف حساب مالي</div></div>
+    <div class="module"><div class="module-name">الأدوار والصلاحيات</div><div class="module-desc">RBAC + 79 صلاحية</div></div>
+    <div class="module"><div class="module-name">الإعدادات</div><div class="module-desc">شركة + بنك + واتساب + لوحات + فواتير</div></div>
+  </div>
+
+  <!-- ═══ EMPLOYEES ═══ -->
+  <div class="pillar pillar-employee">
+    <div class="pillar-header">
+      <div class="pillar-icon">👥</div>
+      <div class="pillar-title">الموظفين</div>
+      <div class="pillar-desc">كل موظف يشوف بياناته فقط</div>
+    </div>
+
+    <div class="section-label">📋 أنواع الموظفين</div>
+    <div class="emp-types">
+      <div class="emp-type">
+        <div class="emp-type-name">🏢 دوام كامل</div>
+        <div class="emp-type-desc">راتب شهري ثابت<br>حضور + إجازات + تقييم</div>
+      </div>
+      <div class="emp-type">
+        <div class="emp-type-name">⏰ بالساعة</div>
+        <div class="emp-type-desc">سعر ساعة<br>Timesheet + overtime</div>
+      </div>
+      <div class="emp-type">
+        <div class="emp-type-name">🎯 بالمهمة</div>
+        <div class="emp-type-desc">مستقل / فريلانسر<br>عمولة لكل مشروع</div>
+      </div>
+      <div class="emp-type">
+        <div class="emp-type-name">💎 بالعمولة</div>
+        <div class="emp-type-desc">نسبة من الفواتير<br>مبيعات + تحصيل</div>
+      </div>
+    </div>
+
+    <div class="section-label">🖥️ ما يشوفه الموظف</div>
+    <div class="module"><div class="module-name">الرئيسية</div><div class="module-desc">إشعارات + ساعات + مهام + ملفات + إجازات</div></div>
+    <div class="module"><div class="module-name">مهامي</div><div class="module-desc">المهام المعينة عليه من كل اللوحات</div></div>
+    <div class="module"><div class="module-name">لوحات العمل</div><div class="module-desc">اللوحات اللي هو عضو فيها فقط</div></div>
+    <div class="module"><div class="module-name">كشف راتبي</div><div class="module-desc">كل كشوف الرواتب + تفاصيل + تحميل PDF</div></div>
+    <div class="module"><div class="module-name">الحضور</div><div class="module-desc">تسجيل دخول/خروج + سجل شخصي</div></div>
+    <div class="module"><div class="module-name">الإجازات</div><div class="module-desc">طلب إجازة + أرصدة + حالة الطلبات</div></div>
+    <div class="module"><div class="module-name">ساعات العمل</div><div class="module-desc">تسجيل ساعات على المشاريع</div></div>
+    <div class="module"><div class="module-name">الملفات</div><div class="module-desc">الملفات المشاركة معه</div></div>
+    <div class="module"><div class="module-name">تقييم الأداء</div><div class="module-desc">عرض تقييمه الشخصي</div></div>
+    <div class="module"><div class="module-name">دليل الفريق</div><div class="module-desc">بيانات الزملاء</div></div>
+    <div class="module"><div class="module-name">الإعلانات</div><div class="module-desc">إعلانات الشركة</div></div>
+
+    <div class="section-label">📞 مندوب مبيعات (إضافي)</div>
+    <div class="module"><div class="module-name">واتساب</div><div class="module-desc">محادثاته + الـ instance بتاعه فقط</div></div>
+    <div class="module"><div class="module-name">العملاء المحتملين</div><div class="module-desc">الـ leads المعينة عليه</div></div>
+    <div class="module"><div class="module-name">عروض الأسعار</div><div class="module-desc">إنشاء + عرض عروضه</div></div>
+    <div class="module"><div class="module-name">المتابعات</div><div class="module-desc">تذكيرات المتابعة بتاعته</div></div>
+  </div>
+
+  <!-- ═══ CLIENTS ═══ -->
+  <div class="pillar pillar-client">
+    <div class="pillar-header">
+      <div class="pillar-icon">🤝</div>
+      <div class="pillar-title">العملاء</div>
+      <div class="pillar-desc">بورتال خاص — يشوف بياناته فقط</div>
+    </div>
+
+    <div class="section-label">🌐 بورتال العميل</div>
+    <div class="module"><div class="module-name">الرئيسية</div><div class="module-desc">ملخص مشاريعه + فواتيره + آخر النشاطات</div></div>
+    <div class="module"><div class="module-name">مشاريعي</div><div class="module-desc">عرض تقدم المشاريع + الملفات + التعليقات</div></div>
+    <div class="module"><div class="module-name">ملفاتي</div><div class="module-desc">الملفات المشاركة معه + رفع ملفات</div></div>
+    <div class="module"><div class="module-name">فواتيري</div><div class="module-desc">عرض + دفع أونلاين (Stripe)</div></div>
+    <div class="module"><div class="module-name">عروض الأسعار</div><div class="module-desc">عرض + توقيع إلكتروني</div></div>
+    <div class="module"><div class="module-name">العقود</div><div class="module-desc">عرض العقود + المراحل</div></div>
+    <div class="module"><div class="module-name">كشف الحساب</div><div class="module-desc">كل الفواتير + المدفوعات + الرصيد</div></div>
+    <div class="module"><div class="module-name">مراجعات السكريبتات</div><div class="module-desc">مراجعة + تعليقات + اعتماد</div></div>
+    <div class="module"><div class="module-name">الدعم</div><div class="module-desc">قاعدة المعرفة + تواصل</div></div>
+
+    <div class="section-label">🔐 نظام الوصول</div>
+    <div class="module"><div class="module-name">Cookie Auth (منفصل)</div><div class="module-desc">تسجيل دخول برابط خاص — مش Supabase Auth</div></div>
+    <div class="module"><div class="module-name">Scoped APIs</div><div class="module-desc">كل API بيرجع بيانات العميل ده بس</div></div>
+    <div class="module"><div class="module-name">Branding</div><div class="module-desc">كل عميل ممكن يكون له لوجو وألوان مخصصة</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ Connections ═══════════ -->
+<div class="connections">
+  <div class="conn-box">
+    <div class="conn-arrow">👑 ↔ 👥</div>
+    <div class="conn-label">الإدارة ↔ الموظفين</div>
+    <div class="conn-items">تعيين مهام • رواتب • تقييم • صلاحيات • لوحات عمل</div>
+  </div>
+  <div class="conn-box">
+    <div class="conn-arrow">👑 ↔ 🤝</div>
+    <div class="conn-label">الإدارة ↔ العملاء</div>
+    <div class="conn-items">مشاريع • فواتير • عروض • عقود • ملفات • بورتال</div>
+  </div>
+  <div class="conn-box">
+    <div class="conn-arrow">👥 ↔ 🤝</div>
+    <div class="conn-label">الموظفين ↔ العملاء</div>
+    <div class="conn-items">واتساب • متابعات • عروض أسعار • تسليمات مشاريع</div>
+  </div>
+</div>
+
+<!-- ═══════════ Shared Services ═══════════ -->
+<div class="shared">
+  <div class="shared-title">🔧 خدمات مشتركة (بتخدم الـ 3 محاور)</div>
+  <div class="shared-grid">
+    <div class="shared-item"><div class="shared-item-name">الإشعارات</div><div class="shared-item-desc">لكل الأنواع</div></div>
+    <div class="shared-item"><div class="shared-item-name">الملفات</div><div class="shared-item-desc">رفع + مشاركة + إصدارات</div></div>
+    <div class="shared-item"><div class="shared-item-name">سجل النشاط</div><div class="shared-item-desc">Audit trail لكل حاجة</div></div>
+    <div class="shared-item"><div class="shared-item-name">PDF Generator</div><div class="shared-item-desc">فواتير + عروض + كشوف</div></div>
+    <div class="shared-item"><div class="shared-item-name">RBAC + Scope</div><div class="shared-item-desc">صلاحيات ديناميكية</div></div>
+    <div class="shared-item"><div class="shared-item-name">Supabase</div><div class="shared-item-desc">Auth + DB + Storage + Realtime</div></div>
+    <div class="shared-item"><div class="shared-item-name">Evolution API</div><div class="shared-item-desc">واتساب (WhatsApp)</div></div>
+    <div class="shared-item"><div class="shared-item-name">Stripe</div><div class="shared-item-desc">دفع أونلاين</div></div>
+  </div>
+</div>
+
+</body>
+</html>

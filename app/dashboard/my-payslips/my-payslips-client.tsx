@@ -75,8 +75,23 @@ function formatCurrency(amount: number, currency: string = 'AED'): string {
 // Component
 // ============================================================
 
+interface Payment {
+  id: string;
+  source_type: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
+const SOURCE_LABELS: Record<string, string> = {
+  commission: 'عمولة', task: 'مهمة', bonus: 'مكافأة', deduction: 'خصم', overtime: 'إضافي', salary: 'راتب',
+};
+
 export default function MyPayslipsClient() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
@@ -87,7 +102,8 @@ export default function MyPayslipsClient() {
       const res = await fetch('/api/dashboard/my-payslips');
       if (res.ok) {
         const { data } = await res.json();
-        setPayslips(data || []);
+        setPayslips(data?.payslips || data || []);
+        setPayments(data?.payments || []);
       } else {
         toast.error('فشل في تحميل كشوف الرواتب');
       }
@@ -147,7 +163,16 @@ export default function MyPayslipsClient() {
     .filter(p => p.run_status === 'paid')
     .reduce((sum, p) => sum + Number(p.net_pay), 0);
 
+  const totalPayments = payments
+    .filter(p => p.status === 'paid')
+    .reduce((sum, p) => sum + (p.source_type === 'deduction' ? -p.amount : p.amount), 0);
+
+  const pendingPayments = payments
+    .filter(p => p.status === 'pending' || p.status === 'approved')
+    .reduce((sum, p) => sum + p.amount, 0);
+
   const lastPaidPayslip = payslips.find(p => p.run_status === 'paid');
+  const grandTotal = totalEarnings + totalPayments;
 
   return (
     <motion.div
@@ -158,8 +183,8 @@ export default function MyPayslipsClient() {
     >
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">كشوف رواتبي</h1>
-        <p className="text-sm text-muted-foreground mt-1">عرض وتحميل كشوف الرواتب الشهرية</p>
+        <h1 className="text-2xl font-bold text-foreground">كشف حسابي</h1>
+        <p className="text-sm text-muted-foreground mt-1">كشوف الرواتب والمدفوعات والعمولات</p>
       </div>
 
       {/* Stats cards */}
@@ -174,39 +199,34 @@ export default function MyPayslipsClient() {
             </Card>
           ))}
         </div>
-      ) : payslips.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      ) : (payslips.length > 0 || payments.length > 0) ? (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           <Card className="border-0 shadow-sm">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                <FileText className="h-4 w-4 text-orange-500" />
-                عدد الكشوف
-              </div>
-              <p className="text-2xl font-bold text-foreground">{payslips.length}</p>
+            <CardContent className="pt-4 pb-4 text-center">
+              <Wallet className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
+              <p className="text-[10px] text-muted-foreground">إجمالي المستلم</p>
+              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(grandTotal)}</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                إجمالي المدفوع
-              </div>
-              <p className="text-2xl font-bold text-foreground">
-                {formatCurrency(totalEarnings)}
-              </p>
+            <CardContent className="pt-4 pb-4 text-center">
+              <TrendingUp className="h-5 w-5 mx-auto mb-1 text-orange-500" />
+              <p className="text-[10px] text-muted-foreground">عمولات ومهام</p>
+              <p className="text-xl font-bold text-orange-600 dark:text-orange-400 font-mono">{formatCurrency(totalPayments)}</p>
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
-            <CardContent className="pt-4 pb-4">
-              <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
-                <Banknote className="h-4 w-4 text-blue-500" />
-                آخر راتب
-              </div>
-              <p className="text-2xl font-bold text-foreground">
-                {lastPaidPayslip
-                  ? formatCurrency(lastPaidPayslip.net_pay, lastPaidPayslip.currency)
-                  : '—'}
-              </p>
+            <CardContent className="pt-4 pb-4 text-center">
+              <CalendarDays className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
+              <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>
+              <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-mono">{formatCurrency(pendingPayments)}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm">
+            <CardContent className="pt-4 pb-4 text-center">
+              <FileText className="h-5 w-5 mx-auto mb-1 text-blue-500" />
+              <p className="text-[10px] text-muted-foreground">عدد الدفعات</p>
+              <p className="text-xl font-bold">{payslips.length + payments.length}</p>
             </CardContent>
           </Card>
         </div>
@@ -314,6 +334,69 @@ export default function MyPayslipsClient() {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* ═══════════ Employee Payments Section ═══════════ */}
+      {!loading && payments.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-orange-500" />
+            سجل المدفوعات والعمولات
+          </h2>
+          {payments.map(p => (
+            <Card key={p.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
+              <CardContent className="py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                      p.source_type === 'commission' ? 'bg-purple-500/10 text-purple-500' :
+                      p.source_type === 'bonus' ? 'bg-green-500/10 text-green-500' :
+                      p.source_type === 'deduction' ? 'bg-red-500/10 text-red-500' :
+                      p.source_type === 'task' ? 'bg-blue-500/10 text-blue-500' :
+                      'bg-orange-500/10 text-orange-500'
+                    }`}>
+                      <Banknote className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[10px]">
+                          {SOURCE_LABELS[p.source_type] || p.source_type}
+                        </Badge>
+                        <Badge className={`text-[10px] border-0 ${
+                          p.status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
+                          p.status === 'approved' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
+                          'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                        }`}>
+                          {STATUS_LABELS[p.status] || p.status}
+                        </Badge>
+                      </div>
+                      {p.description && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{p.description}</p>
+                      )}
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5">
+                        {new Date(p.created_at).toLocaleDateString('ar-AE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`font-bold font-mono text-lg shrink-0 ${
+                    p.source_type === 'deduction' ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+                  }`}>
+                    {p.source_type === 'deduction' ? '-' : ''}{formatCurrency(p.amount, p.currency || 'AED')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Empty state when nothing at all */}
+      {!loading && payslips.length === 0 && payments.length === 0 && (
+        <EmptyState
+          icon={Wallet}
+          title="لا توجد مدفوعات"
+          description="لم يتم تسجيل أي رواتب أو مدفوعات بعد"
+        />
       )}
     </motion.div>
   );

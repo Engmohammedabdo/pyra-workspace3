@@ -166,7 +166,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
       { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
       { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
-      { href: '/dashboard/my-payslips', label: 'كشف راتبي', labelEn: 'My Payslips', icon: Receipt, permission: 'payroll.view' },
+      { href: '/dashboard/my-payslips', label: 'كشف حسابي', labelEn: 'My Payments', icon: Receipt, permission: 'payroll.view' },
       { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
       { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },

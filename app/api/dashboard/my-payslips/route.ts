@@ -47,7 +47,14 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    return apiSuccess(payslips);
+    // Also fetch employee_payments (commissions, task payments, bonuses, etc.)
+    const { data: payments } = await supabase
+      .from('pyra_employee_payments')
+      .select('*')
+      .eq('username', username)
+      .order('created_at', { ascending: false });
+
+    return apiSuccess({ payslips, payments: payments || [] });
   } catch (err) {
     console.error('GET /api/dashboard/my-payslips error:', err);
     return apiServerError();
