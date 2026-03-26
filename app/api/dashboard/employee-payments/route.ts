@@ -9,7 +9,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 
-const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction'];
+const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission'];
 
 // =============================================================
 // GET /api/dashboard/employee-payments

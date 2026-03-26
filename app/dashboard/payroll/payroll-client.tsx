@@ -9,10 +9,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -118,6 +121,8 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   deduction: 'خصم',
   salary: 'راتب',
   advance: 'سلفة',
+  commission: 'عمولة',
+  overtime: 'إضافي',
 };
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
@@ -156,6 +161,12 @@ export default function PayrollClient() {
   const [creating, setCreating] = useState(false);
   const [newMonth, setNewMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [newYear, setNewYear] = useState<string>(String(new Date().getFullYear()));
+
+  // Add Payment dialog
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [savingPayment, setSavingPayment] = useState(false);
+  const [payForm, setPayForm] = useState({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
+  const [allUsers, setAllUsers] = useState<Array<{ username: string; display_name: string }>>([]);
 
   // Action loading states
   const [calculatingId, setCalculatingId] = useState<string | null>(null);
@@ -205,6 +216,48 @@ export default function PayrollClient() {
     fetchRuns();
     fetchPayments();
   }, [fetchRuns, fetchPayments]);
+
+  // ── Fetch users for payment dialog ──
+  useEffect(() => {
+    fetch('/api/dashboard/users').then(r => r.json()).then(j => {
+      if (j.data) setAllUsers(j.data.map((u: { username: string; display_name: string }) => ({ username: u.username, display_name: u.display_name })));
+    }).catch(() => {});
+  }, []);
+
+  // ── Save new payment ──
+  const handleSavePayment = async () => {
+    if (!payForm.username || !payForm.amount || !payForm.source_type) {
+      toast.error('اختر الموظف والنوع والمبلغ');
+      return;
+    }
+    setSavingPayment(true);
+    try {
+      const res = await fetch('/api/dashboard/employee-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: payForm.username,
+          source_type: payForm.source_type,
+          description: payForm.description || null,
+          amount: Number(payForm.amount),
+          currency: payForm.currency,
+        }),
+      });
+      const j = await res.json();
+      if (res.ok) {
+        toast.success('تم تسجيل الدفعة');
+        setPaymentOpen(false);
+        setPayForm({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
+        fetchPayments();
+      } else {
+        toast.error(j.error || 'فشل في تسجيل الدفعة');
+      }
+    } catch {
+      toast.error('فشل في تسجيل الدفعة');
+    } finally {
+      setSavingPayment(false);
+    }
+  };
 
   // ── Expand a run to see its items ──
   const toggleExpandRun = async (runId: string) => {
@@ -675,6 +728,13 @@ export default function PayrollClient() {
 
         {/* ═══════════ Employee Payments Tab ═══════════ */}
         <TabsContent value="payments" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">سجل جميع المدفوعات والعمولات للموظفين</p>
+            <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={() => setPaymentOpen(true)}>
+              <Plus className="h-4 w-4 me-1" />
+              إضافة دفعة
+            </Button>
+          </div>
           {paymentsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4].map(i => (
@@ -703,9 +763,9 @@ export default function PayrollClient() {
                       <tr className="border-b border-border text-muted-foreground">
                         <th className="text-start pb-3 pe-3 font-medium">الموظف</th>
                         <th className="text-start pb-3 pe-3 font-medium">النوع</th>
+                        <th className="text-start pb-3 pe-3 font-medium">الوصف</th>
                         <th className="text-end pb-3 pe-3 font-medium">المبلغ</th>
                         <th className="text-start pb-3 pe-3 font-medium">الحالة</th>
-                        <th className="text-start pb-3 pe-3 font-medium">المسير</th>
                         <th className="text-start pb-3 font-medium">التاريخ</th>
                       </tr>
                     </thead>
@@ -721,6 +781,9 @@ export default function PayrollClient() {
                           <td className="py-3 pe-3 text-muted-foreground">
                             {SOURCE_TYPE_LABELS[p.source_type] || p.source_type}
                           </td>
+                          <td className="py-3 pe-3 text-muted-foreground text-xs max-w-[200px] truncate">
+                            {p.description || '—'}
+                          </td>
                           <td className="py-3 pe-3 text-end font-mono text-foreground">
                             {formatCurrency(p.amount)}
                           </td>
@@ -731,9 +794,6 @@ export default function PayrollClient() {
                             >
                               {PAYMENT_STATUS_LABELS[p.status] || p.status}
                             </Badge>
-                          </td>
-                          <td className="py-3 pe-3 text-muted-foreground text-xs">
-                            {p.payroll_id || '—'}
                           </td>
                           <td className="py-3 text-muted-foreground text-xs">
                             {new Date(p.created_at).toLocaleDateString('ar-AE')}
@@ -805,6 +865,80 @@ export default function PayrollClient() {
                 <Plus className="h-4 w-4" />
               )}
               إنشاء
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════ Add Payment Dialog ═══════════ */}
+      <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>إضافة دفعة جديدة</DialogTitle>
+            <DialogDescription>تسجيل عمولة أو مكافأة أو خصم لموظف</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>الموظف *</Label>
+              <Select value={payForm.username} onValueChange={v => setPayForm(p => ({ ...p, username: v }))}>
+                <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
+                <SelectContent>
+                  {allUsers.map(u => (
+                    <SelectItem key={u.username} value={u.username}>{u.display_name || u.username}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>النوع *</Label>
+              <Select value={payForm.source_type} onValueChange={v => setPayForm(p => ({ ...p, source_type: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="commission">عمولة</SelectItem>
+                  <SelectItem value="task">مهمة</SelectItem>
+                  <SelectItem value="bonus">مكافأة</SelectItem>
+                  <SelectItem value="deduction">خصم</SelectItem>
+                  <SelectItem value="overtime">إضافي</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>الوصف</Label>
+              <Input
+                value={payForm.description}
+                onChange={e => setPayForm(p => ({ ...p, description: e.target.value }))}
+                placeholder="مثال: عمولة مشروع Etmam Brand Identity"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>المبلغ *</Label>
+                <Input
+                  type="number" step="0.01" min="0"
+                  value={payForm.amount}
+                  onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>العملة</Label>
+                <Select value={payForm.currency} onValueChange={v => setPayForm(p => ({ ...p, currency: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="AED">AED</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="SAR">SAR</SelectItem>
+                    <SelectItem value="EGP">EGP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setPaymentOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSavePayment} disabled={savingPayment} className="bg-orange-500 hover:bg-orange-600 text-white">
+              {savingPayment ? <Loader2 className="h-4 w-4 animate-spin me-1" /> : <Plus className="h-4 w-4 me-1" />}
+              تسجيل
             </Button>
           </DialogFooter>
         </DialogContent>
