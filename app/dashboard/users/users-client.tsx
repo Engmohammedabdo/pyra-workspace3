@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -366,7 +367,11 @@ export default function UsersClient() {
                         <span className="font-mono text-xs">@{user.username}</span>
                       </div>
                     </td>
-                    <td className="p-3 font-medium">{user.display_name}</td>
+                    <td className="p-3 font-medium">
+                      <Link href={`/dashboard/users/${user.username}`} className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">
+                        {user.display_name}
+                      </Link>
+                    </td>
                     <td className="p-3">
                       {user.pyra_roles ? (
                         <Badge variant="outline" className={getRoleColorClasses(user.pyra_roles.color)}>
