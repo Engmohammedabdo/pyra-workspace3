@@ -89,7 +89,7 @@ export async function GET() {
       (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
-    // Outstanding invoices
+    // Outstanding invoices (amount + count)
     let outstandingQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
@@ -100,8 +100,9 @@ export async function GET() {
     const totalOutstanding = (outstanding || []).reduce(
       (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
     );
+    const outstandingCount = (outstanding || []).length;
 
-    // Overdue invoices
+    // Overdue invoices (amount + count)
     let overdueQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
@@ -112,6 +113,7 @@ export async function GET() {
     const totalOverdue = (overdue || []).reduce(
       (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
     );
+    const overdueCount = (overdue || []).length;
 
     // Upcoming renewals (next 7 days) — subscriptions have no client/project relation
     // Non-admins should not see company-wide subscription data
@@ -226,6 +228,19 @@ export async function GET() {
       );
     }
 
+    // Due subscriptions needing approval (admin only)
+    let dueSubscriptions: Array<{ id: string; name: string; provider: string; cost: number; currency: string; next_renewal_date: string }> | null = null;
+    if (scope.isAdmin) {
+      const { data: dueSubs } = await supabase
+        .from('pyra_subscriptions')
+        .select('id, name, provider, cost, currency, next_renewal_date')
+        .eq('status', 'active')
+        .eq('auto_renew', true)
+        .lte('next_renewal_date', today)
+        .order('next_renewal_date', { ascending: true });
+      dueSubscriptions = dueSubs;
+    }
+
     // Active contracts count
     let activeContractsQuery = supabase
       .from('pyra_contracts')
@@ -243,13 +258,16 @@ export async function GET() {
         profit_mtd: Math.round((totalRevenueMtd - totalExpensesMtd) * 100) / 100,
         profit_ytd: Math.round((totalRevenueYtd - totalExpensesYtd) * 100) / 100,
         outstanding: Math.round(totalOutstanding * 100) / 100,
+        outstanding_count: outstandingCount,
         overdue: Math.round(totalOverdue * 100) / 100,
+        overdue_count: overdueCount,
         monthly_subs_cost: Math.round(monthlySubsCost * 100) / 100,
         active_contracts: activeContracts ?? 0,
       },
       monthly_chart: monthlyData,
       expense_pie: expensePieData,
       upcoming_renewals: renewals || [],
+      due_subscriptions: dueSubscriptions || [],
     });
   } catch {
     return apiServerError();

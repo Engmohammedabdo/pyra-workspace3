@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { RevenueExpenseChart } from '@/components/finance/RevenueExpenseChart';
-import { ExpenseCategoryPieChart } from '@/components/finance/ExpenseCategoryPieChart';
+import { ExpenseBarChart } from '@/components/finance/ExpenseBarChart';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import {
@@ -14,17 +15,21 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
+  ArrowUpCircle,
+  ArrowDownCircle,
   Receipt,
   CreditCard,
   FileSignature,
   AlertTriangle,
   RefreshCw,
-  ArrowDownCircle,
   Truck,
   ShoppingCart,
   FileCheck,
   PieChart,
   Target,
+  CheckCircle2,
+  Clock,
+  ChevronLeft,
 } from 'lucide-react';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
@@ -38,7 +43,9 @@ interface FinanceSummary {
   profit_mtd: number;
   profit_ytd: number;
   outstanding: number;
+  outstanding_count: number;
   overdue: number;
+  overdue_count: number;
   monthly_subs_cost: number;
   active_contracts: number;
 }
@@ -69,6 +76,7 @@ interface FinanceDashboardData {
   monthly_chart: MonthlyChart[];
   expense_pie: ExpensePie[];
   upcoming_renewals: UpcomingRenewal[];
+  due_subscriptions: UpcomingRenewal[];
 }
 
 /* ── Helpers ───────────────────────────────────────── */
@@ -81,36 +89,13 @@ function getDaysRemaining(dateStr: string): number {
   return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function getRenewalBadgeVariant(days: number): 'destructive' | 'secondary' | 'outline' {
-  if (days <= 7) return 'destructive';
-  if (days <= 30) return 'secondary';
-  return 'outline';
+function getMonthName(): string {
+  return new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
 }
 
-/* ── KPI Card ──────────────────────────────────────── */
-
-function KpiCard({
-  title,
-  value,
-  icon: Icon,
-  colorClass,
-}: {
-  title: string;
-  value: string;
-  icon: React.ComponentType<{ className?: string }>;
-  colorClass: string;
-}) {
-  return (
-    <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={`h-4 w-4 ${colorClass}`} />
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold font-mono ${colorClass}`}>{value}</div>
-      </CardContent>
-    </Card>
-  );
+function getProfitMargin(revenue: number, expenses: number): string {
+  if (revenue === 0) return '0%';
+  return `${Math.round(((revenue - expenses) / revenue) * 100)}%`;
 }
 
 /* ── Quick Link Card ───────────────────────────────── */
@@ -143,47 +128,47 @@ function QuickLinkCard({
 export default function FinanceDashboardPage() {
   const [data, setData] = useState<FinanceDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  useEffect(() => {
+  const fetchData = () => {
     fetch('/api/finance/dashboard')
       .then((res) => res.json())
       .then((res) => {
-        if (res.data) {
-          setData(res.data);
-        } else if (res.summary) {
-          setData(res as FinanceDashboardData);
-        }
+        if (res.data) setData(res.data);
+        else if (res.summary) setData(res as FinanceDashboardData);
       })
-      .catch((err) => {
-        console.error('Failed to load finance dashboard:', err);
-        toast.error('فشل في تحميل البيانات المالية');
-      })
+      .catch(() => toast.error('فشل في تحميل البيانات المالية'))
       .finally(() => setLoading(false));
-  }, []);
+  };
 
-  /* ── Loading State ── */
+  useEffect(() => { fetchData(); }, []);
+
+  const handleApproveRenewal = async (subId: string) => {
+    setApprovingId(subId);
+    try {
+      const res = await fetch(`/api/finance/subscriptions/${subId}/approve-renewal`, { method: 'POST' });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(json.data?.message || 'تمت الموافقة على التجديد');
+        fetchData();
+      } else {
+        toast.error(json.error || 'فشل في الموافقة');
+      }
+    } catch { toast.error('فشل في الموافقة'); }
+    finally { setApprovingId(null); }
+  };
+
+  /* ── Loading ── */
   if (loading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-8 w-56" />
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-32" />)}
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-[400px] lg:col-span-2" />
-          <Skeleton className="h-[400px]" />
-        </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
-        </div>
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-16" />
-          ))}
-        </div>
+        <Skeleton className="h-24" />
+        <Skeleton className="h-[400px]" />
+        <Skeleton className="h-[250px]" />
       </div>
     );
   }
@@ -196,7 +181,7 @@ export default function FinanceDashboardPage() {
     );
   }
 
-  const { summary, monthly_chart, expense_pie, upcoming_renewals } = data;
+  const { summary, monthly_chart, expense_pie, upcoming_renewals, due_subscriptions } = data;
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
@@ -207,140 +192,226 @@ export default function FinanceDashboardPage() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">الإدارة المالية</h1>
-          <p className="text-muted-foreground text-sm">نظرة عامة على الوضع المالي</p>
+          <p className="text-muted-foreground text-sm">ملخص {getMonthName()}</p>
         </div>
       </div>
 
-      {/* ═══ KPI Cards ═══ */}
-      <StaggerContainer className="grid gap-4 grid-cols-2 lg:grid-cols-5">
+      {/* ═══ Section 1: 3 KPI Cards ═══ */}
+      <StaggerContainer className="grid gap-4 grid-cols-1 md:grid-cols-3">
+        {/* فلوس دخلت */}
         <StaggerItem>
-          <KpiCard
-            title="إيرادات الشهر"
-            value={formatCurrency(summary.revenue_mtd)}
-            icon={DollarSign}
-            colorClass="text-green-600"
-          />
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-green-500/30">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-muted-foreground">فلوس دخلت</span>
+                <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+                  <ArrowUpCircle className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold font-mono text-green-600">
+                {formatCurrency(summary.revenue_mtd)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                من بداية السنة: {formatCurrency(summary.revenue_ytd)}
+              </p>
+            </CardContent>
+          </Card>
         </StaggerItem>
+
+        {/* فلوس طلعت */}
         <StaggerItem>
-          <KpiCard
-            title="مصاريف الشهر"
-            value={formatCurrency(summary.expenses_mtd)}
-            icon={ArrowDownCircle}
-            colorClass="text-red-600"
-          />
+          <Card className="transition-all duration-200 hover:shadow-md hover:border-red-500/30">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-muted-foreground">فلوس طلعت</span>
+                <div className="w-9 h-9 rounded-lg bg-red-500/10 flex items-center justify-center">
+                  <ArrowDownCircle className="h-5 w-5 text-red-600" />
+                </div>
+              </div>
+              <p className="text-3xl font-bold font-mono text-red-600">
+                {formatCurrency(summary.expenses_mtd)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-2">
+                من بداية السنة: {formatCurrency(summary.expenses_ytd)}
+              </p>
+            </CardContent>
+          </Card>
         </StaggerItem>
+
+        {/* الصافي */}
         <StaggerItem>
-          <KpiCard
-            title="صافي الربح"
-            value={formatCurrency(summary.profit_mtd)}
-            icon={TrendingUp}
-            colorClass={summary.profit_mtd >= 0 ? 'text-green-600' : 'text-red-600'}
-          />
-        </StaggerItem>
-        <StaggerItem>
-          <KpiCard
-            title="مستحقات"
-            value={formatCurrency(summary.outstanding)}
-            icon={Receipt}
-            colorClass="text-orange-600"
-          />
-        </StaggerItem>
-        <StaggerItem>
-          <KpiCard
-            title="متأخرة"
-            value={formatCurrency(summary.overdue)}
-            icon={AlertTriangle}
-            colorClass="text-red-600"
-          />
+          <Card className={`transition-all duration-200 hover:shadow-md ${summary.profit_mtd >= 0 ? 'hover:border-green-500/30' : 'hover:border-red-500/30'}`}>
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium text-muted-foreground">الصافي</span>
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${summary.profit_mtd >= 0 ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                  {summary.profit_mtd >= 0 ? (
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                  ) : (
+                    <TrendingDown className="h-5 w-5 text-red-600" />
+                  )}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <p className={`text-3xl font-bold font-mono ${summary.profit_mtd >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(summary.profit_mtd)}
+                </p>
+                {summary.revenue_mtd > 0 && (
+                  <Badge variant={summary.profit_mtd >= 0 ? 'default' : 'destructive'} className="text-xs">
+                    هامش {getProfitMargin(summary.revenue_mtd, summary.expenses_mtd)}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                من بداية السنة: {formatCurrency(summary.profit_ytd)}
+              </p>
+            </CardContent>
+          </Card>
         </StaggerItem>
       </StaggerContainer>
 
-      {/* ═══ Charts Row ═══ */}
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* Revenue vs Expenses Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              الإيرادات مقابل المصاريف
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <RevenueExpenseChart data={monthly_chart} />
-          </CardContent>
-        </Card>
-
-        {/* Expense Categories Pie */}
+      {/* ═══ Section 2: فلوس مستنياك ═══ */}
+      {(summary.outstanding > 0 || summary.overdue > 0) && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ArrowDownCircle className="h-5 w-5" />
-              توزيع المصاريف
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ExpenseCategoryPieChart data={expense_pie} />
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 space-y-3">
+                <div className="flex items-center gap-2 mb-3">
+                  <Receipt className="h-5 w-5 text-orange-500" />
+                  <span className="font-semibold">فلوس مستنياك</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-3 rounded-lg bg-orange-50 dark:bg-orange-900/20 p-3">
+                    <div>
+                      <p className="text-sm text-muted-foreground">فواتير لسه ما اتدفعت</p>
+                      <p className="text-lg font-bold font-mono text-orange-600">
+                        {formatCurrency(summary.outstanding)}
+                      </p>
+                    </div>
+                    <Badge variant="secondary" className="ms-auto shrink-0">
+                      {summary.outstanding_count} فاتورة
+                    </Badge>
+                  </div>
+                  {summary.overdue > 0 && (
+                    <div className="flex items-center gap-3 rounded-lg bg-red-50 dark:bg-red-900/20 p-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1">
+                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                          منها متأخرة
+                        </p>
+                        <p className="text-lg font-bold font-mono text-red-600">
+                          {formatCurrency(summary.overdue)}
+                        </p>
+                      </div>
+                      <Badge variant="destructive" className="ms-auto shrink-0">
+                        {summary.overdue_count} فاتورة
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <Link href="/dashboard/invoices" className="shrink-0 ms-4 hidden sm:block">
+                <Button variant="outline" size="sm">
+                  عرض الفواتير
+                  <ChevronLeft className="h-4 w-4 ms-1" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
-      {/* ═══ Quick Stats + Upcoming Renewals ═══ */}
+      {/* ═══ Section 3: Revenue vs Expenses Chart (full width) ═══ */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5" />
+            الإيرادات مقابل المصاريف (آخر 12 شهر)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <RevenueExpenseChart data={monthly_chart} />
+        </CardContent>
+      </Card>
+
+      {/* ═══ Section 4: وين راحت الفلوس ═══ */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            وين راحت الفلوس؟
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">توزيع المصاريف — {getMonthName()}</p>
+        </CardHeader>
+        <CardContent>
+          <ExpenseBarChart data={expense_pie} />
+        </CardContent>
+      </Card>
+
+      {/* ═══ Section 5: تجديدات واشتراكات ═══ */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Yearly Quick Stats */}
+        {/* Due subscriptions needing approval */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              إحصائيات سنوية
+              <Clock className="h-5 w-5 text-orange-500" />
+              اشتراكات تحتاج موافقتك
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-0 divide-y">
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">إيرادات سنوية</span>
-              <span className="font-bold font-mono text-sm text-green-600">
-                {formatCurrency(summary.revenue_ytd)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">مصاريف سنوية</span>
-              <span className="font-bold font-mono text-sm text-red-600">
-                {formatCurrency(summary.expenses_ytd)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">صافي سنوي</span>
-              <span
-                className={`font-bold font-mono text-sm ${
-                  summary.profit_ytd >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {formatCurrency(summary.profit_ytd)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">اشتراكات شهرية</span>
-              <span className="font-bold font-mono text-sm">
-                {formatCurrency(summary.monthly_subs_cost)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-sm text-muted-foreground">عقود نشطة</span>
-              <span className="font-bold font-mono text-sm">{summary.active_contracts}</span>
-            </div>
+          <CardContent>
+            {due_subscriptions && due_subscriptions.length > 0 ? (
+              <div className="space-y-2">
+                {due_subscriptions.map((sub) => (
+                  <div
+                    key={sub.id}
+                    className="flex items-center justify-between rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-900/10 p-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{sub.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatCurrency(sub.cost, sub.currency)} · {sub.provider}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => handleApproveRenewal(sub.id)}
+                      disabled={approvingId === sub.id}
+                      className="bg-orange-600 hover:bg-orange-700 text-white shrink-0 ms-2"
+                    >
+                      {approvingId === sub.id ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin me-1" />
+                      ) : (
+                        <CheckCircle2 className="h-3.5 w-3.5 me-1" />
+                      )}
+                      {approvingId === sub.id ? 'جارٍ...' : 'موافقة'}
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
+                لا توجد اشتراكات تحتاج موافقة
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Upcoming Renewals */}
+        {/* Upcoming renewals + monthly cost */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <RefreshCw className="h-5 w-5" />
               تجديدات قادمة
             </CardTitle>
+            {summary.monthly_subs_cost > 0 && (
+              <p className="text-xs text-muted-foreground">
+                التكلفة الشهرية للاشتراكات: <span className="font-mono font-bold">{formatCurrency(summary.monthly_subs_cost)}</span>
+              </p>
+            )}
           </CardHeader>
           <CardContent>
             {upcoming_renewals && upcoming_renewals.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {upcoming_renewals.map((renewal) => {
                   const days = getDaysRemaining(renewal.next_renewal_date);
                   return (
@@ -358,12 +429,8 @@ export default function FinanceDashboardPage() {
                         <span className="font-mono text-sm font-bold">
                           {formatCurrency(renewal.cost, renewal.currency)}
                         </span>
-                        <Badge variant={getRenewalBadgeVariant(days)}>
-                          {days <= 0
-                            ? 'اليوم'
-                            : days === 1
-                              ? 'غداً'
-                              : `${days} يوم`}
+                        <Badge variant={days <= 2 ? 'destructive' : 'secondary'}>
+                          {days <= 0 ? 'اليوم' : days === 1 ? 'غداً' : `${days} يوم`}
                         </Badge>
                       </div>
                     </div>
@@ -371,7 +438,7 @@ export default function FinanceDashboardPage() {
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+              <div className="flex items-center justify-center h-24 text-muted-foreground text-sm">
                 لا توجد تجديدات قريبة
               </div>
             )}
@@ -379,7 +446,7 @@ export default function FinanceDashboardPage() {
         </Card>
       </div>
 
-      {/* ═══ Quick Links ═══ */}
+      {/* ═══ Section 6: Quick Links ═══ */}
       <StaggerContainer className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
         <StaggerItem>
           <QuickLinkCard href="/dashboard/finance/expenses" label="المصاريف" icon={ArrowDownCircle} />
