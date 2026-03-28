@@ -4,12 +4,14 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 
+/* eslint-disable @typescript-eslint/no-floating-promises */
+
 /**
  * POST /api/finance/subscriptions/check-renewals
- * Check and process subscription renewals.
- * - Auto-renew: advance next_renewal_date and log activity
+ * Check subscription renewals and send notifications.
+ * - Due auto-renew: send approval notification (NO auto expense/renewal)
  * - Expired (past due + no auto_renew): mark as cancelled
- * - Upcoming (within 7 days): send notifications
+ * - Upcoming (within 7 days): send reminder notifications
  * Intended for cron job / scheduled task execution.
  */
 export async function POST(req: NextRequest) {
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest) {
     in7Days.setDate(in7Days.getDate() + 7);
     const in7DaysStr = in7Days.toISOString().split('T')[0];
 
-    // ── 1. Process past-due auto-renew subscriptions ──
+    // ── 1. Notify about due auto-renew subscriptions (pending approval) ──
     const { data: dueAutoRenew } = await supabase
       .from('pyra_subscriptions')
       .select('id, name, provider, cost, currency, billing_cycle, next_renewal_date')
@@ -32,74 +34,31 @@ export async function POST(req: NextRequest) {
       .eq('auto_renew', true)
       .lte('next_renewal_date', today);
 
-    const cycleArabic: Record<string, string> = {
-      monthly: 'شهري',
-      quarterly: 'ربع سنوي',
-      yearly: 'سنوي',
-      weekly: 'أسبوعي',
-    };
-
-    let renewed = 0;
-    let expensesCreated = 0;
+    let pendingCount = 0;
     for (const sub of dueAutoRenew || []) {
-      const nextDate = calculateNextRenewalDate(sub.next_renewal_date, sub.billing_cycle);
-
-      // ── Auto-create expense for this renewal ──
-      // Check for duplicate: same subscription_id + expense_date in the same billing period
-      const { data: existingExpense } = await supabase
-        .from('pyra_expenses')
+      // Check if notification already sent for this renewal period
+      const { data: existing } = await supabase
+        .from('pyra_notifications')
         .select('id')
-        .eq('subscription_id', sub.id)
-        .eq('expense_date', sub.next_renewal_date)
+        .eq('type', 'subscription_renewal_approval')
+        .ilike('message', `%${sub.id}%`)
+        .gte('created_at', new Date(Date.now() - 30 * 86400000).toISOString())
         .maybeSingle();
 
-      if (!existingExpense) {
-        const cycleName = cycleArabic[sub.billing_cycle] || 'شهري';
-        await supabase.from('pyra_expenses').insert({
-          id: generateId('exp'),
-          description: `${sub.name} — تجديد ${cycleName}`,
-          amount: sub.cost,
-          currency: sub.currency,
-          subscription_id: sub.id,
-          category_id: 'ec_subscriptions',
-          vendor: sub.provider,
-          status: 'approved',
-          expense_date: sub.next_renewal_date,
-          created_by: 'system',
+      if (!existing) {
+        void supabase.from('pyra_notifications').insert({
+          id: generateId('nt'),
+          recipient_username: 'admin',
+          type: 'subscription_renewal_approval',
+          title: 'اشتراك يحتاج موافقة على التجديد',
+          message: `الاشتراك "${sub.name}" (${sub.provider || ''}) مستحق التجديد بقيمة ${sub.cost} ${sub.currency} — يحتاج موافقتك [${sub.id}]`,
+          source_username: 'system',
+          source_display_name: 'النظام',
+          target_path: `/dashboard/finance/subscriptions`,
+          is_read: false,
         });
-        expensesCreated++;
+        pendingCount++;
       }
-
-      // ── Update next_renewal_date ──
-      await supabase
-        .from('pyra_subscriptions')
-        .update({
-          next_renewal_date: nextDate,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', sub.id);
-
-      // Log activity
-      void supabase.from('pyra_activity_log').insert({
-        id: generateId('al'),
-        action_type: 'subscription_auto_renewed',
-        username: 'system',
-        display_name: 'النظام',
-        target_path: `/dashboard/finance/subscriptions/${sub.id}`,
-        details: {
-          subscription_name: sub.name,
-          provider: sub.provider,
-          cost: sub.cost,
-          currency: sub.currency,
-          previous_date: sub.next_renewal_date,
-          next_date: nextDate,
-          billing_cycle: sub.billing_cycle,
-          expense_created: !existingExpense,
-        },
-        ip_address: 'system',
-      });
-
-      renewed++;
     }
 
     // ── 2. Expire non-auto-renew subscriptions past due ──
@@ -120,7 +79,6 @@ export async function POST(req: NextRequest) {
         })
         .eq('id', sub.id);
 
-      // Admin notification
       void supabase.from('pyra_notifications').insert({
         id: generateId('nt'),
         recipient_username: 'admin',
@@ -129,7 +87,7 @@ export async function POST(req: NextRequest) {
         message: `الاشتراك "${sub.name}" انتهى في ${sub.next_renewal_date} ولم يتم تجديده`,
         source_username: 'system',
         source_display_name: 'النظام',
-        target_path: `/dashboard/finance/subscriptions/${sub.id}`,
+        target_path: `/dashboard/finance/subscriptions`,
         is_read: false,
       });
 
@@ -146,7 +104,6 @@ export async function POST(req: NextRequest) {
 
     let notified = 0;
     for (const sub of upcoming || []) {
-      // Check if notification was already sent for this renewal
       const { data: existing } = await supabase
         .from('pyra_notifications')
         .select('id')
@@ -168,7 +125,7 @@ export async function POST(req: NextRequest) {
           message: `الاشتراك "${sub.name}" سيتجدد خلال ${daysLeft} يوم بقيمة ${sub.cost} ${sub.currency} [${sub.id}]`,
           source_username: 'system',
           source_display_name: 'النظام',
-          target_path: `/dashboard/finance/subscriptions/${sub.id}`,
+          target_path: `/dashboard/finance/subscriptions`,
           is_read: false,
         });
 
@@ -177,11 +134,10 @@ export async function POST(req: NextRequest) {
     }
 
     return apiSuccess({
-      renewed,
-      expensesCreated,
+      pending_approval: pendingCount,
       expired: expiredCount,
       notified,
-      message: `تم تجديد ${renewed} اشتراك، إنشاء ${expensesCreated} مصروف، إنهاء ${expiredCount}، تنبيه ${notified}`,
+      message: `${pendingCount} اشتراك ينتظر الموافقة، ${expiredCount} منتهي، ${notified} تنبيه`,
     });
   } catch (err) {
     console.error('POST /api/finance/subscriptions/check-renewals error:', err);
@@ -189,34 +145,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * Calculate next renewal date based on billing cycle.
- */
-function calculateNextRenewalDate(currentDate: string, billingCycle: string): string {
-  const date = new Date(currentDate);
-  const day = date.getDate();
-
-  switch (billingCycle) {
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case 'quarterly':
-      date.setMonth(date.getMonth() + 3);
-      break;
-    case 'yearly':
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    default:
-      date.setMonth(date.getMonth() + 1);
-  }
-
-  // Fix month overflow
-  if (date.getDate() !== day && billingCycle !== 'weekly') {
-    date.setDate(0);
-  }
-
-  return date.toISOString().split('T')[0];
-}

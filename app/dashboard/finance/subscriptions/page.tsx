@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowRight, RefreshCw, Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowRight, RefreshCw, Plus, Pencil, Trash2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
@@ -21,7 +21,8 @@ interface Subscription {
   status: string; auto_renew: boolean;
 }
 
-const CYCLE_LABELS: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي' };
+const CYCLE_LABELS: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي', weekly: 'أسبوعي' };
+
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   active: 'default', cancelled: 'destructive', paused: 'secondary',
 };
@@ -35,6 +36,7 @@ export default function SubscriptionsPage() {
   const [total, setTotal] = useState(0);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   const fetchSubs = useCallback(async () => {
     setLoading(true);
@@ -72,6 +74,28 @@ export default function SubscriptionsPage() {
     return days >= 0 && days <= 7;
   });
 
+  // Subscriptions due for renewal (past due date, active, auto_renew)
+  const dueRenewals = subs.filter(s => {
+    if (!s.next_renewal_date || s.status !== 'active' || !s.auto_renew) return false;
+    const today = new Date().toISOString().split('T')[0];
+    return s.next_renewal_date <= today;
+  });
+
+  const handleApproveRenewal = async (subId: string) => {
+    setApprovingId(subId);
+    try {
+      const res = await fetch(`/api/finance/subscriptions/${subId}/approve-renewal`, { method: 'POST' });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(json.data?.message || 'تمت الموافقة على التجديد');
+        fetchSubs();
+      } else {
+        toast.error(json.error || 'فشل في الموافقة');
+      }
+    } catch { toast.error('فشل في الموافقة على التجديد'); }
+    finally { setApprovingId(null); }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -96,7 +120,42 @@ export default function SubscriptionsPage() {
         </CardContent></Card>
       </div>
 
-      {/* Renewal Alert */}
+      {/* Due Renewals — Needs Approval */}
+      {dueRenewals.length > 0 && (
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-orange-600 shrink-0" />
+            <p className="font-semibold text-orange-800 dark:text-orange-200">{dueRenewals.length} اشتراكات تحتاج موافقتك على التجديد</p>
+          </div>
+          <div className="space-y-2">
+            {dueRenewals.map(s => (
+              <div key={s.id} className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg border border-orange-100 dark:border-orange-800/40 p-3">
+                <div className="flex-1">
+                  <p className="font-medium">{s.name} <span className="text-muted-foreground text-sm">({s.provider})</span></p>
+                  <p className="text-sm text-muted-foreground">
+                    {formatCurrency(s.cost, s.currency)} · {CYCLE_LABELS[s.billing_cycle || ''] || s.billing_cycle} · مستحق من {formatDate(s.next_renewal_date!)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => handleApproveRenewal(s.id)}
+                  disabled={approvingId === s.id}
+                  className="bg-orange-600 hover:bg-orange-700 text-white shrink-0"
+                >
+                  {approvingId === s.id ? (
+                    <RefreshCw className="h-4 w-4 animate-spin me-1" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 me-1" />
+                  )}
+                  {approvingId === s.id ? 'جارٍ...' : 'موافقة على التجديد'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming Renewal Alert */}
       {upcomingRenewals.length > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
