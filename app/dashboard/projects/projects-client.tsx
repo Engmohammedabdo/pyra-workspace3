@@ -352,12 +352,12 @@ export default function ProjectsClient() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => router.push(`/dashboard/projects/${p.id}`)}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
+              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/projects/${p.id}`); }}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
               {canEdit && (
-                <DropdownMenuItem onClick={() => openEdit(p)}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openEdit(p), 0); }}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
               )}
               {canDelete && (
-                <DropdownMenuItem onClick={() => openDelete(p)} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
+                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openDelete(p), 0); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
