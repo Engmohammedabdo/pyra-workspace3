@@ -194,6 +194,23 @@ export async function POST(request: NextRequest) {
     const companyMap: Record<string, string> = {};
     for (const s of companySettings || []) companyMap[s.key] = s.value;
 
+    // Entity lookup — override company_name/logo if entity_id provided
+    let quoteEntityId: string | null = null;
+    let quoteLicenseNo: string | null = null;
+    if (body.entity_id) {
+      const { data: entity } = await supabase
+        .from('pyra_business_entities')
+        .select('id, name_en, license_no, logo_url')
+        .eq('id', body.entity_id)
+        .maybeSingle();
+      if (entity) {
+        companyMap.company_name = entity.name_en;
+        if (entity.logo_url) companyMap.company_logo = entity.logo_url;
+        quoteEntityId = entity.id;
+        quoteLicenseNo = entity.license_no;
+      }
+    }
+
     // Get client info if client_id is provided
     let clientData: Record<string, string | null> = {
       client_name: null,
@@ -275,6 +292,8 @@ export async function POST(request: NextRequest) {
         bank_details: bankDetails,
         company_name: companyMap.company_name || null,
         company_logo: companyMap.company_logo || null,
+        entity_id: quoteEntityId,
+        license_no: quoteLicenseNo,
         ...clientData,
         created_by: auth.pyraUser.username,
       })

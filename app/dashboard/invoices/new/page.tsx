@@ -39,6 +39,10 @@ export default function NewInvoicePage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loadingClients, setLoadingClients] = useState(true);
 
+  /* ── business entity (license) ── */
+  const [entities, setEntities] = useState<Array<{ id: string; name_en: string; name_ar: string; license_no: string; logo_url: string; is_default: boolean }>>([]);
+  const [entityId, setEntityId] = useState('');
+
   /* ── form fields ── */
   const [clientId, setClientId] = useState('');
   const [displayClientName, setDisplayClientName] = useState('');
@@ -69,6 +73,17 @@ export default function NewInvoicePage() {
       .then(json => { if (json.data) setClients(json.data); })
       .catch(() => {})
       .finally(() => setLoadingClients(false));
+
+    fetch('/api/settings/business-entities')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          setEntities(json.data);
+          const def = json.data.find((e: { is_default: boolean }) => e.is_default);
+          if (def) setEntityId(def.id);
+        }
+      })
+      .catch(() => {});
 
     fetch('/api/settings')
       .then(r => r.json())
@@ -149,6 +164,7 @@ export default function NewInvoicePage() {
 
       if (clientId) body.client_id = clientId;
       if (displayClientName.trim()) body.display_client_name = displayClientName.trim();
+      if (entityId) body.entity_id = entityId;
       if (milestoneType) body.milestone_type = milestoneType;
       if (discountType) {
         body.discount_type = discountType;
@@ -217,6 +233,30 @@ export default function NewInvoicePage() {
           <CardTitle>بيانات الفاتورة</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Business Entity */}
+          {entities.length > 0 && (
+            <div className="space-y-2">
+              <Label>الرخصة التجارية</Label>
+              <Select value={entityId} onValueChange={setEntityId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر الرخصة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entities.map(e => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name_en} {e.is_default ? '(افتراضي)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {entityId && (
+                <p className="text-xs text-muted-foreground">
+                  رقم الرخصة: {entities.find(e => e.id === entityId)?.license_no}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Client */}
           <div className="space-y-2">
             <Label>العميل</Label>

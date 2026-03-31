@@ -74,6 +74,8 @@ export interface QuoteData {
   bank_details: { bank: string; account_name: string; account_no: string; iban: string };
   company_name: string | null;
   company_logo: string | null;
+  entity_id?: string | null;
+  license_no?: string | null;
   client_name: string | null;
   client_email: string | null;
   client_company: string | null;
@@ -139,6 +141,8 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [templates, setTemplates] = useState<QuoteTemplate[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false);
+  const [entities, setEntities] = useState<Array<{ id: string; name_en: string; name_ar: string; license_no: string; logo_url: string; is_default: boolean }>>([]);
+  const [entityId, setEntityId] = useState(quote?.entity_id || '');
 
   useEffect(() => {
     // Fetch templates
@@ -151,6 +155,19 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       .then(r => r.json())
       .then(json => { if (json.data) setClients(json.data); })
       .catch(console.error);
+
+    fetch('/api/settings/business-entities')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) {
+          setEntities(json.data);
+          if (!quote?.entity_id) {
+            const def = json.data.find((e: { is_default: boolean }) => e.is_default);
+            if (def) setEntityId(def.id);
+          }
+        }
+      })
+      .catch(() => {});
 
     // Fetch default VAT rate from settings (only for new quotes)
     if (!quote) {
@@ -233,6 +250,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     currency,
     discount_type: discountType || null,
     discount_value: discountValue,
+    entity_id: entityId || null,
     terms_conditions: terms.filter(t => t.text.trim()),
     items: services.map(s => ({
       description: s.description,
@@ -411,6 +429,30 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
           </div>
 
           {/* Client Info */}
+          {/* Business Entity */}
+          {entities.length > 0 && (
+            <div className="space-y-2 mb-4">
+              <Label className="text-xs font-semibold">الرخصة التجارية</Label>
+              <Select value={entityId} onValueChange={setEntityId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر الرخصة" />
+                </SelectTrigger>
+                <SelectContent>
+                  {entities.map(e => (
+                    <SelectItem key={e.id} value={e.id}>
+                      {e.name_en} {e.is_default ? '(افتراضي)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {entityId && (
+                <p className="text-[10px] text-muted-foreground">
+                  رقم الرخصة: {entities.find(e => e.id === entityId)?.license_no}
+                </p>
+              )}
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-semibold mb-3">معلومات العميل</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

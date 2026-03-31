@@ -16,6 +16,7 @@ export const QUOTE_FIELDS = `
   terms_conditions,
   signature_data, signed_by, signed_at, signed_ip,
   parent_quote_id, version,
+  entity_id, license_no,
   sent_at, viewed_at, created_by, created_at, updated_at
 `;
 
@@ -31,7 +32,7 @@ export const INVOICE_FIELDS = `
   company_name, company_logo, client_name, client_email,
   client_company, client_phone, client_address,
   milestone_type, parent_invoice_id, contract_id,
-  display_client_name,
+  display_client_name, entity_id, license_no,
   created_by, created_at, updated_at
 `;
 

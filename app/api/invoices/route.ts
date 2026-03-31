@@ -162,6 +162,22 @@ export async function POST(request: NextRequest) {
     const settingsMap: Record<string, string> = {};
     for (const s of settings || []) settingsMap[s.key] = s.value;
 
+    // Entity lookup — override company_name/logo if entity_id provided
+    const entity_id = body.entity_id;
+    if (entity_id) {
+      const { data: entity } = await supabase
+        .from('pyra_business_entities')
+        .select('name_en, name_ar, license_no, logo_url')
+        .eq('id', entity_id)
+        .maybeSingle();
+      if (entity) {
+        settingsMap.company_name = entity.name_en;
+        settingsMap.company_logo = entity.logo_url || settingsMap.company_logo;
+        settingsMap._license_no = entity.license_no;
+        settingsMap._entity_id = entity_id;
+      }
+    }
+
     // Auto-calculate due_date from payment_terms_days if not provided
     const paymentTermsDays = parseInt(settingsMap.payment_terms_days || '0');
     if (!due_date && paymentTermsDays > 0) {
@@ -284,6 +300,8 @@ export async function POST(request: NextRequest) {
         bank_details: bankDetails,
         company_name: settingsMap.company_name || null,
         company_logo: settingsMap.company_logo || null,
+        entity_id: settingsMap._entity_id || null,
+        license_no: settingsMap._license_no || null,
         milestone_type: milestone_type || null,
         parent_invoice_id: parent_invoice_id || null,
         contract_id: contract_id || null,
