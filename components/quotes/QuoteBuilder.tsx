@@ -241,6 +241,10 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
   const buildPayload = () => ({
     client_id: clientId || null,
     lead_id: leadId || null,
+    client_name: clientName || null,
+    client_email: clientEmail || null,
+    client_phone: clientPhone || null,
+    client_company: clientCompany || null,
     client_address: clientAddress || null,
     project_name: projectName || null,
     estimate_date: estimateDate,
@@ -320,6 +324,8 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     const taxable = sub - dAmt;
     const tax = taxable * (vatRate / 100);
 
+    // Use selected entity info for company name/logo (for new quotes before saving)
+    const selectedEntity = entities.find(e => e.id === entityId);
     return {
       quote_number: quote?.quote_number || 'DRAFT',
       estimate_date: estimateDate,
@@ -336,8 +342,8 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       notes: notes || null,
       terms_conditions: terms.filter(t => t.text.trim()),
       bank_details: quote?.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
-      company_name: quote?.company_name || 'PYRAMEDIA X',
-      company_logo: quote?.company_logo || null,
+      company_name: selectedEntity?.name_en || quote?.company_name || 'PYRAMEDIA X',
+      company_logo: selectedEntity?.logo_url || quote?.company_logo || null,
       client_name: clientName || null,
       client_company: clientCompany || null,
       client_email: clientEmail || null,
@@ -349,7 +355,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       signed_at: quote?.signed_at || null,
       items,
     };
-  }, [services, discountType, discountValue, vatRate, quote, estimateDate, expiryDate, currency, notes, terms, clientName, clientCompany, clientEmail, clientPhone, clientAddress, projectName]);
+  }, [services, discountType, discountValue, vatRate, quote, estimateDate, expiryDate, currency, notes, terms, clientName, clientCompany, clientEmail, clientPhone, clientAddress, projectName, entities, entityId]);
 
   const handlePdf = async () => {
     await generateQuotePDF(buildPdfData());

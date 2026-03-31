@@ -141,8 +141,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       items: items || [],
       payments: payments || [],
       contract_summary,
-      company_name: settingsMap.company_name || null,
-      company_logo: settingsMap.company_logo || null,
+      // Preserve entity's company info saved at creation; fall back to settings only if empty
+      company_name: invoice.company_name || settingsMap.company_name || null,
+      company_logo: invoice.company_logo || settingsMap.company_logo || null,
       bank_details: bankDetails,
     });
   } catch (err) {

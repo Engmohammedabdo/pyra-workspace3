@@ -211,12 +211,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get client info if client_id is provided
+    // Get client info — prefer DB lookup via client_id, fall back to manually provided fields
     let clientData: Record<string, string | null> = {
-      client_name: null,
-      client_email: null,
-      client_company: null,
-      client_phone: null,
+      client_name: body.client_name?.trim() || null,
+      client_email: body.client_email?.trim() || null,
+      client_company: body.client_company?.trim() || null,
+      client_phone: body.client_phone?.trim() || null,
       client_address: bodyClientAddress?.trim() || null,
     };
 

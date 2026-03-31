@@ -136,16 +136,27 @@ export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?
 
   // Logo — landscape aspect ratio (~2:1). Logo already contains "PYRAMEDIA X" text.
   const logoW = 52;
-  const logoH = 26;
+  const logoH = 22;
   if (logo) {
     try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
   }
-  // Fallback: text if no logo
+  // Company name text: always show below logo (or as fallback if no logo)
   if (!logo) {
-    doc.setFont('Amiri', 'bold');
-    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
     doc.setTextColor(...C.orange);
-    doc.text(quote.company_name || 'PYRAMEDIA X', M, y + 14);
+    doc.text(quote.company_name || 'PYRAMEDIA X', M, y + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(...C.gray);
+    doc.text(quote.company_name || '', M, y + 15);
+  } else if (quote.company_name) {
+    // Show company name as small text below logo
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...C.gray);
+    const nameLines = doc.splitTextToSize(quote.company_name, logoW);
+    doc.text(nameLines, M, y + logoH + 3);
   }
 
   // Client info — right side, 2 rows with labels + dotted underlines

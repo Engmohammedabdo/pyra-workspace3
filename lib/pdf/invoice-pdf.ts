@@ -179,15 +179,22 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
 
   // Logo
   const logoW = 52;
-  const logoH = 26;
+  const logoH = 22;
   if (logo) {
     try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
   }
+  // Company name: always show as text (fallback or below logo)
   if (!logo) {
-    doc.setFont('Amiri', 'bold');
-    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
     doc.setTextColor(...C.orange);
-    doc.text(invoice.company_name || 'PYRAMEDIA X', M, y + 14);
+    doc.text(invoice.company_name || 'PYRAMEDIA X', M, y + 10);
+  } else if (invoice.company_name) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(...C.gray);
+    const nameLines = doc.splitTextToSize(invoice.company_name, logoW);
+    doc.text(nameLines, M, y + logoH + 3);
   }
 
   // Client info — right side, 3 rows with labels + dotted underlines

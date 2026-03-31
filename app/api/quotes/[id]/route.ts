@@ -91,8 +91,9 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       items: items || [],
       lead: leadInfo,
       revisions: revisions || [],
-      company_name: settingsMap.company_name || null,
-      company_logo: settingsMap.company_logo || null,
+      // Preserve entity's company info saved at creation; fall back to settings only if empty
+      company_name: quote.company_name || settingsMap.company_name || null,
+      company_logo: quote.company_logo || settingsMap.company_logo || null,
       bank_details: bankDetails || quote.bank_details || null,
     });
   } catch (err) {
@@ -143,6 +144,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       discount_type: bodyDiscountType,
       discount_value: bodyDiscountValue,
       client_address: bodyClientAddress,
+      client_name: bodyClientName,
+      client_email: bodyClientEmail,
+      client_phone: bodyClientPhone,
+      client_company: bodyClientCompany,
       terms_conditions: bodyTerms,
     } = body;
 
@@ -186,7 +191,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.status = status;
     }
 
-    // Update client info if changed
+    // Update client info if changed — DB lookup when client_id provided, manual fields otherwise
     if (client_id !== undefined) {
       updates.client_id = client_id || null;
       if (client_id) {
@@ -203,11 +208,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           updates.client_phone = client.phone;
         }
       } else {
-        updates.client_name = null;
-        updates.client_email = null;
-        updates.client_company = null;
-        updates.client_phone = null;
+        // No client_id — clear or use manual fields
+        updates.client_name = bodyClientName?.trim() || null;
+        updates.client_email = bodyClientEmail?.trim() || null;
+        updates.client_company = bodyClientCompany?.trim() || null;
+        updates.client_phone = bodyClientPhone?.trim() || null;
       }
+    } else {
+      // client_id not changed — still update manual fields if explicitly provided
+      if (bodyClientName !== undefined) updates.client_name = bodyClientName?.trim() || null;
+      if (bodyClientEmail !== undefined) updates.client_email = bodyClientEmail?.trim() || null;
+      if (bodyClientPhone !== undefined) updates.client_phone = bodyClientPhone?.trim() || null;
+      if (bodyClientCompany !== undefined) updates.client_company = bodyClientCompany?.trim() || null;
     }
 
     // Recalculate totals if items provided
