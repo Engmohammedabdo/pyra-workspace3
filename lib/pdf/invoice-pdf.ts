@@ -49,6 +49,7 @@ interface InvoiceData {
     iban: string;
   } | null;
   company_name: string | null;
+  company_logo: string | null;
   client_name: string | null;
   client_company: string | null;
   client_email: string | null;
@@ -166,9 +167,10 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
   const ar = (t: string) => doc.processArabic(t);
   let y = 0;
 
-  // ── Load logo ──
+  // ── Load logo — prefer entity/record logo, fall back to default ──
   let logo: string | null = null;
-  try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ }
+  if (invoice.company_logo) { try { logo = await loadImageAsBase64(invoice.company_logo); } catch { /* */ } }
+  if (!logo) { try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ } }
 
   // ╔══════════════════════════════════════════════════════════╗
   // ║  HEADER — Logo (left) | Client Info (right)             ║

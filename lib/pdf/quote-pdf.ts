@@ -124,10 +124,10 @@ export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?
   const ar = (t: string) => doc.processArabic(t);
   let y = 0;
 
-  // ── Load logo ──
+  // ── Load logo — prefer entity/record logo, fall back to default ──
   let logo: string | null = null;
-  try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ }
-  if (!logo && quote.company_logo) { try { logo = await loadImageAsBase64(quote.company_logo); } catch { /* */ } }
+  if (quote.company_logo) { try { logo = await loadImageAsBase64(quote.company_logo); } catch { /* */ } }
+  if (!logo) { try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ } }
 
   // ╔══════════════════════════════════════════════════════════╗
   // ║  HEADER — Logo (left) | Client Info (right)             ║
