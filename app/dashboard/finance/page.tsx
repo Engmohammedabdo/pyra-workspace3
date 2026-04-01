@@ -5,7 +5,12 @@ import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog';
 import { RevenueExpenseChart } from '@/components/finance/RevenueExpenseChart';
 import { ExpenseBarChart } from '@/components/finance/ExpenseBarChart';
 import { formatCurrency } from '@/lib/utils/format';
@@ -30,6 +35,7 @@ import {
   CheckCircle2,
   Clock,
   ChevronLeft,
+  XCircle,
 } from 'lucide-react';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
@@ -129,6 +135,22 @@ export default function FinanceDashboardPage() {
   const [data, setData] = useState<FinanceDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+
+  // Approve dialog state
+  const [approveDialog, setApproveDialog] = useState<{
+    open: boolean;
+    sub: UpcomingRenewal | null;
+    actualCost: string;
+    notes: string;
+  }>({ open: false, sub: null, actualCost: '', notes: '' });
+
+  // Reject dialog state
+  const [rejectDialog, setRejectDialog] = useState<{
+    open: boolean;
+    sub: UpcomingRenewal | null;
+    reason: string;
+  }>({ open: false, sub: null, reason: '' });
 
   const fetchData = () => {
     fetch('/api/finance/dashboard')
@@ -143,10 +165,26 @@ export default function FinanceDashboardPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleApproveRenewal = async (subId: string) => {
-    setApprovingId(subId);
+  // Open approve dialog pre-filled with sub data
+  const openApproveDialog = (sub: UpcomingRenewal) => {
+    setApproveDialog({ open: true, sub, actualCost: String(sub.cost), notes: '' });
+  };
+
+  // Confirm approve with editable amount
+  const handleConfirmApproval = async () => {
+    const { sub, actualCost, notes } = approveDialog;
+    if (!sub) return;
+    setApprovingId(sub.id);
+    setApproveDialog(prev => ({ ...prev, open: false }));
     try {
-      const res = await fetch(`/api/finance/subscriptions/${subId}/approve-renewal`, { method: 'POST' });
+      const res = await fetch(`/api/finance/subscriptions/${sub.id}/approve-renewal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actual_cost: parseFloat(actualCost) || sub.cost,
+          notes: notes || null,
+        }),
+      });
       const json = await res.json();
       if (res.ok) {
         toast.success(json.data?.message || 'تمت الموافقة على التجديد');
@@ -156,6 +194,34 @@ export default function FinanceDashboardPage() {
       }
     } catch { toast.error('فشل في الموافقة'); }
     finally { setApprovingId(null); }
+  };
+
+  // Open reject dialog
+  const openRejectDialog = (sub: UpcomingRenewal) => {
+    setRejectDialog({ open: true, sub, reason: '' });
+  };
+
+  // Confirm rejection
+  const handleConfirmRejection = async () => {
+    const { sub, reason } = rejectDialog;
+    if (!sub) return;
+    setRejectingId(sub.id);
+    setRejectDialog(prev => ({ ...prev, open: false }));
+    try {
+      const res = await fetch(`/api/finance/subscriptions/${sub.id}/reject-renewal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason || null }),
+      });
+      const json = await res.json();
+      if (res.ok) {
+        toast.success(json.data?.message || 'تم رفض التجديد');
+        fetchData();
+      } else {
+        toast.error(json.error || 'فشل في الرفض');
+      }
+    } catch { toast.error('فشل في الرفض'); }
+    finally { setRejectingId(null); }
   };
 
   /* ── Loading ── */
@@ -372,19 +438,37 @@ export default function FinanceDashboardPage() {
                         {formatCurrency(sub.cost, sub.currency)} · {sub.provider}
                       </p>
                     </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleApproveRenewal(sub.id)}
-                      disabled={approvingId === sub.id}
-                      className="bg-orange-600 hover:bg-orange-700 text-white shrink-0 ms-2"
-                    >
-                      {approvingId === sub.id ? (
-                        <RefreshCw className="h-3.5 w-3.5 animate-spin me-1" />
-                      ) : (
-                        <CheckCircle2 className="h-3.5 w-3.5 me-1" />
-                      )}
-                      {approvingId === sub.id ? 'جارٍ...' : 'موافقة'}
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0 ms-2">
+                      {/* Reject */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openRejectDialog(sub)}
+                        disabled={rejectingId === sub.id || approvingId === sub.id}
+                        className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                      >
+                        {rejectingId === sub.id ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin me-1" />
+                        ) : (
+                          <XCircle className="h-3.5 w-3.5 me-1" />
+                        )}
+                        رفض
+                      </Button>
+                      {/* Approve */}
+                      <Button
+                        size="sm"
+                        onClick={() => openApproveDialog(sub)}
+                        disabled={approvingId === sub.id || rejectingId === sub.id}
+                        className="bg-orange-600 hover:bg-orange-700 text-white"
+                      >
+                        {approvingId === sub.id ? (
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin me-1" />
+                        ) : (
+                          <CheckCircle2 className="h-3.5 w-3.5 me-1" />
+                        )}
+                        {approvingId === sub.id ? 'جارٍ...' : 'موافقة'}
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -445,6 +529,108 @@ export default function FinanceDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ═══ Approve Dialog ═══ */}
+      <Dialog open={approveDialog.open} onOpenChange={open => setApproveDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-orange-500" />
+              تأكيد الموافقة على التجديد
+            </DialogTitle>
+          </DialogHeader>
+          {approveDialog.sub && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+                <p className="font-semibold">{approveDialog.sub.name}</p>
+                <p className="text-muted-foreground text-xs mt-0.5">{approveDialog.sub.provider}</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">المبلغ الفعلي ({approveDialog.sub.currency})</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  dir="ltr"
+                  value={approveDialog.actualCost}
+                  onChange={e => setApproveDialog(prev => ({ ...prev, actualCost: e.target.value }))}
+                  placeholder={String(approveDialog.sub.cost)}
+                />
+                {parseFloat(approveDialog.actualCost) !== approveDialog.sub.cost && parseFloat(approveDialog.actualCost) > 0 && (
+                  <p className="text-xs text-orange-600 dark:text-orange-400">
+                    المبلغ الافتراضي: {formatCurrency(approveDialog.sub.cost, approveDialog.sub.currency)}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">ملاحظات (اختياري)</Label>
+                <Input
+                  value={approveDialog.notes}
+                  onChange={e => setApproveDialog(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="مثال: فاتورة يناير 2025"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setApproveDialog(prev => ({ ...prev, open: false }))}>
+              إلغاء
+            </Button>
+            <Button
+              onClick={handleConfirmApproval}
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+            >
+              <CheckCircle2 className="h-4 w-4 me-1" />
+              تأكيد الموافقة
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══ Reject Dialog ═══ */}
+      <Dialog open={rejectDialog.open} onOpenChange={open => setRejectDialog(prev => ({ ...prev, open }))}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              رفض تجديد الاشتراك
+            </DialogTitle>
+          </DialogHeader>
+          {rejectDialog.sub && (
+            <div className="space-y-4 py-2">
+              <div className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/40 p-3 text-sm">
+                <p className="font-semibold">{rejectDialog.sub.name}</p>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  {formatCurrency(rejectDialog.sub.cost, rejectDialog.sub.currency)} · {rejectDialog.sub.provider}
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                سيتم إلغاء هذا الاشتراك ولن يتم تسجيل أي مصروف. يمكنك إعادة تفعيله لاحقاً من صفحة الاشتراكات.
+              </p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">سبب الرفض (اختياري)</Label>
+                <Input
+                  value={rejectDialog.reason}
+                  onChange={e => setRejectDialog(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="مثال: تم إلغاء الخدمة"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectDialog(prev => ({ ...prev, open: false }))}>
+              إلغاء
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmRejection}
+            >
+              <XCircle className="h-4 w-4 me-1" />
+              تأكيد الرفض
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ═══ Section 6: Quick Links ═══ */}
       <StaggerContainer className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">

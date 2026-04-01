@@ -19,13 +19,17 @@ const CYCLE_ARABIC: Record<string, string> = {
  * 3. Logs the activity
  */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
   const { id } = await params;
+  const body = await req.json().catch(() => ({}));
+  // Admin can override the actual cost (since subscription costs vary month-to-month)
+  const actualCost = body.actual_cost != null ? parseFloat(body.actual_cost) : null;
+  const notes = body.notes?.trim() || null;
   const supabase = createServiceRoleClient();
 
   try {
@@ -51,13 +55,14 @@ export async function POST(
       return apiError('تم تسجيل مصروف لهذا التجديد مسبقاً');
     }
 
-    // 1. Create expense
+    // 1. Create expense — use actual_cost if provided (costs can vary), fall back to sub.cost
+    const expenseCost = (actualCost != null && !isNaN(actualCost) && actualCost > 0) ? actualCost : sub.cost;
     const cycleName = CYCLE_ARABIC[sub.billing_cycle || 'monthly'] || 'شهري';
     const expenseId = generateId('exp');
     await supabase.from('pyra_expenses').insert({
       id: expenseId,
-      description: `${sub.name} — تجديد ${cycleName}`,
-      amount: sub.cost,
+      description: `${sub.name} — تجديد ${cycleName}${notes ? ` (${notes})` : ''}`,
+      amount: expenseCost,
       currency: sub.currency,
       subscription_id: sub.id,
       category_id: 'ec_subscriptions',
@@ -87,11 +92,13 @@ export async function POST(
       details: {
         subscription_name: sub.name,
         provider: sub.provider,
-        cost: sub.cost,
+        cost: expenseCost,
+        original_cost: sub.cost,
         currency: sub.currency,
         renewal_date: sub.next_renewal_date,
         next_date: nextDate,
         expense_id: expenseId,
+        notes,
       },
       ip_address: 'system',
     });
