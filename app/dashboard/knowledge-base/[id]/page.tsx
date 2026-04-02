@@ -8,8 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ArrowRight, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ArticleEditor } from './ArticleEditor';
-import { ArticleSidebar } from './ArticleSidebar';
+import { ArticleEditor } from '@/components/dashboard/knowledge-base-detail/ArticleEditor';
+import { ArticleSidebar } from '@/components/dashboard/knowledge-base-detail/ArticleSidebar';
 
 export default function EditArticlePage() {
   const router = useRouter();

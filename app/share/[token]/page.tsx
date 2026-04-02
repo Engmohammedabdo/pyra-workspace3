@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Shield } from 'lucide-react';
-import { StateRenderer } from './StateRenderer';
+import { StateRenderer } from '@/components/share/StateRenderer';
 
 export default function ShareDownloadPage() {
   const params = useParams<{ token: string }>();

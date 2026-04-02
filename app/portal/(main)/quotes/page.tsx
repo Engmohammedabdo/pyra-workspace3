@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
-import { QuoteDetailView } from './QuoteDetailView';
+import { QuoteDetailView } from '@/components/portal/quotes/QuoteDetailView';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   sent: { label: 'جديد', variant: 'default' },
@@ -73,7 +73,7 @@ export default function PortalQuotesPage() {
       });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
-      setDetail(prev => prev ? { ...prev, status: 'signed', signed_by: signName.trim(), signed_at: new Date().toISOString(), signature_data: signData } : null);
+      setDetail((prev: any) => prev ? { ...prev, status: 'signed', signed_by: signName.trim(), signed_at: new Date().toISOString(), signature_data: signData } : null);
       fetchQuotes();
     } catch { toast.error('حدث خطأ أثناء التوقيع'); } finally { setSigning(false); }
   };
