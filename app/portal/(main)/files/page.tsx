@@ -1,537 +1,34 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { cn } from '@/lib/utils/cn';
-import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { toast } from 'sonner';
-import {
-  Card,
-  CardContent,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { RefreshCw, LayoutGrid, List, PackageCheck, Loader2, FolderOpen, Home, ChevronLeft, ChevronRight } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SearchInput } from '@/components/ui/search-input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import {
-  Download,
-  CheckCircle,
-  RotateCcw,
-  FileImage,
-  FileVideo,
-  FileAudio,
-  FileArchive,
-  FileCode,
-  FileSpreadsheet,
-  File as FileIconLucide,
-  FileText,
-  FolderOpen,
-  Folder,
-  Loader2,
-  Eye,
-  ChevronLeft,
-  LayoutGrid,
-  List,
-  ChevronRight,
-  Home,
-  Star,
-  PackageCheck,
-  RefreshCw,
-} from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { usePortalFavorites } from '@/hooks/usePortalFavorites';
 import { PortalFilePreview } from '@/components/portal/portal-file-preview';
-import { EmptyState } from '@/components/ui/empty-state';
-import { PdfThumbnail } from '@/components/portal/pdf-thumbnail';
 import { resolveMimeType } from '@/lib/utils/mime';
 
-// ---------- Types ----------
+import { FileWithProject, FileTag } from '@/components/portal/files/types';
+import { FileCard } from '@/components/portal/files/FileCard';
+import { FileRow } from '@/components/portal/files/FileRow';
+import { FolderCard } from '@/components/portal/files/FolderCard';
+import { getItemsAtLevel, formatSegmentName } from '@/components/portal/files/utils';
 
-interface FileTag {
-  tag_name: string;
-  color: string;
-}
-
-interface FileWithProject {
-  id: string;
-  file_name: string;
-  file_type: string;
-  file_path: string;
-  file_size?: number;
-  added_at: string;
-  project_id: string;
-  project_name: string;
-  approval: {
-    id: string;
-    status: 'pending' | 'approved' | 'revision_requested';
-    comment: string | null;
-  } | null;
-  tags?: FileTag[];
-}
-
-interface TreeFolder {
-  name: string;
-  label: string;
-  fileCount: number;
-  totalSize: number;
-}
-
-interface LevelContents {
-  folders: TreeFolder[];
-  files: FileWithProject[];
-}
-
-// ---------- Helpers ----------
-
-const approvalStatusConfig: Record<string, { label: string; className: string }> = {
-  pending: {
-    label: 'بانتظار المراجعة',
-    className: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',
-  },
-  approved: {
-    label: 'تمت الموافقة',
-    className: 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20',
-  },
-  revision_requested: {
-    label: 'مطلوب تعديل',
-    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  },
-};
-
+// Filter options
 const approvalFilterOptions = [
   { value: 'all', label: 'جميع الحالات' },
   { value: 'pending', label: 'بانتظار المراجعة' },
   { value: 'approved', label: 'تمت الموافقة' },
   { value: 'revision_requested', label: 'مطلوب تعديل' },
 ];
-
-function isNewFile(addedAt: string): boolean {
-  const added = new Date(addedAt).getTime();
-  return Date.now() - added < 48 * 60 * 60 * 1000;
-}
-
-function isImageType(fileType: string): boolean {
-  return fileType.toLowerCase().startsWith('image/');
-}
-
-function isPdfType(fileType: string): boolean {
-  return fileType.toLowerCase() === 'application/pdf';
-}
-
-function getFileIcon(fileType: string) {
-  const type = fileType.toLowerCase();
-  if (type.startsWith('image/')) return FileImage;
-  if (type.startsWith('video/')) return FileVideo;
-  if (type.startsWith('audio/')) return FileAudio;
-  if (type.includes('zip') || type.includes('rar') || type.includes('archive'))
-    return FileArchive;
-  if (type.includes('pdf') || type.includes('document') || type.includes('word'))
-    return FileText;
-  if (type.includes('sheet') || type.includes('excel') || type.includes('csv'))
-    return FileSpreadsheet;
-  if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css') || type.includes('markdown'))
-    return FileCode;
-  return FileIconLucide;
-}
-
-function getFileColorBg(fileType: string): string {
-  const type = fileType.toLowerCase();
-  if (type.startsWith('image/')) return 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-500 dark:text-emerald-400';
-  if (type.startsWith('video/')) return 'bg-purple-50 dark:bg-purple-950/30 text-purple-500 dark:text-purple-400';
-  if (type.startsWith('audio/')) return 'bg-pink-50 dark:bg-pink-950/30 text-pink-500 dark:text-pink-400';
-  if (type.includes('zip') || type.includes('rar') || type.includes('archive'))
-    return 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400';
-  if (type.includes('pdf'))
-    return 'bg-red-50 dark:bg-red-950/30 text-red-500 dark:text-red-400';
-  if (type.includes('document') || type.includes('word'))
-    return 'bg-blue-50 dark:bg-blue-950/30 text-blue-500 dark:text-blue-400';
-  if (type.includes('sheet') || type.includes('excel') || type.includes('csv'))
-    return 'bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400';
-  if (type.includes('html') || type.includes('javascript') || type.includes('json') || type.includes('css') || type.includes('markdown'))
-    return 'bg-cyan-50 dark:bg-cyan-950/30 text-cyan-500 dark:text-cyan-400';
-  return 'bg-gray-50 dark:bg-gray-950/30 text-gray-400';
-}
-
-/**
- * Extract subfolder parts from a file path as an array.
- * Path format: projects/{company}/{project}/{sub1}/{sub2}/.../filename
- * Returns: ['sub1', 'sub2', ...] (empty array if file is at project root)
- */
-function getSubfolderParts(filePath: string): string[] {
-  const parts = filePath.split('/');
-  // parts: ['projects', company, project, sub1, sub2, ..., filename]
-  if (parts.length <= 4) return []; // file at project root
-  return parts.slice(3, parts.length - 1);
-}
-
-/**
- * Format a single folder segment name for display.
- * Replaces dashes/underscores with spaces, capitalizes words.
- */
-function formatSegmentName(segment: string): string {
-  return segment
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-/**
- * Given all files and the current navigation path,
- * compute what's visible at this level:
- * - folders: immediate child directories
- * - files: files that live at exactly this depth
- */
-function getItemsAtLevel(files: FileWithProject[], currentPath: string[]): LevelContents {
-  const depth = currentPath.length;
-  const folderMap = new Map<string, { count: number; totalSize: number }>();
-  const filesAtLevel: FileWithProject[] = [];
-
-  for (const file of files) {
-    const parts = getSubfolderParts(file.file_path);
-
-    // Check if file is under the current path
-    let matches = true;
-    for (let i = 0; i < depth; i++) {
-      if (i >= parts.length || parts[i] !== currentPath[i]) {
-        matches = false;
-        break;
-      }
-    }
-    if (!matches) continue;
-
-    if (parts.length === depth) {
-      // File is exactly at this level (no deeper subfolder)
-      filesAtLevel.push(file);
-    } else if (parts.length > depth) {
-      // File is in a child folder — count the immediate child folder
-      const folderName = parts[depth];
-      const existing = folderMap.get(folderName) || { count: 0, totalSize: 0 };
-      existing.count++;
-      existing.totalSize += file.file_size || 0;
-      folderMap.set(folderName, existing);
-    }
-  }
-
-  const folders: TreeFolder[] = Array.from(folderMap.entries())
-    .map(([name, info]) => ({
-      name,
-      label: formatSegmentName(name),
-      fileCount: info.count,
-      totalSize: info.totalSize,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  return { folders, files: filesAtLevel };
-}
-
-// ---------- Sub-Components ----------
-
-function FolderCard({
-  folder,
-  onClick,
-}: {
-  folder: TreeFolder;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="flex items-center gap-3 p-3 rounded-xl border bg-card hover:bg-muted/40 hover:shadow-md transition-all duration-200 text-start min-w-[180px] max-w-[240px] shrink-0 group"
-    >
-      <div className="w-10 h-10 rounded-lg bg-portal/10 flex items-center justify-center shrink-0 group-hover:bg-portal/20 transition-colors">
-        <Folder className="h-5 w-5 text-portal" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold truncate">{folder.label}</p>
-        <p className="text-[11px] text-muted-foreground">
-          {folder.fileCount} ملف
-          {folder.totalSize > 0 && <> · {formatFileSize(folder.totalSize)}</>}
-        </p>
-      </div>
-    </button>
-  );
-}
-
-function FileCard({
-  file,
-  onPreview,
-  onDownload,
-  onApprove,
-  onRevision,
-  approveLoading,
-  onToggleFavorite,
-  favorited,
-}: {
-  file: FileWithProject;
-  onPreview: () => void;
-  onDownload: () => void;
-  onApprove: () => void;
-  onRevision: () => void;
-  approveLoading: boolean;
-  onToggleFavorite: () => void;
-  favorited: boolean;
-}) {
-  const FileTypeIcon = getFileIcon(file.file_type);
-  const colorBg = getFileColorBg(file.file_type);
-  const approval = file.approval;
-  const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
-  const isImage = isImageType(file.file_type);
-  const isPdf = isPdfType(file.file_type);
-  const [imgError, setImgError] = useState(false);
-  const canAct = !approval || approval.status === 'pending';
-
-  return (
-    <div
-      className="group relative rounded-xl border bg-card overflow-hidden hover:shadow-lg hover:border-portal/20 transition-all duration-200 cursor-pointer"
-      onClick={onPreview}
-    >
-      {/* Thumbnail / Icon Area */}
-      <div className="aspect-[4/3] relative overflow-hidden bg-muted/20">
-        {isImage && !imgError ? (
-          <img
-            src={`/api/portal/files/${file.id}/thumbnail`}
-            alt={file.file_name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={() => setImgError(true)}
-          />
-        ) : isPdf ? (
-          <PdfThumbnail
-            url={`/api/portal/files/${file.id}/view`}
-            fileName={file.file_name}
-            className="w-full h-full"
-          />
-        ) : (
-          <div className={cn('w-full h-full flex items-center justify-center', colorBg)}>
-            <FileTypeIcon className="h-12 w-12 opacity-80" />
-          </div>
-        )}
-
-        {/* Hover overlay with actions */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-          <button
-            onClick={(e) => { e.stopPropagation(); onPreview(); }}
-            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-            title="معاينة"
-          >
-            <Eye className="h-4 w-4 text-gray-700 dark:text-gray-200" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDownload(); }}
-            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-            title="تحميل"
-          >
-            <Download className="h-4 w-4 text-gray-700 dark:text-gray-200" />
-          </button>
-          {canAct && (
-            <>
-              <button
-                onClick={(e) => { e.stopPropagation(); onApprove(); }}
-                disabled={approveLoading}
-                className="w-9 h-9 rounded-full bg-green-500/90 hover:bg-green-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                title="موافقة"
-              >
-                {approveLoading ? (
-                  <Loader2 className="h-4 w-4 text-white animate-spin" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 text-white" />
-                )}
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onRevision(); }}
-                className="w-9 h-9 rounded-full bg-amber-500/90 hover:bg-amber-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
-                title="طلب تعديل"
-              >
-                <RotateCcw className="h-4 w-4 text-white" />
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Favorite star */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleFavorite();
-          }}
-          className={cn(
-            'absolute top-2 end-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all',
-            favorited
-              ? 'bg-amber-100 text-amber-500'
-              : 'bg-black/20 text-white opacity-0 group-hover:opacity-100'
-          )}
-        >
-          <Star className={cn('h-4 w-4', favorited && 'fill-amber-500')} />
-        </button>
-
-        {/* Top badges */}
-        <div className="absolute top-2 start-2 flex items-center gap-1">
-          {isNewFile(file.added_at) && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-portal text-white border-0 shadow-sm">
-              جديد
-            </Badge>
-          )}
-          {approvalStatus && (
-            <Badge className={cn('text-[9px] px-1.5 py-0 shadow-sm', approvalStatus.className)}>
-              {approvalStatus.label}
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      {/* File Info */}
-      <div className="p-3">
-        <p className="text-sm font-medium line-clamp-2 leading-tight mb-1" title={file.file_name}>
-          {file.file_name}
-        </p>
-        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          {file.file_size != null && (
-            <span>{formatFileSize(file.file_size)}</span>
-          )}
-          {file.file_size != null && <span>·</span>}
-          <span>{formatDate(file.added_at)}</span>
-        </div>
-        {file.tags && file.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-1.5">
-            {file.tags.slice(0, 3).map((tag) => (
-              <span
-                key={tag.tag_name}
-                className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border"
-                style={{
-                  backgroundColor: `${tag.color}15`,
-                  color: tag.color,
-                  borderColor: `${tag.color}30`,
-                }}
-              >
-                {tag.tag_name}
-              </span>
-            ))}
-            {file.tags.length > 3 && (
-              <span className="text-[9px] text-muted-foreground">+{file.tags.length - 3}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function FileRow({
-  file,
-  onPreview,
-  onDownload,
-  onApprove,
-  onRevision,
-  approveLoading,
-}: {
-  file: FileWithProject;
-  onPreview: () => void;
-  onDownload: () => void;
-  onApprove: () => void;
-  onRevision: () => void;
-  approveLoading: boolean;
-}) {
-  const FileTypeIcon = getFileIcon(file.file_type);
-  const approval = file.approval;
-  const approvalStatus = approval ? approvalStatusConfig[approval.status] : null;
-  const canAct = !approval || approval.status === 'pending';
-
-  return (
-    <div className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 transition-colors border-b last:border-b-0">
-      <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
-        <FileTypeIcon className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-sm truncate cursor-pointer hover:text-portal transition-colors"
-            onClick={onPreview}
-          >
-            {file.file_name}
-          </span>
-          {isNewFile(file.added_at) && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-portal text-white border-0 shrink-0">
-              جديد
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
-          {file.file_size != null && <span>{formatFileSize(file.file_size)}</span>}
-          <span>&middot;</span>
-          <span>{formatDate(file.added_at)}</span>
-          {approvalStatus && (
-            <>
-              <span>&middot;</span>
-              <Badge className={cn('text-[9px] px-1.5 py-0', approvalStatus.className)}>
-                {approvalStatus.label}
-              </Badge>
-            </>
-          )}
-          {file.tags && file.tags.length > 0 && (
-            <>
-              <span>&middot;</span>
-              {file.tags.slice(0, 2).map((tag) => (
-                <span
-                  key={tag.tag_name}
-                  className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium border"
-                  style={{
-                    backgroundColor: `${tag.color}15`,
-                    color: tag.color,
-                    borderColor: `${tag.color}30`,
-                  }}
-                >
-                  {tag.tag_name}
-                </span>
-              ))}
-              {file.tags.length > 2 && (
-                <span className="text-[9px] text-muted-foreground">+{file.tags.length - 2}</span>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-      <div className="flex items-center gap-1 shrink-0">
-        <Button variant="ghost" size="sm" onClick={onPreview} className="h-8 w-8 p-0 text-portal hover:text-portal-secondary hover:bg-portal/10" title="معاينة">
-          <Eye className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onDownload} className="h-8 w-8 p-0" title="تحميل">
-          <Download className="h-4 w-4" />
-        </Button>
-        {canAct && (
-          <>
-            <Button
-              variant="ghost" size="sm" onClick={onApprove} disabled={approveLoading}
-              className="h-8 w-8 p-0 text-green-600 hover:text-green-700 hover:bg-green-500/10" title="موافقة"
-            >
-              {approveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-            </Button>
-            <Button
-              variant="ghost" size="sm" onClick={onRevision}
-              className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-500/10" title="طلب تعديل"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ---------- Main Component ----------
 
 export default function PortalFilesPage() {
   const [files, setFiles] = useState<FileWithProject[]>([]);
@@ -559,7 +56,6 @@ export default function PortalFilesPage() {
   const { toggleFavorite, isFavorite } = usePortalFavorites();
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
-  // Restore view mode from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('portal-files-view');
     if (saved === 'list' || saved === 'grid') setViewMode(saved);
@@ -604,7 +100,6 @@ export default function PortalFilesPage() {
     fetchFiles();
   }, [fetchFiles]);
 
-  // Unique projects
   const projects = useMemo(() => {
     const map = new Map<string, string>();
     for (const f of files) {
@@ -613,7 +108,6 @@ export default function PortalFilesPage() {
     return Array.from(map, ([id, name]) => ({ id, name }));
   }, [files]);
 
-  // Filter files
   const filteredFiles = useMemo(() => {
     let list = files;
     if (projectFilter !== 'all') list = list.filter((f) => f.project_id === projectFilter);
@@ -630,17 +124,10 @@ export default function PortalFilesPage() {
     return list;
   }, [files, projectFilter, statusFilter, search]);
 
-  // Get folders + files at the current navigation level
   const levelContents = useMemo(
     () => getItemsAtLevel(filteredFiles, currentPath),
     [filteredFiles, currentPath]
   );
-
-  // Count total items in current view
-  const totalFolders = levelContents.folders.length;
-  const totalFilesAtLevel = levelContents.files.length;
-
-  // ---------- Actions ----------
 
   async function handleApprove(fileId: string) {
     setApproveLoading(fileId);
@@ -661,10 +148,6 @@ export default function PortalFilesPage() {
 
   async function handleRevisionSubmit() {
     if (!revisionFileId || !revisionComment.trim()) return;
-    if (revisionComment.trim().length > 5000) {
-      toast.error('التعليق طويل جداً (الحد الأقصى 5000 حرف)');
-      return;
-    }
     setRevisionLoading(true);
     try {
       const res = await fetch(`/api/portal/files/${revisionFileId}/revision`, {
@@ -692,16 +175,6 @@ export default function PortalFilesPage() {
     window.open(`/api/portal/files/${fileId}/download`, '_blank');
   }
 
-  function openPreview(file: FileWithProject) {
-    setPreviewFile(file);
-    setPreviewOpen(true);
-  }
-
-  function openRevision(fileId: string) {
-    setRevisionFileId(fileId);
-    setRevisionDialogOpen(true);
-  }
-
   async function handleBulkDownload() {
     const itemsAtLevel = getItemsAtLevel(files, currentPath);
     if (itemsAtLevel.files.length === 0 && itemsAtLevel.folders.length === 0) {
@@ -718,8 +191,7 @@ export default function PortalFilesPage() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        toast.error(err.error || 'فشل في التحميل');
+        toast.error('فشل في التحميل');
         return;
       }
 
@@ -740,59 +212,12 @@ export default function PortalFilesPage() {
     }
   }
 
-  // ---------- Render helpers ----------
-
-  function renderFileGrid(fileList: FileWithProject[]) {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-        {fileList.map((file) => (
-          <FileCard
-            key={file.id}
-            file={file}
-            onPreview={() => openPreview(file)}
-            onDownload={() => handleDownload(file.id)}
-            onApprove={() => handleApprove(file.id)}
-            onRevision={() => openRevision(file.id)}
-            approveLoading={approveLoading === file.id}
-            onToggleFavorite={() => toggleFavorite({ id: file.id, type: 'file', name: file.file_name })}
-            favorited={isFavorite(file.id, 'file')}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  function renderFileList(fileList: FileWithProject[]) {
-    return (
-      <Card className="overflow-hidden">
-        {fileList.map((file) => (
-          <FileRow
-            key={file.id}
-            file={file}
-            onPreview={() => openPreview(file)}
-            onDownload={() => handleDownload(file.id)}
-            onApprove={() => handleApprove(file.id)}
-            onRevision={() => openRevision(file.id)}
-            approveLoading={approveLoading === file.id}
-          />
-        ))}
-      </Card>
-    );
-  }
-
-  // ---------- Loading ----------
-
   if (loading) {
     return (
       <div className="space-y-6">
         <div>
           <Skeleton className="h-8 w-32" />
           <Skeleton className="h-4 w-56 mt-2" />
-        </div>
-        <div className="flex gap-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-64" />
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {Array.from({ length: 10 }).map((_, i) => (
@@ -803,298 +228,91 @@ export default function PortalFilesPage() {
     );
   }
 
-  // ---------- Render ----------
-
   return (
     <div className="space-y-5 animate-in fade-in-0 duration-300">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div>
             <h1 className="text-2xl font-bold">الملفات</h1>
-            <p className="text-muted-foreground text-sm mt-1">
-              استعرض جميع ملفات مشاريعك وحمّلها
-            </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8"
-            onClick={fetchFiles}
-            aria-label="تحديث"
-          >
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchFiles} aria-label="تحديث">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
         </div>
-        {/* View Toggle & Bulk Download */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBulkDownload}
-            disabled={bulkDownloading}
-            className="gap-2"
-          >
-            {bulkDownloading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <PackageCheck className="h-4 w-4" />
-            )}
+          <Button variant="outline" size="sm" onClick={handleBulkDownload} disabled={bulkDownloading} className="gap-2">
+            {bulkDownloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackageCheck className="h-4 w-4" />}
             <span className="hidden sm:inline">تحميل الكل</span>
           </Button>
-        <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
-          <button
-            onClick={() => toggleViewMode('grid')}
-            className={cn(
-              'p-2 rounded-md transition-colors',
-              viewMode === 'grid'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            title="عرض شبكي"
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => toggleViewMode('list')}
-            className={cn(
-              'p-2 rounded-md transition-colors',
-              viewMode === 'list'
-                ? 'bg-background shadow-sm text-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            )}
-            title="عرض قائمة"
-          >
-            <List className="h-4 w-4" />
-          </button>
-        </div>
+          <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
+            <button onClick={() => toggleViewMode('grid')} className={cn('p-2 rounded-md', viewMode === 'grid' ? 'bg-background shadow-sm' : '')}><LayoutGrid className="h-4 w-4" /></button>
+            <button onClick={() => toggleViewMode('list')} className={cn('p-2 rounded-md', viewMode === 'list' ? 'bg-background shadow-sm' : '')}><List className="h-4 w-4" /></button>
+          </div>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-end flex-wrap">
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">المشروع</Label>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="جميع المشاريع" />
-            </SelectTrigger>
+            <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">جميع المشاريع</SelectItem>
-              {projects.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-              ))}
+              {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">حالة الموافقة</Label>
+          <Label className="text-xs text-muted-foreground">الحالة</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="جميع الحالات" />
-            </SelectTrigger>
+            <SelectTrigger className="w-full sm:w-48"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {approvalFilterOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-              ))}
+              {approvalFilterOptions.map((opt) => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="ابحث عن ملف..."
-          className="w-full sm:w-64 sm:ms-auto"
-        />
+        <SearchInput value={search} onChange={setSearch} placeholder="ابحث..." className="w-full sm:w-64 sm:ms-auto" />
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span>{filteredFiles.length} ملف إجمالي</span>
-        {(totalFolders > 0 || totalFilesAtLevel > 0) && (
-          <>
-            <span>·</span>
-            <span>
-              {totalFolders > 0 && <>{totalFolders} مجلد</>}
-              {totalFolders > 0 && totalFilesAtLevel > 0 && ' و '}
-              {totalFilesAtLevel > 0 && <>{totalFilesAtLevel} ملف</>}
-              {' '}في هذا المستوى
-            </span>
-          </>
-        )}
-        {filteredFiles.length !== files.length && (
-          <>
-            <span>·</span>
-            <span>من أصل {files.length}</span>
-          </>
-        )}
-      </div>
-
-      {/* Breadcrumb */}
       {currentPath.length > 0 && (
         <div className="flex items-center gap-1.5 text-sm flex-wrap">
-          <button
-            onClick={() => setCurrentPath([])}
-            className="flex items-center gap-1 text-portal hover:text-portal-secondary transition-colors font-medium"
-          >
-            <Home className="h-3.5 w-3.5" />
-            الكل
-          </button>
-          {currentPath.map((segment, idx) => {
-            const isLast = idx === currentPath.length - 1;
-            return (
-              <span key={idx} className="flex items-center gap-1.5">
-                <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                {isLast ? (
-                  <span className="font-semibold">
-                    {formatSegmentName(segment)}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))}
-                    className="text-portal hover:text-portal-secondary transition-colors font-medium"
-                  >
-                    {formatSegmentName(segment)}
-                  </button>
-                )}
-              </span>
-            );
-          })}
+          <button onClick={() => setCurrentPath([])} className="flex items-center gap-1 text-portal hover:text-portal-secondary"><Home className="h-3.5 w-3.5" /> الكل</button>
+          {currentPath.map((segment, idx) => (
+            <span key={idx} className="flex items-center gap-1.5">
+              <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+              {idx === currentPath.length - 1 ? <span className="font-semibold">{formatSegmentName(segment)}</span> : <button onClick={() => setCurrentPath(currentPath.slice(0, idx + 1))} className="text-portal">{formatSegmentName(segment)}</button>}
+            </span>
+          ))}
         </div>
       )}
 
-      {/* Content */}
       {filteredFiles.length === 0 ? (
-        <EmptyState icon={FolderOpen} title="لا توجد ملفات" description="لا توجد ملفات تطابق معايير البحث الحالية" />
-      ) : totalFolders === 0 && totalFilesAtLevel === 0 ? (
-        /* ── Empty level (no folders or files at this depth) ── */
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <FolderOpen className="h-10 w-10 text-muted-foreground/40 mb-3" />
-            <p className="text-sm text-muted-foreground">
-              هذا المجلد فارغ
-            </p>
-            {currentPath.length > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-3 text-portal hover:text-portal-secondary"
-                onClick={() => setCurrentPath(currentPath.slice(0, -1))}
-              >
-                <ChevronRight className="h-4 w-4 me-1" />
-                رجوع
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+        <EmptyState icon={FolderOpen} title="لا توجد ملفات" />
+      ) : levelContents.folders.length === 0 && levelContents.files.length === 0 ? (
+        <Card><CardContent className="flex flex-col items-center justify-center py-12"><FolderOpen className="h-10 w-10 text-muted-foreground/40" /></CardContent></Card>
       ) : (
-        /* ── Current level: Folder cards + files ── */
         <div className="space-y-6">
-          {/* Folder Cards */}
-          {totalFolders > 0 && (
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                المجلدات
-              </h3>
-              <div className="flex flex-wrap gap-3">
-                {levelContents.folders.map((folder) => (
-                  <FolderCard
-                    key={folder.name}
-                    folder={folder}
-                    onClick={() => setCurrentPath([...currentPath, folder.name])}
-                  />
-                ))}
-              </div>
+          {levelContents.folders.length > 0 && (
+            <div className="flex flex-wrap gap-3">
+              {levelContents.folders.map((folder) => <FolderCard key={folder.name} folder={folder} onClick={() => setCurrentPath([...currentPath, folder.name])} />)}
             </div>
           )}
-
-          {/* Files at this level */}
-          {totalFilesAtLevel > 0 && (
-            <div>
-              {totalFolders > 0 && (
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                  الملفات
-                </h3>
-              )}
-              {viewMode === 'grid'
-                ? renderFileGrid(levelContents.files)
-                : renderFileList(levelContents.files)
-              }
-            </div>
-          )}
-
-          {/* Hint when only folders are visible */}
-          {totalFilesAtLevel === 0 && totalFolders > 0 && (
-            <p className="text-xs text-muted-foreground text-center">
-              اضغط على أي مجلد لعرض محتوياته
-            </p>
+          {levelContents.files.length > 0 && (
+            viewMode === 'grid' 
+              ? <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">{levelContents.files.map((file) => <FileCard key={file.id} file={file} onPreview={() => { setPreviewFile(file); setPreviewOpen(true); }} onDownload={() => handleDownload(file.id)} onApprove={() => handleApprove(file.id)} onRevision={() => { setRevisionFileId(file.id); setRevisionDialogOpen(true); }} approveLoading={approveLoading === file.id} onToggleFavorite={() => toggleFavorite({ id: file.id, type: 'file', name: file.file_name })} favorited={isFavorite(file.id, 'file')} />)}</div>
+              : <Card className="overflow-hidden">{levelContents.files.map((file) => <FileRow key={file.id} file={file} onPreview={() => { setPreviewFile(file); setPreviewOpen(true); }} onDownload={() => handleDownload(file.id)} onApprove={() => handleApprove(file.id)} onRevision={() => { setRevisionFileId(file.id); setRevisionDialogOpen(true); }} approveLoading={approveLoading === file.id} />)}</Card>
           )}
         </div>
       )}
 
-      {/* Revision Dialog */}
       <Dialog open={revisionDialogOpen} onOpenChange={setRevisionDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>طلب تعديل</DialogTitle>
-            <DialogDescription>
-              أضف ملاحظاتك حول التعديلات المطلوبة على هذا الملف
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="revision-comment-files">الملاحظات</Label>
-            <textarea
-              id="revision-comment-files"
-              value={revisionComment}
-              onChange={(e) => setRevisionComment(e.target.value)}
-              placeholder="اكتب ملاحظاتك هنا..."
-              maxLength={5000}
-              className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              required
-            />
-          </div>
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setRevisionDialogOpen(false);
-                setRevisionComment('');
-                setRevisionFileId(null);
-              }}
-            >
-              إلغاء
-            </Button>
-            <Button
-              onClick={handleRevisionSubmit}
-              disabled={revisionLoading || !revisionComment.trim()}
-              className="gap-2 bg-amber-500 hover:bg-amber-600 text-white"
-            >
-              {revisionLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="h-4 w-4" />
-              )}
-              إرسال طلب التعديل
-            </Button>
-          </DialogFooter>
+          <DialogHeader><DialogTitle>طلب تعديل</DialogTitle></DialogHeader>
+          <textarea value={revisionComment} onChange={(e) => setRevisionComment(e.target.value)} className="w-full h-32 border p-2 rounded" placeholder="الملاحظات..." />
+          <DialogFooter><Button onClick={handleRevisionSubmit} disabled={revisionLoading}>إرسال</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* File Preview */}
-      <PortalFilePreview
-        file={
-          previewFile
-            ? {
-                id: previewFile.id,
-                file_name: previewFile.file_name,
-                file_type: previewFile.file_type,
-                file_size: previewFile.file_size,
-              }
-            : null
-        }
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-      />
+      <PortalFilePreview file={previewFile ? { id: previewFile.id, file_name: previewFile.file_name, file_type: previewFile.file_type, file_size: previewFile.file_size } : null} open={previewOpen} onOpenChange={setPreviewOpen} />
     </div>
   );
 }
