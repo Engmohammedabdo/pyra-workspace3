@@ -40,10 +40,11 @@ export async function POST(
 
     if (!invoice) return apiValidationError('الفاتورة المرتبطة غير موجودة');
 
-    // Apply: reduce invoice by credit note total (capped to amount_due)
-    const applyAmount = Math.min(cn.total, invoice.amount_due);
+    // Apply credit note as a refund — works on paid invoices too
+    // Credit note reduces what was paid (creates negative payment)
+    const applyAmount = cn.total;
 
-    if (applyAmount <= 0) return apiValidationError('لا يوجد مبلغ مستحق لتطبيق الإشعار عليه');
+    if (applyAmount <= 0) return apiValidationError('مبلغ الإشعار الدائن صفر');
 
     // 1. Create a NEGATIVE payment record (same pattern as refunds in Stripe webhook)
     const paymentId = generateId('pay');
