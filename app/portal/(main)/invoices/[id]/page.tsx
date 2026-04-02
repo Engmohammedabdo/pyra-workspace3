@@ -9,9 +9,9 @@ import { Separator } from '@/components/ui/separator';
 import { ChevronRight, Download, CreditCard, Loader2 } from 'lucide-react';
 import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
 import { toast } from 'sonner';
-import { InvoiceHeader, InvoiceInfo } from './invoice-header';
-import { InvoiceTable, InvoiceTotals } from './invoice-table';
-import { InvoicePayments } from './invoice-payments';
+import { InvoiceHeader, InvoiceInfo } from '@/components/portal/invoice-detail/invoice-header';
+import { InvoiceTable, InvoiceTotals } from '@/components/portal/invoice-detail/invoice-table';
+import { InvoicePayments } from '@/components/portal/invoice-detail/invoice-payments';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   sent: { label: 'مرسلة', variant: 'default' },

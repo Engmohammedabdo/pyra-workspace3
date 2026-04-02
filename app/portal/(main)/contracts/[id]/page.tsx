@@ -9,8 +9,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ArrowRight, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
-import { ContractDetails } from './contract-details';
-import { MilestonesList } from './milestones-list';
+import { ContractDetails } from '@/components/portal/contract-detail/contract-details';
+import { MilestonesList } from '@/components/portal/contract-detail/milestones-list';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   active: { label: 'نشط', variant: 'default' },
