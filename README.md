@@ -99,23 +99,25 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Quote Approvals** — Internal approval workflow for quotes
 
 #### Invoicing & Billing
-- **Invoices** — Full invoice builder, auto-numbering, status flow (draft → sent → paid → overdue), PDF generation, display client name override (trade license name)
+- **Business Entities** — Multi-license support (select trade license per invoice/quote). Entity name, logo, and license number appear in PDF documents automatically
+- **Invoices** — Full invoice builder, auto-numbering, status flow (draft → sent → paid → overdue), PDF generation, display client name override (trade license name), entity selection
 - **Payments** — Manual recording + Stripe checkout integration with webhook handling
 - **Recurring Invoices** — Auto-generation of recurring invoices from contracts
-- **Credit Notes** — Credit note issuance against invoices with line items
+- **Credit Notes** — Credit note issuance with line items, applies as negative payment (reduces revenue), works on fully paid invoices (refund scenario), updates contract totals
 - **Stripe Integration** — Payment links, checkout sessions, webhook processing (payment, refund, dispute)
 - **Dunning** — Automated overdue payment reminders
+- **Auto-Overdue** — Invoices past due date auto-marked as overdue on dashboard load
 
 #### Quotations
-- **Quote Builder** — Full quote builder with auto-numbering (QT-XXXX), VAT calculation
-- **PDF Generation** — Arabic RTL PDF with company branding
+- **Quote Builder** — Full quote builder with auto-numbering (QT-XXXX), VAT calculation, entity selection, manual client info (no dropdown required)
+- **PDF Generation** — Arabic RTL PDF with entity-specific logo and company name
 - **Electronic Signatures** — Canvas-based digital signatures with IP logging
 - **Email Sending** — Direct quote email to clients
 
 #### Finance Module
 - **Expenses** — Expense tracking with categories, VAT, receipts, approval workflow
 - **Expense Categories** — Custom categories with Arabic names, icons, and colors
-- **Subscriptions** — Recurring subscription management with auto-renewal expense creation
+- **Subscriptions** — Recurring subscription management with approval/rejection workflow (editable amount on approval, rejection with reason, auto-expense creation)
 - **Contracts** — Contract management with milestones + retainer billing, manual invoice generation from contract, auto-billed amounts tracking
 - **Purchase Orders** — PO creation, approval, and auto-expense on receipt
 - **Suppliers** — Vendor management with bank details and payment terms
@@ -123,13 +125,14 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Revenue Targets** — Monthly/quarterly/yearly revenue goals
 - **Finance Alerts** — Smart alerts for overdue invoices, budget overruns, expiring subscriptions
 
-#### Finance Reports
-- **P&L (Profit & Loss)** — Monthly/quarterly with expense breakdown (salaries, operational, subscriptions)
-- **VAT Report** — Collected vs paid VAT with monthly breakdown
-- **Client Profitability** — Revenue, expenses, and margin per client
-- **Project Profitability** — Revenue vs costs (direct expenses + labor) per project with budget utilization
+#### Finance Reports (Cash-Basis Accounting)
+- **P&L (Profit & Loss)** — Monthly/quarterly with expense breakdown (salaries, operational, subscriptions). Revenue by actual payment date, not invoice issue date
+- **VAT Report** — Collected vs paid VAT with monthly breakdown. VAT collected calculated from actual payments
+- **Client Profitability** — Revenue (from payments), expenses, and margin per client
+- **Project Profitability** — Revenue (from payments) vs costs (direct expenses + labor) per project with budget utilization
 - **Client Statement** — Per-client account statement with aging
-- **Cashflow** — Cash in/out analysis
+- **Cashflow** — Cash in/out analysis with refund tracking
+- **Aging Report** — Invoice aging by days past due date (standard accounting)
 - **Revenue Reports** — Revenue analytics with charts
 
 #### HR & Payroll
@@ -260,7 +263,8 @@ The system unifies HR and Finance with these key integrations:
 | **Unpaid Leave → Deductions** | Unpaid leave auto-deducted from payroll (daily rate = salary ÷ 22 working days) |
 | **Commissions** | Auto-calculated on invoice payments (manual + Stripe) based on employee commission rates |
 | **PO → Expenses** | Purchase orders auto-create expenses when status changes to "received" |
-| **Subscriptions → Expenses** | Auto-expense creation on subscription renewal with dedup |
+| **Subscriptions → Expenses** | Approval-based renewal with editable amount, auto-expense on approve, cancel on reject |
+| **Credit Notes → Payments** | Credit note creates negative payment record, recalculates invoice amounts and contract totals |
 | **Invoice → Project** | Direct `project_id` linking for accurate project profitability |
 | **Contract → Billing** | Auto-update `amount_billed` when invoices are created against contracts |
 | **Evaluation → Bonus** | Performance rating-based bonus recommendations (≥4.5 → 15%, ≥4.0 → 10%) |
@@ -282,7 +286,7 @@ The system unifies HR and Finance with these key integrations:
 | Files | `pyra_file_index`, `pyra_file_versions`, `pyra_project_files`, `pyra_favorites`, `pyra_trash` | File management |
 | Projects | `pyra_projects`, `pyra_teams`, `pyra_team_members` | Project and team management |
 | Tasks | `pyra_boards`, `pyra_board_columns`, `pyra_tasks`, `pyra_task_assignees`, `pyra_task_labels`, `pyra_task_checklist`, `pyra_task_comments`, `pyra_task_attachments`, `pyra_task_activity`, `pyra_task_stage_history`, `pyra_board_task_types`, `pyra_board_templates`, `pyra_board_stars`, `pyra_board_members` | Unified Task Pipeline |
-| Finance | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_expenses`, `pyra_expense_categories`, `pyra_subscriptions`, `pyra_contracts`, `pyra_contract_milestones`, `pyra_cards`, `pyra_recurring_invoices`, `pyra_revenue_targets`, `pyra_stripe_payments` | Billing and finance |
+| Finance | `pyra_invoices`, `pyra_invoice_items`, `pyra_payments`, `pyra_expenses`, `pyra_expense_categories`, `pyra_subscriptions`, `pyra_contracts`, `pyra_contract_milestones`, `pyra_cards`, `pyra_recurring_invoices`, `pyra_revenue_targets`, `pyra_stripe_payments`, `pyra_business_entities` | Billing, finance, and multi-license |
 | Procurement | `pyra_suppliers`, `pyra_purchase_orders`, `pyra_purchase_order_items`, `pyra_credit_notes`, `pyra_credit_note_items` | Vendors and purchase orders |
 | Quotes | `pyra_quotes`, `pyra_quote_items` | Quotations |
 | HR | `pyra_attendance`, `pyra_leave_requests`, `pyra_leave_types`, `pyra_leave_balances_v2`, `pyra_work_schedules`, `pyra_timesheets`, `pyra_timesheet_periods` | Attendance and leave |
@@ -387,7 +391,7 @@ docs/                         # Technical documentation
 | `/api/tasks/*` | 6 | Task CRUD, move, duplicate (scope-protected) |
 | `/api/teams/*` | 3 | Team CRUD, member management |
 | `/api/notifications/*` | 3 | List, mark read, mark all |
-| `/api/settings/*` | 3 | Config get/update |
+| `/api/settings/*` | 4 | Config get/update, business entities management |
 | `/api/stripe/*` | 2 | Stripe checkout, webhooks |
 | `/api/timesheet/*` | 2 | Timesheet CRUD |
 | `/api/roles/*` | 2 | Role management |
@@ -541,6 +545,8 @@ pnpm lint         # ESLint
 | 21 | Board System v2 — 9 features (numbering, duplicate, stars, sort, calendar, members, move, markdown, due badges) | Done |
 | 22 | Unified Employee Payments — "كشف حسابي" for all employee types + User Detail Page | Done |
 | 23 | Logic Bug Audit — 8 fixes (2 critical, 4 high, 2 medium) | Done |
+| 24 | Business Entities — Multi-license support for invoices/quotes with entity-specific PDF (logo, name, license no) | Done |
+| 25 | Finance Audit — 7 accounting fixes: credit note negative payments, cash-basis reports (P&L, VAT, profitability), aging by due_date, auto-overdue, subscription approval/rejection dialogs | Done |
 
 ---
 
