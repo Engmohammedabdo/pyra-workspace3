@@ -96,7 +96,47 @@ export async function POST(
       })
       .eq('id', id);
 
-    // 5. Log activity
+    // 5. Update contract amount_collected if invoice is linked to a contract
+    //    (same pattern as payment recording in /api/invoices/[id]/payments)
+    const { data: fullInv } = await supabase
+      .from('pyra_invoices')
+      .select('contract_id')
+      .eq('id', cn.invoice_id)
+      .maybeSingle();
+
+    let resolvedContractId: string | null = fullInv?.contract_id || null;
+    if (!resolvedContractId) {
+      const { data: milestone } = await supabase
+        .from('pyra_contract_milestones')
+        .select('contract_id')
+        .eq('invoice_id', cn.invoice_id)
+        .maybeSingle();
+      resolvedContractId = milestone?.contract_id || null;
+    }
+
+    if (resolvedContractId) {
+      const { data: contractInvoices } = await supabase
+        .from('pyra_invoices').select('id').eq('contract_id', resolvedContractId);
+      const { data: milestoneInvoices } = await supabase
+        .from('pyra_contract_milestones').select('invoice_id').eq('contract_id', resolvedContractId).not('invoice_id', 'is', null);
+
+      const allInvoiceIds = new Set<string>();
+      (contractInvoices || []).forEach((i: { id: string }) => allInvoiceIds.add(i.id));
+      (milestoneInvoices || []).forEach((m: { invoice_id: string | null }) => { if (m.invoice_id) allInvoiceIds.add(m.invoice_id); });
+
+      if (allInvoiceIds.size > 0) {
+        const { data: allContractPayments } = await supabase
+          .from('pyra_payments').select('amount').in('invoice_id', Array.from(allInvoiceIds));
+        const totalCollected = (allContractPayments || []).reduce(
+          (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+        );
+        await supabase.from('pyra_contracts')
+          .update({ amount_collected: totalCollected, updated_at: new Date().toISOString() })
+          .eq('id', resolvedContractId);
+      }
+    }
+
+    // 6. Log activity
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'credit_note_applied',

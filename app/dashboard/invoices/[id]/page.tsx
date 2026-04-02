@@ -120,6 +120,9 @@ const PAYMENT_METHODS: Record<string, string> = {
   cheque: 'شيك',
   credit_card: 'بطاقة ائتمان',
   online: 'دفع إلكتروني',
+  credit_note: 'إشعار دائن (رد)',
+  stripe: 'Stripe',
+  refund: 'استرداد',
   other: 'أخرى',
 };
 
@@ -835,7 +838,9 @@ export default function InvoiceDetailPage() {
                   {invoice.payments.map(payment => (
                     <tr key={payment.id} className="border-b">
                       <td className="p-3 text-muted-foreground">{formatDate(payment.payment_date)}</td>
-                      <td className="p-3 font-mono text-green-600">{formatCurrency(payment.amount, invoice.currency)}</td>
+                      <td className={`p-3 font-mono ${payment.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {payment.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(payment.amount), invoice.currency)}
+                      </td>
                       <td className="p-3">{PAYMENT_METHODS[payment.method] || payment.method}</td>
                       <td className="p-3 text-muted-foreground">{payment.reference || '—'}</td>
                     </tr>

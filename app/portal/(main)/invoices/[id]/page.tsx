@@ -96,7 +96,11 @@ const PAYMENT_METHODS: Record<string, string> = {
   cash: 'نقدي',
   cheque: 'شيك',
   card: 'بطاقة',
+  credit_card: 'بطاقة ائتمان',
   online: 'دفع إلكتروني',
+  credit_note: 'إشعار دائن (رد)',
+  stripe: 'Stripe',
+  refund: 'استرداد',
 };
 
 const fmtNum = (n: number) =>
@@ -324,8 +328,8 @@ export default function PortalInvoiceDetailPage() {
                       {invoice.payments.map((payment) => (
                         <tr key={payment.id} className="border-b">
                           <td className="p-2">{formatDate(payment.payment_date, 'dd-MM-yyyy')}</td>
-                          <td className="p-2 font-mono text-green-600 dark:text-green-400" dir="ltr">
-                            {fmtNum(payment.amount)} {invoice.currency}
+                          <td className={`p-2 font-mono ${payment.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`} dir="ltr">
+                            {payment.amount < 0 ? '-' : '+'}{fmtNum(Math.abs(payment.amount))} {invoice.currency}
                           </td>
                           <td className="p-2">
                             {payment.method ? (PAYMENT_METHODS[payment.method] || payment.method) : '--'}
