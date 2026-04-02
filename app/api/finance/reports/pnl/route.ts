@@ -102,15 +102,14 @@ export async function GET(req: NextRequest) {
         ? buildQuarterlyPeriods(from, to)
         : buildMonthlyPeriods(from, to);
 
-    // Fetch all invoices in the full range at once
-    const { data: invoices, error: invErr } = await supabase
-      .from('pyra_invoices')
-      .select('amount_paid, currency, issue_date')
-      .in('status', ['paid', 'partially_paid'])
-      .gte('issue_date', from)
-      .lte('issue_date', to);
+    // Fetch all payments in the full range (cash-basis: revenue by payment_date)
+    const { data: payments, error: payErr } = await supabase
+      .from('pyra_payments')
+      .select('amount, payment_date')
+      .gte('payment_date', from)
+      .lte('payment_date', to);
 
-    if (invErr) throw invErr;
+    if (payErr) throw payErr;
 
     // Fetch all expenses in the full range at once (include category_id for breakdown)
     const { data: expenses, error: expErr } = await supabase
@@ -129,9 +128,9 @@ export async function GET(req: NextRequest) {
     let totalOperational = 0;
 
     const periodResults = periods.map((p) => {
-      const periodRevenue = (invoices || [])
-        .filter((inv: { issue_date: string }) => inv.issue_date >= p.start && inv.issue_date <= p.end)
-        .reduce((sum: number, inv: { amount_paid: number; currency: string }) => sum + toAED(Number(inv.amount_paid), inv.currency), 0);
+      const periodRevenue = (payments || [])
+        .filter((pay: { payment_date: string }) => pay.payment_date >= p.start && pay.payment_date <= p.end)
+        .reduce((sum: number, pay: { amount: number }) => sum + Number(pay.amount || 0), 0);
 
       const periodExpenseItems = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end);

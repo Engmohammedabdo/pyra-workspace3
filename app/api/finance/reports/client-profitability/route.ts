@@ -38,15 +38,27 @@ export async function GET(req: NextRequest) {
       return apiSuccess([]);
     }
 
-    // 2. Get all paid invoices in range (with client_id)
-    const { data: invoices, error: invErr } = await supabase
-      .from('pyra_invoices')
-      .select('client_id, amount_paid, currency')
-      .in('status', ['paid', 'partially_paid'])
-      .gte('issue_date', from)
-      .lte('issue_date', to);
+    // 2. Get all payments in range (cash-basis: revenue by payment_date)
+    const { data: paymentsRaw, error: payErr } = await supabase
+      .from('pyra_payments')
+      .select('amount, invoice_id, payment_date')
+      .gte('payment_date', from)
+      .lte('payment_date', to);
 
-    if (invErr) throw invErr;
+    if (payErr) throw payErr;
+
+    // Map payment → client via invoice
+    const payInvoiceIds = [...new Set((paymentsRaw || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+    const invoiceClientMap: Record<string, string> = {};
+    if (payInvoiceIds.length > 0) {
+      const { data: invClients } = await supabase
+        .from('pyra_invoices')
+        .select('id, client_id')
+        .in('id', payInvoiceIds);
+      for (const inv of invClients || []) {
+        if (inv.client_id) invoiceClientMap[inv.id] = inv.client_id;
+      }
+    }
 
     // 3. Get all projects (to map project -> client)
     const { data: projects, error: projErr } = await supabase
@@ -87,11 +99,12 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // 6. Aggregate revenue per client
+    // 6. Aggregate revenue per client (from actual payments, cash-basis)
     const revenueByClient: Record<string, number> = {};
-    (invoices || []).forEach((inv: { client_id: string | null; amount_paid: number; currency: string }) => {
-      if (inv.client_id) {
-        revenueByClient[inv.client_id] = (revenueByClient[inv.client_id] || 0) + toAED(Number(inv.amount_paid), inv.currency);
+    (paymentsRaw || []).forEach((pay: { amount: number; invoice_id: string }) => {
+      const clientId = invoiceClientMap[pay.invoice_id];
+      if (clientId) {
+        revenueByClient[clientId] = (revenueByClient[clientId] || 0) + Number(pay.amount || 0);
       }
     });
 

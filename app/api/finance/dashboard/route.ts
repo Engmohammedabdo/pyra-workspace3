@@ -35,6 +35,14 @@ export async function GET() {
     const today = now.toISOString().split('T')[0];
     const in7Days = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
+    // Auto-mark overdue invoices (fire-and-forget — don't block dashboard load)
+    void supabase
+      .from('pyra_invoices')
+      .update({ status: 'overdue', updated_at: now.toISOString() })
+      .in('status', ['sent', 'partially_paid'])
+      .lt('due_date', today)
+      .then(() => {});
+
     // Revenue MTD — from actual payments (by payment_date, not invoice issue_date)
     const { data: paymentsMtd } = await supabase
       .from('pyra_payments')

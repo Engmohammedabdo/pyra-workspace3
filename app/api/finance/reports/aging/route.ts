@@ -71,8 +71,9 @@ export async function GET(req: NextRequest) {
     let totalInvoices = 0;
 
     for (const inv of invoices || []) {
-      const issueDate = new Date(inv.issue_date + 'T00:00:00');
-      const daysOutstanding = Math.max(0, Math.floor((asOfDate.getTime() - issueDate.getTime()) / 86400000));
+      // Aging: days past DUE DATE (not issue date) — standard accounting practice
+      const dueDate = new Date((inv.due_date || inv.issue_date) + 'T00:00:00');
+      const daysOutstanding = Math.max(0, Math.floor((asOfDate.getTime() - dueDate.getTime()) / 86400000));
       const amountDueAED = toAED(Number(inv.amount_due), inv.currency);
 
       totalOutstanding += amountDueAED;
@@ -126,11 +127,12 @@ export async function GET(req: NextRequest) {
       }))
       .sort((a, b) => b.total - a.total);
 
-    // Average days outstanding
+    // Average days past due
     const avgDays = totalInvoices > 0
       ? Math.round(
           (invoices || []).reduce((sum, inv) => {
-            return sum + Math.max(0, Math.floor((asOfDate.getTime() - new Date(inv.issue_date + 'T00:00:00').getTime()) / 86400000));
+            const dd = new Date((inv.due_date || inv.issue_date) + 'T00:00:00');
+            return sum + Math.max(0, Math.floor((asOfDate.getTime() - dd.getTime()) / 86400000));
           }, 0) / totalInvoices
         )
       : 0;

@@ -67,15 +67,38 @@ export async function GET(req: NextRequest) {
   const to = params.get('to') || endOfCurrentQuarter();
 
   try {
-    // VAT Collected: tax_amount from paid invoices
-    const { data: invoices, error: invErr } = await supabase
-      .from('pyra_invoices')
-      .select('tax_amount, currency, issue_date')
-      .in('status', ['paid', 'partially_paid'])
-      .gte('issue_date', from)
-      .lte('issue_date', to);
+    // VAT Collected: from payments (cash-basis — VAT recognized when paid)
+    // We get payments in range, then look up the invoice tax_rate to calculate VAT per payment
+    const { data: paymentsRaw, error: payErr } = await supabase
+      .from('pyra_payments')
+      .select('amount, payment_date, invoice_id')
+      .gte('payment_date', from)
+      .lte('payment_date', to);
 
-    if (invErr) throw invErr;
+    if (payErr) throw payErr;
+
+    // Get tax_rate for each unique invoice
+    const invoiceIds = [...new Set((paymentsRaw || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+    const taxRateMap: Record<string, number> = {};
+    if (invoiceIds.length > 0) {
+      const { data: invTaxes } = await supabase
+        .from('pyra_invoices')
+        .select('id, tax_rate, total, tax_amount')
+        .in('id', invoiceIds);
+      for (const inv of invTaxes || []) {
+        // Calculate effective tax fraction: tax_amount / total (more accurate than tax_rate alone)
+        const total = Number(inv.total || 0);
+        const taxAmt = Number(inv.tax_amount || 0);
+        taxRateMap[inv.id] = total > 0 ? taxAmt / total : 0;
+      }
+    }
+
+    // Build virtual invoice-like records for backward compatibility with period logic
+    const invoices = (paymentsRaw || []).map((p: { amount: number; payment_date: string; invoice_id: string }) => ({
+      tax_amount: Math.abs(Number(p.amount || 0)) * (taxRateMap[p.invoice_id] || 0),
+      currency: 'AED' as const,
+      issue_date: p.payment_date, // Use payment_date for period bucketing
+    }));
 
     // VAT Paid: vat_amount from expenses
     const { data: expenses, error: expErr } = await supabase

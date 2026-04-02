@@ -34,30 +34,58 @@ export async function POST(
     // Get invoice
     const { data: invoice } = await supabase
       .from('pyra_invoices')
-      .select('id, amount_due, invoice_number')
+      .select('id, total, amount_paid, amount_due, invoice_number')
       .eq('id', cn.invoice_id)
       .single();
 
     if (!invoice) return apiValidationError('الفاتورة المرتبطة غير موجودة');
 
-    // Apply: reduce invoice amount_due by credit note total
+    // Apply: reduce invoice by credit note total (capped to amount_due)
     const applyAmount = Math.min(cn.total, invoice.amount_due);
-    const newAmountDue = Math.max(0, invoice.amount_due - applyAmount);
 
-    // Update invoice
-    const invoiceUpdate: Record<string, unknown> = {
-      amount_due: newAmountDue,
-      updated_at: new Date().toISOString(),
-    };
-    if (newAmountDue <= 0) invoiceUpdate.status = 'paid';
-    else if (invoice.amount_due > newAmountDue) invoiceUpdate.status = 'partially_paid';
+    if (applyAmount <= 0) return apiValidationError('لا يوجد مبلغ مستحق لتطبيق الإشعار عليه');
+
+    // 1. Create a NEGATIVE payment record (same pattern as refunds in Stripe webhook)
+    const paymentId = generateId('pay');
+    await supabase.from('pyra_payments').insert({
+      id: paymentId,
+      invoice_id: cn.invoice_id,
+      amount: -applyAmount,
+      payment_date: new Date().toISOString().split('T')[0],
+      method: 'credit_note',
+      reference: cn.credit_note_number,
+      notes: `إشعار دائن ${cn.credit_note_number}${cn.reason ? ` — ${cn.reason}` : ''}`,
+      recorded_by: auth.pyraUser.username,
+    });
+
+    // 2. Re-sum ALL payments (same safe pattern as payment recording)
+    const { data: allPayments } = await supabase
+      .from('pyra_payments')
+      .select('amount')
+      .eq('invoice_id', cn.invoice_id);
+
+    const newAmountPaid = (allPayments || []).reduce(
+      (sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0
+    );
+    const newAmountDue = Math.max(0, invoice.total - newAmountPaid);
+
+    // 3. Update invoice with recalculated amounts
+    let newStatus: string;
+    if (newAmountPaid <= 0) newStatus = 'sent';
+    else if (newAmountDue <= 0) newStatus = 'paid';
+    else newStatus = 'partially_paid';
 
     await supabase
       .from('pyra_invoices')
-      .update(invoiceUpdate)
+      .update({
+        amount_paid: Math.round(newAmountPaid * 100) / 100,
+        amount_due: Math.round(newAmountDue * 100) / 100,
+        status: newStatus,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', cn.invoice_id);
 
-    // Update credit note status
+    // 4. Update credit note status
     await supabase
       .from('pyra_credit_notes')
       .update({
@@ -67,7 +95,7 @@ export async function POST(
       })
       .eq('id', id);
 
-    // Log activity
+    // 5. Log activity
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'credit_note_applied',
@@ -78,11 +106,19 @@ export async function POST(
         credit_note_number: cn.credit_note_number,
         invoice_number: invoice.invoice_number,
         applied_amount: applyAmount,
+        payment_id: paymentId,
+        new_amount_paid: newAmountPaid,
+        new_amount_due: newAmountDue,
       },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
     });
 
-    return apiSuccess({ applied_amount: applyAmount, new_amount_due: newAmountDue });
+    return apiSuccess({
+      applied_amount: applyAmount,
+      new_amount_paid: Math.round(newAmountPaid * 100) / 100,
+      new_amount_due: Math.round(newAmountDue * 100) / 100,
+      new_status: newStatus,
+    });
   } catch (err) {
     console.error('POST credit-note apply error:', err);
     return apiServerError();

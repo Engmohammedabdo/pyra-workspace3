@@ -52,18 +52,29 @@ export async function GET(req: NextRequest) {
     const { data: expenses, error: expErr } = await expQuery;
     if (expErr) throw expErr;
 
-    // 3. Fetch paid/partially-paid invoices (optionally date-filtered)
-    //    Use project_id for linking; fall back to project_name match
-    let invQuery = supabase
-      .from('pyra_invoices')
-      .select('project_id, project_name, client_id, amount_paid, issue_date')
-      .in('status', ['paid', 'partially_paid']);
+    // 3. Fetch payments (cash-basis: revenue by payment_date)
+    let payQuery = supabase
+      .from('pyra_payments')
+      .select('amount, invoice_id, payment_date');
 
-    if (from) invQuery = invQuery.gte('issue_date', from);
-    if (to) invQuery = invQuery.lte('issue_date', to);
+    if (from) payQuery = payQuery.gte('payment_date', from);
+    if (to) payQuery = payQuery.lte('payment_date', to);
 
-    const { data: invoices, error: invErr } = await invQuery;
-    if (invErr) throw invErr;
+    const { data: paymentsRaw, error: payErr } = await payQuery;
+    if (payErr) throw payErr;
+
+    // Get project_id/project_name for each payment's invoice
+    const payInvoiceIds = [...new Set((paymentsRaw || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+    const invoiceProjectMap: Record<string, { project_id: string | null; project_name: string | null }> = {};
+    if (payInvoiceIds.length > 0) {
+      const { data: invProjects } = await supabase
+        .from('pyra_invoices')
+        .select('id, project_id, project_name')
+        .in('id', payInvoiceIds);
+      for (const inv of invProjects || []) {
+        invoiceProjectMap[inv.id] = { project_id: inv.project_id, project_name: inv.project_name };
+      }
+    }
 
     // 3b. Fetch timesheets for labor cost calculation
     let tsQuery = supabase
@@ -101,14 +112,16 @@ export async function GET(req: NextRequest) {
     }
 
     const revByProject: Record<string, number> = {};
-    for (const inv of invoices || []) {
-      let pid: string | null = inv.project_id as string | null;
+    for (const pay of paymentsRaw || []) {
+      const invInfo = invoiceProjectMap[(pay as { invoice_id: string }).invoice_id];
+      if (!invInfo) continue;
+      let pid: string | null = invInfo.project_id;
       // Fallback: match project_name to project.name
-      if (!pid && inv.project_name) {
-        pid = nameToId.get(inv.project_name as string) || null;
+      if (!pid && invInfo.project_name) {
+        pid = nameToId.get(invInfo.project_name) || null;
       }
       if (pid) {
-        revByProject[pid] = (revByProject[pid] || 0) + Number(inv.amount_paid);
+        revByProject[pid] = (revByProject[pid] || 0) + Number((pay as { amount: number }).amount || 0);
       }
     }
 
