@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { cn } from '@/lib/utils/cn';
-import { formatDate, formatFileSize } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowRight, Briefcase, FileText, MessageSquare, Loader2, RotateCcw } from 'lucide-react';
-import { EmptyState } from '@/components/ui/empty-state';
+import { ArrowRight, Briefcase } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ProjectBoardEmbed } from './project-board-embed';
 import { FileItem } from '@/components/dashboard/project-detail/file-item';
@@ -19,16 +16,15 @@ export default function ProjectDetailPage() {
   const router = useRouter();
   const projectId = params.id as string;
 
-  const [project, setProject] = useState(null);
-  const [files, setFiles] = useState([]);
-  const [comments, setComments] = useState([]);
+  const [project, setProject] = useState<any>(null);
+  const [files, setFiles] = useState<any[]>([]);
+  const [comments, setComments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filesLoading, setFilesLoading] = useState(true);
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [visibilityUpdating, setVisibilityUpdating] = useState(new Set());
+  const [visibilityUpdating, setVisibilityUpdating] = useState<Set<string>>(new Set());
 
   const fetchProject = useCallback(async () => {
     try {
@@ -58,7 +54,7 @@ export default function ProjectDetailPage() {
     fetchProject(); fetchFiles(); fetchComments();
   }, [fetchProject, fetchFiles, fetchComments]);
 
-  const toggleVisibility = async (fileIds, newVisible) => {
+  const toggleVisibility = async (fileIds: string[], newVisible: boolean) => {
     setVisibilityUpdating(prev => new Set([...prev, ...fileIds]));
     setFiles(prev => prev.map(f => fileIds.includes(f.id) ? { ...f, client_visible: newVisible } : f));
     try {
@@ -68,14 +64,7 @@ export default function ProjectDetailPage() {
             body: JSON.stringify({ file_ids: fileIds, client_visible: newVisible }),
         });
     } catch { toast.error('فشل في التحديث'); }
-    setVisibilityUpdating(prev => { const n = new Set(prev); fileIds.forEach(id => n.delete(id)); return n; });
-  };
-
-  const handleSync = async () => {
-    setSyncing(true);
-    await fetch(`/api/projects/${projectId}/files/sync`, { method: 'POST' });
-    fetchFiles();
-    setSyncing(false);
+    setVisibilityUpdating(prev => { const n = new Set(prev); fileIds.forEach((id: string) => n.delete(id)); return n; });
   };
 
   const handleSubmitComment = async () => {
@@ -87,6 +76,15 @@ export default function ProjectDetailPage() {
   };
 
   if (loading) return <Skeleton className="h-[400px] w-full" />;
+  if (!project) return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <Briefcase className="h-12 w-12 text-muted-foreground/40 mb-4" />
+        <h2 className="text-lg font-semibold">المشروع غير موجود</h2>
+        <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/projects')}>
+          <ArrowRight className="h-4 w-4 me-2" /> الرجوع للمشاريع
+        </Button>
+      </div>
+  );
 
   return (
     <div className="space-y-6">

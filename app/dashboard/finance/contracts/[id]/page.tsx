@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -21,9 +21,9 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [clients, setClients] = useState([]);
-  const [allProjects, setAllProjects] = useState([]);
-  const [form, setForm] = useState({
+  const [clients, setClients] = useState<any[]>([]);
+  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const [form, setForm] = useState<any>({
     title: '', description: '', client_id: '', project_id: '',
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
     start_date: '', end_date: '', status: 'draft',
@@ -32,15 +32,15 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   });
   const [saving, setSaving] = useState(false);
 
-  const [milestones, setMilestones] = useState([]);
+  const [milestones, setMilestones] = useState<any[]>([]);
   const [milestonesLoading, setMilestonesLoading] = useState(true);
   const [milestoneDialogOpen, setMilestoneDialogOpen] = useState(false);
-  const [editingMilestone, setEditingMilestone] = useState(null);
-  const [milestoneForm, setMilestoneForm] = useState(EMPTY_MILESTONE_FORM);
+  const [editingMilestone, setEditingMilestone] = useState<any>(null);
+  const [milestoneForm, setMilestoneForm] = useState<any>(EMPTY_MILESTONE_FORM);
   const [milestoneSaving, setMilestoneSaving] = useState(false);
-  const [generatingInvoice, setGeneratingInvoice] = useState(null);
+  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
 
-  const [billingHistory, setBillingHistory] = useState(null);
+  const [billingHistory, setBillingHistory] = useState<any>(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [generatingRetainerInvoice, setGeneratingRetainerInvoice] = useState(false);
 
@@ -193,9 +193,9 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       {form.contract_type === 'milestone' && (
         <MilestonesSection 
           loading={milestonesLoading} milestones={milestones} currency={form.currency}
-          progressPercentage={milestones.reduce((s, m) => s + (m.status === 'completed' || m.status === 'invoiced' ? m.percentage : 0), 0)}
+          progressPercentage={milestones.reduce((s: number, m: any) => s + (m.status === 'completed' || m.status === 'invoiced' ? m.percentage : 0), 0)}
           onAdd={() => { setEditingMilestone(null); setMilestoneForm(EMPTY_MILESTONE_FORM); setMilestoneDialogOpen(true); }}
-          onEdit={(m) => { setEditingMilestone(m); setMilestoneForm({ title: m.title, description: m.description || '', percentage: String(m.percentage), due_date: m.due_date || '' }); setMilestoneDialogOpen(true); }}
+          onEdit={(m: any) => { setEditingMilestone(m); setMilestoneForm({ title: m.title, description: m.description || '', percentage: String(m.percentage), due_date: m.due_date || '' }); setMilestoneDialogOpen(true); }}
           onMarkComplete={handleMarkComplete}
           onGenerateInvoice={handleGenerateInvoice}
           onDelete={handleDeleteMilestone}

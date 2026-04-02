@@ -11,17 +11,17 @@ import {
 } from '@/components/ui/select';
 import { Save, RefreshCcw } from 'lucide-react';
 
-export function ContractForm({ form, setForm, clients, projects, onSubmit, saving }) {
+export function ContractForm({ form, setForm, clients, projects, onSubmit, saving }: { form: any, setForm: any, clients: any[], projects: any[], onSubmit: any, saving: boolean }) {
   const isRetainer = form.contract_type === 'retainer';
   const filteredProjects = form.client_id
-    ? projects.filter(p => p.client_id === form.client_id)
+    ? projects.filter((p: any) => p.client_id === form.client_id)
     : projects;
 
-  const u = (k, v) => {
+  const u = (k: string, v: string) => {
     if (k === 'client_id') {
-      setForm(p => ({ ...p, client_id: v, project_id: '' }));
+      setForm((p: any) => ({ ...p, client_id: v, project_id: '' }));
     } else {
-      setForm(p => ({ ...p, [k]: v }));
+      setForm((p: any) => ({ ...p, [k]: v }));
     }
   };
 
@@ -41,7 +41,7 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
                 <SelectTrigger><SelectValue placeholder="اختر العميل" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون عميل</SelectItem>
-                  {clients.map(c => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
+                  {clients.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -51,7 +51,7 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
                 <SelectTrigger><SelectValue placeholder={form.client_id ? 'اختر المشروع' : 'اختر العميل أولاً'} /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون مشروع</SelectItem>
-                  {filteredProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {filteredProjects.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

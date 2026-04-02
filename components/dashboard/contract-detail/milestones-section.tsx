@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Plus, Receipt, Loader2, FileText, Pencil, CheckCircle2, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 
-const MILESTONE_STATUS_MAP = {
+const MILESTONE_STATUS_MAP: any = {
   pending: { label: 'قيد الانتظار', variant: 'secondary' },
   in_progress: { label: 'قيد التنفيذ', variant: 'default' },
   completed: { label: 'مكتمل', variant: 'outline', className: 'border-green-500 text-green-700 dark:text-green-400' },
@@ -18,7 +18,7 @@ const MILESTONE_STATUS_MAP = {
 
 export function MilestonesSection({
   loading, milestones, currency, progressPercentage, onAdd, onEdit, onMarkComplete, onGenerateInvoice, onDelete, generatingInvoice
-}) {
+}: { loading: boolean, milestones: any[], currency: string, progressPercentage: number, onAdd: () => void, onEdit: (m: any) => void, onMarkComplete: (m: any) => void, onGenerateInvoice: (m: any) => void, onDelete: (m: any) => void, generatingInvoice: any }) {
   return (
     <Card>
       <CardHeader>
@@ -53,7 +53,7 @@ export function MilestonesSection({
           />
         ) : (
           <div className="space-y-2">
-            {milestones.map(m => {
+            {milestones.map((m: any) => {
               const statusInfo = MILESTONE_STATUS_MAP[m.status] || MILESTONE_STATUS_MAP.pending;
               const isGenerating = generatingInvoice === m.id;
 
