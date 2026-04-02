@@ -94,6 +94,19 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Resolve invoice_id — accept either actual ID or invoice number (e.g. "INV-0005")
+    let resolvedInvoiceId = invoice_id?.trim() || null;
+    if (resolvedInvoiceId && !resolvedInvoiceId.startsWith('inv_')) {
+      // Looks like an invoice number — look it up
+      const { data: inv } = await supabase
+        .from('pyra_invoices')
+        .select('id')
+        .eq('invoice_number', resolvedInvoiceId)
+        .maybeSingle();
+      resolvedInvoiceId = inv?.id || null;
+      if (!resolvedInvoiceId) return apiValidationError(`الفاتورة "${invoice_id}" غير موجودة`);
+    }
+
     // Get settings
     const { data: settings } = await supabase
       .from('pyra_settings')
@@ -137,7 +150,7 @@ export async function POST(request: NextRequest) {
       .insert({
         id: cnId,
         credit_note_number: creditNoteNumber,
-        invoice_id: invoice_id || null,
+        invoice_id: resolvedInvoiceId || null,
         client_id: client_id || null,
         reason: reason.trim(),
         status: 'draft',
