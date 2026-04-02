@@ -35,33 +35,61 @@ export async function GET() {
     const today = now.toISOString().split('T')[0];
     const in7Days = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
 
-    // Revenue MTD — from paid invoices
-    let revenueMtdQuery = supabase
-      .from('pyra_invoices')
-      .select('amount_paid')
-      .gte('issue_date', startOfMonth)
-      .lte('issue_date', today)
-      .in('status', ['paid', 'partially_paid']);
-    if (!scope.isAdmin) revenueMtdQuery = revenueMtdQuery.in('client_id', scope.clientIds);
-    const { data: revenueMtd } = await revenueMtdQuery;
+    // Revenue MTD — from actual payments (by payment_date, not invoice issue_date)
+    const { data: paymentsMtd } = await supabase
+      .from('pyra_payments')
+      .select('amount, invoice_id')
+      .gte('payment_date', startOfMonth)
+      .lte('payment_date', today);
 
-    const totalRevenueMtd = (revenueMtd || []).reduce(
-      (sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid || 0), 0
-    );
+    // If non-admin, filter payments by their invoice's client_id
+    let totalRevenueMtd = 0;
+    if (scope.isAdmin) {
+      totalRevenueMtd = (paymentsMtd || []).reduce(
+        (sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0
+      );
+    } else {
+      // Get invoice ids from payments, then filter by client
+      const paymentInvoiceIds = [...new Set((paymentsMtd || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+      if (paymentInvoiceIds.length > 0) {
+        const { data: invClients } = await supabase
+          .from('pyra_invoices')
+          .select('id, client_id')
+          .in('id', paymentInvoiceIds)
+          .in('client_id', scope.clientIds);
+        const allowedIds = new Set((invClients || []).map((i: { id: string }) => i.id));
+        totalRevenueMtd = (paymentsMtd || []).filter(
+          (p: { invoice_id: string }) => allowedIds.has(p.invoice_id)
+        ).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+      }
+    }
 
-    // Revenue YTD
-    let revenueYtdQuery = supabase
-      .from('pyra_invoices')
-      .select('amount_paid')
-      .gte('issue_date', startOfYear)
-      .lte('issue_date', today)
-      .in('status', ['paid', 'partially_paid']);
-    if (!scope.isAdmin) revenueYtdQuery = revenueYtdQuery.in('client_id', scope.clientIds);
-    const { data: revenueYtd } = await revenueYtdQuery;
+    // Revenue YTD — from actual payments
+    const { data: paymentsYtd } = await supabase
+      .from('pyra_payments')
+      .select('amount, invoice_id')
+      .gte('payment_date', startOfYear)
+      .lte('payment_date', today);
 
-    const totalRevenueYtd = (revenueYtd || []).reduce(
-      (sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid || 0), 0
-    );
+    let totalRevenueYtd = 0;
+    if (scope.isAdmin) {
+      totalRevenueYtd = (paymentsYtd || []).reduce(
+        (sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0
+      );
+    } else {
+      const paymentInvoiceIdsYtd = [...new Set((paymentsYtd || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+      if (paymentInvoiceIdsYtd.length > 0) {
+        const { data: invClientsYtd } = await supabase
+          .from('pyra_invoices')
+          .select('id, client_id')
+          .in('id', paymentInvoiceIdsYtd)
+          .in('client_id', scope.clientIds);
+        const allowedIdsYtd = new Set((invClientsYtd || []).map((i: { id: string }) => i.id));
+        totalRevenueYtd = (paymentsYtd || []).filter(
+          (p: { invoice_id: string }) => allowedIdsYtd.has(p.invoice_id)
+        ).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+      }
+    }
 
     // Expenses MTD
     let expensesMtdQuery = supabase
@@ -138,22 +166,33 @@ export async function GET() {
       monthlyData.push({ month: monthLabel, revenue: 0, expenses: 0 });
     }
 
-    // Get all invoices for last 12 months
+    // Get all payments for last 12 months (revenue by actual payment_date)
     const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split('T')[0];
-    let invoices12mQuery = supabase
-      .from('pyra_invoices')
-      .select('amount_paid, issue_date')
-      .gte('issue_date', twelveMonthsAgo)
-      .lte('issue_date', today)
-      .in('status', ['paid', 'partially_paid']);
-    if (!scope.isAdmin) invoices12mQuery = invoices12mQuery.in('client_id', scope.clientIds);
-    const { data: invoices12m } = await invoices12mQuery;
+    const { data: payments12m } = await supabase
+      .from('pyra_payments')
+      .select('amount, payment_date, invoice_id')
+      .gte('payment_date', twelveMonthsAgo)
+      .lte('payment_date', today);
 
-    (invoices12m || []).forEach((inv: { amount_paid: number; issue_date: string }) => {
-      const invDate = new Date(inv.issue_date);
-      const monthIndex = 11 - ((now.getFullYear() - invDate.getFullYear()) * 12 + now.getMonth() - invDate.getMonth());
+    // For non-admin, filter by client scope
+    let filteredPayments12m = payments12m || [];
+    if (!scope.isAdmin && filteredPayments12m.length > 0) {
+      const pInvIds = [...new Set(filteredPayments12m.map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+      if (pInvIds.length > 0) {
+        const { data: pInvClients } = await supabase
+          .from('pyra_invoices').select('id, client_id').in('id', pInvIds).in('client_id', scope.clientIds);
+        const allowedSet = new Set((pInvClients || []).map((i: { id: string }) => i.id));
+        filteredPayments12m = filteredPayments12m.filter((p: { invoice_id: string }) => allowedSet.has(p.invoice_id));
+      } else {
+        filteredPayments12m = [];
+      }
+    }
+
+    filteredPayments12m.forEach((p: { amount: number; payment_date: string }) => {
+      const pDate = new Date(p.payment_date);
+      const monthIndex = 11 - ((now.getFullYear() - pDate.getFullYear()) * 12 + now.getMonth() - pDate.getMonth());
       if (monthIndex >= 0 && monthIndex < 12) {
-        monthlyData[monthIndex].revenue += Number(inv.amount_paid || 0);
+        monthlyData[monthIndex].revenue += Number(p.amount || 0);
       }
     });
 
