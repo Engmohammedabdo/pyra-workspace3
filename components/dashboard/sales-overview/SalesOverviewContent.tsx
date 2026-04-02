@@ -10,7 +10,7 @@ import { WhatsAppQuickStats } from '@/components/dashboard/sales-overview/WhatsA
 import { PipelineFunnel } from '@/components/dashboard/sales-overview/PipelineFunnel';
 
 const containerMotion = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.06 } } };
-const itemMotion = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } } };
+const itemMotion: any = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' as const } } };
 
 export function SalesOverviewContent() {
   const [stats, setStats] = useState<any>(null);
