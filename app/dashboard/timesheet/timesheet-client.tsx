@@ -1,7 +1,7 @@
 // TODO: Add pagination for large timesheet datasets
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
@@ -103,6 +103,7 @@ interface TimesheetClientProps {
 export default function TimesheetClient({ session }: TimesheetClientProps) {
   const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects();
+  const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [periodSaving, setPeriodSaving] = useState(false);
@@ -120,33 +121,23 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'timesheet.manage');
   const canApprove = hasPermission(session.pyraUser.rolePermissions, 'timesheet.approve');
 
-  const fetchEntries = useCallback(async () => {
-    try {
-      const res = await fetch('/api/timesheet');
-      if (res.ok) {
-        const { data } = await res.json();
-        setEntries(data || []);
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: entries = [], isLoading: loading, refetch: refetchEntries } = useQuery<TimesheetEntry[]>({
+    queryKey: ['timesheet'],
+    queryFn: () => fetchAPI('/api/timesheet'),
+  });
 
-  const fetchPeriods = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/dashboard/timesheet-periods?username=${session.pyraUser.username}`);
-      if (res.ok) {
-        const { data } = await res.json();
-        setPeriods(data || []);
-      }
-    } catch {
-      // silent
-    } finally {
-      setPeriodsLoading(false);
-    }
-  }, [session.pyraUser.username]);
+  const { data: periods = [], isLoading: periodsLoading, refetch: refetchPeriods } = useQuery<TimesheetPeriod[]>({
+    queryKey: ['timesheet-periods', session.pyraUser.username],
+    queryFn: () => fetchAPI(`/api/dashboard/timesheet-periods?username=${session.pyraUser.username}`),
+  });
+
+  const fetchEntries = useCallback(() => {
+    refetchEntries();
+  }, [refetchEntries]);
+
+  const fetchPeriods = useCallback(() => {
+    refetchPeriods();
+  }, [refetchPeriods]);
 
   const fetchOvertimeSummary = useCallback(async () => {
     try {
@@ -164,11 +155,8 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
     }
   }, [session.pyraUser.username]);
 
-  useEffect(() => {
-    fetchEntries();
-    fetchPeriods();
-    fetchOvertimeSummary();
-  }, [fetchEntries, fetchPeriods, fetchOvertimeSummary]);
+  // Fetch overtime summary on mount
+  useEffect(() => { fetchOvertimeSummary(); }, [fetchOvertimeSummary]);
 
   const addEntry = async () => {
     if (!formDate || !formHours) return;

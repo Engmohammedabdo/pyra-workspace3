@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -63,26 +64,23 @@ const fmtNum = (n: number) =>
   new Intl.NumberFormat('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
 export default function QuotesAnalyticsClient() {
-  const [conversion, setConversion] = useState<ConversionData | null>(null);
-  const [pipeline, setPipeline] = useState<PipelineData | null>(null);
-  const [velocity, setVelocity] = useState<VelocityData | null>(null);
-  const [agents, setAgents] = useState<AgentData[] | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/dashboard/quotes/reports?type=conversion').then(r => r.json()),
-      fetch('/api/dashboard/quotes/reports?type=pipeline').then(r => r.json()),
-      fetch('/api/dashboard/quotes/reports?type=velocity').then(r => r.json()),
-      fetch('/api/dashboard/quotes/reports?type=agent_performance').then(r => r.json()),
-    ]).then(([c, p, v, a]) => {
-      if (c.data) setConversion(c.data);
-      if (p.data) setPipeline(p.data);
-      if (v.data) setVelocity(v.data);
-      if (a.data) setAgents(a.data);
-    }).catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: conversion, isLoading: loadingConversion } = useQuery<ConversionData>({
+    queryKey: ['quote-reports', 'conversion'],
+    queryFn: () => fetchAPI('/api/dashboard/quotes/reports?type=conversion'),
+  });
+  const { data: pipeline } = useQuery<PipelineData>({
+    queryKey: ['quote-reports', 'pipeline'],
+    queryFn: () => fetchAPI('/api/dashboard/quotes/reports?type=pipeline'),
+  });
+  const { data: velocity } = useQuery<VelocityData>({
+    queryKey: ['quote-reports', 'velocity'],
+    queryFn: () => fetchAPI('/api/dashboard/quotes/reports?type=velocity'),
+  });
+  const { data: agents } = useQuery<AgentData[]>({
+    queryKey: ['quote-reports', 'agents'],
+    queryFn: () => fetchAPI('/api/dashboard/quotes/reports?type=agent_performance'),
+  });
+  const loading = loadingConversion;
 
   if (loading) {
     return (

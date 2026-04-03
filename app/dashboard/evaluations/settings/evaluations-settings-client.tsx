@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -74,8 +76,7 @@ for (const c of CATEGORIES) {
 // ============================================================
 
 export default function EvaluationsSettingsClient({ session: _session }: { session: AuthSession }) {
-  const [criteria, setCriteria] = useState<Criterion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
@@ -86,22 +87,14 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
     category: '',
   });
 
-  const fetchCriteria = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/dashboard/evaluations/criteria');
-      const json = await res.json();
-      if (json.data) setCriteria(json.data);
-    } catch {
-      toast.error('فشل في تحميل معايير التقييم');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: criteria = [], isLoading: loading } = useQuery<Criterion[]>({
+    queryKey: ['evaluation-criteria'],
+    queryFn: () => fetchAPI('/api/dashboard/evaluations/criteria'),
+  });
 
-  useEffect(() => {
-    fetchCriteria();
-  }, [fetchCriteria]);
+  const fetchCriteria = () => {
+    queryClient.invalidateQueries({ queryKey: ['evaluation-criteria'] });
+  };
 
   const handleCreate = async () => {
     if (!formData.name || !formData.name_ar) {

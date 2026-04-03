@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,8 +31,6 @@ export default function NewArticlePage() {
   const router = useRouter();
 
   /* ── categories ── */
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
 
   /* ── form ── */
   const [categoryId, setCategoryId] = useState('');
@@ -43,16 +43,10 @@ export default function NewArticlePage() {
   /* ── submit ── */
   const [saving, setSaving] = useState(false);
 
-  /* ── fetch categories ── */
-  useEffect(() => {
-    fetch('/api/kb/categories')
-      .then(r => r.json())
-      .then(json => {
-        if (json.data) setCategories(json.data);
-      })
-      .catch(() => toast.error('فشل في تحميل التصنيفات'))
-      .finally(() => setLoadingCategories(false));
-  }, []);
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+    queryKey: ['kb-categories'],
+    queryFn: () => fetchAPI('/api/kb/categories'),
+  });
 
   /* ── save ── */
   const handleSave = async () => {

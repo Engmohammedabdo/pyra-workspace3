@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';

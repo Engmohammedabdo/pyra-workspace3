@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useUsers } from '@/hooks/useUsers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -209,12 +211,22 @@ export default function EvaluationsClient({ session }: { session: AuthSession })
 // ============================================================
 
 function EvaluationsTab({ session, canManage }: { session: AuthSession; canManage: boolean }) {
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
-  const [criteria, setCriteria] = useState<Criterion[]>([]);
+  const queryClient = useQueryClient();
+  const { data: evaluations = [], isLoading: loading } = useQuery<Evaluation[]>({
+    queryKey: ['evaluations'],
+    queryFn: () => fetchAPI('/api/dashboard/evaluations'),
+  });
+  const { data: periods = [] } = useQuery<EvaluationPeriod[]>({
+    queryKey: ['evaluation-periods'],
+    queryFn: () => fetchAPI('/api/dashboard/evaluations/periods'),
+  });
+  const { data: criteriaRaw = [] } = useQuery<Criterion[]>({
+    queryKey: ['evaluation-criteria'],
+    queryFn: () => fetchAPI('/api/dashboard/evaluations/criteria'),
+  });
+  const criteria = criteriaRaw.filter(c => c.is_active);
   const { data: usersRaw = [] } = useUsers();
   const users = usersRaw as unknown as PyraUser[];
-  const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Evaluation | null>(null);
   const [expandedLoading, setExpandedLoading] = useState(false);
@@ -239,32 +251,11 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const [editComments, setEditComments] = useState({ comments: '', strengths: '', improvements: '' });
   const [savingComments, setSavingComments] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [evRes, periodsRes, criteriaRes] = await Promise.all([
-        fetch('/api/dashboard/evaluations'),
-        fetch('/api/dashboard/evaluations/periods'),
-        fetch('/api/dashboard/evaluations/criteria'),
-      ]);
-
-      const evJson = await evRes.json();
-      const periodsJson = await periodsRes.json();
-      const criteriaJson = await criteriaRes.json();
-
-      if (evJson.data) setEvaluations(evJson.data);
-      if (periodsJson.data) setPeriods(periodsJson.data);
-      if (criteriaJson.data) setCriteria(criteriaJson.data.filter((c: Criterion) => c.is_active));
-    } catch {
-      toast.error('فشل في تحميل البيانات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const fetchData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['evaluations'] });
+    queryClient.invalidateQueries({ queryKey: ['evaluation-periods'] });
+    queryClient.invalidateQueries({ queryKey: ['evaluation-criteria'] });
+  }, [queryClient]);
 
   const toggleExpand = async (evalId: string) => {
     if (expandedId === evalId) {
