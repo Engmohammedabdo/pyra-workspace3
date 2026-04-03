@@ -8,6 +8,7 @@ import { generateId } from '@/lib/utils/id';
 export const maxDuration = 30;
 
 const INSTANCE_NAME = 'pyraai';
+const OWN_PHONE = '971565799505'; // Pyra's WhatsApp number — skip self-messages
 
 /**
  * Normalize phone: strip non-digits, handle UAE local format
@@ -99,8 +100,9 @@ export async function POST(req: NextRequest) {
       if (!key?.remoteJid) continue;
 
       const remoteJid = key.remoteJid as string;
-      // Skip groups and broadcasts
+      // Skip groups, broadcasts, and our own number
       if (remoteJid.endsWith('@g.us') || remoteJid === 'status@broadcast') continue;
+      if (remoteJid.includes(OWN_PHONE)) continue;
 
       const msgId = key.id as string;
       if (existingSet.has(msgId)) continue; // Already in DB
@@ -122,8 +124,10 @@ export async function POST(req: NextRequest) {
 
       const pushName = (raw.pushName as string) || null;
 
-      // Find conversation
-      let convData = conversationsToUpdate.get(remoteJid);
+      // Find conversation — GROUP BY PHONE (not JID) to avoid duplicates
+      // Same contact can have @lid and @s.whatsapp.net — must be ONE conversation
+      const convKey = phone || remoteJid; // Use phone as primary key
+      let convData = conversationsToUpdate.get(convKey);
       if (!convData) {
         convData = {
           remote_jid: remoteJid,
@@ -135,7 +139,7 @@ export async function POST(req: NextRequest) {
           last_message: content || `[${msgType}]`,
           last_message_at: timestamp,
         };
-        conversationsToUpdate.set(remoteJid, convData);
+        conversationsToUpdate.set(convKey, convData);
       }
 
       // Track conversation_id later (after upsert)
@@ -158,15 +162,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 5. Upsert conversations
+    // 5. Upsert conversations — find by PHONE first (avoids @lid/@s.whatsapp.net duplicates)
     let conversationsUpdated = 0;
-    for (const [jid, convData] of conversationsToUpdate) {
-      const { data: existing } = await supabase
-        .from('pyra_whatsapp_conversations')
-        .select('id, status')
-        .eq('remote_jid', jid)
-        .eq('instance_name', INSTANCE_NAME)
-        .maybeSingle();
+    for (const [_key, convData] of conversationsToUpdate) {
+      // Try to find by phone first (prevents duplicates), then by remote_jid
+      let existing: { id: string; status: string } | null = null;
+      if (convData.contact_phone) {
+        const { data } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('id, status')
+          .eq('contact_phone', convData.contact_phone as string)
+          .eq('instance_name', INSTANCE_NAME)
+          .maybeSingle();
+        existing = data;
+      }
+      if (!existing) {
+        const { data } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('id, status')
+          .eq('remote_jid', convData.remote_jid as string)
+          .eq('instance_name', INSTANCE_NAME)
+          .maybeSingle();
+        existing = data;
+      }
 
       if (existing) {
         // Update existing
@@ -186,9 +204,12 @@ export async function POST(req: NextRequest) {
 
         await supabase.from('pyra_whatsapp_conversations').update(update).eq('id', existing.id);
 
-        // Set conversation_id on messages
+        // Set conversation_id on messages matching this phone or JID
         for (const msg of newMessages) {
-          if (msg.remote_jid === jid) msg.conversation_id = existing.id;
+          const msgPhone = (msg.metadata as Record<string, unknown>)?.phone as string;
+          if (msg.remote_jid === convData.remote_jid || (msgPhone && msgPhone === convData.contact_phone)) {
+            msg.conversation_id = existing.id;
+          }
         }
       } else {
         // Create new conversation
@@ -202,7 +223,10 @@ export async function POST(req: NextRequest) {
         });
 
         for (const msg of newMessages) {
-          if (msg.remote_jid === jid) msg.conversation_id = convId;
+          const msgPhone = (msg.metadata as Record<string, unknown>)?.phone as string;
+          if (msg.remote_jid === convData.remote_jid || (msgPhone && msgPhone === convData.contact_phone)) {
+            msg.conversation_id = convId;
+          }
         }
       }
       conversationsUpdated++;

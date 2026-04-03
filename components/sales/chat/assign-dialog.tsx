@@ -25,16 +25,20 @@ interface AgentOption {
 
 export function AssignDialog({ open, conversationId, remoteJid, instanceName, currentAgent, onAssigned, onClose }: AssignDialogProps) {
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [workload, setWorkload] = useState<Record<string, number>>({});
   const [selectedAgent, setSelectedAgent] = useState(currentAgent || '');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
+
+    // Fetch agents + workload in parallel
     Promise.all([
       fetch('/api/users?role=sales_agent').then(r => r.json()),
       fetch('/api/users?role=employee').then(r => r.json()),
       fetch('/api/users?role=admin').then(r => r.json()),
-    ]).then(([salesData, empData, adminData]) => {
+      fetch('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200').then(r => r.json()),
+    ]).then(([salesData, empData, adminData, convsData]) => {
       const all = [
         ...(salesData.data || []),
         ...(empData.data || []),
@@ -45,6 +49,16 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
       }));
       const unique = Array.from(new Map(all.map(a => [a.username, a])).values());
       setAgents(unique);
+
+      // Calculate workload (active conversations per agent)
+      const convs = Array.isArray(convsData) ? convsData : (convsData?.data || []);
+      const counts: Record<string, number> = {};
+      for (const c of convs) {
+        if (c.assigned_to && c.status !== 'resolved') {
+          counts[c.assigned_to] = (counts[c.assigned_to] || 0) + 1;
+        }
+      }
+      setWorkload(counts);
     }).catch(() => {});
   }, [open]);
 
@@ -99,7 +113,8 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
                 <SelectItem value="__none__">بدون تعيين</SelectItem>
                 {agents.map(agent => (
                   <SelectItem key={agent.username} value={agent.username}>
-                    {agent.display_name} ({agent.username})
+                    {agent.display_name}
+                    {workload[agent.username] ? ` (${workload[agent.username]} محادثة)` : ' (فارغ)'}
                   </SelectItem>
                 ))}
               </SelectContent>

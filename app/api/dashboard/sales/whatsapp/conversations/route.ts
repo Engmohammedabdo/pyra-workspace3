@@ -35,9 +35,13 @@ export async function GET(request: NextRequest) {
   const username = auth.pyraUser.username;
 
   try {
+    // Exclude our own number from conversations list
+    const OWN_PHONE = '971565799505';
+
     let query = supabase
       .from('pyra_whatsapp_conversations')
       .select(WA_CONVERSATION_FIELDS)
+      .neq('contact_phone', OWN_PHONE)
       .order('is_pinned', { ascending: false })
       .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(limit);

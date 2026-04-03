@@ -118,12 +118,26 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           : new Date().toISOString();
 
         // ── Upsert conversation (Shared Inbox model) ──
-        const { data: existingConv } = await supabase
-          .from('pyra_whatsapp_conversations')
-          .select('id, assigned_to, status')
-          .eq('remote_jid', conversationJid)
-          .eq('instance_name', instanceName || 'pyraai')
-          .maybeSingle();
+        // Find by PHONE first (prevents @lid/@s.whatsapp.net duplicates), then by JID
+        let existingConv: { id: string; assigned_to: string | null; status: string } | null = null;
+        if (phone && /^\d{7,20}$/.test(phone)) {
+          const { data } = await supabase
+            .from('pyra_whatsapp_conversations')
+            .select('id, assigned_to, status')
+            .eq('contact_phone', phone)
+            .eq('instance_name', instanceName || 'pyraai')
+            .maybeSingle();
+          existingConv = data;
+        }
+        if (!existingConv) {
+          const { data } = await supabase
+            .from('pyra_whatsapp_conversations')
+            .select('id, assigned_to, status')
+            .eq('remote_jid', conversationJid)
+            .eq('instance_name', instanceName || 'pyraai')
+            .maybeSingle();
+          existingConv = data;
+        }
 
         let conversationId: string;
 
