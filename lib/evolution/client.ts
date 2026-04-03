@@ -164,6 +164,45 @@ class EvolutionClient {
       limit,
     });
   }
+
+  // ─── Polling (Chatwoot-style direct fetch) ────────────────
+
+  /** Fetch all chats (conversations list) from Evolution API */
+  async findChats(instanceName: string): Promise<Array<{
+    id: string;
+    remoteJid: string;
+    pushName?: string;
+    profilePicUrl?: string;
+    unreadCount?: number;
+  }>> {
+    return this.request('POST', `/chat/findChats/${instanceName}`, {});
+  }
+
+  /** Fetch messages with pagination (no remoteJid filter = all messages) */
+  async findAllMessages(instanceName: string, page = 1, limit = 50): Promise<{
+    messages: { total: number; pages: number; currentPage: number; records: Array<Record<string, unknown>> };
+  }> {
+    return this.request('POST', `/chat/findMessages/${instanceName}`, {
+      where: {},
+      page,
+      limit,
+    });
+  }
+
+  /** Fetch media as base64 */
+  async getMediaBase64(instanceName: string, messageKeyId: string): Promise<{
+    base64: string;
+    mimetype: string;
+  } | null> {
+    try {
+      return await this.request('POST', `/chat/getBase64FromMediaMessage/${instanceName}`, {
+        message: { key: { id: messageKeyId } },
+        convertToMp4: false,
+      });
+    } catch {
+      return null;
+    }
+  }
 }
 
 /** Singleton instance */

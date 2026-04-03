@@ -59,12 +59,20 @@ export default function ChatInboxPage() {
     }
   }, [activeTab]);
 
+  // Poll Evolution API for new messages, then refresh conversations
+  const pollAndRefresh = useCallback(async () => {
+    try {
+      await fetch('/api/dashboard/sales/whatsapp/poll', { method: 'POST' });
+    } catch { /* silent */ }
+    await fetchConversations();
+  }, [fetchConversations]);
+
   useEffect(() => {
     setLoading(true);
-    fetchConversations();
-    const interval = setInterval(fetchConversations, 10000);
+    pollAndRefresh(); // First load: poll + fetch
+    const interval = setInterval(pollAndRefresh, 30000); // Every 30s: poll + fetch
     return () => clearInterval(interval);
-  }, [fetchConversations]);
+  }, [pollAndRefresh]);
 
   const handleSelectConversation = useCallback((conv: Conversation) => {
     setSelectedConv(conv);
