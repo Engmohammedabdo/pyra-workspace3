@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import {
   MessageCircle, User, Phone, Search, X, ChevronDown, ArrowRight,
-  UserPlus, PanelRightOpen, FileText, Receipt, StickyNote, Clock,
+  UserPlus, PanelRightOpen, FileText, Receipt, StickyNote, Clock, CheckCircle2, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -58,6 +58,10 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
   const [showSidebar, setShowSidebar] = useState(false);
   const [activeDialog, setActiveDialog] = useState<'quote' | 'invoice' | 'lead' | 'note' | 'followup' | null>(null);
   const [currentLeadId, setCurrentLeadId] = useState(leadId);
+  const [inputMode, setInputMode] = useState<'message' | 'note'>('message');
+  const [notes, setNotes] = useState<Array<{ id: string; author_display_name: string; content: string; created_at: string }>>([]);
+  const [convStatus, setConvStatus] = useState(conversationStatus || 'open');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -84,16 +88,29 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
     } finally {
       setLoading(false);
     }
-  }, [remoteJid, instanceName]);
+  }, [conversationId, remoteJid]);
+
+  // Fetch internal notes
+  const fetchNotes = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      const res = await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`);
+      const data = await res.json();
+      setNotes(data.data || []);
+    } catch { /* silent */ }
+  }, [conversationId]);
 
   useEffect(() => {
     setLoading(true);
     setSearchOpen(false);
     setSearchQuery('');
+    setInputMode('message');
+    setConvStatus(conversationStatus || 'open');
     fetchMessages();
+    fetchNotes();
     const interval = setInterval(fetchMessages, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchMessages]);
+  }, [fetchMessages, fetchNotes, conversationStatus]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -190,6 +207,43 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الملف');
       throw err;
+    }
+  }
+
+  // Send internal note (NOT sent to WhatsApp)
+  async function handleSendNote(text: string) {
+    if (!conversationId) { toast.error('لا يمكن إضافة ملاحظة'); return; }
+    try {
+      const res = await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: text }),
+      });
+      if (!res.ok) throw new Error('فشل');
+      fetchNotes();
+      toast.success('تم إضافة الملاحظة');
+    } catch {
+      toast.error('فشل إضافة الملاحظة');
+    }
+  }
+
+  // Update conversation status
+  async function handleStatusChange(newStatus: string) {
+    if (!conversationId) return;
+    setUpdatingStatus(true);
+    try {
+      await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setConvStatus(newStatus);
+      onConversationUpdated?.();
+      toast.success(newStatus === 'resolved' ? 'تم حل المحادثة' : newStatus === 'pending' ? 'تم تعليق المحادثة' : 'تم فتح المحادثة');
+    } catch {
+      toast.error('فشل تحديث الحالة');
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
@@ -303,6 +357,47 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
               onAssigned={() => onConversationUpdated?.()}
               onClose={() => setShowAssign(false)}
             />
+          )}
+
+          {/* Status Actions */}
+          {conversationId && (
+            <div className="flex items-center gap-1">
+              {convStatus !== 'resolved' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20"
+                  onClick={() => handleStatusChange('resolved')}
+                  disabled={updatingStatus}
+                >
+                  <CheckCircle2 className="h-3 w-3 me-0.5" />
+                  حل
+                </Button>
+              )}
+              {convStatus === 'open' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] rounded-lg text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-950/20"
+                  onClick={() => handleStatusChange('pending')}
+                  disabled={updatingStatus}
+                >
+                  <Clock className="h-3 w-3 me-0.5" />
+                  تعليق
+                </Button>
+              )}
+              {convStatus === 'resolved' && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-[11px] rounded-lg text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/20"
+                  onClick={() => handleStatusChange('open')}
+                  disabled={updatingStatus}
+                >
+                  إعادة فتح
+                </Button>
+              )}
+            </div>
           )}
 
           {/* Search Toggle */}
@@ -423,6 +518,23 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
             ))}
           </div>
         )}
+        {/* Internal Notes — yellow background */}
+        {notes.length > 0 && notes.map(note => (
+          <div key={note.id} className="flex justify-center px-4 py-1">
+            <div className="max-w-[80%] bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/30 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Pencil className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
+                <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>
+                <span className="text-[10px] text-muted-foreground/50">— {note.author_display_name}</span>
+              </div>
+              <p className="text-xs text-amber-900 dark:text-amber-200 whitespace-pre-wrap">{note.content}</p>
+              <span className="text-[9px] text-muted-foreground/40 mt-0.5 block">
+                {new Date(note.created_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
+              </span>
+            </div>
+          </div>
+        ))}
+
         <div ref={messagesEndRef} />
 
         {/* Scroll to Bottom FAB — uses left-1/2 (centering, safe for RTL per CLAUDE.md) */}
@@ -480,8 +592,39 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
         )}
       </div>
 
-      {/* Input */}
-      <ChatInput onSend={handleSend} onSendMedia={handleSendMedia} />
+      {/* Input Mode Toggle + Input */}
+      {conversationId && (
+        <div className="flex items-center gap-1 px-3 pt-1">
+          <button
+            onClick={() => setInputMode('message')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors',
+              inputMode === 'message'
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                : 'text-muted-foreground hover:bg-muted/50'
+            )}
+          >
+            <MessageCircle className="h-3 w-3" />
+            رسالة
+          </button>
+          <button
+            onClick={() => setInputMode('note')}
+            className={cn(
+              'flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors',
+              inputMode === 'note'
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                : 'text-muted-foreground hover:bg-muted/50'
+            )}
+          >
+            <Pencil className="h-3 w-3" />
+            ملاحظة داخلية
+          </button>
+        </div>
+      )}
+      <ChatInput
+        onSend={inputMode === 'note' ? handleSendNote : handleSend}
+        onSendMedia={inputMode === 'note' ? undefined : handleSendMedia}
+      />
       </div>
 
       {/* Contact Info Sidebar */}

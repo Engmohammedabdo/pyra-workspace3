@@ -20,7 +20,9 @@ export async function GET() {
 
     const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
 
-    const [notifResult, overdueResult, approvalsResult] = await Promise.all([
+    const canViewWhatsApp = hasPermission(auth.pyraUser.rolePermissions, 'sales_whatsapp.view');
+
+    const [notifResult, overdueResult, approvalsResult, unassignedWaResult] = await Promise.all([
       // Unread notifications for this user
       supabase
         .from('pyra_notifications')
@@ -39,12 +41,21 @@ export async function GET() {
             .select('id', { count: 'exact', head: true })
             .eq('status', 'pending')
         : Promise.resolve({ count: 0 }),
+      // Unassigned WhatsApp conversations (for anyone with whatsapp access)
+      canViewWhatsApp
+        ? supabase
+            .from('pyra_whatsapp_conversations')
+            .select('id', { count: 'exact', head: true })
+            .is('assigned_to', null)
+            .neq('status', 'resolved')
+        : Promise.resolve({ count: 0 }),
     ]);
 
     return apiSuccess({
       notifications: notifResult.count ?? 0,
       overdue_invoices: overdueResult.count ?? 0,
       pending_approvals: approvalsResult.count ?? 0,
+      unassigned_conversations: unassignedWaResult.count ?? 0,
     });
   } catch {
     return apiError('خطأ في الخادم', 500);

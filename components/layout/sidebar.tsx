@@ -90,7 +90,7 @@ interface NavItem {
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals';
+  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations';
 }
 
 interface NavGroup {
@@ -150,7 +150,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/dashboard/sales', label: 'نظرة عامة', labelEn: 'Sales Overview', icon: TrendingUp, permission: 'sales.view' },
       { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', labelEn: 'Leads', icon: UserPlus, permission: 'sales_leads.view' },
-      { href: '/dashboard/sales/chat', label: 'محادثات واتساب', labelEn: 'WhatsApp Chat', icon: MessageCircle, permission: 'sales_whatsapp.view' },
+      { href: '/dashboard/sales/chat', label: 'محادثات واتساب', labelEn: 'WhatsApp Chat', icon: MessageCircle, permission: 'sales_whatsapp.view', badgeKey: 'unassigned_conversations' },
       { href: '/dashboard/sales/approvals', label: 'موافقات العروض', labelEn: 'Quote Approvals', icon: CheckCircle, permission: 'quote_approvals.view', badgeKey: 'pending_approvals' },
       { href: '/dashboard/sales/follow-ups', label: 'المتابعات', labelEn: 'Follow-ups', icon: Clock, permission: 'sales_leads.view' },
       { href: '/dashboard/sales/reports', label: 'تقارير المبيعات', labelEn: 'Sales Reports', icon: BarChart3, permission: 'sales.view' },
