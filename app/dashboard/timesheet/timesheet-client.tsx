@@ -1,9 +1,9 @@
 // TODO: Add pagination for large timesheet datasets
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,11 +91,6 @@ interface OvertimeSummary {
   hourly_rate: number;
 }
 
-interface Project {
-  id: string;
-  name: string;
-}
-
 interface TimesheetClientProps {
   session: AuthSession;
 }
@@ -103,13 +98,10 @@ interface TimesheetClientProps {
 export default function TimesheetClient({ session }: TimesheetClientProps) {
   const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects();
-  const [saving, setSaving] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
-  const [periodSaving, setPeriodSaving] = useState(false);
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [periodEndDate, setPeriodEndDate] = useState('');
-  const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary | null>(null);
 
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
   const [formHours, setFormHours] = useState('');
@@ -121,60 +113,39 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'timesheet.manage');
   const canApprove = hasPermission(session.pyraUser.rolePermissions, 'timesheet.approve');
 
-  const { data: entries = [], isLoading: loading, refetch: refetchEntries } = useQuery<TimesheetEntry[]>({
+  const { data: entries = [], isLoading: loading } = useQuery<TimesheetEntry[]>({
     queryKey: ['timesheet'],
     queryFn: () => fetchAPI('/api/timesheet'),
   });
 
-  const { data: periods = [], isLoading: periodsLoading, refetch: refetchPeriods } = useQuery<TimesheetPeriod[]>({
+  const { data: periods = [], isLoading: periodsLoading } = useQuery<TimesheetPeriod[]>({
     queryKey: ['timesheet-periods', session.pyraUser.username],
     queryFn: () => fetchAPI(`/api/dashboard/timesheet-periods?username=${session.pyraUser.username}`),
   });
 
-  const fetchEntries = useCallback(() => {
-    refetchEntries();
-  }, [refetchEntries]);
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const { data: overtimeSummary } = useQuery<OvertimeSummary | null>({
+    queryKey: ['overtime-summary', session.pyraUser.username, month],
+    queryFn: () => fetchAPI(`/api/dashboard/overtime/summary?username=${session.pyraUser.username}&month=${month}`),
+  });
 
-  const fetchPeriods = useCallback(() => {
-    refetchPeriods();
-  }, [refetchPeriods]);
+  const invalidateEntries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['timesheet'] });
+  }, [queryClient]);
 
-  const fetchOvertimeSummary = useCallback(async () => {
-    try {
-      const now = new Date();
-      const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-      const res = await fetch(
-        `/api/dashboard/overtime/summary?username=${session.pyraUser.username}&month=${month}`
-      );
-      if (res.ok) {
-        const { data } = await res.json();
-        setOvertimeSummary(data);
-      }
-    } catch {
-      // silent
-    }
-  }, [session.pyraUser.username]);
+  const invalidatePeriods = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['timesheet-periods'] });
+  }, [queryClient]);
 
-  // Fetch overtime summary on mount
-  useEffect(() => { fetchOvertimeSummary(); }, [fetchOvertimeSummary]);
+  const invalidateOvertime = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['overtime-summary'] });
+  }, [queryClient]);
 
-  const addEntry = async () => {
-    if (!formDate || !formHours) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/timesheet', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          date: formDate,
-          hours: parseFloat(formHours),
-          project_id: formProject || null,
-          description: formDesc || null,
-          is_billable: formBillable,
-          billing_rate: formBillingRate ? parseFloat(formBillingRate) : null,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed');
+  // Entry mutations
+  const addEntryMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/timesheet', 'POST', data),
+    onSuccess: () => {
       toast.success('تم إضافة السجل');
       setShowAdd(false);
       setFormHours('');
@@ -182,114 +153,96 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       setFormProject('');
       setFormBillable(false);
       setFormBillingRate('');
-      fetchEntries();
-      fetchOvertimeSummary();
-    } catch {
-      toast.error('فشل الإضافة');
-    } finally {
-      setSaving(false);
-    }
-  };
+      invalidateEntries();
+      invalidateOvertime();
+    },
+    onError: () => toast.error('فشل الإضافة'),
+  });
 
-  const submitEntry = async (id: string) => {
-    try {
-      await fetch(`/api/timesheet/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'submitted' }),
-      });
-      toast.success('تم إرسال السجل للاعتماد');
-      fetchEntries();
-    } catch {
-      toast.error('فشل الإرسال');
-    }
-  };
+  const submitEntryMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/timesheet/${id}`, 'PATCH', { status: 'submitted' }),
+    onSuccess: () => { toast.success('تم إرسال السجل للاعتماد'); invalidateEntries(); },
+    onError: () => toast.error('فشل الإرسال'),
+  });
 
-  const approveEntry = async (id: string, approved: boolean) => {
-    try {
-      await fetch(`/api/timesheet/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: approved ? 'approved' : 'rejected' }),
-      });
+  const approveEntryMutation = useMutation({
+    mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
+      mutateAPI(`/api/timesheet/${id}`, 'PATCH', { status: approved ? 'approved' : 'rejected' }),
+    onSuccess: (_, { approved }) => {
       toast.success(approved ? 'تم اعتماد السجل' : 'تم رفض السجل');
-      fetchEntries();
-    } catch {
-      toast.error('فشل العملية');
-    }
-  };
+      invalidateEntries();
+    },
+    onError: () => toast.error('فشل العملية'),
+  });
 
-  const deleteEntry = async (id: string) => {
-    try {
-      await fetch(`/api/timesheet/${id}`, { method: 'DELETE' });
-      toast.success('تم الحذف');
-      fetchEntries();
-      fetchOvertimeSummary();
-    } catch {
-      toast.error('فشل الحذف');
-    }
-  };
+  const deleteEntryMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/timesheet/${id}`, 'DELETE'),
+    onSuccess: () => { toast.success('تم الحذف'); invalidateEntries(); invalidateOvertime(); },
+    onError: () => toast.error('فشل الحذف'),
+  });
 
-  // Period actions
-  const addPeriod = async () => {
-    if (!periodStartDate || !periodEndDate) return;
-    setPeriodSaving(true);
-    try {
-      const res = await fetch('/api/dashboard/timesheet-periods', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          start_date: periodStartDate,
-          end_date: periodEndDate,
-          period_type: 'weekly',
-        }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'Failed');
-      }
+  // Period mutations
+  const addPeriodMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/dashboard/timesheet-periods', 'POST', data),
+    onSuccess: () => {
       toast.success('تم إنشاء الفترة');
       setShowAddPeriod(false);
       setPeriodStartDate('');
       setPeriodEndDate('');
-      fetchPeriods();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل إنشاء الفترة');
-    } finally {
-      setPeriodSaving(false);
-    }
-  };
+      invalidatePeriods();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'فشل إنشاء الفترة'),
+  });
 
-  const updatePeriodStatus = async (periodId: string, action: 'submit' | 'approve' | 'reject') => {
-    try {
-      const res = await fetch(`/api/dashboard/timesheet-periods/${periodId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'Failed');
-      }
+  const updatePeriodStatusMutation = useMutation({
+    mutationFn: ({ periodId, action }: { periodId: string; action: string }) =>
+      mutateAPI(`/api/dashboard/timesheet-periods/${periodId}`, 'PATCH', { action }),
+    onSuccess: (_, { action }) => {
       const actionLabels: Record<string, string> = {
         submit: 'تم إرسال الفترة',
         approve: 'تم اعتماد الفترة',
         reject: 'تم رفض الفترة',
       };
       toast.success(actionLabels[action]);
-      fetchPeriods();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل العملية');
-    }
+      invalidatePeriods();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'فشل العملية'),
+  });
+
+  const saving = addEntryMutation.isPending;
+  const periodSaving = addPeriodMutation.isPending;
+
+  const addEntry = () => {
+    if (!formDate || !formHours) return;
+    addEntryMutation.mutate({
+      date: formDate,
+      hours: parseFloat(formHours),
+      project_id: formProject || null,
+      description: formDesc || null,
+      is_billable: formBillable,
+      billing_rate: formBillingRate ? parseFloat(formBillingRate) : null,
+    });
+  };
+
+  const submitEntry = (id: string) => submitEntryMutation.mutate(id);
+  const approveEntry = (id: string, approved: boolean) => approveEntryMutation.mutate({ id, approved });
+  const deleteEntry = (id: string) => deleteEntryMutation.mutate(id);
+
+  const addPeriod = () => {
+    if (!periodStartDate || !periodEndDate) return;
+    addPeriodMutation.mutate({
+      start_date: periodStartDate,
+      end_date: periodEndDate,
+      period_type: 'weekly',
+    });
+  };
+
+  const updatePeriodStatus = (periodId: string, action: 'submit' | 'approve' | 'reject') => {
+    updatePeriodStatusMutation.mutate({ periodId, action });
   };
 
   const totalHours = useMemo(
     () => entries.reduce((sum, e) => sum + (e.hours || 0), 0),
-    [entries]
-  );
-
-  const overtimeEntries = useMemo(
-    () => entries.filter((e) => e.is_overtime),
     [entries]
   );
 

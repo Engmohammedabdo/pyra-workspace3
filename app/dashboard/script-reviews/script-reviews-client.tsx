@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,20 +52,35 @@ function ReviewCard({
   const [replies, setReplies] = useState<PyraScriptReviewReply[]>([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
   const [replyText, setReplyText] = useState('');
-  const [sending, setSending] = useState(false);
 
   const fetchReplies = useCallback(async () => {
     setRepliesLoading(true);
     try {
-      const res = await fetch(`/api/scripts/reviews/replies?review_id=${review.id}`);
-      const json = await res.json();
-      setReplies(json.data || []);
+      const data = await fetchAPI<PyraScriptReviewReply[]>(
+        `/api/scripts/reviews/replies?review_id=${review.id}`
+      );
+      setReplies(data || []);
     } catch {
       setReplies([]);
     } finally {
       setRepliesLoading(false);
     }
   }, [review.id]);
+
+  const replyMutation = useMutation({
+    mutationFn: (message: string) =>
+      mutateAPI('/api/scripts/reviews/replies', 'POST', {
+        review_id: review.id,
+        message,
+      }),
+    onSuccess: () => {
+      toast.success('تم إرسال الرد');
+      setReplyText('');
+      fetchReplies();
+      onReplySubmitted();
+    },
+    onError: () => toast.error('فشل في إرسال الرد'),
+  });
 
   const handleToggleReplies = useCallback(() => {
     const next = !showReplies;
@@ -75,29 +90,10 @@ function ReviewCard({
     }
   }, [showReplies, replies.length, fetchReplies]);
 
-  const handleSendReply = useCallback(async () => {
+  const handleSendReply = useCallback(() => {
     if (!replyText.trim()) return;
-    setSending(true);
-    try {
-      const res = await fetch('/api/scripts/reviews/replies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_id: review.id, message: replyText.trim() }),
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || 'Failed');
-      }
-      toast.success('تم إرسال الرد');
-      setReplyText('');
-      fetchReplies();
-      onReplySubmitted();
-    } catch {
-      toast.error('فشل في إرسال الرد');
-    } finally {
-      setSending(false);
-    }
-  }, [replyText, review.id, fetchReplies, onReplySubmitted]);
+    replyMutation.mutate(replyText.trim());
+  }, [replyText, replyMutation]);
 
   return (
     <Card className="hover:shadow-sm transition-shadow">
@@ -229,10 +225,10 @@ function ReviewCard({
               <Button
                 size="sm"
                 onClick={handleSendReply}
-                disabled={sending || !replyText.trim()}
+                disabled={replyMutation.isPending || !replyText.trim()}
                 className="gap-1.5 bg-[#003866] hover:bg-[#003866]/90 text-white shrink-0"
               >
-                {sending ? (
+                {replyMutation.isPending ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
                   <Send className="h-3.5 w-3.5" />

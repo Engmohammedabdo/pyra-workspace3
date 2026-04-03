@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -136,11 +137,8 @@ export default function LeaveSettingsClient() {
 
   const fetchLeaveTypes = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/leave-types');
-      if (res.ok) {
-        const { data } = await res.json();
-        setLeaveTypes(data || []);
-      }
+      const data = await fetchAPI<{ data: any[] }>('/api/dashboard/leave-types');
+      setLeaveTypes((data as any).data ?? data ?? []);
     } catch {
       // Silently handle network errors
     } finally {
@@ -187,16 +185,7 @@ export default function LeaveSettingsClient() {
         : '/api/dashboard/leave-types';
       const method = editingId ? 'PATCH' : 'POST';
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'فشل الحفظ');
-      }
+      await mutateAPI(url, method, form);
 
       toast.success(editingId ? 'تم تحديث نوع الإجازة' : 'تم إنشاء نوع الإجازة');
       setShowDialog(false);
@@ -214,13 +203,7 @@ export default function LeaveSettingsClient() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const res = await fetch(`/api/dashboard/leave-types/${deleteId}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'فشل الحذف');
-      }
+      await mutateAPI(`/api/dashboard/leave-types/${deleteId}`, 'DELETE');
       toast.success('تم حذف نوع الإجازة');
       setDeleteId(null);
       fetchLeaveTypes();
@@ -233,20 +216,10 @@ export default function LeaveSettingsClient() {
   const handleCarryOver = async () => {
     setCarryingOver(true);
     try {
-      const res = await fetch('/api/dashboard/leave/carry-over', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from_year: carryFromYear, to_year: carryToYear }),
-      });
-
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'فشل الترحيل');
-      }
-
-      const { data } = await res.json();
+      const data = await mutateAPI<{ created: number; updated: number; total_processed: number }>('/api/dashboard/leave/carry-over', 'POST', { from_year: carryFromYear, to_year: carryToYear });
+      const result = (data as any).data ?? data;
       toast.success(
-        `تم ترحيل الأرصدة: ${data.created} جديد، ${data.updated} محدث (${data.total_processed} إجمالي)`
+        `تم ترحيل الأرصدة: ${result.created} جديد، ${result.updated} محدث (${result.total_processed} إجمالي)`
       );
       setShowCarryOver(false);
     } catch (err: unknown) {

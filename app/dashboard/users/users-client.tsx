@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { mutateAPI } from '@/hooks/api-helpers';
+import { useState, useCallback, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useUsers } from '@/hooks/useUsers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -92,7 +92,14 @@ export default function UsersClient() {
 
   // React Query hooks
   const { data: users = [], isLoading: loading } = useUsers() as unknown as { data: PyraUser[]; isLoading: boolean };
-  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const { data: roles = [] } = useQuery<RoleOption[]>({
+    queryKey: ['roles'],
+    queryFn: async () => {
+      const json = await fetchAPI<{ data?: RoleOption[] } | RoleOption[]>('/api/roles');
+      const arr = (json as { data?: RoleOption[] }).data ?? (json as RoleOption[]);
+      return arr.map((r) => ({ id: r.id, name: r.name, name_ar: r.name_ar, color: r.color, icon: r.icon }));
+    },
+  });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -127,17 +134,6 @@ export default function UsersClient() {
     const timer = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(timer);
   }, [search]);
-
-  // Fetch roles list on mount
-  useEffect(() => {
-    fetch('/api/roles').then(r => r.json()).then(json => {
-      if (json.data) {
-        setRoles(json.data.map((r: RoleOption & Record<string, unknown>) => ({
-          id: r.id, name: r.name, name_ar: r.name_ar, color: r.color, icon: r.icon,
-        })));
-      }
-    }).catch(err => console.error('Error fetching roles:', err));
-  }, []);
 
 
 

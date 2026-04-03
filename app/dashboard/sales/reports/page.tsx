@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -60,16 +61,17 @@ export default function SalesReportsPage() {
       if (dateFrom) dateParams.set('from', dateFrom);
       if (dateTo) dateParams.set('to', dateTo);
       const dp = dateParams.toString();
-      const [leadsRes, stagesRes, funnelRes, velocityRes, agentsRes, agingRes, lostRes] = await Promise.all([
-        fetch('/api/dashboard/sales/leads'), fetch('/api/dashboard/sales/pipeline-stages'),
-        fetch(`/api/dashboard/sales/reports?type=funnel${dp ? '&' + dp : ''}`),
-        fetch(`/api/dashboard/sales/reports?type=velocity${dp ? '&' + dp : ''}`),
-        fetch(`/api/dashboard/sales/reports?type=agents${dp ? '&' + dp : ''}`),
-        fetch('/api/dashboard/sales/reports?type=aging'),
-        fetch(`/api/dashboard/sales/reports?type=lost${dp ? '&' + dp : ''}`),
+      const [leadsData, stagesData, funnelData, velocityData, agentsData, agingData, lostData] = await Promise.all([
+        fetchAPI<any>('/api/dashboard/sales/leads'),
+        fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
+        fetchAPI<any>(`/api/dashboard/sales/reports?type=funnel${dp ? '&' + dp : ''}`),
+        fetchAPI<any>(`/api/dashboard/sales/reports?type=velocity${dp ? '&' + dp : ''}`),
+        fetchAPI<any>(`/api/dashboard/sales/reports?type=agents${dp ? '&' + dp : ''}`),
+        fetchAPI<any>('/api/dashboard/sales/reports?type=aging'),
+        fetchAPI<any>(`/api/dashboard/sales/reports?type=lost${dp ? '&' + dp : ''}`),
       ]);
-      const leadsData = await leadsRes.json(); const stagesData = await stagesRes.json();
-      const leads = leadsData.data || []; const stages = stagesData.data || [];
+      const leads = (leadsData as any).data || [];
+      const stages = (stagesData as any).data || [];
       const converted = leads.filter((l: ApiData) => l.is_converted);
       const sourceMap = new Map<string, number>();
       for (const l of leads) { const s = l.source as string; sourceMap.set(s, (sourceMap.get(s) || 0) + 1); }
@@ -79,11 +81,11 @@ export default function SalesReportsPage() {
         sources: Array.from(sourceMap.entries()).map(([source, count]) => ({ source, count })).sort((a, b) => b.count - a.count),
         stages: stages.map((s: ApiData) => ({ name_ar: s.name_ar, color: s.color, count: leads.filter((l: ApiData) => l.stage_id === s.id).length })),
       });
-      setFunnelData((await funnelRes.json()).data);
-      setVelocityData((await velocityRes.json()).data);
-      setAgentsData((await agentsRes.json()).data);
-      setAgingData((await agingRes.json()).data);
-      setLostData((await lostRes.json()).data);
+      setFunnelData((funnelData as any).data);
+      setVelocityData((velocityData as any).data);
+      setAgentsData((agentsData as any).data);
+      setAgingData((agingData as any).data);
+      setLostData((lostData as any).data);
     } catch { console.error('Failed to fetch reports'); } finally { setLoading(false); }
   }, [dateFrom, dateTo]);
 
