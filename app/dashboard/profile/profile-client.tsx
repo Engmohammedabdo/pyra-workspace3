@@ -24,8 +24,7 @@ interface ProfileClientProps {
 }
 
 export default function ProfileClient({ session }: ProfileClientProps) {
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
@@ -34,29 +33,26 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const [phone, setPhone] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [bio, setBio] = useState('');
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Activity state
   const [activities, setActivities] = useState<any[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const res = await fetch('/api/profile');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const { data } = await res.json();
-      setProfile(data);
-      setDisplayName(data.display_name || '');
-      setPhone(data.phone || '');
-      setJobTitle(data.job_title || '');
-      setBio(data.bio || '');
-    } catch {
-      toast.error('فشل تحميل الملف الشخصي');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: profile, isLoading: loading } = useQuery<any>({
+    queryKey: ['profile'],
+    queryFn: () => fetchAPI('/api/profile'),
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
+  // Initialize form when profile data arrives
+  if (profile && !formInitialized) {
+    setDisplayName(profile.display_name || '');
+    setPhone(profile.phone || '');
+    setJobTitle(profile.job_title || '');
+    setBio(profile.bio || '');
+    setFormInitialized(true);
+  }
 
   const saveProfile = async () => {
     setSaving(true);
@@ -73,7 +69,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
       });
       if (!res.ok) throw new Error('Failed');
       toast.success('تم حفظ التغييرات بنجاح');
-      fetchProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
     } catch {
       toast.error('فشل حفظ التغييرات');
     } finally {
