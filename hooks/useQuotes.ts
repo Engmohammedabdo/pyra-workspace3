@@ -6,19 +6,36 @@ import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 // ============================================================
 // Types
 // ============================================================
+import type { QuoteStatus } from '@/lib/constants/statuses';
+
 export interface Quote {
   id: string;
-  quote_number?: string;
-  client_id?: string;
-  project_id?: string;
-  status?: string;
-  amount?: number;
-  valid_until?: string;
-  issued_date?: string;
-  notes?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: unknown;
+  quote_number: string;
+  client_id: string | null;
+  lead_id: string | null;
+  project_name: string | null;
+  status: QuoteStatus;
+  estimate_date: string;
+  expiry_date: string | null;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  discount_type: string | null;
+  discount_value: number;
+  discount_amount: number;
+  notes: string | null;
+  company_name: string | null;
+  company_logo: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_company: string | null;
+  entity_id: string | null;
+  signature_data: string | null;
+  signed_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================

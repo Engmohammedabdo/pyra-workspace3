@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { CreditCard } from 'lucide-react';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';
 
 interface Payment {
   id: string;
@@ -13,17 +14,7 @@ interface Payment {
   notes: string | null;
 }
 
-const PAYMENT_METHODS: Record<string, string> = {
-  bank_transfer: 'تحويل بنكي',
-  cash: 'نقدي',
-  cheque: 'شيك',
-  credit_card: 'بطاقة ائتمان',
-  online: 'دفع إلكتروني',
-  credit_note: 'إشعار دائن (رد)',
-  stripe: 'Stripe',
-  refund: 'استرداد',
-  other: 'أخرى',
-};
+const PAYMENT_METHODS: Record<string, string> = PAYMENT_METHOD_LABELS;
 
 export function PaymentHistory({ payments, currency }: { payments: Payment[]; currency: string }) {
   return (

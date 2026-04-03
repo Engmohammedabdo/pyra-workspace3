@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, FileCheck, Send, Trash2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { CREDIT_NOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 interface CreditNoteItem { id: string; description: string; quantity: number; rate: number; amount: number; }
 
@@ -39,10 +40,10 @@ interface CreditNote {
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft:     { label: 'مسودة',  color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  issued:    { label: 'صادر',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  applied:   { label: 'مطبق',   color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  cancelled: { label: 'ملغي',   color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+  draft:     { label: CREDIT_NOTE_STATUS_LABELS.draft,     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
+  issued:    { label: CREDIT_NOTE_STATUS_LABELS.issued,    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
+  applied:   { label: CREDIT_NOTE_STATUS_LABELS.applied,   color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
+  cancelled: { label: CREDIT_NOTE_STATUS_LABELS.cancelled, color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
 };
 
 export default function CreditNoteDetailPage() {

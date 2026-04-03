@@ -11,13 +11,14 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { QuoteDetailView } from '@/components/portal/quotes/QuoteDetailView';
+import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
   sent: { label: 'جديد', variant: 'default' },
-  viewed: { label: 'تم العرض', variant: 'outline' },
-  signed: { label: 'موقّع', variant: 'default' },
-  expired: { label: 'منتهي', variant: 'destructive' },
-  cancelled: { label: 'ملغي', variant: 'destructive' },
+  viewed: { label: QUOTE_STATUS_LABELS.viewed, variant: 'outline' },
+  signed: { label: QUOTE_STATUS_LABELS.signed, variant: 'default' },
+  expired: { label: QUOTE_STATUS_LABELS.expired, variant: 'destructive' },
+  cancelled: { label: QUOTE_STATUS_LABELS.cancelled, variant: 'destructive' },
 };
 
 const generateQuotePDFAsync = () => import('@/lib/pdf/quote-pdf').then(m => m.generateQuotePDF);

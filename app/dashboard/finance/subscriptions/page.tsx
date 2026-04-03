@@ -13,6 +13,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { EmptyState } from '@/components/ui/empty-state';
+import { SUBSCRIPTION_STATUS_LABELS, BILLING_CYCLE_LABELS } from '@/lib/constants/statuses';
 
 interface Subscription {
   id: string; name: string; provider: string | null; cost: number; currency: string;
@@ -21,7 +22,7 @@ interface Subscription {
   status: string; auto_renew: boolean;
 }
 
-const CYCLE_LABELS: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي', weekly: 'أسبوعي' };
+const CYCLE_LABELS: Record<string, string> = BILLING_CYCLE_LABELS;
 
 const STATUS_VARIANTS: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   active: 'default', cancelled: 'destructive', paused: 'secondary',
@@ -220,7 +221,7 @@ export default function SubscriptionsPage() {
                   <td className="p-3 text-muted-foreground">{s.card_name ? `${s.card_name} (${s.card_last_four})` : '—'}</td>
                   <td className="p-3">
                     <Badge variant={STATUS_VARIANTS[s.status] || 'outline'}>
-                      {s.status === 'active' ? 'نشط' : s.status === 'cancelled' ? 'ملغي' : s.status === 'paused' ? 'متوقف' : s.status}
+                      {(SUBSCRIPTION_STATUS_LABELS as Record<string, string>)[s.status] || s.status}
                     </Badge>
                   </td>
                   <td className="p-3">

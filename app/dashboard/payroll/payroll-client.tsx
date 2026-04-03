@@ -42,6 +42,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
+import { PAYROLL_STATUS_LABELS } from '@/lib/constants/statuses';
 
 // ============================================================
 // Types
@@ -109,12 +110,7 @@ const STATUS_STYLES: Record<string, string> = {
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'مسودة',
-  calculated: 'محسوب',
-  approved: 'معتمد',
-  paid: 'مدفوع',
-};
+const STATUS_LABELS: Record<string, string> = PAYROLL_STATUS_LABELS;
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   task: 'مهمة',

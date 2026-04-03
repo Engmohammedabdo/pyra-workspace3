@@ -9,20 +9,26 @@ import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 export interface Client {
   id: string;
   name: string;
-  email?: string;
-  phone?: string;
-  company?: string;
-  status?: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  address?: string | null;
+  is_active?: boolean;
+  auth_user_id?: string | null;
+  portal_password_hash?: string | null;
+  last_login_at?: string | null;
+  source?: string | null;
+  tags?: string[];
   created_at?: string;
   updated_at?: string;
-  [key: string]: unknown;
 }
 
 export interface ClientFinancials {
-  total_invoiced?: number;
-  total_paid?: number;
-  outstanding?: number;
-  [key: string]: unknown;
+  total_invoiced: number;
+  total_paid: number;
+  outstanding: number;
+  overdue: number;
+  invoice_count: number;
 }
 
 // ============================================================

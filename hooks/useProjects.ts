@@ -9,15 +9,19 @@ import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 export interface Project {
   id: string;
   name: string;
-  description?: string;
-  status?: string;
-  client_id?: string;
-  budget?: number;
-  start_date?: string;
-  end_date?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: unknown;
+  description: string | null;
+  status: 'active' | 'in_progress' | 'review' | 'completed' | 'archived';
+  client_id: string | null;
+  team_id: string | null;
+  budget: number | null;
+  budgeted_hours: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  storage_path: string | null;
+  cover_image: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================================

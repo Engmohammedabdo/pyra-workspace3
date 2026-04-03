@@ -46,7 +46,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   // Populate form once expense data arrives
   useEffect(() => {
     if (expenseData && !formReady) {
-      const d = expenseData as Record<string, unknown>;
+      const d = expenseData as unknown as Record<string, unknown>;
       setForm({
         description: String(d.description || ''),
         amount: String(d.amount || ''),

@@ -12,12 +12,13 @@ import { toast } from 'sonner';
 import { InvoiceHeader, InvoiceInfo } from '@/components/portal/invoice-detail/invoice-header';
 import { InvoiceTable, InvoiceTotals } from '@/components/portal/invoice-detail/invoice-table';
 import { InvoicePayments } from '@/components/portal/invoice-detail/invoice-payments';
+import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  sent: { label: 'مرسلة', variant: 'default' },
-  paid: { label: 'مدفوعة', variant: 'secondary' },
-  partially_paid: { label: 'مدفوعة جزئيا', variant: 'outline' },
-  overdue: { label: 'متأخرة', variant: 'destructive' },
+  sent: { label: INVOICE_STATUS_LABELS.sent, variant: 'default' },
+  paid: { label: INVOICE_STATUS_LABELS.paid, variant: 'secondary' },
+  partially_paid: { label: INVOICE_STATUS_LABELS.partially_paid, variant: 'outline' },
+  overdue: { label: INVOICE_STATUS_LABELS.overdue, variant: 'destructive' },
 };
 
 export default function PortalInvoiceDetailPage() {

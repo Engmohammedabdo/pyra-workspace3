@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { INVOICE_OUTSTANDING_STATUSES } from '@/lib/constants/statuses';
 
 /**
  * GET /api/finance/reports/aging
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     const { data: invoices, error } = await supabase
       .from('pyra_invoices')
       .select('id, invoice_number, client_id, client_name, issue_date, due_date, total, amount_paid, amount_due, currency, status')
-      .in('status', ['sent', 'partially_paid', 'overdue'])
+      .in('status', INVOICE_OUTSTANDING_STATUSES)
       .gt('amount_due', 0);
 
     if (error) throw error;

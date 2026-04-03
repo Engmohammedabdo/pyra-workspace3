@@ -3,6 +3,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES, SUBSCRIPTION_STATUS, CONTRACT_STATUS } from '@/lib/constants/statuses';
 
 export async function GET() {
   const auth = await requireApiPermission('finance.view');
@@ -38,8 +39,8 @@ export async function GET() {
     // Auto-mark overdue invoices (fire-and-forget — don't block dashboard load)
     void supabase
       .from('pyra_invoices')
-      .update({ status: 'overdue', updated_at: now.toISOString() })
-      .in('status', ['sent', 'partially_paid'])
+      .update({ status: INVOICE_STATUS.OVERDUE, updated_at: now.toISOString() })
+      .in('status', [INVOICE_STATUS.SENT, INVOICE_STATUS.PARTIALLY_PAID])
       .lt('due_date', today)
       .then(() => {});
 
@@ -129,7 +130,7 @@ export async function GET() {
     let outstandingQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
-      .in('status', ['sent', 'partially_paid', 'overdue']);
+      .in('status', INVOICE_OUTSTANDING_STATUSES);
     if (!scope.isAdmin) outstandingQuery = outstandingQuery.in('client_id', scope.clientIds);
     const { data: outstanding } = await outstandingQuery;
 
@@ -142,7 +143,7 @@ export async function GET() {
     let overdueQuery = supabase
       .from('pyra_invoices')
       .select('amount_due')
-      .eq('status', 'overdue');
+      .eq('status', INVOICE_STATUS.OVERDUE);
     if (!scope.isAdmin) overdueQuery = overdueQuery.in('client_id', scope.clientIds);
     const { data: overdue } = await overdueQuery;
 
@@ -158,7 +159,7 @@ export async function GET() {
       const { data: renewalData } = await supabase
         .from('pyra_subscriptions')
         .select('id, name, provider, cost, currency, next_renewal_date')
-        .eq('status', 'active')
+        .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
         .gte('next_renewal_date', today)
         .lte('next_renewal_date', in7Days)
         .order('next_renewal_date', { ascending: true });
@@ -263,7 +264,7 @@ export async function GET() {
       const { data: activeSubs } = await supabase
         .from('pyra_subscriptions')
         .select('cost, currency, billing_cycle')
-        .eq('status', 'active');
+        .eq('status', SUBSCRIPTION_STATUS.ACTIVE);
 
       monthlySubsCost = (activeSubs || []).reduce(
         (sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
@@ -281,7 +282,7 @@ export async function GET() {
       const { data: dueSubs } = await supabase
         .from('pyra_subscriptions')
         .select('id, name, provider, cost, currency, next_renewal_date')
-        .eq('status', 'active')
+        .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
         .eq('auto_renew', true)
         .lte('next_renewal_date', today)
         .order('next_renewal_date', { ascending: true });
@@ -292,7 +293,7 @@ export async function GET() {
     let activeContractsQuery = supabase
       .from('pyra_contracts')
       .select('id', { count: 'exact', head: true })
-      .in('status', ['active', 'in_progress']);
+      .in('status', [CONTRACT_STATUS.ACTIVE, 'in_progress']);
     if (!scope.isAdmin) activeContractsQuery = activeContractsQuery.in('client_id', scope.clientIds);
     const { count: activeContracts } = await activeContractsQuery;
 

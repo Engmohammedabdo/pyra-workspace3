@@ -11,6 +11,7 @@ import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
+import { QUOTE_VALID_TRANSITIONS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -154,17 +155,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // ── Validate state transition ────────────────────
     // Valid transitions: draft→sent, sent→viewed, viewed→signed, signed→(none)
     // Admin can also revert: sent→draft, viewed→draft
-    const VALID_TRANSITIONS: Record<string, string[]> = {
-      draft:   ['sent', 'cancelled'],
-      pending_approval: ['draft', 'sent', 'rejected'],
-      sent:    ['draft', 'viewed', 'cancelled'],
-      viewed:  ['draft', 'signed', 'cancelled'],
-      signed:  ['invoiced'],
-      invoiced: [],           // terminal state
-      rejected: ['draft'],
-      expired: ['draft'],
-      cancelled: ['draft'],
-    };
+    // Use centralized valid transitions from constants
+    const VALID_TRANSITIONS = QUOTE_VALID_TRANSITIONS;
 
     // Build update object
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };

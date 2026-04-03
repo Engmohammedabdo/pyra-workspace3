@@ -20,6 +20,7 @@ import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
+import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 interface Quote {
   id: string;
@@ -36,15 +37,15 @@ interface Quote {
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  draft: { label: 'مسودة', variant: 'secondary' },
-  pending_approval: { label: 'بانتظار الموافقة', variant: 'outline' },
-  sent: { label: 'مُرسل', variant: 'default' },
-  viewed: { label: 'تمت المشاهدة', variant: 'outline' },
-  signed: { label: 'مُوقع', variant: 'default' },
-  invoiced: { label: 'تم الفوترة', variant: 'default' },
-  rejected: { label: 'مرفوض', variant: 'destructive' },
-  expired: { label: 'منتهي', variant: 'destructive' },
-  cancelled: { label: 'ملغي', variant: 'destructive' },
+  draft: { label: QUOTE_STATUS_LABELS.draft, variant: 'secondary' },
+  pending_approval: { label: QUOTE_STATUS_LABELS.pending_approval, variant: 'outline' },
+  sent: { label: QUOTE_STATUS_LABELS.sent, variant: 'default' },
+  viewed: { label: QUOTE_STATUS_LABELS.viewed, variant: 'outline' },
+  signed: { label: QUOTE_STATUS_LABELS.signed, variant: 'default' },
+  invoiced: { label: QUOTE_STATUS_LABELS.invoiced, variant: 'default' },
+  rejected: { label: QUOTE_STATUS_LABELS.rejected, variant: 'destructive' },
+  expired: { label: QUOTE_STATUS_LABELS.expired, variant: 'destructive' },
+  cancelled: { label: QUOTE_STATUS_LABELS.cancelled, variant: 'destructive' },
 };
 
 export default function QuotesClient() {

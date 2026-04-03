@@ -13,6 +13,7 @@ import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { hasPermission } from '@/lib/auth/rbac';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/quotes
@@ -266,7 +267,7 @@ export async function POST(request: NextRequest) {
 
     // Determine status: admins create as draft, sales agents create as pending_approval
     const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
-    const quoteStatus = canManageApprovals ? 'draft' : 'pending_approval';
+    const quoteStatus = canManageApprovals ? QUOTE_STATUS.DRAFT : QUOTE_STATUS.PENDING_APPROVAL;
 
     const { data: quote, error: insertError } = await supabase
       .from('pyra_quotes')
@@ -353,7 +354,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If pending approval, create approval record
-    if (quoteStatus === 'pending_approval') {
+    if (quoteStatus === QUOTE_STATUS.PENDING_APPROVAL) {
       await supabase.from('pyra_quote_approvals').insert({
         id: generateId('qa'),
         quote_id: quoteId,

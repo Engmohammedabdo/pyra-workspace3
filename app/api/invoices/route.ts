@@ -13,6 +13,7 @@ import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/invoices
@@ -281,7 +282,7 @@ export async function POST(request: NextRequest) {
         client_id: client_id || null,
         project_id: resolvedProjectId,
         project_name: project_name?.trim() || null,
-        status: 'draft',
+        status: INVOICE_STATUS.DRAFT,
         issue_date: issue_date || new Date().toISOString().split('T')[0],
         due_date,
         currency: body.currency || settingsMap.default_currency || 'AED',

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CREDIT_NOTE_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { CREDIT_NOTE_STATUS } from '@/lib/constants/statuses';
 
 // Generate next credit note number
 async function generateNextCreditNoteNumber(supabase: ReturnType<typeof createServiceRoleClient>): Promise<string> {
@@ -153,7 +154,7 @@ export async function POST(request: NextRequest) {
         invoice_id: resolvedInvoiceId || null,
         client_id: client_id || null,
         reason: reason.trim(),
-        status: 'draft',
+        status: CREDIT_NOTE_STATUS.DRAFT,
         issue_date,
         currency: 'AED',
         subtotal,

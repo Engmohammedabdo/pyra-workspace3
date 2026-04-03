@@ -4,6 +4,7 @@ import { apiSuccess, apiNotFound, apiError, apiServerError } from '@/lib/api/res
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PURCHASE_ORDER_FIELDS, PO_ITEM_FIELDS } from '@/lib/supabase/fields';
+import { PO_VALID_TRANSITIONS, PO_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(
   _req: NextRequest,
@@ -36,12 +37,8 @@ export async function GET(
   }
 }
 
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  draft: ['sent', 'cancelled'],
-  sent: ['acknowledged', 'cancelled'],
-  acknowledged: ['received', 'cancelled'],
-  received: ['invoiced'],
-};
+// Use centralized valid transitions from constants
+const VALID_TRANSITIONS = PO_VALID_TRANSITIONS;
 
 export async function PATCH(
   req: NextRequest,
@@ -83,7 +80,7 @@ export async function PATCH(
     if (error || !data) return apiServerError(error?.message || 'فشل التحديث');
 
     // ── When PO is received, auto-create an expense ──
-    if (status === 'received') {
+    if (status === PO_STATUS.RECEIVED) {
       try {
         // Fetch PO items for description
         const { data: poItems } = await supabase
@@ -107,7 +104,7 @@ export async function PATCH(
           project_id: data.project_id || null,
           purchase_order_id: data.id,
           vendor: data.supplier_name || null,
-          status: 'approved',
+          status: EXPENSE_STATUS.APPROVED,
           expense_date: new Date().toISOString().split('T')[0],
           created_by: auth.pyraUser.username,
         });
@@ -152,7 +149,7 @@ export async function DELETE(
       .single();
 
     if (!existing) return apiNotFound();
-    if (existing.status !== 'draft') return apiError('يمكن حذف المسودات فقط', 422);
+    if (existing.status !== PO_STATUS.DRAFT) return apiError('يمكن حذف المسودات فقط', 422);
 
     // Items will be cascade-deleted
     const { error } = await supabase

@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { CREDIT_NOTE_STATUS, INVOICE_STATUS, PAYMENT_METHOD } from '@/lib/constants/statuses';
 
 /**
  * POST /api/dashboard/credit-notes/[id]/apply
@@ -27,8 +28,8 @@ export async function POST(
       .single();
 
     if (!cn) return apiNotFound();
-    if (cn.status === 'applied') return apiValidationError('الإشعار الدائن مطبق بالفعل');
-    if (cn.status === 'cancelled') return apiValidationError('الإشعار الدائن ملغي');
+    if (cn.status === CREDIT_NOTE_STATUS.APPLIED) return apiValidationError('الإشعار الدائن مطبق بالفعل');
+    if (cn.status === CREDIT_NOTE_STATUS.CANCELLED) return apiValidationError('الإشعار الدائن ملغي');
     if (!cn.invoice_id) return apiValidationError('الإشعار الدائن غير مرتبط بفاتورة');
 
     // Get invoice
@@ -53,7 +54,7 @@ export async function POST(
       invoice_id: cn.invoice_id,
       amount: -applyAmount,
       payment_date: new Date().toISOString().split('T')[0],
-      method: 'credit_note',
+      method: PAYMENT_METHOD.CREDIT_NOTE,
       reference: cn.credit_note_number,
       notes: `إشعار دائن ${cn.credit_note_number}${cn.reason ? ` — ${cn.reason}` : ''}`,
       recorded_by: auth.pyraUser.username,
@@ -72,9 +73,9 @@ export async function POST(
 
     // 3. Update invoice with recalculated amounts
     let newStatus: string;
-    if (newAmountPaid <= 0) newStatus = 'sent';
-    else if (newAmountDue <= 0) newStatus = 'paid';
-    else newStatus = 'partially_paid';
+    if (newAmountPaid <= 0) newStatus = INVOICE_STATUS.SENT;
+    else if (newAmountDue <= 0) newStatus = INVOICE_STATUS.PAID;
+    else newStatus = INVOICE_STATUS.PARTIALLY_PAID;
 
     await supabase
       .from('pyra_invoices')
@@ -90,7 +91,7 @@ export async function POST(
     await supabase
       .from('pyra_credit_notes')
       .update({
-        status: 'applied',
+        status: CREDIT_NOTE_STATUS.APPLIED,
         applied_amount: applyAmount,
         updated_at: new Date().toISOString(),
       })

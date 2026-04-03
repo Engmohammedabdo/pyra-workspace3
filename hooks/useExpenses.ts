@@ -3,16 +3,27 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 
+import type { ExpenseStatus } from '@/lib/constants/statuses';
+
 export interface Expense {
   id: string;
-  title?: string;
-  amount?: number;
-  category?: string;
-  date?: string;
-  status?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: unknown;
+  description: string;
+  amount: number;
+  currency: string;
+  vat_amount: number;
+  category_id: string | null;
+  vendor: string | null;
+  expense_date: string;
+  status: ExpenseStatus;
+  payment_method: string | null;
+  receipt_url: string | null;
+  project_id: string | null;
+  subscription_id: string | null;
+  supplier_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export function useExpenses(params?: Record<string, string | undefined>) {

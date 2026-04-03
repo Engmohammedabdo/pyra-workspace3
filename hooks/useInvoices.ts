@@ -6,28 +6,54 @@ import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 // ============================================================
 // Types
 // ============================================================
+import type { InvoiceStatus } from '@/lib/constants/statuses';
+
 export interface Invoice {
   id: string;
-  invoice_number?: string;
-  client_id?: string;
-  project_id?: string;
-  status?: string;
-  amount?: number;
-  due_date?: string;
-  issued_date?: string;
-  paid_date?: string;
-  created_at?: string;
-  updated_at?: string;
-  [key: string]: unknown;
+  invoice_number: string;
+  quote_id: string | null;
+  client_id: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  status: InvoiceStatus;
+  issue_date: string;
+  due_date: string;
+  currency: string;
+  subtotal: number;
+  tax_rate: number;
+  tax_amount: number;
+  total: number;
+  amount_paid: number;
+  amount_due: number;
+  discount_type: string | null;
+  discount_value: number;
+  discount_amount: number;
+  notes: string | null;
+  company_name: string | null;
+  company_logo: string | null;
+  client_name: string | null;
+  client_email: string | null;
+  client_company: string | null;
+  client_phone: string | null;
+  display_client_name: string | null;
+  entity_id: string | null;
+  license_no: string | null;
+  contract_id: string | null;
+  milestone_type: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  items?: Array<{ id: string; description: string; quantity: number; rate: number; amount: number }>;
+  payments?: Array<{ id: string; amount: number; payment_date: string; method: string; reference: string | null }>;
 }
 
 export interface RevenueSummary {
-  total_revenue?: number;
-  paid?: number;
-  pending?: number;
-  overdue?: number;
+  total_revenue: number;
+  paid: number;
+  pending: number;
+  overdue: number;
   monthly?: Array<{ month: string; amount: number }>;
-  [key: string]: unknown;
 }
 
 // ============================================================

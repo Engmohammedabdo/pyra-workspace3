@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { INVOICE_STATUS, PAYMENT_METHOD } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -52,11 +53,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (['draft', 'cancelled'].includes(invoice.status)) {
+    if ([INVOICE_STATUS.DRAFT, INVOICE_STATUS.CANCELLED].includes(invoice.status)) {
       return apiValidationError('لا يمكن تسجيل دفعة لهذه الفاتورة');
     }
 
-    if (invoice.status === 'paid') {
+    if (invoice.status === INVOICE_STATUS.PAID) {
       return apiValidationError('الفاتورة مدفوعة بالكامل بالفعل');
     }
 
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         invoice_id: id,
         amount,
         payment_date: payment_date || new Date().toISOString().split('T')[0],
-        method: method || 'bank_transfer',
+        method: method || PAYMENT_METHOD.BANK_TRANSFER,
         reference: reference || null,
         notes: notes || null,
         recorded_by: auth.pyraUser.username,
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
     );
     const newAmountDue = invoice.total - newAmountPaid;
-    const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
+    const newStatus = newAmountDue <= 0 ? INVOICE_STATUS.PAID : INVOICE_STATUS.PARTIALLY_PAID;
 
     const { error: updateErr } = await supabase
       .from('pyra_invoices')
@@ -123,7 +124,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       details: {
         invoice_number: invoice.invoice_number,
         amount,
-        method: method || 'bank_transfer',
+        method: method || PAYMENT_METHOD.BANK_TRANSFER,
         new_status: newStatus,
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -254,7 +255,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       console.error('Commission auto-calculate error:', commErr);
     }
 
-    if (newStatus === 'paid') {
+    if (newStatus === INVOICE_STATUS.PAID) {
       dispatchWebhookEvent('invoice_paid', { invoice_id: id, invoice_number: invoice.invoice_number, total: invoice.total, client_name: invoice.client_name });
     }
 

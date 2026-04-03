@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * POST /api/invoices/check-overdue
@@ -26,8 +27,8 @@ export async function POST(_request: NextRequest) {
 
     let query = supabase
       .from('pyra_invoices')
-      .update({ status: 'overdue', updated_at: new Date().toISOString() })
-      .in('status', ['sent', 'partially_paid'])
+      .update({ status: INVOICE_STATUS.OVERDUE, updated_at: new Date().toISOString() })
+      .in('status', [INVOICE_STATUS.SENT, INVOICE_STATUS.PARTIALLY_PAID])
       .lt('due_date', today);
 
     // Scope filtering: non-admins only check overdue for their accessible clients

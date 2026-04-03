@@ -16,6 +16,7 @@ import {
   CalendarOff, Plus, CheckCircle, XCircle, Sun, Stethoscope, UserCircle, Trash2, Ban, AlertTriangle
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
+import { LEAVE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
@@ -23,7 +24,7 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
   cancelled: 'bg-gray-500/10 text-gray-500 dark:text-gray-400',
 };
-const STATUS_LABELS: Record<string, string> = { pending: 'معلق', approved: 'موافق عليه', rejected: 'مرفوض', cancelled: 'ملغية' };
+const STATUS_LABELS: Record<string, string> = { ...LEAVE_STATUS_LABELS, cancelled: 'ملغية' };
 const TYPE_LABELS: Record<string, string> = { annual: 'سنوية', sick: 'مرضية', personal: 'شخصية' };
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { annual: Sun, sick: Stethoscope, personal: UserCircle };
 

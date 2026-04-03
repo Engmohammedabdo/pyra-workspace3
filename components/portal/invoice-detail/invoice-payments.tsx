@@ -1,17 +1,8 @@
 import { formatDate } from '@/lib/utils/format';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';
 const fmtNum = (n: number) =>
   new Intl.NumberFormat('en-AE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
-const PAYMENT_METHODS: Record<string, string> = {
-  bank_transfer: 'تحويل بنكي',
-  cash: 'نقدي',
-  cheque: 'شيك',
-  card: 'بطاقة',
-  credit_card: 'بطاقة ائتمان',
-  online: 'دفع إلكتروني',
-  credit_note: 'إشعار دائن (رد)',
-  stripe: 'Stripe',
-  refund: 'استرداد',
-};
+const PAYMENT_METHODS: Record<string, string> = { ...PAYMENT_METHOD_LABELS, card: 'بطاقة' };
 
 export function InvoicePayments({ payments, currency }: { payments: any[]; currency: string }) {
   if (!payments || payments.length === 0) return null;

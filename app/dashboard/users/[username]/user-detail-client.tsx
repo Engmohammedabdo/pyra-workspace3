@@ -128,7 +128,7 @@ export default function UserDetailClient() {
     id: p.id,
     name: p.name,
     status: p.status || '',
-    client_name: (p as Record<string, unknown> & { pyra_clients?: { name: string } }).pyra_clients?.name,
+    client_name: (p as unknown as Record<string, unknown> & { pyra_clients?: { name: string } }).pyra_clients?.name,
   }));
   const [loading, setLoading] = useState(true);
   const [paymentsLoading, setPaymentsLoading] = useState(true);

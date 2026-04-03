@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
+import { EXPENSE_STATUS_LABELS } from '@/lib/constants/statuses';
 
 interface Expense {
   id: string;
@@ -41,9 +42,9 @@ interface Expense {
 }
 
 const EXPENSE_STATUS_MAP: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  approved: { label: 'معتمد', color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
-  pending: { label: 'بانتظار الاعتماد', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Clock },
-  rejected: { label: 'مرفوض', color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: XCircle },
+  approved: { label: EXPENSE_STATUS_LABELS.approved, color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
+  pending: { label: EXPENSE_STATUS_LABELS.pending, color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Clock },
+  rejected: { label: EXPENSE_STATUS_LABELS.rejected, color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: XCircle },
   draft: { label: 'مسودة', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: Clock },
 };
 
