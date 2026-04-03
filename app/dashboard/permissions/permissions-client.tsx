@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useUsersLite } from '@/hooks/useUsers';
+import { useTeams } from '@/hooks/useTeams';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,10 +36,13 @@ interface Team { id: string; name: string; }
 
 export default function PermissionsClient() {
   const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [users, setUsers] = useState<UserLite[]>([]);
-  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+
+  // React Query hooks
+  const { data: users = [] } = useUsersLite() as unknown as { data: UserLite[] };
+  const { data: teamsData = [] } = useTeams() as unknown as { data: Team[] };
+  const teams = teamsData;
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -53,21 +58,13 @@ export default function PermissionsClient() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [permsRes, usersRes, teamsRes] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const [permsRes] = await Promise.all([
         fetch('/api/files?prefix=').catch(() => null),
-        fetch('/api/users/lite'),
-        fetch('/api/teams'),
       ]);
 
       // Try to fetch permissions from a custom source or build from user data
-      if (usersRes.ok) {
-        const usersJson = await usersRes.json();
-        if (usersJson.data) setUsers(usersJson.data);
-      }
-      if (teamsRes.ok) {
-        const teamsJson = await teamsRes.json();
-        if (teamsJson.data) setTeams(teamsJson.data);
-      }
+      // users and teams loaded via React Query hooks
 
       // Build permissions list from users who have permissions set
       const allUsersRes = await fetch('/api/users?role=');

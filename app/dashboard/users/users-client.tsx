@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useUsers } from '@/hooks/useUsers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -85,9 +87,11 @@ interface RoleOption {
 
 export default function UsersClient() {
   const canManage = usePermission('users.manage');
-  const [users, setUsers] = useState<PyraUser[]>([]);
+  const queryClient = useQueryClient();
+
+  // React Query hooks
+  const { data: users = [], isLoading: loading } = useUsers() as unknown as { data: PyraUser[]; isLoading: boolean };
   const [roles, setRoles] = useState<RoleOption[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -146,23 +150,7 @@ export default function UsersClient() {
     fetchRoles();
   }, []);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (roleFilter !== 'all') params.set('role', roleFilter);
-      const res = await fetch(`/api/users?${params}`);
-      const json = await res.json();
-      if (json.data) setUsers(json.data);
-    } catch (err) {
-      console.error('Error fetching users:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, roleFilter]);
 
-  useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
   const resetFormData = () => {
     setFormData({
@@ -202,7 +190,7 @@ export default function UsersClient() {
       setShowCreateDialog(false);
       resetFormData();
       toast.success('تم إنشاء المستخدم بنجاح');
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -234,7 +222,7 @@ export default function UsersClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowEditDialog(false);
       toast.success('تم تحديث المستخدم');
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -264,7 +252,7 @@ export default function UsersClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowDeleteDialog(false);
       toast.success('تم حذف المستخدم');
-      fetchUsers();
+      queryClient.invalidateQueries({ queryKey: ['users'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useClients } from '@/hooks/useClients';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Save } from 'lucide-react';
@@ -8,7 +9,6 @@ import { toast } from 'sonner';
 import { BasicInfo } from '@/components/dashboard/recurring-new/BasicInfo';
 import { LineItems } from '@/components/dashboard/recurring-new/LineItems';
 
-interface Client { id: string; name: string; company: string; }
 interface Contract { id: string; title: string; }
 interface LineItem { description: string; quantity: number; rate: number; amount: number; }
 
@@ -16,17 +16,15 @@ export default function CreateRecurringInvoicePage() {
   const router = useRouter();
   const [form, setForm] = useState({ title: '', client_id: '', contract_id: '', billing_cycle: 'monthly', next_generation_date: '', currency: 'AED', auto_send: false });
   const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, rate: 0, amount: 0 }]);
-  const [clients, setClients] = useState<Client[]>([]);
+  const { data: clients = [] } = useClients({ pageSize: '100' });
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [cRes, contRes] = await Promise.all([fetch('/api/clients?pageSize=100'), fetch('/api/finance/contracts?pageSize=100')]);
-        const cData = await cRes.json();
+        const contRes = await fetch('/api/finance/contracts?pageSize=100');
         const contData = await contRes.json();
-        setClients(cData.data || cData.clients || []);
         setContracts(contData.data || contData.contracts || []);
       } catch { console.error('Failed to fetch data'); }
     }

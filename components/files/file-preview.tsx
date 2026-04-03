@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
   Download,
@@ -38,28 +39,53 @@ import { useTheme } from 'next-themes';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 
-interface FilePreviewProps {
-  file: FileListItem | null;
+// ── Types ──
+
+/**
+ * For dashboard mode use `FileListItem` (full file object).
+ * For portal mode use `PortalFile` (lightweight, id-based).
+ */
+export interface PortalFile {
+  id: string;
+  file_name: string;
+  file_type: string; // mime_type
+  file_size?: number;
+}
+
+export type FilePreviewMode = 'dashboard' | 'portal';
+
+interface FilePreviewPropsBase {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  mode: FilePreviewMode;
+}
+
+interface DashboardFilePreviewProps extends FilePreviewPropsBase {
+  mode: 'dashboard';
+  file: FileListItem | null;
   /** Optional: if set, shows a comments section for this project + file */
   projectId?: string;
   /** Optional: file_id (from pyra_project_files) for file-level comments */
   fileId?: string;
+  portalFile?: never;
 }
 
-function isImage(mime: string) {
-  return mime.startsWith('image/');
+interface PortalFilePreviewProps extends FilePreviewPropsBase {
+  mode: 'portal';
+  portalFile: PortalFile | null;
+  file?: never;
+  projectId?: never;
+  fileId?: never;
 }
-function isVideo(mime: string) {
-  return mime.startsWith('video/');
-}
-function isAudio(mime: string) {
-  return mime.startsWith('audio/');
-}
-function isPdf(mime: string) {
-  return mime === 'application/pdf';
-}
+
+export type FilePreviewProps = DashboardFilePreviewProps | PortalFilePreviewProps;
+
+// ── MIME type helpers ──
+
+function isImage(mime: string) { return mime.startsWith('image/'); }
+function isVideo(mime: string) { return mime.startsWith('video/'); }
+function isAudio(mime: string) { return mime.startsWith('audio/'); }
+function isPdf(mime: string) { return mime === 'application/pdf'; }
 function isText(mime: string) {
   return (
     mime.startsWith('text/') ||
@@ -72,9 +98,13 @@ function isMarkdown(name: string) {
   const lower = name.toLowerCase();
   return lower.endsWith('.md') || lower.endsWith('.markdown') || lower.endsWith('.mdx');
 }
-function isDocx(name: string) {
-  const lower = name.toLowerCase();
-  return lower.endsWith('.docx') || lower.endsWith('.doc');
+function isDocx(nameOrMime: string) {
+  const lower = nameOrMime.toLowerCase();
+  return (
+    lower.endsWith('.docx') ||
+    lower.endsWith('.doc') ||
+    lower === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  );
 }
 function isSpreadsheet(name: string) {
   const lower = name.toLowerCase();
@@ -91,7 +121,6 @@ function detectDirection(text: string): 'rtl' | 'ltr' {
   return rtlChars > latinChars ? 'rtl' : 'ltr';
 }
 
-// Get icon & color for file type
 function getFileTypeInfo(mime: string, name: string) {
   if (isPdf(mime)) return { icon: FileType, color: 'text-red-500', bg: 'bg-red-500/10', label: 'PDF' };
   if (isImage(mime)) return { icon: FileImage, color: 'text-blue-500', bg: 'bg-blue-500/10', label: 'صورة' };
@@ -104,22 +133,55 @@ function getFileTypeInfo(mime: string, name: string) {
   return { icon: FileText, color: 'text-muted-foreground', bg: 'bg-muted', label: 'ملف' };
 }
 
-export function FilePreview({ file, open, onOpenChange, projectId, fileId }: FilePreviewProps) {
+// ── Animation variants ──
+
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+  exit: { opacity: 0 },
+};
+
+const panelVariants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: 'spring' as const, damping: 25, stiffness: 300 },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.95,
+    y: 20,
+    transition: { duration: 0.15 },
+  },
+};
+
+// ── Main unified component ──
+
+export function FilePreview(props: FilePreviewProps) {
+  if (props.mode === 'portal') {
+    return <PortalFilePreviewInner {...props} />;
+  }
+  return <DashboardFilePreviewInner {...props} />;
+}
+
+// ─────────────────────────────────────────────────────────────
+// DASHBOARD MODE
+// ─────────────────────────────────────────────────────────────
+
+function DashboardFilePreviewInner({ file, open, onOpenChange, projectId, fileId }: DashboardFilePreviewProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const getUrl = useFileUrl();
 
-  // Get the proxy URL for the file
-  // The proxy API route handles large files (>10MB) via 302 redirect to signed URL
-  // and small files via direct streaming — so one URL works for all cases
   useEffect(() => {
     if (!file || file.isFolder) {
       setSignedUrl(null);
       return;
     }
-
     setLoading(true);
     getUrl.mutateAsync({ path: file.path }).then((url) => {
       setSignedUrl(url);
@@ -131,7 +193,6 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file?.path]);
 
-  // Close on Escape
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -157,26 +218,18 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
   };
 
   const handleOpenNewTab = () => {
-    if (signedUrl) {
-      window.open(signedUrl, '_blank');
-    }
+    if (signedUrl) window.open(signedUrl, '_blank');
   };
 
-  // Determine if this file is markdown, docx, or spreadsheet by name
   const isMarkdownFile = !file.isFolder && isMarkdown(decodedName);
   const isDocxFile = !file.isFolder && isDocx(decodedName);
   const isSpreadsheetFile = !file.isFolder && isSpreadsheet(decodedName);
 
-  // Full-screen for media-heavy files (PDF, images, video)
-  const isFullViewer = isPdf(file.mimeType) || isImage(file.mimeType) || isVideo(file.mimeType);
-
   return (
     <>
-      {/* =================== FULLSCREEN OVERLAY =================== */}
       <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md animate-in fade-in duration-200">
-        {/* ============ TOP BAR ============ */}
+        {/* TOP BAR */}
         <div className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm shrink-0">
-          {/* File Info (Right side - RTL) */}
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <div className={`w-10 h-10 rounded-xl ${typeInfo.bg} flex items-center justify-center shrink-0`}>
               <TypeIcon className={`h-5 w-5 ${typeInfo.color}`} />
@@ -198,10 +251,8 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
             </div>
           </div>
 
-          {/* Actions (Left side - RTL) */}
           <div className="flex items-center gap-1.5 shrink-0 ms-4">
             <FileTagsPopover filePath={file.path} />
-
             <Button
               variant="ghost"
               size="icon"
@@ -211,7 +262,6 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
             >
               <History className="h-4 w-4" />
             </Button>
-
             <Button
               variant="ghost"
               size="icon"
@@ -221,9 +271,7 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
             >
               <Info className="h-4 w-4" />
             </Button>
-
             <div className="w-px h-5 bg-border mx-1" />
-
             <Button
               variant="ghost"
               size="sm"
@@ -234,7 +282,6 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
               <Download className="h-3.5 w-3.5" />
               تحميل
             </Button>
-
             <Button
               variant="ghost"
               size="sm"
@@ -245,9 +292,7 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
               <ExternalLink className="h-3.5 w-3.5" />
               فتح
             </Button>
-
             <div className="w-px h-5 bg-border mx-1" />
-
             <Button
               variant="ghost"
               size="icon"
@@ -259,9 +304,8 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
           </div>
         </div>
 
-        {/* ============ MAIN CONTENT ============ */}
+        {/* MAIN CONTENT */}
         <div className="flex-1 flex overflow-hidden relative">
-          {/* Preview content */}
           <div className="flex-1 overflow-auto">
             {file.isFolder ? (
               <FolderPreview />
@@ -298,14 +342,13 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
             )}
           </div>
 
-          {/* Info Side Panel (slides in) */}
+          {/* Info Side Panel */}
           {showInfo && (
             <div className="w-72 border-s bg-card/50 backdrop-blur-sm p-4 space-y-4 overflow-y-auto shrink-0 animate-in slide-in-from-left duration-200">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Info className="h-4 w-4 text-muted-foreground" />
                 معلومات الملف
               </h3>
-
               <div className="space-y-3">
                 <InfoRow label="الاسم" value={decodedName} />
                 <InfoRow label="النوع" value={file.mimeType} />
@@ -315,15 +358,11 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
                   <InfoRow label="آخر تعديل" value={formatRelativeDate(file.updatedAt)} />
                 )}
               </div>
-
-              {/* Comments section */}
               {projectId && fileId && (
                 <div className="pt-4 border-t">
                   <FileCommentsSection projectId={projectId} fileId={fileId} />
                 </div>
               )}
-
-              {/* Activity Timeline */}
               <div className="pt-4 border-t">
                 <ActivityTimeline filePath={file.path} />
               </div>
@@ -356,7 +395,162 @@ export function FilePreview({ file, open, onOpenChange, projectId, fileId }: Fil
   );
 }
 
-// ----- Sub-components -----
+// ─────────────────────────────────────────────────────────────
+// PORTAL MODE
+// ─────────────────────────────────────────────────────────────
+
+function PortalFilePreviewInner({ portalFile: file, open, onOpenChange }: PortalFilePreviewProps) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [resolvedMime, setResolvedMime] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || !open) {
+      setSignedUrl(null);
+      setError(false);
+      setResolvedMime(null);
+      return;
+    }
+    setLoading(true);
+    setError(false);
+    fetch(`/api/portal/files/${file.id}/preview`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.data?.url) {
+          setSignedUrl(json.data.url);
+          if (json.data.mime_type) setResolvedMime(json.data.mime_type);
+        } else {
+          setError(true);
+        }
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  }, [file?.id, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onOpenChange(false);
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [open, onOpenChange]);
+
+  const handleDownload = useCallback(() => {
+    if (file) window.open(`/api/portal/files/${file.id}/download`, '_blank');
+  }, [file]);
+
+  if (!file) return null;
+
+  const decodedName = decodeURIComponent(file.file_name);
+  const effectiveMime = resolvedMime || file.file_type;
+  const typeInfo = getFileTypeInfo(effectiveMime, decodedName);
+  const TypeIcon = typeInfo.icon;
+
+  const previewable =
+    isImage(effectiveMime) ||
+    isVideo(effectiveMime) ||
+    isAudio(effectiveMime) ||
+    isPdf(effectiveMime) ||
+    isText(effectiveMime) ||
+    isDocx(effectiveMime);
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          variants={overlayVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md"
+        >
+          {/* Top Bar */}
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05, duration: 0.2 }}
+            className="flex items-center justify-between px-4 py-3 border-b bg-background/80 backdrop-blur-sm shrink-0"
+          >
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`w-10 h-10 rounded-xl ${typeInfo.bg} flex items-center justify-center shrink-0`}>
+                <TypeIcon className={`h-5 w-5 ${typeInfo.color}`} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-sm font-semibold truncate">{decodedName}</h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${typeInfo.color} border-current/20`}>
+                    {typeInfo.label}
+                  </Badge>
+                  {file.file_size != null && file.file_size > 0 && (
+                    <span>{formatFileSize(file.file_size)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 shrink-0 ms-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={handleDownload}
+              >
+                <Download className="h-3.5 w-3.5" />
+                تحميل
+              </Button>
+              <div className="w-px h-5 bg-border mx-1" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => onOpenChange(false)}
+                aria-label="إغلاق"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </motion.div>
+
+          {/* Content Area */}
+          <motion.div
+            variants={panelVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="flex-1 overflow-hidden"
+          >
+            {loading ? (
+              <PreviewLoading />
+            ) : error || !signedUrl ? (
+              <PreviewError />
+            ) : !previewable ? (
+              <PortalGenericPreview name={decodedName} typeInfo={typeInfo} onDownload={handleDownload} />
+            ) : isImage(effectiveMime) ? (
+              <ImagePreview url={signedUrl} name={decodedName} />
+            ) : isVideo(effectiveMime) ? (
+              <VideoPreview url={signedUrl} />
+            ) : isPdf(effectiveMime) ? (
+              <PortalPdfPreview url={`/api/portal/files/${file.id}/view`} />
+            ) : isAudio(effectiveMime) ? (
+              <AudioPreview url={signedUrl} name={decodedName} />
+            ) : isText(effectiveMime) ? (
+              <PortalTextPreview url={signedUrl} name={decodedName} mime={effectiveMime} />
+            ) : isDocx(effectiveMime) ? (
+              <PortalDocxPreview url={signedUrl} name={decodedName} onDownload={handleDownload} />
+            ) : (
+              <PortalGenericPreview name={decodedName} typeInfo={typeInfo} onDownload={handleDownload} />
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ----- Shared Sub-components -----
 
 function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
@@ -415,14 +609,14 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
   const [loaded, setLoaded] = useState(false);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Image zoom controls */}
+    <div className="flex flex-col h-full relative">
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg">
         <Button
           variant="ghost"
           size="icon"
           className="h-7 w-7"
           onClick={() => setImgZoom((z) => Math.max(0.25, z - 0.25))}
+          aria-label="تصغير"
         >
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
@@ -432,6 +626,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
           size="icon"
           className="h-7 w-7"
           onClick={() => setImgZoom((z) => Math.min(4, z + 0.25))}
+          aria-label="تكبير"
         >
           <ZoomIn className="h-3.5 w-3.5" />
         </Button>
@@ -489,7 +684,6 @@ function VideoPreview({ url }: { url: string }) {
 function AudioPreview({ url, name }: { url: string; name: string }) {
   return (
     <div className="flex flex-col items-center justify-center h-full gap-8 p-8">
-      {/* Beautiful audio visualization placeholder */}
       <div className="relative">
         <div className="absolute inset-0 rounded-full bg-gradient-to-r from-pink-500 to-violet-500 blur-3xl opacity-20 animate-pulse" />
         <div className="relative w-40 h-40 rounded-full bg-gradient-to-br from-pink-500 via-purple-500 to-violet-600 flex items-center justify-center shadow-2xl shadow-purple-500/20">
@@ -502,17 +696,12 @@ function AudioPreview({ url, name }: { url: string; name: string }) {
         <p className="text-base font-semibold">{name}</p>
         <p className="text-xs text-muted-foreground mt-1">ملف صوتي</p>
       </div>
-      <audio
-        src={url}
-        controls
-        className="w-full max-w-md"
-        preload="metadata"
-      />
+      <audio src={url} controls className="w-full max-w-md" preload="metadata" />
     </div>
   );
 }
 
-// =================== MARKDOWN PREVIEW ===================
+// =================== MARKDOWN PREVIEW (dashboard) ===================
 function MarkdownPreview({ url }: { url: string }) {
   const [content, setContent] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -533,23 +722,17 @@ function MarkdownPreview({ url }: { url: string }) {
   if (content === null) return <PreviewLoading />;
 
   return (
-    <div
-      className="rounded-xl border bg-card shadow-sm overflow-auto p-8"
-      dir={direction}
-    >
+    <div className="rounded-xl border bg-card shadow-sm overflow-auto p-8" dir={direction}>
       <article className="prose prose-sm dark:prose-invert max-w-none prose-headings:font-bold prose-h1:text-xl prose-h2:text-lg prose-h3:text-base prose-p:leading-relaxed prose-a:text-primary prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:bg-muted prose-pre:border prose-pre:rounded-lg prose-img:rounded-lg prose-table:text-sm prose-th:bg-muted/50 prose-td:border prose-th:border prose-th:px-3 prose-th:py-2 prose-td:px-3 prose-td:py-2">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {content}
-        </ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </article>
     </div>
   );
 }
 
-// =================== TEXT PREVIEW ===================
+// =================== TEXT PREVIEW (dashboard) ===================
 const MAX_CODE_CHARS = 20000;
 
-/** Map file extensions to shiki language IDs */
 function getShikiLang(fileName: string): string | null {
   const ext = fileName.slice(fileName.lastIndexOf('.')).toLowerCase();
   const map: Record<string, string> = {
@@ -563,26 +746,16 @@ function getShikiLang(fileName: string): string | null {
     '.py': 'python', '.pyw': 'python',
     '.java': 'java', '.kt': 'kotlin', '.kts': 'kotlin',
     '.c': 'c', '.h': 'c', '.cpp': 'cpp', '.hpp': 'cpp', '.cc': 'cpp',
-    '.cs': 'csharp',
-    '.rs': 'rust',
-    '.go': 'go',
-    '.rb': 'ruby',
-    '.php': 'php',
+    '.cs': 'csharp', '.rs': 'rust', '.go': 'go', '.rb': 'ruby', '.php': 'php',
     '.sh': 'bash', '.bash': 'bash', '.zsh': 'bash',
     '.ps1': 'powershell',
     '.yaml': 'yaml', '.yml': 'yaml',
-    '.toml': 'toml',
-    '.sql': 'sql',
+    '.toml': 'toml', '.sql': 'sql',
     '.md': 'markdown', '.mdx': 'mdx',
     '.graphql': 'graphql', '.gql': 'graphql',
     '.dockerfile': 'dockerfile',
-    '.r': 'r',
-    '.swift': 'swift',
-    '.dart': 'dart',
-    '.lua': 'lua',
-    '.env': 'dotenv',
-    '.ini': 'ini', '.cfg': 'ini',
-    '.prisma': 'prisma',
+    '.r': 'r', '.swift': 'swift', '.dart': 'dart', '.lua': 'lua',
+    '.env': 'dotenv', '.ini': 'ini', '.cfg': 'ini', '.prisma': 'prisma',
   };
   return map[ext] || null;
 }
@@ -600,32 +773,18 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
       .catch(() => setError(true));
   }, [url]);
 
-  // Syntax highlighting with shiki
   useEffect(() => {
     if (!content || !fileName) return;
     const lang = getShikiLang(fileName);
-    if (!lang) {
-      setHighlighted(null);
-      return;
-    }
-
+    if (!lang) { setHighlighted(null); return; }
     const codeToHighlight = content.slice(0, MAX_CODE_CHARS);
     let cancelled = false;
-
     import('shiki')
       .then(({ codeToHtml }) =>
-        codeToHtml(codeToHighlight, {
-          lang,
-          theme: theme === 'dark' ? 'github-dark' : 'github-light',
-        })
+        codeToHtml(codeToHighlight, { lang, theme: theme === 'dark' ? 'github-dark' : 'github-light' })
       )
-      .then((html) => {
-        if (!cancelled) setHighlighted(html);
-      })
-      .catch(() => {
-        if (!cancelled) setHighlighted(null);
-      });
-
+      .then((html) => { if (!cancelled) setHighlighted(html); })
+      .catch(() => { if (!cancelled) setHighlighted(null); });
     return () => { cancelled = true; };
   }, [content, fileName, theme]);
 
@@ -637,14 +796,13 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
 
   return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-      {/* File header */}
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/30">
         <div className="flex items-center gap-2">
           <Code className="h-3.5 w-3.5 text-muted-foreground" />
           <span className="text-xs font-medium">{fileName}</span>
-          {getShikiLang(fileName || '') && (
+          {fileName && getShikiLang(fileName) && (
             <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-              {getShikiLang(fileName || '')}
+              {getShikiLang(fileName)}
             </Badge>
           )}
         </div>
@@ -674,7 +832,7 @@ function TextPreview({ url, fileName }: { url: string; fileName?: string }) {
   );
 }
 
-// =================== GENERIC PREVIEW ===================
+// =================== GENERIC PREVIEW (dashboard) ===================
 function GenericPreview({ file }: { file: FileListItem }) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-6">
@@ -705,9 +863,7 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
   useEffect(() => {
     setLoading(true);
     setError(false);
-
     if (isCsv(fileName)) {
-      // CSV: fetch as text and parse manually
       fetch(url)
         .then((res) => res.text())
         .then((text) => {
@@ -717,12 +873,8 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
           setActiveSheet(0);
           setLoading(false);
         })
-        .catch(() => {
-          setError(true);
-          setLoading(false);
-        });
+        .catch(() => { setError(true); setLoading(false); });
     } else {
-      // Excel: fetch as ArrayBuffer and parse with xlsx
       fetch(url)
         .then((res) => res.arrayBuffer())
         .then(async (buffer) => {
@@ -730,28 +882,15 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
           const wb = XLSX.read(buffer, { type: 'array' });
           const parsed = wb.SheetNames.map((name) => {
             const sheet = wb.Sheets[name];
-            const json: string[][] = XLSX.utils.sheet_to_json(sheet, {
-              header: 1,
-              defval: '',
-            });
+            const json: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
             return { name, data: json };
           });
-          if (parsed.length > 0) {
-            setTotalRows(parsed[0].data.length);
-          }
-          // Cap rows per sheet
-          const capped = parsed.map((s) => ({
-            ...s,
-            data: s.data.slice(0, MAX_PREVIEW_ROWS + 1),
-          }));
-          setSheets(capped);
+          if (parsed.length > 0) setTotalRows(parsed[0].data.length);
+          setSheets(parsed.map((s) => ({ ...s, data: s.data.slice(0, MAX_PREVIEW_ROWS + 1) })));
           setActiveSheet(0);
           setLoading(false);
         })
-        .catch(() => {
-          setError(true);
-          setLoading(false);
-        });
+        .catch(() => { setError(true); setLoading(false); });
     }
   }, [url, fileName]);
 
@@ -764,20 +903,14 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
 
   return (
     <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-      {/* Sheet tabs (for multi-sheet Excel files) */}
       {sheets.length > 1 && (
         <div className="flex items-center gap-1 px-4 py-2 border-b bg-muted/30 overflow-x-auto">
           {sheets.map((sheet, idx) => (
             <button
               key={sheet.name}
-              onClick={() => {
-                setActiveSheet(idx);
-                setTotalRows(sheets[idx].data.length);
-              }}
+              onClick={() => { setActiveSheet(idx); setTotalRows(sheets[idx].data.length); }}
               className={`px-3 py-1.5 text-xs rounded-md transition-colors whitespace-nowrap ${
-                idx === activeSheet
-                  ? 'bg-pyra-orange text-white font-medium'
-                  : 'text-muted-foreground hover:bg-muted'
+                idx === activeSheet ? 'bg-pyra-orange text-white font-medium' : 'text-muted-foreground hover:bg-muted'
               }`}
             >
               {sheet.name}
@@ -785,8 +918,6 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
           ))}
         </div>
       )}
-
-      {/* Row count notice */}
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/20">
         <span className="text-xs text-muted-foreground">
           {bodyRows.length} صف{totalRows > MAX_PREVIEW_ROWS && ` (من أصل ${totalRows - 1})`} · {headerRow.length} عمود
@@ -797,20 +928,13 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
           </span>
         )}
       </div>
-
-      {/* Table */}
       <div className="overflow-auto max-h-[65vh]">
         <table className="w-full text-xs border-collapse" dir="auto">
           <thead className="sticky top-0 z-10">
             <tr className="bg-muted/80 backdrop-blur-sm">
-              <th className="px-3 py-2 text-center text-muted-foreground font-medium border-b border-e w-10">
-                #
-              </th>
+              <th className="px-3 py-2 text-center text-muted-foreground font-medium border-b border-e w-10">#</th>
               {headerRow.map((cell, i) => (
-                <th
-                  key={i}
-                  className="px-3 py-2 text-start font-semibold border-b border-e whitespace-nowrap"
-                >
+                <th key={i} className="px-3 py-2 text-start font-semibold border-b border-e whitespace-nowrap">
                   {String(cell)}
                 </th>
               ))}
@@ -818,18 +942,10 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
           </thead>
           <tbody>
             {bodyRows.map((row, rowIdx) => (
-              <tr
-                key={rowIdx}
-                className="hover:bg-accent/30 transition-colors"
-              >
-                <td className="px-3 py-1.5 text-center text-muted-foreground border-e tabular-nums">
-                  {rowIdx + 1}
-                </td>
+              <tr key={rowIdx} className="hover:bg-accent/30 transition-colors">
+                <td className="px-3 py-1.5 text-center text-muted-foreground border-e tabular-nums">{rowIdx + 1}</td>
                 {headerRow.map((_, colIdx) => (
-                  <td
-                    key={colIdx}
-                    className="px-3 py-1.5 border-e whitespace-nowrap max-w-[300px] truncate"
-                  >
+                  <td key={colIdx} className="px-3 py-1.5 border-e whitespace-nowrap max-w-[300px] truncate">
                     {String(row[colIdx] ?? '')}
                   </td>
                 ))}
@@ -842,46 +958,29 @@ function SpreadsheetPreview({ url, fileName }: { url: string; fileName: string }
   );
 }
 
-/** Simple CSV parser that handles quoted fields */
 function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let current: string[] = [];
   let cell = '';
   let inQuote = false;
-
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
     if (inQuote) {
       if (ch === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i++;
-        } else {
-          inQuote = false;
-        }
-      } else {
-        cell += ch;
-      }
+        if (text[i + 1] === '"') { cell += '"'; i++; } else { inQuote = false; }
+      } else { cell += ch; }
     } else {
-      if (ch === '"') {
-        inQuote = true;
-      } else if (ch === ',' || ch === '\t' || ch === ';') {
-        current.push(cell);
-        cell = '';
-      } else if (ch === '\n') {
-        current.push(cell);
-        cell = '';
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',' || ch === '\t' || ch === ';') { current.push(cell); cell = ''; }
+      else if (ch === '\n') {
+        current.push(cell); cell = '';
         if (current.some((c) => c !== '')) rows.push(current);
         current = [];
-      } else if (ch !== '\r') {
-        cell += ch;
-      }
+      } else if (ch !== '\r') { cell += ch; }
     }
   }
-  // Last cell/row
   current.push(cell);
   if (current.some((c) => c !== '')) rows.push(current);
-
   return rows;
 }
 
@@ -906,19 +1005,11 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
     try {
       const res = await fetch(`/api/comments?project_id=${projectId}&file_id=${fileId}`);
       const json = await res.json();
-      if (res.ok && json.data) {
-        setComments(json.data);
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
+      if (res.ok && json.data) setComments(json.data);
+    } catch { /* silent */ } finally { setLoading(false); }
   }, [projectId, fileId]);
 
-  useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
+  useEffect(() => { fetchComments(); }, [fetchComments]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -928,42 +1019,24 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
       const res = await fetch('/api/comments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          project_id: projectId,
-          file_id: fileId,
-          text: newText.trim(),
-        }),
+        body: JSON.stringify({ project_id: projectId, file_id: fileId, text: newText.trim() }),
       });
-      if (res.ok) {
-        setNewText('');
-        await fetchComments();
-        toast.success('تم إرسال التعليق');
-      } else {
-        toast.error('فشل إرسال التعليق');
-      }
-    } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setSending(false);
-    }
+      if (res.ok) { setNewText(''); await fetchComments(); toast.success('تم إرسال التعليق'); }
+      else toast.error('فشل إرسال التعليق');
+    } catch { toast.error('حدث خطأ'); } finally { setSending(false); }
   };
 
   const displayComments = showAll ? comments : comments.slice(-3);
 
   return (
     <div>
-      {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-semibold">التعليقات</span>
         {comments.length > 0 && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {comments.length}
-          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{comments.length}</Badge>
         )}
       </div>
-
-      {/* Comments list */}
       <div className="space-y-2 max-h-48 overflow-y-auto">
         {loading ? (
           <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
@@ -972,36 +1045,20 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
         ) : (
           <>
             {!showAll && comments.length > 3 && (
-              <button
-                onClick={() => setShowAll(true)}
-                className="text-xs text-orange-500 hover:underline"
-              >
+              <button onClick={() => setShowAll(true)} className="text-xs text-orange-500 hover:underline">
                 عرض {comments.length - 3} تعليقات أقدم
               </button>
             )}
             {displayComments.map((c) => {
               const isTeam = c.author_type === 'team';
               return (
-                <div
-                  key={c.id}
-                  className={`rounded-lg p-2.5 text-xs ${
-                    isTeam ? 'bg-blue-500/5 border border-blue-500/10' : 'bg-orange-500/5 border border-orange-500/10'
-                  }`}
-                >
+                <div key={c.id} className={`rounded-lg p-2.5 text-xs ${isTeam ? 'bg-blue-500/5 border border-blue-500/10' : 'bg-orange-500/5 border border-orange-500/10'}`}>
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className="font-medium">{c.author_name}</span>
-                    <Badge
-                      className={`text-[9px] px-1 py-0 ${
-                        isTeam
-                          ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
-                          : 'bg-orange-500/10 text-orange-600 border-orange-500/20'
-                      }`}
-                    >
+                    <Badge className={`text-[9px] px-1 py-0 ${isTeam ? 'bg-blue-500/10 text-blue-600 border-blue-500/20' : 'bg-orange-500/10 text-orange-600 border-orange-500/20'}`}>
                       {isTeam ? 'فريق' : 'عميل'}
                     </Badge>
-                    <span className="text-muted-foreground ms-auto text-[10px]">
-                      {formatRelativeDate(c.created_at)}
-                    </span>
+                    <span className="text-muted-foreground ms-auto text-[10px]">{formatRelativeDate(c.created_at)}</span>
                   </div>
                   <p className="leading-relaxed text-foreground/80 whitespace-pre-line">
                     {renderTextWithMentions(c.text, 'dashboard')}
@@ -1012,8 +1069,6 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
           </>
         )}
       </div>
-
-      {/* New comment form */}
       <form onSubmit={handleSubmit} className="flex items-end gap-2 pt-3">
         <MentionTextarea
           value={newText}
@@ -1030,29 +1085,18 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
           disabled={sending || !newText.trim()}
           className="h-9 w-9 p-0 shrink-0 bg-orange-500 hover:bg-orange-600"
         >
-          {sending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
+          {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
     </div>
   );
 }
 
-// ── Activity Timeline Component ───────────────────────────
+// ── Activity Timeline ──
 
 const ACTION_LABELS: Record<string, string> = {
-  upload: 'رفع',
-  download: 'تنزيل',
-  rename: 'إعادة تسمية',
-  move: 'نقل',
-  delete: 'حذف',
-  restore: 'استعادة',
-  copy: 'نسخ',
-  share: 'مشاركة',
-  version: 'نسخة جديدة',
+  upload: 'رفع', download: 'تنزيل', rename: 'إعادة تسمية', move: 'نقل',
+  delete: 'حذف', restore: 'استعادة', copy: 'نسخ', share: 'مشاركة', version: 'نسخة جديدة',
 };
 
 interface ActivityEvent {
@@ -1072,9 +1116,7 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
     setLoading(true);
     fetch(`/api/activity?target_path=${encodeURIComponent(filePath)}&limit=20`)
       .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setEvents(json.data);
-      })
+      .then((json) => { if (json.data) setEvents(json.data); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filePath]);
@@ -1088,15 +1130,10 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
         <Clock className="h-4 w-4 text-muted-foreground" />
         <span>سجل النشاط</span>
         {events.length > 0 && (
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-            {events.length}
-          </Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{events.length}</Badge>
         )}
-        <span className="ms-auto text-xs text-muted-foreground">
-          {expanded ? '▲' : '▼'}
-        </span>
+        <span className="ms-auto text-xs text-muted-foreground">{expanded ? '▲' : '▼'}</span>
       </button>
-
       {expanded && (
         <div className="mt-3 space-y-0">
           {loading ? (
@@ -1105,26 +1142,17 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
             <p className="text-xs text-muted-foreground py-2">لا يوجد نشاط مسجل</p>
           ) : (
             <div className="relative">
-              {/* Timeline line */}
               <div className="absolute start-[5px] top-2 bottom-2 w-px bg-orange-200 dark:bg-orange-900" />
-
               <div className="space-y-3">
                 {events.map((event) => (
                   <div key={event.id} className="flex items-start gap-3 relative">
-                    {/* Dot */}
                     <div className="w-[11px] h-[11px] rounded-full bg-orange-500 border-2 border-background shrink-0 mt-0.5 z-10" />
-                    {/* Content */}
                     <div className="min-w-0 flex-1">
                       <p className="text-xs leading-snug">
-                        <span className="font-medium">{event.display_name}</span>
-                        {' '}
-                        <span className="text-muted-foreground">
-                          {ACTION_LABELS[event.action_type] || event.action_type}
-                        </span>
+                        <span className="font-medium">{event.display_name}</span>{' '}
+                        <span className="text-muted-foreground">{ACTION_LABELS[event.action_type] || event.action_type}</span>
                       </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatRelativeDate(event.created_at)}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatRelativeDate(event.created_at)}</p>
                     </div>
                   </div>
                 ))}
@@ -1135,4 +1163,321 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
       )}
     </div>
   );
+}
+
+// ── Portal-only sub-components ──
+
+function PortalGenericPreview({
+  name,
+  typeInfo,
+  onDownload,
+}: {
+  name: string;
+  typeInfo: { icon: React.ElementType; color: string; bg: string; label: string };
+  onDownload: () => void;
+}) {
+  const TypeIcon = typeInfo.icon;
+  return (
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] gap-6">
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', damping: 15, delay: 0.1 }}
+        className={`w-24 h-24 rounded-2xl ${typeInfo.bg} flex items-center justify-center`}
+      >
+        <TypeIcon className={`h-12 w-12 ${typeInfo.color}`} />
+      </motion.div>
+      <div className="text-center">
+        <p className="text-sm font-medium">{name}</p>
+        <p className="text-xs text-muted-foreground mt-1">لا تتوفر معاينة لهذا النوع من الملفات</p>
+      </div>
+      <Button onClick={onDownload} className="gap-2 bg-portal hover:bg-portal-secondary text-white">
+        <Download className="h-4 w-4" />
+        تحميل الملف
+      </Button>
+    </div>
+  );
+}
+
+function PortalPdfPreview({ url }: { url: string }) {
+  return (
+    <div className="h-full p-4">
+      <motion.iframe
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        src={url}
+        className="w-full h-full rounded-lg border shadow-sm"
+        title="PDF Preview"
+      />
+    </div>
+  );
+}
+
+function PortalTextPreview({ url, name, mime }: { url: string; name: string; mime: string }) {
+  const [content, setContent] = useState<string | null>(null);
+  const [textLoading, setTextLoading] = useState(true);
+  const [textError, setTextError] = useState(false);
+  const isMd = mime === 'text/markdown' || name.endsWith('.md');
+
+  useEffect(() => {
+    setTextLoading(true);
+    setTextError(false);
+    fetch(url)
+      .then((res) => { if (!res.ok) throw new Error('Failed to fetch'); return res.text(); })
+      .then((text) => setContent(text))
+      .catch(() => setTextError(true))
+      .finally(() => setTextLoading(false));
+  }, [url]);
+
+  if (textLoading) return <PreviewLoading />;
+  if (textError || content === null) return <PreviewError />;
+
+  return (
+    <div className="h-full overflow-auto p-4 md:p-8">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="max-w-4xl mx-auto"
+      >
+        {isMd ? (
+          <>
+            <div className="relative mb-8 pb-6 border-b">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                  <FileText className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">{name}</h3>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <Badge variant="outline" className="text-[10px] px-2 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium">Markdown</Badge>
+                    <span className="text-[10px] text-muted-foreground">{content.split('\n').length} سطر</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <MarkdownRenderer content={content} />
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b">
+              <FileText className="h-4 w-4 text-emerald-500" />
+              <span className="text-sm font-medium text-muted-foreground">{name}</span>
+            </div>
+            <pre className="whitespace-pre-wrap break-words text-sm font-mono leading-relaxed text-foreground/80 bg-muted/50 rounded-lg p-4 border overflow-auto">
+              {content}
+            </pre>
+          </>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
+function PortalDocxPreview({ url, name, onDownload }: { url: string; name: string; onDownload: () => void }) {
+  const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+  return (
+    <div className="h-full flex flex-col">
+      <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/30 border-b shrink-0">
+        <FileText className="h-4 w-4 text-blue-600" />
+        <span className="text-xs text-blue-600 font-medium">{name}</span>
+        <span className="text-[10px] text-muted-foreground">— معاينة عبر Microsoft Office Online</span>
+      </div>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2, duration: 0.3 }}
+        className="flex-1 relative"
+      >
+        <iframe
+          src={officeUrl}
+          className="w-full h-full border-0"
+          title="DOCX Preview"
+          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+        />
+        <div className="absolute bottom-4 start-1/2 -translate-x-1/2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDownload}
+            className="gap-2 text-xs bg-background/80 backdrop-blur-sm"
+          >
+            <Download className="h-3 w-3" />
+            إذا لم تظهر المعاينة، حمّل الملف
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Enhanced Markdown Renderer (portal) ──
+
+function MarkdownRenderer({ content }: { content: string }) {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+  let i = 0;
+  let listBuffer: { level: number; text: string; ordered: boolean; num?: number }[] = [];
+
+  function flushList() {
+    if (listBuffer.length === 0) return;
+    const isOrdered = listBuffer[0].ordered;
+    const Tag = isOrdered ? 'ol' : 'ul';
+    elements.push(
+      <Tag key={`list-${elements.length}`} className={isOrdered ? 'list-decimal ps-6 my-3 space-y-1.5' : 'ps-5 my-3 space-y-1.5'}>
+        {listBuffer.map((item, idx) => (
+          <li key={idx} className={isOrdered
+            ? 'text-sm leading-relaxed text-foreground/80 marker:text-portal marker:font-semibold'
+            : 'text-sm leading-relaxed text-foreground/80 relative ps-4 before:content-[""] before:absolute before:start-0 before:top-[9px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-gradient-to-br before:from-portal before:to-amber-500'
+          }>
+            <InlineMarkdown text={item.text} />
+          </li>
+        ))}
+      </Tag>
+    );
+    listBuffer = [];
+  }
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    if (line.startsWith('```')) {
+      flushList();
+      const lang = line.slice(3).trim();
+      const codeLines: string[] = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith('```')) { codeLines.push(lines[i]); i++; }
+      elements.push(
+        <div key={`code-${elements.length}`} className="my-4 rounded-xl overflow-hidden border border-border/60 shadow-sm">
+          {lang && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted/80 border-b border-border/40">
+              <div className="flex gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full bg-red-400/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
+                <div className="w-2.5 h-2.5 rounded-full bg-green-400/60" />
+              </div>
+              <span className="text-[10px] text-muted-foreground font-mono ms-2">{lang}</span>
+            </div>
+          )}
+          <pre className="bg-muted/40 p-4 overflow-x-auto">
+            <code className="text-[13px] font-mono leading-relaxed text-foreground/90">{codeLines.join('\n')}</code>
+          </pre>
+        </div>
+      );
+      i++;
+      continue;
+    }
+
+    if (line.includes('|') && line.trim().startsWith('|')) {
+      flushList();
+      const tableRows: string[] = [];
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim().startsWith('|')) { tableRows.push(lines[i]); i++; }
+      if (tableRows.length >= 2) {
+        const headerCells = tableRows[0].split('|').filter((c) => c.trim()).map((c) => c.trim());
+        const isSeparator = (row: string) => /^\|[\s\-:|]+\|$/.test(row.trim());
+        const dataStartIdx = isSeparator(tableRows[1]) ? 2 : 1;
+        const bodyRows = tableRows.slice(dataStartIdx).map((row) => row.split('|').filter((c) => c.trim()).map((c) => c.trim()));
+        elements.push(
+          <div key={`table-${elements.length}`} className="my-5 overflow-x-auto rounded-xl border border-border/60 shadow-sm">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-muted/60 border-b border-border/40">
+                  {headerCells.map((cell, ci) => (
+                    <th key={ci} className="px-4 py-2.5 text-start font-semibold text-foreground/90 text-xs">
+                      <InlineMarkdown text={cell} />
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, ri) => (
+                  <tr key={ri} className="border-b border-border/20 last:border-0 hover:bg-muted/30 transition-colors">
+                    {row.map((cell, ci) => (
+                      <td key={ci} className="px-4 py-2.5 text-foreground/75 text-sm">
+                        <InlineMarkdown text={cell} />
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+        continue;
+      }
+    }
+
+    const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
+    if (headingMatch) {
+      flushList();
+      const level = headingMatch[1].length;
+      const text = headingMatch[2];
+      const Tag = `h${level}` as keyof React.JSX.IntrinsicElements;
+      const styles: Record<number, string> = {
+        1: 'text-2xl font-bold mt-8 mb-4 pb-3 border-b border-border/40',
+        2: 'text-xl font-bold mt-7 mb-3',
+        3: 'text-lg font-semibold mt-5 mb-2.5 text-foreground/90',
+        4: 'text-base font-semibold mt-4 mb-2 text-foreground/85',
+        5: 'text-sm font-semibold mt-3 mb-1.5 text-foreground/80 uppercase tracking-wide',
+        6: 'text-sm font-medium mt-3 mb-1.5 text-muted-foreground uppercase tracking-wide',
+      };
+      elements.push(<Tag key={`h-${elements.length}`} className={styles[level]}><InlineMarkdown text={text} /></Tag>);
+      i++;
+      continue;
+    }
+
+    if (/^(-{3,}|_{3,}|\*{3,})$/.test(line.trim())) {
+      flushList();
+      elements.push(<hr key={`hr-${elements.length}`} className="my-6 border-border/40" />);
+      i++;
+      continue;
+    }
+
+    if (line.startsWith('>')) {
+      flushList();
+      const quoteLines: string[] = [];
+      while (i < lines.length && lines[i].startsWith('>')) { quoteLines.push(lines[i].replace(/^>\s?/, '')); i++; }
+      elements.push(
+        <blockquote key={`bq-${elements.length}`} className="my-4 ps-4 border-s-2 border-portal/40 text-muted-foreground italic">
+          {quoteLines.map((ql, qi) => <p key={qi} className="text-sm leading-relaxed"><InlineMarkdown text={ql} /></p>)}
+        </blockquote>
+      );
+      continue;
+    }
+
+    const ulMatch = line.match(/^(\s*)[-*+]\s+(.+)/);
+    if (ulMatch) { listBuffer.push({ level: ulMatch[1].length, text: ulMatch[2], ordered: false }); i++; continue; }
+
+    const olMatch = line.match(/^(\s*)(\d+)[.)]\s+(.+)/);
+    if (olMatch) { listBuffer.push({ level: olMatch[1].length, text: olMatch[3], ordered: true, num: parseInt(olMatch[2]) }); i++; continue; }
+
+    flushList();
+    if (line.trim() === '') { i++; continue; }
+
+    elements.push(<p key={`p-${elements.length}`} className="my-2.5 text-sm leading-[1.8] text-foreground/75"><InlineMarkdown text={line} /></p>);
+    i++;
+  }
+
+  flushList();
+  return <>{elements}</>;
+}
+
+function InlineMarkdown({ text }: { text: string }) {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*)|(~~(.+?)~~)|(\*(.+?)\*)|(`(.+?)`)|(\[(.+?)\]\((.+?)\))/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
+    if (match[1]) parts.push(<strong key={match.index} className="font-semibold text-foreground">{match[2]}</strong>);
+    else if (match[3]) parts.push(<del key={match.index} className="text-muted-foreground/60 line-through">{match[4]}</del>);
+    else if (match[5]) parts.push(<em key={match.index} className="italic text-foreground/80">{match[6]}</em>);
+    else if (match[7]) parts.push(<code key={match.index} className="text-[13px] font-mono text-portal bg-portal/5 px-1.5 py-0.5 rounded-md border border-portal/20">{match[8]}</code>);
+    else if (match[9]) parts.push(<a key={match.index} href={match[11]} target="_blank" rel="noopener noreferrer" className="text-portal hover:underline">{match[10]}</a>);
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return <>{parts}</>;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +16,6 @@ import { ArrowRight, Save } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Category { id: string; name: string; name_ar: string; }
-interface Project { id: string; name: string; }
 interface Supplier { id: string; name: string; company: string | null; }
 
 const PAYMENT_METHODS = [
@@ -29,7 +29,7 @@ const PAYMENT_METHODS = [
 export default function NewExpensePage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { data: projects = [] } = useProjects({ pageSize: '100' });
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -43,10 +43,6 @@ export default function NewExpensePage() {
     fetch('/api/finance/expenses/categories')
       .then(r => r.json())
       .then(j => { if (j.data) setCategories(j.data); })
-      .catch(() => {});
-    fetch('/api/projects?pageSize=100')
-      .then(r => r.json())
-      .then(j => { if (j.data) setProjects(j.data.map((p: Project) => ({ id: p.id, name: p.name }))); })
       .catch(() => {});
     fetch('/api/dashboard/suppliers?limit=100&active=true')
       .then(r => r.json())

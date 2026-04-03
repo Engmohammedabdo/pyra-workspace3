@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useInvoices, useRevenueSummary } from '@/hooks/useInvoices';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -75,10 +77,9 @@ export default function InvoicesClient() {
   const searchParams = useSearchParams();
   const canCreate = usePermission('invoices.create');
   const canDelete = usePermission('invoices.delete');
+  const queryClient = useQueryClient();
 
   /* ── list state ── */
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState(() => {
     const urlStatus = searchParams.get('status');
     return urlStatus || 'all';
@@ -86,10 +87,19 @@ export default function InvoicesClient() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+
+  // React Query hooks
+  const { data: invoices = [], isLoading: loading } = useInvoices({
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    search: debouncedSearch || undefined,
+    page: String(page),
+    limit: String(PAGE_SIZE),
+  }) as unknown as { data: Invoice[]; isLoading: boolean };
+
+  const { data: revenueSummary } = useRevenueSummary() as unknown as { data: RevenueSummary | undefined };
+  const revenue = revenueSummary ?? null;
   const [total, setTotal] = useState(0);
 
-  /* ── revenue summary ── */
-  const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
 
   /* ── sort state ── */
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
@@ -109,37 +119,9 @@ export default function InvoicesClient() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  /* ── fetch revenue summary ── */
-  useEffect(() => {
-    fetch('/api/invoices/revenue-summary')
-      .then(r => r.json())
-      .then(json => { if (json.data) setRevenue(json.data); })
-      .catch(() => {});
-  }, []);
 
-  /* ── fetch invoices ── */
-  const fetchInvoices = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      params.set('page', String(page));
-      params.set('limit', String(PAGE_SIZE));
 
-      const res = await fetch(`/api/invoices?${params}`);
-      const json = await res.json();
-      if (json.data) setInvoices(json.data);
-      if (json.meta?.total !== undefined) setTotal(json.meta.total);
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ في تحميل الفواتير');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, debouncedSearch, page]);
 
-  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   /* ── reset page on filter change ── */
   useEffect(() => { setPage(1); }, [statusFilter]);
@@ -177,11 +159,8 @@ export default function InvoicesClient() {
       setBulkDeleteIds([]);
       if (failCount > 0) toast.error(`فشل حذف ${failCount} فاتورة`);
       else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} فواتير` : 'تم حذف الفاتورة');
-      fetchInvoices();
-      fetch('/api/invoices/revenue-summary')
-        .then(r => r.json())
-        .then(j => { if (j.data) setRevenue(j.data); })
-        .catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ['invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'revenue-summary'] });
     } catch {
       toast.error('حدث خطأ');
     } finally {
@@ -329,7 +308,7 @@ export default function InvoicesClient() {
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={fetchInvoices}
+            onClick={() => queryClient.invalidateQueries({ queryKey: ['invoices'] })}
             aria-label="تحديث"
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />

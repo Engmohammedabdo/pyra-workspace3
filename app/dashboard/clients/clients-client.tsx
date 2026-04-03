@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +35,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { ClientExportButton } from '@/components/clients/ClientExportButton';
 import { TagFilterSelect } from '@/components/clients/TagFilterSelect';
 import { motion } from 'framer-motion';
+import { useClients, useCreateClient, useUpdateClient } from '@/hooks/useClients';
 
 interface ClientTag {
   id: string;
@@ -98,9 +100,8 @@ export default function ClientsClient() {
   const canCreate = usePermission('clients.create');
   const canEdit = usePermission('clients.edit');
   const canDelete = usePermission('clients.delete');
+  const queryClient = useQueryClient();
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [tagFilter, setTagFilter] = useState('');
@@ -121,27 +122,16 @@ export default function ClientsClient() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchClients = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (tagFilter) params.set('tag', tagFilter);
-      if (sortField) params.set('sort', sortField);
-      if (sortOrder) params.set('order', sortOrder);
-      const res = await fetch(`/api/clients?${params}`);
-      const json = await res.json();
-      if (json.data) setClients(json.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, [debouncedSearch, tagFilter, sortField, sortOrder]);
+  // React Query hooks
+  const { data: clients = [], isLoading: loading } = useClients({
+    search: debouncedSearch || undefined,
+    tag: tagFilter || undefined,
+    sort: sortField,
+    order: sortOrder,
+  }) as unknown as { data: Client[]; isLoading: boolean };
 
-  useEffect(() => {
-    fetchClients();
-  }, [fetchClients]);
+  const createClientMutation = useCreateClient();
+  const updateClientMutation = useUpdateClient();
 
   // Handle ?edit=<clientId> query param from client detail page
   const searchParams = useSearchParams();
@@ -165,29 +155,21 @@ export default function ClientsClient() {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/clients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          phone: form.phone || null,
-          company: form.company,
-          password: form.create_portal ? form.password : undefined,
-          address: form.address || null,
-          source: form.source || 'manual',
-          create_portal: form.create_portal,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+      await createClientMutation.mutateAsync({
+        name: form.name,
+        email: form.email,
+        phone: form.phone || undefined,
+        company: form.company,
+        address: form.address || undefined,
+        source: form.source || 'manual',
+        create_portal: form.create_portal,
+        password: form.create_portal ? form.password : undefined,
+      } as any);
       setShowCreate(false);
       setForm(EMPTY_FORM);
       toast.success('تم إنشاء العميل بنجاح');
-      fetchClients();
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ');
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ');
     } finally {
       setSaving(false);
     }
@@ -197,27 +179,22 @@ export default function ClientsClient() {
     if (!selected) return;
     setSaving(true);
     try {
-      const res = await fetch(`/api/clients/${selected.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      await updateClientMutation.mutateAsync({
+        id: selected.id,
+        data: {
           name: form.name,
           email: form.email,
-          phone: form.phone || null,
+          phone: form.phone || undefined,
           company: form.company,
           is_active: form.is_active,
-          address: form.address || null,
+          address: form.address || undefined,
           source: form.source || 'manual',
-        }),
+        },
       });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
       setShowEdit(false);
       toast.success('تم تحديث العميل');
-      fetchClients();
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ');
+    } catch (err: any) {
+      toast.error(err.message || 'حدث خطأ');
     } finally {
       setSaving(false);
     }
@@ -232,7 +209,7 @@ export default function ClientsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowDelete(false);
       toast.success('تم حذف العميل');
-      fetchClients();
+      queryClient.invalidateQueries({ queryKey: ['clients'] });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ');
@@ -598,64 +575,39 @@ export default function ClientsClient() {
             <DialogTitle>إضافة عميل جديد</DialogTitle>
           </DialogHeader>
           <div className="grid gap-5 py-4">
-            {/* Basic Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات أساسية</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>الاسم</FormLabel>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  />
+                  <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <FormLabel required>الشركة</FormLabel>
-                  <Input
-                    value={form.company}
-                    onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
-                  />
+                  <Input value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} />
                 </div>
               </div>
             </div>
-
-            {/* Contact Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات التواصل</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>البريد الإلكتروني</FormLabel>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                    dir="ltr"
-                  />
+                  <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} dir="ltr" />
                 </div>
                 <div className="space-y-2">
                   <FormLabel>الهاتف</FormLabel>
-                  <Input
-                    value={form.phone}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                    dir="ltr"
-                  />
+                  <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} dir="ltr" />
                 </div>
               </div>
             </div>
-
-            {/* Additional Details */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">تفاصيل إضافية</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المصدر</FormLabel>
-                  <Select
-                    value={form.source}
-                    onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={form.source} onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">يدوي</SelectItem>
                       <SelectItem value="referral">إحالة</SelectItem>
@@ -666,41 +618,24 @@ export default function ClientsClient() {
                 </div>
                 <div className="space-y-2">
                   <FormLabel>العنوان</FormLabel>
-                  <Input
-                    value={form.address}
-                    onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                    placeholder="العنوان (اختياري)"
-                  />
+                  <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} placeholder="العنوان (اختياري)" />
                 </div>
               </div>
             </div>
-
-            {/* Portal Access */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">بوابة العميل</p>
               <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-sm font-medium">إنشاء حساب بورتال</Label>
-                    <p className="text-xs text-muted-foreground">
-                      يتيح للعميل الدخول على البورتال ومتابعة مشاريعه وفواتيره
-                    </p>
+                    <p className="text-xs text-muted-foreground">يتيح للعميل الدخول على البورتال ومتابعة مشاريعه وفواتيره</p>
                   </div>
-                  <Switch
-                    checked={form.create_portal}
-                    onCheckedChange={(v) => setForm((p) => ({ ...p, create_portal: v, password: v ? p.password : '' }))}
-                  />
+                  <Switch checked={form.create_portal} onCheckedChange={(v) => setForm((p) => ({ ...p, create_portal: v, password: v ? p.password : '' }))} />
                 </div>
                 {form.create_portal && (
                   <div className="space-y-2 pt-2 border-t border-border/40">
                     <FormLabel required>كلمة مرور البورتال</FormLabel>
-                    <Input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                      dir="ltr"
-                      placeholder="6 أحرف على الأقل"
-                    />
+                    <Input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} dir="ltr" placeholder="6 أحرف على الأقل" />
                   </div>
                 )}
               </div>
@@ -708,11 +643,7 @@ export default function ClientsClient() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>إلغاء</Button>
-            <Button
-              onClick={handleCreate}
-              disabled={saving}
-              className="bg-orange-500 hover:bg-orange-600"
-            >
+            <Button onClick={handleCreate} disabled={saving} className="bg-orange-500 hover:bg-orange-600">
               {saving ? 'جارٍ الحفظ...' : 'إنشاء'}
             </Button>
           </DialogFooter>
@@ -726,64 +657,39 @@ export default function ClientsClient() {
             <DialogTitle>تعديل العميل — {selected?.name}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-5 py-4">
-            {/* Basic Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات أساسية</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>الاسم</FormLabel>
-                  <Input
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  />
+                  <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
                   <FormLabel required>الشركة</FormLabel>
-                  <Input
-                    value={form.company}
-                    onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
-                  />
+                  <Input value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} />
                 </div>
               </div>
             </div>
-
-            {/* Contact Info */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">معلومات التواصل</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel required>البريد</FormLabel>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                    dir="ltr"
-                  />
+                  <Input type="email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} dir="ltr" />
                 </div>
                 <div className="space-y-2">
                   <FormLabel>الهاتف</FormLabel>
-                  <Input
-                    value={form.phone}
-                    onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                    dir="ltr"
-                  />
+                  <Input value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} dir="ltr" />
                 </div>
               </div>
             </div>
-
-            {/* Additional Details */}
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-3">تفاصيل إضافية</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>المصدر</FormLabel>
-                  <Select
-                    value={form.source}
-                    onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={form.source} onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="manual">يدوي</SelectItem>
                       <SelectItem value="referral">إحالة</SelectItem>
@@ -794,22 +700,14 @@ export default function ClientsClient() {
                 </div>
                 <div className="flex items-end pb-1">
                   <div className="flex items-center gap-2">
-                    <Switch
-                      checked={form.is_active}
-                      onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))}
-                    />
+                    <Switch checked={form.is_active} onCheckedChange={(v) => setForm((p) => ({ ...p, is_active: v }))} />
                     <Label>حساب نشط</Label>
                   </div>
                 </div>
               </div>
               <div className="space-y-2 mt-4">
                 <FormLabel>العنوان</FormLabel>
-                <Textarea
-                  value={form.address}
-                  onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                  rows={2}
-                  placeholder="العنوان الكامل (اختياري)"
-                />
+                <Textarea value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} rows={2} placeholder="العنوان الكامل (اختياري)" />
               </div>
             </div>
           </div>

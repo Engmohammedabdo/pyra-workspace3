@@ -600,6 +600,7 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
 
       {/* File Preview Sheet */}
       <FilePreview
+        mode="dashboard"
         file={previewFile}
         open={previewOpen}
         onOpenChange={setPreviewOpen}

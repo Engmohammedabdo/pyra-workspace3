@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePortalFavorites } from '@/hooks/usePortalFavorites';
-import { PortalFilePreview } from '@/components/portal/portal-file-preview';
+import { FilePreview } from '@/components/files/file-preview';
 import { resolveMimeType } from '@/lib/utils/mime';
 
 import { FileWithProject, FileTag } from '@/components/portal/files/types';
@@ -312,7 +312,7 @@ export default function PortalFilesPage() {
           <DialogFooter><Button onClick={handleRevisionSubmit} disabled={revisionLoading}>إرسال</Button></DialogFooter>
         </DialogContent>
       </Dialog>
-      <PortalFilePreview file={previewFile ? { id: previewFile.id, file_name: previewFile.file_name, file_type: previewFile.file_type, file_size: previewFile.file_size } : null} open={previewOpen} onOpenChange={setPreviewOpen} />
+      <FilePreview mode="portal" portalFile={previewFile ? { id: previewFile.id, file_name: previewFile.file_name, file_type: previewFile.file_type, file_size: previewFile.file_size } : null} open={previewOpen} onOpenChange={setPreviewOpen} />
     </div>
   );
 }

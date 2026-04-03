@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useClients } from '@/hooks/useClients';
+import { useSettings } from '@/hooks/useSettings';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +17,6 @@ import { ArrowRight, Plus, Trash2, Save, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
-interface Client { id: string; name: string; company: string | null; }
 interface CreditNoteItem { description: string; quantity: number; rate: number; }
 
 export default function NewCreditNotePage() {
@@ -23,7 +24,8 @@ export default function NewCreditNotePage() {
   const searchParams = useSearchParams();
   const invoiceId = searchParams.get('invoice_id') || '';
 
-  const [clients, setClients] = useState<Client[]>([]);
+  const { data: clients = [] } = useClients({ limit: '100' });
+  const { data: settingsData } = useSettings();
   const [clientId, setClientId] = useState('');
   const [linkedInvoiceId, setLinkedInvoiceId] = useState(invoiceId);
   const [reason, setReason] = useState('');
@@ -33,21 +35,13 @@ export default function NewCreditNotePage() {
   const [items, setItems] = useState<CreditNoteItem[]>([{ description: '', quantity: 1, rate: 0 }]);
   const [saving, setSaving] = useState(false);
 
+  // Sync vatRate from settings
   useEffect(() => {
-    fetch('/api/clients?limit=100')
-      .then(r => r.json())
-      .then(json => { if (json.data) setClients(json.data); })
-      .catch(() => {});
-
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(json => {
-        if (!json.data) return;
-        const rate = parseFloat(json.data.vat_rate);
-        if (!isNaN(rate)) setVatRate(rate);
-      })
-      .catch(() => {});
-  }, []);
+    if (settingsData?.vat_rate !== undefined) {
+      const rate = parseFloat(String(settingsData.vat_rate));
+      if (!isNaN(rate)) setVatRate(rate);
+    }
+  }, [settingsData]);
 
   // If invoice_id is provided, load invoice details
   useEffect(() => {

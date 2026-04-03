@@ -19,7 +19,7 @@ import { ProjectComments } from '@/components/portal/project-detail/project-comm
 import { ActivityTimeline } from '@/components/portal/project-detail/activity-timeline';
 import { ProjectPipelineProgress } from '@/components/portal/project-detail/project-pipeline-progress';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PortalFilePreview } from '@/components/portal/portal-file-preview';
+import { FilePreview } from '@/components/files/file-preview';
 import { Card, CardContent } from '@/components/ui/card';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import { SearchInput } from '@/components/ui/search-input';
@@ -110,7 +110,7 @@ export default function PortalProjectDetailPage() {
         <TabsContent value="progress"><ProjectPipelineProgress projectId={projectId} /></TabsContent>
         <TabsContent value="activity"><ActivityTimeline project={project} /></TabsContent>
       </Tabs>
-      <PortalFilePreview file={previewFile} open={previewOpen} onOpenChange={setPreviewOpen} />
+      <FilePreview mode="portal" portalFile={previewFile} open={previewOpen} onOpenChange={setPreviewOpen} />
     </div>
   );
 }

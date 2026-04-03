@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useUsers } from '@/hooks/useUsers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -211,7 +212,8 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
-  const [users, setUsers] = useState<PyraUser[]>([]);
+  const { data: usersRaw = [] } = useUsers();
+  const users = usersRaw as unknown as PyraUser[];
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedData, setExpandedData] = useState<Evaluation | null>(null);
@@ -240,36 +242,25 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const promises: Promise<Response>[] = [
+      const [evRes, periodsRes, criteriaRes] = await Promise.all([
         fetch('/api/dashboard/evaluations'),
         fetch('/api/dashboard/evaluations/periods'),
         fetch('/api/dashboard/evaluations/criteria'),
-      ];
-      // Only fetch user list when admin needs it for create dialog
-      if (canManage) {
-        promises.push(fetch('/api/users'));
-      }
+      ]);
 
-      const results = await Promise.all(promises);
-
-      const evJson = await results[0].json();
-      const periodsJson = await results[1].json();
-      const criteriaJson = await results[2].json();
+      const evJson = await evRes.json();
+      const periodsJson = await periodsRes.json();
+      const criteriaJson = await criteriaRes.json();
 
       if (evJson.data) setEvaluations(evJson.data);
       if (periodsJson.data) setPeriods(periodsJson.data);
       if (criteriaJson.data) setCriteria(criteriaJson.data.filter((c: Criterion) => c.is_active));
-
-      if (canManage && results[3]) {
-        const usersJson = await results[3].json();
-        if (usersJson.data) setUsers(usersJson.data);
-      }
     } catch {
       toast.error('فشل في تحميل البيانات');
     } finally {
       setLoading(false);
     }
-  }, [canManage]);
+  }, []);
 
   useEffect(() => {
     fetchData();

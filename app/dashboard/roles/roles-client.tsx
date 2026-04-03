@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useUsers } from '@/hooks/useUsers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
@@ -74,6 +75,7 @@ const EMPTY_FORM: RoleFormData = {
 
 export default function RolesClient() {
   const queryClient = useQueryClient();
+  const { data: allUsers = [] } = useUsers() as { data: any[] };
   const canManage = usePermission('roles.manage');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -86,7 +88,6 @@ export default function RolesClient() {
   const [membersRole, setMembersRole] = useState<PyraRole | null>(null);
   const [members, setMembers] = useState<any[]>([]);
   const [membersLoading, setMembersLoading] = useState(false);
-  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [addUserSearch, setAddUserSearch] = useState('');
 
   // Fetch roles
@@ -262,20 +263,8 @@ export default function RolesClient() {
     }
   }
 
-  async function fetchRoleMembers(roleId: string) {
-    setMembersLoading(true);
-    try {
-      const res = await fetch('/api/users');
-      const json = await res.json();
-      if (json.data) {
-        setMembers(json.data.filter((u: any) => u.role_id === roleId));
-        setAllUsers(json.data);
-      }
-    } catch {
-      toast.error('فشل في جلب الأعضاء');
-    } finally {
-      setMembersLoading(false);
-    }
+  function fetchRoleMembers(roleId: string) {
+    setMembers((allUsers as any[]).filter((u: any) => u.role_id === roleId));
   }
 
   async function assignUserToRole(username: string, roleId: string) {

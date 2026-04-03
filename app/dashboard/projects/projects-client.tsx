@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useClients } from '@/hooks/useClients';
+import { useProjects } from '@/hooks/useProjects';
 import { usePermission } from '@/hooks/usePermission';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -68,9 +71,8 @@ export default function ProjectsClient() {
   const canCreate = usePermission('projects.create');
   const canEdit = usePermission('projects.edit');
   const canDelete = usePermission('projects.delete');
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [companies, setCompanies] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(() => {
@@ -88,30 +90,24 @@ export default function ProjectsClient() {
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
+  // React Query hooks
+  const { data: projects = [], isLoading: loading, refetch: refetchProjects } = useProjects({
+    search: debouncedSearch || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+  }) as unknown as { data: Project[]; isLoading: boolean; refetch: () => void };
+
+  const { data: clientsData = [] } = useClients() as unknown as { data: Array<{ company: string }> };
+  const companies = useMemo(() => [...new Set(clientsData.map(c => c.company))], [clientsData]);
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(timer);
   }, [search]);
 
-  const fetchProjects = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (debouncedSearch) params.set('search', debouncedSearch);
-      if (statusFilter !== 'all') params.set('status', statusFilter);
-      const res = await fetch(`/api/projects?${params}`);
-      const json = await res.json();
-      if (json.data) setProjects(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [debouncedSearch, statusFilter]);
 
-  useEffect(() => {
-    fetchProjects();
-    fetch('/api/clients').then(r => r.json()).then(json => {
-      if (json.data) setCompanies([...new Set(json.data.map((c: { company: string }) => c.company))] as string[]);
-    }).catch(console.error);
-  }, [fetchProjects]);
+
+
 
   const handleCreate = async () => {
     if (!form.name.trim()) { toast.error('اسم المشروع مطلوب'); return; }
@@ -125,7 +121,7 @@ export default function ProjectsClient() {
       setShowCreate(false);
       setForm({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
       toast.success('تم إنشاء المشروع بنجاح');
-      fetchProjects();
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -140,7 +136,7 @@ export default function ProjectsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowEdit(false);
       toast.success('تم تحديث المشروع');
-      fetchProjects();
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -158,7 +154,7 @@ export default function ProjectsClient() {
       setShowDelete(false);
       setBulkDeleteIds([]);
       if (!hasError) toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مشاريع` : 'تم حذف المشروع');
-      fetchProjects();
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -182,11 +178,8 @@ export default function ProjectsClient() {
       });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
-      // Optimistic update
-      setProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, status: newStatus } : p))
-      );
       toast.success('تم تحديث حالة المشروع');
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
     } catch {
       toast.error('حدث خطأ');
     }
