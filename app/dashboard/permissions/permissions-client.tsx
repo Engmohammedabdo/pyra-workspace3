@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useUsersLite } from '@/hooks/useUsers';
+import { useUsersLite, useUsers } from '@/hooks/useUsers';
 import { useTeams } from '@/hooks/useTeams';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,6 +43,7 @@ export default function PermissionsClient() {
   const { data: users = [] } = useUsersLite() as unknown as { data: UserLite[] };
   const { data: teamsData = [] } = useTeams() as unknown as { data: Team[] };
   const teams = teamsData;
+  const { data: allUsers = [], refetch: refetchUsers } = useUsers();
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -55,52 +56,35 @@ export default function PermissionsClient() {
     can_share: false,
   });
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [permsRes] = await Promise.all([
-        fetch('/api/files?prefix=').catch(() => null),
-      ]);
-
-      // Try to fetch permissions from a custom source or build from user data
-      // users and teams loaded via React Query hooks
-
-      // Build permissions list from users who have permissions set
-      const allUsersRes = await fetch('/api/users?role=');
-      if (allUsersRes.ok) {
-        const allUsersJson = await allUsersRes.json();
-        if (allUsersJson.data) {
-          const perms: Permission[] = [];
-          for (const user of allUsersJson.data) {
-            const up = user.permissions as { paths?: Record<string, string>; per_folder?: Record<string, Record<string, boolean>> };
-            if (up?.paths) {
-              for (const [path, level] of Object.entries(up.paths)) {
-                perms.push({
-                  id: `${user.username}-${path}`,
-                  file_path: path,
-                  target_type: 'user',
-                  target_id: user.username,
-                  permissions: {
-                    read: true,
-                    write: level === 'upload' || level === 'full',
-                    delete: level === 'full',
-                    share: level === 'full',
-                  },
-                  granted_by: 'admin',
-                  expires_at: null,
-                  created_at: user.created_at,
-                });
-              }
-            }
-          }
-          setPermissions(perms);
+  // Build permissions list from React Query allUsers data
+  useEffect(() => {
+    if (!allUsers.length) return;
+    const perms: Permission[] = [];
+    for (const user of allUsers) {
+      const up = (user as Record<string, unknown>).permissions as { paths?: Record<string, string>; per_folder?: Record<string, Record<string, boolean>> } | undefined;
+      if (up?.paths) {
+        for (const [path, level] of Object.entries(up.paths)) {
+          perms.push({
+            id: `${user.id}-${path}`,
+            file_path: path,
+            target_type: 'user',
+            target_id: user.id,
+            permissions: {
+              read: true,
+              write: level === 'upload' || level === 'full',
+              delete: level === 'full',
+              share: level === 'full',
+            },
+            granted_by: 'admin',
+            expires_at: null,
+            created_at: (user as Record<string, unknown>).created_at as string || '',
+          });
         }
       }
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
+    }
+    setPermissions(perms);
+    setLoading(false);
+  }, [allUsers]);
 
   const handleCreate = async () => {
     if (!form.target_id || !form.file_path) { toast.error('يرجى تعبئة جميع الحقول'); return; }
@@ -133,7 +117,7 @@ export default function PermissionsClient() {
       setShowCreate(false);
       setForm({ file_path: '', target_type: 'user', target_id: '', can_read: true, can_write: false, can_delete: false, can_share: false });
       toast.success('تمت إضافة الصلاحية');
-      fetchData();
+      refetchUsers();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -153,7 +137,7 @@ export default function PermissionsClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permissions: { ...currentPerms, paths } }),
       });
-      fetchData();
+      refetchUsers();
     } catch (err) { console.error(err); }
   };
 

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -198,25 +200,25 @@ function OrgTreeNode({
 
 // ─── Main Client ────────────────────────────────────────────
 export default function OrgChartClient() {
-  const [users, setUsers] = useState<OrgUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [initialExpanded, setInitialExpanded] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/dashboard/org-chart')
-      .then((res) => res.json())
-      .then(({ data }) => {
-        const list: OrgUser[] = data || [];
-        setUsers(list);
-        // Auto-expand root nodes on first load
-        const roots = list
-          .filter((u) => !u.manager_username || !list.some((m) => m.username === u.manager_username))
-          .map((u) => u.username);
-        setExpandedNodes(new Set(roots));
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: usersData, isLoading: loading } = useQuery<OrgUser[]>({
+    queryKey: ['org-chart'],
+    queryFn: () => fetchAPI('/api/dashboard/org-chart'),
+    staleTime: 5 * 60_000,
+  });
+
+  const users = usersData || [];
+
+  // Auto-expand root nodes on first load
+  if (!initialExpanded && users.length > 0) {
+    const roots = users
+      .filter((u) => !u.manager_username || !users.some((m) => m.username === u.manager_username))
+      .map((u) => u.username);
+    setExpandedNodes(new Set(roots));
+    setInitialExpanded(true);
+  }
 
   const tree = useMemo(() => buildTree(users), [users]);
 

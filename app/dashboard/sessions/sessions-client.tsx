@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,43 +40,35 @@ function isActive(lastActivity: string): boolean {
 
 export default function SessionsClient() {
   const canManage = usePermission('sessions.manage');
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showTerminateAll, setShowTerminateAll] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/sessions');
-      const json = await res.json();
-      if (json.data) setSessions(json.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: sessionsData, isLoading: loading } = useQuery<Session[]>({
+    queryKey: ['sessions'],
+    queryFn: () => fetchAPI('/api/sessions'),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  const sessions = sessionsData || [];
 
-  const terminateSession = async (id: string) => {
+  const terminateSession = useCallback(async (id: string) => {
     setSaving(true);
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
       toast.success('تم إنهاء الجلسة');
-      fetchSessions();
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ');
     } finally {
       setSaving(false);
     }
-  };
+  }, [queryClient]);
 
-  const terminateAll = async () => {
+  const terminateAll = useCallback(async () => {
     setSaving(true);
     try {
       const res = await fetch('/api/sessions', { method: 'DELETE' });
@@ -82,14 +76,14 @@ export default function SessionsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowTerminateAll(false);
       toast.success('تم إنهاء جميع الجلسات');
-      fetchSessions();
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     } catch (err) {
       console.error(err);
       toast.error('حدث خطأ');
     } finally {
       setSaving(false);
     }
-  };
+  }, [queryClient]);
 
   const activeSessions = sessions.filter(s => isActive(s.last_activity));
 

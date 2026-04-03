@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,42 +9,28 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ArrowRight, Repeat, Plus, Search, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { useRecurringInvoices } from '@/hooks/useRecurring';
+import { useQueryClient } from '@tanstack/react-query';
 import { RecurringSummary } from '@/components/dashboard/recurring-list/RecurringSummary';
 import { RecurringTable } from '@/components/dashboard/recurring-list/RecurringTable';
 
 export default function RecurringInvoicesPage() {
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [generating, setGenerating] = useState(false);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' });
-      if (search) params.set('search', search);
-      if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`/api/finance/recurring-invoices?${params}`);
-      const json = await res.json();
-      if (json.data) setItems(json.data);
-      if (json.meta) {
-        setTotal(json.meta.total || 0);
-        setHasMore(json.meta.hasMore || false);
-      }
-    } catch {
-      toast.error('فشل في تحميل الفواتير المتكررة');
-    } finally {
-      setLoading(false);
-    }
+  const params = useMemo(() => {
+    const p: Record<string, string> = { page: String(page), pageSize: '20' };
+    if (search) p.search = search;
+    if (statusFilter) p.status = statusFilter;
+    return p;
   }, [page, search, statusFilter]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const { data: items = [], isLoading: loading } = useRecurringInvoices(params);
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -54,7 +40,7 @@ export default function RecurringInvoicesPage() {
       if (res.ok) {
         toast.success('تم الحذف');
         setDeleteId(null);
-        fetchData();
+        queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
       } else {
         toast.error('فشل في الحذف');
       }
@@ -69,7 +55,7 @@ export default function RecurringInvoicesPage() {
       const res = await fetch('/api/finance/recurring-invoices/generate', { method: 'POST' });
       if (res.ok) {
         toast.success('تم توليد الفواتير بنجاح');
-        fetchData();
+        queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
       } else {
         toast.error('فشل في توليد الفواتير');
       }
@@ -79,7 +65,7 @@ export default function RecurringInvoicesPage() {
   };
 
   const activeCount = items.filter(i => i.status === 'active').length;
-  const dueCount = items.filter(i => i.status === 'active' && new Date(i.next_generation_date) <= new Date()).length;
+  const dueCount = items.filter(i => i.status === 'active' && new Date(i.next_date || '') <= new Date()).length;
 
   return (
     <div className="space-y-6">
@@ -94,7 +80,7 @@ export default function RecurringInvoicesPage() {
         </div>
       </div>
 
-      <RecurringSummary total={total} activeCount={activeCount} dueCount={dueCount} />
+      <RecurringSummary total={items.length} activeCount={activeCount} dueCount={dueCount} />
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">

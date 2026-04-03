@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useProjects } from '@/hooks/useProjects';
+import { useExpense } from '@/hooks/useExpenses';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,12 +34,35 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const [categories, setCategories] = useState<Category[]>([]);
   const { data: projects = [] } = useProjects({ pageSize: '100' });
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [formReady, setFormReady] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
     expense_date: '', vendor: '', payment_method: '', category_id: '', project_id: '', supplier_id: '', notes: '',
   });
+
+  const { data: expenseData, isLoading: loading } = useExpense(id);
+
+  // Populate form once expense data arrives
+  useEffect(() => {
+    if (expenseData && !formReady) {
+      const d = expenseData as Record<string, unknown>;
+      setForm({
+        description: String(d.description || ''),
+        amount: String(d.amount || ''),
+        currency: String(d.currency || 'AED'),
+        vat_rate: String(d.vat_rate || '0'),
+        expense_date: String(d.expense_date || ''),
+        vendor: String(d.vendor || ''),
+        payment_method: String(d.payment_method || ''),
+        category_id: String(d.category_id || ''),
+        project_id: String(d.project_id || ''),
+        supplier_id: String(d.supplier_id || ''),
+        notes: String(d.notes || ''),
+      });
+      setFormReady(true);
+    }
+  }, [expenseData, formReady]);
 
   useEffect(() => {
     fetch('/api/finance/expenses/categories')
@@ -50,30 +74,6 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
       .then(j => { if (j.data) setSuppliers(j.data); })
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    fetch(`/api/finance/expenses/${id}`)
-      .then(r => r.json())
-      .then(j => {
-        if (j.data) {
-          setForm({
-            description: j.data.description || '',
-            amount: String(j.data.amount || ''),
-            currency: j.data.currency || 'AED',
-            vat_rate: String(j.data.vat_rate || '0'),
-            expense_date: j.data.expense_date || '',
-            vendor: j.data.vendor || '',
-            payment_method: j.data.payment_method || '',
-            category_id: j.data.category_id || '',
-            project_id: j.data.project_id || '',
-            supplier_id: j.data.supplier_id || '',
-            notes: j.data.notes || '',
-          });
-        }
-      })
-      .catch(() => toast.error('فشل في تحميل البيانات'))
-      .finally(() => setLoading(false));
-  }, [id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

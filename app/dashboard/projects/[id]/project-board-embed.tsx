@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useBoards, useCreateBoard } from '@/hooks/useBoards';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -96,84 +99,47 @@ function getAvatarColor(str: string): string {
 // ── Main Component ──
 
 export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
-  const [board, setBoard] = useState<Board | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const queryClient = useQueryClient();
   const [addingTo, setAddingTo] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
 
-  const fetchBoard = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/boards?project_id=${projectId}`);
-      const json = await res.json();
-      if (!res.ok || !json.data?.length) {
-        setBoard(null);
-        return;
-      }
-      const b = json.data[0];
-      setBoard(b);
+  const { data: boardsData = [], isLoading: loading, refetch: refetchBoards } = useBoards({ project_id: projectId });
+  const board = (boardsData[0] as unknown as (Board & { pyra_board_columns: Column[] }) | undefined) ?? null;
 
-      // Fetch tasks
-      const tasksRes = await fetch(`/api/boards/${b.id}/tasks`);
-      const tasksJson = await tasksRes.json();
-      if (tasksRes.ok && tasksJson.data) {
-        setTasks(tasksJson.data.filter((t: Task) => !t.is_archived));
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
+  const { data: tasksData = [], refetch: refetchTasks } = useQuery<Task[]>({
+    queryKey: ['board-tasks', board?.id],
+    queryFn: () => fetchAPI<Task[]>(`/api/boards/${board!.id}/tasks`).then(data => data.filter(t => !t.is_archived)),
+    enabled: !!board?.id,
+  });
+  const tasks = tasksData;
 
-  useEffect(() => { fetchBoard(); }, [fetchBoard]);
+  const createBoardMutation = useCreateBoard();
 
   const handleCreateBoard = async () => {
-    setCreating(true);
     try {
-      const res = await fetch('/api/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'مهام المشروع',
-          project_id: projectId,
-          template: 'general',
-        }),
-      });
-      const json = await res.json();
-      if (res.ok && json.data) {
-        toast.success('تم إنشاء لوحة المهام');
-        fetchBoard();
-      } else {
-        toast.error(json.error || 'فشل في إنشاء اللوحة');
-      }
+      await createBoardMutation.mutateAsync({
+        name: 'مهام المشروع',
+        project_id: projectId,
+        template: 'general',
+      } as any);
+      toast.success('تم إنشاء لوحة المهام');
+      refetchBoards();
     } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setCreating(false);
+      toast.error('فشل في إنشاء اللوحة');
     }
   };
+  const creating = createBoardMutation.isPending;
 
   const handleAddTask = async (columnId: string) => {
     if (!board || !newTitle.trim()) return;
     try {
-      const res = await fetch(`/api/boards/${board.id}/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: newTitle.trim(), column_id: columnId }),
-      });
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setTasks(prev => [...prev, json.data]);
-        setNewTitle('');
-        setAddingTo(null);
-        toast.success('تم إضافة المهمة');
-      } else {
-        toast.error(json.error || 'فشل في إضافة المهمة');
-      }
+      const data = await mutateAPI<Task>(`/api/boards/${board.id}/tasks`, 'POST', { title: newTitle.trim(), column_id: columnId });
+      queryClient.setQueryData(['board-tasks', board.id], (prev: Task[]) => [...(prev || []), data]);
+      setNewTitle('');
+      setAddingTo(null);
+      toast.success('تم إضافة المهمة');
     } catch {
-      toast.error('حدث خطأ');
+      toast.error('فشل في إضافة المهمة');
     }
   };
 

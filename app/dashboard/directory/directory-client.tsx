@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -56,17 +58,15 @@ const WORK_LOCATION_LABELS: Record<string, string> = {
 };
 
 export default function DirectoryClient({ session }: DirectoryClientProps) {
-  const [users, setUsers] = useState<DirectoryUser[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    fetch('/api/directory')
-      .then(res => res.json())
-      .then(({ data }) => setUsers(data || []))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: usersData, isLoading: loading } = useQuery<DirectoryUser[]>({
+    queryKey: ['directory'],
+    queryFn: () => fetchAPI('/api/directory'),
+    staleTime: 2 * 60_000,
+  });
+
+  const users = usersData || [];
 
   const filtered = useMemo(() => {
     if (!search.trim()) return users;
