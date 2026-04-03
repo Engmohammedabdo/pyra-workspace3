@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -28,9 +30,7 @@ const PAYMENT_METHODS = [
 
 export default function NewExpensePage() {
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
   const { data: projects = [] } = useProjects({ pageSize: '100' });
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
@@ -39,16 +39,14 @@ export default function NewExpensePage() {
     is_recurring: false, recurring_period: '',
   });
 
-  useEffect(() => {
-    fetch('/api/finance/expenses/categories')
-      .then(r => r.json())
-      .then(j => { if (j.data) setCategories(j.data); })
-      .catch(() => {});
-    fetch('/api/dashboard/suppliers?limit=100&active=true')
-      .then(r => r.json())
-      .then(j => { if (j.data) setSuppliers(j.data); })
-      .catch(() => {});
-  }, []);
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['expense-categories'],
+    queryFn: () => fetchAPI('/api/finance/expenses/categories'),
+  });
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: ['suppliers'],
+    queryFn: () => fetchAPI('/api/dashboard/suppliers?limit=100&active=true'),
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

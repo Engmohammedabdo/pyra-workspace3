@@ -1,14 +1,11 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
-import { toast } from 'sonner';
 import {
   RefreshCw,
   CalendarClock,
@@ -16,22 +13,7 @@ import {
   FolderKanban,
   Receipt,
 } from 'lucide-react';
-
-interface RecurringInvoice {
-  id: string;
-  status: string;
-  billing_cycle: string;
-  next_generation_date: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  contract_id: string | null;
-  total: number;
-  currency: string;
-  created_at: string;
-  contract_title: string | null;
-  project_name: string | null;
-  generated_count: number;
-}
+import { usePortalRecurring } from '@/hooks/usePortalRecurring';
 
 const CYCLE_MAP: Record<string, string> = {
   monthly: 'شهري',
@@ -48,26 +30,7 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
 };
 
 export default function PortalRecurringInvoicesPage() {
-  const router = useRouter();
-  const [items, setItems] = useState<RecurringInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/portal/recurring-invoices');
-      const json = await res.json();
-      if (json.data) setItems(json.data);
-    } catch {
-      toast.error('فشل في تحميل الفواتير المتكررة');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const { data: items = [], isLoading: loading } = usePortalRecurring();
 
   if (loading) {
     return (

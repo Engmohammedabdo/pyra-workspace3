@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -26,23 +28,15 @@ const PRIORITY_LABELS: Record<string, string> = { urgent: 'عاجل', high: 'م�
 interface MyTasksClientProps { session: AuthSession; }
 
 export default function MyTasksClient({ session }: MyTasksClientProps) {
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
   const [groupBy, setGroupBy] = useState<'date' | 'board' | 'priority' | 'project'>('date');
 
-  const fetchTasks = useCallback(async () => {
-    try {
-      const res = await fetch('/api/my-tasks');
-      if (res.ok) {
-        const { data } = await res.json();
-        setTasks(data || []);
-      }
-    } catch {} finally { setLoading(false); }
-  }, []);
-
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+  const { data: tasks = [], isLoading: loading } = useQuery<any[]>({
+    queryKey: ['my-tasks'],
+    queryFn: () => fetchAPI('/api/my-tasks'),
+    staleTime: 30_000,
+  });
 
   const now = new Date();
   const today = now.toISOString().split('T')[0];

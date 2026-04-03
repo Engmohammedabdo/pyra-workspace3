@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,8 +40,7 @@ const PRIORITY_LABELS: Record<string, string> = { urgent: 'عاجل', important:
 interface AnnouncementsClientProps { session: AuthSession; }
 
 export default function AnnouncementsClient({ session }: AnnouncementsClientProps) {
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [editItem, setEditItem] = useState<Announcement | null>(null);
   const [formTitle, setFormTitle] = useState('');
@@ -49,27 +50,19 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
   const [saving, setSaving] = useState(false);
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'announcements.manage');
 
-  const fetchAnnouncements = useCallback(async () => {
-    try {
-      const res = await fetch('/api/announcements');
-      if (res.ok) {
-        const { data } = await res.json();
-        setAnnouncements(data || []);
-      }
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: announcements = [], isLoading: loading } = useQuery<Announcement[]>({
+    queryKey: ['announcements'],
+    queryFn: () => fetchAPI('/api/announcements'),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => {
-    fetchAnnouncements();
-  }, [fetchAnnouncements]);
+  const fetchAnnouncements = () => { queryClient.invalidateQueries({ queryKey: ['announcements'] }); };
 
   const markAsRead = async (id: string) => {
     await fetch(`/api/announcements/${id}/read`, { method: 'POST' });
-    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_read: true } : a));
+    queryClient.setQueryData<Announcement[]>(['announcements'], prev =>
+      (prev || []).map(a => a.id === id ? { ...a, is_read: true } : a)
+    );
   };
 
   const saveAnnouncement = async () => {

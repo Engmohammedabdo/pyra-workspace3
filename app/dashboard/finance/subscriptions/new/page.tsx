@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,17 +18,18 @@ interface CardItem { id: string; card_name: string; last_four: string; }
 
 export default function NewSubscriptionPage() {
   const router = useRouter();
-  const [cards, setCards] = useState<CardItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const { data: cards = [] } = useQuery<CardItem[]>({
+    queryKey: ['finance-cards'],
+    queryFn: () => fetchAPI('/api/finance/cards'),
+  });
   const [form, setForm] = useState({
     name: '', provider: '', cost: '', currency: 'AED',
     billing_cycle: 'monthly', next_renewal_date: '', card_id: '',
     category: '', url: '', notes: '', auto_renew: true,
   });
 
-  useEffect(() => {
-    fetch('/api/finance/cards').then(r => r.json()).then(j => { if (j.data) setCards(j.data); }).catch(() => {});
-  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

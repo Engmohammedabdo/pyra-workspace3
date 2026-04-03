@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, Users, HardDrive, DollarSign, UserCheck } from 'lucide-react';
-import { toast } from 'sonner';
 import { formatCurrency, formatNumber } from '@/lib/utils/format';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 
@@ -66,20 +66,11 @@ const reportCards = [
 ];
 
 export default function ReportsClient() {
-  const [overview, setOverview] = useState<OverviewData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/reports')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setOverview(json.data);
-      })
-      .catch(() => {
-        toast.error('فشل في تحميل ملخص التقارير');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const { data: overview, isLoading: loading } = useQuery<OverviewData>({
+    queryKey: ['reports-overview'],
+    queryFn: () => fetchAPI('/api/reports'),
+    staleTime: 5 * 60_000,
+  });
 
   return (
     <div className="space-y-6">

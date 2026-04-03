@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -113,19 +114,13 @@ const itemMotion = {
 };
 
 export default function DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, refetch } = useQuery<DashboardData>({
+    queryKey: ['dashboard'],
+    queryFn: () => fetchAPI('/api/dashboard'),
+    staleTime: 60_000,
+  });
 
-  const loadDashboard = useCallback(() => {
-    setLoading(true);
-    fetch('/api/dashboard')
-      .then(res => res.json())
-      .then(res => { if (res.data) setData(res.data); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  const loadDashboard = () => { refetch(); };
 
   if (loading) {
     return (

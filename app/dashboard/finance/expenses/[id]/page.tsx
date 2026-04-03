@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import { useQuery as useQueryRQ } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useExpense } from '@/hooks/useExpenses';
 import { useRouter } from 'next/navigation';
@@ -31,9 +33,7 @@ const PAYMENT_METHODS = [
 export default function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const [categories, setCategories] = useState<Category[]>([]);
   const { data: projects = [] } = useProjects({ pageSize: '100' });
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [saving, setSaving] = useState(false);
   const [formReady, setFormReady] = useState(false);
   const [form, setForm] = useState({
@@ -64,16 +64,17 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
     }
   }, [expenseData, formReady]);
 
-  useEffect(() => {
-    fetch('/api/finance/expenses/categories')
-      .then(r => r.json())
-      .then(j => { if (j.data) setCategories(j.data); })
-      .catch(() => {});
-    fetch('/api/dashboard/suppliers?limit=100&active=true')
-      .then(r => r.json())
-      .then(j => { if (j.data) setSuppliers(j.data); })
-      .catch(() => {});
-  }, []);
+  const { data: _categoriesData = [] } = useQueryRQ<Category[]>({
+    queryKey: ['expense-categories'],
+    queryFn: () => fetchAPI('/api/finance/expenses/categories'),
+  });
+  const categories = _categoriesData;
+
+  const { data: _suppliersData = [] } = useQueryRQ<Supplier[]>({
+    queryKey: ['suppliers'],
+    queryFn: () => fetchAPI('/api/dashboard/suppliers?limit=100&active=true'),
+  });
+  const suppliers = _suppliersData;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

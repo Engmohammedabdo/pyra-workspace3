@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -13,22 +15,29 @@ import { AutomationForm } from '@/components/dashboard/automation-new/automation
 export default function NewAutomationPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<'template' | 'manual'>('template');
-  const [templates, setTemplates] = useState<AutomationTemplateType[]>([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [triggerEvent, setTriggerEvent] = useState('');
   const [isEnabled, setIsEnabled] = useState(true);
   const [conditions, setConditions] = useState<ConditionRow[]>([]);
   const [actions, setActions] = useState<ActionRow[]>([]);
-  const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/automations/templates')
-      .then(r => r.json())
-      .then(json => { if (json.data) setTemplates(json.data); })
-      .finally(() => setLoadingTemplates(false));
-  }, []);
+  const { data: templates = [], isLoading: loadingTemplates } = useQuery<AutomationTemplateType[]>({
+    queryKey: ['automations-templates'],
+    queryFn: () => fetchAPI('/api/automations/templates'),
+    staleTime: 5 * 60_000,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/automations', 'POST', body),
+    onSuccess: () => {
+      toast.success('تم إنشاء القاعدة بنجاح');
+      router.push('/dashboard/automations');
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const saving = createMutation.isPending;
 
   const applyTemplate = (tpl: AutomationTemplate) => {
     setName(tpl.name);
@@ -40,26 +49,12 @@ export default function NewAutomationPage() {
     toast.success('تم تحميل القالب');
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!name.trim() || !triggerEvent || actions.length === 0) {
       toast.error('يجب ملء الحقول المطلوبة');
       return;
     }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/automations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), description: description.trim() || null, trigger_event: triggerEvent, conditions, actions, is_enabled: isEnabled }),
-      });
-      if (!res.ok) throw new Error();
-      toast.success('تم إنشاء القاعدة بنجاح');
-      router.push('/dashboard/automations');
-    } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
+    createMutation.mutate({ name: name.trim(), description: description.trim() || null, trigger_event: triggerEvent, conditions, actions, is_enabled: isEnabled });
   };
 
   return (

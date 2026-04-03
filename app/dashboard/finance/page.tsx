@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,20 +16,13 @@ import { toast } from 'sonner';
 import Link from 'next/link';
 
 export default function FinanceDashboardPage() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
 
-  const fetchData = () => {
-    fetch('/api/finance/dashboard')
-      .then(res => res.json())
-      .then(res => { if (res.data) setData(res.data); else if (res.summary) setData(res); })
-      .catch(() => toast.error('فشل في تحميل البيانات المالية'))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchData(); }, []);
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['finance-dashboard'],
+    queryFn: () => fetchAPI<any>('/api/finance/dashboard'),
+  });
 
   if (loading) return <div className="space-y-6"><Skeleton className="h-64" /><Skeleton className="h-64" /></div>;
   if (!data) return <div className="flex items-center justify-center h-64">لا توجد بيانات</div>;
@@ -47,7 +42,7 @@ export default function FinanceDashboardPage() {
       )}
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> الإيرادات مقابل المصاريف</CardTitle></CardHeader><CardContent><RevenueExpenseChart data={data.monthly_chart} /></CardContent></Card>
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> وين راحت الفلوس؟</CardTitle></CardHeader><CardContent><ExpenseBarChart data={data.expense_pie} /></CardContent></Card>
-      <FinanceSubscriptions {...{ dueSubscriptions: data.due_subscriptions, upcomingRenewals: data.upcoming_renewals, summary: data.summary, onApprove: (s) => console.log('approve', s.id), onReject: (s) => console.log('reject', s.id), approvingId, rejectingId }} />
+      <FinanceSubscriptions {...{ dueSubscriptions: data.due_subscriptions, upcomingRenewals: data.upcoming_renewals, summary: data.summary, onApprove: (s: any) => console.log('approve', s.id), onReject: (s: any) => console.log('reject', s.id), approvingId, rejectingId }} />
     </div>
   );
 }

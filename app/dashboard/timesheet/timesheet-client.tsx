@@ -1,7 +1,9 @@
 // TODO: Add pagination for large timesheet datasets
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -99,24 +101,15 @@ interface TimesheetClientProps {
 }
 
 export default function TimesheetClient({ session }: TimesheetClientProps) {
-  const [entries, setEntries] = useState<TimesheetEntry[]>([]);
+  const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects();
-  const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  // Periods state
-  const [periods, setPeriods] = useState<TimesheetPeriod[]>([]);
-  const [periodsLoading, setPeriodsLoading] = useState(true);
   const [showAddPeriod, setShowAddPeriod] = useState(false);
   const [periodSaving, setPeriodSaving] = useState(false);
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [periodEndDate, setPeriodEndDate] = useState('');
-
-  // Overtime summary state
   const [overtimeSummary, setOvertimeSummary] = useState<OvertimeSummary | null>(null);
 
-  // Form state
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
   const [formHours, setFormHours] = useState('');
   const [formProject, setFormProject] = useState('');

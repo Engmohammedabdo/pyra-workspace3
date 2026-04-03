@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -38,24 +40,15 @@ const CHART_COLORS = [
 ];
 
 export default function StorageClient() {
-  const [stats, setStats] = useState<StorageStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [reindexing, setReindexing] = useState(false);
 
-  const fetchStats = () => {
-    setLoading(true);
-    fetch('/api/dashboard/storage-stats')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setStats(json.data);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
+  const { data: stats, isLoading: loading, refetch } = useQuery<StorageStats>({
+    queryKey: ['storage-stats'],
+    queryFn: () => fetchAPI('/api/dashboard/storage-stats'),
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  const fetchStats = () => { refetch(); };
 
   const handleReindex = async () => {
     setReindexing(true);

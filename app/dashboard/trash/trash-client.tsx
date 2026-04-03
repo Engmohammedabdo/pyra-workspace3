@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,8 +36,7 @@ interface TrashItem {
 }
 
 export default function TrashClient() {
-  const [items, setItems] = useState<TrashItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showPurge, setShowPurge] = useState(false);
   const [showEmptyAll, setShowEmptyAll] = useState(false);
   const [showPurgeExpired, setShowPurgeExpired] = useState(false);
@@ -45,16 +46,13 @@ export default function TrashClient() {
   const [typeFilter, setTypeFilter] = useState('all');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
-  const fetchTrash = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/trash');
-      const json = await res.json();
-      if (json.data) setItems(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, []);
+  const { data: items = [], isLoading: loading } = useQuery<TrashItem[]>({
+    queryKey: ['trash'],
+    queryFn: () => fetchAPI('/api/trash'),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => { fetchTrash(); }, [fetchTrash]);
+  const fetchTrash = () => { queryClient.invalidateQueries({ queryKey: ['trash'] }); };
 
   const restore = async (id: string) => {
     setSaving(true);

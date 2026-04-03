@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -74,34 +76,32 @@ function resolveTargetLink(type: string, targetPath: string): string | null {
 
 export default function NotificationsClient() {
   const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: notifications = [], isLoading: loading } = useQuery<Notification[]>({
+    queryKey: ['notifications', filter],
+    queryFn: () => {
       const params = new URLSearchParams();
       if (filter === 'unread') params.set('unread_only', 'true');
-      const res = await fetch(`/api/notifications?${params}`);
-      const json = await res.json();
-      if (json.data) setNotifications(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, [filter]);
-
-  useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
+      return fetchAPI(`/api/notifications?${params}`);
+    },
+    staleTime: 30_000,
+  });
 
   const markRead = async (id: string) => {
     try {
       await fetch(`/api/notifications/${id}`, { method: 'PATCH' });
-      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      queryClient.setQueryData<Notification[]>(['notifications', filter], prev =>
+        (prev || []).map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
     } catch (err) { console.error(err); }
   };
 
   const markAllRead = async () => {
     try {
       await fetch('/api/notifications/read-all', { method: 'POST' });
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
     } catch (err) { console.error(err); }
   };
 

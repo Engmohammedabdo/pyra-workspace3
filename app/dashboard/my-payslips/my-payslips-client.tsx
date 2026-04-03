@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,34 +91,22 @@ const SOURCE_LABELS: Record<string, string> = {
   commission: 'عمولة', task: 'مهمة', bonus: 'مكافأة', deduction: 'خصم', overtime: 'إضافي', salary: 'راتب',
 };
 
+interface PayslipsResponse {
+  payslips: Payslip[];
+  payments: Payment[];
+}
+
 export default function MyPayslipsClient() {
-  const [payslips, setPayslips] = useState<Payslip[]>([]);
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  // Fetch payslips
-  const fetchPayslips = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch('/api/dashboard/my-payslips');
-      if (res.ok) {
-        const { data } = await res.json();
-        setPayslips(data?.payslips || data || []);
-        setPayments(data?.payments || []);
-      } else {
-        toast.error('فشل في تحميل كشوف الرواتب');
-      }
-    } catch {
-      toast.error('حدث خطأ أثناء تحميل البيانات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: payslipsData, isLoading: loading } = useQuery<PayslipsResponse>({
+    queryKey: ['my-payslips'],
+    queryFn: () => fetchAPI('/api/dashboard/my-payslips'),
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    fetchPayslips();
-  }, [fetchPayslips]);
+  const payslips: Payslip[] = payslipsData?.payslips || (Array.isArray(payslipsData) ? (payslipsData as unknown as Payslip[]) : []);
+  const payments: Payment[] = payslipsData?.payments || [];
 
   // Download payslip
   const handleDownload = async (payslip: Payslip) => {

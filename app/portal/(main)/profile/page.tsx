@@ -1,36 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toast } from 'sonner';
 import { ProfileForm } from '@/components/portal/profile/ProfileForm';
 import { PasswordForm } from '@/components/portal/profile/PasswordForm';
-
-interface ClientProfile {
-  name: string;
-  email: string;
-  phone: string | null;
-  company: string;
-}
+import { usePortalProfile } from '@/hooks/usePortalProfile';
 
 export default function PortalProfilePage() {
-  const [profile, setProfile] = useState<ClientProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function fetchProfile() {
-      try {
-        const res = await fetch('/api/portal/profile');
-        const json = await res.json();
-        if (res.ok && json.data) setProfile(json.data);
-      } catch {
-        toast.error('فشل في تحميل بيانات الملف الشخصي');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProfile();
-  }, []);
+  const { data: profile, isLoading: loading } = usePortalProfile();
 
   if (loading) {
     return (

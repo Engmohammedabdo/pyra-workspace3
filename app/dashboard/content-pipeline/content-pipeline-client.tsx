@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -165,11 +167,9 @@ function getCompletedCount(stages: PipelineStage[]): number {
 
 // ─── Main Component ───────────────────────────────────
 export default function ContentPipelineClient() {
-  const [items, setItems] = useState<PipelineItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const { data: projectsData = [] } = useProjects();
   const projects: ProjectOption[] = projectsData.map(p => ({ id: p.id, name: p.name }));
-  const [users, setUsers] = useState<UserOption[]>([]);
 
   // Filters
   const [filterType, setFilterType] = useState<string>('all');
@@ -191,47 +191,33 @@ export default function ContentPipelineClient() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // ─── Fetch pipeline items ───────────────────────────
-  const fetchItems = useCallback(async () => {
-    try {
+  const { data: items = [], isLoading: loading } = useQuery<PipelineItem[]>({
+    queryKey: ['content-pipeline', filterType, filterProject],
+    queryFn: () => {
       const params = new URLSearchParams();
       if (filterType !== 'all') params.set('content_type', filterType);
       if (filterProject !== 'all') params.set('project_id', filterProject);
+      return fetchAPI(`/api/dashboard/content-pipeline?${params.toString()}`);
+    },
+    staleTime: 30_000,
+  });
 
-      const res = await fetch(`/api/dashboard/content-pipeline?${params.toString()}`);
-      if (res.ok) {
-        const json = await res.json();
-        setItems(json.data || []);
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, [filterType, filterProject]);
+  const fetchItems = () => { queryClient.invalidateQueries({ queryKey: ['content-pipeline'] }); };
 
   // ─── Fetch users for dropdowns ───────────────────────
-  const fetchDropdownData = useCallback(async () => {
-    try {
-      const userRes = await fetch('/api/directory');
-      if (userRes.ok) {
-        const userJson = await userRes.json();
-        setUsers((userJson.data || []).map((u: { username: string; display_name: string }) => ({
-          username: u.username,
-          display_name: u.display_name,
-        })));
-      }
-    } catch {
-      // silent
-    }
-  }, []);
+  const { data: usersData = [] } = useQuery<UserOption[]>({
+    queryKey: ['directory-users'],
+    queryFn: async () => {
+      const json = await fetchAPI<{ username: string; display_name: string }[]>('/api/directory');
+      return (json as any[]).map((u: { username: string; display_name: string }) => ({
+        username: u.username,
+        display_name: u.display_name,
+      }));
+    },
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
-
-  useEffect(() => {
-    fetchDropdownData();
-  }, [fetchDropdownData]);
+  const users = usersData;
 
   // ─── Create pipeline item ───────────────────────────
   const handleCreate = async () => {

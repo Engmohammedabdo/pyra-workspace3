@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { FolderKanban, Clock, Bell, FolderOpen, Receipt, ScrollText } from 'lucide-react';
@@ -13,36 +14,36 @@ import { ProjectProgress } from '@/components/portal/home/project-progress';
 import { RecentActivity } from '@/components/portal/home/recent-activity';
 import { RecentNotifications } from '@/components/portal/home/recent-notifications';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePortalDashboard } from '@/hooks/usePortalDashboard';
+import { mutateAPI } from '@/hooks/api-helpers';
 
 export default function PortalDashboardPage() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data, isLoading: loading, refetch } = usePortalDashboard();
 
   const fetchDashboard = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/portal/dashboard');
-      const json = await res.json();
-      if (res.ok && json.data) setData(json.data);
-    } catch {
-      toast.error('فشل في تحميل لوحة المعلومات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchDashboard(); }, [fetchDashboard]);
+    await refetch();
+  }, [refetch]);
 
   const markNotificationRead = useCallback(async (id: string) => {
     try {
-      await fetch(`/api/portal/notifications/${id}`, { method: 'PATCH' });
-      setData((prev: any) => ({
-        ...prev,
-        recentNotifications: prev.recentNotifications.map((n: any) => n.id === id ? { ...n, is_read: true } : n),
-        stats: { ...prev.stats, unreadNotifications: Math.max(0, prev.stats.unreadNotifications - 1) },
-      }));
-    } catch {}
-  }, []);
+      await mutateAPI(`/api/portal/notifications/${id}`, 'PATCH');
+      queryClient.setQueryData(['portal', 'dashboard'], (prev: typeof data) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          recentNotifications: prev.recentNotifications?.map((n) =>
+            n.id === id ? { ...n, is_read: true } : n
+          ),
+          stats: prev.stats
+            ? { ...prev.stats, unreadNotifications: Math.max(0, prev.stats.unreadNotifications - 1) }
+            : prev.stats,
+        };
+      });
+    } catch {
+      // ignore
+    }
+  }, [queryClient]);
 
   if (loading) return <div className="space-y-6">
     <Skeleton className="h-32 w-full rounded-xl" />
@@ -65,19 +66,33 @@ export default function PortalDashboardPage() {
     { label: 'السكريبتات', href: '/portal/scripts', icon: ScrollText },
   ];
 
+  type DashboardClient = { name: string; company: string; last_login_at: string | null };
+  type FinancialData = { totalInvoiced: number; totalPaid: number; totalRemaining: number; invoiceCount: number; pendingCount: number };
+  type ChartData = { day: string; count: number }[];
+  type ProjectData = { id: string; name: string; status?: string; totalFiles: number; approvedFiles: number; progress: number }[];
+  type ActivityEntry = { id: string; action_type: string; display_name: string | null; created_at: string }[];
+  type NotifData = { id: string; type: string; message: string; is_read: boolean; created_at: string }[];
+
+  const clientData = data?.client as DashboardClient | undefined;
+  const financialData = data?.financialSummary as FinancialData | undefined;
+  const chartData = data?.chartData as ChartData | undefined;
+  const projectData = data?.projectProgress as ProjectData | undefined;
+  const activityData = data?.recentActivity as ActivityEntry | undefined;
+  const notifData = data?.recentNotifications as NotifData | undefined;
+
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <WelcomeBanner client={data?.client} onRefresh={fetchDashboard} loading={loading} />
+      {clientData && <WelcomeBanner client={clientData} onRefresh={fetchDashboard} loading={loading} />}
       <StatsGrid stats={statCards} />
-      {data?.financialSummary && data.financialSummary.invoiceCount > 0 && <FinancialSummary financial={data.financialSummary} />}
+      {financialData && financialData.invoiceCount > 0 && <FinancialSummary financial={financialData} />}
       <QuickActions actions={quickActions} />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <WeeklyActivityChart data={data?.chartData} />
-        <ProjectProgress projects={data?.projectProgress} />
+        <WeeklyActivityChart data={chartData ?? []} />
+        <ProjectProgress projects={projectData ?? []} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RecentActivity activity={data?.recentActivity} />
-        <RecentNotifications notifications={data?.recentNotifications} onMarkRead={markNotificationRead} />
+        <RecentActivity activity={activityData ?? []} />
+        <RecentNotifications notifications={notifData ?? []} onMarkRead={markNotificationRead} />
       </div>
     </motion.div>
   );

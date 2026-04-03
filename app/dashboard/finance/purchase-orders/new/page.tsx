@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useSettings } from '@/hooks/useSettings';
 import { useRouter } from 'next/navigation';
@@ -25,7 +27,10 @@ export default function NewPurchaseOrderPage() {
 
   const { data: projects = [] } = useProjects({ pageSize: '100' });
   const { data: settingsData } = useSettings();
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: ['suppliers'],
+    queryFn: () => fetchAPI('/api/dashboard/suppliers?limit=100&active=true'),
+  });
   const [supplierId, setSupplierId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -35,12 +40,7 @@ export default function NewPurchaseOrderPage() {
   const [items, setItems] = useState<POItem[]>([{ description: '', quantity: 1, rate: 0 }]);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/dashboard/suppliers?limit=100&active=true')
-      .then(r => r.json())
-      .then(j => { if (j.data) setSuppliers(j.data); })
-      .catch(() => {});
-  }, []);
+
 
   useEffect(() => {
     if (settingsData?.vat_rate !== undefined) {

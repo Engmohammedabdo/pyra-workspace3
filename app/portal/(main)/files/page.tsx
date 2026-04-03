@@ -2,14 +2,14 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'sonner';
-import { RefreshCw, LayoutGrid, List, PackageCheck, Loader2, FolderOpen, Home, ChevronLeft, ChevronRight } from 'lucide-react';
+import { RefreshCw, LayoutGrid, List, PackageCheck, Loader2, FolderOpen, Home, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SearchInput } from '@/components/ui/search-input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePortalFavorites } from '@/hooks/usePortalFavorites';
@@ -21,6 +21,8 @@ import { FileCard } from '@/components/portal/files/FileCard';
 import { FileRow } from '@/components/portal/files/FileRow';
 import { FolderCard } from '@/components/portal/files/FolderCard';
 import { getItemsAtLevel, formatSegmentName } from '@/components/portal/files/utils';
+import { usePortalFiles, usePortalFilesBulkDownload } from '@/hooks/usePortalFiles';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Filter options
 const approvalFilterOptions = [
@@ -31,8 +33,10 @@ const approvalFilterOptions = [
 ];
 
 export default function PortalFilesPage() {
-  const [files, setFiles] = useState<FileWithProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: rawFiles, isLoading: loading, refetch } = usePortalFiles();
+  const bulkDownloadMutation = usePortalFilesBulkDownload();
+
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -52,9 +56,8 @@ export default function PortalFilesPage() {
   const [previewFile, setPreviewFile] = useState<FileWithProject | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Favorites & bulk download
+  // Favorites
   const { toggleFavorite, isFavorite } = usePortalFavorites();
-  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem('portal-files-view');
@@ -66,39 +69,25 @@ export default function PortalFilesPage() {
     localStorage.setItem('portal-files-view', mode);
   }, []);
 
-  const fetchFiles = useCallback(async () => {
-    try {
-      const res = await fetch('/api/portal/files');
-      const json = await res.json();
-      if (res.ok && json.data) {
-        const mapped: FileWithProject[] = (json.data as Array<Record<string, unknown>>).map((f) => {
-          const fileName = f.file_name as string;
-          const storedMime = (f.mime_type || f.file_type || null) as string | null;
-          return {
-            id: f.id as string,
-            file_name: fileName,
-            file_type: resolveMimeType(fileName, storedMime),
-            file_path: (f.file_path || '') as string,
-            file_size: f.file_size as number | undefined,
-            added_at: (f.created_at || f.added_at) as string,
-            project_id: f.project_id as string,
-            project_name: f.project_name as string,
-            approval: f.approval as FileWithProject['approval'],
-            tags: (f.tags as FileTag[] | undefined) || [],
-          };
-        });
-        setFiles(mapped);
-      }
-    } catch {
-      toast.error('فشل في تحميل الملفات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
+  const files: FileWithProject[] = useMemo(() => {
+    if (!rawFiles) return [];
+    return (rawFiles as unknown as Array<Record<string, unknown>>).map((f) => {
+      const fileName = f.file_name as string;
+      const storedMime = (f.mime_type || f.file_type || null) as string | null;
+      return {
+        id: f.id as string,
+        file_name: fileName,
+        file_type: resolveMimeType(fileName, storedMime),
+        file_path: (f.file_path || '') as string,
+        file_size: f.file_size as number | undefined,
+        added_at: (f.created_at || f.added_at) as string,
+        project_id: f.project_id as string,
+        project_name: f.project_name as string,
+        approval: f.approval as FileWithProject['approval'],
+        tags: (f.tags as FileTag[] | undefined) || [],
+      };
+    });
+  }, [rawFiles]);
 
   const projects = useMemo(() => {
     const map = new Map<string, string>();
@@ -135,7 +124,7 @@ export default function PortalFilesPage() {
       const res = await fetch(`/api/portal/files/${fileId}/approve`, { method: 'POST' });
       if (res.ok) {
         toast.success('تمت الموافقة على الملف بنجاح');
-        await fetchFiles();
+        await refetch();
       } else {
         toast.error('حدث خطأ أثناء الموافقة على الملف');
       }
@@ -160,7 +149,7 @@ export default function PortalFilesPage() {
         setRevisionDialogOpen(false);
         setRevisionComment('');
         setRevisionFileId(null);
-        await fetchFiles();
+        await refetch();
       } else {
         toast.error('حدث خطأ أثناء إرسال طلب التعديل');
       }
@@ -182,20 +171,8 @@ export default function PortalFilesPage() {
       return;
     }
 
-    setBulkDownloading(true);
     try {
-      const res = await fetch('/api/portal/files/bulk-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folderPath: currentPath }),
-      });
-
-      if (!res.ok) {
-        toast.error('فشل في التحميل');
-        return;
-      }
-
-      const blob = await res.blob();
+      const blob = await bulkDownloadMutation.mutateAsync({ folderPath: currentPath });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -206,9 +183,7 @@ export default function PortalFilesPage() {
       URL.revokeObjectURL(url);
       toast.success('تم تحميل الملفات بنجاح');
     } catch {
-      toast.error('حدث خطأ أثناء التحميل');
-    } finally {
-      setBulkDownloading(false);
+      toast.error('فشل في التحميل');
     }
   }
 
@@ -228,6 +203,8 @@ export default function PortalFilesPage() {
     );
   }
 
+  const bulkDownloading = bulkDownloadMutation.isPending;
+
   return (
     <div className="space-y-5 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
@@ -235,7 +212,7 @@ export default function PortalFilesPage() {
           <div>
             <h1 className="text-2xl font-bold">الملفات</h1>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={fetchFiles} aria-label="تحديث">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => refetch()} aria-label="تحديث">
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
         </div>
@@ -298,7 +275,7 @@ export default function PortalFilesPage() {
             </div>
           )}
           {levelContents.files.length > 0 && (
-            viewMode === 'grid' 
+            viewMode === 'grid'
               ? <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">{levelContents.files.map((file) => <FileCard key={file.id} file={file} onPreview={() => { setPreviewFile(file); setPreviewOpen(true); }} onDownload={() => handleDownload(file.id)} onApprove={() => handleApprove(file.id)} onRevision={() => { setRevisionFileId(file.id); setRevisionDialogOpen(true); }} approveLoading={approveLoading === file.id} onToggleFavorite={() => toggleFavorite({ id: file.id, type: 'file', name: file.file_name })} favorited={isFavorite(file.id, 'file')} />)}</div>
               : <Card className="overflow-hidden">{levelContents.files.map((file) => <FileRow key={file.id} file={file} onPreview={() => { setPreviewFile(file); setPreviewOpen(true); }} onDownload={() => handleDownload(file.id)} onApprove={() => handleApprove(file.id)} onRevision={() => { setRevisionFileId(file.id); setRevisionDialogOpen(true); }} approveLoading={approveLoading === file.id} />)}</Card>
           )}
