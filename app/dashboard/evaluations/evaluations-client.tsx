@@ -265,14 +265,14 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     setExpandedLoading(true);
 
     try {
-      const res = await fetch(`/api/dashboard/evaluations/${evalId}`);
-      const json = await res.json();
-      if (json.data) {
-        setExpandedData(json.data);
+      const data = await fetchAPI<Evaluation>(`/api/dashboard/evaluations/${evalId}`);
+      const ev = (data as any).data ?? data;
+      if (ev) {
+        setExpandedData(ev);
         setEditComments({
-          comments: json.data.comments || '',
-          strengths: json.data.strengths || '',
-          improvements: json.data.improvements || '',
+          comments: ev.comments || '',
+          strengths: ev.strengths || '',
+          improvements: ev.improvements || '',
         });
       }
     } catch {
@@ -285,14 +285,14 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   // Re-fetch expanded data without collapsing/expanding (replaces toggleExpand+setTimeout hack)
   const refreshExpanded = async (evalId: string) => {
     try {
-      const res = await fetch(`/api/dashboard/evaluations/${evalId}`);
-      const json = await res.json();
-      if (json.data) {
-        setExpandedData(json.data);
+      const data = await fetchAPI<Evaluation>(`/api/dashboard/evaluations/${evalId}`);
+      const ev = (data as any).data ?? data;
+      if (ev) {
+        setExpandedData(ev);
         setEditComments({
-          comments: json.data.comments || '',
-          strengths: json.data.strengths || '',
-          improvements: json.data.improvements || '',
+          comments: ev.comments || '',
+          strengths: ev.strengths || '',
+          improvements: ev.improvements || '',
         });
       }
     } catch {
@@ -1085,25 +1085,16 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const promises: Promise<Response>[] = [
-        fetch('/api/dashboard/kpi'),
-        fetch('/api/dashboard/evaluations/periods'),
-      ];
+      const [kpis, periods] = await Promise.all([
+        fetchAPI<{ data: KpiTarget[] }>('/api/dashboard/kpi'),
+        fetchAPI<{ data: EvaluationPeriod[] }>('/api/dashboard/evaluations/periods'),
+      ]);
+      setKpis((kpis as any).data ?? kpis ?? []);
+      setPeriods((periods as any).data ?? periods ?? []);
+
       if (canManage) {
-        promises.push(fetch('/api/users'));
-      }
-
-      const results = await Promise.all(promises);
-
-      const kpiJson = await results[0].json();
-      const periodsJson = await results[1].json();
-
-      if (kpiJson.data) setKpis(kpiJson.data);
-      if (periodsJson.data) setPeriods(periodsJson.data);
-
-      if (canManage && results[2]) {
-        const usersJson = await results[2].json();
-        if (usersJson.data) setUsers(usersJson.data);
+        const usersData = await fetchAPI<{ data: PyraUser[] }>('/api/users');
+        setUsers((usersData as any).data ?? usersData ?? []);
       }
     } catch {
       toast.error('فشل في تحميل مؤشرات الأداء');

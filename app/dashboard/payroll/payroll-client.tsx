@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -182,15 +183,10 @@ export default function PayrollClient() {
   const fetchRuns = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/dashboard/payroll?year=${filterYear}`);
-      if (res.ok) {
-        const { data } = await res.json();
-        setRuns(data || []);
-      } else {
-        toast.error('فشل في تحميل مسيرات الرواتب');
-      }
+      const data = await fetchAPI<{ data: PayrollRun[] }>(`/api/dashboard/payroll?year=${filterYear}`);
+      setRuns((data as any).data ?? data ?? []);
     } catch {
-      toast.error('حدث خطأ أثناء تحميل البيانات');
+      toast.error('فشل في تحميل مسيرات الرواتب');
     } finally {
       setLoading(false);
     }
@@ -200,11 +196,8 @@ export default function PayrollClient() {
   const fetchPayments = useCallback(async () => {
     try {
       setPaymentsLoading(true);
-      const res = await fetch('/api/dashboard/employee-payments');
-      if (res.ok) {
-        const { data } = await res.json();
-        setPayments(data || []);
-      }
+      const data = await fetchAPI<{ data: EmployeePayment[] }>('/api/dashboard/employee-payments');
+      setPayments((data as any).data ?? data ?? []);
     } catch {
       // Silently fail — this tab is secondary
     } finally {
@@ -219,8 +212,9 @@ export default function PayrollClient() {
 
   // ── Fetch users for payment dialog ──
   useEffect(() => {
-    fetch('/api/dashboard/users').then(r => r.json()).then(j => {
-      if (j.data) setAllUsers(j.data.map((u: { username: string; display_name: string }) => ({ username: u.username, display_name: u.display_name })));
+    fetchAPI<{ data: Array<{ username: string; display_name: string }> }>('/api/dashboard/users').then(data => {
+      const users = (data as any).data ?? data ?? [];
+      setAllUsers(users.map((u: { username: string; display_name: string }) => ({ username: u.username, display_name: u.display_name })));
     }).catch(() => {});
   }, []);
 
@@ -232,26 +226,17 @@ export default function PayrollClient() {
     }
     setSavingPayment(true);
     try {
-      const res = await fetch('/api/dashboard/employee-payments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: payForm.username,
-          source_type: payForm.source_type,
-          description: payForm.description || null,
-          amount: Number(payForm.amount),
-          currency: payForm.currency,
-        }),
+      await mutateAPI('/api/dashboard/employee-payments', 'POST', {
+        username: payForm.username,
+        source_type: payForm.source_type,
+        description: payForm.description || null,
+        amount: Number(payForm.amount),
+        currency: payForm.currency,
       });
-      const j = await res.json();
-      if (res.ok) {
-        toast.success('تم تسجيل الدفعة');
-        setPaymentOpen(false);
-        setPayForm({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
-        fetchPayments();
-      } else {
-        toast.error(j.error || 'فشل في تسجيل الدفعة');
-      }
+      toast.success('تم تسجيل الدفعة');
+      setPaymentOpen(false);
+      setPayForm({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
+      fetchPayments();
     } catch {
       toast.error('فشل في تسجيل الدفعة');
     } finally {
@@ -271,15 +256,10 @@ export default function PayrollClient() {
     setExpandedLoading(true);
 
     try {
-      const res = await fetch(`/api/dashboard/payroll/${runId}`);
-      if (res.ok) {
-        const { data } = await res.json();
-        setExpandedRunData(data);
-      } else {
-        toast.error('فشل في تحميل تفاصيل المسير');
-      }
+      const data = await fetchAPI<{ data: PayrollRun }>(`/api/dashboard/payroll/${runId}`);
+      setExpandedRunData((data as any).data ?? data);
     } catch {
-      toast.error('حدث خطأ');
+      toast.error('فشل في تحميل تفاصيل المسير');
     } finally {
       setExpandedLoading(false);
     }
@@ -289,26 +269,15 @@ export default function PayrollClient() {
   const handleCreate = async () => {
     try {
       setCreating(true);
-      const res = await fetch('/api/dashboard/payroll', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          month: parseInt(newMonth, 10),
-          year: parseInt(newYear, 10),
-        }),
+      await mutateAPI('/api/dashboard/payroll', 'POST', {
+        month: parseInt(newMonth, 10),
+        year: parseInt(newYear, 10),
       });
-
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في إنشاء مسير الرواتب');
-        return;
-      }
-
       toast.success('تم إنشاء مسير الرواتب بنجاح');
       setCreateOpen(false);
       fetchRuns();
     } catch {
-      toast.error('حدث خطأ');
+      toast.error('فشل في إنشاء مسير الرواتب');
     } finally {
       setCreating(false);
     }
@@ -318,25 +287,14 @@ export default function PayrollClient() {
   const handleCalculate = async (runId: string) => {
     try {
       setCalculatingId(runId);
-      const res = await fetch(`/api/dashboard/payroll/${runId}/calculate`, {
-        method: 'POST',
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في حساب الرواتب');
-        return;
-      }
-
+      const result = await mutateAPI<{ data: PayrollRun }>(`/api/dashboard/payroll/${runId}/calculate`, 'POST');
       toast.success('تم حساب الرواتب بنجاح');
       fetchRuns();
-
-      // Refresh expanded data if this run is expanded
       if (expandedRunId === runId) {
-        setExpandedRunData(json.data);
+        setExpandedRunData((result as any).data ?? result);
       }
     } catch {
-      toast.error('حدث خطأ أثناء حساب الرواتب');
+      toast.error('فشل في حساب الرواتب');
     } finally {
       setCalculatingId(null);
     }
@@ -346,22 +304,11 @@ export default function PayrollClient() {
   const handleApprove = async (runId: string) => {
     try {
       setApprovingId(runId);
-      const res = await fetch(`/api/dashboard/payroll/${runId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'approve' }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في اعتماد المسير');
-        return;
-      }
-
+      await mutateAPI(`/api/dashboard/payroll/${runId}`, 'PATCH', { action: 'approve' });
       toast.success('تم اعتماد مسير الرواتب');
       fetchRuns();
     } catch {
-      toast.error('حدث خطأ');
+      toast.error('فشل في اعتماد المسير');
     } finally {
       setApprovingId(null);
     }
@@ -371,22 +318,11 @@ export default function PayrollClient() {
   const handlePay = async (runId: string) => {
     try {
       setPayingId(runId);
-      const res = await fetch(`/api/dashboard/payroll/${runId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'pay' }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في تأكيد الدفع');
-        return;
-      }
-
+      await mutateAPI(`/api/dashboard/payroll/${runId}`, 'PATCH', { action: 'pay' });
       toast.success('تم تأكيد صرف الرواتب');
       fetchRuns();
     } catch {
-      toast.error('حدث خطأ');
+      toast.error('فشل في تأكيد الدفع');
     } finally {
       setPayingId(null);
     }
@@ -396,13 +332,8 @@ export default function PayrollClient() {
   const handleDownloadPayslip = async (runId: string, username: string) => {
     try {
       setDownloadingPayslip(`${runId}-${username}`);
-      const res = await fetch(`/api/dashboard/payroll/${runId}/payslip?username=${username}`);
-      if (!res.ok) {
-        toast.error('فشل في تحميل بيانات كشف الراتب');
-        return;
-      }
-
-      const { data } = await res.json();
+      const resp = await fetchAPI<{ data: any }>(`/api/dashboard/payroll/${runId}/payslip?username=${username}`);
+      const data = (resp as any).data ?? resp;
 
       await generatePayslipPDF({
         company_name: data.company_name,

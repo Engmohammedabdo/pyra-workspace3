@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,12 +66,20 @@ export default function LeadDetailPage() {
 
   const fetchLead = useCallback(async () => {
     try {
-      const [leadRes, stagesRes, activitiesRes, followUpsRes, quotesRes] = await Promise.all([
-        fetch(`/api/dashboard/sales/leads/${id}`), fetch('/api/dashboard/sales/pipeline-stages'), fetch(`/api/dashboard/sales/leads/${id}/activities`), fetch(`/api/dashboard/sales/follow-ups?lead_id=${id}`), fetch(`/api/dashboard/sales/leads/${id}/quotes`),
+      const [l, s, a, f, q] = await Promise.all([
+        fetchAPI<any>(`/api/dashboard/sales/leads/${id}`),
+        fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
+        fetchAPI<any>(`/api/dashboard/sales/leads/${id}/activities`),
+        fetchAPI<any>(`/api/dashboard/sales/follow-ups?lead_id=${id}`),
+        fetchAPI<any>(`/api/dashboard/sales/leads/${id}/quotes`),
       ]);
-      const [l, s, a, f, q] = await Promise.all([leadRes.json(), stagesRes.json(), activitiesRes.json(), followUpsRes.json(), quotesRes.json()]);
-      if (!leadRes.ok) { toast.error('العميل غير موجود'); router.push('/dashboard/sales/leads'); return; }
-      setLead(l.data); setStages(s.data || []); setActivities(a.data || []); setFollowUps(f.data || []); setLinkedQuotes(q.data || []);
+      const lead = (l as any).data ?? l;
+      if (!lead) { toast.error('العميل غير موجود'); router.push('/dashboard/sales/leads'); return; }
+      setLead(lead);
+      setStages((s as any).data ?? s ?? []);
+      setActivities((a as any).data ?? a ?? []);
+      setFollowUps((f as any).data ?? f ?? []);
+      setLinkedQuotes((q as any).data ?? q ?? []);
     } catch { toast.error('فشل تحميل البيانات'); } finally { setLoading(false); }
   }, [id, router]);
 
@@ -79,38 +88,37 @@ export default function LeadDetailPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch(`/api/dashboard/sales/leads/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editForm) });
-      if (!res.ok) throw new Error();
+      await mutateAPI(`/api/dashboard/sales/leads/${id}`, 'PATCH', editForm);
       toast.success('تم حفظ التعديلات'); setEditing(false); fetchLead();
     } catch { toast.error('فشل حفظ التعديلات'); } finally { setSaving(false); }
   }
 
   async function handleDelete() {
     if (!confirm('هل أنت متأكد؟')) return;
-    try { const res = await fetch(`/api/dashboard/sales/leads/${id}`, { method: 'DELETE' }); if (!res.ok) throw new Error(); toast.success('تم الحذف'); router.push('/dashboard/sales/leads'); } catch { toast.error('فشل الحذف'); }
+    try { await mutateAPI(`/api/dashboard/sales/leads/${id}`, 'DELETE'); toast.success('تم الحذف'); router.push('/dashboard/sales/leads'); } catch { toast.error('فشل الحذف'); }
   }
 
   async function handleAddActivity() {
     if (!newActivity.description.trim()) return; setAddingActivity(true);
-    try { await fetch(`/api/dashboard/sales/leads/${id}/activities`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ activity_type: newActivity.type, description: newActivity.description }) }); setNewActivity({ type: 'note', description: '' }); fetchLead(); } catch { toast.error('فشل إضافة النشاط'); } finally { setAddingActivity(false); }
+    try { await mutateAPI(`/api/dashboard/sales/leads/${id}/activities`, 'POST', { activity_type: newActivity.type, description: newActivity.description }); setNewActivity({ type: 'note', description: '' }); fetchLead(); } catch { toast.error('فشل إضافة النشاط'); } finally { setAddingActivity(false); }
   }
 
   async function handleAddFollowUp() {
     if (!newFollowUp.due_at) { toast.error('وقت المتابعة مطلوب'); return; } setAddingFollowUp(true);
-    try { await fetch('/api/dashboard/sales/follow-ups', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lead_id: id, ...newFollowUp }) }); toast.success('تم إضافة المتابعة'); setNewFollowUp({ title: '', due_at: '', notes: '' }); fetchLead(); } catch { toast.error('فشل إضافة المتابعة'); } finally { setAddingFollowUp(false); }
+    try { await mutateAPI('/api/dashboard/sales/follow-ups', 'POST', { lead_id: id, ...newFollowUp }); toast.success('تم إضافة المتابعة'); setNewFollowUp({ title: '', due_at: '', notes: '' }); fetchLead(); } catch { toast.error('فشل إضافة المتابعة'); } finally { setAddingFollowUp(false); }
   }
 
   async function handleCompleteFollowUp(fuId: string) {
-    try { await fetch('/api/dashboard/sales/follow-ups', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: fuId, status: 'completed' }) }); toast.success('تم إكمال المتابعة'); fetchLead(); } catch { toast.error('فشل تحديث المتابعة'); }
+    try { await mutateAPI('/api/dashboard/sales/follow-ups', 'PATCH', { id: fuId, status: 'completed' }); toast.success('تم إكمال المتابعة'); fetchLead(); } catch { toast.error('فشل تحديث المتابعة'); }
   }
 
   async function handleConvert() {
     setConverting(true);
-    try { const res = await fetch(`/api/dashboard/sales/leads/${id}/convert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ create_portal_access: convertPortal, password: convertPassword || undefined }) }); if (!res.ok) throw new Error('فشل التحويل'); toast.success('تم التحويل'); setShowConvert(false); fetchLead(); } catch { toast.error('حدث خطأ'); } finally { setConverting(false); }
+    try { await mutateAPI(`/api/dashboard/sales/leads/${id}/convert`, 'POST', { create_portal_access: convertPortal, password: convertPassword || undefined }); toast.success('تم التحويل'); setShowConvert(false); fetchLead(); } catch { toast.error('حدث خطأ'); } finally { setConverting(false); }
   }
 
   async function handleStageChange(stageId: string) {
-    try { await fetch(`/api/dashboard/sales/leads/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stage_id: stageId }) }); toast.success('تم التغيير'); fetchLead(); } catch { toast.error('فشل'); }
+    try { await mutateAPI(`/api/dashboard/sales/leads/${id}`, 'PATCH', { stage_id: stageId }); toast.success('تم التغيير'); fetchLead(); } catch { toast.error('فشل'); }
   }
 
   if (loading) return <div className="space-y-6"><Skeleton className="h-8 w-64" /><div className="grid grid-cols-1 lg:grid-cols-3 gap-6"><Skeleton className="h-64 col-span-2 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div></div>;

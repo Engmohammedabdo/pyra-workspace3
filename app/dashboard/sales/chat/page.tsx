@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { ConversationList, type Conversation } from '@/components/sales/chat/conversation-list';
 import { ChatWindow } from '@/components/sales/chat/chat-window';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,9 +30,8 @@ export default function ChatInboxPage() {
 
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/conversations');
-      const data = await res.json();
-      setConversations(data.data || []);
+      const data = await fetchAPI<{ data: Conversation[] }>('/api/dashboard/sales/whatsapp/conversations');
+      setConversations((data as any).data ?? data ?? []);
     } catch {
       console.error('Failed to fetch conversations');
     } finally {
@@ -58,20 +58,14 @@ export default function ChatInboxPage() {
 
     try {
       while (!done) {
-        const res = await fetch('/api/dashboard/sales/whatsapp/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ startPage: nextPage, pagesToSync: 10 }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          console.error('[Sync Error]', errData);
-          toast.error(errData.details || errData.error || 'فشل في المزامنة');
+        let data: any;
+        try {
+          data = await mutateAPI('/api/dashboard/sales/whatsapp/sync', 'POST', { startPage: nextPage, pagesToSync: 10 });
+        } catch (syncErr: any) {
+          console.error('[Sync Error]', syncErr);
+          toast.error(syncErr?.message || 'فشل في المزامنة');
           break;
         }
-
-        const data = await res.json();
         if (!data.sync) {
           toast.error('فشل في المزامنة');
           break;

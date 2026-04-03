@@ -99,18 +99,7 @@ export default function RolesClient() {
 
   // Create role
   const createMutation = useMutation({
-    mutationFn: async (data: RoleFormData) => {
-      const res = await fetch('/api/roles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'فشل في إنشاء الدور');
-      }
-      return res.json();
-    },
+    mutationFn: (data: RoleFormData) => mutateAPI('/api/roles', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('تم إنشاء الدور بنجاح');
@@ -121,18 +110,8 @@ export default function RolesClient() {
 
   // Update role
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<RoleFormData> }) => {
-      const res = await fetch(`/api/roles/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'فشل في تحديث الدور');
-      }
-      return res.json();
-    },
+    mutationFn: ({ id, data }: { id: string; data: Partial<RoleFormData> }) =>
+      mutateAPI(`/api/roles/${id}`, 'PATCH', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       toast.success('تم تحديث الدور بنجاح');
@@ -143,15 +122,11 @@ export default function RolesClient() {
 
   // Delete role
   const deleteMutation = useMutation({
-    mutationFn: async ({ id, fallback_role_id }: { id: string; fallback_role_id?: string }) => {
-      const url = new URL(`/api/roles/${id}`, window.location.origin);
-      if (fallback_role_id) url.searchParams.set('fallback_role_id', fallback_role_id);
-      const res = await fetch(url.toString(), { method: 'DELETE' });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'فشل في حذف الدور');
-      }
-      return res.json();
+    mutationFn: ({ id, fallback_role_id }: { id: string; fallback_role_id?: string }) => {
+      const url = fallback_role_id
+        ? `/api/roles/${id}?fallback_role_id=${fallback_role_id}`
+        : `/api/roles/${id}`;
+      return mutateAPI(url, 'DELETE');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });

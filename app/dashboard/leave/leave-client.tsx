@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,20 +112,19 @@ export default function LeaveClient({ session }: LeaveClientProps) {
 
   const fetchData = useCallback(async () => {
     try {
-      const [reqRes, balRes] = await Promise.all([
-        fetch('/api/leave'),
-        fetch('/api/leave/balance'),
+      const [reqData, balData] = await Promise.all([
+        fetchAPI<{ data: LeaveRequest[] }>('/api/leave'),
+        fetchAPI<{ data: LeaveBalanceResponse }>('/api/leave/balance'),
       ]);
-      if (reqRes.ok) { const { data } = await reqRes.json(); setRequests(data || []); }
-      if (balRes.ok) {
-        const { data } = await balRes.json();
-        setBalanceResponse(data);
-        // If v2 dynamic balances are available, use them
-        if (data?.version === 'v2' && data.balances) {
-          setDynamicBalances(data.balances);
-          // Set default form type to first available type name
-          if (data.balances.length > 0 && !formType) {
-            setFormType(data.balances[0].name);
+      const requests = (reqData as any).data ?? reqData;
+      setRequests(requests || []);
+      const bal = (balData as any).data ?? balData;
+      if (bal) {
+        setBalanceResponse(bal as LeaveBalanceResponse);
+        if (bal.version === 'v2' && bal.balances) {
+          setDynamicBalances(bal.balances);
+          if (bal.balances.length > 0 && !formType) {
+            setFormType(bal.balances[0].name);
           }
         }
       }
@@ -147,42 +147,24 @@ export default function LeaveClient({ session }: LeaveClientProps) {
       return;
     }
 
-    const controller = new AbortController();
     setLoadingConflicts(true);
 
-    fetch(`/api/leave/conflicts?start_date=${formStart}&end_date=${formEnd}`, {
-      signal: controller.signal,
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          const { data } = await res.json();
-          setConflicts(data || []);
-        } else {
-          setConflicts([]);
-        }
+    fetchAPI<{ data: ConflictEntry[] }>(`/api/leave/conflicts?start_date=${formStart}&end_date=${formEnd}`)
+      .then((data) => {
+        setConflicts((data as any).data ?? data ?? []);
       })
       .catch(() => {
         // Aborted or network error
         setConflicts([]);
       })
       .finally(() => setLoadingConflicts(false));
-
-    return () => controller.abort();
   }, [formStart, formEnd, showCreate]);
 
   const submitRequest = async () => {
     if (!formStart || !formEnd) return;
     setSaving(true);
     try {
-      const res = await fetch('/api/leave', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: formType, start_date: formStart, end_date: formEnd, reason: formReason }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'Failed');
-      }
+      await mutateAPI('/api/leave', 'POST', { type: formType, start_date: formStart, end_date: formEnd, reason: formReason });
       toast.success('تم تقديم طلب الإجازة');
       setShowCreate(false);
       setFormStart(''); setFormEnd(''); setFormReason(''); setConflicts([]);
@@ -195,11 +177,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
 
   const reviewRequest = async (id: string, status: string) => {
     try {
-      await fetch(`/api/leave/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+      await mutateAPI(`/api/leave/${id}`, 'PATCH', { status });
       toast.success(status === 'approved' ? 'تمت الموافقة' : 'تم الرفض');
       fetchData();
     } catch { toast.error('فشل العملية'); }
@@ -208,11 +186,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
   // Legacy simple cancel for pending (delete) — still used by the trash icon
   const deletePendingRequest = async (id: string) => {
     try {
-      await fetch(`/api/leave/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' }),
-      });
+      await mutateAPI(`/api/leave/${id}`, 'PATCH', { status: 'cancelled' });
       toast.success('تم إلغاء الطلب');
       fetchData();
     } catch { toast.error('فشل الإلغاء'); }
@@ -229,15 +203,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
     if (!cancelTargetId || !cancelReason.trim()) return;
     setCancelling(true);
     try {
-      const res = await fetch(`/api/leave/${cancelTargetId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel', cancellation_reason: cancelReason.trim() }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json();
-        throw new Error(error || 'فشل الإلغاء');
-      }
+      await mutateAPI(`/api/leave/${cancelTargetId}`, 'PATCH', { action: 'cancel', cancellation_reason: cancelReason.trim() });
       toast.success('تم إلغاء الإجازة بنجاح');
       setCancelDialogOpen(false);
       setCancelTargetId(null);

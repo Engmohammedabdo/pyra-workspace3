@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { LeadsHeader, MiniStat } from '@/components/dashboard/leads-list/leads-header';
 import { BulkActions } from '@/components/dashboard/leads-list/bulk-actions';
 import { LeadsTable } from '@/components/dashboard/leads-list/leads-table';
@@ -37,15 +38,14 @@ export default function LeadsPage() {
         params.set('page', String(page));
         params.set('limit', '50');
       }
-      const [leadsRes, stagesRes] = await Promise.all([
-        fetch(`/api/dashboard/sales/leads?${params}`),
-        fetch('/api/dashboard/sales/pipeline-stages'),
+      const [leadsData, stagesData] = await Promise.all([
+        fetchAPI<any>(`/api/dashboard/sales/leads?${params}`),
+        fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
       ]);
-      const [leadsData, stagesData] = await Promise.all([leadsRes.json(), stagesRes.json()]);
-      setLeads(leadsData.data || []);
-      setStages(stagesData.data || []);
-      setTotalPages(leadsData.meta?.totalPages || 1);
-      setTotal(leadsData.meta?.total || (leadsData.data?.length || 0));
+      setLeads((leadsData as any).data || []);
+      setStages((stagesData as any).data || []);
+      setTotalPages((leadsData as any).meta?.totalPages || 1);
+      setTotal((leadsData as any).meta?.total || ((leadsData as any).data?.length || 0));
     } catch {
       toast.error('فشل تحميل البيانات');
     } finally {
@@ -69,12 +69,7 @@ export default function LeadsPage() {
     if (selectedIds.size === 0) return;
     setBulkLoading(true);
     try {
-      const res = await fetch('/api/dashboard/sales/leads/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, lead_ids: Array.from(selectedIds), stage_id: stageId }),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/leads/bulk', 'POST', { action, lead_ids: Array.from(selectedIds), stage_id: stageId });
       toast.success('تم التحديث بنجاح');
       setSelectedIds(new Set());
       fetchData();
