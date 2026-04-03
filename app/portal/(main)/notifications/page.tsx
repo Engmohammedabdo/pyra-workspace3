@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -27,16 +27,11 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
-
-// ---------- Types ----------
-
-interface ClientNotification {
-  id: string;
-  type: string;
-  message: string;
-  is_read: boolean;
-  created_at: string;
-}
+import {
+  usePortalNotifications,
+  useMarkNotificationRead,
+  useMarkAllNotificationsRead,
+} from '@/hooks/usePortalNotifications';
 
 // ---------- Helpers ----------
 
@@ -89,29 +84,10 @@ function getNotificationIconColor(type: string) {
 // ---------- Component ----------
 
 export default function PortalNotificationsPage() {
-  const [notifications, setNotifications] = useState<ClientNotification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: notifications = [], isLoading: loading, refetch } = usePortalNotifications();
+  const markReadMutation = useMarkNotificationRead();
+  const markAllMutation = useMarkAllNotificationsRead();
   const [filter, setFilter] = useState('all');
-  const [markAllLoading, setMarkAllLoading] = useState(false);
-
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/portal/notifications');
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setNotifications(json.data);
-      }
-    } catch {
-      toast.error('فشل في تحميل الإشعارات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchNotifications();
-  }, [fetchNotifications]);
 
   const filtered = useMemo(() => {
     if (filter === 'unread') {
@@ -125,41 +101,20 @@ export default function PortalNotificationsPage() {
     [notifications]
   );
 
-  // ---------- Actions ----------
-
   async function markAsRead(id: string) {
     try {
-      const res = await fetch(`/api/portal/notifications/${id}`, {
-        method: 'PATCH',
-      });
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-        );
-      }
+      await markReadMutation.mutateAsync(id);
     } catch {
       // ignore
     }
   }
 
   async function markAllAsRead() {
-    setMarkAllLoading(true);
     try {
-      const res = await fetch('/api/portal/notifications', {
-        method: 'PATCH',
-      });
-      if (res.ok) {
-        setNotifications((prev) =>
-          prev.map((n) => ({ ...n, is_read: true }))
-        );
-        toast.success('تم تحديد جميع الإشعارات كمقروءة');
-      } else {
-        toast.error('حدث خطأ أثناء تحديث الإشعارات');
-      }
+      await markAllMutation.mutateAsync();
+      toast.success('تم تحديد جميع الإشعارات كمقروءة');
     } catch {
-      toast.error('حدث خطأ غير متوقع');
-    } finally {
-      setMarkAllLoading(false);
+      toast.error('حدث خطأ أثناء تحديث الإشعارات');
     }
   }
 
@@ -201,7 +156,7 @@ export default function PortalNotificationsPage() {
           variant="ghost"
           size="icon"
           className="h-8 w-8"
-          onClick={fetchNotifications}
+          onClick={() => refetch()}
           aria-label="تحديث"
         >
           <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
@@ -229,10 +184,10 @@ export default function PortalNotificationsPage() {
             variant="outline"
             size="sm"
             onClick={markAllAsRead}
-            disabled={markAllLoading}
+            disabled={markAllMutation.isPending}
             className="gap-2"
           >
-            {markAllLoading ? (
+            {markAllMutation.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <CheckCheck className="h-4 w-4" />

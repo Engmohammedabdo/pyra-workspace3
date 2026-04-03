@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +15,6 @@ import { toast } from 'sonner';
 
 export default function NewSupplierPage() {
   const router = useRouter();
-  const [saving, setSaving] = useState(false);
 
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -28,39 +29,27 @@ export default function NewSupplierPage() {
   const [bankIban, setBankIban] = useState('');
   const [notes, setNotes] = useState('');
 
-  const handleSubmit = async () => {
-    if (!name.trim()) { toast.error('اسم المورد مطلوب'); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch('/api/dashboard/suppliers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          company: company || null,
-          email: email || null,
-          phone: phone || null,
-          address: address || null,
-          tax_number: taxNumber || null,
-          payment_terms_days: paymentTerms,
-          currency,
-          bank_name: bankName || null,
-          bank_account: bankAccount || null,
-          bank_iban: bankIban || null,
-          notes: notes || null,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) { toast.error(json.error || 'حدث خطأ'); return; }
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI<{ id?: string }>('/api/dashboard/suppliers', 'POST', data),
+    onSuccess: (data) => {
       toast.success('تم إنشاء المورد');
-      router.push(`/dashboard/finance/suppliers/${json.data?.id}`);
-    } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
+      router.push(`/dashboard/finance/suppliers/${(data as any).id}`);
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const handleSubmit = () => {
+    if (!name.trim()) { toast.error('اسم المورد مطلوب'); return; }
+    createMutation.mutate({
+      name: name.trim(), company: company || null, email: email || null,
+      phone: phone || null, address: address || null, tax_number: taxNumber || null,
+      payment_terms_days: paymentTerms, currency,
+      bank_name: bankName || null, bank_account: bankAccount || null,
+      bank_iban: bankIban || null, notes: notes || null,
+    });
   };
+
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6 max-w-3xl">

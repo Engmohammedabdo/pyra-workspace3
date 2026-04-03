@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -79,8 +81,6 @@ export default function KnowledgeBaseClient() {
   const [activeTab, setActiveTab] = useState<'categories' | 'articles'>('categories');
 
   /* ── Categories state ── */
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
   const [articleCounts, setArticleCounts] = useState<Record<string, number>>({});
 
   /* ── Category dialog ── */
@@ -111,19 +111,14 @@ export default function KnowledgeBaseClient() {
     return () => clearTimeout(timer);
   }, [articleSearch]);
 
-  /* ── Fetch categories ── */
-  const fetchCategories = useCallback(async () => {
-    setLoadingCategories(true);
-    try {
-      const res = await fetch('/api/kb/categories');
-      const json = await res.json();
-      if (json.data) setCategories(json.data);
-    } catch {
-      toast.error('حدث خطأ في تحميل التصنيفات');
-    } finally {
-      setLoadingCategories(false);
-    }
-  }, []);
+  const queryClient = useQueryClient();
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+    queryKey: ['kb-categories'],
+    queryFn: () => fetchAPI('/api/kb/categories'),
+  });
+  const fetchCategories = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['kb-categories'] });
+  }, [queryClient]);
 
   /* ── Fetch articles ── */
   const fetchArticles = useCallback(async () => {
@@ -155,7 +150,6 @@ export default function KnowledgeBaseClient() {
     }
   }, [articles]);
 
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
   useEffect(() => { fetchArticles(); }, [fetchArticles]);
 
   /* ── Open category dialog ── */

@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,17 +54,12 @@ interface Category {
 }
 
 export default function ExpensesClient() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
-  const [summary, setSummary] = useState({ total_amount: 0, total_vat: 0, total_count: 0 });
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [deleting, setDeleting] = useState(false);
@@ -70,39 +67,40 @@ export default function ExpensesClient() {
   const [statusFilter, setStatusFilter] = useState('');
 
   // Fetch categories
-  useEffect(() => {
-    fetch('/api/finance/expenses/categories')
-      .then(r => r.json())
-      .then(j => { if (j.data) setCategories(j.data); })
-      .catch(() => {});
-  }, []);
+  const { data: categories = [] } = useQuery<Category[]>({
+    queryKey: ['expense-categories'],
+    queryFn: () => fetchAPI('/api/finance/expenses/categories'),
+  });
 
-  const fetchExpenses = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' });
-      if (search) params.set('search', search);
-      if (categoryFilter) params.set('category', categoryFilter);
-      if (fromDate) params.set('from', fromDate);
-      if (toDate) params.set('to', toDate);
-      if (statusFilter) params.set('status', statusFilter);
-
-      const res = await fetch(`/api/finance/expenses?${params}`);
-      const json = await res.json();
-      if (json.data) setExpenses(json.data);
-      if (json.meta) {
-        setTotal(json.meta.total || 0);
-        setHasMore(json.meta.hasMore || false);
-        if (json.meta.summary) setSummary(json.meta.summary);
-      }
-    } catch {
-      toast.error('فشل في تحميل المصاريف');
-    } finally {
-      setLoading(false);
-    }
+  // Fetch expenses with pagination/filters
+  const expensesParams = useMemo(() => {
+    const p: Record<string, string> = { page: String(page), pageSize: '20' };
+    if (search) p.search = search;
+    if (categoryFilter) p.category = categoryFilter;
+    if (fromDate) p.from = fromDate;
+    if (toDate) p.to = toDate;
+    if (statusFilter) p.status = statusFilter;
+    return p;
   }, [page, search, categoryFilter, fromDate, toDate, statusFilter]);
 
-  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
+  const { data: expensesResult, isLoading: loading } = useQuery({
+    queryKey: ['expenses', expensesParams],
+    queryFn: async () => {
+      const params = new URLSearchParams(expensesParams);
+      const res = await fetch(`/api/finance/expenses?${params}`);
+      if (!res.ok) throw new Error('API error');
+      return res.json();
+    },
+  });
+
+  const expenses: Expense[] = expensesResult?.data || [];
+  const total: number = expensesResult?.meta?.total || 0;
+  const hasMore: boolean = expensesResult?.meta?.hasMore || false;
+  const summary = expensesResult?.meta?.summary || { total_amount: 0, total_vat: 0, total_count: 0 };
+
+  const fetchExpenses = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['expenses'] });
+  }, [queryClient]);
 
   const handleDelete = async () => {
     const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : deleteId ? [deleteId] : [];
@@ -118,7 +116,7 @@ export default function ExpensesClient() {
       setBulkDeleteIds([]);
       if (failCount > 0) toast.error(`فشل حذف ${failCount} مصروف`);
       else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مصروفات` : 'تم حذف المصروف');
-      fetchExpenses();
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
     } catch {
       toast.error('فشل في حذف المصروف');
     } finally {
@@ -135,11 +133,11 @@ export default function ExpensesClient() {
       });
       if (!res.ok) { toast.error('فشل في تحديث حالة المصروف'); return; }
       toast.success(action === 'approve' ? 'تم اعتماد المصروف' : 'تم رفض المصروف');
-      fetchExpenses();
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
     } catch {
       toast.error('حدث خطأ');
     }
-  }, [fetchExpenses]);
+  }, [queryClient]);
 
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);

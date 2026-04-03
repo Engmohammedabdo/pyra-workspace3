@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,27 +26,17 @@ interface Category {
 }
 
 export default function ExpenseCategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: '', name_ar: '', icon: '', color: '#6b7280' });
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const fetchCategories = useCallback(async () => {
-    try {
-      const res = await fetch('/api/finance/expenses/categories');
-      const json = await res.json();
-      if (json.data) setCategories(json.data);
-    } catch {
-      toast.error('فشل في تحميل التصنيفات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+  const { data: categories = [], isLoading: loading } = useQuery<Category[]>({
+    queryKey: ['expense-categories'],
+    queryFn: () => fetchAPI('/api/finance/expenses/categories'),
+  });
 
   const openNew = () => {
     setEditingId(null);
@@ -72,7 +64,7 @@ export default function ExpenseCategoriesPage() {
       if (res.ok) {
         toast.success(editingId ? 'تم التحديث' : 'تم الإضافة');
         setDialogOpen(false);
-        fetchCategories();
+        queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       } else {
         const json = await res.json();
         toast.error(json.error || 'فشل في الحفظ');
@@ -91,7 +83,7 @@ export default function ExpenseCategoriesPage() {
       if (res.ok) {
         toast.success('تم الحذف');
         setDeleteId(null);
-        fetchCategories();
+        queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       } else {
         const json = await res.json();
         toast.error(json.error || 'فشل في الحذف');

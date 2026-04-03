@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,26 +44,14 @@ const itemMotion = {
 };
 
 export default function ApprovalsPage() {
-  const [approvals, setApprovals] = useState<Approval[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [comments, setComments] = useState<Record<string, string>>({});
   const [processing, setProcessing] = useState<string | null>(null);
 
-  async function fetchApprovals() {
-    try {
-      const res = await fetch('/api/dashboard/sales/approvals');
-      const data = await res.json();
-      setApprovals(data.data || []);
-    } catch {
-      console.error('Failed to fetch approvals');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    fetchApprovals();
-  }, []);
+  const { data: approvals = [], isLoading: loading } = useQuery<Approval[]>({
+    queryKey: ['sales-approvals'],
+    queryFn: () => fetchAPI('/api/dashboard/sales/approvals'),
+  });
 
   async function handleAction(approvalId: string, action: 'approve' | 'reject') {
     setProcessing(approvalId);
@@ -75,7 +65,7 @@ export default function ApprovalsPage() {
       if (!res.ok) throw new Error(data.error || 'فشل العملية');
 
       toast.success(action === 'approve' ? 'تمت الموافقة على العرض' : 'تم رفض العرض');
-      fetchApprovals();
+      queryClient.invalidateQueries({ queryKey: ['sales-approvals'] });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'حدث خطأ');
     } finally {

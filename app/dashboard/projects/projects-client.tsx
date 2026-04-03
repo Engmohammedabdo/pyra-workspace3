@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { useClients } from '@/hooks/useClients';
 import { useProjects } from '@/hooks/useProjects';
 import { usePermission } from '@/hooks/usePermission';
@@ -40,7 +41,6 @@ interface Project {
   created_at: string;
   deadline?: string | null;
   start_date?: string | null;
-  // Enriched fields from v_project_summary
   file_count?: number;
   comment_count?: number;
   approved_count?: number;
@@ -58,7 +58,6 @@ const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondar
   archived: { label: 'مؤرشف', variant: 'secondary' },
 };
 
-/** Check if a project is overdue (deadline passed + not completed/archived) */
 function isProjectOverdue(p: Project): boolean {
   if (!p.deadline) return false;
   if (p.status === 'completed' || p.status === 'archived') return false;
@@ -75,22 +74,17 @@ export default function ProjectsClient() {
 
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState(() => {
-    const urlStatus = searchParams.get('status');
-    return urlStatus || 'all';
-  });
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all');
   const [highlightId] = useState(() => searchParams.get('highlight'));
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [selected, setSelected] = useState<Project | null>(null);
-  const [saving, setSaving] = useState(false);
   const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
 
-  // React Query hooks
   const { data: projects = [], isLoading: loading, refetch: refetchProjects } = useProjects({
     search: debouncedSearch || undefined,
     status: statusFilter !== 'all' ? statusFilter : undefined,
@@ -99,63 +93,73 @@ export default function ProjectsClient() {
   const { data: clientsData = [] } = useClients() as unknown as { data: Array<{ company: string }> };
   const companies = useMemo(() => [...new Set(clientsData.map(c => c.company))], [clientsData]);
 
-  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(timer);
   }, [search]);
 
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['projects'] });
 
-
-
-
-  const handleCreate = async () => {
-    if (!form.name.trim()) { toast.error('اسم المشروع مطلوب'); return; }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/projects', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+  const createMutation = useMutation({
+    mutationFn: (data: typeof form) => mutateAPI('/api/projects', 'POST', data),
+    onSuccess: () => {
       setShowCreate(false);
       setForm({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
       toast.success('تم إنشاء المشروع بنجاح');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
+      invalidate();
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
 
-  const handleEdit = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/projects/${selected.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof form }) => mutateAPI(`/api/projects/${id}`, 'PATCH', data),
+    onSuccess: () => {
       setShowEdit(false);
       toast.success('تم تحديث المشروع');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
+      invalidate();
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
 
-  const handleDelete = async () => {
-    const idsToDelete = bulkDeleteIds.length > 0 ? bulkDeleteIds : selected ? [selected.id] : [];
-    if (idsToDelete.length === 0) return;
-    setSaving(true);
-    try {
-      let hasError = false;
-      for (const pid of idsToDelete) {
-        const res = await fetch(`/api/projects/${pid}`, { method: 'DELETE' });
-        const json = await res.json();
-        if (json.error) { toast.error(json.error); hasError = true; }
+  const deleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      for (const pid of ids) {
+        await mutateAPI(`/api/projects/${pid}`, 'DELETE');
       }
+      return ids;
+    },
+    onSuccess: (ids) => {
       setShowDelete(false);
       setBulkDeleteIds([]);
-      if (!hasError) toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مشاريع` : 'تم حذف المشروع');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+      toast.success(ids.length > 1 ? `تم حذف ${ids.length} مشاريع` : 'تم حذف المشروع');
+      invalidate();
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => mutateAPI(`/api/projects/${id}`, 'PATCH', { status }),
+    onSuccess: () => {
+      toast.success('تم تحديث حالة المشروع');
+      invalidate();
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const handleCreate = () => {
+    if (!form.name.trim()) { toast.error('اسم المشروع مطلوب'); return; }
+    createMutation.mutate(form);
+  };
+
+  const handleEdit = () => {
+    if (!selected) return;
+    editMutation.mutate({ id: selected.id, data: form });
+  };
+
+  const handleDelete = () => {
+    const ids = bulkDeleteIds.length > 0 ? bulkDeleteIds : selected ? [selected.id] : [];
+    if (ids.length === 0) return;
+    deleteMutation.mutate(ids);
   };
 
   const openEdit = (p: Project) => {
@@ -169,23 +173,10 @@ export default function ProjectsClient() {
     setShowDelete(true);
   };
 
-  const handleStatusChange = async (projectId: string, newStatus: string) => {
-    try {
-      const res = await fetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      toast.success('تم تحديث حالة المشروع');
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-    } catch {
-      toast.error('حدث خطأ');
-    }
+  const handleStatusChange = (projectId: string, newStatus: string) => {
+    statusMutation.mutate({ id: projectId, status: newStatus });
   };
 
-  /* ── sort handler ── */
   const handleSortChange = useCallback((key: string) => {
     setSortConfig((prev) => {
       if (prev?.key === key) {
@@ -195,7 +186,6 @@ export default function ProjectsClient() {
     });
   }, []);
 
-  /* ── sorted projects ── */
   const sortedProjects = useMemo(() => {
     if (!sortConfig) return projects;
     return [...projects].sort((a, b) => {
@@ -218,7 +208,8 @@ export default function ProjectsClient() {
     });
   }, [projects, sortConfig]);
 
-  /* ── column definitions ── */
+  const saving = createMutation.isPending || editMutation.isPending || deleteMutation.isPending;
+
   const projectColumns: ColumnDef<Project>[] = useMemo(() => [
     {
       key: 'name',
@@ -248,13 +239,7 @@ export default function ProjectsClient() {
         </div>
       ),
     },
-    {
-      key: 'client',
-      header: 'العميل',
-      sortable: true,
-      className: 'text-muted-foreground',
-      render: (p) => p.client_company,
-    },
+    { key: 'client', header: 'العميل', sortable: true, className: 'text-muted-foreground', render: (p) => p.client_company },
     {
       key: 'files',
       header: 'الملفات',
@@ -271,24 +256,10 @@ export default function ProjectsClient() {
       header: 'الموافقات',
       render: (p) => (
         <div className="flex items-center gap-1.5 flex-wrap">
-          {(p.approved_count ?? 0) > 0 && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
-              <CheckCircle className="h-3 w-3 me-0.5" /> {p.approved_count}
-            </Badge>
-          )}
-          {(p.pending_count ?? 0) > 0 && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400">
-              <Clock className="h-3 w-3 me-0.5" /> {p.pending_count}
-            </Badge>
-          )}
-          {(p.revision_count ?? 0) > 0 && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-              <AlertTriangle className="h-3 w-3 me-0.5" /> {p.revision_count}
-            </Badge>
-          )}
-          {(p.approved_count ?? 0) === 0 && (p.pending_count ?? 0) === 0 && (p.revision_count ?? 0) === 0 && (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
+          {(p.approved_count ?? 0) > 0 && <Badge className="text-[10px] px-1.5 py-0 bg-green-100 text-green-700 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400"><CheckCircle className="h-3 w-3 me-0.5" /> {p.approved_count}</Badge>}
+          {(p.pending_count ?? 0) > 0 && <Badge className="text-[10px] px-1.5 py-0 bg-yellow-100 text-yellow-700 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400"><Clock className="h-3 w-3 me-0.5" /> {p.pending_count}</Badge>}
+          {(p.revision_count ?? 0) > 0 && <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"><AlertTriangle className="h-3 w-3 me-0.5" /> {p.revision_count}</Badge>}
+          {(p.approved_count ?? 0) === 0 && (p.pending_count ?? 0) === 0 && (p.revision_count ?? 0) === 0 && <span className="text-xs text-muted-foreground">—</span>}
         </div>
       ),
     },
@@ -301,11 +272,7 @@ export default function ProjectsClient() {
         return (
           <div className="flex items-center gap-1">
             <Badge variant={s.variant}>{s.label}</Badge>
-            {overdue && (
-              <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400">
-                <AlertTriangle className="h-3 w-3 me-0.5" /> متأخر
-              </Badge>
-            )}
+            {overdue && <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"><AlertTriangle className="h-3 w-3 me-0.5" /> متأخر</Badge>}
           </div>
         );
       },
@@ -317,25 +284,14 @@ export default function ProjectsClient() {
       render: (p) => {
         const overdue = isProjectOverdue(p);
         return p.deadline ? (
-          <div className={cn(
-            'flex items-center gap-1 text-xs',
-            overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground',
-          )}>
+          <div className={cn('flex items-center gap-1 text-xs', overdue ? 'text-red-600 dark:text-red-400 font-medium' : 'text-muted-foreground')}>
             <CalendarDays className="h-3 w-3 shrink-0" />
             <span>{formatDate(p.deadline)}</span>
           </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        );
+        ) : <span className="text-xs text-muted-foreground">—</span>;
       },
     },
-    {
-      key: 'created_at',
-      header: 'تاريخ الإنشاء',
-      sortable: true,
-      className: 'text-muted-foreground text-xs',
-      render: (p) => formatDate(p.created_at),
-    },
+    { key: 'created_at', header: 'تاريخ الإنشاء', sortable: true, className: 'text-muted-foreground text-xs', render: (p) => formatDate(p.created_at) },
     {
       key: 'actions',
       header: '',
@@ -346,12 +302,8 @@ export default function ProjectsClient() {
             <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/projects/${p.id}`); }}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
-              {canEdit && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openEdit(p), 0); }}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
-              )}
-              {canDelete && (
-                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openDelete(p), 0); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>
-              )}
+              {canEdit && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openEdit(p), 0); }}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>}
+              {canDelete && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openDelete(p), 0); }} className="text-destructive focus:text-destructive"><Trash2 className="h-4 w-4 me-2" /> حذف</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -374,12 +326,7 @@ export default function ProjectsClient() {
       </div>
 
       <div className="flex items-center gap-3">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="بحث عن مشروع..."
-          className="flex-1 max-w-sm"
-        />
+        <SearchInput value={search} onChange={setSearch} placeholder="بحث عن مشروع..." className="flex-1 max-w-sm" />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -393,61 +340,27 @@ export default function ProjectsClient() {
           </SelectContent>
         </Select>
         <div className="flex items-center border rounded-lg p-0.5 gap-0.5 ms-auto">
-          <Button
-            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => setViewMode('table')}
-          >
-            <Table2 className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={viewMode === 'kanban' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-7 w-7 p-0"
-            onClick={() => setViewMode('kanban')}
-          >
-            <LayoutGrid className="h-4 w-4" />
-          </Button>
+          <Button variant={viewMode === 'table' ? 'secondary' : 'ghost'} size="sm" className="h-7 w-7 p-0" onClick={() => setViewMode('table')}><Table2 className="h-4 w-4" /></Button>
+          <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="sm" className="h-7 w-7 p-0" onClick={() => setViewMode('kanban')}><LayoutGrid className="h-4 w-4" /></Button>
         </div>
       </div>
 
       {viewMode === 'kanban' ? (
-        <ProjectKanban
-          projects={sortedProjects}
-          onEdit={canEdit ? openEdit : undefined}
-          onDelete={canDelete ? openDelete : undefined}
-          onStatusChange={canEdit ? handleStatusChange : undefined}
-        />
+        <ProjectKanban projects={sortedProjects} onEdit={canEdit ? openEdit : undefined} onDelete={canDelete ? openDelete : undefined} onStatusChange={canEdit ? handleStatusChange : undefined} />
       ) : (
-      <DataTable
-        columns={projectColumns}
-        data={sortedProjects}
-        loading={loading}
-        emptyState={{
-          icon: Briefcase,
-          title: 'لا توجد مشاريع',
-          description: 'أنشئ مشروعاً جديداً للبدء',
-        }}
-        selectable
-        getRowId={(p) => p.id}
-        sortConfig={sortConfig}
-        onSortChange={handleSortChange}
-        onRowClick={(p) => router.push(`/dashboard/projects/${p.id}`)}
-        rowClassName={(p) => highlightId === p.id ? 'animate-pulse bg-orange-50 dark:bg-orange-950/20' : ''}
-        bulkActions={canDelete ? [
-          {
-            label: 'حذف المحدد',
-            icon: Trash2,
-            variant: 'destructive',
-            onClick: (ids) => {
-              setBulkDeleteIds(ids);
-              setSelected(null);
-              setShowDelete(true);
-            },
-          },
-        ] : []}
-      />
+        <DataTable
+          columns={projectColumns}
+          data={sortedProjects}
+          loading={loading}
+          emptyState={{ icon: Briefcase, title: 'لا توجد مشاريع', description: 'أنشئ مشروعاً جديداً للبدء' }}
+          selectable
+          getRowId={(p) => p.id}
+          sortConfig={sortConfig}
+          onSortChange={handleSortChange}
+          onRowClick={(p) => router.push(`/dashboard/projects/${p.id}`)}
+          rowClassName={(p) => highlightId === p.id ? 'animate-pulse bg-orange-50 dark:bg-orange-950/20' : ''}
+          bulkActions={canDelete ? [{ label: 'حذف المحدد', icon: Trash2, variant: 'destructive', onClick: (ids) => { setBulkDeleteIds(ids); setSelected(null); setShowDelete(true); } }] : []}
+        />
       )}
 
       {/* Create */}

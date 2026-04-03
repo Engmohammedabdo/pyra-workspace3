@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,23 +18,13 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-/* ───────────────────────── Types ───────────────────────── */
-
 interface Category {
   id: string;
   name: string;
 }
 
-/* ───────────────────────── Component ──────────────────── */
-
 export default function NewArticlePage() {
   const router = useRouter();
-
-  /* ── categories ── */
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-
-  /* ── form ── */
   const [categoryId, setCategoryId] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -40,73 +32,37 @@ export default function NewArticlePage() {
   const [isPublic, setIsPublic] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
 
-  /* ── submit ── */
-  const [saving, setSaving] = useState(false);
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<Category[]>({
+    queryKey: ['kb-categories'],
+    queryFn: () => fetchAPI('/api/kb/categories'),
+  });
 
-  /* ── fetch categories ── */
-  useEffect(() => {
-    fetch('/api/kb/categories')
-      .then(r => r.json())
-      .then(json => {
-        if (json.data) setCategories(json.data);
-      })
-      .catch(() => toast.error('فشل في تحميل التصنيفات'))
-      .finally(() => setLoadingCategories(false));
-  }, []);
-
-  /* ── save ── */
-  const handleSave = async () => {
-    if (!categoryId) {
-      toast.error('يرجى اختيار التصنيف');
-      return;
-    }
-    if (!title.trim()) {
-      toast.error('عنوان المقالة مطلوب');
-      return;
-    }
-    if (!content.trim()) {
-      toast.error('محتوى المقالة مطلوب');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const res = await fetch('/api/kb/articles', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          category_id: categoryId,
-          title: title.trim(),
-          content: content.trim(),
-          excerpt: excerpt.trim() || null,
-          is_public: isPublic,
-        }),
-      });
-      const json = await res.json();
-
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
-
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/kb/articles', 'POST', data),
+    onSuccess: () => {
       toast.success('تم إنشاء المقالة');
       router.push('/dashboard/knowledge-base');
-    } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const handleSave = () => {
+    if (!categoryId) { toast.error('يرجى اختيار التصنيف'); return; }
+    if (!title.trim()) { toast.error('عنوان المقالة مطلوب'); return; }
+    if (!content.trim()) { toast.error('محتوى المقالة مطلوب'); return; }
+    createMutation.mutate({
+      category_id: categoryId, title: title.trim(), content: content.trim(),
+      excerpt: excerpt.trim() || null, is_public: isPublic,
+    });
   };
 
-  /* ──────────────────────── Render ─────────────────────── */
+  const saving = createMutation.isPending;
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <Link href="/dashboard/knowledge-base">
-          <Button variant="ghost" size="icon" aria-label="رجوع">
-            <ArrowRight className="h-4 w-4" />
-          </Button>
+          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-4 w-4" /></Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold">مقالة جديدة</h1>
@@ -115,35 +71,19 @@ export default function NewArticlePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">محتوى المقالة</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">محتوى المقالة</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>العنوان *</Label>
-                <Input
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="عنوان المقالة"
-                />
+                <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="عنوان المقالة" />
               </div>
-
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label>المحتوى * (Markdown)</Label>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowPreview(!showPreview)}
-                  >
-                    {showPreview ? (
-                      <><EyeOff className="h-3.5 w-3.5 me-1" /> تحرير</>
-                    ) : (
-                      <><Eye className="h-3.5 w-3.5 me-1" /> معاينة</>
-                    )}
+                  <Button variant="ghost" size="sm" onClick={() => setShowPreview(!showPreview)}>
+                    {showPreview ? <><EyeOff className="h-3.5 w-3.5 me-1" /> تحرير</> : <><Eye className="h-3.5 w-3.5 me-1" /> معاينة</>}
                   </Button>
                 </div>
                 {showPreview ? (
@@ -165,7 +105,6 @@ export default function NewArticlePage() {
                   />
                 )}
               </div>
-
               <div className="space-y-2">
                 <Label>المقتطف</Label>
                 <Textarea
@@ -179,12 +118,9 @@ export default function NewArticlePage() {
           </Card>
         </div>
 
-        {/* Sidebar */}
         <div className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">الإعدادات</CardTitle>
-            </CardHeader>
+            <CardHeader><CardTitle className="text-lg">الإعدادات</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>التصنيف *</Label>
@@ -199,7 +135,6 @@ export default function NewArticlePage() {
                   </SelectContent>
                 </Select>
               </div>
-
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -210,17 +145,8 @@ export default function NewArticlePage() {
                 />
                 <Label htmlFor="is-public">عام (ظاهر في بوابة العملاء)</Label>
               </div>
-
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                className="w-full bg-orange-500 hover:bg-orange-600"
-              >
-                {saving ? (
-                  <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</>
-                ) : (
-                  <><Save className="h-4 w-4 me-2" /> حفظ المقالة</>
-                )}
+              <Button onClick={handleSave} disabled={saving} className="w-full bg-orange-500 hover:bg-orange-600">
+                {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : <><Save className="h-4 w-4 me-2" /> حفظ المقالة</>}
               </Button>
             </CardContent>
           </Card>

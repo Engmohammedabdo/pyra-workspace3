@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -246,28 +248,21 @@ function ReviewCard({
 }
 
 export default function ScriptReviewsClient() {
-  const [reviews, setReviews] = useState<PyraScriptReview[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const fetchReviews = useCallback(async () => {
-    setLoading(true);
-    try {
+  const { data: reviews = [], isLoading: loading } = useQuery<PyraScriptReview[]>({
+    queryKey: ['script-reviews', statusFilter],
+    queryFn: () => {
       const params = new URLSearchParams();
       if (statusFilter !== 'all') params.set('status', statusFilter);
-      const res = await fetch(`/api/scripts/reviews?${params}`);
-      const json = await res.json();
-      setReviews(json.data || []);
-    } catch {
-      setReviews([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
+      return fetchAPI(`/api/scripts/reviews?${params}`);
+    },
+  });
 
-  useEffect(() => {
-    fetchReviews();
-  }, [fetchReviews]);
+  const fetchReviews = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['script-reviews'] });
+  }, [queryClient]);
 
   const approvedCount = reviews.filter((r) => r.status === 'approved').length;
   const revisionCount = reviews.filter((r) => r.status === 'revision_requested').length;

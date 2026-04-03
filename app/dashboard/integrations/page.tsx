@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -51,10 +53,14 @@ const EVENT_LABELS: Record<string, string> = {
 
 export default function IntegrationsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   /* ── list state ── */
-  const [webhooks, setWebhooks] = useState<WebhookItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: webhooks = [], isLoading: loading } = useQuery<WebhookItem[]>({
+    queryKey: ['webhooks'],
+    queryFn: () => fetchAPI('/api/webhooks'),
+    staleTime: 30_000,
+  });
 
   /* ── delete dialog ── */
   const [showDelete, setShowDelete] = useState(false);
@@ -64,21 +70,7 @@ export default function IntegrationsPage() {
   /* ── toggling state ── */
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  /* ── fetch webhooks ── */
-  const fetchWebhooks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/webhooks');
-      const json = await res.json();
-      if (json.data) setWebhooks(json.data);
-    } catch {
-      toast.error('حدث خطأ في تحميل الـ Webhooks');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchWebhooks(); }, [fetchWebhooks]);
+  const fetchWebhooks = () => { queryClient.invalidateQueries({ queryKey: ['webhooks'] }); };
 
   /* ── toggle enable/disable ── */
   const handleToggle = async (webhook: WebhookItem) => {
@@ -91,9 +83,7 @@ export default function IntegrationsPage() {
         return;
       }
       toast.success(json.data?.is_enabled ? 'تم تفعيل الـ Webhook' : 'تم تعطيل الـ Webhook');
-      setWebhooks(prev => prev.map(w =>
-        w.id === webhook.id ? { ...w, is_enabled: json.data.is_enabled } : w
-      ));
+      queryClient.invalidateQueries({ queryKey: ['webhooks'] });
     } catch {
       toast.error('حدث خطأ');
     } finally {

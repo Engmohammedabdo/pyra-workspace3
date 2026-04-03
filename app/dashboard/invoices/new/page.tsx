@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useClients } from '@/hooks/useClients';
 import { useSettings } from '@/hooks/useSettings';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { mutateAPI, fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,24 +34,24 @@ export default function NewInvoicePage() {
   const [discountType, setDiscountType] = useState('');
   const [discountValue, setDiscountValue] = useState(0);
   const [items, setItems] = useState<any[]>([{ description: '', quantity: 1, rate: 0 }]);
-  const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
 
-  // React Query hooks
   const { data: clients = [], isLoading: loadingClients } = useClients({ limit: '100' }) as { data: any[]; isLoading: boolean };
   const { data: settingsData } = useSettings() as { data: any };
 
-  useEffect(() => {
-    fetch('/api/settings/business-entities').then(r => r.json()).then(j => {
-      if(j.data) {
-        setEntities(j.data);
-        const def = j.data.find((e: any) => e.is_default);
-        if (def) setEntityId(def.id);
-      }
-    });
-  }, []);
+  const { data: entitiesData } = useQuery<any[]>({
+    queryKey: ['business-entities'],
+    queryFn: () => fetchAPI('/api/settings/business-entities'),
+  });
 
-  // Apply settings from hook
+  useEffect(() => {
+    if (entitiesData) {
+      setEntities(entitiesData);
+      const def = entitiesData.find((e: any) => e.is_default);
+      if (def) setEntityId(def.id);
+    }
+  }, [entitiesData]);
+
   useEffect(() => {
     if (settingsData) {
       const rate = parseFloat(settingsData.vat_rate);
@@ -67,22 +69,30 @@ export default function NewInvoicePage() {
   const vatAmount = (subtotal - discountAmount) * (vatRate / 100);
   const total = subtotal - discountAmount + vatAmount;
 
-  const handleSubmit = async (shouldSend: boolean) => {
-    setSaving(true);
-    setSendAfterSave(shouldSend);
-    try {
-      const res = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ due_date: dueDate, issue_date: issueDate, project_name: projectName || null, notes: notes || null, vat_rate: vatRate, items: items.filter(i => i.description.trim()), client_id: clientId, display_client_name: displayClientName.trim() || null, entity_id: entityId, milestone_type: milestoneType, discount_type: discountType, discount_value: discountValue }),
+  const createMutation = useMutation({
+    mutationFn: async ({ shouldSend }: { shouldSend: boolean }) => {
+      const data = await mutateAPI<{ id: string }>('/api/invoices', 'POST', {
+        due_date: dueDate, issue_date: issueDate, project_name: projectName || null,
+        notes: notes || null, vat_rate: vatRate,
+        items: items.filter(i => i.description.trim()),
+        client_id: clientId, display_client_name: displayClientName.trim() || null,
+        entity_id: entityId, milestone_type: milestoneType,
+        discount_type: discountType, discount_value: discountValue,
       });
-      const json = await res.json();
-      if(!res.ok) throw new Error(json.error);
-      const invoiceId = json.data.id;
-      if(shouldSend) await fetch(`/api/invoices/${invoiceId}/send`, { method: 'POST' });
-      router.push(`/dashboard/invoices/${invoiceId}`);
-    } catch(e: any) { toast.error(e.message); } finally { setSaving(false); }
+      const invoiceId = (data as any).id;
+      if (shouldSend) await mutateAPI(`/api/invoices/${invoiceId}/send`, 'POST');
+      return invoiceId;
+    },
+    onSuccess: (invoiceId) => { router.push(`/dashboard/invoices/${invoiceId}`); },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const handleSubmit = (shouldSend: boolean) => {
+    setSendAfterSave(shouldSend);
+    createMutation.mutate({ shouldSend });
   };
+
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6 max-w-4xl">

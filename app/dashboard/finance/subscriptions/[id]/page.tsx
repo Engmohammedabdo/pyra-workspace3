@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useSubscription } from '@/hooks/useSubscriptions';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,37 +21,43 @@ interface CardItem { id: string; card_name: string; last_four: string; }
 export default function EditSubscriptionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: cards = [] } = useQuery<CardItem[]>({
+    queryKey: ['finance-cards'],
+    queryFn: () => fetchAPI('/api/finance/cards'),
+  });
   const [saving, setSaving] = useState(false);
+  const [formReady, setFormReady] = useState(false);
   const [form, setForm] = useState({
     name: '', provider: '', cost: '', currency: 'AED',
     billing_cycle: 'monthly', next_renewal_date: '', card_id: '',
     category: '', status: 'active', url: '', notes: '', auto_renew: true,
   });
 
-  useEffect(() => {
-    fetch('/api/finance/cards').then(r => r.json()).then(j => { if (j.data) setCards(j.data); }).catch(() => {});
-  }, []);
+  const { data: subData, isLoading: loading } = useSubscription(id);
 
+  // Populate form once data arrives
   useEffect(() => {
-    fetch(`/api/finance/subscriptions/${id}`)
-      .then(r => r.json())
-      .then(j => {
-        if (j.data) {
-          const d = j.data;
-          setForm({
-            name: d.name || '', provider: d.provider || '', cost: String(d.cost || ''),
-            currency: d.currency || 'AED', billing_cycle: d.billing_cycle || 'monthly',
-            next_renewal_date: d.next_renewal_date || '', card_id: d.card_id || '',
-            category: d.category || '', status: d.status || 'active', url: d.url || '',
-            notes: d.notes || '', auto_renew: d.auto_renew !== false,
-          });
-        }
-      })
-      .catch(() => toast.error('فشل في التحميل'))
-      .finally(() => setLoading(false));
-  }, [id]);
+    if (subData && !formReady) {
+      const d = subData as Record<string, unknown>;
+      setForm({
+        name: String(d.name || ''),
+        provider: String(d.provider || ''),
+        cost: String(d.cost || ''),
+        currency: String(d.currency || 'AED'),
+        billing_cycle: String(d.billing_cycle || 'monthly'),
+        next_renewal_date: String(d.next_renewal_date || d.end_date || ''),
+        card_id: String(d.card_id || ''),
+        category: String(d.category || ''),
+        status: String(d.status || 'active'),
+        url: String(d.url || ''),
+        notes: String(d.notes || ''),
+        auto_renew: d.auto_renew !== false,
+      });
+      setFormReady(true);
+    }
+  }, [subData, formReady]);
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

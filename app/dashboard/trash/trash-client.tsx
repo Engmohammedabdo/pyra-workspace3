@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,69 +36,59 @@ interface TrashItem {
 }
 
 export default function TrashClient() {
-  const [items, setItems] = useState<TrashItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [showPurge, setShowPurge] = useState(false);
   const [showEmptyAll, setShowEmptyAll] = useState(false);
   const [showPurgeExpired, setShowPurgeExpired] = useState(false);
   const [selected, setSelected] = useState<TrashItem | null>(null);
-  const [saving, setSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
 
-  const fetchTrash = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/trash');
-      const json = await res.json();
-      if (json.data) setItems(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, []);
+  const { data: items = [], isLoading: loading } = useQuery<TrashItem[]>({
+    queryKey: ['trash'],
+    queryFn: () => fetchAPI('/api/trash'),
+    staleTime: 30_000,
+  });
 
-  useEffect(() => { fetchTrash(); }, [fetchTrash]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['trash'] });
 
-  const restore = async (id: string) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/trash/${id}`, { method: 'POST' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      toast.success('تم استعادة الملف');
-      fetchTrash();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
+  const restoreMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/trash/${id}`, 'POST'),
+    onSuccess: () => { toast.success('تم استعادة الملف'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
 
-  const purge = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/trash/${selected.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowPurge(false);
-      toast.success('تم الحذف النهائي');
-      fetchTrash();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
+  const purgeMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/trash/${id}`, 'DELETE'),
+    onSuccess: () => { setShowPurge(false); toast.success('تم الحذف النهائي'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
 
-  const emptyAll = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/trash/empty', { method: 'POST' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowEmptyAll(false);
-      toast.success(`تم تفريغ السلة — ${json.data?.purged || 0} ملف`);
-      fetchTrash();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
+  const emptyAllMutation = useMutation({
+    mutationFn: () => mutateAPI<{ purged?: number }>('/api/trash/empty', 'POST'),
+    onSuccess: (data) => { setShowEmptyAll(false); toast.success(`تم تفريغ السلة — ${(data as any).purged || 0} ملف`); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const purgeExpiredMutation = useMutation({
+    mutationFn: () => mutateAPI<{ purged?: number }>('/api/trash/purge-expired', 'POST'),
+    onSuccess: (data) => {
+      const purged = (data as any).purged || 0;
+      if (purged === 0) { toast.info('لا توجد ملفات منتهية الصلاحية'); }
+      else { toast.success(`تم حذف ${purged} ملف منتهي الصلاحية`); }
+      setShowPurgeExpired(false);
+      invalidate();
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const saving = restoreMutation.isPending || purgeMutation.isPending || emptyAllMutation.isPending || purgeExpiredMutation.isPending;
 
   // Filter items based on search and type
   const filteredItems = useMemo(() => {
     let result = items;
 
-    // Search filter
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       result = result.filter(
@@ -106,7 +98,6 @@ export default function TrashClient() {
       );
     }
 
-    // Type filter
     if (typeFilter !== 'all') {
       result = result.filter((item) => {
         const mime = item.mime_type || '';
@@ -123,7 +114,6 @@ export default function TrashClient() {
     return result;
   }, [items, searchQuery, typeFilter]);
 
-  // Toggle single checkbox
   const toggleCheck = (id: string) => {
     setCheckedIds((prev) => {
       const next = new Set(prev);
@@ -133,7 +123,6 @@ export default function TrashClient() {
     });
   };
 
-  // Toggle select all filtered
   const toggleSelectAll = () => {
     if (checkedIds.size === filteredItems.length) {
       setCheckedIds(new Set());
@@ -142,40 +131,17 @@ export default function TrashClient() {
     }
   };
 
-  // Batch restore
   const batchRestore = async () => {
     if (checkedIds.size === 0) return;
-    setSaving(true);
     let successCount = 0;
-    try {
-      for (const id of checkedIds) {
-        const res = await fetch(`/api/trash/${id}`, { method: 'POST' });
-        const json = await res.json();
-        if (!json.error) successCount++;
-      }
-      toast.success(`تم استعادة ${successCount} ملف`);
-      setCheckedIds(new Set());
-      fetchTrash();
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ أثناء الاستعادة');
-    } finally {
-      setSaving(false);
+    for (const id of checkedIds) {
+      try {
+        await restoreMutation.mutateAsync(id);
+        successCount++;
+      } catch { /* continue */ }
     }
-  };
-
-  const purgeExpired = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/trash/purge-expired', { method: 'POST' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      const purged = json.data?.purged || 0;
-      if (purged === 0) { toast.info('لا توجد ملفات منتهية الصلاحية'); }
-      else { toast.success(`تم حذف ${purged} ملف منتهي الصلاحية`); }
-      setShowPurgeExpired(false);
-      fetchTrash();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    toast.success(`تم استعادة ${successCount} ملف`);
+    setCheckedIds(new Set());
   };
 
   return (
@@ -283,7 +249,7 @@ export default function TrashClient() {
                     <td className="p-3"><Badge variant="outline" className="text-xs">{formatDate(item.auto_purge_at)}</Badge></td>
                     <td className="p-3">
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => restore(item.id)} disabled={saving} title="استعادة"><RotateCcw className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => restoreMutation.mutate(item.id)} disabled={saving} title="استعادة"><RotateCcw className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => { setSelected(item); setShowPurge(true); }} title="حذف نهائي"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </td>
@@ -305,7 +271,7 @@ export default function TrashClient() {
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEmptyAll(false)}>إلغاء</Button>
-            <Button variant="destructive" onClick={emptyAll} disabled={saving}>{saving ? 'جارٍ التفريغ...' : 'تفريغ السلة'}</Button>
+            <Button variant="destructive" onClick={() => emptyAllMutation.mutate()} disabled={saving}>{saving ? 'جارٍ التفريغ...' : 'تفريغ السلة'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -320,7 +286,7 @@ export default function TrashClient() {
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPurge(false)}>إلغاء</Button>
-            <Button variant="destructive" onClick={purge} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف نهائي'}</Button>
+            <Button variant="destructive" onClick={() => selected && purgeMutation.mutate(selected.id)} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف نهائي'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -335,7 +301,7 @@ export default function TrashClient() {
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPurgeExpired(false)}>إلغاء</Button>
-            <Button variant="destructive" onClick={purgeExpired} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف المنتهية'}</Button>
+            <Button variant="destructive" onClick={() => purgeExpiredMutation.mutate()} disabled={saving}>{saving ? 'جارٍ الحذف...' : 'حذف المنتهية'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

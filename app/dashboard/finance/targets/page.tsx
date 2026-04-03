@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,8 +14,7 @@ import { RevenueTargetCard } from '@/components/dashboard/finance-targets/Revenu
 import { RevenueTargetForm } from '@/components/dashboard/finance-targets/RevenueTargetForm';
 
 export default function RevenueTargetsPage() {
-  const [targets, setTargets] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -28,19 +29,10 @@ export default function RevenueTargetsPage() {
     notes: '',
   });
 
-  const fetchTargets = useCallback(async () => {
-    try {
-      const res = await fetch('/api/finance/revenue-targets');
-      const json = await res.json();
-      if (json.data) setTargets(json.data);
-    } catch {
-      toast.error('فشل في تحميل الأهداف');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchTargets(); }, [fetchTargets]);
+  const { data: targets = [], isLoading: loading } = useQuery<any[]>({
+    queryKey: ['revenue-targets'],
+    queryFn: () => fetchAPI('/api/finance/revenue-targets'),
+  });
 
   const openNew = () => {
     setEditingId(null);
@@ -77,7 +69,7 @@ export default function RevenueTargetsPage() {
       if (res.ok) {
         toast.success(editingId ? 'تم تحديث الهدف' : 'تم إضافة الهدف');
         setDialogOpen(false);
-        fetchTargets();
+        queryClient.invalidateQueries({ queryKey: ['revenue-targets'] });
       } else {
         toast.error('فشل في الحفظ');
       }
@@ -94,7 +86,7 @@ export default function RevenueTargetsPage() {
       if (res.ok) {
         toast.success('تم حذف الهدف');
         setDeleteId(null);
-        fetchTargets();
+        queryClient.invalidateQueries({ queryKey: ['revenue-targets'] });
       } else {
         toast.error('فشل في الحذف');
       }

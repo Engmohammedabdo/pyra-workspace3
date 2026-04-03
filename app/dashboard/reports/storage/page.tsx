@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight, HardDrive, FileText, FolderOpen } from 'lucide-react';
-import { toast } from 'sonner';
 import { ReportChart } from '@/components/reports/ReportChart';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { formatFileSize } from '@/lib/utils/format';
@@ -29,20 +29,12 @@ interface StorageReportData {
 
 export default function StorageReportPage() {
   const today = new Date().toISOString().split('T')[0];
-  const [data, setData] = useState<StorageReportData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/reports/storage')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setData(json.data);
-      })
-      .catch(() => {
-        toast.error('فشل في تحميل التقرير');
-      })
-      .finally(() => setLoading(false));
-  }, []);
+  const { data, isLoading: loading } = useQuery<StorageReportData>({
+    queryKey: ['reports-storage'],
+    queryFn: () => fetchAPI('/api/reports/storage'),
+    staleTime: 5 * 60_000,
+  });
 
   return (
     <div className="space-y-6">

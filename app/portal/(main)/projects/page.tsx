@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -18,18 +18,7 @@ import {
 } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
-import { toast } from 'sonner';
-
-// ---------- Types ----------
-
-interface PortalProject {
-  id: string;
-  name: string;
-  description: string | null;
-  status: 'active' | 'in_progress' | 'review' | 'completed' | 'archived';
-  filesCount: number;
-  updated_at: string;
-}
+import { usePortalProjects, PortalProject } from '@/hooks/usePortalProjects';
 
 // ---------- Helpers ----------
 
@@ -67,36 +56,21 @@ const filterTabs = [
 
 export default function PortalProjectsPage() {
   const router = useRouter();
-  const [projects, setProjects] = useState<PortalProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading } = usePortalProjects();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    async function fetchProjects() {
-      try {
-        const res = await fetch('/api/portal/projects');
-        const json = await res.json();
-        if (res.ok && json.data) {
-          // API may not include filesCount — default to 0
-          const mapped: PortalProject[] = (json.data as Array<Record<string, unknown>>).map((p) => ({
-            id: p.id as string,
-            name: p.name as string,
-            description: (p.description ?? null) as string | null,
-            status: (p.status || 'active') as PortalProject['status'],
-            filesCount: (p.filesCount ?? p.files_count ?? 0) as number,
-            updated_at: p.updated_at as string,
-          }));
-          setProjects(mapped);
-        }
-      } catch {
-        toast.error('فشل في تحميل المشاريع');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchProjects();
-  }, []);
+  const projects: PortalProject[] = useMemo(() => {
+    if (!data) return [];
+    return data.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: (p.description ?? null) as string | null,
+      status: (p.status || 'active') as PortalProject['status'],
+      filesCount: (p.filesCount ?? (p as Record<string, unknown>).files_count ?? 0) as number,
+      updated_at: p.updated_at,
+    }));
+  }, [data]);
 
   const filtered = useMemo(() => {
     let list = projects;

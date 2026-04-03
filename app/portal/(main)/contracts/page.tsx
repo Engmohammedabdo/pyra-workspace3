@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -11,21 +11,7 @@ import { FileSignature } from 'lucide-react';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
-import { toast } from 'sonner';
-
-interface PortalContract {
-  id: string;
-  title: string | null;
-  project_name: string | null;
-  contract_type: string | null;
-  total_value: number;
-  currency: string;
-  status: string;
-  start_date: string | null;
-  end_date: string | null;
-  retainer_amount: number;
-  retainer_cycle: string | null;
-}
+import { usePortalContracts } from '@/hooks/usePortalContracts';
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   active: { label: 'نشط', variant: 'default' },
@@ -44,17 +30,8 @@ const TYPE_MAP: Record<string, string> = {
 
 export default function PortalContractsPage() {
   const router = useRouter();
-  const [contracts, setContracts] = useState<PortalContract[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: contracts = [], isLoading: loading } = usePortalContracts();
   const [statusFilter, setStatusFilter] = useState('all');
-
-  useEffect(() => {
-    fetch('/api/portal/contracts')
-      .then(r => r.json())
-      .then(j => { if (j.data) setContracts(j.data); })
-      .catch(() => toast.error('فشل في تحميل العقود'))
-      .finally(() => setLoading(false));
-  }, []);
 
   const filtered = statusFilter === 'all'
     ? contracts

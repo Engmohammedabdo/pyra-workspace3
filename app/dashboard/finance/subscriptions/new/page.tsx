@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,35 +18,31 @@ interface CardItem { id: string; card_name: string; last_four: string; }
 
 export default function NewSubscriptionPage() {
   const router = useRouter();
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [saving, setSaving] = useState(false);
+  const { data: cards = [] } = useQuery<CardItem[]>({
+    queryKey: ['finance-cards'],
+    queryFn: () => fetchAPI('/api/finance/cards'),
+  });
   const [form, setForm] = useState({
     name: '', provider: '', cost: '', currency: 'AED',
     billing_cycle: 'monthly', next_renewal_date: '', card_id: '',
     category: '', url: '', notes: '', auto_renew: true,
   });
 
-  useEffect(() => {
-    fetch('/api/finance/cards').then(r => r.json()).then(j => { if (j.data) setCards(j.data); }).catch(() => {});
-  }, []);
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/finance/subscriptions', 'POST', data),
+    onSuccess: () => { toast.success('تم إضافة الاشتراك'); router.push('/dashboard/finance/subscriptions'); },
+    onError: () => toast.error('فشل'),
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name) { toast.error('اسم الاشتراك مطلوب'); return; }
     if (!form.cost || Number(form.cost) <= 0) { toast.error('التكلفة مطلوبة'); return; }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/finance/subscriptions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, cost: Number(form.cost), card_id: form.card_id || null }),
-      });
-      if (res.ok) { toast.success('تم إضافة الاشتراك'); router.push('/dashboard/finance/subscriptions'); }
-      else { const j = await res.json(); toast.error(j.error || 'فشل'); }
-    } catch { toast.error('فشل'); } finally { setSaving(false); }
+    createMutation.mutate({ ...form, cost: Number(form.cost), card_id: form.card_id || null });
   };
 
   const u = (k: string, v: string | boolean) => setForm(p => ({ ...p, [k]: v }));
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6">

@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -22,8 +24,7 @@ interface ProfileClientProps {
 }
 
 export default function ProfileClient({ session }: ProfileClientProps) {
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
@@ -32,48 +33,40 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const [phone, setPhone] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [bio, setBio] = useState('');
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Activity state
   const [activities, setActivities] = useState<any[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
 
-  const fetchProfile = useCallback(async () => {
-    try {
-      const res = await fetch('/api/profile');
-      if (!res.ok) throw new Error('Failed to fetch');
-      const { data } = await res.json();
-      setProfile(data);
-      setDisplayName(data.display_name || '');
-      setPhone(data.phone || '');
-      setJobTitle(data.job_title || '');
-      setBio(data.bio || '');
-    } catch {
-      toast.error('فشل تحميل الملف الشخصي');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const { data: profile, isLoading: loading } = useQuery<any>({
+    queryKey: ['profile'],
+    queryFn: () => fetchAPI('/api/profile'),
+    staleTime: 5 * 60_000,
+  });
 
-  useEffect(() => { fetchProfile(); }, [fetchProfile]);
+  // Initialize form when profile data arrives
+  if (profile && !formInitialized) {
+    setDisplayName(profile.display_name || '');
+    setPhone(profile.phone || '');
+    setJobTitle(profile.job_title || '');
+    setBio(profile.bio || '');
+    setFormInitialized(true);
+  }
+
+  const saveProfileMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/profile', 'PATCH', body),
+    onSuccess: () => {
+      toast.success('تم حفظ التغييرات بنجاح');
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+    onError: () => toast.error('فشل حفظ التغييرات'),
+  });
 
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          display_name: displayName,
-          phone,
-          job_title: jobTitle,
-          bio,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      toast.success('تم حفظ التغييرات بنجاح');
-      fetchProfile();
-    } catch {
-      toast.error('فشل حفظ التغييرات');
+      await saveProfileMutation.mutateAsync({ display_name: displayName, phone, job_title: jobTitle, bio });
     } finally {
       setSaving(false);
     }
@@ -86,7 +79,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Upload failed');
       toast.success('تم رفع الصورة بنجاح');
-      fetchProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
     } catch {
       toast.error('فشل رفع الصورة');
     }
@@ -95,11 +88,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const fetchActivities = useCallback(async () => {
     setActivitiesLoading(true);
     try {
-      const res = await fetch(`/api/activity?username=${session.pyraUser.username}&limit=20`);
-      if (res.ok) {
-        const { data } = await res.json();
-        setActivities(data || []);
-      }
+      const data = await fetchAPI<{ data: any[] }>(`/api/activity?username=${session.pyraUser.username}&limit=20`);
+      setActivities((data as any).data || data || []);
     } catch {
       // Silently fail
     } finally {
@@ -359,7 +349,17 @@ function PasswordChangeForm() {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [saving, setSaving] = useState(false);
+
+  const passwordMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/profile/password', 'POST', body),
+    onSuccess: () => {
+      toast.success('تم تغيير كلمة المرور بنجاح');
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    },
+    onError: (err: any) => toast.error(err.message || 'فشل تغيير كلمة المرور'),
+  });
+
+  const saving = passwordMutation.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -371,24 +371,7 @@ function PasswordChangeForm() {
       toast.error('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
       return;
     }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/profile/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed');
-      }
-      toast.success('تم تغيير كلمة المرور بنجاح');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    } catch (err: any) {
-      toast.error(err.message || 'فشل تغيير كلمة المرور');
-    } finally {
-      setSaving(false);
-    }
+    passwordMutation.mutate({ current_password: currentPw, new_password: newPw });
   };
 
   return (

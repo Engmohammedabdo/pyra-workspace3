@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,17 +12,9 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { toast } from 'sonner';
+import { usePortalKBCategories, KBCategory } from '@/hooks/usePortalKB';
 
 /* ───────────────────────── Types ───────────────────────── */
-
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  icon: string | null;
-  sort_order: number;
-}
 
 interface Article {
   id: string;
@@ -40,10 +32,11 @@ interface Article {
 export default function HelpCenterPage() {
   const router = useRouter();
 
+  /* ── data ── */
+  const { data: categories = [], isLoading: loadingCategories } = usePortalKBCategories();
+
   /* ── state ── */
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loadingCategories, setLoadingCategories] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<KBCategory | null>(null);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loadingArticles, setLoadingArticles] = useState(false);
 
@@ -52,17 +45,6 @@ export default function HelpCenterPage() {
   const [searchResults, setSearchResults] = useState<Article[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-
-  /* ── fetch categories ── */
-  useEffect(() => {
-    fetch('/api/portal/kb/categories')
-      .then(r => r.json())
-      .then(json => {
-        if (json.data) setCategories(json.data);
-      })
-      .catch(() => { toast.error('فشل في تحميل التصنيفات'); })
-      .finally(() => setLoadingCategories(false));
-  }, []);
 
   /* ── fetch articles for category ── */
   const fetchCategoryArticles = useCallback(async (categoryId: string) => {
@@ -98,7 +80,7 @@ export default function HelpCenterPage() {
   };
 
   /* ── select category ── */
-  const handleSelectCategory = (cat: Category) => {
+  const handleSelectCategory = (cat: KBCategory) => {
     setSelectedCategory(cat);
     setHasSearched(false);
     setSearchQuery('');

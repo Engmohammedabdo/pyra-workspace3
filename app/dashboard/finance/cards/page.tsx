@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -40,8 +42,7 @@ const CARD_TYPES = [
 ];
 
 export default function CardsPage() {
-  const [cards, setCards] = useState<CardItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -52,19 +53,10 @@ export default function CardsPage() {
     expiry_month: '', expiry_year: '', is_default: false, notes: '',
   });
 
-  const fetchCards = useCallback(async () => {
-    try {
-      const res = await fetch('/api/finance/cards');
-      const json = await res.json();
-      if (json.data) setCards(json.data);
-    } catch {
-      toast.error('فشل في تحميل البطاقات');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchCards(); }, [fetchCards]);
+  const { data: cards = [], isLoading: loading, refetch: fetchCards } = useQuery<CardItem[]>({
+    queryKey: ['finance-cards'],
+    queryFn: () => fetchAPI('/api/finance/cards'),
+  });
 
   const openNew = () => {
     setEditingId(null);
@@ -103,7 +95,7 @@ export default function CardsPage() {
       if (res.ok) {
         toast.success(editingId ? 'تم التحديث' : 'تم إضافة البطاقة');
         setDialogOpen(false);
-        fetchCards();
+        queryClient.invalidateQueries({ queryKey: ['finance-cards'] });
       } else {
         const json = await res.json();
         toast.error(json.error || 'فشل في الحفظ');
@@ -123,7 +115,7 @@ export default function CardsPage() {
       if (res.ok) {
         toast.success('تم حذف البطاقة');
         setDeleteId(null);
-        fetchCards();
+        queryClient.invalidateQueries({ queryKey: ['finance-cards'] });
       } else {
         const json = await res.json();
         toast.error(json.error || 'فشل في الحذف');

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,9 +44,6 @@ export default function NewWebhookPage() {
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [isEnabled, setIsEnabled] = useState(true);
 
-  /* ── saving ── */
-  const [saving, setSaving] = useState(false);
-
   /* ── event toggle ── */
   const toggleEvent = (eventValue: string) => {
     setSelectedEvents(prev =>
@@ -63,6 +62,17 @@ export default function NewWebhookPage() {
   };
 
   /* ── submit ── */
+  const createMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI<{ id: string }>('/api/webhooks', 'POST', body),
+    onSuccess: (data) => {
+      toast.success('تم إنشاء الـ Webhook بنجاح');
+      router.push(`/dashboard/integrations/${data.id}`);
+    },
+    onError: () => toast.error('حدث خطأ في إنشاء الـ Webhook'),
+  });
+
+  const saving = createMutation.isPending;
+
   const handleSubmit = async () => {
     if (!name.trim()) {
       toast.error('اسم الـ Webhook مطلوب');
@@ -77,32 +87,12 @@ export default function NewWebhookPage() {
       return;
     }
 
-    setSaving(true);
-    try {
-      const res = await fetch('/api/webhooks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          url: url.trim(),
-          events: selectedEvents,
-          is_enabled: isEnabled,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok || json.error) {
-        toast.error(json.error || 'حدث خطأ في إنشاء الـ Webhook');
-        return;
-      }
-
-      toast.success('تم إنشاء الـ Webhook بنجاح');
-      router.push(`/dashboard/integrations/${json.data.id}`);
-    } catch {
-      toast.error('حدث خطأ في إنشاء الـ Webhook');
-    } finally {
-      setSaving(false);
-    }
+    createMutation.mutate({
+      name: name.trim(),
+      url: url.trim(),
+      events: selectedEvents,
+      is_enabled: isEnabled,
+    });
   };
 
   /* ──────────────────────── Render ─────────────────────── */

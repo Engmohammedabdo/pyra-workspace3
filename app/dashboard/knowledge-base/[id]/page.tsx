@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -16,9 +18,7 @@ export default function EditArticlePage() {
   const params = useParams();
   const articleId = params.id as string;
   const [article, setArticle] = useState<any | null>(null);
-  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingCategories, setLoadingCategories] = useState(true);
   const [categoryId, setCategoryId] = useState('');
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -26,6 +26,10 @@ export default function EditArticlePage() {
   const [isPublic, setIsPublic] = useState(true);
   const [sortOrder, setSortOrder] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
+  const { data: categories = [], isLoading: loadingCategories } = useQuery<any[]>({
+    queryKey: ['kb-categories'],
+    queryFn: () => fetchAPI('/api/kb/categories'),
+  });
   const [saving, setSaving] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -46,7 +50,7 @@ export default function EditArticlePage() {
           setSortOrder(a.sort_order);
         } else { router.push('/dashboard/knowledge-base'); }
       }).finally(() => setLoading(false));
-    fetch('/api/kb/categories').then(r => r.json()).then(json => { if (json.data) setCategories(json.data); }).finally(() => setLoadingCategories(false));
+
   }, [articleId, router]);
 
   const handleSave = async () => {
