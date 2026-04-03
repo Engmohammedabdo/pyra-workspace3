@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useProjects } from '@/hooks/useProjects';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -122,10 +123,15 @@ export default function UserDetailClient() {
 
   const [user, setUser] = useState<UserData | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [projects, setProjects] = useState<ProjectItem[]>([]);
+  const { data: projectsRaw = [], isLoading: projectsLoading } = useProjects();
+  const projects: ProjectItem[] = projectsRaw.slice(0, 20).map(p => ({
+    id: p.id,
+    name: p.name,
+    status: p.status || '',
+    client_name: (p as Record<string, unknown> & { pyra_clients?: { name: string } }).pyra_clients?.name,
+  }));
   const [loading, setLoading] = useState(true);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
-  const [projectsLoading, setProjectsLoading] = useState(true);
 
   // ── Fetch user ──
   const fetchUser = useCallback(async () => {
@@ -157,29 +163,10 @@ export default function UserDetailClient() {
     finally { setPaymentsLoading(false); }
   }, [username]);
 
-  // ── Fetch projects (all, then we show them — admin page) ──
-  const fetchProjects = useCallback(async () => {
-    try {
-      const res = await fetch('/api/projects');
-      if (res.ok) {
-        const j = await res.json();
-        // Show all projects — admin sees all, user page is admin-only
-        setProjects((j.data || []).map((p: { id: string; name: string; status: string; pyra_clients?: { name: string } }) => ({
-          id: p.id,
-          name: p.name,
-          status: p.status,
-          client_name: p.pyra_clients?.name,
-        })).slice(0, 20));
-      }
-    } catch { /* silent */ }
-    finally { setProjectsLoading(false); }
-  }, []);
-
   useEffect(() => {
     fetchUser();
     fetchPayments();
-    fetchProjects();
-  }, [fetchUser, fetchPayments, fetchProjects]);
+  }, [fetchUser, fetchPayments]);
 
   // ── Stats ──
   const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);

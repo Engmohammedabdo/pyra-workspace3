@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useClients } from '@/hooks/useClients';
+import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,9 +16,6 @@ import {
 import { ArrowRight, Save, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
-interface Client { id: string; name: string; company: string; }
-interface Project { id: string; name: string; client_id: string | null; }
-
 const CONTRACT_TYPES = [
   { value: 'retainer', label: 'ثابت شهري (Retainer)' },
   { value: 'milestone', label: 'مراحل (Milestone)' },
@@ -27,8 +26,8 @@ const CONTRACT_TYPES = [
 
 export default function NewContractPage() {
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const { data: clients = [] } = useClients({ pageSize: '100' });
+  const { data: allProjects = [] } = useProjects({ pageSize: '100' });
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', client_id: '', project_id: '',
@@ -41,17 +40,6 @@ export default function NewContractPage() {
   const filteredProjects = form.client_id
     ? allProjects.filter(p => p.client_id === form.client_id)
     : allProjects;
-
-  useEffect(() => {
-    fetch('/api/clients?pageSize=100')
-      .then(r => r.json())
-      .then(j => { if (j.data) setClients(j.data); })
-      .catch(() => {});
-    fetch('/api/projects?pageSize=100')
-      .then(r => r.json())
-      .then(j => { if (j.data) setAllProjects(j.data); })
-      .catch(() => {});
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

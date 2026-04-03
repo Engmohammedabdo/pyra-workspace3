@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useProjects } from '@/hooks/useProjects';
+import { useSettings } from '@/hooks/useSettings';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,14 +18,14 @@ import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 
 interface Supplier { id: string; name: string; company: string | null; }
-interface Project { id: string; name: string; }
 interface POItem { description: string; quantity: number; rate: number; }
 
 export default function NewPurchaseOrderPage() {
   const router = useRouter();
 
+  const { data: projects = [] } = useProjects({ pageSize: '100' });
+  const { data: settingsData } = useSettings();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [supplierId, setSupplierId] = useState('');
   const [projectId, setProjectId] = useState('');
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -38,19 +40,14 @@ export default function NewPurchaseOrderPage() {
       .then(r => r.json())
       .then(j => { if (j.data) setSuppliers(j.data); })
       .catch(() => {});
-    fetch('/api/projects?pageSize=100')
-      .then(r => r.json())
-      .then(j => { if (j.data) setProjects(j.data.map((p: Project) => ({ id: p.id, name: p.name }))); })
-      .catch(() => {});
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(j => {
-        if (!j.data) return;
-        const rate = parseFloat(j.data.vat_rate);
-        if (!isNaN(rate)) setVatRate(rate);
-      })
-      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (settingsData?.vat_rate !== undefined) {
+      const rate = parseFloat(String(settingsData.vat_rate));
+      if (!isNaN(rate)) setVatRate(rate);
+    }
+  }, [settingsData]);
 
   const updateItem = (index: number, field: keyof POItem, value: string | number) => {
     setItems(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));

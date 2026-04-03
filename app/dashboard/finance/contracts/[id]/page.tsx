@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
+import { useClients } from '@/hooks/useClients';
+import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -21,8 +23,8 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [clients, setClients] = useState<any[]>([]);
-  const [allProjects, setAllProjects] = useState<any[]>([]);
+  const { data: clients = [] } = useClients({ pageSize: '100' });
+  const { data: allProjects = [] } = useProjects({ pageSize: '100' });
   const [form, setForm] = useState<any>({
     title: '', description: '', client_id: '', project_id: '',
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
@@ -66,8 +68,6 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   }, [id]);
 
   useEffect(() => {
-    fetch('/api/clients?pageSize=100').then(r => r.json()).then(j => { if (j.data) setClients(j.data); });
-    fetch('/api/projects?pageSize=100').then(r => r.json()).then(j => { if (j.data) setAllProjects(j.data); });
     fetch(`/api/finance/contracts/${id}`)
       .then(r => r.json())
       .then(j => {

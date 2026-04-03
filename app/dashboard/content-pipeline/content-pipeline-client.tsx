@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -166,7 +167,8 @@ function getCompletedCount(stages: PipelineStage[]): number {
 export default function ContentPipelineClient() {
   const [items, setItems] = useState<PipelineItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const { data: projectsData = [] } = useProjects();
+  const projects: ProjectOption[] = projectsData.map(p => ({ id: p.id, name: p.name }));
   const [users, setUsers] = useState<UserOption[]>([]);
 
   // Filters
@@ -207,21 +209,10 @@ export default function ContentPipelineClient() {
     }
   }, [filterType, filterProject]);
 
-  // ─── Fetch projects and users for dropdowns ─────────
+  // ─── Fetch users for dropdowns ───────────────────────
   const fetchDropdownData = useCallback(async () => {
     try {
-      // NOTE: /api/projects is a root-level endpoint (not under /api/dashboard/)
-      const [projRes, userRes] = await Promise.all([
-        fetch('/api/projects'),
-        fetch('/api/directory'),
-      ]);
-      if (projRes.ok) {
-        const projJson = await projRes.json();
-        setProjects((projJson.data || []).map((p: { id: string; name: string }) => ({
-          id: p.id,
-          name: p.name,
-        })));
-      }
+      const userRes = await fetch('/api/directory');
       if (userRes.ok) {
         const userJson = await userRes.json();
         setUsers((userJson.data || []).map((u: { username: string; display_name: string }) => ({

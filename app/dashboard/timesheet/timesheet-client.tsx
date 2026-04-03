@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -99,7 +100,7 @@ interface TimesheetClientProps {
 
 export default function TimesheetClient({ session }: TimesheetClientProps) {
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const { data: projects = [] } = useProjects();
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -174,11 +175,6 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
     fetchEntries();
     fetchPeriods();
     fetchOvertimeSummary();
-    // Fetch projects for dropdown
-    fetch('/api/projects')
-      .then((r) => r.json())
-      .then(({ data }) => setProjects(data || []))
-      .catch(() => {});
   }, [fetchEntries, fetchPeriods, fetchOvertimeSummary]);
 
   const addEntry = async () => {
