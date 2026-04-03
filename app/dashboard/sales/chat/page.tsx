@@ -70,7 +70,7 @@ export default function ChatInboxPage() {
   useEffect(() => {
     setLoading(true);
     pollAndRefresh(); // First load: poll + fetch
-    const interval = setInterval(pollAndRefresh, 30000); // Every 30s: poll + fetch
+    const interval = setInterval(pollAndRefresh, 15000); // Every 15s: poll + fetch
     return () => clearInterval(interval);
   }, [pollAndRefresh]);
 

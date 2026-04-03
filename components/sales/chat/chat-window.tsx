@@ -348,16 +348,16 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
             </Button>
           )}
 
-          {/* Assign Dialog Popover */}
-          {showAssign && (
-            <AssignDialog
+          {/* Assign Dialog */}
+          <AssignDialog
+              open={showAssign}
+              conversationId={conversationId}
               remoteJid={remoteJid}
               instanceName={instanceName}
               currentAgent={assignedTo || null}
               onAssigned={() => onConversationUpdated?.()}
               onClose={() => setShowAssign(false)}
-            />
-          )}
+          />
 
           {/* Status Actions */}
           {conversationId && (

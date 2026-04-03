@@ -69,7 +69,7 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
     if (!search) return true;
     const q = search.toLowerCase();
     const name = c.contact_name?.toLowerCase() || '';
-    const phone = c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
+    const phone = c.contact_phone || c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
     return name.includes(q) || phone.includes(q);
   });
 
@@ -113,7 +113,7 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
           </div>
         ) : (
           filtered.map(conv => {
-            const phone = conv.phone || conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
+            const phone = conv.contact_phone || conv.phone || conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
             const displayName = conv.contact_name || phone;
             const isSelected = conv.remote_jid === selectedJid;
             const avatarColor = getAvatarColor(conv.remote_jid);
