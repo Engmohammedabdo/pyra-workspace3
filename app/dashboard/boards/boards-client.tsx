@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { toast } from 'sonner';
+import { useBoards, useCreateBoard } from '@/hooks/useBoards';
+import { useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
   Kanban, Plus, Briefcase, GitBranch, List, LayoutGrid, Star,
@@ -41,32 +43,17 @@ interface BoardsClientProps {
 }
 
 export default function BoardsClient({ session }: BoardsClientProps) {
-  const [boards, setBoards] = useState<Board[]>([]);
+  const queryClient = useQueryClient();
+  const { data: boardsData, isLoading: loading } = useBoards();
+  const boards: Board[] = (boardsData as Board[] | undefined) || [];
+  const createBoardMutation = useCreateBoard();
   const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState('general');
   const [viewMode, setViewMode] = useState<'kanban' | 'pipeline'>('kanban');
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'boards.manage');
-
-  const fetchBoards = useCallback(async () => {
-    try {
-      const res = await fetch('/api/boards');
-      if (res.ok) {
-        const { data } = await res.json();
-        setBoards(data || []);
-      }
-    } catch {
-      // silent
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchBoards(); }, [fetchBoards]);
 
   const toggleStar = async (boardId: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -84,6 +71,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
     } catch { toast.error('فشل'); }
   };
 
+
   // Sort: starred first
   const sortedBoards = [...boards].sort((a, b) => {
     const aS = starredIds.has(a.id) ? 0 : 1;
@@ -93,32 +81,24 @@ export default function BoardsClient({ session }: BoardsClientProps) {
 
   const createBoard = async () => {
     if (!newName.trim()) return;
-    setCreating(true);
     try {
-      const res = await fetch('/api/boards', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName,
-          description: newDesc,
-          template: selectedTemplate,
-          view_mode: viewMode,
-          is_pipeline: viewMode === 'pipeline',
-        }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      toast.success('\u062A\u0645 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0644\u0648\u062D\u0629 \u0628\u0646\u062C\u0627\u062D');
+      await createBoardMutation.mutateAsync({
+        name: newName,
+        description: newDesc,
+        template: selectedTemplate,
+        view_mode: viewMode,
+        is_pipeline: viewMode === 'pipeline',
+      } as Parameters<typeof createBoardMutation.mutateAsync>[0]);
+      toast.success('تم إنشاء اللوحة بنجاح');
       setShowCreate(false);
       setNewName('');
       setNewDesc('');
       setSelectedTemplate('general');
-      fetchBoards();
     } catch {
-      toast.error('\u0641\u0634\u0644 \u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0644\u0648\u062D\u0629');
-    } finally {
-      setCreating(false);
+      toast.error('فشل إنشاء اللوحة');
     }
   };
+  const creating = createBoardMutation.isPending;
 
   if (loading) {
     return (
