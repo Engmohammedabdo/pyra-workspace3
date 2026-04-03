@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -122,12 +124,9 @@ interface AttendanceClientProps {
 }
 
 export default function AttendanceClient({ session }: AttendanceClientProps) {
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [clockingIn, setClockingIn] = useState(false);
   const [clockingOut, setClockingOut] = useState(false);
-  const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [workSchedule, setWorkSchedule] = useState<any>(null);
@@ -146,55 +145,42 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
   }, []);
 
   // Fetch work schedule for dynamic weekend detection
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/dashboard/work-schedules');
-        if (res.ok) {
-          const { data } = await res.json();
-          // Use the default schedule, or fall back to the first one
-          const schedule = (data || []).find((s: { is_default: boolean }) => s.is_default) || (data || [])[0] || null;
-          setWorkSchedule(schedule);
-        }
-      } catch {
-        // Fall back to default work days if fetch fails
-      }
-    })();
-  }, []);
+  useQuery({
+    queryKey: ['work-schedules'],
+    queryFn: async () => {
+      const data = await fetchAPI<any[]>('/api/dashboard/work-schedules');
+      const schedule = (data || []).find((s: { is_default: boolean }) => s.is_default) || (data || [])[0] || null;
+      setWorkSchedule(schedule);
+      return data;
+    },
+    staleTime: 10 * 60_000,
+  });
 
-  // Fetch attendance data
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const monthKey = getMonthKey(selectedYear, selectedMonth);
-      const [recordsRes, summaryRes] = await Promise.all([
-        fetch(`/api/dashboard/attendance?month=${monthKey}`),
-        fetch(`/api/dashboard/attendance/summary?month=${monthKey}`),
-      ]);
+  const monthKey = getMonthKey(selectedYear, selectedMonth);
 
-      if (recordsRes.ok) {
-        const { data } = await recordsRes.json();
-        setRecords(data || []);
-        // Find today's record
-        const today = getTodayUAE();
-        const todayRec = (data || []).find((r: AttendanceRecord) => r.date === today);
-        setTodayRecord(todayRec || null);
-      }
+  const { data: recordsData, isLoading: recordsLoading } = useQuery<AttendanceRecord[]>({
+    queryKey: ['attendance-records', monthKey],
+    queryFn: () => fetchAPI(`/api/dashboard/attendance?month=${monthKey}`),
+    staleTime: 60_000,
+  });
 
-      if (summaryRes.ok) {
-        const { data } = await summaryRes.json();
-        setSummary(data || null);
-      }
-    } catch {
-      toast.error('حدث خطأ أثناء تحميل البيانات');
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedYear, selectedMonth]);
+  const { data: summaryData, isLoading: summaryLoading } = useQuery<AttendanceSummary>({
+    queryKey: ['attendance-summary', monthKey],
+    queryFn: () => fetchAPI(`/api/dashboard/attendance/summary?month=${monthKey}`),
+    staleTime: 60_000,
+  });
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const loading = recordsLoading || summaryLoading;
+  const records = recordsData || [];
+  const summary = summaryData || null;
+
+  const today = getTodayUAE();
+  const todayRecord = records.find((r) => r.date === today) || null;
+
+  const fetchData = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['attendance-records', monthKey] });
+    queryClient.invalidateQueries({ queryKey: ['attendance-summary', monthKey] });
+  }, [queryClient, monthKey]);
 
   // Clock in handler
   const handleClockIn = async () => {

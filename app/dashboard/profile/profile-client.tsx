@@ -84,7 +84,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Upload failed');
       toast.success('تم رفع الصورة بنجاح');
-      fetchProfile();
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
     } catch {
       toast.error('فشل رفع الصورة');
     }
