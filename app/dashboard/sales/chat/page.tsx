@@ -24,7 +24,7 @@ interface TabDef {
 }
 
 const TABS: TabDef[] = [
-  { key: 'all', label: 'الكل', icon: Inbox, status: 'open', assigned: 'all' },
+  { key: 'all', label: 'الكل', icon: Inbox, status: 'all', assigned: 'all' },
   { key: 'mine', label: 'لي', icon: User, status: 'open', assigned: 'me' },
   { key: 'unassigned', label: 'غير مسند', icon: MessageCircle, status: 'open', assigned: 'unassigned' },
   { key: 'pending', label: 'معلّق', icon: Clock, status: 'pending', assigned: 'all' },
@@ -38,7 +38,7 @@ export default function ChatInboxPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>('mine');
+  const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [selectedConv, setSelectedConv] = useState<Conversation | null>(null);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
