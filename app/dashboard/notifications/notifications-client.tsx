@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -89,21 +89,25 @@ export default function NotificationsClient() {
     staleTime: 30_000,
   });
 
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/notifications/${id}`, 'PATCH'),
+    onError: (err) => console.error(err),
+  });
+
+  const markAllReadMutation = useMutation({
+    mutationFn: () => mutateAPI('/api/notifications/read-all', 'POST'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
+    onError: (err) => console.error(err),
+  });
+
   const markRead = async (id: string) => {
-    try {
-      await fetch(`/api/notifications/${id}`, { method: 'PATCH' });
-      queryClient.setQueryData<Notification[]>(['notifications', filter], prev =>
-        (prev || []).map(n => n.id === id ? { ...n, is_read: true } : n)
-      );
-    } catch (err) { console.error(err); }
+    await markReadMutation.mutateAsync(id);
+    queryClient.setQueryData<Notification[]>(['notifications', filter], prev =>
+      (prev || []).map(n => n.id === id ? { ...n, is_read: true } : n)
+    );
   };
 
-  const markAllRead = async () => {
-    try {
-      await fetch('/api/notifications/read-all', { method: 'POST' });
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    } catch (err) { console.error(err); }
-  };
+  const markAllRead = () => markAllReadMutation.mutate();
 
   const handleClick = async (n: Notification) => {
     // Mark as read

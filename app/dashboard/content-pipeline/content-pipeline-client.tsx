@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -204,6 +204,17 @@ export default function ContentPipelineClient() {
 
   const fetchItems = () => { queryClient.invalidateQueries({ queryKey: ['content-pipeline'] }); };
 
+  const createMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/dashboard/content-pipeline', 'POST', body),
+    onSuccess: () => {
+      toast.success('تم إنشاء المحتوى بنجاح');
+      setShowCreate(false);
+      resetCreateForm();
+      fetchItems();
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : 'فشل إنشاء المحتوى'),
+  });
+
   // ─── Fetch users for dropdowns ───────────────────────
   const { data: usersData = [] } = useQuery<UserOption[]>({
     queryKey: ['directory-users'],
@@ -227,28 +238,14 @@ export default function ContentPipelineClient() {
     }
     setCreating(true);
     try {
-      const res = await fetch('/api/dashboard/content-pipeline', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: newTitle,
-          content_type: newType,
-          project_id: newProject && newProject !== 'none' ? newProject : null,
-          assigned_to: newAssigned && newAssigned !== 'none' ? newAssigned : null,
-          deadline: newDeadline || null,
-          notes: newNotes || null,
-        }),
+      await createMutation.mutateAsync({
+        title: newTitle,
+        content_type: newType,
+        project_id: newProject && newProject !== 'none' ? newProject : null,
+        assigned_to: newAssigned && newAssigned !== 'none' ? newAssigned : null,
+        deadline: newDeadline || null,
+        notes: newNotes || null,
       });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || 'فشل');
-      }
-      toast.success('تم إنشاء المحتوى بنجاح');
-      setShowCreate(false);
-      resetCreateForm();
-      fetchItems();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل إنشاء المحتوى');
     } finally {
       setCreating(false);
     }

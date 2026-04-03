@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -54,24 +54,19 @@ export default function ProfileClient({ session }: ProfileClientProps) {
     setFormInitialized(true);
   }
 
+  const saveProfileMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/profile', 'PATCH', body),
+    onSuccess: () => {
+      toast.success('تم حفظ التغييرات بنجاح');
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+    onError: () => toast.error('فشل حفظ التغييرات'),
+  });
+
   const saveProfile = async () => {
     setSaving(true);
     try {
-      const res = await fetch('/api/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          display_name: displayName,
-          phone,
-          job_title: jobTitle,
-          bio,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      toast.success('تم حفظ التغييرات بنجاح');
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
-    } catch {
-      toast.error('فشل حفظ التغييرات');
+      await saveProfileMutation.mutateAsync({ display_name: displayName, phone, job_title: jobTitle, bio });
     } finally {
       setSaving(false);
     }
@@ -93,11 +88,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const fetchActivities = useCallback(async () => {
     setActivitiesLoading(true);
     try {
-      const res = await fetch(`/api/activity?username=${session.pyraUser.username}&limit=20`);
-      if (res.ok) {
-        const { data } = await res.json();
-        setActivities(data || []);
-      }
+      const data = await fetchAPI<{ data: any[] }>(`/api/activity?username=${session.pyraUser.username}&limit=20`);
+      setActivities((data as any).data || data || []);
     } catch {
       // Silently fail
     } finally {
@@ -357,7 +349,17 @@ function PasswordChangeForm() {
   const [currentPw, setCurrentPw] = useState('');
   const [newPw, setNewPw] = useState('');
   const [confirmPw, setConfirmPw] = useState('');
-  const [saving, setSaving] = useState(false);
+
+  const passwordMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI('/api/profile/password', 'POST', body),
+    onSuccess: () => {
+      toast.success('تم تغيير كلمة المرور بنجاح');
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+    },
+    onError: (err: any) => toast.error(err.message || 'فشل تغيير كلمة المرور'),
+  });
+
+  const saving = passwordMutation.isPending;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -369,24 +371,7 @@ function PasswordChangeForm() {
       toast.error('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
       return;
     }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/profile/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed');
-      }
-      toast.success('تم تغيير كلمة المرور بنجاح');
-      setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    } catch (err: any) {
-      toast.error(err.message || 'فشل تغيير كلمة المرور');
-    } finally {
-      setSaving(false);
-    }
+    passwordMutation.mutate({ current_password: currentPw, new_password: newPw });
   };
 
   return (

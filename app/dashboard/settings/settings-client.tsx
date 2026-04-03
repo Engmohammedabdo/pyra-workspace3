@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -620,31 +622,45 @@ const AVAILABLE_PERMISSIONS = [
 ];
 
 function ApiKeysSection() {
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
-  const [loadingKeys, setLoadingKeys] = useState(true);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyPermissions, setNewKeyPermissions] = useState<string[]>([]);
-  const [creatingKey, setCreatingKey] = useState(false);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [copiedKey, setCopiedKey] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchApiKeys = useCallback(async () => {
-    try {
-      const res = await fetch('/api/settings/api-keys');
-      const json = await res.json();
-      if (json.data) setApiKeys(json.data);
-    } catch (err) {
-      console.error(err);
-      toast.error('فشل تحميل مفاتيح API');
-    } finally {
-      setLoadingKeys(false);
-    }
-  }, []);
+  const { data: apiKeysData, isLoading: loadingKeys, refetch: refetchApiKeys } = useQuery<ApiKey[]>({
+    queryKey: ['api-keys'],
+    queryFn: () => fetchAPI('/api/settings/api-keys'),
+    staleTime: 60_000,
+  });
 
-  useEffect(() => { fetchApiKeys(); }, [fetchApiKeys]);
+  const apiKeys: ApiKey[] = apiKeysData || [];
+
+  const createKeyMutation = useMutation({
+    mutationFn: (body: object) => mutateAPI<any>('/api/settings/api-keys', 'POST', body),
+    onSuccess: (json: any) => {
+      setRevealedKey(json?.key || null);
+      setCopiedKey(false);
+      toast.success('تم إنشاء مفتاح API بنجاح');
+      setNewKeyName('');
+      setNewKeyPermissions([]);
+      refetchApiKeys();
+    },
+    onError: (err) => { console.error(err); toast.error('فشل إنشاء المفتاح'); },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: (key: ApiKey) => mutateAPI<any>(`/api/settings/api-keys/${key.id}`, 'PATCH', { is_active: !key.is_active }),
+    onError: (err) => { console.error(err); toast.error('فشل تحديث حالة المفتاح'); },
+  });
+
+  const deleteKeyMutation = useMutation({
+    mutationFn: (key: ApiKey) => mutateAPI<any>(`/api/settings/api-keys/${key.id}`, 'DELETE'),
+    onSuccess: () => { toast.success('تم حذف المفتاح'); refetchApiKeys(); },
+    onError: (err) => { console.error(err); toast.error('فشل حذف المفتاح'); },
+  });
 
   const handlePermissionToggle = (perm: string) => {
     if (perm === '*') {
@@ -660,23 +676,10 @@ function ApiKeysSection() {
   const handleCreateKey = async () => {
     if (!newKeyName.trim()) { toast.error('يرجى إدخال اسم المفتاح'); return; }
     if (newKeyPermissions.length === 0) { toast.error('يرجى اختيار صلاحية واحدة على الأقل'); return; }
-    setCreatingKey(true);
-    try {
-      const res = await fetch('/api/settings/api-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newKeyName.trim(), permissions: newKeyPermissions }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setRevealedKey(json.data?.key || json.key || null);
-      setCopiedKey(false);
-      toast.success('تم إنشاء مفتاح API بنجاح');
-      setNewKeyName('');
-      setNewKeyPermissions([]);
-      fetchApiKeys();
-    } catch (err) { console.error(err); toast.error('فشل إنشاء المفتاح'); } finally { setCreatingKey(false); }
+    createKeyMutation.mutate({ name: newKeyName.trim(), permissions: newKeyPermissions });
   };
+
+  const creatingKey = createKeyMutation.isPending;
 
   const handleCopyKey = async () => {
     if (!revealedKey) return;
@@ -691,16 +694,10 @@ function ApiKeysSection() {
   const handleToggleActive = async (key: ApiKey) => {
     setTogglingId(key.id);
     try {
-      const res = await fetch(`/api/settings/api-keys/${key.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !key.is_active }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setApiKeys(prev => prev.map(k => k.id === key.id ? { ...k, is_active: !k.is_active } : k));
+      await toggleActiveMutation.mutateAsync(key);
       toast.success(key.is_active ? 'تم تعطيل المفتاح' : 'تم تفعيل المفتاح');
-    } catch (err) { console.error(err); toast.error('فشل تحديث حالة المفتاح'); } finally { setTogglingId(null); }
+      refetchApiKeys();
+    } finally { setTogglingId(null); }
   };
 
   const handleDeleteKey = async (key: ApiKey) => {
@@ -708,12 +705,8 @@ function ApiKeysSection() {
     if (!confirmed) return;
     setDeletingId(key.id);
     try {
-      const res = await fetch(`/api/settings/api-keys/${key.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setApiKeys(prev => prev.filter(k => k.id !== key.id));
-      toast.success('تم حذف المفتاح');
-    } catch (err) { console.error(err); toast.error('فشل حذف المفتاح'); } finally { setDeletingId(null); }
+      await deleteKeyMutation.mutateAsync(key);
+    } finally { setDeletingId(null); }
   };
 
   const formatDate = (dateStr: string | null) => {

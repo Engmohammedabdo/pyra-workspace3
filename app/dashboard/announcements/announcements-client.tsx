@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,11 +59,33 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
   const fetchAnnouncements = () => { queryClient.invalidateQueries({ queryKey: ['announcements'] }); };
 
   const markAsRead = async (id: string) => {
-    await fetch(`/api/announcements/${id}/read`, { method: 'POST' });
+    await mutateAPI(`/api/announcements/${id}/read`, 'POST');
     queryClient.setQueryData<Announcement[]>(['announcements'], prev =>
       (prev || []).map(a => a.id === id ? { ...a, is_read: true } : a)
     );
   };
+
+  const saveMutation = useMutation({
+    mutationFn: (vars: { url: string; method: string; body: object }) =>
+      mutateAPI(vars.url, vars.method, vars.body),
+    onSuccess: () => {
+      toast.success(editItem ? 'تم تحديث الإعلان' : 'تم نشر الإعلان');
+      setShowCreate(false);
+      setEditItem(null);
+      resetForm();
+      fetchAnnouncements();
+    },
+    onError: () => toast.error('فشل حفظ الإعلان'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/announcements/${id}`, 'DELETE'),
+    onSuccess: () => {
+      toast.success('تم حذف الإعلان');
+      fetchAnnouncements();
+    },
+    onError: () => toast.error('فشل الحذف'),
+  });
 
   const saveAnnouncement = async () => {
     if (!formTitle.trim() || !formContent.trim()) return;
@@ -71,24 +93,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
     try {
       const url = editItem ? `/api/announcements/${editItem.id}` : '/api/announcements';
       const method = editItem ? 'PATCH' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: formTitle,
-          content: formContent,
-          priority: formPriority,
-          is_pinned: formPinned,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed');
-      toast.success(editItem ? 'تم تحديث الإعلان' : 'تم نشر الإعلان');
-      setShowCreate(false);
-      setEditItem(null);
-      resetForm();
-      fetchAnnouncements();
-    } catch {
-      toast.error('فشل حفظ الإعلان');
+      await saveMutation.mutateAsync({ url, method, body: { title: formTitle, content: formContent, priority: formPriority, is_pinned: formPinned } });
     } finally {
       setSaving(false);
     }
@@ -96,13 +101,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
 
   const deleteAnnouncement = async (id: string) => {
     if (!confirm('هل أنت متأكد من حذف هذا الإعلان؟')) return;
-    try {
-      await fetch(`/api/announcements/${id}`, { method: 'DELETE' });
-      toast.success('تم حذف الإعلان');
-      fetchAnnouncements();
-    } catch {
-      toast.error('فشل الحذف');
-    }
+    await deleteMutation.mutateAsync(id);
   };
 
   const resetForm = () => {
