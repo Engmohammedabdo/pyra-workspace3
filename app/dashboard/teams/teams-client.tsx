@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTeams } from '@/hooks/useTeams';
+import { useUsersLite } from '@/hooks/useUsers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,9 +43,11 @@ interface TeamMember {
 interface UserLite { username: string; display_name: string; }
 
 export default function TeamsClient() {
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [users, setUsers] = useState<UserLite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // React Query hooks
+  const { data: teams = [], isLoading: loading } = useTeams() as unknown as { data: Team[]; isLoading: boolean };
+  const { data: users = [] } = useUsersLite() as unknown as { data: UserLite[] };
   const [showCreate, setShowCreate] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -52,19 +57,7 @@ export default function TeamsClient() {
   const [form, setForm] = useState({ name: '', description: '' });
   const [newMember, setNewMember] = useState('');
 
-  const fetchTeams = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/teams');
-      const json = await res.json();
-      if (json.data) setTeams(json.data);
-    } catch (err) { console.error(err); } finally { setLoading(false); }
-  }, []);
 
-  useEffect(() => {
-    fetchTeams();
-    fetch('/api/users/lite').then(r => r.json()).then(json => { if (json.data) setUsers(json.data); }).catch(console.error);
-  }, [fetchTeams]);
 
   const fetchTeamDetail = async (teamId: string) => {
     try {
@@ -83,7 +76,7 @@ export default function TeamsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowCreate(false); setForm({ name: '', description: '' });
       toast.success('تم إنشاء الفريق بنجاح');
-      fetchTeams();
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -96,7 +89,7 @@ export default function TeamsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowEdit(false);
       toast.success('تم تحديث الفريق');
-      fetchTeams();
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 
@@ -109,7 +102,7 @@ export default function TeamsClient() {
       if (json.error) { toast.error(json.error); return; }
       setShowDelete(false);
       toast.success('تم حذف الفريق');
-      fetchTeams();
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
     } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
   };
 

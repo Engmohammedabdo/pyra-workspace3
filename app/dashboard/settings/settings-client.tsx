@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useSettings, useUpdateSettings } from '@/hooks/useSettings';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -930,34 +931,24 @@ function ModuleSettingsTab() {
    ═══════════════════════════════════════════════════════ */
 export default function SettingsClient() {
   const canManage = usePermission('settings.manage');
-  const [settings, setSettings] = useState<SettingsMap>({});
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
 
+  // React Query hooks
+  const { data: fetchedSettings, isLoading: loading } = useSettings() as { data: SettingsMap | undefined; isLoading: boolean };
+  const [settings, setSettings] = useState<SettingsMap>({});
+  const updateSettingsMutation = useUpdateSettings();
+
   useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(json => {
-        if (json.error) { toast.error(json.error); return; }
-        if (json.data) setSettings(json.data);
-      })
-      .catch(() => toast.error('فشل تحميل الإعدادات'))
-      .finally(() => setLoading(false));
-  }, []);
+    if (fetchedSettings) setSettings(fetchedSettings);
+  }, [fetchedSettings]);
 
   const handleSave = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      const res = await fetch('/api/settings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+      await updateSettingsMutation.mutateAsync(settings);
       setSaved(true);
       toast.success('تم حفظ الإعدادات بنجاح');
       setTimeout(() => setSaved(false), 3000);

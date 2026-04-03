@@ -73,14 +73,6 @@ export default function ProjectsClient() {
   const canDelete = usePermission('projects.delete');
   const queryClient = useQueryClient();
 
-  // React Query hooks
-  const { data: projects = [], isLoading: loading, refetch: refetchProjects } = useProjects({
-    search: debouncedSearch || undefined,
-    status: statusFilter !== 'all' ? statusFilter : undefined,
-  }) as { data: Project[]; isLoading: boolean; refetch: () => void };
-
-  const { data: clientsData = [] } = useClients() as { data: Array<{ company: string }> };
-  const companies = useMemo(() => [...new Set(clientsData.map(c => c.company))], [clientsData]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(() => {
@@ -97,6 +89,15 @@ export default function ProjectsClient() {
   const [form, setForm] = useState({ name: '', description: '', client_company: '', status: 'active', deadline: '', start_date: '' });
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [sortConfig, setSortConfig] = useState<SortConfig | null>(null);
+
+  // React Query hooks
+  const { data: projects = [], isLoading: loading, refetch: refetchProjects } = useProjects({
+    search: debouncedSearch || undefined,
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+  }) as unknown as { data: Project[]; isLoading: boolean; refetch: () => void };
+
+  const { data: clientsData = [] } = useClients() as unknown as { data: Array<{ company: string }> };
+  const companies = useMemo(() => [...new Set(clientsData.map(c => c.company))], [clientsData]);
 
   // Debounce search input
   useEffect(() => {

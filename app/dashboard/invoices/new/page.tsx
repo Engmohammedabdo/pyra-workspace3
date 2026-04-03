@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useClients } from '@/hooks/useClients';
+import { useSettings } from '@/hooks/useSettings';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,8 +19,6 @@ import { Input } from '@/components/ui/input';
 
 export default function NewInvoicePage() {
   const router = useRouter();
-  const [clients, setClients] = useState<any[]>([]);
-  const [loadingClients, setLoadingClients] = useState(true);
   const [entities, setEntities] = useState<any[]>([]);
   const [entityId, setEntityId] = useState('');
   const [clientId, setClientId] = useState('');
@@ -35,8 +35,11 @@ export default function NewInvoicePage() {
   const [saving, setSaving] = useState(false);
   const [sendAfterSave, setSendAfterSave] = useState(false);
 
+  // React Query hooks
+  const { data: clients = [], isLoading: loadingClients } = useClients({ limit: '100' }) as { data: any[]; isLoading: boolean };
+  const { data: settingsData } = useSettings() as { data: any };
+
   useEffect(() => {
-    fetch('/api/clients?limit=100').then(r => r.json()).then(j => { if(j.data) setClients(j.data); }).finally(() => setLoadingClients(false));
     fetch('/api/settings/business-entities').then(r => r.json()).then(j => {
       if(j.data) {
         setEntities(j.data);
@@ -44,17 +47,20 @@ export default function NewInvoicePage() {
         if (def) setEntityId(def.id);
       }
     });
-    fetch('/api/settings').then(r => r.json()).then(j => {
-      if(j.data) {
-        setVatRate(parseFloat(j.data.vat_rate));
-        const terms = parseInt(j.data.payment_terms_days);
-        if(!isNaN(terms)) {
-            const due = new Date(); due.setDate(due.getDate() + terms);
-            setDueDate(due.toISOString().split('T')[0]);
-        }
-      }
-    });
   }, []);
+
+  // Apply settings from hook
+  useEffect(() => {
+    if (settingsData) {
+      const rate = parseFloat(settingsData.vat_rate);
+      if (!isNaN(rate)) setVatRate(rate);
+      const terms = parseInt(settingsData.payment_terms_days);
+      if (!isNaN(terms)) {
+        const due = new Date(); due.setDate(due.getDate() + terms);
+        setDueDate(due.toISOString().split('T')[0]);
+      }
+    }
+  }, [settingsData]);
 
   const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.rate), 0);
   const discountAmount = discountType === 'percentage' ? Math.round(subtotal * (discountValue / 100) * 100) / 100 : discountType === 'fixed' ? Math.min(discountValue, subtotal) : 0;

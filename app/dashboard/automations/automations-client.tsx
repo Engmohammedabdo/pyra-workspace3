@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAutomations } from '@/hooks/useAutomations';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -51,10 +53,11 @@ const TRIGGER_LABELS: Record<string, string> = {
 
 export default function AutomationsClient() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
-  /* ── list state ── */
-  const [rules, setRules] = useState<AutomationRule[]>([]);
-  const [loading, setLoading] = useState(true);
+  // React Query hooks
+  const { data: rules = [], isLoading: loading } = useAutomations() as unknown as { data: AutomationRule[]; isLoading: boolean };
+
 
   /* ── delete dialog ── */
   const [showDelete, setShowDelete] = useState(false);
@@ -64,21 +67,7 @@ export default function AutomationsClient() {
   /* ── toggling state ── */
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  /* ── fetch rules ── */
-  const fetchRules = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch('/api/automations');
-      const json = await res.json();
-      if (json.data) setRules(json.data);
-    } catch {
-      toast.error('حدث خطأ في تحميل قواعد الأتمتة');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
-  useEffect(() => { fetchRules(); }, [fetchRules]);
 
   /* ── toggle enable/disable ── */
   const handleToggle = async (rule: AutomationRule) => {
@@ -91,9 +80,7 @@ export default function AutomationsClient() {
         return;
       }
       toast.success(json.data?.is_enabled ? 'تم تفعيل القاعدة' : 'تم تعطيل القاعدة');
-      setRules(prev => prev.map(r =>
-        r.id === rule.id ? { ...r, is_enabled: json.data.is_enabled } : r
-      ));
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
     } catch {
       toast.error('حدث خطأ');
     } finally {
@@ -115,7 +102,7 @@ export default function AutomationsClient() {
       setShowDelete(false);
       setSelected(null);
       toast.success('تم حذف القاعدة');
-      fetchRules();
+      queryClient.invalidateQueries({ queryKey: ['automations'] });
     } catch {
       toast.error('حدث خطأ');
     } finally {

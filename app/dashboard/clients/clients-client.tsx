@@ -128,7 +128,7 @@ export default function ClientsClient() {
     tag: tagFilter || undefined,
     sort: sortField,
     order: sortOrder,
-  }) as { data: Client[]; isLoading: boolean };
+  }) as unknown as { data: Client[]; isLoading: boolean };
 
   const createClientMutation = useCreateClient();
   const updateClientMutation = useUpdateClient();
