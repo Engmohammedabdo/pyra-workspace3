@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { BarChart3, ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
