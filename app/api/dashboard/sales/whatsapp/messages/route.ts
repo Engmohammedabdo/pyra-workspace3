@@ -1,21 +1,46 @@
 import { NextRequest } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { WA_MESSAGE_FIELDS } from '@/lib/supabase/fields';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 
+/**
+ * GET /api/dashboard/sales/whatsapp/messages
+ * Fetch messages for a conversation (by conversation_id or remote_jid).
+ *
+ * Shared Inbox scoping:
+ * - Admin: can see any conversation
+ * - Agent: must be assigned to the conversation
+ */
 export async function GET(request: NextRequest) {
   const auth = await requireApiPermission('sales_whatsapp.view');
   if (isApiError(auth)) return auth;
 
-  const supabase = await createServerSupabaseClient();
-  const { searchParams } = new URL(request.url);
-  const remoteJid = searchParams.get('remote_jid');
-  const leadId = searchParams.get('lead_id');
-  const instanceName = searchParams.get('instance_name');
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 200);
-  const offset = parseInt(searchParams.get('offset') || '0');
+  const supabase = createServiceRoleClient();
+  const sp = request.nextUrl.searchParams;
+
+  const conversationId = sp.get('conversation_id');
+  const remoteJid = sp.get('remote_jid');
+  const limit = Math.min(parseInt(sp.get('limit') || '100'), 200);
+  const offset = parseInt(sp.get('offset') || '0');
+  const search = sp.get('search')?.trim();
+
+  const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+
+  // Scoping: verify agent can access this conversation
+  if (!isAdmin && conversationId) {
+    const { data: conv } = await supabase
+      .from('pyra_whatsapp_conversations')
+      .select('assigned_to')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    // Agent can see assigned + unassigned conversations
+    if (conv && conv.assigned_to !== null && conv.assigned_to !== auth.pyraUser.username) {
+      return apiSuccess([]);
+    }
+  }
 
   let query = supabase
     .from('pyra_whatsapp_messages')
@@ -23,32 +48,27 @@ export async function GET(request: NextRequest) {
     .order('timestamp', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  // Agent scoping: only show messages from agent's instance
-  const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
-  if (!isAdmin) {
-    const { data: agentInstances } = await supabase
-      .from('pyra_whatsapp_instances')
-      .select('instance_name')
-      .eq('agent_username', auth.pyraUser.username);
-    const instanceNames = (agentInstances || []).map((i: { instance_name: string }) => i.instance_name);
-    if (instanceNames.length > 0) {
-      query = query.in('instance_name', instanceNames);
-    } else {
-      return apiSuccess([]);
-    }
+  // Filter by conversation_id (preferred) or remote_jid (legacy)
+  if (conversationId) {
+    query = query.eq('conversation_id', conversationId);
+  } else if (remoteJid) {
+    query = query.eq('remote_jid', remoteJid);
   }
 
-  if (remoteJid) query = query.eq('remote_jid', remoteJid);
-  if (leadId) query = query.eq('lead_id', leadId);
-  if (instanceName) query = query.eq('instance_name', instanceName);
-
-  // Search in message content
-  const search = searchParams.get('search')?.trim();
   if (search) {
     query = query.ilike('content', `%${search}%`);
   }
 
   const { data, error } = await query;
   if (error) return apiServerError(error.message);
+
+  // Mark conversation as read when agent opens messages
+  if (conversationId) {
+    void supabase
+      .from('pyra_whatsapp_conversations')
+      .update({ unread_count: 0 })
+      .eq('id', conversationId);
+  }
+
   return apiSuccess(data);
 }

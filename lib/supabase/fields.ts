@@ -192,3 +192,16 @@ export const SALES_LABEL_FIELDS = `
 export const WA_TEMPLATE_FIELDS = `
   id, title, content, category, shortcut, created_by, created_at
 `;
+
+export const WA_CONVERSATION_FIELDS = `
+  id, remote_jid, instance_name, contact_name, contact_phone,
+  lead_id, client_id, status, priority, assigned_to,
+  assigned_at, assigned_by, last_message, last_message_at,
+  last_customer_message_at, last_agent_message_at,
+  unread_count, is_pinned, created_at, updated_at
+`;
+
+export const CONVERSATION_NOTE_FIELDS = `
+  id, conversation_id, author_username, author_display_name,
+  content, created_at
+`;

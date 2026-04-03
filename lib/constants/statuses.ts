@@ -257,6 +257,38 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
 };
 
 // ── Currencies ──
+// ── Conversation (WhatsApp Shared Inbox) ──
+export const CONVERSATION_STATUS = {
+  OPEN: 'open',
+  PENDING: 'pending',
+  RESOLVED: 'resolved',
+} as const;
+
+export type ConversationStatus = typeof CONVERSATION_STATUS[keyof typeof CONVERSATION_STATUS];
+
+export const CONVERSATION_STATUS_LABELS: Record<ConversationStatus, string> = {
+  open: 'مفتوحة',
+  pending: 'بانتظار الرد',
+  resolved: 'محلولة',
+};
+
+export const CONVERSATION_PRIORITY = {
+  LOW: 'low',
+  NORMAL: 'normal',
+  HIGH: 'high',
+  URGENT: 'urgent',
+} as const;
+
+export type ConversationPriority = typeof CONVERSATION_PRIORITY[keyof typeof CONVERSATION_PRIORITY];
+
+export const CONVERSATION_PRIORITY_LABELS: Record<ConversationPriority, string> = {
+  low: 'منخفضة',
+  normal: 'عادية',
+  high: 'عالية',
+  urgent: 'عاجلة',
+};
+
+// ── Currencies ──
 export const CURRENCIES = [
   { value: 'AED', label: 'AED — درهم إماراتي' },
   { value: 'USD', label: 'USD — دولار أمريكي' },

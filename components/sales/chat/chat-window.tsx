@@ -39,6 +39,8 @@ interface ChatWindowProps {
   clientId?: string | null;
   phone?: string | null;
   assignedTo?: string | null;
+  conversationId?: string | null;
+  conversationStatus?: string | null;
   isAdmin?: boolean;
   onBack?: () => void;
   onConversationUpdated?: () => void;
@@ -46,7 +48,7 @@ interface ChatWindowProps {
 
 const POLL_INTERVAL = 5000;
 
-export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clientId, phone: phoneProp, assignedTo, isAdmin, onBack, onConversationUpdated }: ChatWindowProps) {
+export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clientId, phone: phoneProp, assignedTo, conversationId, conversationStatus, isAdmin, onBack, onConversationUpdated }: ChatWindowProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -66,11 +68,13 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
 
   const fetchMessages = useCallback(async () => {
     try {
-      const params = new URLSearchParams({
-        remote_jid: remoteJid,
-        instance_name: instanceName,
-        limit: '100',
-      });
+      const params = new URLSearchParams({ limit: '100' });
+      // Prefer conversation_id (shared inbox), fall back to remote_jid (legacy)
+      if (conversationId) {
+        params.set('conversation_id', conversationId);
+      } else {
+        params.set('remote_jid', remoteJid);
+      }
       const res = await fetch(`/api/dashboard/sales/whatsapp/messages?${params}`);
       const data = await res.json();
       const msgs = (data.data || []).reverse();
@@ -114,6 +118,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
         body: JSON.stringify({
           instance_name: instanceName,
           remote_jid: remoteJid,
+          conversation_id: conversationId || undefined,
           number: phone,
           text,
           lead_id: leadId,
@@ -166,6 +171,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
         body: JSON.stringify({
           instance_name: instanceName,
           remote_jid: remoteJid,
+          conversation_id: conversationId || undefined,
           number: phone,
           text: caption || undefined,
           media_url: mediaUrl,

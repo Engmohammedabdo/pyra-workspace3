@@ -6,20 +6,25 @@ import { useState } from 'react';
 import { formatRelativeDate } from '@/lib/utils/format';
 
 export interface Conversation {
+  id?: string;
   remote_jid: string;
   instance_name: string;
   lead_id: string | null;
   client_id: string | null;
   contact_name: string | null;
+  contact_phone?: string | null;
   phone: string | null;
   last_message: string | null;
-  last_message_type: string;
-  last_timestamp: string;
+  last_message_type?: string;
+  last_message_at?: string | null;
+  last_timestamp?: string;
   unread_count: number;
-  total_messages: number;
+  total_messages?: number;
   assigned_to?: string | null;
   is_pinned?: boolean;
   is_archived?: boolean;
+  status?: string;      // open | pending | resolved
+  priority?: string;    // low | normal | high | urgent
 }
 
 interface ConversationListProps {
@@ -112,8 +117,9 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
             const displayName = conv.contact_name || phone;
             const isSelected = conv.remote_jid === selectedJid;
             const avatarColor = getAvatarColor(conv.remote_jid);
-            const lastMsgPreview = conv.last_message_type !== 'text'
-              ? MEDIA_LABELS[conv.last_message_type] || '📎 ملف'
+            const msgType = conv.last_message_type || 'text';
+            const lastMsgPreview = msgType !== 'text'
+              ? MEDIA_LABELS[msgType] || '📎 ملف'
               : conv.last_message || '...';
 
             return (
@@ -155,7 +161,7 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                       )}
                     </div>
                     <span className="text-[10px] text-muted-foreground/50 shrink-0 tabular-nums">
-                      {formatRelativeDate(conv.last_timestamp)}
+                      {formatRelativeDate(conv.last_message_at || conv.last_timestamp || '')}
                     </span>
                   </div>
 
@@ -166,10 +172,20 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
                         +{phone}
                       </span>
                     )}
-                    {conv.assigned_to && (
+                    {conv.assigned_to ? (
                       <span className="text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">
                         {conv.assigned_to}
                       </span>
+                    ) : (
+                      <span className="text-[10px] bg-orange-50 dark:bg-orange-950/20 text-orange-600 dark:text-orange-400 px-1.5 py-0.5 rounded-full">
+                        غير مسند
+                      </span>
+                    )}
+                    {conv.status === 'pending' && (
+                      <span className="w-2 h-2 rounded-full bg-yellow-500 shrink-0" title="بانتظار الرد" />
+                    )}
+                    {conv.priority === 'urgent' && (
+                      <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" title="عاجل" />
                     )}
                   </div>
 

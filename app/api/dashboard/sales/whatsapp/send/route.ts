@@ -1,48 +1,55 @@
 import { NextRequest } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { evolutionClient } from '@/lib/evolution/client';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 
+/**
+ * POST /api/dashboard/sales/whatsapp/send
+ * Send a WhatsApp message via the shared inbox.
+ *
+ * Shared Inbox model:
+ * - Always uses 'pyraai' instance (single shared number)
+ * - Agent must be assigned to the conversation (or be admin)
+ * - Updates conversation timestamps after sending
+ */
 export async function POST(request: NextRequest) {
   const auth = await requireApiPermission('sales_whatsapp.send');
   if (isApiError(auth)) return auth;
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
   const body = await request.json();
-  const { instance_name, remote_jid, number, text, media_url, media_type, mime_type, file_name, lead_id, client_id } = body;
+  const {
+    conversation_id,
+    remote_jid,
+    number,
+    text,
+    media_url, media_type, mime_type, file_name,
+    lead_id, client_id,
+  } = body;
 
   if (!number) return apiError('رقم الهاتف مطلوب');
   if (!text && !media_url) return apiError('محتوى الرسالة مطلوب');
 
-  // Verify agent owns this instance (unless admin)
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
-  if (!isAdmin && instance_name) {
-    const { data: inst } = await supabase
-      .from('pyra_whatsapp_instances')
-      .select('agent_username')
-      .eq('instance_name', instance_name)
-      .single();
-    if (inst && inst.agent_username !== auth.pyraUser.username) {
-      return apiError('ليس لديك صلاحية استخدام هذا الـ Instance', 403);
+
+  // Shared Inbox: verify agent is assigned to the conversation (or admin)
+  if (!isAdmin && conversation_id) {
+    const { data: conv } = await supabase
+      .from('pyra_whatsapp_conversations')
+      .select('assigned_to')
+      .eq('id', conversation_id)
+      .maybeSingle();
+
+    if (conv && conv.assigned_to !== auth.pyraUser.username) {
+      return apiError('هذه المحادثة غير مسندة إليك', 403);
     }
   }
 
-  // Determine which instance to use
-  let instanceToUse = instance_name;
-  if (!instanceToUse) {
-    // Find agent's instance
-    const { data: agentInstance } = await supabase
-      .from('pyra_whatsapp_instances')
-      .select('instance_name')
-      .eq('agent_username', auth.pyraUser.username)
-      .eq('status', 'connected')
-      .single();
-    if (!agentInstance) return apiError('لا يوجد Instance متصل لحسابك');
-    instanceToUse = agentInstance.instance_name;
-  }
+  // Always use pyraai instance (shared inbox = single number)
+  const instanceToUse = 'pyraai';
 
   try {
     let response;
@@ -64,14 +71,25 @@ export async function POST(request: NextRequest) {
       response = await evolutionClient.sendText(instanceToUse, { number, text });
     }
 
-    // Use the original remote_jid if provided (preserves @lid format), or derive from response/number
     const finalRemoteJid = remote_jid || response.key?.remoteJid || `${number.replace(/\D/g, '')}@s.whatsapp.net`;
 
-    // Save to local database
+    // Find or create conversation_id
+    let convId = conversation_id;
+    if (!convId) {
+      const { data: conv } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('id')
+        .eq('remote_jid', finalRemoteJid)
+        .maybeSingle();
+      convId = conv?.id || null;
+    }
+
+    // Save message with conversation_id
     await supabase.from('pyra_whatsapp_messages').insert({
       id: generateId('wm'),
       instance_name: instanceToUse,
       remote_jid: finalRemoteJid,
+      conversation_id: convId || null,
       lead_id: lead_id || null,
       client_id: client_id || null,
       message_id: response.key?.id || null,
@@ -83,6 +101,16 @@ export async function POST(request: NextRequest) {
       status: 'sent',
       timestamp: new Date().toISOString(),
     });
+
+    // Update conversation timestamps
+    if (convId) {
+      await supabase.from('pyra_whatsapp_conversations').update({
+        last_message: content,
+        last_message_at: new Date().toISOString(),
+        last_agent_message_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).eq('id', convId);
+    }
 
     return apiSuccess({ message_id: response.key?.id, status: 'sent' });
   } catch (err) {

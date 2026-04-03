@@ -113,10 +113,74 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           ) || null;
         }
 
+        const msgTimestamp = msg.messageTimestamp
+          ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+          : new Date().toISOString();
+
+        // ── Upsert conversation (Shared Inbox model) ──
+        const { data: existingConv } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('id, assigned_to, status')
+          .eq('remote_jid', conversationJid)
+          .eq('instance_name', instanceName || 'pyraai')
+          .maybeSingle();
+
+        let conversationId: string;
+
+        if (existingConv) {
+          conversationId = existingConv.id;
+          const convUpdate: Record<string, unknown> = {
+            last_message: content || (messageType !== 'text' ? `[${messageType}]` : null),
+            last_message_at: msgTimestamp,
+            updated_at: new Date().toISOString(),
+          };
+          if (direction === 'incoming') {
+            convUpdate.last_customer_message_at = msgTimestamp;
+            convUpdate.unread_count = (existingConv as unknown as { unread_count?: number }).unread_count
+              ? Number((existingConv as unknown as { unread_count: number }).unread_count) + 1
+              : 1;
+            // Auto-reopen if resolved or pending
+            if (existingConv.status === 'resolved' || existingConv.status === 'pending') {
+              convUpdate.status = 'open';
+            }
+          } else {
+            convUpdate.last_agent_message_at = msgTimestamp;
+          }
+          // Update contact info if available
+          if (msg.pushName) convUpdate.contact_name = msg.pushName;
+          if (matchedLead?.id) convUpdate.lead_id = matchedLead.id;
+          if (matchedLead?.client_id) convUpdate.client_id = matchedLead.client_id;
+          if (phone) convUpdate.contact_phone = phone;
+
+          await supabase.from('pyra_whatsapp_conversations').update(convUpdate).eq('id', existingConv.id);
+        } else {
+          // New conversation — unassigned (admin will distribute)
+          conversationId = generateId('conv');
+          await supabase.from('pyra_whatsapp_conversations').insert({
+            id: conversationId,
+            remote_jid: conversationJid,
+            instance_name: instanceName || 'pyraai',
+            contact_name: msg.pushName || null,
+            contact_phone: phone || null,
+            lead_id: matchedLead?.id || null,
+            client_id: matchedLead?.client_id || null,
+            status: 'open',
+            priority: 'normal',
+            assigned_to: null, // Unassigned — admin distributes
+            last_message: content || (messageType !== 'text' ? `[${messageType}]` : null),
+            last_message_at: msgTimestamp,
+            last_customer_message_at: direction === 'incoming' ? msgTimestamp : null,
+            last_agent_message_at: direction === 'outgoing' ? msgTimestamp : null,
+            unread_count: direction === 'incoming' ? 1 : 0,
+          });
+        }
+
+        // ── Insert message with conversation_id ──
         await supabase.from('pyra_whatsapp_messages').insert({
           id: generateId('wm'),
           instance_name: instanceName,
           remote_jid: conversationJid,
+          conversation_id: conversationId,
           lead_id: matchedLead?.id || null,
           client_id: matchedLead?.client_id || null,
           message_id: msg.key.id || null,
@@ -127,9 +191,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           file_name: fileName,
           contact_name: msg.pushName || null,
           status: direction === 'incoming' ? 'received' : 'sent',
-          timestamp: msg.messageTimestamp
-            ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
-            : new Date().toISOString(),
+          timestamp: msgTimestamp,
           metadata: {
             pushName: msg.pushName,
             remoteJidAlt: msg.key.remoteJidAlt || null,
@@ -140,58 +202,41 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // Update lead's last_contact_at
         if (matchedLead?.id && direction === 'incoming') {
-          await supabase
+          void supabase
             .from('pyra_sales_leads')
-            .update({
-              last_contact_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            })
+            .update({ last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', matchedLead.id);
         }
 
-        // Auto-assign new conversations to instance owner + send notification
+        // ── Notifications (Shared Inbox) ──
         if (direction === 'incoming') {
-          const { data: existingAssignment } = await supabase
-            .from('pyra_whatsapp_assignments')
-            .select('id, assigned_to')
-            .eq('remote_jid', conversationJid)
-            .eq('instance_name', instanceName)
-            .maybeSingle();
+          const senderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
+          const preview = content
+            ? (content.length > 60 ? content.slice(0, 60) + '...' : content)
+            : (messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف');
 
-          let assignedAgent: string | null = existingAssignment?.assigned_to || null;
-
-          if (!existingAssignment) {
-            // Get instance owner
-            const { data: inst } = await supabase
-              .from('pyra_whatsapp_instances')
-              .select('agent_username')
-              .eq('instance_name', instanceName)
-              .maybeSingle();
-
-            if (inst?.agent_username) {
-              assignedAgent = inst.agent_username;
-              await supabase.from('pyra_whatsapp_assignments').insert({
-                id: generateId('wa'),
-                remote_jid: conversationJid,
-                instance_name: instanceName,
-                assigned_to: inst.agent_username,
-                assigned_by: 'system',
-              });
-            }
-          }
-
-          // Create notification ONLY for new conversations (first message), not every message
-          if (assignedAgent && !existingAssignment) {
-            const senderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
-            const preview = content ? (content.length > 60 ? content.slice(0, 60) + '...' : content) : (messageType !== 'text' ? `${messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 رسالة صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف'}` : 'رسالة جديدة');
-            await supabase.from('pyra_notifications').insert({
+          if (existingConv?.assigned_to) {
+            // Notify assigned agent
+            void supabase.from('pyra_notifications').insert({
               id: generateId('n'),
-              recipient_username: assignedAgent,
+              recipient_username: existingConv.assigned_to,
               type: 'whatsapp_message',
               title: `رسالة من ${senderName}`,
               message: preview,
               source_display_name: senderName,
-              target_path: `/dashboard/sales/chat`,
+              target_path: '/dashboard/sales/chat',
+              is_read: false,
+            });
+          } else if (!existingConv) {
+            // New unassigned conversation — notify admin
+            void supabase.from('pyra_notifications').insert({
+              id: generateId('n'),
+              recipient_username: 'admin',
+              type: 'whatsapp_new_conversation',
+              title: `محادثة جديدة من ${senderName}`,
+              message: `${preview} — بحاجة للتعيين`,
+              source_display_name: senderName,
+              target_path: '/dashboard/sales/chat',
               is_read: false,
             });
           }

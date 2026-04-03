@@ -1,164 +1,101 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
 
 /**
- * GET conversations — returns distinct contacts with last message and unread count.
+ * GET /api/dashboard/sales/whatsapp/conversations
+ * Shared Inbox — returns conversations from pyra_whatsapp_conversations table.
+ *
+ * Query params:
+ *   status   = open | pending | resolved | all (default: open)
+ *   assigned = me | unassigned | all (default: all)
+ *   search   = contact name or phone search
+ *   limit    = number (default: 100)
+ *
+ * Scoping:
+ *   Admin: sees ALL conversations
+ *   Agent: sees assigned_to=username + unassigned (to pick up)
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const auth = await requireApiPermission('sales_whatsapp.view');
   if (isApiError(auth)) return auth;
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
+  const sp = request.nextUrl.searchParams;
 
-  // Agent scoping: admin sees all, agents see their instances + assigned conversations
+  const statusFilter = sp.get('status') || 'open';
+  const assignedFilter = sp.get('assigned') || 'all';
+  const search = sp.get('search')?.trim() || '';
+  const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '100')));
+
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
-  let instanceFilter: string[] | null = null;
-  let assignedJids: Set<string> | null = null;
+  const username = auth.pyraUser.username;
 
-  if (!isAdmin) {
-    // Get agent's own instances
-    const { data: agentInstances } = await supabase
-      .from('pyra_whatsapp_instances')
-      .select('instance_name')
-      .eq('agent_username', auth.pyraUser.username);
-    instanceFilter = (agentInstances || []).map((i: { instance_name: string }) => i.instance_name);
+  try {
+    let query = supabase
+      .from('pyra_whatsapp_conversations')
+      .select(WA_CONVERSATION_FIELDS)
+      .order('is_pinned', { ascending: false })
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .limit(limit);
 
-    // Get conversations assigned to this agent
-    const { data: assignments } = await supabase
-      .from('pyra_whatsapp_assignments')
-      .select('remote_jid')
-      .eq('assigned_to', auth.pyraUser.username)
-      .eq('is_archived', false);
-    assignedJids = new Set((assignments || []).map((a: { remote_jid: string }) => a.remote_jid));
-
-    if (instanceFilter.length === 0 && assignedJids.size === 0) return apiSuccess([]);
-  }
-
-  // Load all assignments for enriching conversation data
-  const { data: allAssignments } = await supabase
-    .from('pyra_whatsapp_assignments')
-    .select('remote_jid, instance_name, assigned_to, is_pinned, is_archived');
-
-  const assignmentMap = new Map<string, { assigned_to: string; is_pinned: boolean; is_archived: boolean }>();
-  for (const a of allAssignments || []) {
-    assignmentMap.set(`${a.remote_jid}::${a.instance_name}`, {
-      assigned_to: a.assigned_to,
-      is_pinned: a.is_pinned,
-      is_archived: a.is_archived,
-    });
-  }
-
-  // Fetch messages ordered by timestamp (limit to recent 5000 to avoid loading 10K+ rows)
-  // For non-admin: we fetch from agent's instances + assigned JIDs (filtering done in-memory)
-  let query = supabase
-    .from('pyra_whatsapp_messages')
-    .select('id, instance_name, remote_jid, lead_id, client_id, direction, content, message_type, status, timestamp, contact_name, metadata')
-    .order('timestamp', { ascending: false })
-    .limit(5000);
-
-  // For non-admin with only instance filter (no assigned JIDs), filter at DB level for efficiency
-  if (instanceFilter && (!assignedJids || assignedJids.size === 0)) {
-    query = query.in('instance_name', instanceFilter);
-  }
-
-  const { data: messages, error } = await query;
-  if (error) return apiServerError(error.message);
-
-  // Group by remote_jid
-  const conversationMap = new Map<string, {
-    remote_jid: string;
-    instance_name: string;
-    lead_id: string | null;
-    client_id: string | null;
-    contact_name: string | null;
-    phone: string | null;
-    last_message: string | null;
-    last_message_type: string;
-    last_timestamp: string;
-    unread_count: number;
-    total_messages: number;
-    assigned_to: string | null;
-    is_pinned: boolean;
-    is_archived: boolean;
-  }>();
-
-  for (const msg of messages || []) {
-    const jid = msg.remote_jid;
-
-    // For non-admin: skip conversations not in agent's instances or assignments
-    if (!isAdmin && assignedJids) {
-      const inInstance = instanceFilter && instanceFilter.includes(msg.instance_name);
-      const isAssigned = assignedJids.has(jid);
-      if (!inInstance && !isAssigned) continue;
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
     }
 
-    if (!conversationMap.has(jid)) {
-      const meta = (msg.metadata || {}) as Record<string, unknown>;
-      const pushName = msg.contact_name || (meta.pushName as string) || null;
-
-      // Extract phone: from metadata.phone (set by webhook/sync), or from JID
-      let phone = (meta.phone as string) || null;
-      if (!phone) {
-        const altJid = (meta.remoteJidAlt as string) || '';
-        if (altJid) {
-          phone = altJid.replace('@s.whatsapp.net', '').replace('@c.us', '');
-        } else if (jid.includes('@s.whatsapp.net') || jid.includes('@c.us')) {
-          phone = jid.replace('@s.whatsapp.net', '').replace('@c.us', '');
-        }
+    // Assignment filter + scoping
+    if (isAdmin) {
+      if (assignedFilter === 'me') {
+        query = query.eq('assigned_to', username);
+      } else if (assignedFilter === 'unassigned') {
+        query = query.is('assigned_to', null);
       }
-
-      // Get assignment info
-      const assignment = assignmentMap.get(`${jid}::${msg.instance_name}`);
-
-      conversationMap.set(jid, {
-        remote_jid: jid,
-        instance_name: msg.instance_name,
-        lead_id: msg.lead_id,
-        client_id: msg.client_id,
-        contact_name: pushName,
-        phone,
-        last_message: msg.content,
-        last_message_type: msg.message_type,
-        last_timestamp: msg.timestamp,
-        unread_count: 0,
-        total_messages: 0,
-        assigned_to: assignment?.assigned_to || null,
-        is_pinned: assignment?.is_pinned || false,
-        is_archived: assignment?.is_archived || false,
-      });
+      // 'all' = no filter for admin
+    } else {
+      // Agent: sees only their assigned + unassigned
+      if (assignedFilter === 'me') {
+        query = query.eq('assigned_to', username);
+      } else if (assignedFilter === 'unassigned') {
+        query = query.is('assigned_to', null);
+      } else {
+        // Default for agent: assigned to me OR unassigned
+        query = query.or(`assigned_to.eq.${username},assigned_to.is.null`);
+      }
     }
 
-    const conv = conversationMap.get(jid)!;
-    conv.total_messages++;
-    if (msg.direction === 'incoming' && msg.status !== 'read') {
-      conv.unread_count++;
+    // Search by contact name or phone
+    if (search) {
+      query = query.or(`contact_name.ilike.%${search}%,contact_phone.ilike.%${search}%`);
     }
-    // Keep lead/client association if any message has it
-    if (msg.lead_id && !conv.lead_id) conv.lead_id = msg.lead_id;
-    if (msg.client_id && !conv.client_id) conv.client_id = msg.client_id;
-    // Keep contact name from column or metadata
-    if (!conv.contact_name) {
-      const name = msg.contact_name || ((msg.metadata || {}) as Record<string, unknown>).pushName as string;
-      if (name) conv.contact_name = name;
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Conversations query error:', error);
+      return apiServerError();
     }
-    // Keep phone from metadata
-    if (!conv.phone) {
-      const meta = (msg.metadata || {}) as Record<string, unknown>;
-      const phone = (meta.phone as string) || (meta.remoteJidAlt as string)?.replace('@s.whatsapp.net', '').replace('@c.us', '') || null;
-      if (phone) conv.phone = phone;
-    }
+
+    // Counts per status for tab badges
+    const [openRes, pendingRes, resolvedRes, unassignedRes] = await Promise.all([
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'resolved'),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).is('assigned_to', null).neq('status', 'resolved'),
+    ]);
+
+    const tabCounts = {
+      open: openRes.count || 0,
+      pending: pendingRes.count || 0,
+      resolved: resolvedRes.count || 0,
+      unassigned: unassignedRes.count || 0,
+    };
+
+    return apiSuccess(data || [], { counts: tabCounts });
+  } catch (err) {
+    console.error('GET /conversations error:', err);
+    return apiServerError();
   }
-
-  // Sort: pinned first, then by last_timestamp desc. Exclude archived.
-  const conversations = Array.from(conversationMap.values())
-    .filter(c => !c.is_archived)
-    .sort((a, b) => {
-      if (a.is_pinned && !b.is_pinned) return -1;
-      if (!a.is_pinned && b.is_pinned) return 1;
-      return new Date(b.last_timestamp).getTime() - new Date(a.last_timestamp).getTime();
-    });
-
-  return apiSuccess(conversations);
 }
