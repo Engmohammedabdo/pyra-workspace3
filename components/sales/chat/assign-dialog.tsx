@@ -21,6 +21,7 @@ interface AssignDialogProps {
 interface AgentOption {
   username: string;
   display_name: string;
+  is_online?: boolean;
 }
 
 export function AssignDialog({ open, conversationId, remoteJid, instanceName, currentAgent, onAssigned, onClose }: AssignDialogProps) {
@@ -32,13 +33,23 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
   useEffect(() => {
     if (!open) return;
 
-    // Fetch agents + workload in parallel
+    // Fetch agents + workload + online status in parallel
     Promise.all([
       fetch('/api/users?role=sales_agent').then(r => r.json()),
       fetch('/api/users?role=employee').then(r => r.json()),
       fetch('/api/users?role=admin').then(r => r.json()),
       fetch('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200').then(r => r.json()),
-    ]).then(([salesData, empData, adminData, convsData]) => {
+      fetch('/api/sessions').then(r => r.json()).catch(() => ({ data: [] })),
+    ]).then(([salesData, empData, adminData, convsData, sessionsData]) => {
+      // Build online set (active within last 5 minutes)
+      const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+      const onlineUsers = new Set<string>();
+      for (const s of sessionsData.data || []) {
+        if (s.last_activity && new Date(s.last_activity).getTime() > fiveMinAgo) {
+          onlineUsers.add(s.username);
+        }
+      }
+
       const all = [
         ...(salesData.data || []),
         ...(empData.data || []),
@@ -46,8 +57,11 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
       ].map((u: { username: string; display_name: string }) => ({
         username: u.username,
         display_name: u.display_name,
+        is_online: onlineUsers.has(u.username),
       }));
       const unique = Array.from(new Map(all.map(a => [a.username, a])).values());
+      // Sort: online first
+      unique.sort((a, b) => (b.is_online ? 1 : 0) - (a.is_online ? 1 : 0));
       setAgents(unique);
 
       // Calculate workload (active conversations per agent)
@@ -113,8 +127,13 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
                 <SelectItem value="__none__">بدون تعيين</SelectItem>
                 {agents.map(agent => (
                   <SelectItem key={agent.username} value={agent.username}>
-                    {agent.display_name}
-                    {workload[agent.username] ? ` (${workload[agent.username]} محادثة)` : ' (فارغ)'}
+                    <span className="flex items-center gap-1.5">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${agent.is_online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
+                      {agent.display_name}
+                      <span className="text-muted-foreground text-xs">
+                        {workload[agent.username] ? `(${workload[agent.username]})` : ''}
+                      </span>
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -123,6 +123,15 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
     }
   }
 
+  // Open templates when user types "/" at the start
+  useEffect(() => {
+    if (text === '/') {
+      setTemplatesOpen(true);
+      setTemplateSearch('');
+      setText('');
+    }
+  }, [text]);
+
   // ── Drag & Drop ──
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();

@@ -6,19 +6,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PipelineStagesManager } from '@/components/dashboard/sales-settings/pipeline-stages';
 import { WAInstancesManager } from '@/components/dashboard/sales-settings/wa-manager';
+import { CannedResponsesManager } from '@/components/dashboard/sales-settings/canned-responses';
 
 export function SalesSettingsContent() {
-  const [data, setData] = useState({ stages: [], instances: [], agents: [] });
+  const [data, setData] = useState({ stages: [], instances: [], agents: [], templates: [] });
   const [loading, setLoading] = useState(true);
 
   async function fetchAll() {
     try {
-      const [s, i, a] = await Promise.all([
+      const [s, i, a, t] = await Promise.all([
         fetch('/api/dashboard/sales/pipeline-stages').then(r => r.json()),
         fetch('/api/dashboard/sales/whatsapp/instances').then(r => r.json()),
         fetch('/api/users?role=sales_agent').then(r => r.json()),
+        fetch('/api/dashboard/sales/whatsapp/templates').then(r => r.json()),
       ]);
-      setData({ stages: s.data || [], instances: i.data || [], agents: a.data || [] });
+      setData({ stages: s.data || [], instances: i.data || [], agents: a.data || [], templates: t.data || [] });
     } catch { } finally { setLoading(false); }
   }
 
@@ -33,9 +35,11 @@ export function SalesSettingsContent() {
         <TabsList>
           <TabsTrigger value="stages">مراحل Pipeline</TabsTrigger>
           <TabsTrigger value="whatsapp">واتساب</TabsTrigger>
+          <TabsTrigger value="canned">ردود جاهزة</TabsTrigger>
         </TabsList>
         <TabsContent value="stages"><PipelineStagesManager stages={data.stages} onRefresh={fetchAll} /></TabsContent>
         <TabsContent value="whatsapp"><WAInstancesManager instances={data.instances} onRefresh={fetchAll} agents={data.agents} /></TabsContent>
+        <TabsContent value="canned"><CannedResponsesManager templates={data.templates} onRefresh={fetchAll} /></TabsContent>
       </Tabs>
     </div>
   );
