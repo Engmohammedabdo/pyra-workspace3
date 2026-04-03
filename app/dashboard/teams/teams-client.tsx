@@ -1,14 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { mutateAPI, fetchAPI } from '@/hooks/api-helpers';
 import { useTeams } from '@/hooks/useTeams';
 import { useUsersLite } from '@/hooks/useUsers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormLabel } from '@/components/ui/form-label';
-import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -45,7 +45,6 @@ interface UserLite { username: string; display_name: string; }
 export default function TeamsClient() {
   const queryClient = useQueryClient();
 
-  // React Query hooks
   const { data: teams = [], isLoading: loading } = useTeams() as unknown as { data: Team[]; isLoading: boolean };
   const { data: users = [] } = useUsersLite() as unknown as { data: UserLite[] };
   const [showCreate, setShowCreate] = useState(false);
@@ -53,82 +52,61 @@ export default function TeamsClient() {
   const [showDelete, setShowDelete] = useState(false);
   const [showMembers, setShowMembers] = useState(false);
   const [selected, setSelected] = useState<Team | null>(null);
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ name: '', description: '' });
   const [newMember, setNewMember] = useState('');
 
-
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['teams'] });
 
   const fetchTeamDetail = async (teamId: string) => {
     try {
-      const res = await fetch(`/api/teams/${teamId}`);
-      const json = await res.json();
-      if (json.data) setSelected(json.data);
+      const data = await fetchAPI<Team>(`/api/teams/${teamId}`);
+      setSelected(data);
     } catch (err) { console.error(err); }
   };
 
-  const handleCreate = async () => {
+  const createMutation = useMutation({
+    mutationFn: (data: typeof form) => mutateAPI('/api/teams', 'POST', data),
+    onSuccess: () => { setShowCreate(false); setForm({ name: '', description: '' }); toast.success('تم إنشاء الفريق بنجاح'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: typeof form }) => mutateAPI(`/api/teams/${id}`, 'PATCH', data),
+    onSuccess: () => { setShowEdit(false); toast.success('تم تحديث الفريق'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/teams/${id}`, 'DELETE'),
+    onSuccess: () => { setShowDelete(false); toast.success('تم حذف الفريق'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const addMemberMutation = useMutation({
+    mutationFn: ({ teamId, username }: { teamId: string; username: string }) =>
+      mutateAPI(`/api/teams/${teamId}/members`, 'POST', { username }),
+    onSuccess: () => { setNewMember(''); toast.success('تمت إضافة العضو'); if (selected) fetchTeamDetail(selected.id); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const removeMemberMutation = useMutation({
+    mutationFn: ({ teamId, username }: { teamId: string; username: string }) =>
+      mutateAPI(`/api/teams/${teamId}/members?username=${username}`, 'DELETE'),
+    onSuccess: () => { toast.success('تم إزالة العضو'); if (selected) fetchTeamDetail(selected.id); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const saving = createMutation.isPending || editMutation.isPending || deleteMutation.isPending || addMemberMutation.isPending;
+
+  const handleCreate = () => {
     if (!form.name.trim()) { toast.error('اسم الفريق مطلوب'); return; }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/teams', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowCreate(false); setForm({ name: '', description: '' });
-      toast.success('تم إنشاء الفريق بنجاح');
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    createMutation.mutate(form);
   };
 
-  const handleEdit = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/teams/${selected.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowEdit(false);
-      toast.success('تم تحديث الفريق');
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
-
-  const handleDelete = async () => {
-    if (!selected) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/teams/${selected.id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowDelete(false);
-      toast.success('تم حذف الفريق');
-      queryClient.invalidateQueries({ queryKey: ['teams'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
-
-  const addMember = async () => {
-    if (!selected || !newMember) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/teams/${selected.id}/members`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: newMember }) });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setNewMember('');
-      toast.success('تمت إضافة العضو');
-      fetchTeamDetail(selected.id);
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
-  };
-
-  const removeMember = async (username: string) => {
-    if (!selected) return;
-    try {
-      const res = await fetch(`/api/teams/${selected.id}/members?username=${username}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      toast.success('تم إزالة العضو');
-      fetchTeamDetail(selected.id);
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
-  };
+  const handleEdit = () => { if (!selected) return; editMutation.mutate({ id: selected.id, data: form }); };
+  const handleDelete = () => { if (!selected) return; deleteMutation.mutate(selected.id); };
+  const addMember = () => { if (!selected || !newMember) return; addMemberMutation.mutate({ teamId: selected.id, username: newMember }); };
+  const removeMember = (username: string) => { if (!selected) return; removeMemberMutation.mutate({ teamId: selected.id, username }); };
 
   const openMembers = async (team: Team) => {
     setSelected(team); setShowMembers(true);

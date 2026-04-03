@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { useUsers } from '@/hooks/useUsers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -100,7 +101,6 @@ export default function UsersClient() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<PyraUser | null>(null);
-  const [saving, setSaving] = useState(false);
   const [editStatus, setEditStatus] = useState('active');
 
   const [formData, setFormData] = useState({
@@ -130,24 +130,13 @@ export default function UsersClient() {
 
   // Fetch roles list on mount
   useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const res = await fetch('/api/roles');
-        const json = await res.json();
-        if (json.data) {
-          setRoles(json.data.map((r: RoleOption & Record<string, unknown>) => ({
-            id: r.id,
-            name: r.name,
-            name_ar: r.name_ar,
-            color: r.color,
-            icon: r.icon,
-          })));
-        }
-      } catch (err) {
-        console.error('Error fetching roles:', err);
+    fetch('/api/roles').then(r => r.json()).then(json => {
+      if (json.data) {
+        setRoles(json.data.map((r: RoleOption & Record<string, unknown>) => ({
+          id: r.id, name: r.name, name_ar: r.name_ar, color: r.color, icon: r.icon,
+        })));
       }
-    };
-    fetchRoles();
+    }).catch(err => console.error('Error fetching roles:', err));
   }, []);
 
 
@@ -172,88 +161,65 @@ export default function UsersClient() {
     });
   };
 
-  const handleCreate = async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          role_id: formData.role_id || null,
-          phone: formData.phone || null,
-          job_title: formData.job_title || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowCreateDialog(false);
-      resetFormData();
-      toast.success('تم إنشاء المستخدم بنجاح');
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
+
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/users', 'POST', data),
+    onSuccess: () => { setShowCreateDialog(false); resetFormData(); toast.success('تم إنشاء المستخدم بنجاح'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const editMutation = useMutation({
+    mutationFn: ({ username, data }: { username: string; data: object }) => mutateAPI(`/api/users/${username}`, 'PATCH', data),
+    onSuccess: () => { setShowEditDialog(false); toast.success('تم تحديث المستخدم'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: ({ username, password }: { username: string; password: string }) => mutateAPI(`/api/users/${username}/password`, 'POST', { new_password: password }),
+    onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success('تم تغيير كلمة المرور'); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (username: string) => mutateAPI(`/api/users/${username}`, 'DELETE'),
+    onSuccess: () => { setShowDeleteDialog(false); toast.success('تم حذف المستخدم'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const saving = createMutation.isPending || editMutation.isPending || passwordMutation.isPending || deleteMutation.isPending;
+
+  const handleCreate = () => {
+    createMutation.mutate({
+      ...formData,
+      role_id: formData.role_id || null,
+      phone: formData.phone || null,
+      job_title: formData.job_title || null,
+    });
   };
 
-  const handleEdit = async () => {
+  const handleEdit = () => {
     if (!selectedUser) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/users/${selectedUser.username}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          display_name: formData.display_name,
-          role: formData.role,
-          role_id: formData.role_id || null,
-          phone: formData.phone || null,
-          job_title: formData.job_title || null,
-          manager_username: formData.manager_username || null,
-          status: editStatus,
-          employment_type: formData.employment_type || null,
-          work_location: formData.work_location || null,
-          payment_type: formData.payment_type || null,
-          salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
-          hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
-          hire_date: formData.hire_date || null,
-          department: formData.department || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowEditDialog(false);
-      toast.success('تم تحديث المستخدم');
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    editMutation.mutate({ username: selectedUser.username, data: {
+      display_name: formData.display_name, role: formData.role, role_id: formData.role_id || null,
+      phone: formData.phone || null, job_title: formData.job_title || null,
+      manager_username: formData.manager_username || null, status: editStatus,
+      employment_type: formData.employment_type || null, work_location: formData.work_location || null,
+      payment_type: formData.payment_type || null,
+      salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
+      hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
+      hire_date: formData.hire_date || null, department: formData.department || null,
+    }});
   };
 
-  const handlePasswordChange = async () => {
+  const handlePasswordChange = () => {
     if (!selectedUser) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/users/${selectedUser.username}/password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ new_password: newPassword }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowPasswordDialog(false);
-      setNewPassword('');
-      toast.success('تم تغيير كلمة المرور');
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    passwordMutation.mutate({ username: selectedUser.username, password: newPassword });
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!selectedUser) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/users/${selectedUser.username}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowDeleteDialog(false);
-      toast.success('تم حذف المستخدم');
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setSaving(false); }
+    deleteMutation.mutate(selectedUser.username);
   };
 
   const openEdit = (user: PyraUser) => {

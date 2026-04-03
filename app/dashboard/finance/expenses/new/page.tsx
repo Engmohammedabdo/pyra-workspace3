@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -31,7 +31,6 @@ const PAYMENT_METHODS = [
 export default function NewExpensePage() {
   const router = useRouter();
   const { data: projects = [] } = useProjects({ pageSize: '100' });
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
     expense_date: new Date().toISOString().split('T')[0],
@@ -48,42 +47,34 @@ export default function NewExpensePage() {
     queryFn: () => fetchAPI('/api/dashboard/suppliers?limit=100&active=true'),
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/finance/expenses', 'POST', data),
+    onSuccess: () => {
+      toast.success('تم إضافة المصروف');
+      router.push('/dashboard/finance/expenses');
+    },
+    onError: () => toast.error('فشل في الحفظ'),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.amount || Number(form.amount) <= 0) {
       toast.error('المبلغ مطلوب');
       return;
     }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/finance/expenses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          amount: Number(form.amount),
-          vat_rate: Number(form.vat_rate),
-          category_id: form.category_id || null,
-          project_id: form.project_id || null,
-          supplier_id: form.supplier_id || null,
-          payment_method: form.payment_method || null,
-        }),
-      });
-      if (res.ok) {
-        toast.success('تم إضافة المصروف');
-        router.push('/dashboard/finance/expenses');
-      } else {
-        const json = await res.json();
-        toast.error(json.error || 'فشل في الحفظ');
-      }
-    } catch {
-      toast.error('فشل في الحفظ');
-    } finally {
-      setSaving(false);
-    }
+    createMutation.mutate({
+      ...form,
+      amount: Number(form.amount),
+      vat_rate: Number(form.vat_rate),
+      category_id: form.category_id || null,
+      project_id: form.project_id || null,
+      supplier_id: form.supplier_id || null,
+      payment_method: form.payment_method || null,
+    });
   };
 
   const update = (key: string, value: string | boolean) => setForm(prev => ({ ...prev, [key]: value }));
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -157,7 +148,7 @@ export default function NewExpensePage() {
                   <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">بدون مشروع</SelectItem>
-                    {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    {(projects as any[]).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>

@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +26,7 @@ interface Session {
 
 function parseUserAgent(ua: string): string {
   if (!ua) return 'غير معروف';
-  if (ua.includes('Edg')) return 'Edge';  // Edge Chromium uses "Edg/"
+  if (ua.includes('Edg')) return 'Edge';
   if (ua.includes('Firefox')) return 'Firefox';
   if (ua.includes('Chrome')) return 'Chrome';
   if (ua.includes('Safari')) return 'Safari';
@@ -35,14 +35,13 @@ function parseUserAgent(ua: string): string {
 
 function isActive(lastActivity: string): boolean {
   const diff = Date.now() - new Date(lastActivity).getTime();
-  return diff < 30 * 60 * 1000; // Active if within last 30 min
+  return diff < 30 * 60 * 1000;
 }
 
 export default function SessionsClient() {
   const canManage = usePermission('sessions.manage');
   const queryClient = useQueryClient();
   const [showTerminateAll, setShowTerminateAll] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   const { data: sessionsData, isLoading: loading } = useQuery<Session[]>({
     queryKey: ['sessions'],
@@ -52,39 +51,21 @@ export default function SessionsClient() {
 
   const sessions = sessionsData || [];
 
-  const terminateSession = useCallback(async (id: string) => {
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      toast.success('تم إنهاء الجلسة');
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
-  }, [queryClient]);
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['sessions'] });
 
-  const terminateAll = useCallback(async () => {
-    setSaving(true);
-    try {
-      const res = await fetch('/api/sessions', { method: 'DELETE' });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
-      setShowTerminateAll(false);
-      toast.success('تم إنهاء جميع الجلسات');
-      queryClient.invalidateQueries({ queryKey: ['sessions'] });
-    } catch (err) {
-      console.error(err);
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
-  }, [queryClient]);
+  const terminateMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/sessions/${id}`, 'DELETE'),
+    onSuccess: () => { toast.success('تم إنهاء الجلسة'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
 
+  const terminateAllMutation = useMutation({
+    mutationFn: () => mutateAPI('/api/sessions', 'DELETE'),
+    onSuccess: () => { setShowTerminateAll(false); toast.success('تم إنهاء جميع الجلسات'); invalidate(); },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const saving = terminateMutation.isPending || terminateAllMutation.isPending;
   const activeSessions = sessions.filter(s => isActive(s.last_activity));
 
   return (
@@ -103,7 +84,6 @@ export default function SessionsClient() {
         )}
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card>
           <CardContent className="p-4 flex items-center gap-3">
@@ -125,7 +105,6 @@ export default function SessionsClient() {
         </Card>
       </div>
 
-      {/* Table */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -174,7 +153,7 @@ export default function SessionsClient() {
                         variant="ghost"
                         size="sm"
                         className="text-destructive hover:text-destructive"
-                        onClick={() => terminateSession(session.id)}
+                        onClick={() => terminateMutation.mutate(session.id)}
                         disabled={saving}
                         title="إنهاء الجلسة"
                       >
@@ -190,7 +169,6 @@ export default function SessionsClient() {
         </CardContent>
       </Card>
 
-      {/* Terminate All Dialog */}
       <Dialog open={showTerminateAll} onOpenChange={setShowTerminateAll}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -204,7 +182,7 @@ export default function SessionsClient() {
           </p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTerminateAll(false)}>إلغاء</Button>
-            <Button variant="destructive" onClick={terminateAll} disabled={saving}>
+            <Button variant="destructive" onClick={() => terminateAllMutation.mutate()} disabled={saving}>
               {saving ? 'جارٍ الإنهاء...' : 'إنهاء الكل'}
             </Button>
           </DialogFooter>

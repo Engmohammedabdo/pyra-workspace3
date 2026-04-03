@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useSettings } from '@/hooks/useSettings';
 import { useRouter } from 'next/navigation';
@@ -38,13 +38,10 @@ export default function NewPurchaseOrderPage() {
   const [notes, setNotes] = useState('');
   const [vatRate, setVatRate] = useState(5);
   const [items, setItems] = useState<POItem[]>([{ description: '', quantity: 1, rate: 0 }]);
-  const [saving, setSaving] = useState(false);
-
-
 
   useEffect(() => {
-    if (settingsData?.vat_rate !== undefined) {
-      const rate = parseFloat(String(settingsData.vat_rate));
+    if ((settingsData as any)?.vat_rate !== undefined) {
+      const rate = parseFloat(String((settingsData as any).vat_rate));
       if (!isNaN(rate)) setVatRate(rate);
     }
   }, [settingsData]);
@@ -59,35 +56,27 @@ export default function NewPurchaseOrderPage() {
   const vatAmount = subtotal * (vatRate / 100);
   const total = subtotal + vatAmount;
 
-  const handleSubmit = async () => {
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI<{ id?: string }>('/api/dashboard/purchase-orders', 'POST', data),
+    onSuccess: (data) => {
+      toast.success('تم إنشاء أمر الشراء');
+      router.push(`/dashboard/finance/purchase-orders/${(data as any).id}`);
+    },
+    onError: () => toast.error('حدث خطأ'),
+  });
+
+  const handleSubmit = () => {
     const validItems = items.filter(item => item.description.trim());
     if (validItems.length === 0) { toast.error('يجب إضافة بند واحد على الأقل'); return; }
-
-    setSaving(true);
-    try {
-      const res = await fetch('/api/dashboard/purchase-orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          supplier_id: supplierId || null,
-          project_id: projectId || null,
-          issue_date: issueDate,
-          expected_delivery_date: deliveryDate || null,
-          notes: notes || null,
-          vat_rate: vatRate,
-          items: validItems.map(it => ({ description: it.description.trim(), quantity: it.quantity, rate: it.rate })),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || json.error) { toast.error(json.error || 'حدث خطأ'); return; }
-      toast.success('تم إنشاء أمر الشراء');
-      router.push(`/dashboard/finance/purchase-orders/${json.data?.id}`);
-    } catch {
-      toast.error('حدث خطأ');
-    } finally {
-      setSaving(false);
-    }
+    createMutation.mutate({
+      supplier_id: supplierId || null, project_id: projectId || null,
+      issue_date: issueDate, expected_delivery_date: deliveryDate || null,
+      notes: notes || null, vat_rate: vatRate,
+      items: validItems.map(it => ({ description: it.description.trim(), quantity: it.quantity, rate: it.rate })),
+    });
   };
+
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -120,20 +109,14 @@ export default function NewPurchaseOrderPage() {
                 <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">بدون مشروع</SelectItem>
-                  {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {(projects as any[]).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>تاريخ الإصدار</Label>
-              <Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>تاريخ التسليم المتوقع</Label>
-              <Input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label>تاريخ الإصدار</Label><Input type="date" value={issueDate} onChange={e => setIssueDate(e.target.value)} /></div>
+            <div className="space-y-2"><Label>تاريخ التسليم المتوقع</Label><Input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} /></div>
           </div>
           <div className="space-y-2">
             <Label>ملاحظات</Label>
@@ -149,37 +132,22 @@ export default function NewPurchaseOrderPage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="hidden sm:grid sm:grid-cols-12 gap-2 text-xs font-medium text-muted-foreground pb-1 border-b">
-            <div className="col-span-5">الوصف</div>
-            <div className="col-span-2">الكمية</div>
-            <div className="col-span-2">السعر</div>
-            <div className="col-span-2">المبلغ</div>
-            <div className="col-span-1" />
+            <div className="col-span-5">الوصف</div><div className="col-span-2">الكمية</div>
+            <div className="col-span-2">السعر</div><div className="col-span-2">المبلغ</div><div className="col-span-1" />
           </div>
           {items.map((item, index) => (
             <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
-              <div className="sm:col-span-5">
-                <Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder="وصف البند" />
-              </div>
-              <div className="sm:col-span-2">
-                <Input type="number" min={1} value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} />
-              </div>
-              <div className="sm:col-span-2">
-                <Input type="number" min={0} step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} />
-              </div>
+              <div className="sm:col-span-5"><Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder="وصف البند" /></div>
+              <div className="sm:col-span-2"><Input type="number" min={1} value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} /></div>
+              <div className="sm:col-span-2"><Input type="number" min={0} step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} /></div>
               <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.quantity * item.rate)}</div>
               <div className="sm:col-span-1 flex justify-end">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={items.length <= 1} onClick={() => removeItem(index)}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={items.length <= 1} onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
           ))}
-
           <div className="border-t pt-4 mt-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>المجموع الفرعي</span>
-              <span className="font-mono">{formatCurrency(subtotal)}</span>
-            </div>
+            <div className="flex justify-between text-sm"><span>المجموع الفرعي</span><span className="font-mono">{formatCurrency(subtotal)}</span></div>
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span>ضريبة القيمة المضافة</span>
@@ -188,10 +156,7 @@ export default function NewPurchaseOrderPage() {
               </div>
               <span className="font-mono">{formatCurrency(vatAmount)}</span>
             </div>
-            <div className="flex justify-between text-base font-bold border-t pt-2">
-              <span>الإجمالي</span>
-              <span className="font-mono">{formatCurrency(total)}</span>
-            </div>
+            <div className="flex justify-between text-base font-bold border-t pt-2"><span>الإجمالي</span><span className="font-mono">{formatCurrency(total)}</span></div>
           </div>
         </CardContent>
       </Card>

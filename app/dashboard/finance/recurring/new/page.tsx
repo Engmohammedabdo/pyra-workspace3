@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Loader2, Save } from 'lucide-react';
@@ -17,19 +19,12 @@ export default function CreateRecurringInvoicePage() {
   const [form, setForm] = useState({ title: '', client_id: '', contract_id: '', billing_cycle: 'monthly', next_generation_date: '', currency: 'AED', auto_send: false });
   const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, rate: 0, amount: 0 }]);
   const { data: clients = [] } = useClients({ pageSize: '100' });
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const contRes = await fetch('/api/finance/contracts?pageSize=100');
-        const contData = await contRes.json();
-        setContracts(contData.data || contData.contracts || []);
-      } catch { console.error('Failed to fetch data'); }
-    }
-    fetchData();
-  }, []);
+  const { data: contractsData } = useQuery<Contract[]>({
+    queryKey: ['contracts-list'],
+    queryFn: () => fetchAPI('/api/finance/contracts?pageSize=100'),
+  });
+  const contracts = contractsData || [];
 
   const updateForm = (field: string, value: any) => setForm((prev) => ({ ...prev, [field]: value }));
   const updateItem = (index: number, field: keyof LineItem, value: any) => {
@@ -43,21 +38,22 @@ export default function CreateRecurringInvoicePage() {
   const addItem = () => setItems((prev) => [...prev, { description: '', quantity: 1, rate: 0, amount: 0 }]);
   const removeItem = (index: number) => { if (items.length > 1) setItems((prev) => prev.filter((_, i) => i !== index)); };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim()) { toast.error('يرجى إدخال عنوان الفاتورة المتكررة'); return; }
-    setLoading(true);
-    try {
-      const res = await fetch('/api/finance/recurring-invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, items }),
-      });
-      if (!res.ok) throw new Error('فشل في إنشاء الفاتورة');
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/finance/recurring-invoices', 'POST', data),
+    onSuccess: () => {
       toast.success('تم إنشاء الفاتورة المتكررة بنجاح');
       router.push('/dashboard/finance/recurring');
-    } catch { toast.error('حدث خطأ أثناء إنشاء الفاتورة'); } finally { setLoading(false); }
+    },
+    onError: () => toast.error('حدث خطأ أثناء إنشاء الفاتورة'),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) { toast.error('يرجى إدخال عنوان الفاتورة المتكررة'); return; }
+    createMutation.mutate({ ...form, items });
   };
+
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -66,11 +62,11 @@ export default function CreateRecurringInvoicePage() {
         <h1 className="text-2xl font-bold">إنشاء فاتورة متكررة جديدة</h1>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <BasicInfo form={form} clients={clients} contracts={contracts} updateForm={updateForm} />
+        <BasicInfo form={form} clients={clients as any[]} contracts={contracts} updateForm={updateForm} />
         <LineItems items={items} currency={form.currency} updateItem={updateItem} addItem={addItem} removeItem={removeItem} />
         <div className="flex justify-end gap-3">
           <Button type="button" variant="outline" onClick={() => router.push('/dashboard/finance/recurring')}>إلغاء</Button>
-          <Button type="submit" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />} حفظ الفاتورة المتكررة</Button>
+          <Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />} حفظ الفاتورة المتكررة</Button>
         </div>
       </form>
     </div>

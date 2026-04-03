@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useUsers } from '@/hooks/useUsers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -233,7 +233,6 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [newEval, setNewEval] = useState({
     period_id: '',
     employee_username: '',
@@ -245,11 +244,9 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const [scoreOpen, setScoreOpen] = useState(false);
   const [scoreEvalId, setScoreEvalId] = useState<string | null>(null);
   const [scoreValues, setScoreValues] = useState<Record<string, { score: number; comment: string }>>({});
-  const [savingScores, setSavingScores] = useState(false);
 
   // Comment fields for evaluation
   const [editComments, setEditComments] = useState({ comments: '', strengths: '', improvements: '' });
-  const [savingComments, setSavingComments] = useState(false);
 
   const fetchData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['evaluations'] });
@@ -303,32 +300,62 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     }
   };
 
-  const handleCreate = async () => {
+  const createEvalMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations', 'POST', data),
+    onSuccess: () => {
+      toast.success('تم إنشاء التقييم بنجاح');
+      setCreateOpen(false);
+      setNewEval({ period_id: '', employee_username: '', evaluator_username: '', evaluation_type: 'manager' });
+      fetchData();
+    },
+    onError: () => toast.error('فشل في إنشاء التقييم'),
+  });
+
+  const saveScoresMutation = useMutation({
+    mutationFn: ({ evalId, scores }: { evalId: string; scores: object[] }) =>
+      mutateAPI(`/api/dashboard/evaluations/${evalId}/scores`, 'POST', { scores }),
+    onSuccess: () => {
+      toast.success('تم حفظ الدرجات بنجاح');
+      setScoreOpen(false);
+      if (expandedId && scoreEvalId && expandedId === scoreEvalId) refreshExpanded(scoreEvalId);
+      fetchData();
+    },
+    onError: () => toast.error('فشل في حفظ الدرجات'),
+  });
+
+  const submitEvalMutation = useMutation({
+    mutationFn: (evalId: string) => mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'submit' }),
+    onSuccess: (_d, evalId) => {
+      toast.success('تم تقديم التقييم بنجاح');
+      fetchData();
+      if (expandedId === evalId) refreshExpanded(evalId);
+    },
+    onError: () => toast.error('فشل في تقديم التقييم'),
+  });
+
+  const acknowledgeEvalMutation = useMutation({
+    mutationFn: (evalId: string) => mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'acknowledge' }),
+    onSuccess: (_d, evalId) => {
+      toast.success('تم الاعتراف بالتقييم بنجاح');
+      fetchData();
+      if (expandedId === evalId) refreshExpanded(evalId);
+    },
+    onError: () => toast.error('فشل في الاعتراف بالتقييم'),
+  });
+
+  const saveCommentsMutation = useMutation({
+    mutationFn: ({ evalId, comments }: { evalId: string; comments: object }) =>
+      mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', comments),
+    onSuccess: () => toast.success('تم حفظ الملاحظات'),
+    onError: () => toast.error('فشل في حفظ الملاحظات'),
+  });
+
+  const handleCreate = () => {
     if (!newEval.period_id || !newEval.employee_username || !newEval.evaluator_username) {
       toast.error('جميع الحقول مطلوبة');
       return;
     }
-    setCreating(true);
-    try {
-      const res = await fetch('/api/dashboard/evaluations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newEval),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم إنشاء التقييم بنجاح');
-        setCreateOpen(false);
-        setNewEval({ period_id: '', employee_username: '', evaluator_username: '', evaluation_type: 'manager' });
-        fetchData();
-      }
-    } catch {
-      toast.error('فشل في إنشاء التقييم');
-    } finally {
-      setCreating(false);
-    }
+    createEvalMutation.mutate(newEval);
   };
 
   const handleOpenScoring = (evalId: string) => {
@@ -351,104 +378,17 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     setScoreOpen(true);
   };
 
-  const handleSaveScores = async () => {
+  const handleSaveScores = () => {
     if (!scoreEvalId) return;
-    setSavingScores(true);
-    try {
-      const scores = Object.entries(scoreValues).map(([criteria_id, v]) => ({
-        criteria_id,
-        score: v.score,
-        comment: v.comment || undefined,
-      }));
-
-      const res = await fetch(`/api/dashboard/evaluations/${scoreEvalId}/scores`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scores }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم حفظ الدرجات بنجاح');
-        setScoreOpen(false);
-        // Refresh expanded data
-        if (expandedId === scoreEvalId) {
-          refreshExpanded(scoreEvalId);
-        }
-        fetchData();
-      }
-    } catch {
-      toast.error('فشل في حفظ الدرجات');
-    } finally {
-      setSavingScores(false);
-    }
+    const scores = Object.entries(scoreValues).map(([criteria_id, v]) => ({
+      criteria_id, score: v.score, comment: v.comment || undefined,
+    }));
+    saveScoresMutation.mutate({ evalId: scoreEvalId, scores });
   };
 
-  const handleSubmit = async (evalId: string) => {
-    try {
-      const res = await fetch(`/api/dashboard/evaluations/${evalId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'submit' }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم تقديم التقييم بنجاح');
-        fetchData();
-        if (expandedId === evalId) {
-          refreshExpanded(evalId);
-        }
-      }
-    } catch {
-      toast.error('فشل في تقديم التقييم');
-    }
-  };
-
-  const handleAcknowledge = async (evalId: string) => {
-    try {
-      const res = await fetch(`/api/dashboard/evaluations/${evalId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'acknowledge' }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم الاعتراف بالتقييم بنجاح');
-        fetchData();
-        if (expandedId === evalId) {
-          refreshExpanded(evalId);
-        }
-      }
-    } catch {
-      toast.error('فشل في الاعتراف بالتقييم');
-    }
-  };
-
-  const handleSaveComments = async (evalId: string) => {
-    setSavingComments(true);
-    try {
-      const res = await fetch(`/api/dashboard/evaluations/${evalId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editComments),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم حفظ الملاحظات');
-      }
-    } catch {
-      toast.error('فشل في حفظ الملاحظات');
-    } finally {
-      setSavingComments(false);
-    }
-  };
+  const handleSubmit = (evalId: string) => submitEvalMutation.mutate(evalId);
+  const handleAcknowledge = (evalId: string) => acknowledgeEvalMutation.mutate(evalId);
+  const handleSaveComments = (evalId: string) => saveCommentsMutation.mutate({ evalId, comments: editComments });
 
   const renderStars = (rating: number | null) => {
     if (!rating) return <span className="text-muted-foreground text-sm">—</span>;
@@ -687,10 +627,10 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                           <Button
                             size="sm"
                             onClick={() => handleSaveComments(ev.id)}
-                            disabled={savingComments}
+                            disabled={saveCommentsMutation.isPending}
                             className="bg-orange-500 hover:bg-orange-600 text-white"
                           >
-                            {savingComments ? 'جارٍ الحفظ...' : 'حفظ الملاحظات'}
+                            {saveCommentsMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الملاحظات'}
                           </Button>
                         </CardContent>
                       </Card>
@@ -851,10 +791,10 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={creating}
+              disabled={createEvalMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {creating ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createEvalMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -929,10 +869,10 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
             </Button>
             <Button
               onClick={handleSaveScores}
-              disabled={savingScores}
+              disabled={saveScoresMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {savingScores ? 'جارٍ الحفظ...' : 'حفظ الدرجات'}
+              {saveScoresMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الدرجات'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -949,20 +889,13 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [newPeriod, setNewPeriod] = useState({
-    name: '',
-    name_ar: '',
-    start_date: '',
-    end_date: '',
-  });
+  const [newPeriod, setNewPeriod] = useState({ name: '', name_ar: '', start_date: '', end_date: '' });
 
   const fetchPeriods = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/dashboard/evaluations/periods');
-      const json = await res.json();
-      if (json.data) setPeriods(json.data);
+      const data = await fetchAPI<EvaluationPeriod[]>('/api/dashboard/evaluations/periods');
+      setPeriods(data || []);
     } catch {
       toast.error('فشل في تحميل الفترات');
     } finally {
@@ -970,56 +903,26 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
     }
   }, []);
 
-  useEffect(() => {
-    fetchPeriods();
-  }, [fetchPeriods]);
+  useEffect(() => { fetchPeriods(); }, [fetchPeriods]);
 
-  const handleCreate = async () => {
-    if (!newPeriod.name || !newPeriod.name_ar || !newPeriod.start_date || !newPeriod.end_date) {
-      toast.error('جميع الحقول مطلوبة');
-      return;
-    }
-    setCreating(true);
-    try {
-      const res = await fetch('/api/dashboard/evaluations/periods', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newPeriod),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم إنشاء الفترة بنجاح');
-        setCreateOpen(false);
-        setNewPeriod({ name: '', name_ar: '', start_date: '', end_date: '' });
-        fetchPeriods();
-      }
-    } catch {
-      toast.error('فشل في إنشاء الفترة');
-    } finally {
-      setCreating(false);
-    }
+  const createPeriodMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations/periods', 'POST', data),
+    onSuccess: () => { toast.success('تم إنشاء الفترة بنجاح'); setCreateOpen(false); setNewPeriod({ name: '', name_ar: '', start_date: '', end_date: '' }); fetchPeriods(); },
+    onError: () => toast.error('فشل في إنشاء الفترة'),
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => mutateAPI(`/api/dashboard/evaluations/periods/${id}`, 'PATCH', { status }),
+    onSuccess: (_d, { status }) => { toast.success(`تم تحديث الحالة إلى "${STATUS_LABELS[status]}"`); fetchPeriods(); },
+    onError: () => toast.error('فشل في تحديث الحالة'),
+  });
+
+  const handleCreate = () => {
+    if (!newPeriod.name || !newPeriod.name_ar || !newPeriod.start_date || !newPeriod.end_date) { toast.error('جميع الحقول مطلوبة'); return; }
+    createPeriodMutation.mutate(newPeriod);
   };
 
-  const handleUpdateStatus = async (id: string, status: string) => {
-    try {
-      const res = await fetch(`/api/dashboard/evaluations/periods/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success(`تم تحديث الحالة إلى "${STATUS_LABELS[status]}"`);
-        fetchPeriods();
-      }
-    } catch {
-      toast.error('فشل في تحديث الحالة');
-    }
-  };
+  const handleUpdateStatus = (id: string, status: string) => updateStatusMutation.mutate({ id, status });
 
   if (loading) {
     return (
@@ -1149,10 +1052,10 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={creating}
+              disabled={createPeriodMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {creating ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createPeriodMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1171,7 +1074,6 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
   const [users, setUsers] = useState<PyraUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [newKpi, setNewKpi] = useState({
     username: '',
     period_id: '',
@@ -1214,36 +1116,27 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
     fetchData();
   }, [fetchData]);
 
-  const handleCreate = async () => {
+  const createKpiMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/dashboard/kpi', 'POST', data),
+    onSuccess: () => {
+      toast.success('تم إنشاء مؤشر الأداء بنجاح');
+      setCreateOpen(false);
+      setNewKpi({ username: '', period_id: '', title: '', target_value: '', unit: '' });
+      fetchData();
+    },
+    onError: () => toast.error('فشل في إنشاء مؤشر الأداء'),
+  });
+
+  const handleCreate = () => {
     if (!newKpi.username || !newKpi.title) {
       toast.error('اسم المستخدم والعنوان مطلوبان');
       return;
     }
-    setCreating(true);
-    try {
-      const res = await fetch('/api/dashboard/kpi', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...newKpi,
-          target_value: newKpi.target_value ? parseFloat(newKpi.target_value) : null,
-          period_id: newKpi.period_id || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم إنشاء مؤشر الأداء بنجاح');
-        setCreateOpen(false);
-        setNewKpi({ username: '', period_id: '', title: '', target_value: '', unit: '' });
-        fetchData();
-      }
-    } catch {
-      toast.error('فشل في إنشاء مؤشر الأداء');
-    } finally {
-      setCreating(false);
-    }
+    createKpiMutation.mutate({
+      ...newKpi,
+      target_value: newKpi.target_value ? parseFloat(newKpi.target_value) : null,
+      period_id: newKpi.period_id || null,
+    });
   };
 
   const getProgressPercent = (target: number | null, actual: number): number => {
@@ -1410,10 +1303,10 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={creating}
+              disabled={createKpiMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {creating ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createKpiMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
             </Button>
           </DialogFooter>
         </DialogContent>

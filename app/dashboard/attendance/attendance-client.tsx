@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,10 +27,6 @@ import {
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
-// ============================================================
-// Types
-// ============================================================
-
 interface AttendanceRecord {
   id: string;
   username: string;
@@ -52,10 +48,6 @@ interface AttendanceSummary {
   avg_hours_per_day: number;
   expected_work_days: number;
 }
-
-// ============================================================
-// Constants
-// ============================================================
 
 const STATUS_STYLES: Record<string, string> = {
   present: 'bg-green-500/10 text-green-600 dark:text-green-400',
@@ -82,14 +74,9 @@ const MONTH_NAMES_AR = [
 
 const DAY_NAMES_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
-// ============================================================
-// Helpers
-// ============================================================
-
 function formatTime(isoString: string | null): string {
   if (!isoString) return '—';
   const d = new Date(isoString);
-  // Show in UAE timezone (UTC+4)
   return d.toLocaleTimeString('ar-AE', {
     hour: '2-digit',
     minute: '2-digit',
@@ -115,36 +102,27 @@ function getTodayUAE(): string {
   return uaeNow.toISOString().slice(0, 10);
 }
 
-// ============================================================
-// Component
-// ============================================================
-
 interface AttendanceClientProps {
   session: AuthSession;
 }
 
 export default function AttendanceClient({ session }: AttendanceClientProps) {
   const queryClient = useQueryClient();
-  const [clockingIn, setClockingIn] = useState(false);
-  const [clockingOut, setClockingOut] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [workSchedule, setWorkSchedule] = useState<any>(null);
 
-  // Month navigation
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
 
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'attendance.manage');
 
-  // Live clock update
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch work schedule for dynamic weekend detection
   useQuery({
     queryKey: ['work-schedules'],
     queryFn: async () => {
@@ -182,53 +160,18 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
     queryClient.invalidateQueries({ queryKey: ['attendance-summary', monthKey] });
   }, [queryClient, monthKey]);
 
-  // Clock in handler
-  const handleClockIn = async () => {
-    try {
-      setClockingIn(true);
-      const res = await fetch('/api/dashboard/attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في تسجيل الدخول');
-        return;
-      }
-      toast.success('تم تسجيل الدخول بنجاح');
-      fetchData();
-    } catch {
-      toast.error('حدث خطأ أثناء تسجيل الدخول');
-    } finally {
-      setClockingIn(false);
-    }
-  };
+  const clockInMutation = useMutation({
+    mutationFn: () => mutateAPI('/api/dashboard/attendance', 'POST', {}),
+    onSuccess: () => { toast.success('تم تسجيل الدخول بنجاح'); fetchData(); },
+    onError: () => toast.error('حدث خطأ أثناء تسجيل الدخول'),
+  });
 
-  // Clock out handler
-  const handleClockOut = async () => {
-    try {
-      setClockingOut(true);
-      const res = await fetch('/api/dashboard/attendance/clock-out', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في تسجيل الانصراف');
-        return;
-      }
-      toast.success('تم تسجيل الانصراف بنجاح');
-      fetchData();
-    } catch {
-      toast.error('حدث خطأ أثناء تسجيل الانصراف');
-    } finally {
-      setClockingOut(false);
-    }
-  };
+  const clockOutMutation = useMutation({
+    mutationFn: () => mutateAPI('/api/dashboard/attendance/clock-out', 'POST', {}),
+    onSuccess: () => { toast.success('تم تسجيل الانصراف بنجاح'); fetchData(); },
+    onError: () => toast.error('حدث خطأ أثناء تسجيل الانصراف'),
+  });
 
-  // Month navigation
   const goToPreviousMonth = () => {
     if (selectedMonth === 1) {
       setSelectedMonth(12);
@@ -247,7 +190,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
     }
   };
 
-  // Calculate time worked so far today (live)
   const getElapsedTime = (): string => {
     if (!todayRecord?.clock_in || todayRecord.clock_out) return '';
     const clockIn = new Date(todayRecord.clock_in);
@@ -258,24 +200,20 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
     return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   };
 
-  // Determine clock-in/out state
   const isClockedIn = todayRecord?.clock_in && !todayRecord?.clock_out;
   const isClockedOut = todayRecord?.clock_in && todayRecord?.clock_out;
 
-  // Calendar data
   const buildCalendarDays = () => {
     const firstDay = new Date(selectedYear, selectedMonth - 1, 1);
     const lastDay = new Date(selectedYear, selectedMonth, 0).getDate();
-    const startDayOfWeek = firstDay.getDay(); // 0=Sunday
+    const startDayOfWeek = firstDay.getDay();
 
     const days: Array<{ day: number; date: string; status?: string } | null> = [];
 
-    // Empty cells before the 1st
     for (let i = 0; i < startDayOfWeek; i++) {
       days.push(null);
     }
 
-    // Build record map for quick lookup
     const recordMap = new Map<string, string>();
     records.forEach(r => {
       recordMap.set(r.date, r.status);
@@ -285,7 +223,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayDate = new Date(selectedYear, selectedMonth - 1, d);
       const dayOfWeek = dayDate.getDay();
-      // Use work schedule for dynamic weekend detection; default to Sun-Thu (0-4) if no schedule
       const scheduledWorkDays: number[] = workSchedule?.work_days ?? [0, 1, 2, 3, 4];
       const isWeekend = !scheduledWorkDays.includes(dayOfWeek);
 
@@ -314,10 +251,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
     }
   };
 
-  // ============================================================
-  // Render
-  // ============================================================
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -329,7 +262,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
       <Card className="border-0 shadow-sm">
         <CardContent className="pt-6">
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
-            {/* Left: Current Time + Status */}
             <div className="flex flex-col items-center sm:items-start gap-2">
               <div className="flex items-center gap-2 text-muted-foreground text-sm">
                 <Clock className="h-4 w-4" />
@@ -351,7 +283,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
                 </span>
               </div>
 
-              {/* Status message */}
               {loading ? (
                 <Skeleton className="h-5 w-48" />
               ) : isClockedOut ? (
@@ -379,38 +310,33 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
               )}
             </div>
 
-            {/* Right: Clock In/Out Button */}
             <div>
               {loading ? (
                 <Skeleton className="h-12 w-40 rounded-lg" />
               ) : isClockedOut ? (
-                <Button
-                  disabled
-                  size="lg"
-                  className="gap-2 bg-gray-400 cursor-not-allowed"
-                >
+                <Button disabled size="lg" className="gap-2 bg-gray-400 cursor-not-allowed">
                   <CheckCircle className="h-5 w-5" />
                   اكتمل اليوم
                 </Button>
               ) : isClockedIn ? (
                 <Button
-                  onClick={handleClockOut}
-                  disabled={clockingOut}
+                  onClick={() => clockOutMutation.mutate()}
+                  disabled={clockOutMutation.isPending}
                   size="lg"
                   className="gap-2 bg-red-600 hover:bg-red-700 text-white"
                 >
                   <LogOut className="h-5 w-5" />
-                  {clockingOut ? 'جاري التسجيل...' : 'تسجيل انصراف'}
+                  {clockOutMutation.isPending ? 'جاري التسجيل...' : 'تسجيل انصراف'}
                 </Button>
               ) : (
                 <Button
-                  onClick={handleClockIn}
-                  disabled={clockingIn}
+                  onClick={() => clockInMutation.mutate()}
+                  disabled={clockInMutation.isPending}
                   size="lg"
                   className="gap-2 bg-green-600 hover:bg-green-700 text-white"
                 >
                   <LogIn className="h-5 w-5" />
-                  {clockingIn ? 'جاري التسجيل...' : 'تسجيل دخول'}
+                  {clockInMutation.isPending ? 'جاري التسجيل...' : 'تسجيل دخول'}
                 </Button>
               )}
             </div>
@@ -493,7 +419,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
 
       {/* Calendar + Records */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar View */}
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -501,7 +426,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
               تقويم الحضور
             </h3>
 
-            {/* Day headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
               {DAY_NAMES_AR.map(day => (
                 <div key={day} className="text-center text-[10px] text-muted-foreground font-medium">
@@ -510,7 +434,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
               ))}
             </div>
 
-            {/* Calendar grid */}
             {loading ? (
               <div className="grid grid-cols-7 gap-1">
                 {Array.from({ length: 35 }).map((_, i) => (
@@ -548,7 +471,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
               </div>
             )}
 
-            {/* Legend */}
             <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border">
               {[
                 { color: 'bg-green-500', label: 'حاضر' },
@@ -565,7 +487,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
           </CardContent>
         </Card>
 
-        {/* Records Table */}
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -643,7 +564,6 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
         </Card>
       </div>
 
-      {/* Admin notice */}
       {canManage && (
         <Card className="border-0 shadow-sm bg-orange-50/50 dark:bg-orange-950/20">
           <CardContent className="pt-4 pb-4">

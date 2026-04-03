@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +78,6 @@ for (const c of CATEGORIES) {
 export default function EvaluationsSettingsClient({ session: _session }: { session: AuthSession }) {
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     name_ar: '',
@@ -92,42 +91,24 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
     queryFn: () => fetchAPI('/api/dashboard/evaluations/criteria'),
   });
 
-  const fetchCriteria = () => {
-    queryClient.invalidateQueries({ queryKey: ['evaluation-criteria'] });
-  };
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations/criteria', 'POST', data),
+    onSuccess: () => {
+      toast.success('تم إنشاء المعيار بنجاح');
+      setCreateOpen(false);
+      setFormData({ name: '', name_ar: '', description: '', weight: '1', category: '' });
+      queryClient.invalidateQueries({ queryKey: ['evaluation-criteria'] });
+    },
+    onError: () => toast.error('فشل في إنشاء المعيار'),
+  });
 
-  const handleCreate = async () => {
-    if (!formData.name || !formData.name_ar) {
-      toast.error('الاسم والاسم بالعربية مطلوبان');
-      return;
-    }
-    setCreating(true);
-    try {
-      const res = await fetch('/api/dashboard/evaluations/criteria', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formData.name,
-          name_ar: formData.name_ar,
-          description: formData.description || null,
-          weight: parseFloat(formData.weight) || 1,
-          category: formData.category || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم إنشاء المعيار بنجاح');
-        setCreateOpen(false);
-        setFormData({ name: '', name_ar: '', description: '', weight: '1', category: '' });
-        fetchCriteria();
-      }
-    } catch {
-      toast.error('فشل في إنشاء المعيار');
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = () => {
+    if (!formData.name || !formData.name_ar) { toast.error('الاسم والاسم بالعربية مطلوبان'); return; }
+    createMutation.mutate({
+      name: formData.name, name_ar: formData.name_ar,
+      description: formData.description || null,
+      weight: parseFloat(formData.weight) || 1, category: formData.category || null,
+    });
   };
 
   // Group criteria by category
@@ -307,10 +288,10 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={creating}
+              disabled={createMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {creating ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
             </Button>
           </DialogFooter>
         </DialogContent>

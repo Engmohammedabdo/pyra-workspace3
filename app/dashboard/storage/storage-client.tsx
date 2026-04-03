@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,33 +40,20 @@ const CHART_COLORS = [
 ];
 
 export default function StorageClient() {
-  const [reindexing, setReindexing] = useState(false);
-
   const { data: stats, isLoading: loading, refetch } = useQuery<StorageStats>({
     queryKey: ['storage-stats'],
     queryFn: () => fetchAPI('/api/dashboard/storage-stats'),
     staleTime: 60_000,
   });
 
-  const fetchStats = () => { refetch(); };
-
-  const handleReindex = async () => {
-    setReindexing(true);
-    try {
-      const res = await fetch('/api/files/reindex', { method: 'POST' });
-      const json = await res.json();
-      if (res.ok && json.data) {
-        toast.success(json.data.message || `تم فهرسة ${json.data.indexed} ملف`);
-        fetchStats(); // Refresh stats after reindex
-      } else {
-        toast.error(json.error || 'فشل في إعادة الفهرسة');
-      }
-    } catch {
-      toast.error('حدث خطأ أثناء إعادة الفهرسة');
-    } finally {
-      setReindexing(false);
-    }
-  };
+  const reindexMutation = useMutation({
+    mutationFn: () => mutateAPI<{ message?: string; indexed?: number }>('/api/files/reindex', 'POST'),
+    onSuccess: (data) => {
+      toast.success((data as any).message || `تم فهرسة ${(data as any).indexed} ملف`);
+      refetch();
+    },
+    onError: () => toast.error('حدث خطأ أثناء إعادة الفهرسة'),
+  });
 
   if (loading) {
     return (
@@ -113,12 +100,12 @@ export default function StorageClient() {
         <Button
           variant="outline"
           size="sm"
-          onClick={handleReindex}
-          disabled={reindexing}
+          onClick={() => reindexMutation.mutate()}
+          disabled={reindexMutation.isPending}
           className="gap-2"
         >
-          <RefreshCw className={cn('h-4 w-4', reindexing && 'animate-spin')} />
-          {reindexing ? 'جارٍ الفهرسة...' : 'إعادة فهرسة الملفات'}
+          <RefreshCw className={cn('h-4 w-4', reindexMutation.isPending && 'animate-spin')} />
+          {reindexMutation.isPending ? 'جارٍ الفهرسة...' : 'إعادة فهرسة الملفات'}
         </Button>
       </div>
 

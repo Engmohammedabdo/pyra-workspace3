@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowRight, Repeat, Plus, Search, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRecurringInvoices } from '@/hooks/useRecurring';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { RecurringSummary } from '@/components/dashboard/recurring-list/RecurringSummary';
 import { RecurringTable } from '@/components/dashboard/recurring-list/RecurringTable';
 
@@ -20,8 +21,6 @@ export default function RecurringInvoicesPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [generating, setGenerating] = useState(false);
 
   const params = useMemo(() => {
     const p: Record<string, string> = { page: String(page), pageSize: '20' };
@@ -32,40 +31,22 @@ export default function RecurringInvoicesPage() {
 
   const { data: items = [], isLoading: loading } = useRecurringInvoices(params);
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
-    setDeleting(true);
-    try {
-      const res = await fetch(`/api/finance/recurring-invoices/${deleteId}`, { method: 'DELETE' });
-      if (res.ok) {
-        toast.success('تم الحذف');
-        setDeleteId(null);
-        queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
-      } else {
-        toast.error('فشل في الحذف');
-      }
-    } finally {
-      setDeleting(false);
-    }
-  };
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    try {
-      const res = await fetch('/api/finance/recurring-invoices/generate', { method: 'POST' });
-      if (res.ok) {
-        toast.success('تم توليد الفواتير بنجاح');
-        queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
-      } else {
-        toast.error('فشل في توليد الفواتير');
-      }
-    } finally {
-      setGenerating(false);
-    }
-  };
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/finance/recurring-invoices/${id}`, 'DELETE'),
+    onSuccess: () => { toast.success('تم الحذف'); setDeleteId(null); invalidate(); },
+    onError: () => toast.error('فشل في الحذف'),
+  });
 
-  const activeCount = items.filter(i => i.status === 'active').length;
-  const dueCount = items.filter(i => i.status === 'active' && new Date(i.next_date || '') <= new Date()).length;
+  const generateMutation = useMutation({
+    mutationFn: () => mutateAPI('/api/finance/recurring-invoices/generate', 'POST'),
+    onSuccess: () => { toast.success('تم توليد الفواتير بنجاح'); invalidate(); },
+    onError: () => toast.error('فشل في توليد الفواتير'),
+  });
+
+  const activeCount = items.filter((i: any) => i.status === 'active').length;
+  const dueCount = items.filter((i: any) => i.status === 'active' && new Date(i.next_date || '') <= new Date()).length;
 
   return (
     <div className="space-y-6">
@@ -75,7 +56,7 @@ export default function RecurringInvoicesPage() {
           <h1 className="text-2xl font-bold flex items-center gap-2"><Repeat className="h-6 w-6" /> الفواتير المتكررة</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handleGenerate} disabled={generating}><Zap className="h-4 w-4 me-2" />{generating ? 'جاري...' : 'توليد'}</Button>
+          <Button variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}><Zap className="h-4 w-4 me-2" />{generateMutation.isPending ? 'جاري...' : 'توليد'}</Button>
           <Link href="/dashboard/finance/recurring/new"><Button><Plus className="h-4 w-4 me-2" /> إضافة</Button></Link>
         </div>
       </div>
@@ -106,7 +87,7 @@ export default function RecurringInvoicesPage() {
           <p className="text-muted-foreground">هل أنت متأكد؟</p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setDeleteId(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? 'جاري...' : 'حذف'}</Button>
+            <Button variant="destructive" onClick={() => deleteId && deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>{deleteMutation.isPending ? 'جاري...' : 'حذف'}</Button>
           </div>
         </DialogContent>
       </Dialog>

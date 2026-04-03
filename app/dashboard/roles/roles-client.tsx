@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUsers } from '@/hooks/useUsers';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
@@ -93,12 +94,7 @@ export default function RolesClient() {
   // Fetch roles
   const { data: roles = [], isLoading } = useQuery<PyraRole[]>({
     queryKey: ['roles'],
-    queryFn: async () => {
-      const res = await fetch('/api/roles');
-      if (!res.ok) throw new Error('فشل في جلب الأدوار');
-      const json = await res.json();
-      return json.data;
-    },
+    queryFn: () => fetchAPI('/api/roles'),
   });
 
   // Create role
@@ -269,15 +265,7 @@ export default function RolesClient() {
 
   async function assignUserToRole(username: string, roleId: string) {
     try {
-      const res = await fetch(`/api/users/${username}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role_id: roleId }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error);
-      }
+      await mutateAPI(`/api/users/${username}`, 'PATCH', { role_id: roleId });
       toast.success('تم تعيين المستخدم للدور');
       fetchRoleMembers(roleId);
       queryClient.invalidateQueries({ queryKey: ['roles'] });
@@ -288,15 +276,7 @@ export default function RolesClient() {
 
   async function unassignUserFromRole(username: string, roleId: string) {
     try {
-      const res = await fetch(`/api/users/${username}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role_id: null }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error);
-      }
+      await mutateAPI(`/api/users/${username}`, 'PATCH', { role_id: null });
       toast.success('تم إزالة المستخدم من الدور');
       fetchRoleMembers(roleId);
       queryClient.invalidateQueries({ queryKey: ['roles'] });

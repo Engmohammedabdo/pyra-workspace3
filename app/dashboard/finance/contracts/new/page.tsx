@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useClients } from '@/hooks/useClients';
@@ -28,7 +30,6 @@ export default function NewContractPage() {
   const router = useRouter();
   const { data: clients = [] } = useClients({ pageSize: '100' });
   const { data: allProjects = [] } = useProjects({ pageSize: '100' });
-  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: '', description: '', client_id: '', project_id: '',
     contract_type: '', total_value: '', currency: 'AED', vat_rate: '0',
@@ -36,54 +37,44 @@ export default function NewContractPage() {
     retainer_amount: '', retainer_cycle: 'monthly', billing_day: '1',
   });
 
-  // Filter projects by selected client
   const filteredProjects = form.client_id
-    ? allProjects.filter(p => p.client_id === form.client_id)
+    ? allProjects.filter((p: any) => p.client_id === form.client_id)
     : allProjects;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const createMutation = useMutation({
+    mutationFn: (data: object) => mutateAPI<{ id?: string }>('/api/finance/contracts', 'POST', data),
+    onSuccess: (data) => {
+      toast.success('تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل');
+      router.push(`/dashboard/finance/contracts/${(data as any).id || ''}`);
+    },
+    onError: () => toast.error('فشل في الحفظ'),
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title) { toast.error('عنوان العقد مطلوب'); return; }
-    setSaving(true);
-    try {
-      const res = await fetch('/api/finance/contracts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          total_value: Number(form.total_value) || 0,
-          vat_rate: Number(form.vat_rate) || 0,
-          client_id: form.client_id || null,
-          project_id: form.project_id || null,
-          contract_type: form.contract_type || null,
-          retainer_amount: Number(form.retainer_amount) || 0,
-          retainer_cycle: form.retainer_cycle,
-          billing_day: Number(form.billing_day) || 1,
-        }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        toast.success('تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل');
-        router.push(`/dashboard/finance/contracts/${json.data?.id || ''}`);
-      } else {
-        const json = await res.json();
-        toast.error(json.error || 'فشل في الحفظ');
-      }
-    } catch {
-      toast.error('فشل في الحفظ');
-    } finally {
-      setSaving(false);
-    }
+    createMutation.mutate({
+      ...form,
+      total_value: Number(form.total_value) || 0,
+      vat_rate: Number(form.vat_rate) || 0,
+      client_id: form.client_id || null,
+      project_id: form.project_id || null,
+      contract_type: form.contract_type || null,
+      retainer_amount: Number(form.retainer_amount) || 0,
+      retainer_cycle: form.retainer_cycle,
+      billing_day: Number(form.billing_day) || 1,
+    });
   };
 
   const u = (k: string, v: string) => {
     if (k === 'client_id') {
-      // Reset project when client changes (project may not belong to new client)
       setForm(p => ({ ...p, client_id: v, project_id: '' }));
     } else {
       setForm(p => ({ ...p, [k]: v }));
     }
   };
+
+  const saving = createMutation.isPending;
 
   return (
     <div className="space-y-6">
@@ -109,7 +100,7 @@ export default function NewContractPage() {
                   <SelectTrigger><SelectValue placeholder="اختر العميل" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">بدون عميل</SelectItem>
-                    {clients.map(c => (
+                    {(clients as any[]).map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -121,7 +112,7 @@ export default function NewContractPage() {
                   <SelectTrigger><SelectValue placeholder={form.client_id ? 'اختر المشروع' : 'اختر العميل أولاً'} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">بدون مشروع</SelectItem>
-                    {filteredProjects.map(p => (
+                    {(filteredProjects as any[]).map((p: any) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                   </SelectContent>
@@ -169,7 +160,6 @@ export default function NewContractPage() {
               </div>
             </div>
 
-            {/* Retainer fields — shown only when contract_type === 'retainer' */}
             {form.contract_type === 'retainer' && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg border border-orange-200 bg-orange-50/50 dark:border-orange-900/50 dark:bg-orange-950/20">
                 <div className="md:col-span-3">
@@ -180,12 +170,7 @@ export default function NewContractPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>المبلغ الشهري</Label>
-                  <Input
-                    type="number" step="0.01" min="0"
-                    value={form.retainer_amount}
-                    onChange={e => u('retainer_amount', e.target.value)}
-                    placeholder="0.00"
-                  />
+                  <Input type="number" step="0.01" min="0" value={form.retainer_amount} onChange={e => u('retainer_amount', e.target.value)} placeholder="0.00" />
                 </div>
                 <div className="space-y-2">
                   <Label>دورة الفوترة</Label>
