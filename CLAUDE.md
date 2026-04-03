@@ -95,11 +95,71 @@ const mutation = useMutation({
 });
 ```
 
+### API Helpers — Full Reference (`hooks/api-helpers.ts`)
+```tsx
+fetchAPI<T>(url)              // GET — unwraps { data } from response
+mutateAPI<T>(url, method, body?)  // POST/PATCH/DELETE — unwraps { data }
+buildQueryString(params?)     // { status: 'active' } → '?status=active'
+```
+
+### Hook Patterns
+```tsx
+// List hook with filters
+export function useClients(params?: Record<string, string | undefined>) {
+  const qs = buildQueryString(params);
+  return useQuery<Client[]>({
+    queryKey: ['clients', params],
+    queryFn: () => fetchAPI(`/api/clients${qs}`),
+    staleTime: 60_000,       // Cache for 1 min
+  });
+}
+
+// Single item (with enabled gate — prevents fetch when id is undefined)
+export function useClient(id: string | undefined) {
+  return useQuery<Client>({
+    queryKey: ['clients', id],
+    queryFn: () => fetchAPI(`/api/clients/${id}`),
+    enabled: !!id,            // Only fetch when id exists
+    staleTime: 60_000,
+  });
+}
+
+// Create mutation
+export function useCreateClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<Client>) => mutateAPI('/api/clients', 'POST', data),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+  });
+}
+
+// Delete mutation
+export function useDeleteClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => mutateAPI(`/api/clients/${id}`, 'DELETE'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['clients'] }),
+  });
+}
+```
+
+### staleTime Conventions
+| Data type | staleTime | Example |
+|-----------|-----------|---------|
+| Rarely changes | `60_000` (1 min) | Clients, settings, roles |
+| Changes often | `30_000` (30s) | Invoices, expenses, tasks |
+| Real-time | `15_000` + `refetchInterval: 30_000` | Notifications, automations |
+
+### QueryClientProvider
+Configured in `components/providers/query-provider.tsx` → mounted in `app/layout.tsx`.
+Defaults: `staleTime: 30_000`, `refetchOnWindowFocus: false`.
+
 ### Adding a New Hook
 1. Create `hooks/useNewResource.ts` following the pattern in `hooks/useClients.ts`
-2. Use `fetchAPI` for queries, `mutateAPI` for mutations
-3. Export typed hook with query params
-4. Include cache invalidation on mutations
+2. Use `fetchAPI` for queries, `mutateAPI` for mutations, `buildQueryString` for filters
+3. Export typed hook with query params + single-item hook with `enabled: !!id`
+4. Include cache invalidation on mutations (invalidate list + single item)
+5. Use types from `types/database.ts` — avoid `[key: string]: unknown`
 
 ## STOP — Ask "WHO?" Before Writing Code
 
@@ -227,6 +287,37 @@ WhatsApp → Conversations → Messages → Lead matching
 Contract (retainer) → Generate Invoice → Billing History
 Contract (milestone) → Complete Milestone → Generate Invoice
 ```
+
+## Status Constants (`lib/constants/statuses.ts`)
+**NEVER hardcode status strings.** Import from `@/lib/constants/statuses`:
+```tsx
+import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/lib/constants/statuses';
+
+// Use constants in API routes:
+.in('status', INVOICE_PAID_STATUSES)
+
+// Use labels in UI:
+<Badge>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
+```
+Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle.
+
+## Business Entities (Multi-License)
+Table `pyra_business_entities` — select trade license per invoice/quote. Entity logo and company name appear in PDF.
+- API: `/api/settings/business-entities` (CRUD)
+- Entity ID saved on invoice/quote → PDF uses entity-specific logo + name
+
+## Finance — Cash-Basis Accounting
+**Revenue = actual payments received** (from `pyra_payments.payment_date`), NOT invoice issue date.
+- Dashboard, P&L, VAT, Client Profitability, Project Profitability — all use `pyra_payments`
+- Credit notes create **negative payment records** and recalculate `amount_paid`/`amount_due`
+- Aging report uses `due_date` (not issue_date) — standard accounting practice
+- Invoices auto-marked overdue when `due_date < today`
+
+## Environment Validation (`lib/env.ts`)
+Zod schema validates all env vars at import time. Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Optional: Stripe, Evolution API.
+
+## Testing (`pnpm test`)
+Vitest + Testing Library. Tests in `__tests__/`. Run: `pnpm test` (single run) or `pnpm test:watch` (watch mode).
 
 ## Critical Rules
 
