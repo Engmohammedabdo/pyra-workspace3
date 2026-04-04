@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
 
     // Mark conversation as read when agent opens messages
     if (conversationId) {
-      void supabase
+      await supabase
         .from('pyra_whatsapp_conversations')
         .update({ unread_count: 0 })
         .eq('id', conversationId);

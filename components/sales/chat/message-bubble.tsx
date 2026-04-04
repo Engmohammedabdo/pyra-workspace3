@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 interface MessageBubbleProps {
+  id: string;
   content: string | null;
   direction: 'incoming' | 'outgoing';
   messageType: string;
@@ -34,13 +35,20 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   video: <Video className="h-4 w-4" />,
 };
 
-export function MessageBubble({ content, direction, messageType, mediaUrl, fileName, status, timestamp }: MessageBubbleProps) {
+export function MessageBubble({ id, content, direction, messageType, mediaUrl, fileName, status, timestamp }: MessageBubbleProps) {
   const [imagePreview, setImagePreview] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isOutgoing = direction === 'outgoing';
   const time = new Date(timestamp).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+
+  // Proxy media through our API to avoid expired WhatsApp CDN URLs
+  const resolvedMediaUrl = mediaUrl && id
+    ? (mediaUrl.includes('mmg.whatsapp.net') || mediaUrl.includes('whatsapp.net'))
+      ? `/api/dashboard/sales/whatsapp/media/${id}`
+      : mediaUrl
+    : null;
 
   // Status icons — different colors for outgoing
   const statusIcon = isOutgoing && status ? {
@@ -63,14 +71,14 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           )}
         >
           {/* ── Image Preview ── */}
-          {messageType === 'image' && mediaUrl && (
+          {messageType === 'image' && resolvedMediaUrl && (
             <div
               className="relative rounded-xl overflow-hidden cursor-pointer group/img -mx-0.5 -mt-0.5"
               onClick={() => setImagePreview(true)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={mediaUrl}
+                src={resolvedMediaUrl!}
                 alt={fileName || 'صورة'}
                 className="w-full max-h-60 object-cover rounded-xl transition-transform duration-300 group-hover/img:scale-[1.02]"
                 loading="lazy"
@@ -82,7 +90,7 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           )}
 
           {/* ── Audio Player ── */}
-          {messageType === 'audio' && mediaUrl && (
+          {messageType === 'audio' && resolvedMediaUrl && (
             <div className={cn(
               'flex items-center gap-3 rounded-xl px-3 py-2 min-w-[200px]',
               isOutgoing ? 'bg-white/10' : 'bg-muted/40'
@@ -90,7 +98,7 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
               {/* Hidden audio element */}
               <audio
                 ref={audioRef}
-                src={mediaUrl}
+                src={resolvedMediaUrl!}
                 onTimeUpdate={() => {
                   const el = audioRef.current;
                   if (el && el.duration) setAudioProgress((el.currentTime / el.duration) * 100);
@@ -135,10 +143,10 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           )}
 
           {/* ── Video ── */}
-          {messageType === 'video' && mediaUrl && (
+          {messageType === 'video' && resolvedMediaUrl && (
             <div className="rounded-xl overflow-hidden -mx-0.5 -mt-0.5">
               <video
-                src={mediaUrl}
+                src={resolvedMediaUrl!}
                 controls
                 preload="metadata"
                 className="w-full max-h-60 rounded-xl"
@@ -152,9 +160,9 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           )}
 
           {/* ── Document ── */}
-          {messageType === 'document' && mediaUrl && (
+          {messageType === 'document' && resolvedMediaUrl && (
             <a
-              href={mediaUrl}
+              href={resolvedMediaUrl!}
               target="_blank"
               rel="noopener noreferrer"
               className={cn(
@@ -181,7 +189,7 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           )}
 
           {/* ── Fallback media badge (no URL) ── */}
-          {messageType !== 'text' && !mediaUrl && (
+          {messageType !== 'text' && !resolvedMediaUrl && (
             <div className={cn(
               'flex items-center gap-2 text-sm',
               isOutgoing ? 'text-white/70' : 'text-muted-foreground/70'
@@ -210,7 +218,7 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
       </div>
 
       {/* ── Fullscreen Image Lightbox ── */}
-      {imagePreview && mediaUrl && (
+      {imagePreview && resolvedMediaUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
           onClick={() => setImagePreview(false)}
@@ -223,13 +231,13 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={mediaUrl}
+            src={resolvedMediaUrl!}
             alt={fileName || 'صورة'}
             className="max-w-[90vw] max-h-[90vh] rounded-2xl shadow-2xl dark:shadow-black/25 object-contain animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           />
           <a
-            href={mediaUrl}
+            href={resolvedMediaUrl!}
             target="_blank"
             rel="noopener noreferrer"
             className="absolute bottom-6 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"

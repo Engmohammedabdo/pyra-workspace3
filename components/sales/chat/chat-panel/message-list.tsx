@@ -91,6 +91,7 @@ export function MessageList({ messages, notes, searchQuery }: MessageListProps) 
                 {group.messages.map(msg => (
                   <MessageBubble
                     key={msg.id}
+                    id={msg.id}
                     content={msg.content}
                     direction={msg.direction as 'incoming' | 'outgoing'}
                     messageType={msg.message_type}

@@ -79,20 +79,15 @@ export function ChatLayout() {
   const conversations = conversationsResponse?.data || [];
   const counts = conversationsResponse?.meta?.counts || {};
 
-  // Poll Evolution API on mount and periodically
-  const pollMutation = usePollWhatsApp();
-
-  const pollAndRefresh = useCallback(() => {
-    pollMutation.mutate();
-  }, [pollMutation]);
-
+  // Poll Evolution API on mount and every 15s
+  // Using raw fetch to avoid stale closure issues with useMutation
   useEffect(() => {
-    // Poll on mount
-    pollAndRefresh();
-    // Poll every 15s (conversations auto-refresh via React Query's refetchInterval)
-    const interval = setInterval(pollAndRefresh, 15000);
+    const poll = () => {
+      fetch('/api/dashboard/sales/whatsapp/poll', { method: 'POST' }).catch(() => {});
+    };
+    poll(); // Poll on mount
+    const interval = setInterval(poll, 15000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Keyboard shortcuts

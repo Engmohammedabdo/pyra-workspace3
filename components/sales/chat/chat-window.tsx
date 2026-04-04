@@ -481,6 +481,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
                   {group.messages.map(msg => (
                     <MessageBubble
                       key={msg.id}
+                      id={msg.id}
                       content={msg.content}
                       direction={msg.direction as 'incoming' | 'outgoing'}
                       messageType={msg.message_type}
