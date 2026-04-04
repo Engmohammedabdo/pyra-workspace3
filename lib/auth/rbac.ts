@@ -618,10 +618,12 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
         'overtime.view',
       ];
     case 'sales_agent':
-      // Sales agents: CRM, leads, WhatsApp, create quotes (need approval), view clients
+      // Sales agents = CRM + HR self-service (they are employees too)
       return [
+        // Core
         'dashboard.view',
         'notifications.view',
+        // Sales CRM
         'sales.view',
         'sales_leads.view',
         'sales_leads.create',
@@ -632,6 +634,18 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
         'quotes.create',
         'quote_approvals.view',
         'clients.view',
+        // HR Self-Service (same as employee — they need payslips, attendance, etc.)
+        'directory.view',
+        'timesheet.view',
+        'timesheet.manage',
+        'announcements.view',
+        'leave.view',
+        'leave.manage',
+        'attendance.view',
+        'attendance.manage',
+        'payroll.view',
+        'evaluations.view',
+        'overtime.view',
       ];
     case 'client':
     default:
