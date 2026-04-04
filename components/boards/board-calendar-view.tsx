@@ -77,11 +77,11 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth} aria-label="الشهر التالي">
             <ChevronRight className="h-4 w-4" />
           </Button>
           <h3 className="text-sm font-bold min-w-[120px] text-center">{monthName}</h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth}>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth} aria-label="الشهر السابق">
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>

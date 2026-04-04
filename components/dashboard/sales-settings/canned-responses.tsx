@@ -145,6 +145,7 @@ export function CannedResponsesManager({ templates, onRefresh }: Props) {
                       className="h-8 w-8 text-destructive shrink-0"
                       onClick={() => handleDelete(t.id)}
                       disabled={deletingId === t.id}
+                      aria-label="حذف"
                     >
                       {deletingId === t.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                     </Button>

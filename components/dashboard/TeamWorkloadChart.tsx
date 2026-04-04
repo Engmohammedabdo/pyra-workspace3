@@ -14,6 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface WorkloadItem {
   username: string;
@@ -75,20 +76,13 @@ export function TeamWorkloadChart() {
                 allowDecimals={false}
               />
               <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid hsl(var(--border))',
-                  backgroundColor: 'hsl(var(--card))',
-                  color: 'hsl(var(--foreground))',
-                  fontSize: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number) => [value, 'إجراء']}
                 labelFormatter={(label: string) => label}
               />
               <Bar
                 dataKey="actions"
-                fill="#8b5cf6"
+                fill={CHART_COLORS[4]}
                 radius={[6, 6, 0, 0]}
               />
             </BarChart>

@@ -63,9 +63,9 @@ export function RecurringTable({ items, onDelete }: TableProps) {
                 <td className="p-3">
                   <div className="flex items-center gap-1">
                     <Link href={`/dashboard/finance/recurring/${ri.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-3.5 w-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل"><Pencil className="h-3.5 w-3.5" /></Button>
                     </Link>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => onDelete(ri.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => onDelete(ri.id)} aria-label="حذف"><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </td>
               </tr>

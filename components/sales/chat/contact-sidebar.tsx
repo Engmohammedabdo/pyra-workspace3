@@ -95,7 +95,7 @@ export function ContactSidebar({ contactName, phone, leadId, onClose }: ContactS
       {/* Header */}
       <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between">
         <h3 className="font-semibold text-sm">معلومات جهة الاتصال</h3>
-        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
           <X className="h-4 w-4" />
         </Button>
       </div>

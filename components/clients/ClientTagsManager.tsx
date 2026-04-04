@@ -300,7 +300,7 @@ export function ClientTagsManager({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-full mt-2 end-0 z-50 w-72 rounded-xl border bg-popover shadow-lg p-3"
+                className="absolute top-full mt-2 end-0 z-50 w-72 rounded-xl border bg-popover shadow-lg dark:shadow-black/20 p-3"
               >
                 {/* Search input */}
                 <Input

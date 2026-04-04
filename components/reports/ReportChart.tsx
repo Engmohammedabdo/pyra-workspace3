@@ -17,6 +17,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { CHART_COLORS, CHART_PRIMARY, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface Props {
   data: Array<Record<string, unknown>>;
@@ -29,24 +30,6 @@ interface Props {
   height?: number;
 }
 
-const COLORS = [
-  '#f97316',
-  '#3b82f6',
-  '#22c55e',
-  '#eab308',
-  '#a855f7',
-  '#ec4899',
-  '#06b6d4',
-  '#ef4444',
-];
-
-const tooltipStyle = {
-  borderRadius: '8px',
-  border: '1px solid hsl(var(--border))',
-  backgroundColor: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  fontSize: '12px',
-};
 
 export function ReportChart({
   data,
@@ -55,7 +38,7 @@ export function ReportChart({
   nameKey = 'name',
   xAxisKey,
   title,
-  color = '#f97316',
+  color = CHART_PRIMARY,
   height = 300,
 }: Props) {
   if (!data || data.length === 0) {
@@ -80,10 +63,10 @@ export function ReportChart({
             axisLine={false}
             allowDecimals={false}
           />
-          <Tooltip contentStyle={tooltipStyle} />
+          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
           <Bar dataKey={dataKey} radius={[4, 4, 0, 0]}>
             {data.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
             ))}
           </Bar>
         </BarChart>
@@ -109,7 +92,7 @@ export function ReportChart({
             axisLine={false}
             allowDecimals={false}
           />
-          <Tooltip contentStyle={tooltipStyle} />
+          <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
           <Line
             type="monotone"
             dataKey={dataKey}
@@ -142,10 +125,10 @@ export function ReportChart({
           labelLine={false}
         >
           {data.map((_, index) => (
-            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
           ))}
         </Pie>
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip contentStyle={CHART_TOOLTIP_STYLE} />
         <Legend
           formatter={(value: string) => (
             <span className="text-xs">{value}</span>

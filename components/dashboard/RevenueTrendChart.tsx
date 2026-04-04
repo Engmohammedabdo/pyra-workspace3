@@ -16,6 +16,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { CHART_COLORS, CHART_PRIMARY, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface TrendPoint {
   month: string;
@@ -65,12 +66,12 @@ export function RevenueTrendChart() {
             <AreaChart data={data}>
               <defs>
                 <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                  <stop offset="5%" stopColor={CHART_COLORS[2]} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={CHART_COLORS[2]} stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="invoicedGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                  <stop offset="5%" stopColor={CHART_PRIMARY} stopOpacity={0.3} />
+                  <stop offset="95%" stopColor={CHART_PRIMARY} stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" className="opacity-20" />
@@ -91,14 +92,7 @@ export function RevenueTrendChart() {
                 }}
               />
               <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid hsl(var(--border))',
-                  backgroundColor: 'hsl(var(--card))',
-                  color: 'hsl(var(--foreground))',
-                  fontSize: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [
                   formatCurrency(value),
                   name === 'revenue' ? 'الإيرادات' : 'المفوتر',
@@ -115,14 +109,14 @@ export function RevenueTrendChart() {
               <Area
                 type="monotone"
                 dataKey="revenue"
-                stroke="#22c55e"
+                stroke={CHART_COLORS[2]}
                 strokeWidth={2.5}
                 fill="url(#revenueGradient)"
               />
               <Area
                 type="monotone"
                 dataKey="invoiced"
-                stroke="#f97316"
+                stroke={CHART_PRIMARY}
                 strokeWidth={2.5}
                 fill="url(#invoicedGradient)"
               />

@@ -154,7 +154,7 @@ export default function TeamsClient() {
                     <td className="p-3 text-muted-foreground text-xs">{formatDate(t.created_at)}</td>
                     <td className="p-3">
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => openMembers(t)}><UsersIcon className="h-4 w-4 me-2" /> الأعضاء</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => { setSelected(t); setForm({ name: t.name, description: t.description || '' }); setShowEdit(true); }}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>
@@ -219,7 +219,7 @@ export default function TeamsClient() {
                       <div className="text-xs text-muted-foreground">@{m.username}</div>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeMember(m.username)}><UserMinus className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeMember(m.username)} aria-label="إزالة"><UserMinus className="h-4 w-4" /></Button>
                 </div>
               )) : <p className="text-center text-muted-foreground text-sm py-4">لا يوجد أعضاء بعد</p>}
             </div>

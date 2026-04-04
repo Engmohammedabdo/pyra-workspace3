@@ -11,6 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface BarData {
   name: string;
@@ -22,10 +23,6 @@ interface ExpenseBarChartProps {
   data: BarData[];
 }
 
-const DEFAULT_COLORS = [
-  '#f97316', '#6366f1', '#3b82f6', '#ec4899',
-  '#8b5cf6', '#14b8a6', '#f59e0b', '#6b7280',
-];
 
 export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
   if (!data || data.length === 0) {
@@ -53,12 +50,7 @@ export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
           tickLine={false}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-            fontSize: '12px',
-          }}
+          contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number) => [
             `${value.toLocaleString('en-AE')} AED`,
             'المبلغ',
@@ -78,7 +70,7 @@ export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
           {sorted.map((entry, index) => (
             <Cell
               key={entry.name}
-              fill={entry.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+              fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]}
               fillOpacity={0.85}
             />
           ))}

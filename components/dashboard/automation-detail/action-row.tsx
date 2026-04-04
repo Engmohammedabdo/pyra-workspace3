@@ -42,7 +42,7 @@ export function ActionRow({ action, index, updateActionType, updateActionConfig,
             </SelectContent>
           </Select>
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={() => removeAction(index)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive mt-5" onClick={() => removeAction(index)} aria-label="حذف">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>

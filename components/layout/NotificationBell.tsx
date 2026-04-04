@@ -70,7 +70,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" title="الإشعارات">
+        <Button variant="ghost" size="icon" className="relative" title="الإشعارات" aria-label="الإشعارات">
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <>

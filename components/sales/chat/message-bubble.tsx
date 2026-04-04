@@ -225,7 +225,7 @@ export function MessageBubble({ content, direction, messageType, mediaUrl, fileN
           <img
             src={mediaUrl}
             alt={fileName || 'صورة'}
-            className="max-w-[90vw] max-h-[90vh] rounded-2xl shadow-2xl object-contain animate-in zoom-in-95 duration-300"
+            className="max-w-[90vw] max-h-[90vh] rounded-2xl shadow-2xl dark:shadow-black/25 object-contain animate-in zoom-in-95 duration-300"
             onClick={e => e.stopPropagation()}
           />
           <a

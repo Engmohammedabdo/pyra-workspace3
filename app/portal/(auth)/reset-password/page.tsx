@@ -214,7 +214,7 @@ function ResetPasswordForm() {
 export default function PortalResetPasswordPage() {
   return (
     <div className="w-full max-w-md">
-      <Card className="shadow-xl">
+      <Card className="shadow-xl dark:shadow-black/25">
         <CardHeader className="space-y-3 pt-8 pb-4 px-8 text-center">
           {/* Logo */}
           <div className="mx-auto mb-2">

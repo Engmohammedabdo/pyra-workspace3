@@ -1819,7 +1819,7 @@ export default function BoardViewClient({
     <div className="p-6 space-y-4">
       {/* Board Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/boards')}>
+        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/boards')} aria-label="رجوع">
           <ArrowRight className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">

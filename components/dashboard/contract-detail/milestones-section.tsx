@@ -74,10 +74,10 @@ export function MilestonesSection({
                   <div className="flex items-center gap-1 shrink-0">
                     {(m.status === 'pending' || m.status === 'in_progress') && (
                       <>
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(m)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(m)} aria-label="تعديل">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => onMarkComplete(m)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:text-green-700" onClick={() => onMarkComplete(m)} aria-label="تأكيد">
                           <CheckCircle2 className="h-3.5 w-3.5" />
                         </Button>
                       </>
@@ -96,7 +96,7 @@ export function MilestonesSection({
                         </Button>
                       </Link>
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(m)} disabled={m.status === 'invoiced'}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => onDelete(m)} disabled={m.status === 'invoiced'} aria-label="حذف">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>

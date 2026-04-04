@@ -62,6 +62,7 @@ export function WebhookSecretInfo({
                 size="icon"
                 className="h-7 w-7"
                 onClick={() => setShowSecret(!showSecret)}
+                aria-label={showSecret ? 'إخفاء' : 'عرض'}
               >
                 {showSecret ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </Button>
@@ -70,6 +71,7 @@ export function WebhookSecretInfo({
                 size="icon"
                 className="h-7 w-7"
                 onClick={copySecret}
+                aria-label="نسخ"
               >
                 <Copy className="h-3.5 w-3.5" />
               </Button>

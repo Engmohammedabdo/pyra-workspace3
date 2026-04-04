@@ -254,7 +254,7 @@ export function MentionTextarea({
       {showDropdown && (
         <div
           ref={dropdownRef}
-          className="absolute bottom-full mb-1 end-0 z-50 bg-popover border rounded-xl shadow-xl p-1.5 max-h-52 overflow-auto w-64 animate-in fade-in slide-in-from-bottom-2 duration-150"
+          className="absolute bottom-full mb-1 end-0 z-50 bg-popover border rounded-xl shadow-xl dark:shadow-black/25 p-1.5 max-h-52 overflow-auto w-64 animate-in fade-in slide-in-from-bottom-2 duration-150"
         >
           {membersLoading ? (
             <div className="flex items-center justify-center py-4 gap-2 text-xs text-muted-foreground">

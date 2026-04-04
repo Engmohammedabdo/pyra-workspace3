@@ -11,7 +11,7 @@ import {
 function CustomChartTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
   return (
-    <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md">
+    <div className="rounded-lg border bg-popover px-3 py-2 text-sm shadow-md dark:shadow-black/15">
       <p className="font-medium">{label}</p>
       <p className="text-muted-foreground">
         {payload[0].value} {payload[0].value === 1 ? 'نشاط' : 'أنشطة'}

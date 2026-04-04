@@ -33,7 +33,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   return (
     <>
-      <div className="overflow-x-auto bg-white dark:bg-gray-900 rounded-2xl shadow-lg border">
+      <div className="overflow-x-auto bg-white dark:bg-gray-900 rounded-2xl shadow-lg dark:shadow-black/20 border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">
@@ -61,8 +61,8 @@ export function LeadsTable({
         <div className="flex items-center justify-between mt-4">
           <p className="text-xs text-muted-foreground">صفحة {page} من {totalPages} — {total} نتيجة</p>
           <div className="flex gap-1">
-            <Button variant="outline" size="icon" onClick={() => onPageChange(page - 1)} disabled={page <= 1}><ChevronRight className="h-4 w-4" /></Button>
-            <Button variant="outline" size="icon" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages}><ChevronLeft className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" onClick={() => onPageChange(page - 1)} disabled={page <= 1} aria-label="الصفحة السابقة"><ChevronRight className="h-4 w-4" /></Button>
+            <Button variant="outline" size="icon" onClick={() => onPageChange(page + 1)} disabled={page >= totalPages} aria-label="الصفحة التالية"><ChevronLeft className="h-4 w-4" /></Button>
           </div>
         </div>
       )}

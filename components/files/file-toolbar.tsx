@@ -182,7 +182,7 @@ export function FileToolbar({
             disabled={isBatchDownloading}
             className={cn(
               'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              'bg-blue-600 text-white hover:bg-blue-700',
+              'bg-orange-500 text-white hover:bg-orange-600',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >

@@ -11,6 +11,7 @@ import { ArrowRight, FileCheck, Send, Trash2, CheckCircle, XCircle, Loader2 } fr
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { CREDIT_NOTE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 
 interface CreditNoteItem { id: string; description: string; quantity: number; rate: number; amount: number; }
 
@@ -39,11 +40,11 @@ interface CreditNote {
   items: CreditNoteItem[];
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft:     { label: CREDIT_NOTE_STATUS_LABELS.draft,     color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  issued:    { label: CREDIT_NOTE_STATUS_LABELS.issued,    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  applied:   { label: CREDIT_NOTE_STATUS_LABELS.applied,   color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  cancelled: { label: CREDIT_NOTE_STATUS_LABELS.cancelled, color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+const STATUS_MAP: Record<string, { label: string }> = {
+  draft:     { label: CREDIT_NOTE_STATUS_LABELS.draft },
+  issued:    { label: CREDIT_NOTE_STATUS_LABELS.issued },
+  applied:   { label: CREDIT_NOTE_STATUS_LABELS.applied },
+  cancelled: { label: CREDIT_NOTE_STATUS_LABELS.cancelled },
 };
 
 export default function CreditNoteDetailPage() {
@@ -121,7 +122,7 @@ export default function CreditNoteDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold" dir="ltr">{cn.credit_note_number}</h1>
-              <Badge className={st.color}>{st.label}</Badge>
+              <Badge className={getStatusBadgeClass(cn.status)}>{st.label}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">{cn.reason}</p>
           </div>

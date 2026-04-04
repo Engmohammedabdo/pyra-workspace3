@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils/cn';
 import { X, Receipt, Send, Search, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import Link from 'next/link';
 
 interface Invoice {
@@ -41,13 +42,6 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: 'ملغي',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-800/50 dark:text-gray-400',
-  sent: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  paid: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  overdue: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  partially_paid: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-};
 
 export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, phone, onClose, onSent }: SendInvoiceDialogProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -105,7 +99,7 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
       <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200"
+        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -116,7 +110,7 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
             </div>
             <h3 className="font-semibold text-sm">إرسال فاتورة</h3>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -153,7 +147,7 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{inv.invoice_number}</p>
-                    <Badge className={cn('text-[10px]', STATUS_COLORS[inv.status] || 'bg-gray-100 text-gray-600')}>
+                    <Badge className={cn('text-[10px]', getStatusBadgeClass(inv.status))}>
                       {STATUS_LABELS[inv.status] || inv.status}
                     </Badge>
                   </div>
@@ -172,7 +166,7 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0 ms-3">
-                  <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg">
+                  <Button variant="ghost" size="icon" asChild className="h-8 w-8 rounded-lg" aria-label="عرض">
                     <Link href={`/dashboard/invoices?id=${inv.id}`} target="_blank">
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>

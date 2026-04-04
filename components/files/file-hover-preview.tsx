@@ -91,7 +91,7 @@ export function FileHoverPreview({ file, children }: FileHoverPreviewProps) {
             transform: 'translate(-50%, -100%)',
           }}
         >
-          <div className="bg-popover border rounded-xl shadow-xl overflow-hidden w-[200px]">
+          <div className="bg-popover border rounded-xl shadow-xl dark:shadow-black/25 overflow-hidden w-[200px]">
             {isImage(file.mimeType) ? (
               <div className="aspect-square bg-muted/50 flex items-center justify-center">
                 {thumbLoading ? (

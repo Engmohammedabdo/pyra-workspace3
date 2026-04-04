@@ -113,7 +113,7 @@ export function BulkActionsBar({
     <>
       {/* Floating bar */}
       <div className="fixed bottom-6 inset-x-0 z-50 flex justify-center pointer-events-none animate-in slide-in-from-bottom-4 duration-300">
-        <div className="bg-card/95 backdrop-blur-md border shadow-xl rounded-2xl px-4 py-3 flex items-center gap-3 pointer-events-auto">
+        <div className="bg-card/95 backdrop-blur-md border shadow-xl dark:shadow-black/25 rounded-2xl px-4 py-3 flex items-center gap-3 pointer-events-auto">
           {/* Count */}
           <div className="flex items-center gap-2 pe-3 border-e">
             <span className="text-sm font-bold text-orange-500 tabular-nums">{selectedCount}</span>
@@ -185,6 +185,7 @@ export function BulkActionsBar({
             className="h-8 w-8 shrink-0"
             onClick={onClearSelection}
             title="إلغاء التحديد"
+            aria-label="إلغاء"
           >
             <X className="h-4 w-4" />
           </Button>

@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { KpiCard } from './KpiCard';
 import { motion } from 'framer-motion';
 import { formatCurrency } from '@/lib/utils/format';
+import { CHART_COLORS } from '@/lib/constants/chart-colors';
 
 interface KpiData {
   revenue: { current: number; previous: number; change_percent: number };
@@ -127,7 +128,7 @@ export function KpiGrid() {
           subtitle={formatCurrency(data.overdue_invoices.amount)}
           icon={AlertTriangle}
           gradient="from-red-500 to-rose-600"
-          accent="#ef4444"
+          accent={CHART_COLORS[7]}
         />
       </motion.div>
 

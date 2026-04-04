@@ -682,7 +682,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                             <Button
                               size="sm"
                               onClick={() => handleSubmit(ev.id)}
-                              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                              className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
                             >
                               <Send className="h-4 w-4" />
                               تقديم التقييم

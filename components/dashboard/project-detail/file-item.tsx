@@ -55,7 +55,7 @@ export function FileItem({ file, onToggleVisibility, onDownload, isUpdating }: {
         </Badge>
       )}
 
-      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={() => onDownload(file)}>
+      <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={() => onDownload(file)} aria-label="تحميل">
         <Download className="h-3 w-3" />
       </Button>
     </div>

@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -30,11 +31,11 @@ interface CreditNote {
   currency: string;
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft:     { label: 'مسودة',  color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  issued:    { label: 'صادر',   color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  applied:   { label: 'مطبق',   color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  cancelled: { label: 'ملغي',   color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+const STATUS_MAP: Record<string, { label: string }> = {
+  draft:     { label: 'مسودة' },
+  issued:    { label: 'صادر' },
+  applied:   { label: 'مطبق' },
+  cancelled: { label: 'ملغي' },
 };
 
 export default function CreditNotesClient() {
@@ -133,7 +134,7 @@ export default function CreditNotesClient() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm" dir="ltr">{cn.credit_note_number}</span>
-                          <Badge className={st.color}>{st.label}</Badge>
+                          <Badge className={getStatusBadgeClass(cn.status)}>{st.label}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {cn.client_name || 'بدون عميل'} — {cn.reason?.slice(0, 50)}

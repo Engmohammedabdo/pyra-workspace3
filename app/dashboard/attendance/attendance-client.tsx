@@ -350,10 +350,10 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
           {MONTH_NAMES_AR[selectedMonth - 1]} {selectedYear}
         </h2>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={goToNextMonth} className="h-8 w-8">
+          <Button variant="outline" size="icon" onClick={goToNextMonth} className="h-8 w-8" aria-label="الشهر التالي">
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" onClick={goToPreviousMonth} className="h-8 w-8">
+          <Button variant="outline" size="icon" onClick={goToPreviousMonth} className="h-8 w-8" aria-label="الشهر السابق">
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>

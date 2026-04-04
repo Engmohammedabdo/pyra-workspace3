@@ -2,7 +2,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PortalLoginLoading() {
   return (
-    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl">
+    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl dark:shadow-black/25">
       {/* Branding skeleton */}
       <Skeleton className="hidden lg:block h-[600px] rounded-none" />
       {/* Form skeleton */}

@@ -59,7 +59,7 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl">
+    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl dark:shadow-black/25">
       {/* Branding Side */}
       <div className="hidden lg:flex flex-col items-center justify-center bg-gradient-to-br from-portal via-portal-secondary to-portal-secondary p-12 text-white relative overflow-hidden">
         {/* Background decorations */}

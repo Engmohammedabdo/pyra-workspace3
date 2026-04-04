@@ -280,6 +280,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
               size="icon"
               className="rounded-xl h-9 w-9 md:hidden shrink-0"
               onClick={onBack}
+              aria-label="رجوع"
             >
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -316,6 +317,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
               )}
               onClick={() => setShowAssign(!showAssign)}
               title="تعيين لوكيل"
+              aria-label="تعيين لوكيل"
             >
               <UserPlus className="h-4 w-4" />
             </Button>
@@ -387,6 +389,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
               if (!searchOpen) setTimeout(() => searchInputRef.current?.focus(), 100);
             }}
             title="بحث في الرسائل"
+            aria-label="بحث"
           >
             <Search className="h-4 w-4" />
           </Button>
@@ -401,6 +404,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
             )}
             onClick={() => setShowSidebar(!showSidebar)}
             title="معلومات جهة الاتصال"
+            aria-label="معلومات جهة الاتصال"
           >
             <PanelRightOpen className="h-4 w-4" />
           </Button>
@@ -514,7 +518,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
         {showScrollDown && (
           <button
             onClick={scrollToBottom}
-            className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border/60 shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-10"
+            className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border/60 shadow-lg dark:shadow-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-10"
           >
             <ChevronDown className="h-4 w-4" />
           </button>

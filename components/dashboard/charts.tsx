@@ -21,6 +21,7 @@ import {
   Line,
   Legend,
 } from 'recharts';
+import { CHART_COLORS, CHART_PRIMARY, CHART_STATUS_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface ChartData {
   activityTrend: Array<{ date: string; label: string; count: number }>;
@@ -29,22 +30,11 @@ interface ChartData {
 }
 
 const PROJECT_COLORS: Record<string, string> = {
-  active: '#22c55e',
-  in_progress: '#3b82f6',
-  review: '#f59e0b',
-  completed: '#10b981',
-  archived: '#6b7280',
-};
-
-const STORAGE_COLORS = ['#f97316', '#3b82f6', '#8b5cf6', '#ef4444', '#22c55e', '#f59e0b', '#6b7280'];
-
-const tooltipStyle = {
-  borderRadius: '12px',
-  border: '1px solid hsl(var(--border))',
-  backgroundColor: 'hsl(var(--card))',
-  color: 'hsl(var(--foreground))',
-  fontSize: '12px',
-  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+  active: CHART_STATUS_COLORS.active,
+  in_progress: CHART_STATUS_COLORS.in_progress,
+  review: CHART_COLORS[3], // yellow
+  completed: CHART_STATUS_COLORS.completed,
+  archived: CHART_STATUS_COLORS.draft,
 };
 
 /* ── Chart Card wrapper ── */
@@ -118,17 +108,17 @@ export function DashboardCharts() {
                 allowDecimals={false}
               />
               <Tooltip
-                contentStyle={tooltipStyle}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number) => [value, 'إجراء']}
                 labelFormatter={(label: string) => `يوم: ${label}`}
               />
               <Line
                 type="monotone"
                 dataKey="count"
-                stroke="#f97316"
+                stroke={CHART_PRIMARY}
                 strokeWidth={2.5}
-                dot={{ r: 4, fill: '#f97316' }}
-                activeDot={{ r: 6, fill: '#f97316' }}
+                dot={{ r: 4, fill: CHART_PRIMARY }}
+                activeDot={{ r: 6, fill: CHART_PRIMARY }}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -161,14 +151,14 @@ export function DashboardCharts() {
                 width={70}
               />
               <Tooltip
-                contentStyle={tooltipStyle}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number) => [value, 'مشروع']}
               />
               <Bar dataKey="count" radius={[0, 6, 6, 0]}>
                 {data.projectStatus.map((entry) => (
                   <Cell
                     key={entry.status}
-                    fill={PROJECT_COLORS[entry.status] || '#6b7280'}
+                    fill={PROJECT_COLORS[entry.status] || CHART_STATUS_COLORS.draft}
                   />
                 ))}
               </Bar>
@@ -205,12 +195,12 @@ export function DashboardCharts() {
                 {data.storageByType.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={STORAGE_COLORS[index % STORAGE_COLORS.length]}
+                    fill={CHART_COLORS[index % CHART_COLORS.length]}
                   />
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={tooltipStyle}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [formatFileSize(value), name]}
               />
               <Legend

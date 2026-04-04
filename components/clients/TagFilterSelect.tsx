@@ -120,7 +120,7 @@ export function TagFilterSelect({ value, onChange }: TagFilterSelectProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
             transition={{ duration: 0.15 }}
-            className="absolute top-full mt-1 end-0 z-50 w-56 rounded-xl border bg-popover shadow-lg py-1.5 overflow-hidden"
+            className="absolute top-full mt-1 end-0 z-50 w-56 rounded-xl border bg-popover shadow-lg dark:shadow-black/20 py-1.5 overflow-hidden"
           >
             {/* "All" option */}
             <button

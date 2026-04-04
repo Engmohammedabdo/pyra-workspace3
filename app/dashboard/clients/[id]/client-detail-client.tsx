@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ClientNotesTab } from '@/components/clients/ClientNotesTab';
 import { BrandingEditor } from '@/components/clients/BrandingEditor';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate, formatCurrency, formatRelativeDate } from '@/lib/utils/format';
@@ -122,73 +123,28 @@ const SOURCE_LABELS: Record<string, string> = {
   social: 'تواصل اجتماعي',
 };
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  active: {
-    label: 'نشط',
-    color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  },
-  in_progress: {
-    label: 'قيد التنفيذ',
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  },
-  review: {
-    label: 'مراجعة',
-    color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  },
-  completed: {
-    label: 'مكتمل',
-    color: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
-  },
-  archived: {
-    label: 'مؤرشف',
-    color: 'bg-gray-100 text-gray-500 dark:bg-gray-800/50 dark:text-gray-500',
-  },
+const STATUS_MAP: Record<string, { label: string }> = {
+  active: { label: 'نشط' },
+  in_progress: { label: 'قيد التنفيذ' },
+  review: { label: 'مراجعة' },
+  completed: { label: 'مكتمل' },
+  archived: { label: 'مؤرشف' },
 };
 
-const INVOICE_STATUS: Record<string, { label: string; color: string }> = {
-  draft: {
-    label: 'مسودة',
-    color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  },
-  sent: {
-    label: 'مرسلة',
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  },
-  paid: {
-    label: 'مدفوعة',
-    color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  },
-  overdue: {
-    label: 'متأخرة',
-    color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  },
-  cancelled: {
-    label: 'ملغاة',
-    color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
-  },
+const INVOICE_STATUS: Record<string, { label: string }> = {
+  draft: { label: 'مسودة' },
+  sent: { label: 'مرسلة' },
+  paid: { label: 'مدفوعة' },
+  overdue: { label: 'متأخرة' },
+  cancelled: { label: 'ملغاة' },
 };
 
-const QUOTE_STATUS: Record<string, { label: string; color: string }> = {
-  draft: {
-    label: 'مسودة',
-    color: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
-  },
-  sent: {
-    label: 'مرسل',
-    color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  },
-  accepted: {
-    label: 'مقبول',
-    color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  },
-  rejected: {
-    label: 'مرفوض',
-    color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  },
-  expired: {
-    label: 'منتهي',
-    color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  },
+const QUOTE_STATUS: Record<string, { label: string }> = {
+  draft: { label: 'مسودة' },
+  sent: { label: 'مرسل' },
+  accepted: { label: 'مقبول' },
+  rejected: { label: 'مرفوض' },
+  expired: { label: 'منتهي' },
 };
 
 const TAG_COLOR_MAP: Record<string, string> = {
@@ -1008,6 +964,7 @@ export function ClientDetailClient() {
                     <tbody>
                       {projects.map((project) => {
                         const statusInfo = STATUS_MAP[project.status];
+                        const badgeColor = getStatusBadgeClass(project.status);
                         return (
                           <tr
                             key={project.id}
@@ -1027,7 +984,7 @@ export function ClientDetailClient() {
                                 variant="secondary"
                                 className={cn(
                                   'text-xs',
-                                  statusInfo?.color || ''
+                                  badgeColor
                                 )}
                               >
                                 {statusInfo?.label || project.status}
@@ -1126,7 +1083,7 @@ export function ClientDetailClient() {
                                 variant="secondary"
                                 className={cn(
                                   'text-xs',
-                                  statusInfo?.color || '',
+                                  getStatusBadgeClass(invoice.status),
                                   invoice.status === 'cancelled' &&
                                     'line-through'
                                 )}
@@ -1223,7 +1180,7 @@ export function ClientDetailClient() {
                                 variant="secondary"
                                 className={cn(
                                   'text-xs',
-                                  statusInfo?.color || ''
+                                  getStatusBadgeClass(quote.status)
                                 )}
                               >
                                 {statusInfo?.label || quote.status}
@@ -1376,7 +1333,7 @@ export function ClientDetailClient() {
             <Button
               onClick={handleActivatePortal}
               disabled={activatingPortal || !portalPassword || portalPassword.length < 6}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {activatingPortal ? (
                 <Loader2 className="h-4 w-4 animate-spin me-2" />

@@ -82,7 +82,7 @@ export function EditItems({
             </div>
             <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.amount, currency)}</div>
             <div className="sm:col-span-1 flex justify-end">
-              <Button variant="ghost" size="icon" onClick={() => removeItem(index)} disabled={items.length <= 1}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => removeItem(index)} disabled={items.length <= 1} aria-label="حذف"><Trash2 className="h-4 w-4" /></Button>
             </div>
           </div>
         ))}

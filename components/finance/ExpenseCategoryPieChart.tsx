@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts';
+import { CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface PieData {
   name: string;
@@ -21,10 +22,6 @@ interface ExpenseCategoryPieChartProps {
   data: PieData[];
 }
 
-const DEFAULT_COLORS = [
-  '#6366f1', '#f59e0b', '#3b82f6', '#ec4899',
-  '#8b5cf6', '#14b8a6', '#f97316', '#6b7280',
-];
 
 export function ExpenseCategoryPieChart({ data }: ExpenseCategoryPieChartProps) {
   if (!data || data.length === 0) {
@@ -47,17 +44,12 @@ export function ExpenseCategoryPieChart({ data }: ExpenseCategoryPieChartProps) 
           {data.map((entry, index) => (
             <Cell
               key={entry.name}
-              fill={entry.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length]}
+              fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]}
             />
           ))}
         </Pie>
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-            fontSize: '12px',
-          }}
+          contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number) => [
             `${value.toLocaleString('en-AE')} AED`,
             'المبلغ',

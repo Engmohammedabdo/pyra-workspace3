@@ -33,6 +33,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { usePermission } from '@/hooks/usePermission';
 import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -60,13 +61,13 @@ interface RevenueSummary {
 
 /* ───────────────────────── Constants ───────────────────── */
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft:          { label: INVOICE_STATUS_LABELS.draft,          color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  sent:           { label: INVOICE_STATUS_LABELS.sent,           color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  paid:           { label: INVOICE_STATUS_LABELS.paid,           color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  partially_paid: { label: INVOICE_STATUS_LABELS.partially_paid, color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' },
-  overdue:        { label: INVOICE_STATUS_LABELS.overdue,        color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
-  cancelled:      { label: INVOICE_STATUS_LABELS.cancelled,      color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
+const STATUS_MAP: Record<string, { label: string }> = {
+  draft:          { label: INVOICE_STATUS_LABELS.draft },
+  sent:           { label: INVOICE_STATUS_LABELS.sent },
+  paid:           { label: INVOICE_STATUS_LABELS.paid },
+  partially_paid: { label: INVOICE_STATUS_LABELS.partially_paid },
+  overdue:        { label: INVOICE_STATUS_LABELS.overdue },
+  cancelled:      { label: INVOICE_STATUS_LABELS.cancelled },
 };
 
 const PAGE_SIZE = 20;
@@ -248,8 +249,8 @@ export default function InvoicesClient() {
       key: 'status',
       header: 'الحالة',
       render: (inv) => {
-        const s = STATUS_MAP[inv.status] || { label: inv.status, color: 'bg-gray-100 text-gray-700' };
-        return <Badge variant="outline" className={s.color}>{s.label}</Badge>;
+        const s = STATUS_MAP[inv.status] || { label: inv.status };
+        return <Badge variant="outline" className={getStatusBadgeClass(inv.status)}>{s.label}</Badge>;
       },
     },
     {
@@ -267,7 +268,7 @@ export default function InvoicesClient() {
         <div data-no-row-click>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد">
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -451,6 +452,7 @@ export default function InvoicesClient() {
             size="icon"
             disabled={page <= 1}
             onClick={() => setPage(p => p - 1)}
+            aria-label="الصفحة السابقة"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -462,6 +464,7 @@ export default function InvoicesClient() {
             size="icon"
             disabled={page >= totalPages}
             onClick={() => setPage(p => p + 1)}
+            aria-label="الصفحة التالية"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>

@@ -898,7 +898,7 @@ function ModuleSettingsTab() {
             <Link href={item.href}>
               <div className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm p-5 hover:shadow-md hover:border-orange-500/30 transition-all duration-200 cursor-pointer h-full">
                 <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center shadow-md shrink-0`}>
+                  <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${item.gradient} flex items-center justify-center shadow-md dark:shadow-black/15 shrink-0`}>
                     <item.icon className="h-5 w-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -982,7 +982,7 @@ export default function SettingsClient() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className={`rounded-xl shadow-md transition-all ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
+              className={`rounded-xl shadow-md dark:shadow-black/15 transition-all ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
             >
               {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
               {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}
@@ -1028,7 +1028,7 @@ export default function SettingsClient() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className={`w-full rounded-xl shadow-md ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
+            className={`w-full rounded-xl shadow-md dark:shadow-black/15 ${saved ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' : ''}`}
           >
             {saved ? <Check className="h-4 w-4 me-2" /> : <Save className="h-4 w-4 me-2" />}
             {saving ? 'جارٍ الحفظ...' : saved ? 'تم الحفظ!' : 'حفظ الإعدادات'}

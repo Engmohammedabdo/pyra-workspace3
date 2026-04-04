@@ -299,7 +299,7 @@ export default function ProjectsClient() {
       render: (p) => (
         <div data-no-row-click>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/projects/${p.id}`); }}><Eye className="h-4 w-4 me-2" /> عرض التفاصيل</DropdownMenuItem>
               {canEdit && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setTimeout(() => openEdit(p), 0); }}><Pencil className="h-4 w-4 me-2" /> تعديل</DropdownMenuItem>}

@@ -53,7 +53,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl">
+    <div className="w-full max-w-[960px] grid grid-cols-1 lg:grid-cols-2 gap-0 rounded-2xl overflow-hidden shadow-2xl dark:shadow-black/25">
       {/* Branding Side */}
       <div className="hidden lg:flex flex-col items-center justify-center bg-gradient-to-br from-orange-500 to-orange-600 p-12 text-white relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">

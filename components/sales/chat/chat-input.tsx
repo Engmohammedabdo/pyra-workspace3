@@ -272,14 +272,16 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
             className="rounded-xl h-10 w-10 text-muted-foreground hover:text-destructive"
             onClick={cancelRecording}
             title="إلغاء"
+            aria-label="إلغاء"
           >
             <X className="h-5 w-5" />
           </Button>
           <Button
             size="icon"
-            className="rounded-xl h-10 w-10 bg-red-500 hover:bg-red-600 text-white shadow-md"
+            className="rounded-xl h-10 w-10 bg-red-500 hover:bg-red-600 text-white shadow-md dark:shadow-black/20"
             onClick={stopRecording}
             title="إيقاف وإرسال"
+            aria-label="إيقاف وإرسال"
           >
             <Square className="h-4 w-4" />
           </Button>
@@ -306,6 +308,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
             <button
               onClick={clearAttachment}
               className="absolute -top-0.5 -end-0.5 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center shadow-sm"
+              aria-label="إزالة"
             >
               <X className="h-3 w-3" />
             </button>
@@ -327,6 +330,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
               size="icon"
               className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground rounded-xl h-10 w-10"
               disabled={disabled || sending || !onSendMedia}
+              aria-label="إرفاق ملف"
             >
               <Paperclip className="h-5 w-5" />
             </Button>
@@ -370,6 +374,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
               className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground rounded-xl h-10 w-10"
               disabled={disabled || sending}
               title="ردود سريعة"
+              aria-label="ردود سريعة"
             >
               <MessageSquareText className="h-5 w-5" />
             </Button>
@@ -458,6 +463,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
             onClick={startRecording}
             disabled={disabled || sending}
             title="تسجيل رسالة صوتية"
+            aria-label="تسجيل رسالة صوتية"
           >
             <Mic className="h-5 w-5" />
           </Button>
@@ -469,8 +475,9 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
             onClick={handleSend}
             disabled={(!text.trim() && !attachmentFile) || sending || disabled}
             size="icon"
+            aria-label="إرسال"
             className={cn(
-              'shrink-0 rounded-xl w-10 h-10 shadow-md transition-all duration-200',
+              'shrink-0 rounded-xl w-10 h-10 shadow-md dark:shadow-black/20 transition-all duration-200',
               'bg-gradient-to-br from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700',
               'text-white shadow-orange-500/20',
               'disabled:opacity-40 disabled:shadow-none'

@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import Link from 'next/link';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import {
   User, Briefcase, DollarSign, FolderKanban, ArrowRight,
   Phone, Mail, MapPin, Calendar, Clock, Building2,
@@ -96,15 +97,6 @@ const SOURCE_LABELS: Record<string, string> = {
   salary: 'راتب',
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  active: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  inactive: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
-  suspended: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-  approved: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
-};
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'مدير',
@@ -193,7 +185,7 @@ export default function UserDetailClient() {
   return (
     <div className="space-y-6 p-4 lg:p-6">
       {/* ═══════════ Header Card ═══════════ */}
-      <Card className="border-0 shadow-lg bg-gradient-to-b from-orange-500/5 to-transparent dark:from-orange-500/10">
+      <Card className="border-0 shadow-lg dark:shadow-black/20 bg-gradient-to-b from-orange-500/5 to-transparent dark:from-orange-500/10">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row items-start gap-4">
             {/* Avatar */}
@@ -205,7 +197,7 @@ export default function UserDetailClient() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="text-xl font-bold">{user.display_name}</h1>
-                <Badge className={STATUS_COLORS[user.status || 'active']}>
+                <Badge className={getStatusBadgeClass(user.status || 'active')}>
                   {user.status === 'active' ? 'نشط' : user.status === 'suspended' ? 'موقوف' : 'غير نشط'}
                 </Badge>
                 <Badge variant="outline">{user.role_name_ar || ROLE_LABELS[user.role] || user.role}</Badge>
@@ -348,7 +340,7 @@ export default function UserDetailClient() {
                             {p.source_type === 'deduction' ? '-' : ''}{formatCurrency(p.amount, p.currency || 'AED')}
                           </td>
                           <td className="py-3">
-                            <Badge className={`text-[10px] border-0 ${STATUS_COLORS[p.status] || ''}`}>
+                            <Badge className={`text-[10px] border-0 ${getStatusBadgeClass(p.status)}`}>
                               {p.status === 'paid' ? 'مدفوع' : p.status === 'approved' ? 'معتمد' : p.status === 'pending' ? 'معلق' : p.status}
                             </Badge>
                           </td>

@@ -146,14 +146,14 @@ export function FileCard({
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all duration-200 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
           <button
             onClick={(e) => { e.stopPropagation(); onPreview(); }}
-            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg dark:shadow-black/20 transition-transform hover:scale-110"
             title="معاينة"
           >
             <Eye className="h-4 w-4 text-gray-700 dark:text-gray-200" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onDownload(); }}
-            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+            className="w-9 h-9 rounded-full bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 flex items-center justify-center shadow-lg dark:shadow-black/20 transition-transform hover:scale-110"
             title="تحميل"
           >
             <Download className="h-4 w-4 text-gray-700 dark:text-gray-200" />
@@ -163,7 +163,7 @@ export function FileCard({
               <button
                 onClick={(e) => { e.stopPropagation(); onApprove(); }}
                 disabled={approveLoading}
-                className="w-9 h-9 rounded-full bg-green-500/90 hover:bg-green-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                className="w-9 h-9 rounded-full bg-green-500/90 hover:bg-green-500 flex items-center justify-center shadow-lg dark:shadow-black/20 transition-transform hover:scale-110"
                 title="موافقة"
               >
                 {approveLoading ? (
@@ -174,7 +174,7 @@ export function FileCard({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onRevision(); }}
-                className="w-9 h-9 rounded-full bg-amber-500/90 hover:bg-amber-500 flex items-center justify-center shadow-lg transition-transform hover:scale-110"
+                className="w-9 h-9 rounded-full bg-amber-500/90 hover:bg-amber-500 flex items-center justify-center shadow-lg dark:shadow-black/20 transition-transform hover:scale-110"
                 title="طلب تعديل"
               >
                 <RotateCcw className="h-4 w-4 text-white" />

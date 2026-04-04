@@ -12,6 +12,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface MonthlyData {
   month: string;
@@ -33,12 +34,12 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
       <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 30 }}>
         <defs>
           <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+            <stop offset="5%" stopColor={CHART_COLORS[2]} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={CHART_COLORS[2]} stopOpacity={0} />
           </linearGradient>
           <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+            <stop offset="5%" stopColor={CHART_COLORS[7]} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={CHART_COLORS[7]} stopOpacity={0} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -57,12 +58,7 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
           tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
         />
         <Tooltip
-          contentStyle={{
-            backgroundColor: 'hsl(var(--popover))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-            fontSize: '12px',
-          }}
+          contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number, name: string) => [
             `${value.toLocaleString('en-AE')} AED`,
             name === 'revenue' ? 'الإيرادات' : 'المصاريف',
@@ -76,7 +72,7 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
         <Area
           type="monotone"
           dataKey="revenue"
-          stroke="#22c55e"
+          stroke={CHART_COLORS[2]}
           strokeWidth={2}
           fillOpacity={1}
           fill="url(#colorRevenue)"
@@ -84,7 +80,7 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
         <Area
           type="monotone"
           dataKey="expenses"
-          stroke="#ef4444"
+          stroke={CHART_COLORS[7]}
           strokeWidth={2}
           fillOpacity={1}
           fill="url(#colorExpenses)"

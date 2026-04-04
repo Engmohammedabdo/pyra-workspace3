@@ -248,6 +248,7 @@ export function FilePermissionsDialog({
                     className="h-8 w-8 text-destructive"
                     onClick={() => handleRemove(perm.username)}
                     disabled={saving}
+                    aria-label="حذف"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

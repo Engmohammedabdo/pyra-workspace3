@@ -261,6 +261,7 @@ function DashboardFilePreviewInner({ file, open, onOpenChange, projectId, fileId
               className="h-8 w-8 text-muted-foreground hover:text-orange-500"
               onClick={() => setShowVersions(true)}
               title="النسخ"
+              aria-label="النسخ"
             >
               <History className="h-4 w-4" />
             </Button>
@@ -270,6 +271,7 @@ function DashboardFilePreviewInner({ file, open, onOpenChange, projectId, fileId
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => setShowInfo(!showInfo)}
               title="معلومات الملف"
+              aria-label="معلومات الملف"
             >
               <Info className="h-4 w-4" />
             </Button>
@@ -300,6 +302,7 @@ function DashboardFilePreviewInner({ file, open, onOpenChange, projectId, fileId
               size="icon"
               className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"
               onClick={() => onOpenChange(false)}
+              aria-label="إغلاق"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -611,7 +614,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
 
   return (
     <div className="flex flex-col h-full relative">
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-background/80 backdrop-blur-sm border rounded-full px-3 py-1.5 shadow-lg dark:shadow-black/20">
         <Button
           variant="ghost"
           size="icon"
@@ -652,7 +655,7 @@ function ImagePreview({ url, name }: { url: string; name: string }) {
         <img
           src={url}
           alt={name}
-          className="transition-transform duration-200 rounded-lg shadow-2xl max-w-none"
+          className="transition-transform duration-200 rounded-lg shadow-2xl dark:shadow-black/25 max-w-none"
           style={{
             transform: `scale(${imgZoom})`,
             maxWidth: imgZoom === 1 ? '100%' : 'none',
@@ -674,7 +677,7 @@ function VideoPreview({ url }: { url: string }) {
         src={url}
         controls
         autoPlay={false}
-        className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
+        className="max-w-full max-h-[85vh] rounded-lg shadow-2xl dark:shadow-black/25"
         preload="metadata"
       />
     </div>

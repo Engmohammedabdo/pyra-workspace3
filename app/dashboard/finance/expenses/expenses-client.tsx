@@ -22,6 +22,7 @@ import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import { EXPENSE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 
 interface Expense {
   id: string;
@@ -41,11 +42,11 @@ interface Expense {
   status: 'draft' | 'pending' | 'approved' | 'rejected';
 }
 
-const EXPENSE_STATUS_MAP: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  approved: { label: EXPENSE_STATUS_LABELS.approved, color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300', icon: CheckCircle },
-  pending: { label: EXPENSE_STATUS_LABELS.pending, color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300', icon: Clock },
-  rejected: { label: EXPENSE_STATUS_LABELS.rejected, color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300', icon: XCircle },
-  draft: { label: 'مسودة', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300', icon: Clock },
+const EXPENSE_STATUS_MAP: Record<string, { label: string; icon: typeof CheckCircle }> = {
+  approved: { label: EXPENSE_STATUS_LABELS.approved, icon: CheckCircle },
+  pending: { label: EXPENSE_STATUS_LABELS.pending, icon: Clock },
+  rejected: { label: EXPENSE_STATUS_LABELS.rejected, icon: XCircle },
+  draft: { label: 'مسودة', icon: Clock },
 };
 
 interface Category {
@@ -220,7 +221,7 @@ export default function ExpensesClient() {
       header: 'الحالة',
       render: (exp) => {
         const st = EXPENSE_STATUS_MAP[exp.status] || EXPENSE_STATUS_MAP.approved;
-        return <Badge className={`${st.color} gap-1`}><st.icon className="h-3 w-3" />{st.label}</Badge>;
+        return <Badge className={`${getStatusBadgeClass(exp.status)} gap-1`}><st.icon className="h-3 w-3" />{st.label}</Badge>;
       },
     },
     {

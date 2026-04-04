@@ -88,7 +88,7 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
       <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200"
+        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -99,7 +99,7 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
             </div>
             <h3 className="font-semibold text-sm">جدولة متابعة</h3>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
             <X className="h-4 w-4" />
           </Button>
         </div>

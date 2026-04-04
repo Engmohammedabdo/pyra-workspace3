@@ -15,6 +15,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
+import { CHART_COLORS, CHART_PRIMARY, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface ClientItem {
   name: string;
@@ -22,10 +23,6 @@ interface ClientItem {
   revenue: number;
 }
 
-const BAR_COLORS = [
-  '#f97316', '#3b82f6', '#22c55e', '#8b5cf6',
-  '#ef4444', '#06b6d4', '#f59e0b', '#ec4899',
-];
 
 export function ClientDistributionChart() {
   const [data, setData] = useState<ClientItem[]>([]);
@@ -59,7 +56,7 @@ export function ClientDistributionChart() {
   const chartData = data.map((item, idx) => ({
     ...item,
     displayName: item.company || item.name,
-    fill: BAR_COLORS[idx % BAR_COLORS.length],
+    fill: CHART_COLORS[idx % CHART_COLORS.length],
   }));
 
   return (
@@ -99,21 +96,14 @@ export function ClientDistributionChart() {
                 width={100}
               />
               <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid hsl(var(--border))',
-                  backgroundColor: 'hsl(var(--card))',
-                  color: 'hsl(var(--foreground))',
-                  fontSize: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number) => [formatCurrency(value), 'الإيرادات']}
                 labelFormatter={(label: string) => label}
               />
               <Bar
                 dataKey="revenue"
                 radius={[0, 6, 6, 0]}
-                fill="#f97316"
+                fill={CHART_PRIMARY}
               />
             </BarChart>
           </ResponsiveContainer>

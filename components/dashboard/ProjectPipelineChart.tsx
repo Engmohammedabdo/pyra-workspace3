@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
+import { CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface PipelineItem {
   status: string;
@@ -76,14 +77,7 @@ export function ProjectPipelineChart() {
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid hsl(var(--border))',
-                  backgroundColor: 'hsl(var(--card))',
-                  color: 'hsl(var(--foreground))',
-                  fontSize: '12px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-                }}
+                contentStyle={CHART_TOOLTIP_STYLE}
                 formatter={(value: number, name: string) => [value, name]}
               />
               <Legend

@@ -132,10 +132,10 @@ export default function ReviewsClient() {
                             {r.resolved && <Badge variant="outline" className="text-[10px] text-green-600">محلول</Badge>}
                           </div>
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleResolve(r.id)} title={r.resolved ? 'إلغاء الحل' : 'تحديد كمحلول'}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleResolve(r.id)} title={r.resolved ? 'إلغاء الحل' : 'تحديد كمحلول'} aria-label={r.resolved ? 'إلغاء الحل' : 'تحديد كمحلول'}>
                               <Check className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setSelected(r); setShowDelete(true); }}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => { setSelected(r); setShowDelete(true); }} aria-label="حذف">
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>

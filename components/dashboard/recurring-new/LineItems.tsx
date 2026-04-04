@@ -55,7 +55,7 @@ export function LineItems({ items, currency, updateItem, addItem, removeItem }: 
               <Input type="number" value={item.amount.toFixed(2)} readOnly className="bg-muted" />
             </div>
             <div className="flex items-end">
-              <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(index)} disabled={items.length <= 1}>
+              <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(index)} disabled={items.length <= 1} aria-label="حذف">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </div>

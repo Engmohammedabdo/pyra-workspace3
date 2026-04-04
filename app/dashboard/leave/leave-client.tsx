@@ -17,13 +17,7 @@ import {
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 import { LEAVE_STATUS_LABELS } from '@/lib/constants/statuses';
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-  approved: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  cancelled: 'bg-gray-500/10 text-gray-500 dark:text-gray-400',
-};
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 const STATUS_LABELS: Record<string, string> = { ...LEAVE_STATUS_LABELS, cancelled: 'ملغية' };
 const TYPE_LABELS: Record<string, string> = { annual: 'سنوية', sick: 'مرضية', personal: 'شخصية' };
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = { annual: Sun, sick: Stethoscope, personal: UserCircle };
@@ -421,7 +415,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={`text-[10px] ${STATUS_STYLES[req.status] || STATUS_STYLES.pending}`}>
+                      <Badge className={`text-[10px] ${getStatusBadgeClass(req.status)}`}>
                         {STATUS_LABELS[req.status] || req.status}
                       </Badge>
                       {/* Legacy delete for pending only (quick delete, no reason needed) */}

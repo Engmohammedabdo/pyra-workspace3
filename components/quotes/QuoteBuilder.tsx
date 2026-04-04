@@ -393,7 +393,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
 
   return (
     <div className="space-y-6">
-      <Card className="max-w-[900px] mx-auto shadow-lg">
+      <Card className="max-w-[900px] mx-auto shadow-lg dark:shadow-black/20">
         <CardContent className="p-8 space-y-8">
           {/* Company Header */}
           <div className="text-center border-b pb-6">
@@ -751,7 +751,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       </Card>
 
       {/* Toolbar */}
-      <div className="max-w-[900px] mx-auto flex items-center justify-between bg-background border rounded-lg p-3 sticky bottom-4 shadow-lg">
+      <div className="max-w-[900px] mx-auto flex items-center justify-between bg-background border rounded-lg p-3 sticky bottom-4 shadow-lg dark:shadow-black/20">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => onClose?.()}>
             <X className="h-4 w-4 me-1" /> إغلاق

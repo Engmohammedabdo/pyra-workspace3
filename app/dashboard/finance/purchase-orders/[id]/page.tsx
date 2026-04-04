@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import {
   ArrowRight, ShoppingCart, Send, PackageCheck, Truck as TruckIcon,
   FileText, XCircle, Trash2, Loader2,
@@ -37,13 +38,13 @@ interface PurchaseOrder {
   items: POItem[];
 }
 
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  draft:        { label: 'مسودة',  color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300' },
-  sent:         { label: 'مُرسل',  color: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' },
-  acknowledged: { label: 'مؤكد',   color: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300' },
-  received:     { label: 'مستلم',  color: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' },
-  invoiced:     { label: 'مفوتر',  color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300' },
-  cancelled:    { label: 'ملغي',   color: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300' },
+const STATUS_MAP: Record<string, { label: string }> = {
+  draft:        { label: 'مسودة' },
+  sent:         { label: 'مُرسل' },
+  acknowledged: { label: 'مؤكد' },
+  received:     { label: 'مستلم' },
+  invoiced:     { label: 'مفوتر' },
+  cancelled:    { label: 'ملغي' },
 };
 
 const STATUS_ACTIONS: Record<string, { nextStatus: string; label: string; icon: React.ElementType; className?: string }[]> = {
@@ -128,7 +129,7 @@ export default function PurchaseOrderDetailPage() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold" dir="ltr">{po.po_number}</h1>
-              <Badge className={st.color}>{st.label}</Badge>
+              <Badge className={getStatusBadgeClass(po.status)}>{st.label}</Badge>
             </div>
             {po.supplier_name && <p className="text-sm text-muted-foreground">{po.supplier_name}{po.supplier_company ? ` — ${po.supplier_company}` : ''}</p>}
           </div>

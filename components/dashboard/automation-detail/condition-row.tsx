@@ -50,7 +50,7 @@ export function ConditionRow({ condition, index, updateCondition, removeConditio
         />
       </div>
       <div className="sm:col-span-1 flex justify-end">
-        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeCondition(index)}>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeCondition(index)} aria-label="حذف">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>

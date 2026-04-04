@@ -363,6 +363,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               onClick={() => startEditing(note)}
                               title="تعديل"
+                              aria-label="تعديل"
                             >
                               <Pencil className="h-3.5 w-3.5" />
                             </Button>
@@ -380,6 +381,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
                               onClick={() => handleTogglePin(note)}
                               disabled={togglingPinId === note.id}
                               title={note.is_pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                              aria-label={note.is_pinned ? 'إلغاء التثبيت' : 'تثبيت'}
                             >
                               {togglingPinId === note.id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -402,6 +404,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
                                   className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                                   onClick={() => handleDelete(note.id)}
                                   disabled={deletingId === note.id}
+                                  aria-label="تأكيد"
                                 >
                                   {deletingId === note.id ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -415,6 +418,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
                                   className="h-7 w-7 text-muted-foreground"
                                   onClick={() => setConfirmDeleteId(null)}
                                   disabled={deletingId === note.id}
+                                  aria-label="إلغاء"
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </Button>
@@ -426,6 +430,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
                                 className="h-7 w-7 text-muted-foreground hover:text-destructive"
                                 onClick={() => setConfirmDeleteId(note.id)}
                                 title="حذف"
+                                aria-label="حذف"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>

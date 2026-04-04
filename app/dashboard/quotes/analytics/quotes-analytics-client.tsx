@@ -9,6 +9,7 @@ import {
   PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { TrendingUp, Clock, Users, Target } from 'lucide-react';
+import { CHART_STATUS_COLORS, CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 
 interface ConversionData {
   funnel: { stage: string; count: number }[];
@@ -37,15 +38,15 @@ interface AgentData {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  draft: '#94a3b8',
-  pending_approval: '#fbbf24',
-  sent: '#3b82f6',
-  viewed: '#8b5cf6',
-  signed: '#22c55e',
-  invoiced: '#f97316',
-  expired: '#ef4444',
-  rejected: '#dc2626',
-  cancelled: '#6b7280',
+  draft: CHART_STATUS_COLORS.draft,
+  pending_approval: CHART_STATUS_COLORS.pending,
+  sent: CHART_COLORS[1],        // blue
+  viewed: CHART_COLORS[4],      // purple
+  signed: CHART_STATUS_COLORS.active,
+  invoiced: CHART_COLORS[0],    // orange
+  expired: CHART_STATUS_COLORS.cancelled,
+  rejected: CHART_STATUS_COLORS.overdue,
+  cancelled: CHART_STATUS_COLORS.draft,
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -100,7 +101,7 @@ export default function QuotesAnalyticsClient() {
   const statusData = Object.entries(conversion?.by_status || {}).map(([status, count]) => ({
     name: STATUS_LABELS[status] || status,
     value: count,
-    color: STATUS_COLORS[status] || '#94a3b8',
+    color: STATUS_COLORS[status] || CHART_STATUS_COLORS.draft,
   }));
 
   // Pipeline by status for bar chart
@@ -108,7 +109,7 @@ export default function QuotesAnalyticsClient() {
     name: STATUS_LABELS[status] || status,
     value: data.value,
     count: data.count,
-    fill: STATUS_COLORS[status] || '#94a3b8',
+    fill: STATUS_COLORS[status] || CHART_STATUS_COLORS.draft,
   }));
 
   return (
@@ -177,7 +178,7 @@ export default function QuotesAnalyticsClient() {
                 <XAxis type="number" />
                 <YAxis type="category" dataKey="stage" width={100} tick={{ fontSize: 12 }} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#f97316" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill={CHART_COLORS[0]} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>

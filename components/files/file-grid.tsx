@@ -124,7 +124,7 @@ export function FileGrid({
               isSelected
                 ? 'border-primary bg-primary/5 shadow-sm'
                 : 'border-transparent hover:border-border bg-card hover:bg-accent/30',
-              isDragTarget && 'border-2 border-dashed border-pyra-orange bg-pyra-orange/5 shadow-lg scale-105',
+              isDragTarget && 'border-2 border-dashed border-pyra-orange bg-pyra-orange/5 shadow-lg dark:shadow-black/20 scale-105',
               isDragging && 'opacity-40 scale-95'
             )}
             onClick={(e) => {
