@@ -9,6 +9,12 @@ const nextConfig: NextConfig = {
   // Always use standalone for containerised deployment (Coolify / Nixpacks)
   output: 'standalone',
 
+  // Skip ESLint during production builds — run in CI/dev only, saves ~2min per deploy
+  eslint: { ignoreDuringBuilds: true },
+
+  // Skip TypeScript errors during production builds — already checked via `pnpm run check`
+  typescript: { ignoreBuildErrors: true },
+
   // External packages that need native modules
   serverExternalPackages: ['bcryptjs'],
 
