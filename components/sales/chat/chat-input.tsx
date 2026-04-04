@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -56,9 +57,8 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
   // Fetch templates on first open
   const fetchTemplates = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/templates');
-      const data = await res.json();
-      setTemplates(data.data || []);
+      const data = await fetchAPI<Template[]>('/api/dashboard/sales/whatsapp/templates');
+      setTemplates(data);
     } catch {
       console.error('Failed to fetch templates');
     }

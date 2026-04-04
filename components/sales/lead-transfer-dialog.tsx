@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -32,12 +33,8 @@ export function LeadTransferDialog({ open, onOpenChange, leadId, leadName, curre
   useEffect(() => {
     if (open) {
       // Fetch users who can be sales agents
-      fetch('/api/dashboard/team')
-        .then(r => r.json())
-        .then(d => {
-          const users = (d.data || []).filter((u: User) => u.username !== currentAgent);
-          setAgents(users);
-        })
+      fetchAPI<User[]>('/api/dashboard/team')
+        .then(users => setAgents(users.filter(u => u.username !== currentAgent)))
         .catch(() => {});
     }
   }, [open, currentAgent]);
@@ -50,13 +47,7 @@ export function LeadTransferDialog({ open, onOpenChange, leadId, leadName, curre
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/dashboard/sales/leads/${leadId}/transfer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to_agent: toAgent, reason }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل التحويل');
+      await mutateAPI(`/api/dashboard/sales/leads/${leadId}/transfer`, 'POST', { to_agent: toAgent, reason });
 
       toast.success('تم تحويل العميل المحتمل بنجاح');
       setToAgent('');

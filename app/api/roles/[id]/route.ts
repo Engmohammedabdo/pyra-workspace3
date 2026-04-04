@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
+import { logActivity } from '@/lib/api/activity';
 
 export async function GET(
   _request: Request,
@@ -94,6 +95,14 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  logActivity(
+    auth.pyraUser.username,
+    auth.pyraUser.display_name,
+    'role_updated',
+    `/dashboard/roles/${id}`,
+    { updated_fields: Object.keys(update).filter(k => k !== 'updated_at') },
+  );
+
   return NextResponse.json({ data: role });
 }
 
@@ -159,6 +168,14 @@ export async function DELETE(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  logActivity(
+    auth.pyraUser.username,
+    auth.pyraUser.display_name,
+    'role_deleted',
+    `/dashboard/roles/${id}`,
+    { role_name: role.name },
+  );
 
   return NextResponse.json({ success: true });
 }

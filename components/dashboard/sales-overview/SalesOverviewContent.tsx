@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { motion } from 'framer-motion';
 import { TrendingUp, Users, Zap, Target, Clock, UserCheck, Phone, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
@@ -18,13 +19,11 @@ export function SalesOverviewContent() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetch('/api/dashboard/sales/leads'), fetch('/api/dashboard/sales/pipeline-stages'), fetch('/api/dashboard/sales/follow-ups?status=pending'), fetch('/api/dashboard/sales/whatsapp/conversations')])
-      .then(r => Promise.all(r.map(i => i.json())))
-      .then(([l, s, f, c]) => {
-        const leads = l.data || [];
-        setStats({ total_leads: leads.length, new_this_week: leads.filter((l: any) => new Date(l.created_at) >= new Date(Date.now()-7*24*60*60*1000)).length, converted: leads.filter((l: any) => l.is_converted).length, pending_follow_ups: f.data?.length || 0, stages: s.data?.map((stage: any) => ({ name_ar: stage.name_ar, color: stage.color, count: leads.filter((l: any) => l.stage_id === stage.id).length })) || [] });
-        const convs = c.data || [];
-        setWaStats({ total_conversations: convs.length, messages_today: convs.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0), messages_received_today: convs.filter((c: any) => new Date(c.last_timestamp) >= new Date(new Date().setHours(0,0,0,0))).length });
+    Promise.all([fetchAPI<any[]>('/api/dashboard/sales/leads'), fetchAPI<any[]>('/api/dashboard/sales/pipeline-stages'), fetchAPI<any>('/api/dashboard/sales/follow-ups?status=pending'), fetchAPI<any[]>('/api/dashboard/sales/whatsapp/conversations')])
+      .then(([leads, stagesData, followUpsData, convs]) => {
+        const followUpsList = Array.isArray(followUpsData) ? followUpsData : [];
+        setStats({ total_leads: leads.length, new_this_week: leads.filter((l: any) => new Date(l.created_at) >= new Date(Date.now()-7*24*60*60*1000)).length, converted: leads.filter((l: any) => l.is_converted).length, pending_follow_ups: followUpsList.length, stages: stagesData?.map((stage: any) => ({ name_ar: stage.name_ar, color: stage.color, count: leads.filter((l: any) => l.stage_id === stage.id).length })) || [] });
+        setWaStats({ total_conversations: convs.length, messages_today: convs.reduce((sum: number, cv: any) => sum + (cv.unread_count || 0), 0), messages_received_today: convs.filter((cv: any) => new Date(cv.last_timestamp) >= new Date(new Date().setHours(0,0,0,0))).length });
       }).finally(() => setLoading(false));
   }, []);
 

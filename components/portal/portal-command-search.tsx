@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Command } from 'cmdk';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -83,9 +84,8 @@ export function PortalCommandSearch() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/portal/search?q=${encodeURIComponent(term)}`);
-      const json = await res.json();
-      if (res.ok && json.data) setResults(json.data);
+      const data = await fetchAPI<SearchResults>(`/api/portal/search?q=${encodeURIComponent(term)}`);
+      setResults(data);
     } catch {
       /* ignore */
     } finally {

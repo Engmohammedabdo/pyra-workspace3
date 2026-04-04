@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
@@ -57,9 +58,8 @@ export function SendQuoteDialog({ leadId, remoteJid, instanceName, phone, onClos
         const url = leadId
           ? `/api/dashboard/sales/leads/${leadId}/quotes`
           : `/api/quotes?limit=20`;
-        const res = await fetch(url);
-        const data = await res.json();
-        setQuotes(data.data || []);
+        const data = await fetchAPI<Quote[]>(url);
+        setQuotes(data);
       } catch {
         toast.error('فشل تحميل عروض الأسعار');
       } finally {
@@ -82,19 +82,13 @@ export function SendQuoteDialog({ leadId, remoteJid, instanceName, phone, onClos
       // Send message with quote info text
       const message = `📋 *عرض سعر ${quote.quote_number}*\n${quote.project_name ? `المشروع: ${quote.project_name}\n` : ''}الإجمالي: ${formatCurrency(quote.total, quote.currency)}\n\nسيتم إرسال التفاصيل الكاملة قريباً.`;
 
-      const res = await fetch('/api/dashboard/sales/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance_name: instanceName,
-          remote_jid: remoteJid,
-          number: phone,
-          text: message,
-          lead_id: leadId,
-        }),
+      await mutateAPI('/api/dashboard/sales/whatsapp/send', 'POST', {
+        instance_name: instanceName,
+        remote_jid: remoteJid,
+        number: phone,
+        text: message,
+        lead_id: leadId,
       });
-
-      if (!res.ok) throw new Error('فشل الإرسال');
 
       toast.success(`تم إرسال عرض السعر ${quote.quote_number}`);
       onSent();

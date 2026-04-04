@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
@@ -27,9 +28,8 @@ export function RevenueTrendChart() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis/revenue-trend');
-      const json = await res.json();
-      if (json.data) setData(json.data);
+      const result = await fetchAPI<TrendPoint[]>('/api/dashboard/kpis/revenue-trend');
+      setData(result);
     } catch (err) {
       console.error('RevenueTrendChart fetch error:', err);
     } finally {

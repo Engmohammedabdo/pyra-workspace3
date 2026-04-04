@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 // Fields to select — include auth_user_id for portal status detection
 const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at, auth_user_id';
@@ -248,19 +249,14 @@ export async function PATCH(
       return apiServerError();
     }
 
-    // ── Log activity ─────────────────────────────────
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
-      action_type: 'client_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/clients/${id}`,
-      details: {
-        client_id: id,
-        updated_fields: Object.keys(updates),
-      },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'client_updated',
+      `/dashboard/clients/${id}`,
+      { client_id: id, updated_fields: Object.keys(updates) },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess(client);
   } catch (err) {
@@ -352,21 +348,14 @@ export async function DELETE(
       }
     }
 
-    // ── Log activity ─────────────────────────────────
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
-      action_type: 'client_deleted',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/clients/${id}`,
-      details: {
-        client_id: id,
-        client_name: existing.name,
-        client_email: existing.email,
-        company: existing.company,
-      },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'client_deleted',
+      `/dashboard/clients/${id}`,
+      { client_id: id, client_name: existing.name, client_email: existing.email, company: existing.company },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess({ deleted: true, id });
   } catch (err) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TrendingUp, TrendingDown, Receipt } from 'lucide-react';
@@ -23,9 +24,8 @@ export function VatTab() {
 
   const fetchData = useCallback(() => {
     setLoading(true);
-    fetch(`/api/finance/reports/vat?from=${from}&to=${to}`)
-      .then((r) => r.json())
-      .then((res) => { if (res.data) setData(res.data); })
+    fetchAPI<VatData>(`/api/finance/reports/vat?from=${from}&to=${to}`)
+      .then((result) => setData(result))
       .catch(() => toast.error('فشل في تحميل تقرير الضريبة'))
       .finally(() => setLoading(false));
   }, [from, to]);
@@ -57,7 +57,7 @@ export function VatTab() {
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-muted-foreground"><th className="text-right py-3 px-2 font-medium">الشهر</th><th className="text-right py-3 px-2 font-medium">محصّلة</th><th className="text-right py-3 px-2 font-medium">مدفوعة</th><th className="text-right py-3 px-2 font-medium">الصافي</th></tr></thead>
+                  <thead><tr className="border-b text-muted-foreground"><th className="text-end py-3 px-2 font-medium">الشهر</th><th className="text-end py-3 px-2 font-medium">محصّلة</th><th className="text-end py-3 px-2 font-medium">مدفوعة</th><th className="text-end py-3 px-2 font-medium">الصافي</th></tr></thead>
                   <tbody>{data.monthly.map((m) => <tr key={m.month} className="border-b last:border-0 hover:bg-muted/50"><td className="py-3 px-2 font-medium">{m.month}</td><td className="py-3 px-2 font-mono text-green-600">{formatCurrency(m.collected)}</td><td className="py-3 px-2 font-mono text-red-600">{formatCurrency(m.paid)}</td><td className={`py-3 px-2 font-mono font-semibold ${m.net >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(m.net)}</td></tr>)}</tbody>
                   <tfoot><tr className="border-t-2 font-bold"><td className="py-3 px-2">الإجمالي</td><td className="py-3 px-2 font-mono text-green-600">{formatCurrency(data.summary.vat_collected)}</td><td className="py-3 px-2 font-mono text-red-600">{formatCurrency(data.summary.vat_paid)}</td><td className={`py-3 px-2 font-mono ${data.summary.net_vat >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(data.summary.net_vat)}</td></tr></tfoot>
                 </table>

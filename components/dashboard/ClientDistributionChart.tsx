@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
@@ -31,9 +32,8 @@ export function ClientDistributionChart() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis/client-distribution');
-      const json = await res.json();
-      if (json.data) setData(json.data);
+      const result = await fetchAPI<ClientItem[]>('/api/dashboard/kpis/client-distribution');
+      setData(result);
     } catch (err) {
       console.error('ClientDistributionChart fetch error:', err);
     } finally {

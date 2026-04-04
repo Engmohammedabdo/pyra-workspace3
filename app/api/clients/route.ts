@@ -9,6 +9,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
+import { CLIENT_STATUS } from '@/lib/constants/statuses';
 
 // Fields to select — everything EXCEPT auth_user_id
 const CLIENT_FIELDS = 'id, name, email, phone, company, address, source, last_login_at, is_active, created_at';
@@ -269,7 +271,7 @@ export async function POST(request: NextRequest) {
         auth_user_id: authUserId,
         password_hash: authUserId ? 'supabase_auth_managed' : 'no_portal_access',
         role: 'client',
-        status: 'active',
+        status: CLIENT_STATUS.ACTIVE,
         language: 'ar',
         created_by: auth.pyraUser.username,
         is_active: true,
@@ -319,21 +321,14 @@ export async function POST(request: NextRequest) {
         );
       });
 
-    // ── Log activity (fire-and-forget) ────────────────
-    void supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
-      action_type: 'client_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/clients/${clientId}`,
-      details: {
-        client_id: clientId,
-        client_name: name.trim(),
-        client_email: email.trim().toLowerCase(),
-        company: company.trim(),
-      },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'client_created',
+      `/dashboard/clients/${clientId}`,
+      { client_id: clientId, client_name: name.trim(), client_email: email.trim().toLowerCase(), company: company.trim() },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess(client, undefined, 201);
   } catch (err) {

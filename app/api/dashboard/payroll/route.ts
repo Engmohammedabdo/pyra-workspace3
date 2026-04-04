@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { PAYROLL_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // GET /api/dashboard/payroll
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         id,
         month,
         year,
-        status: 'draft',
+        status: PAYROLL_STATUS.DRAFT,
         total_amount: 0,
         currency: 'AED',
         employee_count: 0,

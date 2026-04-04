@@ -104,7 +104,7 @@ export default function RevenueTargetsPage() {
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6" /> أهداف الإيرادات</h1>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 ml-2" /> إضافة هدف</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> إضافة هدف</Button>
       </div>
 
       {loading ? (

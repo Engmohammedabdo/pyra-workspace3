@@ -7,7 +7,6 @@ import {
   CheckCheck,
   Clock,
   Download,
-  ExternalLink,
   FileText,
   Image as ImageIcon,
   Mic,

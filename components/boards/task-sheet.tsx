@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { hasPermission } from '@/lib/auth/rbac';
-import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
 import {
@@ -234,8 +234,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   // ── Fetch ──
   const fetchTask = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tasks/${taskId}`);
-      const { data } = await res.json();
+      const data = await fetchAPI<TaskDetail>(`/api/tasks/${taskId}`);
       if (data) {
         setTask(data);
         setEditTitle(data.title);
@@ -249,8 +248,8 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   // Fetch users for assignee search
   useEffect(() => {
-    fetch('/api/users').then(r => r.json()).then(j => {
-      if (j.data) setAllUsers(j.data.map((u: { username: string; display_name: string }) => ({ username: u.username, display_name: u.display_name })));
+    fetchAPI<{ username: string; display_name: string }[]>('/api/users').then(users => {
+      if (users) setAllUsers(users.map(u => ({ username: u.username, display_name: u.display_name })));
     }).catch(() => {});
   }, []);
 
@@ -281,11 +280,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   const saveField = async (field: string, value: unknown) => {
     setSaving(true);
     try {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ [field]: value }),
-      });
+      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { [field]: value });
       fetchTask();
       onUpdate();
     } catch { toast.error('فشل الحفظ'); }
@@ -303,18 +298,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const addAssignee = async (username: string) => {
-    await fetch(`/api/tasks/${task.id}/assignees`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usernames: [username] }),
-    });
+    await mutateAPI(`/api/tasks/${task.id}/assignees`, 'POST', { usernames: [username] });
     setAssigneeSearch('');
     fetchTask();
     onUpdate();
   };
 
   const removeAssignee = async (username: string) => {
-    await fetch(`/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`, { method: 'DELETE' });
+    await mutateAPI(`/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`, 'DELETE');
     fetchTask();
     onUpdate();
   };
@@ -323,17 +314,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     const has = taskLabels.some(l => l.label_id === labelId);
     if (has) {
       // Remove — direct DB call via task label junction
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _remove_label: labelId }),
-      });
+      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _remove_label: labelId });
     } else {
-      await fetch(`/api/tasks/${task.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ _add_label: labelId }),
-      });
+      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _add_label: labelId });
     }
     fetchTask();
     onUpdate();
@@ -343,11 +326,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     if (!commentText.trim()) return;
     setSendingComment(true);
     try {
-      await fetch(`/api/tasks/${task.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: commentText }),
-      });
+      await mutateAPI(`/api/tasks/${task.id}/comments`, 'POST', { content: commentText });
       setCommentText('');
       fetchTask();
     } catch { toast.error('فشل إرسال التعليق'); }
@@ -355,17 +334,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const deleteComment = async (commentId: string) => {
-    await fetch(`/api/tasks/${task.id}/comments?commentId=${commentId}`, { method: 'DELETE' });
+    await mutateAPI(`/api/tasks/${task.id}/comments?commentId=${commentId}`, 'DELETE');
     fetchTask();
   };
 
   const addChecklistItem = async () => {
     if (!newCheckItem.trim()) return;
-    await fetch(`/api/tasks/${task.id}/checklist`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: newCheckItem.trim() }),
-    });
+    await mutateAPI(`/api/tasks/${task.id}/checklist`, 'POST', { title: newCheckItem.trim() });
     setNewCheckItem('');
     setShowCheckInput(false);
     fetchTask();
@@ -373,17 +348,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const toggleCheckItem = async (itemId: string, currentChecked: boolean) => {
-    await fetch(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ is_checked: !currentChecked }),
-    });
+    await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'PATCH', { is_checked: !currentChecked });
     fetchTask();
     onUpdate();
   };
 
   const deleteCheckItem = async (itemId: string) => {
-    await fetch(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, { method: 'DELETE' });
+    await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'DELETE');
     fetchTask();
     onUpdate();
   };
@@ -393,19 +364,36 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     if (!file) return;
     setUploading(true);
     try {
-      const sb = createBrowserSupabaseClient();
-      const bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
-      const storagePath = `tasks/${task.id}/${Date.now()}_${file.name}`;
-      const { error: upErr } = await sb.storage.from(bucket).upload(storagePath, file);
-      if (upErr) throw upErr;
-      const { data: urlData } = sb.storage.from(bucket).getPublicUrl(storagePath);
-      const fileUrl = urlData.publicUrl;
-      // Record
-      await fetch(`/api/boards/${board.id}/tasks/${task.id}/attachments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_name: file.name, file_url: fileUrl, file_size: file.size, storage_path: storagePath }),
+      const prefix = `tasks/${task.id}`;
+      // 1. Get signed upload URL
+      const urlData = await mutateAPI<{ signedUrl: string; token: string; storagePath: string }>(
+        '/api/files/upload-url', 'POST',
+        { fileName: file.name, fileSize: file.size, mimeType: file.type, prefix }
+      );
+
+      // 2. Upload via XHR for progress tracking
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', urlData.signedUrl);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`));
+        xhr.onerror = () => reject(new Error('Upload failed'));
+        xhr.send(file);
       });
+
+      // 3. Complete upload (index file)
+      await mutateAPI('/api/files/upload-complete', 'POST', {
+        storagePath: urlData.storagePath, fileName: file.name, fileSize: file.size, mimeType: file.type,
+      });
+
+      // 4. Record as task attachment
+      const bucket = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+      const fileUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${urlData.storagePath}`;
+      await mutateAPI(`/api/boards/${board.id}/tasks/${task.id}/attachments`, 'POST', {
+        file_name: file.name, file_url: fileUrl, file_size: file.size, storage_path: urlData.storagePath,
+      });
+
       toast.success('تم رفع الملف');
       fetchTask();
     } catch { toast.error('فشل رفع الملف'); }
@@ -413,11 +401,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const moveToColumn = async (colId: string) => {
-    await fetch(`/api/tasks/${task.id}/move`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ column_id: colId, position: 0 }),
-    });
+    await mutateAPI(`/api/tasks/${task.id}/move`, 'POST', { column_id: colId, position: 0 });
     fetchTask();
     onUpdate();
   };
@@ -428,7 +412,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const deleteTask = async () => {
-    await fetch(`/api/tasks/${task.id}`, { method: 'DELETE' });
+    await mutateAPI(`/api/tasks/${task.id}`, 'DELETE');
     toast.success('تم حذف المهمة');
     onUpdate();
     onClose();
@@ -1028,15 +1012,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <button
                   onClick={async () => {
                     try {
-                      const res = await fetch(`/api/tasks/${task.id}/duplicate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({}),
-                      });
-                      if (res.ok) {
-                        toast.success('تم نسخ المهمة');
-                        onUpdate();
-                      } else toast.error('فشل نسخ المهمة');
+                      await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
+                      toast.success('تم نسخ المهمة');
+                      onUpdate();
                     } catch { toast.error('فشل نسخ المهمة'); }
                   }}
                   className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
@@ -1144,9 +1122,8 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
   const [moving, setMoving] = useState(false);
 
   useEffect(() => {
-    fetch('/api/boards').then(r => r.json()).then(j => {
-      const allBoards = (j.data || []).filter((b: { id: string }) => b.id !== currentBoardId);
-      setBoards(allBoards);
+    fetchAPI<Array<{ id: string; name: string; pyra_board_columns?: Array<{ id: string; name: string }> }>>('/api/boards').then(allBoards => {
+      setBoards((allBoards || []).filter(b => b.id !== currentBoardId));
     }).catch(() => {});
   }, [currentBoardId]);
 
@@ -1156,14 +1133,9 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
     if (!selectedBoard || !selectedCol) return;
     setMoving(true);
     try {
-      const res = await fetch(`/api/tasks/${taskId}/move`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ column_id: selectedCol, target_board_id: selectedBoard, position: 0 }),
-      });
-      if (res.ok) onMoved();
-      else toast.error('فشل نقل المهمة');
-    } catch { toast.error('فشل'); }
+      await mutateAPI(`/api/tasks/${taskId}/move`, 'POST', { column_id: selectedCol, target_board_id: selectedBoard, position: 0 });
+      onMoved();
+    } catch { toast.error('فشل نقل المهمة'); }
     finally { setMoving(false); }
   };
 

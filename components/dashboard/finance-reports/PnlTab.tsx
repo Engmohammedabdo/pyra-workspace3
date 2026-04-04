@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Label } from '@/components/ui/label';
@@ -31,9 +32,8 @@ export function PnlTab() {
 
   const fetchData = useCallback(() => {
     setLoading(true);
-    fetch(`/api/finance/reports/pnl?from=${from}&to=${to}&group_by=${groupBy}`)
-      .then((r) => r.json())
-      .then((res) => { if (res.data) setData(res.data); })
+    fetchAPI<PnlData>(`/api/finance/reports/pnl?from=${from}&to=${to}&group_by=${groupBy}`)
+      .then((result) => setData(result))
       .catch(() => toast.error('فشل في تحميل تقرير الأرباح والخسائر'))
       .finally(() => setLoading(false));
   }, [from, to, groupBy]);

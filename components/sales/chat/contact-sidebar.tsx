@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
@@ -44,7 +45,7 @@ interface QuoteInfo {
   created_at: string;
 }
 
-export function ContactSidebar({ remoteJid, instanceName, contactName, phone, leadId, onClose }: ContactSidebarProps) {
+export function ContactSidebar({ contactName, phone, leadId, onClose }: ContactSidebarProps) {
   const [lead, setLead] = useState<LeadInfo | null>(null);
   const [quotes, setQuotes] = useState<QuoteInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,14 +56,12 @@ export function ContactSidebar({ remoteJid, instanceName, contactName, phone, le
       setLoading(true);
       try {
         if (leadId) {
-          const res = await fetch(`/api/dashboard/sales/leads/${leadId}`);
-          const data = await res.json();
-          if (data.data) setLead(data.data);
+          const leadData = await fetchAPI<LeadInfo>(`/api/dashboard/sales/leads/${leadId}`);
+          setLead(leadData);
 
           // Fetch quotes linked to this lead
-          const qRes = await fetch(`/api/dashboard/sales/leads/${leadId}/quotes`);
-          const qData = await qRes.json();
-          setQuotes(qData.data || []);
+          const quotesData = await fetchAPI<QuoteInfo[]>(`/api/dashboard/sales/leads/${leadId}/quotes`);
+          setQuotes(quotesData);
         }
       } catch {
         console.error('Failed to fetch contact data');

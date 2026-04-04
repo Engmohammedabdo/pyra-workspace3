@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,19 +24,10 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/portal/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), email: email.trim(), phone: phone.trim() || null }),
-      });
-      if (res.ok) {
-        toast.success('تم حفظ البيانات بنجاح');
-      } else {
-        const json = await res.json();
-        toast.error(json.error || 'حدث خطأ أثناء حفظ البيانات');
-      }
+      await mutateAPI('/api/portal/profile', 'PATCH', { name: name.trim(), email: email.trim(), phone: phone.trim() || null });
+      toast.success('تم حفظ البيانات بنجاح');
     } catch {
-      toast.error('حدث خطأ غير متوقع');
+      toast.error('حدث خطأ أثناء حفظ البيانات');
     } finally {
       setSaving(false);
     }

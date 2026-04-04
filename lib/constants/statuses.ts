@@ -256,7 +256,110 @@ export const BILLING_CYCLE_LABELS: Record<BillingCycle, string> = {
   yearly: 'سنوي',
 };
 
-// ── Currencies ──
+// ── Employee Payment ──
+export const EMPLOYEE_PAYMENT_STATUS = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  PAID: 'paid',
+  REJECTED: 'rejected',
+} as const;
+
+export type EmployeePaymentStatus = typeof EMPLOYEE_PAYMENT_STATUS[keyof typeof EMPLOYEE_PAYMENT_STATUS];
+
+export const EMPLOYEE_PAYMENT_STATUS_LABELS: Record<EmployeePaymentStatus, string> = {
+  pending: 'بانتظار الموافقة',
+  approved: 'معتمد',
+  paid: 'مدفوع',
+  rejected: 'مرفوض',
+};
+
+// ── Evaluation ──
+export const EVALUATION_STATUS = {
+  DRAFT: 'draft',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+} as const;
+
+export type EvaluationStatus = typeof EVALUATION_STATUS[keyof typeof EVALUATION_STATUS];
+
+export const EVALUATION_STATUS_LABELS: Record<EvaluationStatus, string> = {
+  draft: 'مسودة',
+  in_progress: 'جاري التقييم',
+  completed: 'مكتمل',
+};
+
+// ── Content Pipeline ──
+export const CONTENT_PIPELINE_STATUS = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  REVIEW: 'review',
+  APPROVED: 'approved',
+  PUBLISHED: 'published',
+} as const;
+
+export type ContentPipelineStatus = typeof CONTENT_PIPELINE_STATUS[keyof typeof CONTENT_PIPELINE_STATUS];
+
+export const CONTENT_PIPELINE_STATUS_LABELS: Record<ContentPipelineStatus, string> = {
+  pending: 'بانتظار البدء',
+  in_progress: 'قيد التنفيذ',
+  review: 'قيد المراجعة',
+  approved: 'معتمد',
+  published: 'منشور',
+};
+
+// ── Follow-Up ──
+export const FOLLOW_UP_STATUS = {
+  PENDING: 'pending',
+  COMPLETED: 'completed',
+  OVERDUE: 'overdue',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type FollowUpStatus = typeof FOLLOW_UP_STATUS[keyof typeof FOLLOW_UP_STATUS];
+
+export const FOLLOW_UP_STATUS_LABELS: Record<FollowUpStatus, string> = {
+  pending: 'بانتظار التنفيذ',
+  completed: 'مكتمل',
+  overdue: 'متأخر',
+  cancelled: 'ملغي',
+};
+
+// ── Client ──
+export const CLIENT_STATUS = {
+  ACTIVE: 'active',
+  INACTIVE: 'inactive',
+} as const;
+
+export type ClientStatus = typeof CLIENT_STATUS[keyof typeof CLIENT_STATUS];
+
+export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
+  active: 'نشط',
+  inactive: 'غير نشط',
+};
+
+// ── Lead ──
+export const LEAD_STATUS = {
+  NEW: 'new',
+  CONTACTED: 'contacted',
+  QUALIFIED: 'qualified',
+  PROPOSAL: 'proposal',
+  NEGOTIATION: 'negotiation',
+  WON: 'won',
+  LOST: 'lost',
+} as const;
+
+export type LeadStatus = typeof LEAD_STATUS[keyof typeof LEAD_STATUS];
+
+export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
+  new: 'جديد',
+  contacted: 'تم التواصل',
+  qualified: 'مؤهل',
+  proposal: 'عرض سعر',
+  negotiation: 'تفاوض',
+  won: 'تم الكسب',
+  lost: 'خسارة',
+};
+
 // ── Conversation (WhatsApp Shared Inbox) ──
 export const CONVERSATION_STATUS = {
   OPEN: 'open',

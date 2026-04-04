@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,10 +28,9 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
 
   const fetchItems = useCallback(async () => {
     try {
-      const res = await fetch(`/api/finance/contracts/${contractId}/items`);
-      const j = await res.json();
-      if (j.data?.items) {
-        setItems(j.data.items.map((item: { title: string; description?: string; children?: { title: string; description?: string }[] }) => ({
+      const j = await fetchAPI<{ items?: { title: string; description?: string; children?: { title: string; description?: string }[] }[] }>(`/api/finance/contracts/${contractId}/items`);
+      if (j?.items) {
+        setItems(j.items.map((item: { title: string; description?: string; children?: { title: string; description?: string }[] }) => ({
           title: item.title,
           description: item.description || '',
           children: (item.children || []).map((c: { title: string; description?: string }) => ({
@@ -62,19 +62,9 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/finance/contracts/${contractId}/items`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
-      });
-
-      if (res.ok) {
-        toast.success('تم حفظ بنود العقد');
-        setHasChanges(false);
-      } else {
-        const j = await res.json().catch(() => null);
-        toast.error(j?.error || 'فشل في حفظ البنود');
-      }
+      await mutateAPI(`/api/finance/contracts/${contractId}/items`, 'PUT', { items });
+      toast.success('تم حفظ بنود العقد');
+      setHasChanges(false);
     } catch {
       toast.error('فشل في حفظ البنود');
     } finally {

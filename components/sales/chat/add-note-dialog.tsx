@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { X, StickyNote, Loader2, Phone, Mail, Users, FileText } from 'lucide-react';
@@ -33,19 +34,10 @@ export function AddNoteDialog({ leadId, onClose, onAdded }: AddNoteDialogProps) 
 
     setSaving(true);
     try {
-      const res = await fetch(`/api/dashboard/sales/leads/${leadId}/activities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          activity_type: type,
-          description: description.trim(),
-        }),
+      await mutateAPI(`/api/dashboard/sales/leads/${leadId}/activities`, 'POST', {
+        activity_type: type,
+        description: description.trim(),
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'فشل الحفظ');
-      }
 
       toast.success('تمت إضافة النشاط بنجاح');
       onAdded();

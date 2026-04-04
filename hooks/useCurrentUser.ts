@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
 import type { UserPermissions } from '@/types/database';
 
 interface CurrentUser {
@@ -21,14 +22,7 @@ interface CurrentUser {
 export function useCurrentUser() {
   return useQuery<CurrentUser>({
     queryKey: ['currentUser'],
-    queryFn: async () => {
-      const res = await fetch('/api/auth/me');
-      if (!res.ok) {
-        throw new Error('فشل في جلب بيانات المستخدم');
-      }
-      const json = await res.json();
-      return json.data as CurrentUser;
-    },
+    queryFn: () => fetchAPI<CurrentUser>('/api/auth/me'),
     staleTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: false,
   });

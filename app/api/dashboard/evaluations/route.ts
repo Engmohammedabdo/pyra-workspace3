@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/respon
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
+import { EVALUATION_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // GET /api/dashboard/evaluations
@@ -142,7 +143,7 @@ export async function POST(req: NextRequest) {
         employee_username,
         evaluator_username,
         evaluation_type: evaluation_type || 'manager',
-        status: 'draft',
+        status: EVALUATION_STATUS.DRAFT,
       })
       .select()
       .single();

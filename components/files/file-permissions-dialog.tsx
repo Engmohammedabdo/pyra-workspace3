@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Shield, Plus, Trash2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import type { FileListItem } from '@/types/database';
 
 interface UserLite {
@@ -75,34 +76,26 @@ export function FilePermissionsDialog({
 
     try {
       // Fetch all users
-      const [usersRes, allUsersRes] = await Promise.all([
-        fetch('/api/users/lite'),
-        fetch('/api/users?role='),
+      const [usersData, allUsersData] = await Promise.all([
+        fetchAPI<UserLite[]>('/api/users/lite'),
+        fetchAPI<{ username: string; display_name: string; permissions: { paths?: Record<string, string> } | null }[]>('/api/users?role='),
       ]);
 
-      if (usersRes.ok) {
-        const usersJson = await usersRes.json();
-        if (usersJson.data) setUsers(usersJson.data);
-      }
+      setUsers(usersData);
 
       // Extract permissions for this specific path
-      if (allUsersRes.ok) {
-        const allUsersJson = await allUsersRes.json();
-        if (allUsersJson.data) {
-          const perms: UserPermEntry[] = [];
-          for (const user of allUsersJson.data) {
-            const up = user.permissions as { paths?: Record<string, string> } | null;
-            if (up?.paths?.[filePath]) {
-              perms.push({
-                username: user.username,
-                displayName: user.display_name,
-                level: up.paths[filePath] as 'browse' | 'upload' | 'full',
-              });
-            }
-          }
-          setPermissions(perms);
+      const perms: UserPermEntry[] = [];
+      for (const user of allUsersData) {
+        const up = user.permissions;
+        if (up?.paths?.[filePath]) {
+          perms.push({
+            username: user.username,
+            displayName: user.display_name,
+            level: up.paths[filePath] as 'browse' | 'upload' | 'full',
+          });
         }
       }
+      setPermissions(perms);
     } catch (err) {
       console.error('Failed to fetch permissions data:', err);
     } finally {
@@ -130,27 +123,13 @@ export function FilePermissionsDialog({
     setSaving(true);
     try {
       // Fetch current user data
-      const userRes = await fetch(`/api/users/${selectedUser}`);
-      const userJson = await userRes.json();
-      if (userJson.error) {
-        toast.error(userJson.error);
-        return;
-      }
+      const userData = await fetchAPI<{ permissions: Record<string, unknown> | null }>(`/api/users/${selectedUser}`);
 
-      const currentPerms = userJson.data?.permissions || {};
+      const currentPerms = userData?.permissions || {};
       const paths = { ...((currentPerms as Record<string, unknown>).paths as Record<string, string> || {}) };
       paths[filePath] = selectedLevel;
 
-      const res = await fetch(`/api/users/${selectedUser}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: { ...currentPerms, paths } }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
+      await mutateAPI(`/api/users/${selectedUser}`, 'PATCH', { permissions: { ...currentPerms, paths } });
 
       toast.success(`تم إضافة صلاحيات لـ "${selectedUser}"`);
       setSelectedUser('');
@@ -166,19 +145,13 @@ export function FilePermissionsDialog({
   const handleRemove = async (username: string) => {
     setSaving(true);
     try {
-      const userRes = await fetch(`/api/users/${username}`);
-      const userJson = await userRes.json();
-      if (userJson.error) return;
+      const userData = await fetchAPI<{ permissions: Record<string, unknown> | null }>(`/api/users/${username}`);
 
-      const currentPerms = userJson.data?.permissions || {};
+      const currentPerms = userData?.permissions || {};
       const paths = { ...((currentPerms as Record<string, unknown>).paths as Record<string, string> || {}) };
       delete paths[filePath];
 
-      await fetch(`/api/users/${username}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: { ...currentPerms, paths } }),
-      });
+      await mutateAPI(`/api/users/${username}`, 'PATCH', { permissions: { ...currentPerms, paths } });
 
       toast.success(`تم إزالة صلاحيات "${username}"`);
       fetchData();
@@ -192,19 +165,13 @@ export function FilePermissionsDialog({
   const handleChangeLevel = async (username: string, newLevel: string) => {
     setSaving(true);
     try {
-      const userRes = await fetch(`/api/users/${username}`);
-      const userJson = await userRes.json();
-      if (userJson.error) return;
+      const userData = await fetchAPI<{ permissions: Record<string, unknown> | null }>(`/api/users/${username}`);
 
-      const currentPerms = userJson.data?.permissions || {};
+      const currentPerms = userData?.permissions || {};
       const paths = { ...((currentPerms as Record<string, unknown>).paths as Record<string, string> || {}) };
       paths[filePath] = newLevel;
 
-      await fetch(`/api/users/${username}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ permissions: { ...currentPerms, paths } }),
-      });
+      await mutateAPI(`/api/users/${username}`, 'PATCH', { permissions: { ...currentPerms, paths } });
 
       toast.success('تم تحديث مستوى الصلاحيات');
       fetchData();

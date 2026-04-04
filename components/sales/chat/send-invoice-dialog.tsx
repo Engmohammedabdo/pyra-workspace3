@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
@@ -60,9 +61,8 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
         // Fetch invoices — filter by client_id if available
         const params = new URLSearchParams({ limit: '20' });
         if (clientId) params.set('client_id', clientId);
-        const res = await fetch(`/api/invoices?${params}`);
-        const data = await res.json();
-        setInvoices(data.data || []);
+        const data = await fetchAPI<Invoice[]>(`/api/invoices?${params}`);
+        setInvoices(data);
       } catch {
         toast.error('فشل تحميل الفواتير');
       } finally {
@@ -84,19 +84,13 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
     try {
       const message = `🧾 *فاتورة ${inv.invoice_number}*\n${inv.project_name ? `المشروع: ${inv.project_name}\n` : ''}الإجمالي: ${formatCurrency(inv.total, inv.currency)}${inv.amount_due > 0 && inv.amount_due !== inv.total ? `\nالمبلغ المتبقي: ${formatCurrency(inv.amount_due, inv.currency)}` : ''}\nتاريخ الاستحقاق: ${new Date(inv.due_date).toLocaleDateString('ar-EG')}\n\nسيتم إرسال التفاصيل الكاملة قريباً.`;
 
-      const res = await fetch('/api/dashboard/sales/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance_name: instanceName,
-          remote_jid: remoteJid,
-          number: phone,
-          text: message,
-          lead_id: leadId,
-        }),
+      await mutateAPI('/api/dashboard/sales/whatsapp/send', 'POST', {
+        instance_name: instanceName,
+        remote_jid: remoteJid,
+        number: phone,
+        text: message,
+        lead_id: leadId,
       });
-
-      if (!res.ok) throw new Error('فشل الإرسال');
 
       toast.success(`تم إرسال الفاتورة ${inv.invoice_number}`);
       onSent();

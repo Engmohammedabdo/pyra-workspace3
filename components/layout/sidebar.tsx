@@ -416,7 +416,7 @@ export function Sidebar({ user }: SidebarProps) {
         </TooltipTrigger>
         <TooltipContent
           side="left"
-          className="max-w-[220px] text-right"
+          className="max-w-[220px] text-end"
         >
           {collapsed && <p className="font-semibold text-xs">{item.label}</p>}
           {guideDesc && (
@@ -509,7 +509,7 @@ export function Sidebar({ user }: SidebarProps) {
                         </button>
                       </TooltipTrigger>
                       {group.description && (
-                        <TooltipContent side="left" className="max-w-[200px] text-right">
+                        <TooltipContent side="left" className="max-w-[200px] text-end">
                           <p className="text-[11px] leading-relaxed">{group.description}</p>
                         </TooltipContent>
                       )}

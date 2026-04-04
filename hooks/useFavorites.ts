@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { toast } from 'sonner';
 
 export interface FavoriteItem {
@@ -19,10 +20,11 @@ export function useFavorites() {
   return useQuery<FavoriteItem[]>({
     queryKey: ['favorites'],
     queryFn: async () => {
-      const res = await fetch('/api/favorites');
-      if (!res.ok) return [];
-      const json = await res.json();
-      return (json.data || []) as FavoriteItem[];
+      try {
+        return await fetchAPI<FavoriteItem[]>('/api/favorites');
+      } catch {
+        return [];
+      }
     },
     staleTime: 60_000, // 1 minute
   });
@@ -52,25 +54,15 @@ export function useToggleFavorite() {
       itemType?: 'file' | 'folder';
       displayName?: string;
     }) => {
-      const res = await fetch('/api/favorites', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          file_path: filePath,
-          item_type: itemType || 'file',
-          display_name: displayName,
-        }),
+      return mutateAPI<{ action: string }>('/api/favorites', 'POST', {
+        file_path: filePath,
+        item_type: itemType || 'file',
+        display_name: displayName,
       });
-
-      if (!res.ok) {
-        throw new Error('فشل تحديث المفضلة');
-      }
-
-      return res.json();
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['favorites'] });
-      const action = result?.data?.action;
+      const action = result?.action;
       if (action === 'added') {
         toast.success('تمت الإضافة للمفضلة ⭐');
       } else if (action === 'removed') {

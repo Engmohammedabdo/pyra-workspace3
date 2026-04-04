@@ -11,6 +11,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { getParentPath, isPathSafe } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
 import { autoLinkFileToProject } from '@/lib/utils/project-files';
+import { logActivity } from '@/lib/api/activity';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,21 +121,14 @@ export async function POST(request: NextRequest) {
       uploadedBy: auth.pyraUser.username,
     });
 
-    // Log activity (non-critical)
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'upload',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: storagePath,
-      details: {
-        file_name: fileName,
-        file_size: fileSize,
-        mime_type: mimeType || 'application/octet-stream',
-        method: 'direct-upload',
-      },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'upload',
+      storagePath,
+      { file_name: fileName, file_size: fileSize, mime_type: mimeType || 'application/octet-stream', method: 'direct-upload' },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess({ indexed: storagePath });
   } catch (err) {

@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // POST /api/dashboard/tasks/[id]/payment
@@ -47,7 +48,7 @@ export async function POST(
   }
 
   // Verify the task is not already paid
-  if (task.payment_status === 'paid') {
+  if (task.payment_status === EMPLOYEE_PAYMENT_STATUS.PAID) {
     return apiError('تم دفع هذه المهمة بالفعل', 409);
   }
 
@@ -65,7 +66,7 @@ export async function POST(
       description: task.title,
       amount: task.payment_amount,
       currency: task.payment_currency || 'AED',
-      status: 'pending',
+      status: EMPLOYEE_PAYMENT_STATUS.PENDING,
     })
     .select()
     .single();
@@ -77,7 +78,7 @@ export async function POST(
   // Update task payment_status to 'paid'
   const { error: updateError } = await serviceClient
     .from('pyra_tasks')
-    .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
+    .update({ payment_status: EMPLOYEE_PAYMENT_STATUS.PAID, updated_at: new Date().toISOString() })
     .eq('id', id);
 
   if (updateError) {

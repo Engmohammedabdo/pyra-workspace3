@@ -49,7 +49,7 @@ export async function registerArabicFont(doc: jsPDF): Promise<void> {
  * Load an image from URL and return as base64 data URI for jsPDF addImage().
  * Returns null if the image can't be loaded (graceful fallback to text branding).
  */
-let imageCache: Record<string, string> = {};
+const imageCache: Record<string, string> = {};
 
 export async function loadImageAsBase64(url: string): Promise<string | null> {
   if (!url) return null;

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { DollarSign, Briefcase, FileText, AlertTriangle, HardDrive } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
@@ -41,9 +42,8 @@ export function KpiGrid() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis');
-      const json = await res.json();
-      if (json.data) { setData(json.data); setError(false); }
+      const result = await fetchAPI<KpiData>('/api/dashboard/kpis');
+      setData(result); setError(false);
     } catch (err) {
       console.error('KpiGrid fetch error:', err);
       setError(true);

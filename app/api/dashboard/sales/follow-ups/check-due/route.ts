@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
 /**
  * POST /api/dashboard/sales/follow-ups/check-due
@@ -24,7 +25,7 @@ export async function POST(_request: NextRequest) {
     const { data: dueFollowUps, error } = await supabase
       .from('pyra_sales_follow_ups')
       .select('id, lead_id, title, due_at, assigned_to, notes')
-      .eq('status', 'pending')
+      .eq('status', FOLLOW_UP_STATUS.PENDING)
       .lte('due_at', todayEnd.toISOString())
       .order('due_at', { ascending: true });
 

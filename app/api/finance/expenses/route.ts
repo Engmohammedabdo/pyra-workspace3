@@ -8,6 +8,7 @@ import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { toAED } from '@/lib/utils/currency';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -201,15 +202,14 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
 
-    // Activity log
-    supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'create_expense',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/finance/expenses/${data.id}`,
-      details: { description, amount, vendor },
-    }).then(null, (e: unknown) => console.error('Activity log error:', e));
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'expense_created',
+      `/dashboard/finance/expenses/${data.id}`,
+      { description, amount, vendor },
+      req.headers.get('x-forwarded-for') || undefined,
+    );
 
     dispatchWebhookEvent('expense_created', { expense_id: data.id, description, amount, vendor });
 

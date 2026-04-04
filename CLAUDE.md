@@ -247,7 +247,11 @@ components/files/         → Unified file-preview (shared between dashboard + p
 lib/auth/rbac.ts          → 79+ permissions across 34+ modules
 lib/auth/scope.ts         → Dynamic scoping (team → project → board → member chain)
 lib/evolution/client.ts   → Evolution API v2 client (WhatsApp)
+lib/api/activity.ts       → logActivity() — fire-and-forget audit trail helper
+lib/api/response.ts       → apiSuccess()/apiError() — consistent API responses
+lib/constants/statuses.ts → Centralized status constants (17 entity types)
 lib/config/module-guide.ts → Guide data for every page
+eslint.config.mjs         → ESLint guard rails (raw fetch warning, RTL class warning)
 types/database.ts         → All TypeScript types
 ```
 
@@ -314,7 +318,7 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 // Use labels in UI:
 <Badge>{INVOICE_STATUS_LABELS[invoice.status]}</Badge>
 ```
-Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle.
+Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
 ## Business Entities (Multi-License)
 Table `pyra_business_entities` — select trade license per invoice/quote. Entity logo and company name appear in PDF.
@@ -354,7 +358,8 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 - Loading → `<Skeleton>` from `@/components/ui/skeleton` — NEVER blank pages (use `isLoading` from hooks)
 - Notifications → `toast` from `sonner` — NEVER `alert()`
 - API auth → `requireApiPermission()` or `requireApiAuth()` from `@/lib/api/auth`
-- API response → `apiSuccess()`/`apiError()` from `@/lib/api/response` + `logActivity()` for writes
+- API response → `apiSuccess()`/`apiError()` from `@/lib/api/response`
+- Activity logging → `logActivity()` from `@/lib/api/activity` (fire-and-forget, never blocks response)
 - No transactions → backup-rollback pattern (see `docs/ARCHITECTURE.md`)
 - Code: English · UI: Arabic · `'use client'` for interactive components
 - `cn()` from `@/lib/utils/cn` · `formatDate()`/`formatCurrency()` from `@/lib/utils/format`
@@ -373,7 +378,7 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 - [ ] **Employee self-service** → If employee-facing → check my-* pattern (my-tasks, my-payslips)
 - [ ] **Empty state + Dark mode + RTL** → Use shared components, pair dark: variants
 - [ ] **DB changes** → `DATABASE-SCHEMA.md` + RLS policies
-- [ ] **Activity logging** → `logActivity()` for all write operations
+- [ ] **Activity logging** → `logActivity()` from `@/lib/api/activity` for all write operations
 - [ ] **Page size** → Keep pages <300 lines. Split large pages into sub-components
 - [ ] **Verify** → `pnpm run check` + `pnpm build` → zero errors → git push
 

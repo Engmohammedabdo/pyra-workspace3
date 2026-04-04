@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Activity } from 'lucide-react';
 import {
@@ -25,9 +26,8 @@ export function TeamWorkloadChart() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis/team-workload');
-      const json = await res.json();
-      if (json.data) setData(json.data);
+      const result = await fetchAPI<WorkloadItem[]>('/api/dashboard/kpis/team-workload');
+      setData(result);
     } catch (err) {
       console.error('TeamWorkloadChart fetch error:', err);
     } finally {

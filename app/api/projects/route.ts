@@ -9,6 +9,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
 import { invalidateScopeCache } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
 
@@ -214,23 +215,14 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // Log activity
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'project_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: projectId,
-      details: {
-        project_name: name.trim(),
-        client_company: client_company.trim(),
-        client_id: resolvedClientId,
-        team_id: team_id || null,
-        folder_path: storagePath,
-      },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log insert error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'project_created',
+      `/dashboard/projects/${projectId}`,
+      { project_name: name.trim(), client_company: client_company.trim(), client_id: resolvedClientId, team_id: team_id || null, folder_path: storagePath },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     // Invalidate scope cache for all team members when project is created
     if (team_id) {

@@ -14,6 +14,7 @@ import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/invoices
@@ -356,16 +357,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log activity
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
-      action_type: 'invoice_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/dashboard/invoices/${invoiceId}`,
-      details: { invoice_number: invoiceNumber, total, client_name: clientData.client_name },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'invoice_created',
+      `/dashboard/invoices/${invoiceId}`,
+      { invoice_number: invoiceNumber, total, client_name: clientData.client_name },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     dispatchWebhookEvent('invoice_created', { invoice_id: invoiceId, invoice_number: invoiceNumber, total, client_name: clientData.client_name });
 

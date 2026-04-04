@@ -17,6 +17,7 @@ export function ExportButton({ type, from, to }: Props) {
   const handleExport = async () => {
     setLoading(true);
     try {
+      // eslint-disable-next-line no-restricted-globals -- blob download requires raw fetch
       const res = await fetch(
         `/api/reports/export?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
       );

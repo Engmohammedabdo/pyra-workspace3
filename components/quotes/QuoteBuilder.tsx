@@ -15,6 +15,7 @@ import {
 import { Plus, Trash2, Save, Send, FileDown, X, Eye, BookTemplate } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 
 interface QuoteTemplate {
@@ -146,35 +147,29 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
 
   useEffect(() => {
     // Fetch templates
-    fetch('/api/quotes/templates')
-      .then(r => r.json())
-      .then(json => { if (json.data) setTemplates(json.data); })
+    fetchAPI<QuoteTemplate[]>('/api/quotes/templates')
+      .then(data => setTemplates(data))
       .catch(() => {});
 
-    fetch('/api/clients?active=true')
-      .then(r => r.json())
-      .then(json => { if (json.data) setClients(json.data); })
+    fetchAPI<Client[]>('/api/clients?active=true')
+      .then(data => setClients(data))
       .catch(console.error);
 
-    fetch('/api/settings/business-entities')
-      .then(r => r.json())
-      .then(json => {
-        if (json.data) {
-          setEntities(json.data);
-          if (!quote?.entity_id) {
-            const def = json.data.find((e: { is_default: boolean }) => e.is_default);
-            if (def) setEntityId(def.id);
-          }
+    fetchAPI<Array<{ id: string; name_en: string; name_ar: string; license_no: string; logo_url: string; is_default: boolean }>>('/api/settings/business-entities')
+      .then(data => {
+        setEntities(data);
+        if (!quote?.entity_id) {
+          const def = data.find(e => e.is_default);
+          if (def) setEntityId(def.id);
         }
       })
       .catch(() => {});
 
     // Fetch default VAT rate from settings (only for new quotes)
     if (!quote) {
-      fetch('/api/settings')
-        .then(r => r.json())
-        .then(json => {
-          const rate = parseFloat(json.data?.vat_rate);
+      fetchAPI<{ vat_rate?: string }>('/api/settings')
+        .then(data => {
+          const rate = parseFloat(data?.vat_rate ?? '');
           if (!isNaN(rate)) setVatRate(rate);
         })
         .catch(() => {});
@@ -271,35 +266,18 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     setSaving(true);
     try {
       const payload = buildPayload();
-      let res: Response;
 
-      if (quote?.id) {
-        res = await fetch(`/api/quotes/${quote.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch('/api/quotes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
+      const result = quote?.id
+        ? await mutateAPI<{ id: string }>(`/api/quotes/${quote.id}`, 'PATCH', payload)
+        : await mutateAPI<{ id: string }>('/api/quotes', 'POST', payload);
 
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
-
-      const savedId = json.data?.id || quote?.id;
+      const savedId = result?.id || quote?.id;
 
       if (send && savedId) {
-        await fetch(`/api/quotes/${savedId}/send`, { method: 'POST' });
+        await mutateAPI(`/api/quotes/${savedId}/send`, 'POST');
       }
 
-      onSaved?.(savedId);
+      if (savedId) onSaved?.(savedId);
     } catch (err) {
       console.error(err);
     } finally {
@@ -394,27 +372,18 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
     if (!name?.trim()) return;
     setSavingTemplate(true);
     try {
-      const res = await fetch('/api/quotes/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          items: services.map(s => ({ description: s.description, quantity: s.quantity, rate: s.rate })),
-          notes: notes || null,
-          terms_conditions: terms.filter(t => t.text.trim()),
-          currency,
-          tax_rate: vatRate,
-          discount_type: discountType || null,
-          discount_value: discountValue,
-        }),
+      const data = await mutateAPI<QuoteTemplate>('/api/quotes/templates', 'POST', {
+        name: name.trim(),
+        items: services.map(s => ({ description: s.description, quantity: s.quantity, rate: s.rate })),
+        notes: notes || null,
+        terms_conditions: terms.filter(t => t.text.trim()),
+        currency,
+        tax_rate: vatRate,
+        discount_type: discountType || null,
+        discount_value: discountValue,
       });
-      const json = await res.json();
-      if (json.data) {
-        setTemplates(prev => [...prev, json.data]);
-        toast.success('تم حفظ القالب بنجاح');
-      } else {
-        toast.error(json.error || 'فشل حفظ القالب');
-      }
+      setTemplates(prev => [...prev, data]);
+      toast.success('تم حفظ القالب بنجاح');
     } catch {
       toast.error('فشل حفظ القالب');
     } finally {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -16,9 +17,8 @@ export function LeadMessagesTab({ leadId }: { leadId: string }) {
   useEffect(() => {
     async function fetch_() {
       try {
-        const res = await fetch(`/api/dashboard/sales/whatsapp/messages?lead_id=${leadId}&limit=50`);
-        const data = await res.json();
-        setMessages((data.data || []).reverse());
+        const data = await fetchAPI<any[]>(`/api/dashboard/sales/whatsapp/messages?lead_id=${leadId}&limit=50`);
+        setMessages(data.reverse());
       } catch {
         // silent
       } finally {

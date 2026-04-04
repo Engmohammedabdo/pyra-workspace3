@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { FILE_APPROVAL_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // GET /api/approvals
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
       .from('pyra_file_approvals')
       .select('id')
       .eq('file_id', file_id)
-      .eq('status', 'pending')
+      .eq('status', FILE_APPROVAL_STATUS.PENDING)
       .single();
 
     if (existingApproval) {
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     const newApproval = {
       id: approvalId,
       file_id,
-      status: 'pending',
+      status: FILE_APPROVAL_STATUS.PENDING,
       reviewed_by: null,
       reviewed_at: null,
       comment: null,

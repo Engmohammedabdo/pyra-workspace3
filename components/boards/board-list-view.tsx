@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -131,30 +132,18 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
     if (action.startsWith('move:')) {
       const colId = action.replace('move:', '');
       for (const id of ids) {
-        await fetch(`/api/tasks/${id}/move`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ column_id: colId, position: 0 }),
-        });
+        await mutateAPI(`/api/tasks/${id}/move`, 'POST', { column_id: colId, position: 0 });
       }
       toast.success(`تم نقل ${ids.length} مهمة`);
     } else if (action.startsWith('priority:')) {
       const pri = action.replace('priority:', '');
       for (const id of ids) {
-        await fetch(`/api/tasks/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ priority: pri }),
-        });
+        await mutateAPI(`/api/tasks/${id}`, 'PATCH', { priority: pri });
       }
       toast.success(`تم تغيير أولوية ${ids.length} مهمة`);
     } else if (action === 'archive') {
       for (const id of ids) {
-        await fetch(`/api/tasks/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ is_archived: true }),
-        });
+        await mutateAPI(`/api/tasks/${id}`, 'PATCH', { is_archived: true });
       }
       toast.success(`تم أرشفة ${ids.length} مهمة`);
     }

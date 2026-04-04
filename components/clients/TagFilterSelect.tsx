@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
@@ -40,11 +41,8 @@ export function TagFilterSelect({ value, onChange }: TagFilterSelectProps) {
   useEffect(() => {
     async function fetchTags() {
       try {
-        const res = await fetch('/api/clients/tags');
-        const json = await res.json();
-        if (json.data) {
-          setTags(json.data);
-        }
+        const data = await fetchAPI<TagItem[]>('/api/clients/tags');
+        setTags(data);
       } catch {
         // Silent fail
       } finally {

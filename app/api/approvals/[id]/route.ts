@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { FILE_APPROVAL_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -66,7 +67,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const { status, comment } = body;
 
     // Validation
-    const validStatuses = ['approved', 'revision_requested'];
+    const validStatuses = [FILE_APPROVAL_STATUS.APPROVED, FILE_APPROVAL_STATUS.REVISION_REQUESTED];
     if (!status || !validStatuses.includes(status)) {
       return apiValidationError(`حالة غير صالحة. الحالات المسموحة: ${validStatuses.join(', ')}`);
     }
@@ -119,7 +120,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     if (projectFile?.pyra_projects) {
       const project = projectFile.pyra_projects;
-      const statusText = status === 'approved' ? 'تمت الموافقة على' : 'طُلبت مراجعة';
+      const statusText = status === FILE_APPROVAL_STATUS.APPROVED ? 'تمت الموافقة على' : 'طُلبت مراجعة';
 
       // Notify clients of this company
       const { data: clients } = await supabase
@@ -132,8 +133,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         const notifications = clients.map((client) => ({
           id: generateId('cn'),
           client_id: client.id,
-          type: status === 'approved' ? 'file_approved' : 'revision_requested',
-          title: status === 'approved' ? 'تمت الموافقة على ملف' : 'مراجعة مطلوبة',
+          type: status === FILE_APPROVAL_STATUS.APPROVED ? 'file_approved' : 'revision_requested',
+          title: status === FILE_APPROVAL_STATUS.APPROVED ? 'تمت الموافقة على ملف' : 'مراجعة مطلوبة',
           message: `${statusText} الملف: ${projectFile.file_name} في مشروع ${project.name}`,
           is_read: false,
           created_at: now,
@@ -149,7 +150,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         recipient_username: existing.reviewed_by !== auth.pyraUser.username
           ? (existing.reviewed_by || 'admin')
           : 'admin',
-        type: status === 'approved' ? 'file_approved' : 'revision_requested',
+        type: status === FILE_APPROVAL_STATUS.APPROVED ? 'file_approved' : 'revision_requested',
         title: `${statusText} ملف`,
         message: `${statusText} الملف "${projectFile.file_name}" في مشروع "${project.name}" بواسطة ${auth.pyraUser.display_name}`,
         source_username: auth.pyraUser.username,
@@ -163,7 +164,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Log activity
     const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
-      action_type: status === 'approved' ? 'file_approved' : 'revision_requested',
+      action_type: status === FILE_APPROVAL_STATUS.APPROVED ? 'file_approved' : 'revision_requested',
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
       target_path: projectFile?.file_path || id,

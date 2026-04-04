@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,12 +22,7 @@ export function WAInstancesManager({ instances, onRefresh, agents }: { instances
     if (!newInstance.instance_name.trim()) { toast.error('اسم الـ Instance مطلوب'); return; }
     setAdding(true);
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/instances', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newInstance),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/whatsapp/instances', 'POST', newInstance);
       toast.success('تم إنشاء الـ Instance');
       onRefresh();
     } catch { toast.error('فشل الإنشاء'); } finally { setAdding(false); }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { motion } from 'framer-motion';
 import { Clock, CheckCircle2, Calendar, AlertTriangle, Bell, Plus, X, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,7 @@ import { toast } from 'sonner';
 export function FollowUpsList({ filter, setFilter, setEditItem, setCreateDialogOpen, setEditDialogOpen, setFollowUps, followUps, loading, fetchData }: any) {
   async function handleComplete(id: string) {
     try {
-      const res = await fetch('/api/dashboard/sales/follow-ups', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: 'completed' }) });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/follow-ups', 'PATCH', { id, status: 'completed' });
       toast.success('تم إكمال المتابعة');
       fetchData();
     } catch { toast.error('فشل تحديث المتابعة'); }
@@ -23,8 +23,7 @@ export function FollowUpsList({ filter, setFilter, setEditItem, setCreateDialogO
 
   async function handleCancel(id: string) {
     try {
-      const res = await fetch('/api/dashboard/sales/follow-ups', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, status: 'cancelled' }) });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/follow-ups', 'PATCH', { id, status: 'cancelled' });
       toast.success('تم إلغاء المتابعة');
       fetchData();
     } catch { toast.error('فشل تحديث المتابعة'); }

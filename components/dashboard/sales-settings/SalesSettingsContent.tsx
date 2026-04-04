@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,18 +10,18 @@ import { WAInstancesManager } from '@/components/dashboard/sales-settings/wa-man
 import { CannedResponsesManager } from '@/components/dashboard/sales-settings/canned-responses';
 
 export function SalesSettingsContent() {
-  const [data, setData] = useState({ stages: [], instances: [], agents: [], templates: [] });
+  const [data, setData] = useState<{ stages: any[]; instances: any[]; agents: any[]; templates: any[] }>({ stages: [], instances: [], agents: [], templates: [] });
   const [loading, setLoading] = useState(true);
 
   async function fetchAll() {
     try {
-      const [s, i, a, t] = await Promise.all([
-        fetch('/api/dashboard/sales/pipeline-stages').then(r => r.json()),
-        fetch('/api/dashboard/sales/whatsapp/instances').then(r => r.json()),
-        fetch('/api/users?role=sales_agent').then(r => r.json()),
-        fetch('/api/dashboard/sales/whatsapp/templates').then(r => r.json()),
+      const [stages, instances, agents, templates] = await Promise.all([
+        fetchAPI<any[]>('/api/dashboard/sales/pipeline-stages'),
+        fetchAPI<any[]>('/api/dashboard/sales/whatsapp/instances'),
+        fetchAPI<any[]>('/api/users?role=sales_agent'),
+        fetchAPI<any[]>('/api/dashboard/sales/whatsapp/templates'),
       ]);
-      setData({ stages: s.data || [], instances: i.data || [], agents: a.data || [], templates: t.data || [] });
+      setData({ stages, instances, agents, templates });
     } catch { } finally { setLoading(false); }
   }
 

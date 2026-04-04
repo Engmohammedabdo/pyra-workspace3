@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Loader2, UserPlus } from 'lucide-react';
 
 interface AssignDialogProps {
@@ -35,26 +36,26 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
 
     // Fetch agents + workload + online status in parallel
     Promise.all([
-      fetch('/api/users?role=sales_agent').then(r => r.json()),
-      fetch('/api/users?role=employee').then(r => r.json()),
-      fetch('/api/users?role=admin').then(r => r.json()),
-      fetch('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200').then(r => r.json()),
-      fetch('/api/sessions').then(r => r.json()).catch(() => ({ data: [] })),
+      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=sales_agent'),
+      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=employee'),
+      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=admin'),
+      fetchAPI<Array<{ assigned_to?: string; status?: string }>>('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200'),
+      fetchAPI<Array<{ username: string; last_activity?: string }>>('/api/sessions').catch(() => []),
     ]).then(([salesData, empData, adminData, convsData, sessionsData]) => {
       // Build online set (active within last 5 minutes)
       const fiveMinAgo = Date.now() - 5 * 60 * 1000;
       const onlineUsers = new Set<string>();
-      for (const s of sessionsData.data || []) {
+      for (const s of sessionsData || []) {
         if (s.last_activity && new Date(s.last_activity).getTime() > fiveMinAgo) {
           onlineUsers.add(s.username);
         }
       }
 
       const all = [
-        ...(salesData.data || []),
-        ...(empData.data || []),
-        ...(adminData.data || []),
-      ].map((u: { username: string; display_name: string }) => ({
+        ...(salesData || []),
+        ...(empData || []),
+        ...(adminData || []),
+      ].map((u) => ({
         username: u.username,
         display_name: u.display_name,
         is_online: onlineUsers.has(u.username),
@@ -65,7 +66,7 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
       setAgents(unique);
 
       // Calculate workload (active conversations per agent)
-      const convs = Array.isArray(convsData) ? convsData : (convsData?.data || []);
+      const convs = Array.isArray(convsData) ? convsData : [];
       const counts: Record<string, number> = {};
       for (const c of convs) {
         if (c.assigned_to && c.status !== 'resolved') {
@@ -81,20 +82,10 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
     try {
       // Use conversation-based assign if conversationId available
       if (conversationId) {
-        const res = await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/assign`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ assigned_to: selectedAgent || null }),
-        });
-        if (!res.ok) throw new Error();
+        await mutateAPI(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/assign`, 'POST', { assigned_to: selectedAgent || null });
       } else {
         // Legacy fallback
-        const res = await fetch('/api/dashboard/sales/whatsapp/assignments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ remote_jid: remoteJid, instance_name: instanceName, assigned_to: selectedAgent }),
-        });
-        if (!res.ok) throw new Error();
+        await mutateAPI('/api/dashboard/sales/whatsapp/assignments', 'POST', { remote_jid: remoteJid, instance_name: instanceName, assigned_to: selectedAgent });
       }
       toast.success(selectedAgent ? 'تم تعيين المحادثة' : 'تم إلغاء التعيين');
       onAssigned();

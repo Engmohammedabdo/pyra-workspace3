@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/external/quotes
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
         quote_number: quoteNumber,
         client_id: resolvedClientId,
         project_name: project_name?.trim() || null,
-        status: 'draft',
+        status: QUOTE_STATUS.DRAFT,
         estimate_date: estDate,
         expiry_date: expDate,
         currency: currency || 'AED',

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 
 interface FileVersion {
   id: string;
@@ -59,9 +60,8 @@ export function VersionHistory({ filePath, open, onOpenChange, onRestored }: Ver
     if (!filePath) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/files/versions?file_path=${encodeURIComponent(filePath)}`);
-      const json = await res.json();
-      if (json.data) setVersions(json.data);
+      const data = await fetchAPI<FileVersion[]>(`/api/files/versions?file_path=${encodeURIComponent(filePath)}`);
+      setVersions(data);
     } catch (err) {
       console.error(err);
       toast.error('فشل تحميل تاريخ النسخ');
@@ -80,17 +80,10 @@ export function VersionHistory({ filePath, open, onOpenChange, onRestored }: Ver
     setConfirmRestore(null);
     setActionLoading(version.id);
     try {
-      const res = await fetch(`/api/files/versions/${version.id}/restore`, {
-        method: 'POST',
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success(`تم استعادة النسخة ${version.version_number}`);
-        fetchVersions();
-        onRestored?.();
-      }
+      await mutateAPI(`/api/files/versions/${version.id}/restore`, 'POST');
+      toast.success(`تم استعادة النسخة ${version.version_number}`);
+      fetchVersions();
+      onRestored?.();
     } catch {
       toast.error('فشل استعادة النسخة');
     } finally {
@@ -102,16 +95,9 @@ export function VersionHistory({ filePath, open, onOpenChange, onRestored }: Ver
     setConfirmDelete(null);
     setActionLoading(version.id);
     try {
-      const res = await fetch(`/api/files/versions/${version.id}`, {
-        method: 'DELETE',
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success('تم حذف النسخة');
-        fetchVersions();
-      }
+      await mutateAPI(`/api/files/versions/${version.id}`, 'DELETE');
+      toast.success('تم حذف النسخة');
+      fetchVersions();
     } catch {
       toast.error('فشل حذف النسخة');
     } finally {

@@ -50,7 +50,7 @@ export default function ShareDownloadPage() {
     <div className="min-h-screen bg-gradient-to-b from-portal/5 to-white flex items-center justify-center p-4 font-sans" dir="rtl">
       <div className="w-full max-w-md">
         <div className="text-center mb-6"><div className="inline-flex items-center gap-2 text-portal font-bold text-xl"><Shield className="h-6 w-6" /><span>Pyra Workspace</span></div><p className="text-sm text-muted-foreground mt-1">مشاركة ملف آمنة</p></div>
-        <div className="rounded-2xl border bg-white shadow-lg overflow-hidden">
+        <div className="rounded-2xl border bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
           <StateRenderer {...{ state, password, setPassword, passwordError, setPasswordError, showPassword, setShowPassword, handlePasswordSubmit, verifying, handleDownload }} />
         </div>
         <p className="text-center text-xs text-muted-foreground mt-6">&copy; {new Date().getFullYear()} PYRAMEDIA X</p>

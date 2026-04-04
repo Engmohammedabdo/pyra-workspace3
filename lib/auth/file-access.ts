@@ -3,7 +3,7 @@
 // Falls back to manual pyra_users.permissions.allowed_paths as override.
 
 import { hasPermission } from './rbac';
-import { resolveUserScope, canAccessPathByScope, type UserScope } from './scope';
+import { resolveUserScope, canAccessPathByScope } from './scope';
 import type { ApiAuthResult } from '@/lib/api/auth';
 
 /**

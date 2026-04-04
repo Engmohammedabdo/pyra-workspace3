@@ -8,6 +8,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission'];
 
@@ -126,7 +127,7 @@ export async function POST(req: NextRequest) {
         description,
         amount: Number(amount),
         currency: currency || 'AED',
-        status: 'pending',
+        status: EMPLOYEE_PAYMENT_STATUS.PENDING,
       })
       .select('*, pyra_users(display_name)')
       .single();

@@ -11,6 +11,7 @@ import { FilePreview } from './file-preview';
 import { FileDropZone } from './file-drop-zone';
 import { UploadProgressBar } from './upload-progress';
 import { useFiles, useCreateFolder, useUploadFiles, useDeleteFiles, useFileUrl, useMoveFiles } from '@/hooks/useFiles';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { FilePermissionsDialog } from './file-permissions-dialog';
 import { BulkActionsBar } from './bulk-actions-bar';
@@ -265,19 +266,10 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   // Rename
   const handleRename = useCallback(
     (file: FileListItem, newName: string) => {
-      fetch(`/api/files/${encodeURIComponent(file.path)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'rename', newName }),
-      })
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.error) {
-            toast.error(json.error);
-          } else {
-            toast.success(`تم إعادة التسمية إلى "${newName}"`);
-            refetch();
-          }
+      mutateAPI(`/api/files/${encodeURIComponent(file.path)}`, 'PATCH', { action: 'rename', newName })
+        .then(() => {
+          toast.success(`تم إعادة التسمية إلى "${newName}"`);
+          refetch();
         })
         .catch(() => toast.error('فشل في إعادة التسمية'));
     },
@@ -287,22 +279,15 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
   // Delete single file
   const handleDeleteFile = useCallback(
     (file: FileListItem) => {
-      fetch(`/api/files/${encodeURIComponent(file.path)}`, {
-        method: 'DELETE',
-      })
-        .then((res) => res.json())
-        .then((json) => {
-          if (json.error) {
-            toast.error(json.error);
-          } else {
-            toast.success(`تم حذف "${decodeURIComponent(file.name)}"`);
-            refetch();
-            setSelectedFiles((prev) => {
-              const next = new Set(prev);
-              next.delete(file.path);
-              return next;
-            });
-          }
+      mutateAPI(`/api/files/${encodeURIComponent(file.path)}`, 'DELETE')
+        .then(() => {
+          toast.success(`تم حذف "${decodeURIComponent(file.name)}"`);
+          refetch();
+          setSelectedFiles((prev) => {
+            const next = new Set(prev);
+            next.delete(file.path);
+            return next;
+          });
         })
         .catch(() => toast.error('فشل في الحذف'));
     },
@@ -485,11 +470,10 @@ export function FileExplorer({ initialPath = '' }: FileExplorerProps) {
       return;
     }
     let cancelled = false;
-    fetch(`/api/dashboard/project-files?file_path=${encodeURIComponent(previewFile.path)}`)
-      .then((res) => res.ok ? res.json() : null)
-      .then((json) => {
-        if (!cancelled && json?.data?.project_id && json?.data?.id) {
-          setPreviewProjectInfo({ projectId: json.data.project_id, fileId: json.data.id });
+    fetchAPI<{ project_id?: string; id?: string }>(`/api/dashboard/project-files?file_path=${encodeURIComponent(previewFile.path)}`)
+      .then((data) => {
+        if (!cancelled && data?.project_id && data?.id) {
+          setPreviewProjectInfo({ projectId: data.project_id, fileId: data.id });
         }
       })
       .catch(() => {});

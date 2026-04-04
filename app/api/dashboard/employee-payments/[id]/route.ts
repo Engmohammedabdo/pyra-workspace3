@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -46,14 +47,14 @@ export async function PATCH(
 
     if (action === 'approve') {
       // Can only approve pending payments
-      if (payment.status !== 'pending') {
+      if (payment.status !== EMPLOYEE_PAYMENT_STATUS.PENDING) {
         return apiError('لا يمكن الموافقة — الحالة الحالية ليست "معلّق"', 409);
       }
 
       const { data, error } = await supabase
         .from('pyra_employee_payments')
         .update({
-          status: 'approved',
+          status: EMPLOYEE_PAYMENT_STATUS.APPROVED,
           approved_by: auth.pyraUser.username,
           approved_at: new Date().toISOString(),
         })
@@ -80,14 +81,14 @@ export async function PATCH(
 
     if (action === 'pay') {
       // Can only pay approved payments
-      if (payment.status !== 'approved') {
+      if (payment.status !== EMPLOYEE_PAYMENT_STATUS.APPROVED) {
         return apiError('لا يمكن الدفع — يجب الموافقة على السجل أولاً', 409);
       }
 
       const { data, error } = await supabase
         .from('pyra_employee_payments')
         .update({
-          status: 'paid',
+          status: EMPLOYEE_PAYMENT_STATUS.PAID,
           paid_at: new Date().toISOString(),
         })
         .eq('id', id)

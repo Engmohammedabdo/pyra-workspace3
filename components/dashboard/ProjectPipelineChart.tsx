@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PieChart as PieChartIcon } from 'lucide-react';
 import {
@@ -25,9 +26,8 @@ export function ProjectPipelineChart() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis/project-pipeline');
-      const json = await res.json();
-      if (json.data) setData(json.data);
+      const result = await fetchAPI<PipelineItem[]>('/api/dashboard/kpis/project-pipeline');
+      setData(result);
     } catch (err) {
       console.error('ProjectPipelineChart fetch error:', err);
     } finally {

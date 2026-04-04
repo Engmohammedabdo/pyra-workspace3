@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { FOLLOW_UP_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { FOLLOW_UP_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(request: NextRequest) {
   const auth = await requireApiPermission('sales_leads.view');
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       due_at,
       title: title || null,
       notes: notes || null,
-      status: 'pending',
+      status: FOLLOW_UP_STATUS.PENDING,
       created_by: auth.pyraUser.username,
     })
     .select(FOLLOW_UP_FIELDS)
@@ -88,7 +89,7 @@ export async function PATCH(request: NextRequest) {
   if (title !== undefined) updates.title = title;
   if (notes !== undefined) updates.notes = notes;
   if (due_at !== undefined) updates.due_at = due_at;
-  if (status === 'completed') updates.completed_at = new Date().toISOString();
+  if (status === FOLLOW_UP_STATUS.COMPLETED) updates.completed_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from('pyra_sales_follow_ups')

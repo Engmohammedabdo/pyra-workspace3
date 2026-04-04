@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { EVALUATION_STATUS } from '@/lib/constants/statuses';
 
 // =============================================================
 // GET /api/dashboard/evaluations/periods
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
         name_ar,
         start_date,
         end_date,
-        status: 'draft',
+        status: EVALUATION_STATUS.DRAFT,
         created_by: auth.pyraUser.username,
       })
       .select()

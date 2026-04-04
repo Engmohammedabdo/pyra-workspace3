@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { Loader2, AtSign } from 'lucide-react';
 
@@ -95,11 +96,8 @@ export function MentionTextarea({
     if (membersLoaded || membersLoading || !membersEndpoint) return;
     setMembersLoading(true);
     try {
-      const res = await fetch(membersEndpoint);
-      const json = await res.json();
-      if (res.ok && json.data) {
-        setMembers(json.data as MemberItem[]);
-      }
+      const data = await fetchAPI<MemberItem[]>(membersEndpoint);
+      setMembers(data);
       setMembersLoaded(true);
     } catch {
       // silent — members won't be available for autocomplete

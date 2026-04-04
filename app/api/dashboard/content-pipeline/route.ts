@@ -7,6 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { CONTENT_PIPELINE_STATUS } from '@/lib/constants/statuses';
 
 const DEFAULT_STAGES = [
   { stage: 'scripting', sort_order: 0 },
@@ -150,7 +151,7 @@ export async function POST(request: NextRequest) {
       id: generateId('ps'),
       pipeline_id: pipelineId,
       stage: s.stage,
-      status: idx === 0 ? 'in_progress' : 'pending',
+      status: idx === 0 ? CONTENT_PIPELINE_STATUS.IN_PROGRESS : CONTENT_PIPELINE_STATUS.PENDING,
       assigned_to: null,
       started_at: idx === 0 ? now : null,
       completed_at: null,

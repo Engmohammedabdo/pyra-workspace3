@@ -12,6 +12,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { QUOTE_VALID_TRANSITIONS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -325,6 +326,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('quote_id', id)
       .order('sort_order', { ascending: true });
 
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'quote_updated',
+      `/dashboard/quotes/${id}`,
+      { updated_fields: Object.keys(updates) },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
+
     return apiSuccess({ ...quote, items: updatedItems || [] });
   } catch (err) {
     console.error('PATCH /api/quotes/[id] error:', err);
@@ -372,6 +382,15 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       console.error('Quote delete error:', error);
       return apiServerError();
     }
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'quote_deleted',
+      `/dashboard/quotes/${id}`,
+      { quote_id: id },
+      _request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess({ deleted: true });
   } catch (err) {

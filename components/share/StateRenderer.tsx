@@ -1,9 +1,23 @@
 'use client';
 
-import { Loader2, AlertCircle, Lock, Eye, EyeOff, User, Clock, Download, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, Lock, EyeOff, User, Clock, Download, CheckCircle2 } from 'lucide-react';
 import { formatBytes, getFileIcon, getFileExtension, relativeTime } from './utils';
 
-export const StateRenderer = ({ state, password, setPassword, passwordError, setPasswordError, showPassword, setShowPassword, handlePasswordSubmit, verifying, handleDownload }: any) => {
+interface StateRendererProps {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- shared page state machine
+  state: any;
+  password: string;
+  setPassword: (v: string) => void;
+  passwordError: string;
+  setPasswordError: (v: string) => void;
+  showPassword: boolean;
+  setShowPassword: (v: boolean) => void;
+  handlePasswordSubmit: () => void;
+  verifying: boolean;
+  handleDownload: () => void;
+}
+
+export const StateRenderer = ({ state, password, setPassword, passwordError, setPasswordError, showPassword, setShowPassword, handlePasswordSubmit, verifying, handleDownload }: StateRendererProps) => {
   if (state.status === 'loading') return <div className="flex flex-col items-center justify-center py-16 px-6"><Loader2 className="h-10 w-10 animate-spin text-portal mb-4" /><p className="text-muted-foreground">جاري التحقق...</p></div>;
   if (state.status === 'error') return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">

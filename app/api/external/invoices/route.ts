@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/external/invoices
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
         id: invoiceId,
         invoice_number: invoiceNumber,
         client_id: resolvedClientId,
-        status: 'draft',
+        status: INVOICE_STATUS.DRAFT,
         issue_date: new Date().toISOString().split('T')[0],
         due_date: due_date || null,
         currency: currency || settingsMap.default_currency || 'AED',

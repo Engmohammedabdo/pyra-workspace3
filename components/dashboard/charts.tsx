@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart3, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
 import { formatFileSize } from '@/lib/utils/format';
@@ -70,11 +71,8 @@ export function DashboardCharts() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/dashboard/charts')
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setData(json.data);
-      })
+    fetchAPI<ChartData>('/api/dashboard/charts')
+      .then((result) => setData(result))
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);

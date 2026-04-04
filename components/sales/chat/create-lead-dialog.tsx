@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { X, UserPlus, Loader2 } from 'lucide-react';
@@ -34,9 +35,7 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
   useEffect(() => {
     async function fetchStages() {
       try {
-        const res = await fetch('/api/dashboard/sales/pipeline-stages');
-        const data = await res.json();
-        const stagesList = data.data || [];
+        const stagesList = await fetchAPI<PipelineStage[]>('/api/dashboard/sales/pipeline-stages');
         setStages(stagesList);
         // Set default stage
         const def = stagesList.find((s: PipelineStage) => s.is_default);
@@ -58,29 +57,18 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
 
     setSaving(true);
     try {
-      const res = await fetch('/api/dashboard/sales/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: name.trim(),
-          phone: phoneValue.replace(/\D/g, '') || undefined,
-          email: email.trim() || undefined,
-          company: company.trim() || undefined,
-          stage_id: stageId || undefined,
-          priority,
-          notes: notes.trim() || undefined,
-          source: 'whatsapp',
-        }),
+      const result = await mutateAPI<{ id?: string }>('/api/dashboard/sales/leads', 'POST', {
+        name: name.trim(),
+        phone: phoneValue.replace(/\D/g, '') || undefined,
+        email: email.trim() || undefined,
+        company: company.trim() || undefined,
+        stage_id: stageId || undefined,
+        priority,
+        notes: notes.trim() || undefined,
+        source: 'whatsapp',
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'فشل الإنشاء');
-      }
-
-      const data = await res.json();
       toast.success('تم إنشاء العميل المحتمل بنجاح');
-      onCreated(data.data?.id || '');
+      onCreated(result?.id || '');
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إنشاء العميل المحتمل');

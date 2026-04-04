@@ -51,6 +51,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
 
   const handleLogout = async () => {
     try {
+      // Raw fetch: auth logout (no JSON response)
       await fetch('/api/portal/auth/logout', { method: 'POST' });
     } catch {
       // ignore

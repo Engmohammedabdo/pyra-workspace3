@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -135,11 +136,8 @@ export function ClientTagsManager({
   const fetchAllTags = useCallback(async () => {
     setLoadingAll(true);
     try {
-      const res = await fetch('/api/clients/tags');
-      const json = await res.json();
-      if (json.data) {
-        setAllTags(json.data);
-      }
+      const data = await fetchAPI<TagItem[]>('/api/clients/tags');
+      setAllTags(data);
     } catch {
       toast.error('فشل في تحميل التصنيفات');
     } finally {
@@ -156,12 +154,9 @@ export function ClientTagsManager({
   // ── Fetch assigned tags on mount (if no initialTags) ─
   const fetchAssignedTags = useCallback(async () => {
     try {
-      const res = await fetch(`/api/clients/${clientId}/tags`);
-      const json = await res.json();
-      if (json.data) {
-        setAssignedTags(json.data);
-        onTagsChange?.(json.data);
-      }
+      const data = await fetchAPI<TagItem[]>(`/api/clients/${clientId}/tags`);
+      setAssignedTags(data);
+      onTagsChange?.(data);
     } catch {
       // Silent fail for initial fetch
     }
@@ -178,19 +173,7 @@ export function ClientTagsManager({
   const updateAssignments = async (newTags: TagItem[]) => {
     setUpdatingTags(true);
     try {
-      const res = await fetch(`/api/clients/${clientId}/tags`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag_ids: newTags.map((t) => t.id) }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        // Revert
-        fetchAssignedTags();
-        return;
-      }
-      const updated = json.data as TagItem[];
+      const updated = await mutateAPI<TagItem[]>(`/api/clients/${clientId}/tags`, 'PUT', { tag_ids: newTags.map((t) => t.id) });
       setAssignedTags(updated);
       onTagsChange?.(updated);
     } catch {
@@ -230,17 +213,7 @@ export function ClientTagsManager({
     if (!newTagName.trim()) return;
     setCreatingTag(true);
     try {
-      const res = await fetch('/api/clients/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTagName.trim(), color: newTagColor }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
-      const createdTag = json.data as TagItem;
+      const createdTag = await mutateAPI<TagItem>('/api/clients/tags', 'POST', { name: newTagName.trim(), color: newTagColor });
       // Add to allTags
       setAllTags((prev) => [...prev, createdTag]);
       // Auto-assign to client

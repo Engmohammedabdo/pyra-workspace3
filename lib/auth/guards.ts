@@ -59,6 +59,7 @@ export async function requireAuth(): Promise<AuthSession> {
   }
 
   const pyraUser = await loadUserWithRole(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type mismatch
     supabase as any,
     user.user_metadata?.username || user.email!
   );
@@ -104,7 +105,8 @@ export async function getOptionalAuth(): Promise<AuthSession | null> {
     if (!user) return null;
 
     const pyraUser = await loadUserWithRole(
-      supabase as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase client type mismatch
+    supabase as any,
       user.user_metadata?.username || user.email!
     );
 

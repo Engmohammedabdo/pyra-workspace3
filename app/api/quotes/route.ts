@@ -14,6 +14,7 @@ import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { hasPermission } from '@/lib/auth/rbac';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/quotes
@@ -330,16 +331,14 @@ export async function POST(request: NextRequest) {
       return apiServerError('فشل في إضافة بنود عرض السعر');
     }
 
-    // Log activity
-    await supabase.from('pyra_activity_log').insert({
-      id: generateId('log'),
-      action_type: 'quote_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/quotes/${quoteId}`,
-      details: { quote_number: quoteNumber, total },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'quote_created',
+      `/dashboard/quotes/${quoteId}`,
+      { quote_number: quoteNumber, total },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     // Log lead activity if linked to a lead
     if (lead_id) {

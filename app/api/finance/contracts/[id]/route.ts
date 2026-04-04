@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { CONTRACT_STATUS, SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 /**
  * Calculate next billing date from billing_day.
@@ -138,7 +139,7 @@ export async function PATCH(
 
     if (newStatus && newStatus !== existing.status && contractType === 'retainer') {
       // Contract activated → auto-create recurring invoice
-      if (newStatus === 'active') {
+      if (newStatus === CONTRACT_STATUS.ACTIVE) {
         const { data: existingRecurring } = await supabase
           .from('pyra_recurring_invoices')
           .select('id')
@@ -167,7 +168,7 @@ export async function PATCH(
               currency: data.currency || 'AED',
               billing_cycle: retainerCycle,
               next_generation_date: calculateNextBillingDate(billingDay),
-              status: 'active',
+              status: SUBSCRIPTION_STATUS.ACTIVE,
               auto_send: false,
               created_by: auth.pyraUser.username,
             });
@@ -185,19 +186,19 @@ export async function PATCH(
           // Re-activate existing paused recurring invoice
           await supabase
             .from('pyra_recurring_invoices')
-            .update({ status: 'active', updated_at: new Date().toISOString() })
+            .update({ status: SUBSCRIPTION_STATUS.ACTIVE, updated_at: new Date().toISOString() })
             .eq('contract_id', id)
             .eq('status', 'paused');
         }
       }
 
       // Contract deactivated → pause recurring invoice
-      if (newStatus === 'completed' || newStatus === 'cancelled') {
+      if (newStatus === CONTRACT_STATUS.COMPLETED || newStatus === CONTRACT_STATUS.CANCELLED) {
         const { data: activeRecurring } = await supabase
           .from('pyra_recurring_invoices')
           .select('id')
           .eq('contract_id', id)
-          .eq('status', 'active')
+          .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
           .maybeSingle();
 
         if (activeRecurring) {

@@ -11,6 +11,7 @@ import {
   UserPlus, PanelRightOpen, FileText, Receipt, StickyNote, Clock, CheckCircle2, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { AssignDialog } from './assign-dialog';
 import { ContactSidebar } from './contact-sidebar';
@@ -79,10 +80,8 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
       } else {
         params.set('remote_jid', remoteJid);
       }
-      const res = await fetch(`/api/dashboard/sales/whatsapp/messages?${params}`);
-      const data = await res.json();
-      const msgs = (data.data || []).reverse();
-      setMessages(msgs);
+      const msgs = await fetchAPI<Message[]>(`/api/dashboard/sales/whatsapp/messages?${params}`);
+      setMessages((msgs || []).reverse());
     } catch {
       console.error('Failed to fetch messages');
     } finally {
@@ -94,9 +93,8 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
   const fetchNotes = useCallback(async () => {
     if (!conversationId) return;
     try {
-      const res = await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`);
-      const data = await res.json();
-      setNotes(data.data || []);
+      const data = await fetchAPI<Array<{ id: string; author_display_name: string; content: string; created_at: string }>>(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`);
+      setNotes(data || []);
     } catch { /* silent */ }
   }, [conversationId]);
 
@@ -129,22 +127,14 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
 
   async function handleSend(text: string) {
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance_name: instanceName,
-          remote_jid: remoteJid,
-          conversation_id: conversationId || undefined,
-          number: phone,
-          text,
-          lead_id: leadId,
-        }),
+      await mutateAPI('/api/dashboard/sales/whatsapp/send', 'POST', {
+        instance_name: instanceName,
+        remote_jid: remoteJid,
+        conversation_id: conversationId || undefined,
+        number: phone,
+        text,
+        lead_id: leadId,
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'فشل الإرسال');
-      }
       fetchMessages();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الرسالة');
@@ -156,6 +146,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
     try {
       const formData = new FormData();
       formData.append('file', file);
+      // eslint-disable-next-line no-restricted-globals -- FormData upload requires raw fetch
       const uploadRes = await fetch('/api/dashboard/files/upload-temp', {
         method: 'POST',
         body: formData,
@@ -182,27 +173,18 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
       else if (file.type.startsWith('video/')) mediaType = 'video';
       else if (file.type.startsWith('audio/')) mediaType = 'audio';
 
-      const res = await fetch('/api/dashboard/sales/whatsapp/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance_name: instanceName,
-          remote_jid: remoteJid,
-          conversation_id: conversationId || undefined,
-          number: phone,
-          text: caption || undefined,
-          media_url: mediaUrl,
-          media_type: mediaType,
-          mime_type: file.type,
-          file_name: file.name,
-          lead_id: leadId,
-        }),
+      await mutateAPI('/api/dashboard/sales/whatsapp/send', 'POST', {
+        instance_name: instanceName,
+        remote_jid: remoteJid,
+        conversation_id: conversationId || undefined,
+        number: phone,
+        text: caption || undefined,
+        media_url: mediaUrl,
+        media_type: mediaType,
+        mime_type: file.type,
+        file_name: file.name,
+        lead_id: leadId,
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'فشل الإرسال');
-      }
       fetchMessages();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الملف');
@@ -214,12 +196,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
   async function handleSendNote(text: string) {
     if (!conversationId) { toast.error('لا يمكن إضافة ملاحظة'); return; }
     try {
-      const res = await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: text }),
-      });
-      if (!res.ok) throw new Error('فشل');
+      await mutateAPI(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/notes`, 'POST', { content: text });
       fetchNotes();
       toast.success('تم إضافة الملاحظة');
     } catch {
@@ -232,11 +209,7 @@ export function ChatWindow({ remoteJid, instanceName, contactName, leadId, clien
     if (!conversationId) return;
     setUpdatingStatus(true);
     try {
-      await fetch(`/api/dashboard/sales/whatsapp/conversations/${conversationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      await mutateAPI(`/api/dashboard/sales/whatsapp/conversations/${conversationId}`, 'PATCH', { status: newStatus });
       setConvStatus(newStatus);
       onConversationUpdated?.();
       toast.success(newStatus === 'resolved' ? 'تم حل المحادثة' : newStatus === 'pending' ? 'تم تعليق المحادثة' : 'تم فتح المحادثة');

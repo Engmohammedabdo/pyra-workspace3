@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,17 +40,12 @@ export function CannedResponsesManager({ templates, onRefresh }: Props) {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: title.trim(),
-          content: content.trim(),
-          category: category.trim() || 'general',
-          shortcut: shortcut.trim() || null,
-        }),
+      await mutateAPI('/api/dashboard/sales/whatsapp/templates', 'POST', {
+        title: title.trim(),
+        content: content.trim(),
+        category: category.trim() || 'general',
+        shortcut: shortcut.trim() || null,
       });
-      if (!res.ok) throw new Error();
       toast.success('تم إضافة الرد الجاهز');
       setTitle(''); setContent(''); setShortcut(''); setShowAdd(false);
       onRefresh();
@@ -63,12 +59,7 @@ export function CannedResponsesManager({ templates, onRefresh }: Props) {
   async function handleDelete(id: string) {
     setDeletingId(id);
     try {
-      const res = await fetch('/api/dashboard/sales/whatsapp/templates', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/whatsapp/templates', 'DELETE', { id });
       toast.success('تم الحذف');
       onRefresh();
     } catch {

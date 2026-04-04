@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -284,6 +285,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('invoice_id', id)
       .order('sort_order', { ascending: true });
 
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'invoice_updated',
+      `/dashboard/invoices/${id}`,
+      { updated_fields: Object.keys(updates) },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
+
     return apiSuccess({ ...invoice, items: updatedItems || [] });
   } catch (err) {
     console.error('PATCH /api/invoices/[id] error:', err);
@@ -339,6 +349,15 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       console.error('Invoice delete error:', error);
       return apiServerError();
     }
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'invoice_deleted',
+      `/dashboard/invoices/${id}`,
+      { invoice_number: existing.invoice_number },
+      _request.headers.get('x-forwarded-for') || undefined,
+    );
 
     return apiSuccess({ deleted: true });
   } catch (err) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { X, Clock, Loader2 } from 'lucide-react';
@@ -65,21 +66,12 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
 
     setSaving(true);
     try {
-      const res = await fetch('/api/dashboard/sales/follow-ups', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lead_id: leadId,
-          due_at: new Date(dueAt).toISOString(),
-          title: title.trim() || 'متابعة واتساب',
-          notes: notes.trim() || undefined,
-        }),
+      await mutateAPI('/api/dashboard/sales/follow-ups', 'POST', {
+        lead_id: leadId,
+        due_at: new Date(dueAt).toISOString(),
+        title: title.trim() || 'متابعة واتساب',
+        notes: notes.trim() || undefined,
       });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'فشل الجدولة');
-      }
 
       toast.success('تمت جدولة المتابعة');
       onScheduled();

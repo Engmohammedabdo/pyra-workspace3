@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -63,11 +64,8 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
   // ── Fetch notes ───────────────────────────────────
   const fetchNotes = useCallback(async () => {
     try {
-      const res = await fetch(`/api/clients/${clientId}/notes`);
-      const json = await res.json();
-      if (json.data) {
-        setNotes(json.data);
-      }
+      const data = await fetchAPI<Note[]>(`/api/clients/${clientId}/notes`);
+      setNotes(data);
     } catch {
       toast.error('فشل في تحميل الملاحظات');
     } finally {
@@ -84,21 +82,12 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
     if (!newContent.trim()) return;
     setAddingNote(true);
     try {
-      const res = await fetch(`/api/clients/${clientId}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: newContent.trim() }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
+      const created = await mutateAPI<Note>(`/api/clients/${clientId}/notes`, 'POST', { content: newContent.trim() });
       // Optimistic: add to top (after pinned notes)
       setNotes((prev) => {
         const pinned = prev.filter((n) => n.is_pinned);
         const unpinned = prev.filter((n) => !n.is_pinned);
-        return [...pinned, json.data, ...unpinned];
+        return [...pinned, created, ...unpinned];
       });
       setNewContent('');
       setShowAddForm(false);
@@ -125,16 +114,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
     if (!editContent.trim()) return;
     setSavingEdit(true);
     try {
-      const res = await fetch(`/api/clients/${clientId}/notes/${noteId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: editContent.trim() }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
+      await mutateAPI(`/api/clients/${clientId}/notes/${noteId}`, 'PATCH', { content: editContent.trim() });
       // Optimistic update
       setNotes((prev) =>
         prev.map((n) =>
@@ -171,26 +151,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
     });
 
     try {
-      const res = await fetch(`/api/clients/${clientId}/notes/${note.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_pinned: newPinned }),
-      });
-      const json = await res.json();
-      if (json.error) {
-        // Revert on error
-        setNotes((prev) => {
-          const reverted = prev.map((n) =>
-            n.id === note.id ? { ...n, is_pinned: !newPinned } : n
-          );
-          return reverted.sort((a, b) => {
-            if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-          });
-        });
-        toast.error(json.error);
-        return;
-      }
+      await mutateAPI(`/api/clients/${clientId}/notes/${note.id}`, 'PATCH', { is_pinned: newPinned });
       toast.success(newPinned ? 'تم تثبيت الملاحظة' : 'تم إلغاء التثبيت');
     } catch {
       toast.error('فشل في تحديث الملاحظة');
@@ -203,14 +164,7 @@ export function ClientNotesTab({ clientId }: ClientNotesTabProps) {
   const handleDelete = async (noteId: string) => {
     setDeletingId(noteId);
     try {
-      const res = await fetch(`/api/clients/${clientId}/notes/${noteId}`, {
-        method: 'DELETE',
-      });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
+      await mutateAPI(`/api/clients/${clientId}/notes/${noteId}`, 'DELETE');
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
       setConfirmDeleteId(null);
       toast.success('تم حذف الملاحظة');

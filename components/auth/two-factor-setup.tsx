@@ -163,7 +163,7 @@ export function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorSetupProp
 
             {/* QR Code */}
             {qrCode && (
-              <div className="flex justify-center p-4 bg-white rounded-lg">
+              <div className="flex justify-center p-4 bg-white dark:bg-gray-900 rounded-lg">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={qrCode} alt="QR Code" className="w-48 h-48" />
               </div>

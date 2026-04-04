@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,9 +24,8 @@ export function ProjectPipelineProgress({ projectId }: { projectId: string }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`/api/portal/projects/${projectId}/progress`)
-      .then(r => r.json())
-      .then(j => setData(j.data))
+    fetchAPI<any>(`/api/portal/projects/${projectId}/progress`)
+      .then(result => setData(result))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [projectId]);

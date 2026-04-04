@@ -1,8 +1,6 @@
 'use client';
 
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Film, ChevronLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -10,7 +8,7 @@ import { motion } from 'framer-motion';
 interface Group {
   videoNumber: number;
   title: string;
-  versions: any[];
+  versions: { id: string; version: number; filename: string; status: string }[];
 }
 
 export function ScriptList({ groups, selectedVideo, onSelect }: { groups: Group[]; selectedVideo: number | null; onSelect: (v: number) => void }) {

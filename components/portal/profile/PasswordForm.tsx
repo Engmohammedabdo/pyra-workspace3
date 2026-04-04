@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,20 +31,11 @@ export function PasswordForm() {
     }
     setSaving(true);
     try {
-      const res = await fetch('/api/portal/profile/password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
-      });
-      if (res.ok) {
-        toast.success('تم تغيير كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول...');
-        setTimeout(() => window.location.href = '/portal/login', 1500);
-      } else {
-        const json = await res.json();
-        toast.error(json.error || 'حدث خطأ أثناء تغيير كلمة المرور');
-      }
+      await mutateAPI('/api/portal/profile/password', 'POST', { current_password: currentPassword, new_password: newPassword });
+      toast.success('تم تغيير كلمة المرور بنجاح. سيتم تحويلك لتسجيل الدخول...');
+      setTimeout(() => window.location.href = '/portal/login', 1500);
     } catch {
-      toast.error('حدث خطأ غير متوقع');
+      toast.error('حدث خطأ أثناء تغيير كلمة المرور');
     } finally {
       setSaving(false);
     }
@@ -86,7 +78,7 @@ export function PasswordForm() {
             <div className="space-y-2">
               <FormLabel htmlFor="confirm-password" required>تأكيد كلمة المرور</FormLabel>
               <div className="relative">
-                <Input id="confirm-password" type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} dir="ltr" className={cn('text-left pe-10', confirmPassword && newPassword !== confirmPassword && 'border-destructive')} />
+                <Input id="confirm-password" type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} dir="ltr" className={cn('text-start pe-10', confirmPassword && newPassword !== confirmPassword && 'border-destructive')} />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

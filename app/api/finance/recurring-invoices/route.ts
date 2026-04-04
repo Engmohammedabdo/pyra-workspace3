@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { RECURRING_INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike } from '@/lib/utils/path';
+import { SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -105,7 +106,7 @@ export async function POST(req: NextRequest) {
         currency: currency || 'AED',
         billing_cycle: billing_cycle || 'monthly',
         next_generation_date,
-        status: 'active',
+        status: SUBSCRIPTION_STATUS.ACTIVE,
         auto_send: auto_send || false,
         created_by: auth.pyraUser.username,
       })

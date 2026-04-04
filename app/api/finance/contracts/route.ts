@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { CONTRACT_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { CONTRACT_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
   try {
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
         billing_structure: billing_structure || null,
         start_date,
         end_date,
-        status: 'draft',
+        status: CONTRACT_STATUS.DRAFT,
         amount_billed: 0,
         amount_collected: 0,
         notes,

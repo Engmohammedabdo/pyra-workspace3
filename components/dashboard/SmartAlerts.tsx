@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { AlertCircle, AlertTriangle, Info, ChevronDown, ArrowLeft, ExternalLink } from 'lucide-react';
@@ -73,9 +74,8 @@ export function SmartAlerts() {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      const res = await fetch('/api/dashboard/kpis/alerts');
-      const json = await res.json();
-      if (json.data) setAlerts(json.data);
+      const data = await fetchAPI<Alert[]>('/api/dashboard/kpis/alerts');
+      setAlerts(data);
     } catch {
       // Silently fail - alerts are non-critical
     } finally {

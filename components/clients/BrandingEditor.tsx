@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,6 +54,7 @@ function UploadDropzone({
       formData.append('file', file);
       formData.append('field', field);
 
+      // Raw fetch: FormData upload
       const res = await fetch(`/api/clients/${clientId}/branding/upload`, {
         method: 'POST',
         body: formData,
@@ -184,16 +186,13 @@ export function BrandingEditor({ clientId }: Props) {
 
   const fetchBranding = useCallback(async () => {
     try {
-      const res = await fetch(`/api/clients/${clientId}/branding`);
-      const json = await res.json();
-      if (json.data) {
-        setPrimaryColor(json.data.primary_color || '#f97316');
-        setSecondaryColor(json.data.secondary_color || '#ea580c');
-        setLogoUrl(json.data.logo_url || '');
-        setFaviconUrl(json.data.favicon_url || '');
-        setCompanyName(json.data.company_name_display || '');
-        setLoginBg(json.data.login_background_url || '');
-      }
+      const data = await fetchAPI<Record<string, string | null>>(`/api/clients/${clientId}/branding`);
+      setPrimaryColor(data.primary_color || '#f97316');
+      setSecondaryColor(data.secondary_color || '#ea580c');
+      setLogoUrl(data.logo_url || '');
+      setFaviconUrl(data.favicon_url || '');
+      setCompanyName(data.company_name_display || '');
+      setLoginBg(data.login_background_url || '');
     } catch (err) {
       console.error('Failed to fetch branding:', err);
       toast.error('فشل في تحميل إعدادات العلامة التجارية');
@@ -209,24 +208,15 @@ export function BrandingEditor({ clientId }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch(`/api/clients/${clientId}/branding`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          primary_color: primaryColor,
-          secondary_color: secondaryColor,
-          logo_url: logoUrl || null,
-          favicon_url: faviconUrl || null,
-          company_name_display: companyName || null,
-          login_background_url: loginBg || null,
-        }),
+      await mutateAPI(`/api/clients/${clientId}/branding`, 'PATCH', {
+        primary_color: primaryColor,
+        secondary_color: secondaryColor,
+        logo_url: logoUrl || null,
+        favicon_url: faviconUrl || null,
+        company_name_display: companyName || null,
+        login_background_url: loginBg || null,
       });
-      if (res.ok) {
-        toast.success('تم حفظ إعدادات العلامة التجارية');
-      } else {
-        const json = await res.json().catch(() => null);
-        toast.error(json?.error || 'فشل في الحفظ');
-      }
+      toast.success('تم حفظ إعدادات العلامة التجارية');
     } catch {
       toast.error('فشل في الحفظ');
     } finally {

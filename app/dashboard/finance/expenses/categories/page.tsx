@@ -104,7 +104,7 @@ export default function ExpenseCategoriesPage() {
             <Tag className="h-6 w-6" /> تصنيفات المصاريف
           </h1>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 ml-2" /> إضافة تصنيف</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> إضافة تصنيف</Button>
       </div>
 
       <Card>

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PURCHASE_ORDER_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { PO_STATUS } from '@/lib/constants/statuses';
 
 // Generate next PO number
 async function generateNextPONumber(supabase: ReturnType<typeof createServiceRoleClient>): Promise<string> {
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
         po_number: poNumber,
         supplier_id: supplier_id || null,
         project_id: project_id || null,
-        status: 'draft',
+        status: PO_STATUS.DRAFT,
         issue_date,
         expected_delivery_date: expected_delivery_date || null,
         currency,

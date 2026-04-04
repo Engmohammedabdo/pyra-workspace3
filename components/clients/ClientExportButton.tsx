@@ -22,6 +22,7 @@ export function ClientExportButton({ search, active, tag }: ClientExportButtonPr
       if (active) params.set('active', active);
       if (tag) params.set('tag', tag);
 
+      // Raw fetch: blob download
       const res = await fetch(`/api/clients/export?${params}`);
       if (!res.ok) {
         toast.error('فشل في تصدير البيانات');

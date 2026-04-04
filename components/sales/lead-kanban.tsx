@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { LeadCard } from './lead-card';
-import { Badge } from '@/components/ui/badge';
+
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -78,12 +79,7 @@ export function LeadKanban({ stages, leads, onRefresh }: LeadKanbanProps) {
     }
 
     try {
-      const res = await fetch(`/api/dashboard/sales/leads/${draggedLeadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage_id: targetStageId }),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI(`/api/dashboard/sales/leads/${draggedLeadId}`, 'PATCH', { stage_id: targetStageId });
       toast.success('تم نقل العميل المحتمل');
       onRefresh();
     } catch {

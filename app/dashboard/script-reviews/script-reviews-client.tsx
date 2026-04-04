@@ -172,14 +172,14 @@ function ReviewCard({
                     key={reply.id}
                     className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
                       reply.sender_type === 'admin'
-                        ? 'bg-blue-50 border border-blue-100'
-                        : 'bg-gray-50 border border-gray-100'
+                        ? 'bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-800/40'
+                        : 'bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-800/40'
                     }`}
                   >
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                       reply.sender_type === 'admin'
-                        ? 'bg-blue-100 text-blue-600'
-                        : 'bg-gray-200 text-gray-600'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                     }`}>
                       {reply.sender_type === 'admin' ? (
                         <Shield className="h-3 w-3" />
@@ -279,10 +279,10 @@ export default function ScriptReviewsClient() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+          <Badge variant="outline" className="bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800/40">
             {approvedCount} معتمد
           </Badge>
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+          <Badge variant="outline" className="bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800/40">
             {revisionCount} تعديل
           </Badge>
           <Button

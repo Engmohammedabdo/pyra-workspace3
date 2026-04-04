@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { SUBSCRIPTION_STATUS, INVOICE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * Calculate the next generation date based on billing cycle.
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
     const { data: dueTemplates, error: fetchError } = await supabase
       .from('pyra_recurring_invoices')
       .select('*')
-      .eq('status', 'active')
+      .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
       .lte('next_generation_date', today);
 
     if (fetchError) throw fetchError;
@@ -177,7 +178,7 @@ export async function POST(req: NextRequest) {
 
         // 5. Create invoice
         const invoiceId = generateId('inv');
-        const invoiceStatus = template.auto_send ? 'sent' : 'draft';
+        const invoiceStatus = template.auto_send ? INVOICE_STATUS.SENT : INVOICE_STATUS.DRAFT;
 
         const { error: insertError } = await supabase
           .from('pyra_invoices')

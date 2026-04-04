@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 
 // ── Types ──
 
@@ -414,12 +415,11 @@ function PortalFilePreviewInner({ portalFile: file, open, onOpenChange }: Portal
     }
     setLoading(true);
     setError(false);
-    fetch(`/api/portal/files/${file.id}/preview`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data?.url) {
-          setSignedUrl(json.data.url);
-          if (json.data.mime_type) setResolvedMime(json.data.mime_type);
+    fetchAPI<{ url?: string; mime_type?: string }>(`/api/portal/files/${file.id}/preview`)
+      .then((data) => {
+        if (data?.url) {
+          setSignedUrl(data.url);
+          if (data.mime_type) setResolvedMime(data.mime_type);
         } else {
           setError(true);
         }
@@ -1003,9 +1003,8 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
 
   const fetchComments = useCallback(async () => {
     try {
-      const res = await fetch(`/api/comments?project_id=${projectId}&file_id=${fileId}`);
-      const json = await res.json();
-      if (res.ok && json.data) setComments(json.data);
+      const data = await fetchAPI<CommentItem[]>(`/api/comments?project_id=${projectId}&file_id=${fileId}`);
+      setComments(data);
     } catch { /* silent */ } finally { setLoading(false); }
   }, [projectId, fileId]);
 
@@ -1016,13 +1015,8 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
     if (!newText.trim() || sending) return;
     setSending(true);
     try {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId, file_id: fileId, text: newText.trim() }),
-      });
-      if (res.ok) { setNewText(''); await fetchComments(); toast.success('تم إرسال التعليق'); }
-      else toast.error('فشل إرسال التعليق');
+      await mutateAPI('/api/comments', 'POST', { project_id: projectId, file_id: fileId, text: newText.trim() });
+      setNewText(''); await fetchComments(); toast.success('تم إرسال التعليق');
     } catch { toast.error('حدث خطأ'); } finally { setSending(false); }
   };
 
@@ -1114,9 +1108,8 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/activity?target_path=${encodeURIComponent(filePath)}&limit=20`)
-      .then((res) => res.json())
-      .then((json) => { if (json.data) setEvents(json.data); })
+    fetchAPI<ActivityEvent[]>(`/api/activity?target_path=${encodeURIComponent(filePath)}&limit=20`)
+      .then((data) => setEvents(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [filePath]);

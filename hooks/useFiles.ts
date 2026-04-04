@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import type { FileListItem } from '@/types/database';
 
 // ============================================================
@@ -26,12 +27,11 @@ export function useFiles(path: string = '') {
       params.set('limit', String(FILES_PAGE_SIZE));
       params.set('offset', String(offset));
 
+      // Uses fetchAPI for data, but needs meta.hasMore for pagination.
+      // fetchAPI returns json.data ?? json, so items come back directly.
+      // We fetch meta separately via a full-response helper.
       const res = await fetch(`/api/files?${params.toString()}`);
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل في قراءة الملفات');
-      }
-
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
       const json = await res.json();
       const items = (json.data || []) as FileListItem[];
       const hasMore = json.meta?.hasMore === true;
@@ -79,18 +79,7 @@ export function useCreateFolder() {
       parentPath: string;
       folderName: string;
     }) => {
-      const res = await fetch('/api/files/folders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: parentPath, name: folderName }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل إنشاء المجلد');
-      }
-
-      return res.json();
+      return mutateAPI('/api/files/folders', 'POST', { path: parentPath, name: folderName });
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.parentPath] });
@@ -236,29 +225,19 @@ async function uploadSingleFile(
   onProgress: (percentage: number) => void
 ): Promise<string> {
   // Step 1 — Get signed upload URL from our API
-  const urlRes = await fetch('/api/files/upload-url', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      fileName: file.name,
-      fileSize: file.size,
-      mimeType: file.type || 'application/octet-stream',
-      prefix: parentPath,
-    }),
-  });
-
-  if (!urlRes.ok) {
-    const json = await urlRes.json().catch(() => ({}));
-    throw new Error(json.error || `فشل إنشاء رابط الرفع (${urlRes.status})`);
-  }
-
-  const { data: urlData } = await urlRes.json();
-  const { signedUrl, storagePath, safeName } = urlData as {
+  const urlData = await mutateAPI<{
     signedUrl: string;
     token: string;
     storagePath: string;
     safeName: string;
-  };
+  }>('/api/files/upload-url', 'POST', {
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type || 'application/octet-stream',
+    prefix: parentPath,
+  });
+
+  const { signedUrl, storagePath, safeName } = urlData;
 
   // Step 2 — Upload file directly to Supabase Storage via XHR (for progress)
   // Event handlers are stored as named functions so they can be cleaned up
@@ -311,21 +290,16 @@ async function uploadSingleFile(
   });
 
   // Step 3 — Index the file in the database
-  const completeRes = await fetch('/api/files/upload-complete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  try {
+    await mutateAPI('/api/files/upload-complete', 'POST', {
       storagePath,
       fileName: safeName,
       fileSize: file.size,
       mimeType: file.type || 'application/octet-stream',
-    }),
-  });
-
-  if (!completeRes.ok) {
-    const json = await completeRes.json().catch(() => ({}));
+    });
+  } catch (err) {
     // File is already uploaded to storage — warn but don't fail hard
-    console.warn('Upload indexing warning:', json.error);
+    console.warn('Upload indexing warning:', err instanceof Error ? err.message : err);
   }
 
   return storagePath;
@@ -339,18 +313,7 @@ export function useDeleteFiles() {
 
   return useMutation({
     mutationFn: async ({ paths }: { paths: string[] }) => {
-      const res = await fetch('/api/files/delete-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paths }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل في الحذف');
-      }
-
-      return res.json();
+      return mutateAPI('/api/files/delete-batch', 'POST', { paths });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -372,18 +335,7 @@ export function useMoveFiles() {
       sourcePaths: string[];
       destinationFolder: string;
     }) => {
-      const res = await fetch('/api/files/move-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sourcePaths, destinationFolder }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(json.error || 'فشل في نقل الملفات');
-      }
-
-      return res.json();
+      return mutateAPI('/api/files/move-batch', 'POST', { sourcePaths, destinationFolder });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['files'] });
@@ -437,10 +389,8 @@ export function useSignedUrl() {
         .split('/')
         .map(encodeURIComponent)
         .join('/');
-      const res = await fetch(`/api/files/${encodedPath}`);
-      if (!res.ok) throw new Error('Failed to get signed URL');
-      const json = await res.json();
-      return json.data?.url as string;
+      const result = await fetchAPI<{ url: string }>(`/api/files/${encodedPath}`);
+      return result.url;
     },
   });
 }

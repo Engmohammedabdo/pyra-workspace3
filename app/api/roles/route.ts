@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { hasPermission } from '@/lib/auth/rbac';
+import { logActivity } from '@/lib/api/activity';
 
 export async function GET() {
   const auth = await requireApiPermission('roles.view');
@@ -90,6 +91,14 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  logActivity(
+    auth.pyraUser.username,
+    auth.pyraUser.display_name,
+    'role_created',
+    `/dashboard/roles/${role.id}`,
+    { role_name: name, role_name_ar: name_ar, permissions_count: permissions.length },
+  );
 
   return NextResponse.json({ data: { ...role, member_count: 0 } }, { status: 201 });
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/utils/format';
@@ -20,9 +21,8 @@ export function ProjectProfitabilityTab() {
 
   const fetchData = useCallback(() => {
     setLoading(true);
-    fetch(`/api/finance/reports/project-profitability?from=${from}&to=${to}`)
-      .then((r) => r.json())
-      .then((res) => { if (res.data?.projects) setData(res.data.projects); else setData([]); })
+    fetchAPI<{ projects?: ProjectProfitability[] }>(`/api/finance/reports/project-profitability?from=${from}&to=${to}`)
+      .then((result) => setData(result.projects || []))
       .catch(() => { toast.error('فشل في تحميل تقرير ربحية المشاريع'); setData([]); })
       .finally(() => setLoading(false));
   }, [from, to]);

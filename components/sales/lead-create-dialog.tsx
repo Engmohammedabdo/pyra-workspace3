@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,10 +55,8 @@ export function LeadCreateDialog({ open, onOpenChange, onCreated }: LeadCreateDi
 
   useEffect(() => {
     if (open) {
-      fetch('/api/dashboard/sales/pipeline-stages')
-        .then(r => r.json())
-        .then(d => {
-          const stagesData = d.data || [];
+      fetchAPI<Stage[]>('/api/dashboard/sales/pipeline-stages')
+        .then(stagesData => {
           setStages(stagesData);
           const defaultStage = stagesData.find((s: Stage) => s.id && stagesData.indexOf(s) === 0);
           if (defaultStage) setForm(f => ({ ...f, stage_id: defaultStage.id }));
@@ -75,13 +74,7 @@ export function LeadCreateDialog({ open, onOpenChange, onCreated }: LeadCreateDi
 
     setLoading(true);
     try {
-      const res = await fetch('/api/dashboard/sales/leads', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل الإنشاء');
+      await mutateAPI('/api/dashboard/sales/leads', 'POST', form);
 
       toast.success('تم إنشاء العميل المحتمل بنجاح');
       setForm({ name: '', phone: '', email: '', company: '', source: 'manual', stage_id: stages[0]?.id || '', priority: 'medium', notes: '' });

@@ -48,6 +48,7 @@ import {
 import { useFavorites, useToggleFavorite } from '@/hooks/useFavorites';
 import { FileTagsPopover } from './file-tags';
 import { toast } from 'sonner';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import type { FileListItem } from '@/types/database';
 
 interface FileContextMenuProps {
@@ -91,11 +92,8 @@ function ShareDialog({ file, open, onOpenChange }: { file: FileListItem; open: b
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    fetch(`/api/shares?path=${encodeURIComponent(file.path)}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.data) setLinks(json.data);
-      })
+    fetchAPI<ShareLink[]>(`/api/shares?path=${encodeURIComponent(file.path)}`)
+      .then((data) => setLinks(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [open, file.path]);
@@ -103,25 +101,16 @@ function ShareDialog({ file, open, onOpenChange }: { file: FileListItem; open: b
   const createShareLink = async () => {
     setCreating(true);
     try {
-      const res = await fetch('/api/shares', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          file_path: file.path,
-          expires_in_hours: Number(expiryHours) || undefined,
-          max_downloads: Number(maxDownloads) || undefined,
-          password: password.trim() || undefined,
-          notification_email: notificationEmail.trim() || undefined,
-        }),
+      const data = await mutateAPI<{ token: string }>('/api/shares', 'POST', {
+        file_path: file.path,
+        expires_in_hours: Number(expiryHours) || undefined,
+        max_downloads: Number(maxDownloads) || undefined,
+        password: password.trim() || undefined,
+        notification_email: notificationEmail.trim() || undefined,
       });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-        return;
-      }
 
       // Build share URL and copy to clipboard
-      const shareUrl = `${window.location.origin}/share/${json.data.token}`;
+      const shareUrl = `${window.location.origin}/share/${data.token}`;
       await navigator.clipboard.writeText(shareUrl);
       toast.success('تم إنشاء الرابط ونسخه');
 
@@ -131,9 +120,8 @@ function ShareDialog({ file, open, onOpenChange }: { file: FileListItem; open: b
       setMaxDownloads('0');
 
       // Refresh links
-      const refreshRes = await fetch(`/api/shares?path=${encodeURIComponent(file.path)}`);
-      const refreshJson = await refreshRes.json();
-      if (refreshJson.data) setLinks(refreshJson.data);
+      const refreshedLinks = await fetchAPI<ShareLink[]>(`/api/shares?path=${encodeURIComponent(file.path)}`);
+      setLinks(refreshedLinks);
     } catch {
       toast.error('حدث خطأ');
     } finally {
@@ -143,13 +131,7 @@ function ShareDialog({ file, open, onOpenChange }: { file: FileListItem; open: b
 
   const deactivateLink = async (id: string) => {
     try {
-      const res = await fetch(`/api/shares/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: false }),
-      });
-      const json = await res.json();
-      if (json.error) { toast.error(json.error); return; }
+      await mutateAPI(`/api/shares/${id}`, 'PATCH', { is_active: false });
       toast.success('تم إلغاء الرابط');
       setLinks((prev) => prev.filter((l) => l.id !== id));
     } catch {

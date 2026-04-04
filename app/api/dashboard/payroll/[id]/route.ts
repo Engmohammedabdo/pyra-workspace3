@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { PAYROLL_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -101,14 +102,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
 
     if (action === 'approve') {
-      if (run.status !== 'calculated') {
+      if (run.status !== PAYROLL_STATUS.CALCULATED) {
         return apiError('لا يمكن اعتماد مسير رواتب غير محسوب', 400);
       }
 
       const { data, error } = await supabase
         .from('pyra_payroll_runs')
         .update({
-          status: 'approved',
+          status: PAYROLL_STATUS.APPROVED,
           approved_by: auth.pyraUser.username,
           approved_at: new Date().toISOString(),
           notes: notes || run.notes,
@@ -179,7 +180,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             project_id: projectId,
             expense_date: expenseDate,
             vendor: nameMap[item.username] || item.username,
-            status: 'approved',
+            status: EXPENSE_STATUS.APPROVED,
             payroll_run_id: id,
             created_by: auth.pyraUser.username,
           };
@@ -209,14 +210,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
 
     if (action === 'pay') {
-      if (run.status !== 'approved') {
+      if (run.status !== PAYROLL_STATUS.APPROVED) {
         return apiError('لا يمكن صرف مسير رواتب غير معتمد', 400);
       }
 
       const { data, error } = await supabase
         .from('pyra_payroll_runs')
         .update({
-          status: 'paid',
+          status: PAYROLL_STATUS.PAID,
           paid_at: new Date().toISOString(),
           notes: notes || run.notes,
         })
@@ -229,7 +230,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       // Also update all payroll items to 'paid'
       await supabase
         .from('pyra_payroll_items')
-        .update({ status: 'paid' })
+        .update({ status: PAYROLL_STATUS.PAID })
         .eq('payroll_id', id);
 
       // Activity log

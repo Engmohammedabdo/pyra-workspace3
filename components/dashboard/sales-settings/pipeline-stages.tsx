@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,12 +27,7 @@ export function PipelineStagesManager({ stages, onRefresh }: { stages: any[]; on
     if (!newStage.name_ar.trim()) { toast.error('اسم المرحلة مطلوب'); return; }
     setAdding(true);
     try {
-      const res = await fetch('/api/dashboard/sales/pipeline-stages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newStage),
-      });
-      if (!res.ok) throw new Error();
+      await mutateAPI('/api/dashboard/sales/pipeline-stages', 'POST', newStage);
       toast.success('تمت إضافة المرحلة');
       setNewStage({ name: '', name_ar: '', color: 'blue' });
       onRefresh();
