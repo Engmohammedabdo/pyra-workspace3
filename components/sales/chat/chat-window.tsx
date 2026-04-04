@@ -13,13 +13,13 @@ import {
 import { toast } from 'sonner';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
-import { AssignDialog } from './assign-dialog';
+import { AssignDialog } from './dialogs/assign-dialog';
 import { ContactSidebar } from './contact-sidebar';
-import { SendQuoteDialog } from './send-quote-dialog';
-import { SendInvoiceDialog } from './send-invoice-dialog';
-import { CreateLeadDialog } from './create-lead-dialog';
-import { AddNoteDialog } from './add-note-dialog';
-import { ScheduleFollowupDialog } from './schedule-followup-dialog';
+import { SendQuoteDialog } from './dialogs/send-quote-dialog';
+import { SendInvoiceDialog } from './dialogs/send-invoice-dialog';
+import { CreateLeadDialog } from './dialogs/create-lead-dialog';
+import { AddNoteDialog } from './dialogs/add-note-dialog';
+import { ScheduleFollowupDialog } from './dialogs/schedule-followup-dialog';
 
 interface Message {
   id: string;

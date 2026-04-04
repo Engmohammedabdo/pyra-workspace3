@@ -1,0 +1,186 @@
+'use client';
+
+import { useEffect, useCallback, useMemo } from 'react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import { motion } from 'framer-motion';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { isSuperAdmin } from '@/lib/auth/rbac';
+import { useConversations, usePollWhatsApp } from '@/hooks/useWhatsApp';
+import { ConversationList } from './conversation-list';
+import { ChatPanel } from './chat-panel';
+import { useChatStore, TABS, type TabDef } from './use-chat-store';
+
+const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  Inbox,
+  User,
+  MessageCircle,
+  Clock,
+  CheckCircle2,
+};
+
+export function ChatLayout() {
+  const { data: currentUser } = useCurrentUser();
+  const isAdmin = currentUser ? isSuperAdmin(currentUser.rolePermissions) : false;
+
+  const {
+    selectedConversation,
+    setSelectedConversation,
+    activeTab,
+    setActiveTab,
+    mobileView,
+    setMobileView,
+    selectConversation,
+  } = useChatStore();
+
+  // Get current tab definition for API params
+  const currentTab = useMemo(
+    () => TABS.find(t => t.key === activeTab) || TABS[1],
+    [activeTab]
+  );
+
+  // Build query params for the conversations hook
+  const queryParams = useMemo(() => ({
+    status: currentTab.status || 'open',
+    assigned: currentTab.assigned || 'all',
+  }), [currentTab]);
+
+  // Fetch conversations via React Query with auto-refresh
+  const { data: conversationsResponse, isLoading } = useConversations(queryParams);
+  const conversations = conversationsResponse?.data || [];
+  const counts = conversationsResponse?.meta?.counts || {};
+
+  // Poll Evolution API on mount and periodically
+  const pollMutation = usePollWhatsApp();
+
+  const pollAndRefresh = useCallback(() => {
+    pollMutation.mutate();
+  }, [pollMutation]);
+
+  useEffect(() => {
+    // Poll on mount
+    pollAndRefresh();
+    // Poll every 15s (conversations auto-refresh via React Query's refetchInterval)
+    const interval = setInterval(pollAndRefresh, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Agent sees ONLY "mine" tab — unassigned is admin's job to distribute
+  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key === 'mine');
+
+  if (isLoading && conversations.length === 0) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-10 w-56" />
+        <Skeleton className="h-10 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] border rounded-2xl overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
+          <div className="border-e p-3 space-y-2 hidden md:block">
+            {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
+          </div>
+          <Skeleton className="h-full" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="space-y-3">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <MessageCircle className="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>
+          <p className="text-xs text-muted-foreground/60">Shared Inbox</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-muted/50 rounded-xl p-1 overflow-x-auto">
+        {visibleTabs.map(tab => {
+          const count = tab.key === 'unassigned' ? counts.unassigned
+            : tab.key === 'pending' ? counts.pending
+            : tab.key === 'resolved' ? counts.resolved
+            : tab.key === 'all' ? counts.open
+            : undefined;
+          const Icon = TAB_ICONS[tab.iconName];
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setActiveTab(tab.key); setSelectedConversation(null); }}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',
+                activeTab === tab.key
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+              )}
+            >
+              {Icon && <Icon className="h-3.5 w-3.5" />}
+              {tab.label}
+              {count !== undefined && count > 0 && (
+                <Badge variant="secondary" className="h-4 min-w-[16px] text-[10px] px-1">
+                  {count}
+                </Badge>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Main Chat Container */}
+      <div
+        className="border border-border/60 rounded-2xl overflow-hidden bg-card/30 backdrop-blur shadow-xl shadow-black/5 dark:shadow-black/20"
+        style={{ height: 'calc(100vh - 210px)' }}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] h-full">
+          {/* Conversation List */}
+          <div className={cn('h-full min-h-0 overflow-hidden md:block', mobileView === 'chat' ? 'hidden' : 'block')}>
+            <ConversationList
+              conversations={conversations}
+              selectedJid={selectedConversation?.remote_jid || null}
+              onSelect={selectConversation}
+            />
+          </div>
+
+          {/* Chat Window */}
+          <div className={cn('h-full min-h-0 overflow-hidden flex flex-col bg-background/50 md:block', mobileView === 'list' ? 'hidden' : 'block')}>
+            {selectedConversation ? (
+              <ChatPanel
+                remoteJid={selectedConversation.remote_jid}
+                instanceName={selectedConversation.instance_name || 'pyraai'}
+                contactName={selectedConversation.contact_name}
+                leadId={selectedConversation.lead_id}
+                clientId={selectedConversation.client_id}
+                phone={selectedConversation.phone || selectedConversation.contact_phone}
+                assignedTo={selectedConversation.assigned_to}
+                conversationId={selectedConversation.id}
+                conversationStatus={selectedConversation.status}
+                isAdmin={isAdmin}
+                onBack={() => setMobileView('list')}
+                onConversationUpdated={() => {
+                  // Conversations will auto-refresh via React Query
+                }}
+              />
+            ) : (
+              <div className="flex-1 h-full flex items-center justify-center">
+                <div className="text-center px-6">
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-100 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/20 flex items-center justify-center mx-auto mb-5">
+                    <Wifi className="h-9 w-9 text-emerald-500/50 dark:text-emerald-400/40" />
+                  </div>
+                  <p className="font-semibold text-foreground/70 text-base">اختر محادثة</p>
+                  <p className="text-sm text-muted-foreground/50 mt-1.5 max-w-[240px] mx-auto leading-relaxed">
+                    اختر محادثة من القائمة لعرض الرسائل والرد عليها
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
