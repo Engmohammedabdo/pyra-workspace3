@@ -2,9 +2,10 @@
 
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   MessageSquare, ArrowRightLeft, Tag, GitBranch,
-  Phone, StickyNote, CheckCircle2, UserCheck
+  Phone, StickyNote, CheckCircle2, UserCheck, Clock
 } from 'lucide-react';
 
 interface Activity {
@@ -42,9 +43,7 @@ const ACTIVITY_LABELS: Record<string, string> = {
 
 export function LeadActivityTimeline({ activities }: LeadActivityTimelineProps) {
   if (activities.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground text-center py-8">لا توجد نشاطات بعد</p>
-    );
+    return <EmptyState icon={Clock} title="لا توجد نشاطات بعد" className="py-6" />;
   }
 
   return (

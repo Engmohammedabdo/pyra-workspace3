@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Receipt, Briefcase } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 
@@ -47,7 +48,7 @@ export function PaymentsTable({ payments, loading, invoiceNumberMap }: { payment
                 <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>
               ))}</tr>
             )) : payments.length === 0 ? (
-              <tr><td colSpan={4} className="p-8 text-center text-muted-foreground">لا توجد مدفوعات</td></tr>
+              <tr><td colSpan={4}><EmptyState icon={Receipt} title="لا توجد مدفوعات" className="py-8" /></td></tr>
             ) : payments.map(p => (
               <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3 text-muted-foreground">{formatDate(p.payment_date)}</td>
@@ -88,7 +89,7 @@ export function ContractsTable({ contracts, loading }: { contracts: any[]; loadi
                 <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>
               ))}</tr>
             )) : contracts.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">لا توجد عقود</td></tr>
+              <tr><td colSpan={5}><EmptyState icon={Briefcase} title="لا توجد عقود" className="py-8" /></td></tr>
             ) : contracts.map(c => {
               const st = CONTRACT_STATUS_MAP[c.status] || { label: c.status, variant: 'secondary' as const };
               return (

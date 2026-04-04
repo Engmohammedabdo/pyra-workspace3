@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 /**
  * POST /api/finance/subscriptions/[id]/reject-renewal
@@ -31,12 +32,12 @@ export async function POST(
       .single();
 
     if (error || !sub) return apiNotFound('الاشتراك غير موجود');
-    if (sub.status !== 'active') return apiError('الاشتراك غير نشط');
+    if (sub.status !== SUBSCRIPTION_STATUS.ACTIVE) return apiError('الاشتراك غير نشط');
 
     // Cancel subscription
     await supabase
       .from('pyra_subscriptions')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .update({ status: SUBSCRIPTION_STATUS.CANCELLED, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     // Send notification

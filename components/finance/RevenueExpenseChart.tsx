@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { TrendingUp } from 'lucide-react';
 import {
   AreaChart,
   Area,
@@ -23,11 +25,7 @@ interface RevenueExpenseChartProps {
 
 export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
   if (!data || data.length === 0) {
-    return (
-      <div className="h-[350px] flex items-center justify-center text-muted-foreground">
-        لا توجد بيانات
-      </div>
-    );
+    return <EmptyState icon={TrendingUp} title="لا توجد بيانات" className="py-8" />;
   }
 
   return (

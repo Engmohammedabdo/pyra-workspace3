@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { generateSlug } from '@/lib/utils/slug';
 import { escapeLike } from '@/lib/utils/path';
+import { logActivity } from '@/lib/api/activity';
 
 const ARTICLE_FIELDS = 'id, category_id, title, slug, excerpt, is_public, sort_order, view_count, author, author_display_name, created_at, updated_at';
 
@@ -104,7 +105,10 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_article_created', '/dashboard/kb', { title: body.title });
+
+return apiSuccess(data, undefined, 201);
   } catch {
     return apiServerError();
   }

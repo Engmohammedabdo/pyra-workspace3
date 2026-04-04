@@ -33,7 +33,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   return (
     <>
-      <div className="overflow-x-auto bg-white rounded-2xl shadow-lg border">
+      <div className="overflow-x-auto bg-white dark:bg-gray-900 rounded-2xl shadow-lg border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b bg-muted/50">

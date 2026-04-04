@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 import { CreditCard } from 'lucide-react';
 import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';
 
@@ -26,7 +27,7 @@ export function PaymentHistory({ payments, currency }: { payments: Payment[]; cu
       </CardHeader>
       <CardContent>
         {payments.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">لا توجد مدفوعات مسجلة</p>
+          <EmptyState icon={CreditCard} title="لا توجد مدفوعات مسجلة" className="py-6" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">

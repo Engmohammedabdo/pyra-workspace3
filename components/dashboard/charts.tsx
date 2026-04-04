@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { BarChart3, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
 import { formatFileSize } from '@/lib/utils/format';
 import {
@@ -132,12 +133,11 @@ export function DashboardCharts() {
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground/40">
-            <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center mb-3">
-              <TrendingUp className="h-6 w-6 opacity-40" />
-            </div>
-            <p className="text-sm">لا توجد بيانات</p>
-          </div>
+          <EmptyState
+            icon={TrendingUp}
+            title="لا توجد بيانات"
+            className="py-8"
+          />
         )}
       </ChartCard>
 
@@ -175,12 +175,11 @@ export function DashboardCharts() {
             </BarChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground/40">
-            <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center mb-3">
-              <BarChart3 className="h-6 w-6 opacity-40" />
-            </div>
-            <p className="text-sm">لا توجد مشاريع</p>
-          </div>
+          <EmptyState
+            icon={BarChart3}
+            title="لا توجد مشاريع"
+            className="py-8"
+          />
         )}
       </ChartCard>
 
@@ -221,12 +220,11 @@ export function DashboardCharts() {
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[220px] text-muted-foreground/40">
-            <div className="w-12 h-12 rounded-xl bg-muted/30 flex items-center justify-center mb-3">
-              <PieChartIcon className="h-6 w-6 opacity-40" />
-            </div>
-            <p className="text-sm">لا توجد ملفات</p>
-          </div>
+          <EmptyState
+            icon={PieChartIcon}
+            title="لا توجد ملفات"
+            className="py-8"
+          />
         )}
       </ChartCard>
     </div>

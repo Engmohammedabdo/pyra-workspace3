@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/dashboard/leave-types
@@ -69,7 +70,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'leave_type_created', '/dashboard/leave', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/leave-types error:', err);
     return apiServerError();

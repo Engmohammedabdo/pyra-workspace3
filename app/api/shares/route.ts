@@ -10,6 +10,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import bcrypt from 'bcryptjs';
 import { canAccessPath } from '@/lib/auth/file-access';
+import { logActivity } from '@/lib/api/activity';
 // =============================================================
 // GET /api/shares
 // List share links for a file (excludes token from response)
@@ -139,6 +140,8 @@ export async function POST(request: NextRequest) {
       console.error('Share link create error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'share_created', '/dashboard/files', {});
 
     return apiSuccess(shareLink, undefined, 201);
   } catch (err) {

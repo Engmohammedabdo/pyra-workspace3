@@ -10,6 +10,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { FILE_APPROVAL_STATUS } from '@/lib/constants/statuses';
 
 /**
  * POST /api/portal/files/[id]/revision
@@ -89,7 +90,7 @@ export async function POST(
       const { data: updated, error } = await supabase
         .from('pyra_file_approvals')
         .update({
-          status: 'revision_requested',
+          status: FILE_APPROVAL_STATUS.REVISION_REQUESTED,
           reviewed_by: client.name,
           reviewed_at: now,
           comment: comment.trim(),
@@ -114,7 +115,7 @@ export async function POST(
           file_id: fileId,
           project_id: projectFile.project_id,
           project_name: project?.name,
-          status: 'revision_requested',
+          status: FILE_APPROVAL_STATUS.REVISION_REQUESTED,
           comment: comment.trim(),
         },
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',
@@ -129,7 +130,7 @@ export async function POST(
           id: generateId('fa'),
           file_id: fileId,
           client_id: client.id,
-          status: 'revision_requested',
+          status: FILE_APPROVAL_STATUS.REVISION_REQUESTED,
           reviewed_by: client.name,
           reviewed_at: now,
           comment: comment.trim(),
@@ -153,7 +154,7 @@ export async function POST(
           file_id: fileId,
           project_id: projectFile.project_id,
           project_name: project?.name,
-          status: 'revision_requested',
+          status: FILE_APPROVAL_STATUS.REVISION_REQUESTED,
           comment: comment.trim(),
         },
         ip_address: request.headers.get('x-forwarded-for') || 'unknown',

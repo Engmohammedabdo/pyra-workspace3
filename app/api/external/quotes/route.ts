@@ -7,6 +7,7 @@ import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/external/quotes
@@ -50,7 +51,10 @@ export async function GET(req: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data || [], { total: count ?? 0, page, pageSize });
+    
+    logActivity('external_api', 'External API', 'external_quote_created', '/dashboard/quotes', {});
+
+return apiSuccess(data || [], { total: count ?? 0, page, pageSize });
   } catch (err) {
     console.error('GET /api/external/quotes error:', err);
     return apiServerError();

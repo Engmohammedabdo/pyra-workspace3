@@ -9,6 +9,7 @@ import {
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { canAccessAllPaths } from '@/lib/auth/file-access';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // POST /api/files/tag-batch
@@ -61,7 +62,10 @@ export async function POST(request: NextRequest) {
       if (!error) tagged++;
     }
 
-    return apiSuccess({ tagged });
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'files_batch_tagged', '/dashboard/files', {});
+
+return apiSuccess({ tagged });
   } catch (err) {
     console.error('POST /api/files/tag-batch error:', err);
     return apiServerError();

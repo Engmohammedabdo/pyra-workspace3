@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * POST /api/quotes/check-expired
@@ -18,8 +19,8 @@ export async function POST(_request: NextRequest) {
 
     const { data: expired, error } = await supabase
       .from('pyra_quotes')
-      .update({ status: 'expired', updated_at: new Date().toISOString() })
-      .in('status', ['sent', 'viewed'])
+      .update({ status: QUOTE_STATUS.EXPIRED, updated_at: new Date().toISOString() })
+      .in('status', [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED])
       .lt('expiry_date', today)
       .not('expiry_date', 'is', null)
       .select('id, quote_number');

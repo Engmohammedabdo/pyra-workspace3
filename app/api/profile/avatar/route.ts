@@ -1,6 +1,7 @@
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // POST /api/profile/avatar — Upload user avatar
@@ -56,7 +57,10 @@ export async function POST(req: Request) {
       return apiServerError(updateError.message);
     }
 
-    return apiSuccess({ avatar_url: publicUrl });
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'avatar_updated', '/dashboard/profile', {});
+
+return apiSuccess({ avatar_url: publicUrl });
   } catch (err) {
     console.error('POST /api/profile/avatar error:', err);
     return apiServerError();

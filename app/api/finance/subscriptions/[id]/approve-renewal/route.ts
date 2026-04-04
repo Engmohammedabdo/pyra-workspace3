@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { SUBSCRIPTION_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 const CYCLE_ARABIC: Record<string, string> = {
   monthly: 'شهري',
@@ -41,7 +42,7 @@ export async function POST(
       .single();
 
     if (error || !sub) return apiNotFound('الاشتراك غير موجود');
-    if (sub.status !== 'active') return apiError('الاشتراك غير نشط');
+    if (sub.status !== SUBSCRIPTION_STATUS.ACTIVE) return apiError('الاشتراك غير نشط');
 
     // Check if expense already exists for this renewal date (prevent duplicates)
     const { data: existingExpense } = await supabase
@@ -67,7 +68,7 @@ export async function POST(
       subscription_id: sub.id,
       category_id: 'ec_subscriptions',
       vendor: sub.provider,
-      status: 'approved',
+      status: EXPENSE_STATUS.APPROVED,
       expense_date: sub.next_renewal_date,
       created_by: auth.pyraUser.username,
     });

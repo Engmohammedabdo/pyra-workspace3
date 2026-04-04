@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/dashboard/evaluations/criteria
@@ -74,7 +75,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) return apiServerError(error.message);
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'evaluation_criteria_created', '/dashboard/evaluations', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/evaluations/criteria error:', err);
     return apiServerError();

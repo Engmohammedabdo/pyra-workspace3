@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -105,9 +106,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
               جاري التحميل...
             </div>
           ) : notifications.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              لا توجد إشعارات
-            </div>
+            <EmptyState icon={Bell} title="لا توجد إشعارات" className="py-4" />
           ) : (
             notifications.map((n) => (
               <button

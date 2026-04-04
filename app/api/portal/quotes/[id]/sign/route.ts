@@ -11,6 +11,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notifyQuoteSigned } from '@/lib/email/notify';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -64,7 +65,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { data: updated, error } = await supabase
       .from('pyra_quotes')
       .update({
-        status: 'signed',
+        status: QUOTE_STATUS.SIGNED,
         signature_data,
         signed_by: signed_by.trim(),
         signed_at: now,

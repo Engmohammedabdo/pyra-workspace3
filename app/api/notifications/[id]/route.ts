@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // PATCH /api/notifications/[id]
@@ -49,6 +50,8 @@ export async function PATCH(
       console.error('Notification update error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'notification_read', '/dashboard/notifications', { id });
 
     return apiSuccess(updated);
   } catch (err) {

@@ -9,6 +9,7 @@ import {
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { canAccessPath } from '@/lib/auth/file-access';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/files/tags?file_path=... — Get tags for a file
@@ -128,7 +129,10 @@ export async function POST(request: NextRequest) {
       return apiServerError('فشل في إضافة الوسم');
     }
 
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'file_tag_created', '/dashboard/files', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('Tags POST error:', err);
     return apiServerError();

@@ -1,11 +1,13 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils/cn';
+import { BarChart3 } from 'lucide-react';
 
 export function BarList({ items }: { items: { label: string; value: number; gradient: string }[] }) {
   if (items.length === 0) {
-    return <p className="text-muted-foreground text-center py-12 text-sm">لا توجد بيانات</p>;
+    return <EmptyState icon={BarChart3} title="لا توجد بيانات" className="py-8" />;
   }
 
   const maxCount = Math.max(...items.map(i => i.value), 1);

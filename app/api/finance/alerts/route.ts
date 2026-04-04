@@ -1,6 +1,7 @@
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { getFinanceAlerts } from '@/lib/finance/alerts';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/finance/alerts
@@ -13,6 +14,8 @@ export async function GET() {
 
   try {
     const result = await getFinanceAlerts();
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'finance_alert_created', '/dashboard/finance', {});
+
     return apiSuccess(result);
   } catch (err) {
     console.error('GET /api/finance/alerts error:', err);

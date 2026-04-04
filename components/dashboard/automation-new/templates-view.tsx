@@ -3,6 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Zap, LayoutTemplate } from 'lucide-react';
 import { AutomationTemplate, TRIGGER_LABELS } from './types';
 
@@ -32,10 +33,12 @@ export function TemplatesView({ loading, templates, onApply }: TemplatesViewProp
   if (templates.length === 0) {
     return (
       <Card>
-        <CardContent className="p-12 text-center text-muted-foreground">
-          <LayoutTemplate className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-          <p>لا توجد قوالب متاحة</p>
-          <p className="text-xs mt-1">يمكنك إنشاء قاعدة يدوياً</p>
+        <CardContent className="p-4">
+          <EmptyState
+            icon={LayoutTemplate}
+            title="لا توجد قوالب متاحة"
+            description="يمكنك إنشاء قاعدة يدوياً"
+          />
         </CardContent>
       </Card>
     );

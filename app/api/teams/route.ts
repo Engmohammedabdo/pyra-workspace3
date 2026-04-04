@@ -8,6 +8,7 @@ import {
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/teams
@@ -88,6 +89,8 @@ export async function POST(request: NextRequest) {
       console.error('Team create error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'team_created', '/dashboard/teams', { name: body.name });
 
     return apiSuccess(team, undefined, 201);
   } catch (err) {

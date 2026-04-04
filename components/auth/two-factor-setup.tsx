@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,14 +33,9 @@ export function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorSetupProp
   const handleSetup = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/two-factor', { method: 'POST' });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'فشل في إعداد المصادقة الثنائية');
-        return;
-      }
-      setQrCode(json.data.qrCode);
-      setSecret(json.data.secret);
+      const result = await mutateAPI<{ qrCode: string; secret: string }>('/api/auth/two-factor', 'POST');
+      setQrCode(result.qrCode);
+      setSecret(result.secret);
       setSetupOpen(true);
     } catch {
       toast.error('حدث خطأ');
@@ -55,17 +51,8 @@ export function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorSetupProp
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/two-factor', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'رمز غير صحيح');
-        return;
-      }
-      toast.success('تم تفعيل المصادقة الثنائية بنجاح ✅');
+      await mutateAPI('/api/auth/two-factor', 'PATCH', { token });
+      toast.success('تم تفعيل المصادقة الثنائية بنجاح');
       setSetupOpen(false);
       setToken('');
       onStatusChange();
@@ -83,16 +70,7 @@ export function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorSetupProp
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/two-factor', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        toast.error(json.error || 'رمز غير صحيح');
-        return;
-      }
+      await mutateAPI('/api/auth/two-factor', 'DELETE', { token });
       toast.success('تم تعطيل المصادقة الثنائية');
       setDisableOpen(false);
       setToken('');

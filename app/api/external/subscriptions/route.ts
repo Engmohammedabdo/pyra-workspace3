@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/external/subscriptions
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
         billing_cycle: billing_cycle || 'monthly',
         next_renewal_date: next_renewal_date || null,
         category: category || null,
-        status: 'active',
+        status: SUBSCRIPTION_STATUS.ACTIVE,
         url: url || null,
         notes: notes ? `${notes}${source ? ` [${source}]` : ''}` : (source ? `[${source}]` : null),
         auto_renew: true,

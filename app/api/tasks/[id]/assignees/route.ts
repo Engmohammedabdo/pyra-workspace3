@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/respon
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { invalidateScopeCache } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/tasks/[id]/assignees
@@ -13,20 +14,26 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('tasks.view');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('tasks.view');
+    if (isApiError(auth)) return auth;
 
-  const { id } = await params;
-  const supabase = await createServerSupabaseClient();
+    const { id } = await params;
+    const supabase = await createServerSupabaseClient();
 
-  const { data, error } = await supabase
-    .from('pyra_task_assignees')
-    .select('id, username, assigned_by, created_at')
-    .eq('task_id', id)
-    .order('created_at');
+    const { data, error } = await supabase
+      .from('pyra_task_assignees')
+      .select('id, username, assigned_by, created_at')
+      .eq('task_id', id)
+      .order('created_at');
 
-  if (error) return apiServerError(error.message);
-  return apiSuccess(data);
+    if (error) return apiServerError(error.message);
+    return apiSuccess(data);
+
+  } catch (err) {
+    console.error('[GET /api/tasks/[id]/assignees] error:', err);
+    return apiServerError();
+  }
 }
 
 // =============================================================
@@ -37,77 +44,91 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('tasks.create');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('tasks.create');
+    if (isApiError(auth)) return auth;
 
-  const { id } = await params;
-  const { usernames } = await req.json();
-  if (!usernames || !Array.isArray(usernames) || usernames.length === 0) {
-    return apiValidationError('usernames مطلوب (مصفوفة)');
-  }
-
-  const supabase = await createServerSupabaseClient();
-
-  // Get existing assignees to avoid duplicates
-  const { data: existing } = await supabase
-    .from('pyra_task_assignees')
-    .select('username')
-    .eq('task_id', id);
-
-  const existingUsernames = new Set((existing || []).map((a) => a.username));
-  const newUsernames = usernames.filter((u: string) => !existingUsernames.has(u));
-
-  if (newUsernames.length === 0) {
-    return apiSuccess({ added: 0, message: 'المستخدمون مُعيّنون بالفعل' });
-  }
-
-  const inserts = newUsernames.map((username: string) => ({
-    id: generateId('ta'),
-    task_id: id,
-    username,
-    assigned_by: auth.pyraUser.username,
-  }));
-
-  const { error } = await supabase.from('pyra_task_assignees').insert(inserts);
-  if (error) return apiServerError(error.message);
-
-  newUsernames.forEach((u: string) => invalidateScopeCache(u));
-
-  // Log activity
-  await supabase.from('pyra_task_activity').insert({
-    id: generateId('tl'),
-    task_id: id,
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    action: 'assignee_added',
-    details: { added: newUsernames },
-  });
-
-  // Notify new assignees
-  const { data: taskInfo } = await supabase
-    .from('pyra_tasks')
-    .select('title, board_id')
-    .eq('id', id)
-    .single();
-
-  if (taskInfo) {
-    const notifs = newUsernames
-      .filter((u: string) => u !== auth.pyraUser.username)
-      .map((u: string) => ({
-        id: generateId('ntf'),
-        username: u,
-        type: 'task_assigned',
-        title: `تم تعيينك في مهمة: ${taskInfo.title}`,
-        message: `قام ${auth.pyraUser.display_name} بتعيينك في المهمة`,
-        link: `/dashboard/boards/${taskInfo.board_id}`,
-        is_read: false,
-      }));
-    if (notifs.length > 0) {
-      await supabase.from('pyra_notifications').insert(notifs);
+    const { id } = await params;
+    const { usernames } = await req.json();
+    if (!usernames || !Array.isArray(usernames) || usernames.length === 0) {
+      return apiValidationError('usernames مطلوب (مصفوفة)');
     }
-  }
 
-  return apiSuccess({ added: newUsernames.length }, undefined, 201);
+    const supabase = await createServerSupabaseClient();
+
+    // Get existing assignees to avoid duplicates
+    const { data: existing } = await supabase
+      .from('pyra_task_assignees')
+      .select('username')
+      .eq('task_id', id);
+
+    const existingUsernames = new Set((existing || []).map((a) => a.username));
+    const newUsernames = usernames.filter((u: string) => !existingUsernames.has(u));
+
+    if (newUsernames.length === 0) {
+      return apiSuccess({ added: 0, message: 'المستخدمون مُعيّنون بالفعل' });
+    }
+
+    const inserts = newUsernames.map((username: string) => ({
+      id: generateId('ta'),
+      task_id: id,
+      username,
+      assigned_by: auth.pyraUser.username,
+    }));
+
+    const { error } = await supabase.from('pyra_task_assignees').insert(inserts);
+    if (error) return apiServerError(error.message);
+
+    newUsernames.forEach((u: string) => invalidateScopeCache(u));
+
+    // Log activity
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('tl'),
+      task_id: id,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'assignee_added',
+      details: { added: newUsernames },
+    });
+
+    // Notify new assignees
+    const { data: taskInfo } = await supabase
+      .from('pyra_tasks')
+      .select('title, board_id')
+      .eq('id', id)
+      .single();
+
+    if (taskInfo) {
+      const notifs = newUsernames
+        .filter((u: string) => u !== auth.pyraUser.username)
+        .map((u: string) => ({
+          id: generateId('ntf'),
+          username: u,
+          type: 'task_assigned',
+          title: `تم تعيينك في مهمة: ${taskInfo.title}`,
+          message: `قام ${auth.pyraUser.display_name} بتعيينك في المهمة`,
+          link: `/dashboard/boards/${taskInfo.board_id}`,
+          is_read: false,
+        }));
+      if (notifs.length > 0) {
+        await supabase.from('pyra_notifications').insert(notifs);
+      }
+    }
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'task_assignee_added',
+      `/dashboard/boards/${taskInfo?.board_id || ''}`,
+      { task_id: id, added: newUsernames },
+    );
+
+    return apiSuccess({ added: newUsernames.length }, undefined, 201);
+
+  } catch (err) {
+    console.error('[POST /api/tasks/[id]/assignees] error:', err);
+    return apiServerError();
+  }
 }
 
 // =============================================================
@@ -118,34 +139,48 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('tasks.create');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('tasks.create');
+    if (isApiError(auth)) return auth;
 
-  const { id } = await params;
-  const username = req.nextUrl.searchParams.get('username');
-  if (!username) return apiValidationError('username مطلوب');
+    const { id } = await params;
+    const username = req.nextUrl.searchParams.get('username');
+    if (!username) return apiValidationError('username مطلوب');
 
-  const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
-  const { error } = await supabase
-    .from('pyra_task_assignees')
-    .delete()
-    .eq('task_id', id)
-    .eq('username', username);
+    const { error } = await supabase
+      .from('pyra_task_assignees')
+      .delete()
+      .eq('task_id', id)
+      .eq('username', username);
 
-  if (error) return apiServerError(error.message);
+    if (error) return apiServerError(error.message);
 
-  invalidateScopeCache(username);
+    invalidateScopeCache(username);
 
-  // Log activity
-  await supabase.from('pyra_task_activity').insert({
-    id: generateId('tl'),
-    task_id: id,
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    action: 'assignee_removed',
-    details: { removed: username },
-  });
+    // Log activity
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('tl'),
+      task_id: id,
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'assignee_removed',
+      details: { removed: username },
+    });
 
-  return apiSuccess({ removed: username });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'task_assignee_removed',
+      `/dashboard/boards`,
+      { task_id: id, removed: username },
+    );
+
+    return apiSuccess({ removed: username });
+
+  } catch (err) {
+    console.error('[DELETE /api/tasks/[id]/assignees] error:', err);
+    return apiServerError();
+  }
 }

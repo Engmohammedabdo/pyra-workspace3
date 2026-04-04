@@ -3,6 +3,7 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { FileText } from 'lucide-react';
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
@@ -53,7 +54,7 @@ export function InvoicesTable({ invoices, loading }: { invoices: Invoice[]; load
                 <td key={j} className="p-3"><Skeleton className="h-5 w-20" /></td>
               ))}</tr>
             )) : invoices.length === 0 ? (
-              <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">لا توجد فواتير</td></tr>
+              <tr><td colSpan={7}><EmptyState icon={FileText} title="لا توجد فواتير" className="py-8" /></td></tr>
             ) : invoices.map((inv, idx) => {
               const st = STATUS_MAP[inv.status] || { label: inv.status, variant: 'secondary' as const };
               return (

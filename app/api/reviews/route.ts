@@ -9,6 +9,7 @@ import {
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { canAccessPath } from '@/lib/auth/file-access';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/reviews
@@ -108,6 +109,8 @@ export async function POST(request: NextRequest) {
       console.error('Review create error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'review_created', '/dashboard/reviews', {});
 
     return apiSuccess(review, undefined, 201);
   } catch (err) {

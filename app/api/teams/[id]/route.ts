@@ -6,6 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/teams/[id]
@@ -160,6 +161,8 @@ export async function DELETE(
       console.error('Team delete error:', teamDeleteError);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'team_deleted', '/dashboard/teams', { id });
 
     return apiSuccess({ deleted: true });
   } catch (err) {

@@ -5,6 +5,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // POST /api/notifications/read-all
@@ -29,7 +30,10 @@ export async function POST() {
       return apiServerError();
     }
 
-    return apiSuccess({
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'notifications_all_read', '/dashboard/notifications', {});
+
+return apiSuccess({
       marked_count: data?.length ?? 0,
     });
   } catch (err) {

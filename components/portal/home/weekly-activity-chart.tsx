@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Activity, ChevronLeft } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -43,9 +44,7 @@ export function WeeklyActivityChart({ data }: { data: { day: string; count: numb
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-56 flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">لا يوجد نشاط هذا الأسبوع</p>
-            </div>
+            <EmptyState icon={Activity} title="لا يوجد نشاط هذا الأسبوع" className="py-8" />
           )}
         </CardContent>
       </Card>

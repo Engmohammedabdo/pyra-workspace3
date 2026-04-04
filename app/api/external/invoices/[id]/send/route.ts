@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -29,13 +30,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!invoice) return apiError('الفاتورة غير موجودة', 404);
-    if (invoice.status !== 'draft') {
+    if (invoice.status !== INVOICE_STATUS.DRAFT) {
       return apiError('يمكن إرسال المسودات فقط', 422);
     }
 
     const { data: updated, error } = await supabase
       .from('pyra_invoices')
-      .update({ status: 'sent', updated_at: new Date().toISOString() })
+      .update({ status: INVOICE_STATUS.SENT, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select(INVOICE_FIELDS)
       .single();

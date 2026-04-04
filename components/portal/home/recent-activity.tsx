@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Activity, LogIn, Eye, Download, FileSearch, PenLine, CheckCircle, ArrowLeftRight, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -84,7 +85,7 @@ export function RecentActivity({ activity }: { activity: Entry[] }) {
             })}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground text-center py-8">لا توجد نشاطات حديثة</p>
+          <EmptyState icon={Activity} title="لا توجد نشاطات حديثة" className="py-6" />
         )}
       </CardContent>
     </Card>

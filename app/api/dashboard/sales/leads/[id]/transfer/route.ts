@@ -9,87 +9,93 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('sales_leads.manage');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('sales_leads.manage');
+    if (isApiError(auth)) return auth;
 
-  const { id } = await params;
-  const supabase = await createServerSupabaseClient();
-  const body = await request.json();
-  const { to_agent, reason } = body;
+    const { id } = await params;
+    const supabase = await createServerSupabaseClient();
+    const body = await request.json();
+    const { to_agent, reason } = body;
 
-  if (!to_agent) return apiError('يجب تحديد الموظف المحوّل إليه');
+    if (!to_agent) return apiError('يجب تحديد الموظف المحوّل إليه');
 
-  // Get current lead
-  const { data: lead, error: fetchError } = await supabase
-    .from('pyra_sales_leads')
-    .select('id, assigned_to, name')
-    .eq('id', id)
-    .single();
+    // Get current lead
+    const { data: lead, error: fetchError } = await supabase
+      .from('pyra_sales_leads')
+      .select('id, assigned_to, name')
+      .eq('id', id)
+      .single();
 
-  if (fetchError || !lead) return apiNotFound('العميل المحتمل غير موجود');
+    if (fetchError || !lead) return apiNotFound('العميل المحتمل غير موجود');
 
-  const fromAgent = lead.assigned_to;
+    const fromAgent = lead.assigned_to;
 
-  // Update lead assignment
-  const { error: updateError } = await supabase
-    .from('pyra_sales_leads')
-    .update({ assigned_to: to_agent, updated_at: new Date().toISOString() })
-    .eq('id', id);
+    // Update lead assignment
+    const { error: updateError } = await supabase
+      .from('pyra_sales_leads')
+      .update({ assigned_to: to_agent, updated_at: new Date().toISOString() })
+      .eq('id', id);
 
-  if (updateError) return apiServerError(updateError.message);
+    if (updateError) return apiServerError(updateError.message);
 
-  // Create transfer record
-  const transferId = generateId('lt');
-  await supabase.from('pyra_lead_transfers').insert({
-    id: transferId,
-    lead_id: id,
-    from_agent: fromAgent,
-    to_agent,
-    reason: reason || null,
-    created_by: auth.pyraUser.username,
-  });
+    // Create transfer record
+    const transferId = generateId('lt');
+    await supabase.from('pyra_lead_transfers').insert({
+      id: transferId,
+      lead_id: id,
+      from_agent: fromAgent,
+      to_agent,
+      reason: reason || null,
+      created_by: auth.pyraUser.username,
+    });
 
-  // Create activity
-  void supabase.from('pyra_lead_activities').insert({
-    id: generateId('la'),
-    lead_id: id,
-    activity_type: 'transfer',
-    description: `تم تحويل العميل المحتمل من ${fromAgent} إلى ${to_agent}`,
-    metadata: { from: fromAgent, to: to_agent, reason },
-    created_by: auth.pyraUser.username,
-  });
+    // Create activity
+    void supabase.from('pyra_lead_activities').insert({
+      id: generateId('la'),
+      lead_id: id,
+      activity_type: 'transfer',
+      description: `تم تحويل العميل المحتمل من ${fromAgent} إلى ${to_agent}`,
+      metadata: { from: fromAgent, to: to_agent, reason },
+      created_by: auth.pyraUser.username,
+    });
 
-  // Activity log
-  void supabase.from('pyra_activity_log').insert({
-    id: generateId('al'),
-    action_type: 'lead_transferred',
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    target_path: `/dashboard/sales/leads/${id}`,
-    details: { lead_name: lead.name, from: fromAgent, to: to_agent },
-    ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-  });
+    // Activity log
+    void supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'lead_transferred',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: `/dashboard/sales/leads/${id}`,
+      details: { lead_name: lead.name, from: fromAgent, to: to_agent },
+      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+    });
 
-  // Internal notification to the new agent
-  void supabase.from('pyra_notifications').insert({
-    id: generateId('nt'),
-    recipient_username: to_agent,
-    type: 'lead_assigned',
-    title: 'تم تعيين عميل محتمل جديد لك',
-    message: `تم تحويل العميل المحتمل "${lead.name}" إليك${reason ? ` — ${reason}` : ''}`,
-    source_username: auth.pyraUser.username,
-    source_display_name: auth.pyraUser.display_name,
-    target_path: `/dashboard/sales/leads/${id}`,
-    is_read: false,
-  });
+    // Internal notification to the new agent
+    void supabase.from('pyra_notifications').insert({
+      id: generateId('nt'),
+      recipient_username: to_agent,
+      type: 'lead_assigned',
+      title: 'تم تعيين عميل محتمل جديد لك',
+      message: `تم تحويل العميل المحتمل "${lead.name}" إليك${reason ? ` — ${reason}` : ''}`,
+      source_username: auth.pyraUser.username,
+      source_display_name: auth.pyraUser.display_name,
+      target_path: `/dashboard/sales/leads/${id}`,
+      is_read: false,
+    });
 
-  // Email notification (fire-and-forget)
-  notifyLeadAssigned({
-    agentUsername: to_agent,
-    leadName: lead.name,
-    assignedBy: auth.pyraUser.display_name || auth.pyraUser.username,
-    leadId: id,
-  });
+    // Email notification (fire-and-forget)
+    notifyLeadAssigned({
+      agentUsername: to_agent,
+      leadName: lead.name,
+      assignedBy: auth.pyraUser.display_name || auth.pyraUser.username,
+      leadId: id,
+    });
 
-  return apiSuccess({ transferred: true, from: fromAgent, to: to_agent });
+    return apiSuccess({ transferred: true, from: fromAgent, to: to_agent });
+
+  } catch (err) {
+    console.error('[POST /api/dashboard/sales/leads/[id]/transfer] error:', err);
+    return apiServerError();
+  }
 }

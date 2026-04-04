@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/favorites
@@ -31,7 +32,10 @@ export async function GET(_request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data || []);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'favorite_toggled', '/dashboard', {});
+
+return apiSuccess(data || []);
   } catch (err) {
     console.error('GET /api/favorites error:', err);
     return apiServerError();

@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 
@@ -11,20 +12,26 @@ type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 // List all attachments for a task
 // =============================================================
 export async function GET(_req: NextRequest, ctx: RouteCtx) {
-  const auth = await requireApiPermission('tasks.view');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('tasks.view');
+    if (isApiError(auth)) return auth;
 
-  const { taskId } = await ctx.params;
-  const supabase = await createServerSupabaseClient();
+    const { taskId } = await ctx.params;
+    const supabase = await createServerSupabaseClient();
 
-  const { data, error } = await supabase
-    .from('pyra_task_attachments')
-    .select('*')
-    .eq('task_id', taskId)
-    .order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('pyra_task_attachments')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: false });
 
-  if (error) return apiServerError(error.message);
-  return apiSuccess(data);
+    if (error) return apiServerError(error.message);
+    return apiSuccess(data);
+
+  } catch (err) {
+    console.error('[GET /api/boards/[id]/tasks/[taskId]/attachments] error:', err);
+    return apiServerError();
+  }
 }
 
 // =============================================================
@@ -33,54 +40,68 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 // Body: { file_name, file_url, file_size, storage_path }
 // =============================================================
 export async function POST(req: NextRequest, ctx: RouteCtx) {
-  const auth = await requireApiPermission('tasks.create');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('tasks.create');
+    if (isApiError(auth)) return auth;
 
-  const { id: boardId, taskId } = await ctx.params;
-  const body = await req.json();
-  const { file_name, file_url, file_size, storage_path } = body;
+    const { id: boardId, taskId } = await ctx.params;
+    const body = await req.json();
+    const { file_name, file_url, file_size, storage_path } = body;
 
-  if (!file_name || !file_url) return apiValidationError('اسم الملف والرابط مطلوبان');
+    if (!file_name || !file_url) return apiValidationError('اسم الملف والرابط مطلوبان');
 
-  const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
-  // Verify task exists
-  const { data: task } = await supabase
-    .from('pyra_tasks')
-    .select('id, title')
-    .eq('id', taskId)
-    .eq('board_id', boardId)
-    .single();
+    // Verify task exists
+    const { data: task } = await supabase
+      .from('pyra_tasks')
+      .select('id, title')
+      .eq('id', taskId)
+      .eq('board_id', boardId)
+      .single();
 
-  if (!task) return apiNotFound('المهمة غير موجودة');
+    if (!task) return apiNotFound('المهمة غير موجودة');
 
-  const id = generateId('att');
-  const { data, error } = await supabase
-    .from('pyra_task_attachments')
-    .insert({
-      id,
+    const id = generateId('att');
+    const { data, error } = await supabase
+      .from('pyra_task_attachments')
+      .insert({
+        id,
+        task_id: taskId,
+        file_name,
+        file_url,
+        file_size: file_size || 0,
+        storage_path: storage_path || null,
+        uploaded_by: auth.pyraUser.username,
+        review_status: 'uploaded',
+      })
+      .select()
+      .single();
+
+    if (error) return apiServerError(error.message);
+
+    // Activity log
+    await supabase.from('pyra_task_activity').insert({
+      id: generateId('act'),
       task_id: taskId,
-      file_name,
-      file_url,
-      file_size: file_size || 0,
-      storage_path: storage_path || null,
-      uploaded_by: auth.pyraUser.username,
-      review_status: 'uploaded',
-    })
-    .select()
-    .single();
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      action: 'file_uploaded',
+      details: JSON.stringify({ file_name }),
+    });
 
-  if (error) return apiServerError(error.message);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'task_attachment_uploaded',
+      `/dashboard/boards/${boardId}`,
+      { task_id: taskId, file_name },
+    );
 
-  // Activity log
-  await supabase.from('pyra_task_activity').insert({
-    id: generateId('act'),
-    task_id: taskId,
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    action: 'file_uploaded',
-    details: JSON.stringify({ file_name }),
-  });
+    return apiSuccess(data, undefined, 201);
 
-  return apiSuccess(data, undefined, 201);
+  } catch (err) {
+    console.error('[POST /api/boards/[id]/tasks/[taskId]/attachments] error:', err);
+    return apiServerError();
+  }
 }

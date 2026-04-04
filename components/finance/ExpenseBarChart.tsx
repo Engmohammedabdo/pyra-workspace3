@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { Receipt } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -27,11 +29,7 @@ const DEFAULT_COLORS = [
 
 export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
   if (!data || data.length === 0) {
-    return (
-      <div className="h-[250px] flex items-center justify-center text-muted-foreground text-sm">
-        لا توجد مصاريف هذا الشهر
-      </div>
-    );
+    return <EmptyState icon={Receipt} title="لا توجد مصاريف هذا الشهر" className="py-8" />;
   }
 
   // Sort descending by value

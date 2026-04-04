@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { TrendingUp, ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useRouter } from 'next/navigation';
@@ -76,9 +77,7 @@ export function ProjectProgress({ projects }: { projects: Project[] }) {
               })}
             </div>
           ) : (
-            <div className="h-56 flex items-center justify-center">
-              <p className="text-sm text-muted-foreground">لا توجد بيانات تقدم</p>
-            </div>
+            <EmptyState icon={TrendingUp} title="لا توجد بيانات تقدم" className="py-8" />
           )}
         </CardContent>
       </Card>

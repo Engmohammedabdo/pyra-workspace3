@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/lib/api/response';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // PATCH /api/dashboard/leave-types/[id]
@@ -83,6 +84,8 @@ export async function DELETE(
       if (error.code === 'PGRST116') return apiNotFound('نوع الإجازة غير موجود');
       return apiServerError(error.message);
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'leave_type_updated', '/dashboard/leave', { id });
 
     return apiSuccess(data);
   } catch (err) {

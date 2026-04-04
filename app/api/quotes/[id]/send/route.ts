@@ -9,6 +9,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notifyQuoteSentToClient } from '@/lib/email/notify';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -33,7 +34,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!quote) return apiNotFound('عرض السعر غير موجود');
 
     // Only draft quotes can be sent
-    if (quote.status !== 'draft') {
+    if (quote.status !== QUOTE_STATUS.DRAFT) {
       return apiValidationError(
         `لا يمكن إرسال عرض سعر في حالة "${quote.status}". يجب أن يكون في حالة مسودة`
       );
@@ -43,7 +44,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
 
     const { data: updated, error } = await supabase
       .from('pyra_quotes')
-      .update({ status: 'sent', sent_at: now, updated_at: now })
+      .update({ status: QUOTE_STATUS.SENT, sent_at: now, updated_at: now })
       .eq('id', id)
       .select('id, quote_number, status, sent_at')
       .single();

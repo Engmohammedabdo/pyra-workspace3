@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { evolutionClient } from '@/lib/evolution/client';
 import { generateId } from '@/lib/utils/id';
+import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 
 export const maxDuration = 30;
 
@@ -198,8 +199,8 @@ export async function POST(req: NextRequest) {
         if (convData.lead_id) update.lead_id = convData.lead_id;
         if (convData.client_id) update.client_id = convData.client_id;
         // Auto-reopen if new incoming message
-        if (existing.status === 'resolved' || existing.status === 'pending') {
-          update.status = 'open';
+        if (existing.status === CONVERSATION_STATUS.RESOLVED || existing.status === CONVERSATION_STATUS.PENDING) {
+          update.status = CONVERSATION_STATUS.OPEN;
         }
 
         await supabase.from('pyra_whatsapp_conversations').update(update).eq('id', existing.id);
@@ -217,8 +218,8 @@ export async function POST(req: NextRequest) {
         await supabase.from('pyra_whatsapp_conversations').insert({
           id: convId,
           ...convData,
-          status: 'open',
-          priority: 'normal',
+          status: CONVERSATION_STATUS.OPEN,
+          priority: CONVERSATION_PRIORITY.NORMAL,
           unread_count: 1,
         });
 

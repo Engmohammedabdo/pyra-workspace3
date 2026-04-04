@@ -1,5 +1,7 @@
 'use client';
 
+import { EmptyState } from '@/components/ui/empty-state';
+import { BarChart3 } from 'lucide-react';
 import {
   ResponsiveContainer,
   BarChart,
@@ -57,14 +59,7 @@ export function ReportChart({
   height = 300,
 }: Props) {
   if (!data || data.length === 0) {
-    return (
-      <div
-        className="flex items-center justify-center text-sm text-muted-foreground"
-        style={{ height }}
-      >
-        لا توجد بيانات لعرضها
-      </div>
-    );
+    return <EmptyState icon={BarChart3} title="لا توجد بيانات لعرضها" className="py-8" />;
   }
 
   if (type === 'bar') {

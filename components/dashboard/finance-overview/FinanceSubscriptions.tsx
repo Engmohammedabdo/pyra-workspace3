@@ -3,6 +3,7 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 import { RefreshCw, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -46,7 +47,7 @@ export function FinanceSubscriptions({
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-center text-muted-foreground py-4">لا توجد اشتراكات تحتاج موافقة</p>}
+          ) : <EmptyState icon={Clock} title="لا توجد اشتراكات تحتاج موافقة" className="py-4" />}
         </CardContent>
       </Card>
       <Card>
@@ -65,7 +66,7 @@ export function FinanceSubscriptions({
                 </div>
               ))}
             </div>
-          ) : <p className="text-sm text-center text-muted-foreground py-4">لا توجد تجديدات قريبة</p>}
+          ) : <EmptyState icon={RefreshCw} title="لا توجد تجديدات قريبة" className="py-4" />}
         </CardContent>
       </Card>
     </div>

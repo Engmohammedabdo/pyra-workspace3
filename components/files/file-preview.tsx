@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { FileIcon } from './file-icon';
 import { VersionHistory } from './version-history';
 import { DocxViewer } from './docx-viewer';
@@ -1035,7 +1036,7 @@ function FileCommentsSection({ projectId, fileId }: { projectId: string; fileId:
         {loading ? (
           <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
         ) : comments.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">لا توجد تعليقات</p>
+          <EmptyState icon={MessageSquare} title="لا توجد تعليقات" className="py-4" />
         ) : (
           <>
             {!showAll && comments.length > 3 && (
@@ -1132,7 +1133,7 @@ function ActivityTimeline({ filePath }: { filePath: string }) {
           {loading ? (
             <p className="text-xs text-muted-foreground py-2">جاري التحميل...</p>
           ) : events.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-2">لا يوجد نشاط مسجل</p>
+            <EmptyState icon={Clock} title="لا يوجد نشاط مسجل" className="py-4" />
           ) : (
             <div className="relative">
               <div className="absolute start-[5px] top-2 bottom-2 w-px bg-orange-200 dark:bg-orange-900" />

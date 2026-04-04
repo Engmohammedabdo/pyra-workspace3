@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 /* eslint-disable @typescript-eslint/no-floating-promises */
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
     const { data: dueAutoRenew } = await supabase
       .from('pyra_subscriptions')
       .select('id, name, provider, cost, currency, billing_cycle, next_renewal_date')
-      .eq('status', 'active')
+      .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
       .eq('auto_renew', true)
       .lte('next_renewal_date', today);
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
     const { data: expired } = await supabase
       .from('pyra_subscriptions')
       .select('id, name, next_renewal_date')
-      .eq('status', 'active')
+      .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
       .eq('auto_renew', false)
       .lt('next_renewal_date', today);
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('pyra_subscriptions')
         .update({
-          status: 'cancelled',
+          status: SUBSCRIPTION_STATUS.CANCELLED,
           updated_at: new Date().toISOString(),
         })
         .eq('id', sub.id);
@@ -98,7 +99,7 @@ export async function POST(req: NextRequest) {
     const { data: upcoming } = await supabase
       .from('pyra_subscriptions')
       .select('id, name, cost, currency, next_renewal_date')
-      .eq('status', 'active')
+      .eq('status', SUBSCRIPTION_STATUS.ACTIVE)
       .gt('next_renewal_date', today)
       .lte('next_renewal_date', in7DaysStr);
 

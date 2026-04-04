@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -162,6 +163,8 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         (a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order
       );
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'pipeline_stage_created', '/dashboard/content-pipeline', {});
 
     return apiSuccess(updatedPipeline);
   } catch (err) {

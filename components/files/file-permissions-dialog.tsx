@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Shield, Plus, Trash2, UserCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
@@ -212,9 +213,7 @@ export function FilePermissionsDialog({
               جاري التحميل...
             </div>
           ) : permissions.length === 0 ? (
-            <div className="text-center py-6 text-sm text-muted-foreground">
-              لا توجد صلاحيات مخصصة لهذا المسار
-            </div>
+            <EmptyState icon={Shield} title="لا توجد صلاحيات مخصصة لهذا المسار" className="py-4" />
           ) : (
             permissions.map((perm) => (
               <div

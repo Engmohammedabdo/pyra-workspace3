@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -42,13 +43,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     // Auto-mark as viewed on first access
-    if (quote.status === 'sent' && !quote.viewed_at) {
+    if (quote.status === QUOTE_STATUS.SENT && !quote.viewed_at) {
       const now = new Date().toISOString();
       await supabase
         .from('pyra_quotes')
-        .update({ status: 'viewed', viewed_at: now, updated_at: now })
+        .update({ status: QUOTE_STATUS.VIEWED, viewed_at: now, updated_at: now })
         .eq('id', id);
-      quote.status = 'viewed';
+      quote.status = QUOTE_STATUS.VIEWED;
       quote.viewed_at = now;
 
       // ── Log quote viewed activity ──────────────────

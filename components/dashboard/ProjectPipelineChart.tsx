@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PieChart as PieChartIcon } from 'lucide-react';
 import {
   PieChart,
@@ -94,12 +95,11 @@ export function ProjectPipelineChart() {
             </PieChart>
           </ResponsiveContainer>
         ) : (
-          <div className="flex flex-col items-center justify-center h-[300px] text-muted-foreground/40">
-            <div className="w-14 h-14 rounded-2xl bg-muted/30 flex items-center justify-center mb-3">
-              <PieChartIcon className="h-7 w-7 opacity-40" />
-            </div>
-            <p className="text-sm font-medium">لا توجد مشاريع</p>
-          </div>
+          <EmptyState
+            icon={PieChartIcon}
+            title="لا توجد مشاريع"
+            className="py-12"
+          />
         )}
       </div>
     </div>

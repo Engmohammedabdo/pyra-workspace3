@@ -12,6 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -329,7 +330,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (existing.status !== 'draft') {
+    if (existing.status !== INVOICE_STATUS.DRAFT) {
       return apiValidationError('لا يمكن حذف فاتورة غير مسودة');
     }
 

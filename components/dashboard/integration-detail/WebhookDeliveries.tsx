@@ -4,7 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, RotateCcw, Loader2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { RefreshCw, RotateCcw, Loader2, ChevronRight, ChevronLeft, Send } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 
 const STATUS_BADGES: Record<string, { label: string; color: string }> = {
@@ -68,7 +69,7 @@ export function WebhookDeliveries({
             {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-5 w-full" />)}
           </div>
         ) : deliveries.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">لا توجد سجلات تسليم بعد</p>
+          <EmptyState icon={Send} title="لا توجد سجلات تسليم بعد" className="py-6" />
         ) : (
           <>
             <div className="overflow-x-auto">

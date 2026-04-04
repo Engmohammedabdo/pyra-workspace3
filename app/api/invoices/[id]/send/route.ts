@@ -12,6 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -44,13 +45,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
       }
     }
 
-    if (invoice.status !== 'draft') {
+    if (invoice.status !== INVOICE_STATUS.DRAFT) {
       return apiValidationError('يمكن إرسال المسودات فقط');
     }
 
     const { data: updated, error } = await supabase
       .from('pyra_invoices')
-      .update({ status: 'sent', updated_at: new Date().toISOString() })
+      .update({ status: INVOICE_STATUS.SENT, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select(INVOICE_FIELDS)
       .single();

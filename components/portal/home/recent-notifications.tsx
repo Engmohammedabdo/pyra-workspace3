@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Bell, ChevronLeft, Share2, Eye, CheckCircle, FileText, FileCheck } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -43,7 +44,7 @@ export function RecentNotifications({ notifications, onMarkRead }: { notificatio
       </CardHeader>
       <CardContent className="space-y-3">
         {notifications.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">لا توجد إشعارات</p>
+          <EmptyState icon={Bell} title="لا توجد إشعارات" className="py-6" />
         ) : (
           notifications.map((notif) => {
             const Icon = getIcon(notif.type);

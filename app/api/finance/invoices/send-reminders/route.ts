@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { sendEmail, emailTemplates } from '@/lib/email/mailer';
+import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES } from '@/lib/constants/statuses';
 
 /**
  * POST /api/finance/invoices/send-reminders
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
     const { data: newOverdue } = await supabase
       .from('pyra_invoices')
       .select('id, invoice_number, client_id, client_name, client_email, due_date, amount_due, currency')
-      .in('status', ['sent', 'partially_paid'])
+      .in('status', [INVOICE_STATUS.SENT, INVOICE_STATUS.PARTIALLY_PAID])
       .lt('due_date', today)
       .gt('amount_due', 0);
 
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       // Update status to overdue
       await supabase
         .from('pyra_invoices')
-        .update({ status: 'overdue', updated_at: new Date().toISOString() })
+        .update({ status: INVOICE_STATUS.OVERDUE, updated_at: new Date().toISOString() })
         .eq('id', inv.id);
 
       markedOverdue++;
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
     const { data: overdueInvoices } = await supabase
       .from('pyra_invoices')
       .select('id, invoice_number, client_id, client_name, client_email, due_date, amount_due, total, currency')
-      .eq('status', 'overdue')
+      .eq('status', INVOICE_STATUS.OVERDUE)
       .gt('amount_due', 0);
 
     let remindersSent = 0;
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
     const { data: upcomingDue } = await supabase
       .from('pyra_invoices')
       .select('id, invoice_number, client_id, client_name, due_date, amount_due, currency')
-      .in('status', ['sent', 'partially_paid'])
+      .in('status', [INVOICE_STATUS.SENT, INVOICE_STATUS.PARTIALLY_PAID])
       .gte('due_date', today)
       .lte('due_date', in3DaysStr)
       .gt('amount_due', 0);

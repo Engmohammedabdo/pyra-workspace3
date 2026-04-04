@@ -10,6 +10,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     if (!original) return apiNotFound('عرض السعر غير موجود');
 
     // Only allow revisions of sent/viewed/expired/rejected quotes
-    const revisableStatuses = ['sent', 'viewed', 'expired', 'rejected', 'cancelled'];
+    const revisableStatuses = [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED, QUOTE_STATUS.EXPIRED, QUOTE_STATUS.REJECTED, QUOTE_STATUS.CANCELLED];
     if (!revisableStatuses.includes(original.status)) {
       return apiValidationError(
         `لا يمكن إنشاء مراجعة من عرض بحالة "${original.status}"`
@@ -76,7 +77,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         client_id: original.client_id,
         lead_id: original.lead_id,
         project_name: original.project_name,
-        status: 'draft',
+        status: QUOTE_STATUS.DRAFT,
         estimate_date: new Date().toISOString().split('T')[0],
         expiry_date: original.expiry_date,
         currency: original.currency,
@@ -128,7 +129,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Cancel the original quote
     await supabase
       .from('pyra_quotes')
-      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .update({ status: QUOTE_STATUS.CANCELLED, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     // Log activity

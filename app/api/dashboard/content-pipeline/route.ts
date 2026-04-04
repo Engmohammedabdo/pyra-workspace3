@@ -8,6 +8,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CONTENT_PIPELINE_STATUS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 const DEFAULT_STAGES = [
   { stage: 'scripting', sort_order: 0 },
@@ -173,6 +174,8 @@ export async function POST(request: NextRequest) {
         .eq('id', pipelineId);
       return apiServerError('فشل في إنشاء مراحل خط الإنتاج');
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'content_pipeline_created', '/dashboard/content-pipeline', { name: body.name });
 
     return apiSuccess(pipeline, undefined, 201);
   } catch (err) {

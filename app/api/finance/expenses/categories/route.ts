@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_CATEGORY_FIELDS } from '@/lib/supabase/fields';
+import { logActivity } from '@/lib/api/activity';
 
 export async function GET() {
   const auth = await requireApiPermission('finance.view');
@@ -59,7 +60,10 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'expense_category_created', '/dashboard/expenses', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch {
     return apiServerError();
   }

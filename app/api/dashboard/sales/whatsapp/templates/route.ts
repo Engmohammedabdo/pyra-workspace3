@@ -8,6 +8,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { WA_TEMPLATE_FIELDS } from '@/lib/supabase/fields';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/dashboard/sales/whatsapp/templates
@@ -73,7 +74,10 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'canned_response_created', '/dashboard/sales/whatsapp', { title: body.title });
+
+return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/dashboard/sales/whatsapp/templates error:', err);
     return apiServerError();

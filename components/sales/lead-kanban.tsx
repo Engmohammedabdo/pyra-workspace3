@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Users } from 'lucide-react';
 import { LeadCard } from './lead-card';
 
 import { toast } from 'sonner';
@@ -137,12 +139,7 @@ export function LeadKanban({ stages, leads, onRefresh }: LeadKanbanProps) {
             {/* Leads */}
             <div className="px-2.5 pb-3 space-y-2.5 flex-1 overflow-y-auto" style={{ maxHeight: '60vh' }}>
               {stageLeads.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-muted/60 flex items-center justify-center mb-2">
-                    <span className="text-muted-foreground/40 text-lg">∅</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground/60">لا يوجد عملاء</p>
-                </div>
+                <EmptyState icon={Users} title="لا يوجد عملاء" className="py-8" />
               ) : (
                 stageLeads.map((lead, idx) => (
                   <motion.div

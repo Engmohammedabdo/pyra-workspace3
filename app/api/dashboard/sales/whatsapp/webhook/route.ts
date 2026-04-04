@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
+import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 
 /** Shared secret for webhook authentication */
 const WEBHOOK_SECRET = process.env.EVOLUTION_API_KEY || '';
@@ -154,8 +155,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
               ? Number((existingConv as unknown as { unread_count: number }).unread_count) + 1
               : 1;
             // Auto-reopen if resolved or pending
-            if (existingConv.status === 'resolved' || existingConv.status === 'pending') {
-              convUpdate.status = 'open';
+            if (existingConv.status === CONVERSATION_STATUS.RESOLVED || existingConv.status === CONVERSATION_STATUS.PENDING) {
+              convUpdate.status = CONVERSATION_STATUS.OPEN;
             }
           } else {
             convUpdate.last_agent_message_at = msgTimestamp;
@@ -178,8 +179,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             contact_phone: phone || null,
             lead_id: matchedLead?.id || null,
             client_id: matchedLead?.client_id || null,
-            status: 'open',
-            priority: 'normal',
+            status: CONVERSATION_STATUS.OPEN,
+            priority: CONVERSATION_PRIORITY.NORMAL,
             assigned_to: null, // Unassigned — admin distributes
             last_message: content || (messageType !== 'text' ? `[${messageType}]` : null),
             last_message_at: msgTimestamp,

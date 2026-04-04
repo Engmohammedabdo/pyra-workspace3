@@ -6,6 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // ── Allowed setting keys (whitelist) ─────────────────────────
 // Only these keys can be written via the PATCH endpoint.
@@ -121,6 +122,8 @@ export async function GET(_request: NextRequest) {
     for (const setting of settings || []) {
       settingsMap[setting.key] = setting.value;
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'settings_updated', '/dashboard/settings', {});
 
     return apiSuccess(settingsMap);
   } catch (err) {

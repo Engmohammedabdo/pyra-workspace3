@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { CONTRACT_STATUS, INVOICE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (cErr || !contract) return apiNotFound('العقد غير موجود');
-    if (contract.status !== 'active') return apiError('العقد غير نشط', 400);
+    if (contract.status !== CONTRACT_STATUS.ACTIVE) return apiError('العقد غير نشط', 400);
 
     // 2. Determine invoice amount
     const amount = body.amount
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         client_id: contract.client_id || null,
         project_name: contract.title || null,
         display_client_name: body.display_client_name || null,
-        status: 'draft',
+        status: INVOICE_STATUS.DRAFT,
         issue_date: new Date().toISOString().split('T')[0],
         due_date: dueDate.toISOString().split('T')[0],
         currency: contract.currency || 'AED',

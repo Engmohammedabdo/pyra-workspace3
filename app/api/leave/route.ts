@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
+import { LEAVE_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
   const auth = await getApiAuth();
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
       end_date,
       days_count,
       reason: reason || null,
-      status: 'pending',
+      status: LEAVE_STATUS.PENDING,
     })
     .select()
     .single();

@@ -6,6 +6,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,6 +33,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     if (error || !data) {
       return apiNotFound('الجلسة غير موجودة');
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'session_terminated', '/dashboard/settings', { session_id: id });
 
     return apiSuccess({ terminated: true, session_id: id });
   } catch (err) {

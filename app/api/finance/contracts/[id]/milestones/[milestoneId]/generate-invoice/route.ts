@@ -10,6 +10,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { INVOICE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string; milestoneId: string }> };
 
@@ -137,7 +138,7 @@ export async function POST(
         invoice_number: invoiceNumber,
         client_id: contract.client_id || null,
         project_name: contract.title || null,
-        status: 'draft',
+        status: INVOICE_STATUS.DRAFT,
         issue_date: new Date().toISOString().split('T')[0],
         due_date: dueDate.toISOString().split('T')[0],
         currency: contract.currency || 'AED',

@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   History,
   RotateCcw,
@@ -152,13 +153,12 @@ export function VersionHistory({ filePath, open, onOpenChange, onRestored }: Ver
                 </div>
               ))
             ) : versions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-muted-foreground">
-                <FileText className="h-10 w-10 mb-3 opacity-40" />
-                <p className="text-sm font-medium">لا توجد نسخ سابقة</p>
-                <p className="text-xs mt-1">
-                  تُحفظ النسخ تلقائياً عند رفع ملف بنفس الاسم
-                </p>
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="لا توجد نسخ سابقة"
+                description="تُحفظ النسخ تلقائياً عند رفع ملف بنفس الاسم"
+                className="py-8"
+              />
             ) : (
               versions.map((version, index) => (
                 <div

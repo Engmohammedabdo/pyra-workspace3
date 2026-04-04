@@ -8,6 +8,7 @@ import { createServiceRoleClient, createServerSupabaseClient } from '@/lib/supab
 import { getParentPath } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
 import { reindexLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { logActivity } from '@/lib/api/activity';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -104,7 +105,10 @@ export async function POST(request: NextRequest) {
     // Start scanning from root
     await scanFolder('');
 
-    return apiSuccess({
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'files_reindexed', '/dashboard/files', {});
+
+return apiSuccess({
       indexed: totalIndexed,
       skipped: totalSkipped,
       errors: totalErrors,

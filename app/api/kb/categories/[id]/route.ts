@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateSlug } from '@/lib/utils/slug';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * PATCH /api/kb/categories/[id]
@@ -48,6 +49,8 @@ export async function PATCH(
       return apiServerError();
     }
 
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_category_updated', '/dashboard/kb', { id });
+
     return apiSuccess(data);
   } catch {
     return apiServerError();
@@ -85,6 +88,8 @@ export async function DELETE(
       console.error('DELETE /api/kb/categories/[id] error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_category_deleted', '/dashboard/kb', { id });
 
     return apiSuccess({ deleted: true });
   } catch {

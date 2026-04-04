@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { generateSlug } from '@/lib/utils/slug';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * GET /api/kb/categories
@@ -72,7 +73,10 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_category_created', '/dashboard/kb', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch {
     return apiServerError();
   }

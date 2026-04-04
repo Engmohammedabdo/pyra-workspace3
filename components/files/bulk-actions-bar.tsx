@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -74,21 +75,12 @@ export function BulkActionsBar({
     if (!destination.trim()) return;
     setProcessing(true);
     try {
-      const res = await fetch('/api/files/copy-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paths: selectedPaths,
-          destination: destination.trim(),
-        }),
+      const result = await mutateAPI<{ copied: number }>('/api/files/copy-batch', 'POST', {
+        paths: selectedPaths,
+        destination: destination.trim(),
       });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success(`تم نسخ ${json.data?.copied || selectedPaths.length} ملف`);
-        onClearSelection();
-      }
+      toast.success(`تم نسخ ${result?.copied || selectedPaths.length} ملف`);
+      onClearSelection();
       setShowCopyDialog(false);
       setDestination('');
     } catch {
@@ -102,21 +94,12 @@ export function BulkActionsBar({
     if (!tagName.trim()) return;
     setProcessing(true);
     try {
-      const res = await fetch('/api/files/tag-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          paths: selectedPaths,
-          tag_name: tagName.trim(),
-          color: tagColor,
-        }),
+      const result = await mutateAPI<{ tagged: number }>('/api/files/tag-batch', 'POST', {
+        paths: selectedPaths,
+        tag_name: tagName.trim(),
+        color: tagColor,
       });
-      const json = await res.json();
-      if (json.error) {
-        toast.error(json.error);
-      } else {
-        toast.success(`تم إضافة وسم "${tagName.trim()}" إلى ${json.data?.tagged || selectedPaths.length} ملف`);
-      }
+      toast.success(`تم إضافة وسم "${tagName.trim()}" إلى ${result?.tagged || selectedPaths.length} ملف`);
       setShowTagDialog(false);
       setTagName('');
     } catch {

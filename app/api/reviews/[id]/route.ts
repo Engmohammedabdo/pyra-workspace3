@@ -8,6 +8,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // PATCH /api/reviews/[id]
@@ -106,6 +107,8 @@ export async function DELETE(
       console.error('Review delete error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'review_deleted', '/dashboard/reviews', { id });
 
     return apiSuccess({ deleted: true });
   } catch (err) {

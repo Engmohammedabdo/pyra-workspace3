@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized } from 
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
+import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
   const auth = await getApiAuth();
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest) {
       date,
       hours,
       description: description || null,
-      status: 'draft',
+      status: TIMESHEET_STATUS.DRAFT,
       period_id: period_id || null,
       is_overtime,
       overtime_multiplier,

@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } fr
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 import { generateId } from '@/lib/utils/id';
+import { LEAVE_STATUS } from '@/lib/constants/statuses';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -17,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!existing) return apiNotFound('الطلب غير موجود');
 
   // Handle approval/rejection
-  if (body.status === 'approved' || body.status === 'rejected') {
+  if (body.status === LEAVE_STATUS.APPROVED || body.status === LEAVE_STATUS.REJECTED) {
     if (!hasPermission(auth.pyraUser.rolePermissions, 'leave.approve')) {
       return apiError('غير مصرح بالاعتماد', 403);
     }
@@ -33,7 +34,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error) return apiServerError(error.message);
 
     // If approved, update leave balance (v1 + v2)
-    if (body.status === 'approved') {
+    if (body.status === LEAVE_STATUS.APPROVED) {
       const year = new Date(existing.start_date).getFullYear();
       const usedKey = `${existing.type}_used`;
       const serviceSupabase = createServiceRoleClient();
@@ -111,7 +112,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
       target_path: '/dashboard/leave',
-      details: { leave_id: id, action: body.status === 'approved' ? 'approve' : 'reject' },
+      details: { leave_id: id, action: body.status === LEAVE_STATUS.APPROVED ? 'approve' : 'reject' },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
     });
     if (logErr) console.error('Activity log error:', logErr);
@@ -120,7 +121,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   // Cancel own pending request (legacy path — soft-cancel)
-  if (body.status === 'cancelled' && existing.username === auth.pyraUser.username && existing.status === 'pending') {
+  if (body.status === 'cancelled' && existing.username === auth.pyraUser.username && existing.status === LEAVE_STATUS.PENDING) {
     const { data: cancelled, error } = await supabase
       .from('pyra_leave_requests')
       .update({
@@ -209,7 +210,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Only allow cancellation of pending or approved requests
-    if (existing.status !== 'pending' && existing.status !== 'approved') {
+    if (existing.status !== LEAVE_STATUS.PENDING && existing.status !== LEAVE_STATUS.APPROVED) {
       return apiError('لا يمكن إلغاء طلب بهذه الحالة', 400);
     }
 
@@ -220,7 +221,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return apiError('غير مصرح بإلغاء هذا الطلب', 403);
     }
 
-    const wasApproved = existing.status === 'approved';
+    const wasApproved = existing.status === LEAVE_STATUS.APPROVED;
 
     // Update leave request to cancelled
     const { data: updated, error: updateError } = await supabase

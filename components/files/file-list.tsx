@@ -6,7 +6,9 @@ import { FileActionButton } from './file-context-menu';
 import { FileTagsBadges } from './file-tags';
 import { FileHoverPreview } from './file-hover-preview';
 import { formatFileSize, formatRelativeDate } from '@/lib/utils/format';
+import { EmptyState } from '@/components/ui/empty-state';
 import { cn } from '@/lib/utils/cn';
+import { FolderOpen } from 'lucide-react';
 import type { FileListItem } from '@/types/database';
 
 // Custom MIME type for internal drag operations
@@ -46,15 +48,11 @@ export function FileList({
 
   if (files.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-        <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </div>
-        <p className="text-base font-medium mb-1">لا توجد ملفات</p>
-        <p className="text-sm">قم برفع ملفات أو إنشاء مجلد جديد للبدء</p>
-      </div>
+      <EmptyState
+        icon={FolderOpen}
+        title="لا توجد ملفات"
+        description="قم برفع ملفات أو إنشاء مجلد جديد للبدء"
+      />
     );
   }
 

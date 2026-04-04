@@ -4,6 +4,7 @@ import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CREDIT_NOTE_FIELDS, CREDIT_NOTE_ITEM_FIELDS } from '@/lib/supabase/fields';
+import { CREDIT_NOTE_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/dashboard/credit-notes/[id]
@@ -58,7 +59,7 @@ export async function PATCH(
     const supabase = createServiceRoleClient();
 
     const { status } = body;
-    const allowedStatuses = ['draft', 'issued', 'cancelled'];
+    const allowedStatuses = [CREDIT_NOTE_STATUS.DRAFT, CREDIT_NOTE_STATUS.ISSUED, CREDIT_NOTE_STATUS.CANCELLED];
     if (!allowedStatuses.includes(status)) return apiNotFound();
 
     const { data, error } = await supabase
@@ -109,7 +110,7 @@ export async function DELETE(
       .single();
 
     if (!existing) return apiNotFound();
-    if (existing.status !== 'draft') return apiServerError('لا يمكن حذف إشعار دائن غير مسودة');
+    if (existing.status !== CREDIT_NOTE_STATUS.DRAFT) return apiServerError('لا يمكن حذف إشعار دائن غير مسودة');
 
     const { error } = await supabase.from('pyra_credit_notes').delete().eq('id', id);
     if (error) throw error;

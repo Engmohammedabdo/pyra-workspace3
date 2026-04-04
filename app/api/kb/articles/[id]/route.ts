@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateSlug } from '@/lib/utils/slug';
+import { logActivity } from '@/lib/api/activity';
 
 const ARTICLE_FULL_FIELDS = 'id, category_id, title, slug, content, excerpt, is_public, sort_order, view_count, author, author_display_name, created_at, updated_at';
 
@@ -32,6 +33,8 @@ export async function GET(
       if (error.code === 'PGRST116') return apiNotFound('المقالة غير موجودة');
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_article_updated', '/dashboard/kb', { id });
 
     return apiSuccess(data);
   } catch {
@@ -111,6 +114,8 @@ export async function DELETE(
       console.error('DELETE /api/kb/articles/[id] error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'kb_article_deleted', '/dashboard/kb', { id });
 
     return apiSuccess({ deleted: true });
   } catch {

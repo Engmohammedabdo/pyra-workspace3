@@ -9,6 +9,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import bcrypt from 'bcryptjs';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // PATCH /api/shares/[id]
@@ -93,6 +94,14 @@ export async function PATCH(
       console.error('Share link update error:', error);
       return apiServerError();
     }
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'share_updated',
+      '/dashboard/files',
+      { share_id: id, fields: Object.keys(updates) },
+    );
 
     return apiSuccess(updated);
   } catch (err) {

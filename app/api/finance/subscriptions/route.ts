@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { SUBSCRIPTION_FIELDS } from '@/lib/supabase/fields';
 import { toAED } from '@/lib/utils/currency';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { SUBSCRIPTION_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -52,7 +53,7 @@ export async function GET(req: NextRequest) {
     }));
 
     // Monthly total for active subscriptions (converted to AED)
-    const activeData = (data || []).filter((s: { status: string }) => s.status === 'active');
+    const activeData = (data || []).filter((s: { status: string }) => s.status === SUBSCRIPTION_STATUS.ACTIVE);
     const monthlyTotal = activeData.reduce((sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
       const cost = toAED(Number(s.cost), s.currency);
       if (s.billing_cycle === 'yearly') return sum + cost / 12;
@@ -97,7 +98,7 @@ export async function POST(req: NextRequest) {
         next_renewal_date,
         card_id: card_id || null,
         category,
-        status: 'active',
+        status: SUBSCRIPTION_STATUS.ACTIVE,
         url,
         notes,
         auto_renew: auto_renew !== false,

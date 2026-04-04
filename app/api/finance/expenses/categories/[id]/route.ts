@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { EXPENSE_CATEGORY_FIELDS } from '@/lib/supabase/fields';
+import { logActivity } from '@/lib/api/activity';
 
 // Allowed fields for category update
 const ALLOWED_FIELDS = new Set(['name', 'name_en', 'color', 'icon', 'sort_order']);
@@ -37,6 +38,8 @@ export async function PATCH(
       .single();
 
     if (error || !data) return apiNotFound();
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'expense_category_updated', '/dashboard/expenses', { id });
+
     return apiSuccess(data);
   } catch {
     return apiServerError();
@@ -81,6 +84,8 @@ export async function DELETE(
       .eq('id', id);
 
     if (error) throw error;
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'expense_category_deleted', '/dashboard/expenses', { id });
+
     return apiSuccess({ deleted: true });
   } catch {
     return apiServerError();

@@ -7,6 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 const TEMPLATE_FIELDS =
   'id, name, name_ar, description, items, notes, terms_conditions, currency, tax_rate, discount_type, discount_value, is_default, created_by, created_at, updated_at';
@@ -91,7 +92,10 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    return apiSuccess(data, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'quote_template_created', '/dashboard/quotes', { name: body.name });
+
+return apiSuccess(data, undefined, 201);
   } catch (err) {
     console.error('POST /api/quotes/templates error:', err);
     return apiServerError();

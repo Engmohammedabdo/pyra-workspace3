@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { evolutionClient } from '@/lib/evolution/client';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { logActivity } from '@/lib/api/activity';
 
 /**
  * POST /api/dashboard/sales/whatsapp/send
@@ -112,7 +113,10 @@ export async function POST(request: NextRequest) {
       }).eq('id', convId);
     }
 
-    return apiSuccess({ message_id: response.key?.id, status: 'sent' });
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'whatsapp_message_sent', '/dashboard/sales/whatsapp', {});
+
+return apiSuccess({ message_id: response.key?.id, status: 'sent' });
   } catch (err) {
     return apiServerError(`فشل إرسال الرسالة: ${err instanceof Error ? err.message : ''}`);
   }

@@ -10,8 +10,9 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
-  ChevronUp, ChevronDown, ArrowRightLeft, Flag, Archive, Check, CheckSquare,
+  ChevronUp, ChevronDown, ArrowRightLeft, Flag, Archive, Check, CheckSquare, ClipboardList,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -306,7 +307,7 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
             </tbody>
           </table>
           {sorted.length === 0 && (
-            <div className="text-center py-12 text-sm text-muted-foreground/50">لا توجد مهام مطابقة</div>
+            <EmptyState icon={ClipboardList} title="لا توجد مهام مطابقة" className="py-8" />
           )}
         </div>
       </div>

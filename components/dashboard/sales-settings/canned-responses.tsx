@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Plus, Trash2, Save, MessageSquareText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -117,10 +118,11 @@ export function CannedResponsesManager({ templates, onRefresh }: Props) {
 
         {/* Templates List */}
         {templates.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <MessageSquareText className="h-10 w-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">لا توجد ردود جاهزة</p>
-          </div>
+          <EmptyState
+            icon={MessageSquareText}
+            title="لا توجد ردود جاهزة"
+            description="أضف ردود جاهزة لتسريع التواصل عبر الشات"
+          />
         ) : (
           <div className="space-y-2">
             {categories.map(cat => (

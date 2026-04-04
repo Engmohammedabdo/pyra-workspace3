@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -35,6 +36,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return apiServerError();
     }
     if (!data) return apiNotFound('القالب غير موجود');
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'quote_template_updated', '/dashboard/quotes', { id });
 
     return apiSuccess(data);
   } catch (err) {
@@ -128,6 +131,8 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       console.error('Quote template delete error:', error);
       return apiServerError();
     }
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'quote_template_deleted', '/dashboard/quotes', { id });
 
     return apiSuccess({ deleted: true });
   } catch (err) {

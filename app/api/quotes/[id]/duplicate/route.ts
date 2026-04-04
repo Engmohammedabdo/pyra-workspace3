@@ -8,6 +8,8 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
+import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -52,7 +54,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         quote_number: quoteNumber,
         client_id: original.client_id,
         project_name: original.project_name,
-        status: 'draft',
+        status: QUOTE_STATUS.DRAFT,
         estimate_date: today,
         expiry_date: original.expiry_date,
         currency: original.currency,
@@ -102,7 +104,10 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       if (itemsErr) console.error('Quote items duplicate insert error:', itemsErr);
     }
 
-    return apiSuccess(newQuote, undefined, 201);
+    
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'quote_duplicated', '/dashboard/quotes', { original_id: id });
+
+return apiSuccess(newQuote, undefined, 201);
   } catch (err) {
     console.error('POST /api/quotes/[id]/duplicate error:', err);
     return apiServerError();

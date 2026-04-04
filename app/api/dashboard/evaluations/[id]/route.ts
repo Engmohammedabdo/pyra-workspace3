@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError }
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 import { generateId } from '@/lib/utils/id';
+import { EVALUATION_STATUS, EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -151,7 +152,7 @@ export async function PATCH(
       if (!isEvaluator && !canManage) {
         return apiError('فقط المقيّم يمكنه تقديم التقييم', 403);
       }
-      if (evaluation.status !== 'draft') {
+      if (evaluation.status !== EVALUATION_STATUS.DRAFT) {
         return apiError('لا يمكن تقديم تقييم تم تقديمه مسبقاً', 409);
       }
 
@@ -242,7 +243,7 @@ export async function PATCH(
           description,
           amount: bonusAmount,
           currency: 'AED',
-          status: 'pending',
+          status: EMPLOYEE_PAYMENT_STATUS.PENDING,
         })
         .select()
         .single();

@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // POST /api/boards/[id]/columns
@@ -12,28 +13,43 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('boards.manage');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('boards.manage');
+    if (isApiError(auth)) return auth;
 
-  const { id: boardId } = await params;
-  const { name, color, position } = await req.json();
-  if (!name) return apiValidationError('اسم العمود مطلوب');
+    const { id: boardId } = await params;
+    const { name, color, position } = await req.json();
+    if (!name) return apiValidationError('اسم العمود مطلوب');
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from('pyra_board_columns')
-    .insert({
-      id: generateId('bc'),
-      board_id: boardId,
-      name,
-      color: color || 'gray',
-      position: position ?? 0,
-    })
-    .select()
-    .single();
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from('pyra_board_columns')
+      .insert({
+        id: generateId('bc'),
+        board_id: boardId,
+        name,
+        color: color || 'gray',
+        position: position ?? 0,
+      })
+      .select()
+      .single();
 
-  if (error) return apiServerError(error.message);
-  return apiSuccess(data, undefined, 201);
+    if (error) return apiServerError(error.message);
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'column_created',
+      `/dashboard/boards/${boardId}`,
+      { column_name: name, board_id: boardId },
+    );
+
+    return apiSuccess(data, undefined, 201);
+
+  } catch (err) {
+    console.error('[POST /api/boards/[id]/columns] error:', err);
+    return apiServerError();
+  }
 }
 
 // =============================================================
@@ -45,32 +61,46 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('boards.manage');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('boards.manage');
+    if (isApiError(auth)) return auth;
 
-  const { columns } = await req.json();
-  if (!Array.isArray(columns)) return apiValidationError('columns must be an array');
+    const { columns } = await req.json();
+    if (!Array.isArray(columns)) return apiValidationError('columns must be an array');
 
-  const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
-  // Batch update column positions and properties
-  const errors: string[] = [];
-  for (const col of columns) {
-    const { error: updateErr } = await supabase
-      .from('pyra_board_columns')
-      .update({ position: col.position, name: col.name, color: col.color })
-      .eq('id', col.id);
-    if (updateErr) {
-      errors.push(`Column ${col.id}: ${updateErr.message}`);
+    // Batch update column positions and properties
+    const errors: string[] = [];
+    for (const col of columns) {
+      const { error: updateErr } = await supabase
+        .from('pyra_board_columns')
+        .update({ position: col.position, name: col.name, color: col.color })
+        .eq('id', col.id);
+      if (updateErr) {
+        errors.push(`Column ${col.id}: ${updateErr.message}`);
+      }
     }
-  }
 
-  if (errors.length > 0) {
-    console.error('Column batch update errors:', errors);
-    return apiServerError(`فشل في تحديث ${errors.length} عمود`);
-  }
+    if (errors.length > 0) {
+      console.error('Column batch update errors:', errors);
+      return apiServerError(`فشل في تحديث ${errors.length} عمود`);
+    }
 
-  return apiSuccess({ updated: true });
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'columns_reordered',
+      `/dashboard/boards/${(await params).id}`,
+      { count: columns.length },
+    );
+
+    return apiSuccess({ updated: true });
+
+  } catch (err) {
+    console.error('[PATCH /api/boards/[id]/columns] error:', err);
+    return apiServerError();
+  }
 }
 
 // =============================================================
@@ -81,26 +111,41 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiPermission('boards.manage');
-  if (isApiError(auth)) return auth;
+  try {
+    const auth = await requireApiPermission('boards.manage');
+    if (isApiError(auth)) return auth;
 
-  const columnId = req.nextUrl.searchParams.get('columnId');
-  if (!columnId) return apiValidationError('columnId مطلوب');
+    const columnId = req.nextUrl.searchParams.get('columnId');
+    if (!columnId) return apiValidationError('columnId مطلوب');
 
-  const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
-  // Check if column has tasks
-  const { count } = await supabase
-    .from('pyra_tasks')
-    .select('id', { count: 'exact', head: true })
-    .eq('column_id', columnId)
-    .eq('is_archived', false);
+    // Check if column has tasks
+    const { count } = await supabase
+      .from('pyra_tasks')
+      .select('id', { count: 'exact', head: true })
+      .eq('column_id', columnId)
+      .eq('is_archived', false);
 
-  if (count && count > 0) {
-    return apiValidationError(`لا يمكن حذف العمود — يحتوي على ${count} مهمة. انقل المهام أولاً.`);
+    if (count && count > 0) {
+      return apiValidationError(`لا يمكن حذف العمود — يحتوي على ${count} مهمة. انقل المهام أولاً.`);
+    }
+
+    const { error } = await supabase.from('pyra_board_columns').delete().eq('id', columnId);
+    if (error) return apiServerError(error.message);
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      'column_deleted',
+      `/dashboard/boards/${(await params).id}`,
+      { column_id: columnId },
+    );
+
+    return apiSuccess({ deleted: true });
+
+  } catch (err) {
+    console.error('[DELETE /api/boards/[id]/columns] error:', err);
+    return apiServerError();
   }
-
-  const { error } = await supabase.from('pyra_board_columns').delete().eq('id', columnId);
-  if (error) return apiServerError(error.message);
-  return apiSuccess({ deleted: true });
 }

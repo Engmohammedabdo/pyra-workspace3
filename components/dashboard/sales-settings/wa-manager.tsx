@@ -44,7 +44,7 @@ export function WAInstancesManager({ instances, onRefresh, agents }: { instances
               <Badge variant={inst.status === 'connected' ? 'default' : 'secondary'}>{inst.status}</Badge>
             </div>
             {qrData[inst.id] && (
-              <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl border">
+              <div className="flex flex-col items-center gap-3 p-4 bg-white dark:bg-gray-900 rounded-xl border">
                 <img src={`data:image/png;base64,${qrData[inst.id]}`} alt="QR Code" className="w-48 h-48" />
               </div>
             )}

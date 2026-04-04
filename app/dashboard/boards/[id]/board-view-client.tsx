@@ -2324,7 +2324,7 @@ function BoardSettingsForm({
           <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
             <div><p className="text-sm font-medium">انتقال تلقائي</p><p className="text-[10px] text-muted-foreground">المهمة تنتقل تلقائياً بعد الإكمال</p></div>
             <button onClick={() => setAutoAdvance(!autoAdvance)} className={`w-10 h-5 rounded-full transition-colors relative ${autoAdvance ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
-              <div className={`w-4 h-4 rounded-full bg-white absolute top-0.5 transition-all ${autoAdvance ? 'start-5' : 'start-0.5'}`} />
+              <div className={`w-4 h-4 rounded-full bg-white dark:bg-gray-200 absolute top-0.5 transition-all ${autoAdvance ? 'start-5' : 'start-0.5'}`} />
             </button>
           </div>
         )}

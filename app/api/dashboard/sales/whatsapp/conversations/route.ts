@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
+import { CONVERSATION_STATUS } from '@/lib/constants/statuses';
 
 /**
  * GET /api/dashboard/sales/whatsapp/conversations
@@ -78,10 +79,10 @@ export async function GET(request: NextRequest) {
 
     // Counts per status for tab badges
     const [openRes, pendingRes, resolvedRes, unassignedRes] = await Promise.all([
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'open'),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', 'resolved'),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).is('assigned_to', null).neq('status', 'resolved'),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.OPEN),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.PENDING),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.RESOLVED),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).is('assigned_to', null).neq('status', CONVERSATION_STATUS.RESOLVED),
     ]);
 
     const tabCounts = {

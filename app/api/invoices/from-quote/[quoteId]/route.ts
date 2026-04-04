@@ -10,6 +10,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { INVOICE_STATUS, QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ quoteId: string }> };
 
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         quote_id: quoteId,
         client_id: quote.client_id,
         project_name: quote.project_name,
-        status: 'draft',
+        status: INVOICE_STATUS.DRAFT,
         issue_date: issueDate.toISOString().split('T')[0],
         due_date: dueDate.toISOString().split('T')[0],
         currency: quote.currency || 'AED',
@@ -134,7 +135,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     // Update quote status to invoiced
     await supabase
       .from('pyra_quotes')
-      .update({ status: 'invoiced', updated_at: new Date().toISOString() })
+      .update({ status: QUOTE_STATUS.INVOICED, updated_at: new Date().toISOString() })
       .eq('id', quoteId);
 
     // Log activity

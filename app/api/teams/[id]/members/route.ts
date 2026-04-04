@@ -10,6 +10,7 @@ import {
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
+import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/teams/[id]/members
@@ -194,6 +195,8 @@ export async function DELETE(
     }
 
     invalidateScopeCache(username);
+
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'team_member_removed', '/dashboard/teams', {});
 
     return apiSuccess({ removed: true, username });
   } catch (err) {
