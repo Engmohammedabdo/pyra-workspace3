@@ -78,6 +78,42 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'conversation_note_added', '/dashboard/sales/whatsapp', { conversation_id: id });
 
+    // Parse @mentions and create notifications
+    const mentionRegex = /@([\p{L}\p{N}\s]+?)(?=\s|$|@)/gu;
+    const matchResults: RegExpExecArray[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      matchResults.push(match);
+    }
+    const mentions = matchResults.map(m => m[1].trim());
+
+    if (mentions.length > 0) {
+      // Fetch users matching mentioned display names
+      const { data: allUsers } = await supabase
+        .from('pyra_users')
+        .select('id, username, display_name')
+        .in('display_name', mentions);
+
+      if (allUsers && allUsers.length > 0) {
+        const notifications = allUsers
+          .filter(u => u.username !== auth.pyraUser.username) // Don't notify self
+          .map(u => ({
+            id: generateId('n'),
+            recipient_username: u.username,
+            type: 'mention',
+            title: 'تم ذكرك في ملاحظة',
+            message: `ذكرك ${auth.pyraUser.display_name} في محادثة واتساب`,
+            source_display_name: auth.pyraUser.display_name,
+            target_path: '/dashboard/sales/chat',
+            is_read: false,
+          }));
+
+        if (notifications.length > 0) {
+          void supabase.from('pyra_notifications').insert(notifications);
+        }
+      }
+    }
+
     return apiSuccess(note, undefined, 201);
 
   } catch (err) {

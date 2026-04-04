@@ -11,9 +11,13 @@ import { CONVERSATION_STATUS } from '@/lib/constants/statuses';
  * Shared Inbox — returns conversations from pyra_whatsapp_conversations table.
  *
  * Query params:
- *   status   = open | pending | resolved | all (default: open)
+ *   status   = open | pending | resolved | snoozed | all (default: open)
  *   assigned = me | unassigned | all (default: all)
  *   search   = contact name or phone search
+ *   label    = label ID to filter by
+ *   team     = team ID to filter by
+ *   priority = low | normal | high | urgent (comma-separated for multi)
+ *   sort     = newest | oldest | priority | waiting_longest (default: newest)
  *   limit    = number (default: 100)
  *
  * Scoping:
@@ -31,6 +35,12 @@ export async function GET(request: NextRequest) {
   const assignedFilter = sp.get('assigned') || 'all';
   const search = sp.get('search')?.trim() || '';
   const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '100')));
+  const contactPhone = sp.get('contact_phone')?.trim() || '';
+  const excludeId = sp.get('exclude_id')?.trim() || '';
+  const labelFilter = sp.get('label') || '';
+  const teamFilter = sp.get('team') || '';
+  const priorityFilter = sp.get('priority') || '';
+  const sortBy = sp.get('sort') || 'newest';
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
   const username = auth.pyraUser.username;
@@ -43,13 +53,19 @@ export async function GET(request: NextRequest) {
       .from('pyra_whatsapp_conversations')
       .select(WA_CONVERSATION_FIELDS)
       .neq('contact_phone', OWN_PHONE)
-      .order('is_pinned', { ascending: false })
-      .order('last_message_at', { ascending: false, nullsFirst: false })
       .limit(limit);
 
-    // Status filter
-    if (statusFilter && statusFilter !== 'all') {
-      query = query.eq('status', statusFilter);
+    // Snoozed tab: show only snoozed conversations
+    if (statusFilter === 'snoozed') {
+      query = query.gt('snoozed_until', new Date().toISOString());
+    } else {
+      // For non-snoozed tabs, exclude snoozed conversations
+      query = query.or('snoozed_until.is.null,snoozed_until.lte.' + new Date().toISOString());
+
+      // Status filter
+      if (statusFilter && statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
     }
 
     // Assignment filter + scoping
@@ -62,13 +78,57 @@ export async function GET(request: NextRequest) {
       // 'all' = no filter for admin
     } else {
       // Agent: sees ONLY conversations assigned to them — nothing else
-      // Unassigned conversations are admin's responsibility to distribute
       query = query.eq('assigned_to', username);
+    }
+
+    // Filter by contact phone (for previous conversations)
+    if (contactPhone) {
+      query = query.eq('contact_phone', contactPhone);
+    }
+
+    // Exclude a specific conversation
+    if (excludeId) {
+      query = query.neq('id', excludeId);
     }
 
     // Search by contact name or phone
     if (search) {
       query = query.or(`contact_name.ilike.%${search}%,contact_phone.ilike.%${search}%`);
+    }
+
+    // Team filter
+    if (teamFilter) {
+      query = query.eq('team_id', teamFilter);
+    }
+
+    // Priority filter (supports comma-separated)
+    if (priorityFilter) {
+      const priorities = priorityFilter.split(',').map(p => p.trim()).filter(Boolean);
+      if (priorities.length === 1) {
+        query = query.eq('priority', priorities[0]);
+      } else if (priorities.length > 1) {
+        query = query.in('priority', priorities);
+      }
+    }
+
+    // Sorting
+    switch (sortBy) {
+      case 'oldest':
+        query = query.order('last_message_at', { ascending: true, nullsFirst: true });
+        break;
+      case 'priority':
+        query = query
+          .order('is_pinned', { ascending: false })
+          .order('priority', { ascending: true })
+          .order('last_message_at', { ascending: false, nullsFirst: false });
+        break;
+      case 'waiting_longest':
+        query = query.order('waiting_since', { ascending: true, nullsFirst: true });
+        break;
+      default: // newest
+        query = query
+          .order('is_pinned', { ascending: false })
+          .order('last_message_at', { ascending: false, nullsFirst: false });
     }
 
     const { data, error } = await query;
@@ -77,12 +137,64 @@ export async function GET(request: NextRequest) {
       return apiServerError();
     }
 
+    let conversations = data || [];
+
+    // Label filter: filter conversations by label assignment (post-query join)
+    if (labelFilter) {
+      const { data: labelAssignments } = await supabase
+        .from('pyra_conversation_label_assignments')
+        .select('conversation_id')
+        .eq('label_id', labelFilter);
+
+      const labelConvIds = new Set((labelAssignments || []).map(a => a.conversation_id));
+      conversations = conversations.filter(c => labelConvIds.has(c.id));
+    }
+
+    // Fetch labels for all returned conversations
+    const convIds = conversations.map(c => c.id).filter(Boolean);
+    const labelsMap: Record<string, Array<{ id: string; name: string; name_ar: string; color: string }>> = {};
+
+    if (convIds.length > 0) {
+      const { data: allAssignments } = await supabase
+        .from('pyra_conversation_label_assignments')
+        .select('conversation_id, pyra_conversation_labels(id, name, name_ar, color)')
+        .in('conversation_id', convIds);
+
+      if (allAssignments) {
+        for (const row of allAssignments) {
+          const cid = row.conversation_id;
+          if (!labelsMap[cid]) labelsMap[cid] = [];
+          if (row.pyra_conversation_labels) {
+            labelsMap[cid].push(
+              row.pyra_conversation_labels as unknown as { id: string; name: string; name_ar: string; color: string }
+            );
+          }
+        }
+      }
+    }
+
+    // Enrich conversations with labels
+    const enriched = conversations.map(c => ({
+      ...c,
+      labels: labelsMap[c.id] || [],
+    }));
+
     // Counts per status for tab badges
-    const [openRes, pendingRes, resolvedRes, unassignedRes] = await Promise.all([
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.OPEN),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.PENDING),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).eq('status', CONVERSATION_STATUS.RESOLVED),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true }).is('assigned_to', null).neq('status', CONVERSATION_STATUS.RESOLVED),
+    const nowIso = new Date().toISOString();
+    const [openRes, pendingRes, resolvedRes, unassignedRes, snoozedRes] = await Promise.all([
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .eq('status', CONVERSATION_STATUS.OPEN)
+        .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .eq('status', CONVERSATION_STATUS.PENDING)
+        .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .eq('status', CONVERSATION_STATUS.RESOLVED),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .is('assigned_to', null)
+        .neq('status', CONVERSATION_STATUS.RESOLVED),
+      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .gt('snoozed_until', nowIso),
     ]);
 
     const tabCounts = {
@@ -90,9 +202,10 @@ export async function GET(request: NextRequest) {
       pending: pendingRes.count || 0,
       resolved: resolvedRes.count || 0,
       unassigned: unassignedRes.count || 0,
+      snoozed: snoozedRes.count || 0,
     };
 
-    return apiSuccess(data || [], { counts: tabCounts });
+    return apiSuccess(enriched, { counts: tabCounts });
   } catch (err) {
     console.error('GET /conversations error:', err);
     return apiServerError();

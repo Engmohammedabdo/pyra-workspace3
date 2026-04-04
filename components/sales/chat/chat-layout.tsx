@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useCallback, useMemo } from 'react';
+import { useEffect, useCallback, useMemo, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -11,7 +12,16 @@ import { isSuperAdmin } from '@/lib/auth/rbac';
 import { useConversations, usePollWhatsApp } from '@/hooks/useWhatsApp';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
-import { useChatStore, TABS, type TabDef } from './use-chat-store';
+import { BulkActionsBar } from './bulk-actions-bar';
+import { FilterBar } from './filters/filter-bar';
+import { SortSelector } from './filters/sort-selector';
+import { useChatStore, TABS } from './use-chat-store';
+import { useChatShortcuts } from './use-chat-shortcuts';
+import {
+  playNotificationSound,
+  showDesktopNotification,
+  requestDesktopPermission,
+} from '@/lib/whatsapp/notifications';
 
 const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   Inbox,
@@ -19,6 +29,7 @@ const TAB_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   MessageCircle,
   Clock,
   CheckCircle2,
+  AlarmClock,
 };
 
 export function ChatLayout() {
@@ -30,9 +41,18 @@ export function ChatLayout() {
     setSelectedConversation,
     activeTab,
     setActiveTab,
+    sortBy,
+    setSortBy,
+    filters,
     mobileView,
     setMobileView,
     selectConversation,
+    bulkMode,
+    setBulkMode,
+    selectedIds,
+    toggleSelectedId,
+    selectAllIds,
+    clearSelectedIds,
   } = useChatStore();
 
   // Get current tab definition for API params
@@ -42,10 +62,17 @@ export function ChatLayout() {
   );
 
   // Build query params for the conversations hook
-  const queryParams = useMemo(() => ({
-    status: currentTab.status || 'open',
-    assigned: currentTab.assigned || 'all',
-  }), [currentTab]);
+  const queryParams = useMemo(() => {
+    const params: Record<string, string | undefined> = {
+      status: currentTab.status || 'open',
+      assigned: currentTab.assigned || 'all',
+      sort: sortBy,
+    };
+    if (filters.label) params.label = filters.label;
+    if (filters.team) params.team = filters.team;
+    if (filters.priority.length > 0) params.priority = filters.priority.join(',');
+    return params;
+  }, [currentTab, sortBy, filters]);
 
   // Fetch conversations via React Query with auto-refresh
   const { data: conversationsResponse, isLoading } = useConversations(queryParams);
@@ -67,6 +94,34 @@ export function ChatLayout() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keyboard shortcuts
+  useChatShortcuts({ conversations });
+
+  // Request desktop notification permission on mount
+  useEffect(() => {
+    requestDesktopPermission();
+  }, []);
+
+  // Track total unread to detect new incoming messages
+  const prevUnreadRef = useRef<number>(0);
+  useEffect(() => {
+    const totalUnread = conversations.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+    if (prevUnreadRef.current > 0 && totalUnread > prevUnreadRef.current) {
+      // New messages arrived — find which conversation
+      const newMsgConv = conversations.find(
+        c => (c.unread_count || 0) > 0 && !c.is_muted
+      );
+      if (newMsgConv) {
+        playNotificationSound();
+        showDesktopNotification(
+          `رسالة من ${newMsgConv.contact_name || newMsgConv.contact_phone || 'جهة اتصال'}`,
+          newMsgConv.last_message || 'رسالة جديدة'
+        );
+      }
+    }
+    prevUnreadRef.current = totalUnread;
+  }, [conversations]);
 
   // Agent sees ONLY "mine" tab — unassigned is admin's job to distribute
   const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key === 'mine');
@@ -105,6 +160,7 @@ export function ChatLayout() {
           const count = tab.key === 'unassigned' ? counts.unassigned
             : tab.key === 'pending' ? counts.pending
             : tab.key === 'resolved' ? counts.resolved
+            : tab.key === 'snoozed' ? counts.snoozed
             : tab.key === 'all' ? counts.open
             : undefined;
           const Icon = TAB_ICONS[tab.iconName];
@@ -131,10 +187,30 @@ export function ChatLayout() {
         })}
       </div>
 
+      {/* Toolbar: Filters + Sort + Bulk Mode */}
+      {isAdmin && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <FilterBar />
+          <SortSelector value={sortBy} onChange={setSortBy} />
+          <div className="flex-1" />
+          <Button
+            variant={bulkMode ? 'outline' : 'ghost'}
+            size="sm"
+            className={cn(
+              'rounded-lg text-xs h-7',
+              bulkMode && 'border-orange-300 dark:border-orange-700 text-orange-600'
+            )}
+            onClick={() => setBulkMode(!bulkMode)}
+          >
+            {bulkMode ? 'إلغاء التحديد' : 'تحديد متعدد'}
+          </Button>
+        </div>
+      )}
+
       {/* Main Chat Container */}
       <div
         className="border border-border/60 rounded-2xl overflow-hidden bg-card/30 backdrop-blur shadow-xl shadow-black/5 dark:shadow-black/20"
-        style={{ height: 'calc(100vh - 210px)' }}
+        style={{ height: isAdmin ? 'calc(100vh - 250px)' : 'calc(100vh - 210px)' }}
       >
         <div className="grid grid-cols-1 md:grid-cols-[340px_1fr] h-full">
           {/* Conversation List */}
@@ -143,6 +219,10 @@ export function ChatLayout() {
               conversations={conversations}
               selectedJid={selectedConversation?.remote_jid || null}
               onSelect={selectConversation}
+              bulkMode={bulkMode}
+              selectedIds={selectedIds}
+              onToggleCheck={toggleSelectedId}
+              onSelectAll={() => selectAllIds(conversations.map(c => c.id).filter(Boolean) as string[])}
             />
           </div>
 
@@ -159,6 +239,9 @@ export function ChatLayout() {
                 assignedTo={selectedConversation.assigned_to}
                 conversationId={selectedConversation.id}
                 conversationStatus={selectedConversation.status}
+                snoozedUntil={selectedConversation.snoozed_until}
+                isMuted={selectedConversation.is_muted}
+                labels={selectedConversation.labels}
                 isAdmin={isAdmin}
                 onBack={() => setMobileView('list')}
                 onConversationUpdated={() => {
@@ -181,6 +264,18 @@ export function ChatLayout() {
           </div>
         </div>
       </div>
+
+      {/* Bulk Actions Bar */}
+      {bulkMode && (
+        <BulkActionsBar
+          selectedIds={selectedIds}
+          onClear={clearSelectedIds}
+          onDone={() => {
+            clearSelectedIds();
+            setBulkMode(false);
+          }}
+        />
+      )}
     </motion.div>
   );
 }

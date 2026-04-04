@@ -25,23 +25,33 @@ interface AgentOption {
   is_online?: boolean;
 }
 
+interface TeamOption {
+  id: string;
+  name: string;
+  name_ar?: string;
+}
+
 export function AssignDialog({ open, conversationId, remoteJid, instanceName, currentAgent, onAssigned, onClose }: AssignDialogProps) {
   const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [teams, setTeams] = useState<TeamOption[]>([]);
   const [workload, setWorkload] = useState<Record<string, number>>({});
   const [selectedAgent, setSelectedAgent] = useState(currentAgent || '');
+  const [selectedTeam, setSelectedTeam] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!open) return;
 
-    // Fetch agents + workload + online status in parallel
+    // Fetch agents + workload + online status + teams in parallel
     Promise.all([
       fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=sales_agent'),
       fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=employee'),
       fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=admin'),
       fetchAPI<Array<{ assigned_to?: string; status?: string }>>('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200'),
       fetchAPI<Array<{ username: string; last_activity?: string }>>('/api/sessions').catch(() => []),
-    ]).then(([salesData, empData, adminData, convsData, sessionsData]) => {
+      fetchAPI<TeamOption[]>('/api/teams').catch(() => []),
+    ]).then(([salesData, empData, adminData, convsData, sessionsData, teamsData]) => {
+      setTeams(teamsData || []);
       // Build online set (active within last 5 minutes)
       const fiveMinAgo = Date.now() - 5 * 60 * 1000;
       const onlineUsers = new Set<string>();
@@ -82,7 +92,9 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
     try {
       // Use conversation-based assign if conversationId available
       if (conversationId) {
-        await mutateAPI(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/assign`, 'POST', { assigned_to: selectedAgent || null });
+        const payload: Record<string, unknown> = { assigned_to: selectedAgent || null };
+        if (selectedTeam) payload.team_id = selectedTeam === '__none__' ? null : selectedTeam;
+        await mutateAPI(`/api/dashboard/sales/whatsapp/conversations/${conversationId}/assign`, 'POST', payload);
       } else {
         // Legacy fallback
         await mutateAPI('/api/dashboard/sales/whatsapp/assignments', 'POST', { remote_jid: remoteJid, instance_name: instanceName, assigned_to: selectedAgent });
@@ -130,6 +142,25 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
               </SelectContent>
             </Select>
           </div>
+
+          {teams.length > 0 && (
+            <div>
+              <Label className="text-xs">الفريق (اختياري)</Label>
+              <Select value={selectedTeam || '__none__'} onValueChange={v => setSelectedTeam(v)}>
+                <SelectTrigger className="rounded-lg mt-1">
+                  <SelectValue placeholder="اختر الفريق" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">بدون فريق</SelectItem>
+                  {teams.map(team => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name_ar || team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="gap-2">

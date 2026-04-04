@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -8,7 +8,7 @@ import {
   Clock, UserPlus, Pencil,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { mutateAPI } from '@/hooks/api-helpers';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import {
   useMessages,
   useConversationNotes,
@@ -20,6 +20,7 @@ import {
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from '../chat-input';
+import { NoteInput } from './note-input';
 import { ContactPanel } from '../contact-panel';
 import { SendQuoteDialog } from '../dialogs/send-quote-dialog';
 import { SendInvoiceDialog } from '../dialogs/send-invoice-dialog';
@@ -37,6 +38,9 @@ interface ChatPanelProps {
   assignedTo?: string | null;
   conversationId?: string | null;
   conversationStatus?: string | null;
+  snoozedUntil?: string | null;
+  isMuted?: boolean;
+  labels?: import('@/hooks/useWhatsApp').ConversationLabel[];
   isAdmin?: boolean;
   onBack?: () => void;
   onConversationUpdated?: () => void;
@@ -52,6 +56,9 @@ export function ChatPanel({
   assignedTo,
   conversationId,
   conversationStatus,
+  snoozedUntil: initialSnoozedUntil,
+  isMuted: initialMuted,
+  labels,
   isAdmin,
   onBack,
   onConversationUpdated,
@@ -65,10 +72,19 @@ export function ChatPanel({
   const [inputMode, setInputMode] = useState<'message' | 'note'>('message');
   const [convStatus, setConvStatus] = useState(conversationStatus || 'open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [isMuted, setIsMuted] = useState(initialMuted || false);
 
   // Use phone prop (from conversation metadata) or extract from JID
   const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
   const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
+
+  // Current user for template variables
+  const { data: currentUser } = useCurrentUser();
+  const templateVariables = useMemo(() => ({
+    contact_name: contactName || '',
+    agent_name: currentUser?.display_name || '',
+    phone: phone || '',
+  }), [contactName, currentUser?.display_name, phone]);
 
   // ── React Query hooks ──
   const { data: messages = [], isLoading: messagesLoading } = useMessages(
@@ -181,6 +197,23 @@ export function ChatPanel({
     }
   }, [conversationId, updateConvMutation, onConversationUpdated]);
 
+  // Toggle mute
+  const handleMuteToggle = useCallback(async () => {
+    if (!conversationId) return;
+    const newMuted = !isMuted;
+    try {
+      await updateConvMutation.mutateAsync({
+        conversationId,
+        data: { is_muted: newMuted },
+      });
+      setIsMuted(newMuted);
+      onConversationUpdated?.();
+      toast.success(newMuted ? 'تم كتم المحادثة' : 'تم إلغاء الكتم');
+    } catch {
+      toast.error('فشل تحديث حالة الكتم');
+    }
+  }, [conversationId, isMuted, updateConvMutation, onConversationUpdated]);
+
   if (messagesLoading) {
     return (
       <div className="flex flex-col h-full">
@@ -227,6 +260,9 @@ export function ChatPanel({
           searchOpen={searchOpen}
           searchQuery={searchQuery}
           displayMessagesCount={displayMessages.length}
+          snoozedUntil={initialSnoozedUntil}
+          isMuted={isMuted}
+          labels={labels}
           onBack={onBack}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
@@ -238,6 +274,8 @@ export function ChatPanel({
           onSearchChange={setSearchQuery}
           onCloseSearch={() => { setSearchOpen(false); setSearchQuery(''); }}
           onStatusChange={handleStatusChange}
+          onMuteToggle={handleMuteToggle}
+          onSnoozed={() => onConversationUpdated?.()}
         />
 
         {/* Messages */}
@@ -320,10 +358,15 @@ export function ChatPanel({
             </button>
           </div>
         )}
-        <ChatInput
-          onSend={inputMode === 'note' ? handleSendNote : handleSend}
-          onSendMedia={inputMode === 'note' ? undefined : handleSendMedia}
-        />
+        {inputMode === 'note' ? (
+          <NoteInput onSend={handleSendNote} />
+        ) : (
+          <ChatInput
+            onSend={handleSend}
+            onSendMedia={handleSendMedia}
+            templateVariables={templateVariables}
+          />
+        )}
       </div>
 
       {/* Contact Info Sidebar */}
@@ -334,7 +377,10 @@ export function ChatPanel({
           contactName={contactName}
           phone={phone}
           leadId={currentLeadId}
+          conversationId={conversationId}
+          isAdmin={isAdmin}
           onClose={() => setShowSidebar(false)}
+          onConversationUpdated={onConversationUpdated}
         />
       )}
 

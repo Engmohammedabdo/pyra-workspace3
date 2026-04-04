@@ -8,9 +8,23 @@ import type { Conversation } from '@/hooks/useWhatsApp';
 // Types
 // ============================================================
 
-type TabKey = 'all' | 'mine' | 'unassigned' | 'pending' | 'resolved';
+type TabKey = 'all' | 'mine' | 'unassigned' | 'pending' | 'resolved' | 'snoozed';
 type SortBy = 'newest' | 'oldest' | 'priority' | 'waiting_longest';
 type MobileView = 'list' | 'chat';
+
+export interface FilterState {
+  priority: string[];     // multi-select: low, normal, high, urgent
+  assignedTo: string[];   // multi-select: agent usernames
+  team: string;           // single select team ID
+  label: string;          // single select label ID
+}
+
+const EMPTY_FILTERS: FilterState = {
+  priority: [],
+  assignedTo: [],
+  team: '',
+  label: '',
+};
 
 interface ChatState {
   // Selected conversation
@@ -25,6 +39,12 @@ interface ChatState {
   sortBy: SortBy;
   setSortBy: (sort: SortBy) => void;
 
+  // Advanced filters
+  filters: FilterState;
+  setFilters: (filters: FilterState) => void;
+  resetFilters: () => void;
+  activeFilterCount: number;
+
   // Panels
   showContactPanel: boolean;
   toggleContactPanel: () => void;
@@ -36,6 +56,14 @@ interface ChatState {
 
   // Select conversation + switch to chat on mobile
   selectConversation: (conv: Conversation) => void;
+
+  // Bulk mode
+  bulkMode: boolean;
+  setBulkMode: (mode: boolean) => void;
+  selectedIds: Set<string>;
+  toggleSelectedId: (id: string) => void;
+  selectAllIds: (ids: string[]) => void;
+  clearSelectedIds: () => void;
 
   // Chat-window internal state
   searchOpen: boolean;
@@ -55,7 +83,7 @@ interface ChatState {
 export interface TabDef {
   key: TabKey;
   label: string;
-  iconName: 'Inbox' | 'User' | 'MessageCircle' | 'Clock' | 'CheckCircle2';
+  iconName: 'Inbox' | 'User' | 'MessageCircle' | 'Clock' | 'CheckCircle2' | 'AlarmClock';
   status?: string;
   assigned?: string;
 }
@@ -65,6 +93,7 @@ export const TABS: TabDef[] = [
   { key: 'mine', label: 'لي', iconName: 'User', status: 'open', assigned: 'me' },
   { key: 'unassigned', label: 'غير مسند', iconName: 'MessageCircle', status: 'open', assigned: 'unassigned' },
   { key: 'pending', label: 'معلّق', iconName: 'Clock', status: 'pending', assigned: 'all' },
+  { key: 'snoozed', label: 'مؤجل', iconName: 'AlarmClock', status: 'snoozed', assigned: 'all' },
   { key: 'resolved', label: 'محلول', iconName: 'CheckCircle2', status: 'resolved', assigned: 'all' },
 ];
 
@@ -78,12 +107,17 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTabState] = useState<TabKey>('all');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [showContactPanel, setShowContactPanel] = useState(false);
   const [mobileView, setMobileView] = useState<MobileView>('list');
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [inputMode, setInputMode] = useState<'message' | 'note'>('message');
   const [activeDialog, setActiveDialog] = useState<'quote' | 'invoice' | 'lead' | 'note' | 'followup' | null>(null);
+
+  // Bulk selection
+  const [bulkMode, setBulkModeState] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const toggleContactPanel = useCallback(() => {
     setShowContactPanel(prev => !prev);
@@ -103,6 +137,38 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setSelectedConversation(null);
   }, []);
 
+  const resetFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+  }, []);
+
+  const activeFilterCount =
+    filters.priority.length +
+    filters.assignedTo.length +
+    (filters.team ? 1 : 0) +
+    (filters.label ? 1 : 0);
+
+  const setBulkMode = useCallback((mode: boolean) => {
+    setBulkModeState(mode);
+    if (!mode) setSelectedIds(new Set());
+  }, []);
+
+  const toggleSelectedId = useCallback((id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const selectAllIds = useCallback((ids: string[]) => {
+    setSelectedIds(new Set(ids));
+  }, []);
+
+  const clearSelectedIds = useCallback(() => {
+    setSelectedIds(new Set());
+  }, []);
+
   const value: ChatState = {
     selectedConversation,
     setSelectedConversation,
@@ -110,12 +176,22 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setActiveTab,
     sortBy,
     setSortBy,
+    filters,
+    setFilters,
+    resetFilters,
+    activeFilterCount,
     showContactPanel,
     toggleContactPanel,
     setShowContactPanel,
     mobileView,
     setMobileView,
     selectConversation,
+    bulkMode,
+    setBulkMode,
+    selectedIds,
+    toggleSelectedId,
+    selectAllIds,
+    clearSelectedIds,
     searchOpen,
     setSearchOpen,
     searchQuery,

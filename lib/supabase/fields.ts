@@ -198,7 +198,10 @@ export const WA_CONVERSATION_FIELDS = `
   lead_id, client_id, status, priority, assigned_to,
   assigned_at, assigned_by, last_message, last_message_at,
   last_customer_message_at, last_agent_message_at,
-  unread_count, is_pinned, created_at, updated_at
+  unread_count, is_pinned, created_at, updated_at,
+  team_id, snoozed_until, is_muted,
+  first_reply_at, waiting_since,
+  custom_attributes, merged_into_id
 `;
 
 export const CONVERSATION_NOTE_FIELDS = `

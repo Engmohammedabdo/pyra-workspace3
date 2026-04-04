@@ -31,13 +31,22 @@ interface Template {
   shortcut: string | null;
 }
 
+/** Variables available for template substitution */
+export interface TemplateVariables {
+  contact_name?: string;
+  agent_name?: string;
+  phone?: string;
+}
+
 interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
   onSendMedia?: (file: File, caption?: string) => Promise<void>;
   disabled?: boolean;
+  /** Variables for template substitution */
+  templateVariables?: TemplateVariables;
 }
 
-export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onSendMedia, disabled, templateVariables }: ChatInputProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -97,8 +106,16 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
     }
   }
 
+  function substituteVariables(content: string): string {
+    if (!templateVariables) return content;
+    return content
+      .replace(/\{\{contact_name\}\}/g, templateVariables.contact_name || '')
+      .replace(/\{\{agent_name\}\}/g, templateVariables.agent_name || '')
+      .replace(/\{\{phone\}\}/g, templateVariables.phone || '');
+  }
+
   function handleTemplateSelect(template: Template) {
-    setText(template.content);
+    setText(substituteVariables(template.content));
     setTemplatesOpen(false);
     setTemplateSearch('');
     inputRef.current?.focus();
@@ -414,6 +431,17 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
                 ))
               )}
             </div>
+            {/* Template variables hint */}
+            {templateVariables && (
+              <div className="border-t border-border/60 px-3 py-2">
+                <p className="text-[9px] text-muted-foreground/50 mb-1 font-medium">المتغيرات المتاحة:</p>
+                <div className="flex flex-wrap gap-1">
+                  <code className="text-[9px] bg-muted/60 px-1.5 py-0.5 rounded">{'{{contact_name}}'}</code>
+                  <code className="text-[9px] bg-muted/60 px-1.5 py-0.5 rounded">{'{{agent_name}}'}</code>
+                  <code className="text-[9px] bg-muted/60 px-1.5 py-0.5 rounded">{'{{phone}}'}</code>
+                </div>
+              </div>
+            )}
             <div className="border-t border-border/60 p-1">
               <button
                 onClick={() => {
@@ -434,6 +462,7 @@ export function ChatInput({ onSend, onSendMedia, disabled }: ChatInputProps) {
           <div className="flex-1 relative">
             <textarea
               ref={inputRef}
+              data-chat-input
               value={text}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}

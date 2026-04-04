@@ -7,6 +7,18 @@ import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
 // Types
 // ============================================================
 
+export interface ConversationLabel {
+  id: string;
+  name: string;
+  name_ar: string;
+  color: string;
+  description?: string | null;
+  created_by?: string;
+  created_at?: string;
+  assigned_by?: string;
+  assigned_at?: string;
+}
+
 export interface Conversation {
   id?: string;
   remote_jid: string;
@@ -25,8 +37,17 @@ export interface Conversation {
   assigned_to?: string | null;
   is_pinned?: boolean;
   is_archived?: boolean;
+  is_muted?: boolean;
   status?: string;      // open | pending | resolved
   priority?: string;    // low | normal | high | urgent
+  custom_attributes?: Record<string, string> | null;
+  merged_into_id?: string | null;
+  team_id?: string | null;
+  snoozed_until?: string | null;
+  first_reply_at?: string | null;
+  waiting_since?: string | null;
+  labels?: ConversationLabel[];
+  created_at?: string;
 }
 
 export interface ConversationsResponse {
@@ -248,5 +269,97 @@ export function usePollWhatsApp() {
   return useMutation({
     mutationFn: () =>
       fetch('/api/dashboard/sales/whatsapp/poll', { method: 'POST' }).then(() => undefined),
+  });
+}
+
+// ============================================================
+// Hooks: Labels
+// ============================================================
+
+/** Fetch all conversation labels */
+export function useConversationLabels() {
+  return useQuery<ConversationLabel[]>({
+    queryKey: ['whatsapp-labels'],
+    queryFn: () => fetchAPI<ConversationLabel[]>('/api/dashboard/sales/whatsapp/labels'),
+    staleTime: 60_000,
+  });
+}
+
+/** Fetch labels assigned to a specific conversation */
+export function useConversationLabelAssignments(conversationId: string | undefined) {
+  return useQuery<ConversationLabel[]>({
+    queryKey: ['whatsapp-conversation-labels', conversationId],
+    queryFn: () =>
+      fetchAPI<ConversationLabel[]>(
+        `/api/dashboard/sales/whatsapp/conversations/${conversationId}/labels`
+      ),
+    enabled: !!conversationId,
+    staleTime: 30_000,
+  });
+}
+
+/** Create a new label */
+export function useCreateLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; name_ar?: string; color: string; description?: string }) =>
+      mutateAPI('/api/dashboard/sales/whatsapp/labels', 'POST', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-labels'] });
+    },
+  });
+}
+
+/** Assign a label to a conversation */
+export function useAssignLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { conversationId: string; labelId: string }) =>
+      mutateAPI(
+        `/api/dashboard/sales/whatsapp/conversations/${payload.conversationId}/labels`,
+        'POST',
+        { label_id: payload.labelId }
+      ),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversation-labels', variables.conversationId] });
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+/** Remove a label from a conversation */
+export function useRemoveLabel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { conversationId: string; labelId: string }) =>
+      mutateAPI(
+        `/api/dashboard/sales/whatsapp/conversations/${payload.conversationId}/labels`,
+        'DELETE',
+        { label_id: payload.labelId }
+      ),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversation-labels', variables.conversationId] });
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+// ============================================================
+// Hooks: Bulk Actions
+// ============================================================
+
+/** Bulk update conversations */
+export function useBulkUpdateConversations() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      ids: string[];
+      action: 'assign' | 'status' | 'priority' | 'label' | 'snooze' | 'mute';
+      value: Record<string, unknown>;
+    }) =>
+      mutateAPI('/api/dashboard/sales/whatsapp/conversations/bulk', 'POST', payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
   });
 }

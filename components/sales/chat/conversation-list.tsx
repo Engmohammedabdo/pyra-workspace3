@@ -5,6 +5,8 @@ import { Search, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { ConversationItem } from './conversation-list/conversation-item';
+import { SortSelector } from './filters/sort-selector';
+import { useChatStore } from './use-chat-store';
 
 // Re-export Conversation type for backward compatibility
 export type { Conversation } from '@/hooks/useWhatsApp';
@@ -13,10 +15,15 @@ interface ConversationListProps {
   conversations: Conversation[];
   selectedJid: string | null;
   onSelect: (conv: Conversation) => void;
+  bulkMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleCheck?: (id: string) => void;
+  onSelectAll?: () => void;
 }
 
-export function ConversationList({ conversations, selectedJid, onSelect }: ConversationListProps) {
+export function ConversationList({ conversations, selectedJid, onSelect, bulkMode, selectedIds, onToggleCheck, onSelectAll }: ConversationListProps) {
   const [search, setSearch] = useState('');
+  const { sortBy, setSortBy } = useChatStore();
 
   const filtered = conversations.filter(c => {
     if (!search) return true;
@@ -28,11 +35,12 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
 
   return (
     <div className="flex flex-col h-full border-e border-border/60 bg-card/50">
-      {/* Search */}
-      <div className="p-3 border-b border-border/40 bg-card/80">
+      {/* Search + Sort */}
+      <div className="p-3 border-b border-border/40 bg-card/80 space-y-2">
         <div className="relative">
           <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
           <input
+            data-chat-search
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="بحث بالاسم أو الرقم..."
@@ -43,6 +51,22 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
               'transition-all duration-200'
             )}
           />
+        </div>
+        <div className="flex items-center justify-between">
+          <SortSelector value={sortBy} onChange={setSortBy} />
+          <div className="flex items-center gap-2">
+            {bulkMode && onSelectAll && (
+              <button
+                onClick={onSelectAll}
+                className="text-[10px] text-orange-600 dark:text-orange-400 hover:underline"
+              >
+                تحديد الكل
+              </button>
+            )}
+            <span className="text-[10px] text-muted-foreground/40">
+              {filtered.length} محادثة
+            </span>
+          </div>
         </div>
       </div>
 
@@ -71,6 +95,9 @@ export function ConversationList({ conversations, selectedJid, onSelect }: Conve
               conversation={conv}
               isSelected={conv.remote_jid === selectedJid}
               onSelect={onSelect}
+              bulkMode={bulkMode}
+              isChecked={conv.id ? selectedIds?.has(conv.id) : false}
+              onToggleCheck={onToggleCheck}
             />
           ))
         )}

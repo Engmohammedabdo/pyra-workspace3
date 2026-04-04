@@ -169,7 +169,9 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
           await supabase.from('pyra_whatsapp_conversations').update(convUpdate).eq('id', existingConv.id);
         } else {
-          // New conversation — unassigned (admin will distribute)
+          // New conversation — try auto-assignment first
+          const assignedAgent = await resolveAutoAssignment(supabase);
+
           conversationId = generateId('conv');
           await supabase.from('pyra_whatsapp_conversations').insert({
             id: conversationId,
@@ -181,7 +183,9 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             client_id: matchedLead?.client_id || null,
             status: CONVERSATION_STATUS.OPEN,
             priority: CONVERSATION_PRIORITY.NORMAL,
-            assigned_to: null, // Unassigned — admin distributes
+            assigned_to: assignedAgent,
+            assigned_at: assignedAgent ? new Date().toISOString() : null,
+            assigned_by: assignedAgent ? 'system' : null,
             last_message: content || (messageType !== 'text' ? `[${messageType}]` : null),
             last_message_at: msgTimestamp,
             last_customer_message_at: direction === 'incoming' ? msgTimestamp : null,
@@ -328,4 +332,87 @@ function extractMediaUrl(msg: EvoMessageData): string | null {
 function extractFileName(msg: EvoMessageData): string | null {
   if (msg.message?.documentMessage?.fileName) return msg.message.documentMessage.fileName;
   return null;
+}
+
+/**
+ * Resolve auto-assignment for new conversations.
+ * Reads the whatsapp_auto_assignment setting and returns the
+ * username to assign, or null for manual mode.
+ *
+ * Modes:
+ *   manual      → null (admin distributes)
+ *   round_robin → rotate through agents
+ *   least_busy  → assign to agent with fewest open conversations
+ */
+async function resolveAutoAssignment(
+  supabase: ReturnType<typeof createServiceRoleClient>
+): Promise<string | null> {
+  try {
+    // Read auto-assignment setting
+    const { data: setting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'whatsapp_auto_assignment')
+      .maybeSingle();
+
+    const mode = setting?.value?.mode || 'manual';
+    if (mode === 'manual') return null;
+
+    // Get all sales agents
+    const { data: agents } = await supabase
+      .from('pyra_users')
+      .select('username')
+      .eq('role', 'sales_agent')
+      .eq('status', 'active');
+
+    if (!agents || agents.length === 0) return null;
+
+    const agentUsernames = agents.map(a => a.username);
+
+    if (mode === 'round_robin') {
+      // Find the last assigned agent
+      const { data: lastAssigned } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('assigned_to')
+        .not('assigned_to', 'is', null)
+        .eq('assigned_by', 'system')
+        .order('assigned_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const lastAgent = lastAssigned?.assigned_to;
+      const lastIndex = lastAgent ? agentUsernames.indexOf(lastAgent) : -1;
+      const nextIndex = (lastIndex + 1) % agentUsernames.length;
+      return agentUsernames[nextIndex];
+    }
+
+    if (mode === 'least_busy') {
+      // Count open conversations per agent
+      const counts: Record<string, number> = {};
+      for (const username of agentUsernames) {
+        const { count } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('id', { count: 'exact', head: true })
+          .eq('assigned_to', username)
+          .eq('status', CONVERSATION_STATUS.OPEN);
+        counts[username] = count || 0;
+      }
+
+      // Find agent with fewest open conversations
+      let minAgent = agentUsernames[0];
+      let minCount = counts[minAgent] ?? 0;
+      for (const username of agentUsernames) {
+        if ((counts[username] ?? 0) < minCount) {
+          minCount = counts[username] ?? 0;
+          minAgent = username;
+        }
+      }
+      return minAgent;
+    }
+
+    return null;
+  } catch (err) {
+    console.error('[Auto-Assignment] Error:', err);
+    return null;
+  }
 }

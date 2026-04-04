@@ -5,10 +5,14 @@ import { cn } from '@/lib/utils/cn';
 import {
   Phone, Search, X, ArrowRight, UserPlus,
   PanelRightOpen, User, CheckCircle2, Clock,
+  BellOff, Bell,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRef } from 'react';
 import { AssignDialog } from '../dialogs/assign-dialog';
+import { SnoozePicker } from '../dialogs/snooze-picker';
+import { LabelPicker } from '../dialogs/label-picker';
+import type { ConversationLabel } from '@/hooks/useWhatsApp';
 
 interface ChatHeaderProps {
   contactName: string | null;
@@ -27,6 +31,9 @@ interface ChatHeaderProps {
   searchOpen: boolean;
   searchQuery: string;
   displayMessagesCount: number;
+  snoozedUntil?: string | null;
+  isMuted?: boolean;
+  labels?: ConversationLabel[];
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -35,6 +42,8 @@ interface ChatHeaderProps {
   onSearchChange: (query: string) => void;
   onCloseSearch: () => void;
   onStatusChange: (status: string) => void;
+  onMuteToggle?: () => void;
+  onSnoozed?: () => void;
 }
 
 export function ChatHeader({
@@ -54,6 +63,9 @@ export function ChatHeader({
   searchOpen,
   searchQuery,
   displayMessagesCount,
+  snoozedUntil,
+  isMuted,
+  labels,
   onBack,
   onToggleSidebar,
   onToggleAssign,
@@ -62,6 +74,8 @@ export function ChatHeader({
   onSearchChange,
   onCloseSearch,
   onStatusChange,
+  onMuteToggle,
+  onSnoozed,
 }: ChatHeaderProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -129,6 +143,40 @@ export function ChatHeader({
             onAssigned={onAssigned}
             onClose={onToggleAssign}
           />
+
+          {/* Snooze */}
+          {conversationId && (
+            <SnoozePicker
+              conversationId={conversationId}
+              snoozedUntil={snoozedUntil}
+              onSnoozed={onSnoozed}
+            />
+          )}
+
+          {/* Mute */}
+          {conversationId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                'rounded-xl h-9 w-9',
+                isMuted && 'bg-gray-100 dark:bg-gray-800/40 text-gray-500'
+              )}
+              onClick={onMuteToggle}
+              title={isMuted ? 'إلغاء الكتم' : 'كتم'}
+            >
+              {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+            </Button>
+          )}
+
+          {/* Labels */}
+          {conversationId && (
+            <LabelPicker
+              conversationId={conversationId}
+              assignedLabels={labels}
+              compact
+            />
+          )}
 
           {/* Status Actions */}
           {conversationId && (

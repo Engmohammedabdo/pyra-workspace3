@@ -19,6 +19,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     const { id } = await ctx.params;
     const body = await req.json();
     const assignedTo = body.assigned_to || null;
+    const teamId = body.team_id !== undefined ? (body.team_id || null) : undefined;
     const supabase = createServiceRoleClient();
 
     // Get conversation
@@ -32,14 +33,19 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Update assignment
     const now = new Date().toISOString();
+    const updateData: Record<string, unknown> = {
+      assigned_to: assignedTo,
+      assigned_at: assignedTo ? now : null,
+      assigned_by: assignedTo ? auth.pyraUser.username : null,
+      updated_at: now,
+    };
+    if (teamId !== undefined) {
+      updateData.team_id = teamId;
+    }
+
     const { error } = await supabase
       .from('pyra_whatsapp_conversations')
-      .update({
-        assigned_to: assignedTo,
-        assigned_at: assignedTo ? now : null,
-        assigned_by: assignedTo ? auth.pyraUser.username : null,
-        updated_at: now,
-      })
+      .update(updateData)
       .eq('id', id);
 
     if (error) return apiServerError();

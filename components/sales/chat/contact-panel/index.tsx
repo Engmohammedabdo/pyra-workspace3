@@ -1,16 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
+import { useUpdateConversation } from '@/hooks/useWhatsApp';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils/cn';
 import {
   X, Phone, Mail, Building, Calendar, FileText, Tag,
   MessageCircle, ChevronDown, ChevronUp, ExternalLink, UserPlus,
+  Pencil, Check, Plus, Trash2, Link2Off, Merge,
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { PreviousConversations } from './previous-conversations';
+import { MergeDialog } from '../dialogs/merge-dialog';
+import { LabelPicker, LabelBadges } from '../dialogs/label-picker';
+import type { Conversation } from '@/hooks/useWhatsApp';
 
 interface ContactPanelProps {
   remoteJid: string;
@@ -18,7 +26,11 @@ interface ContactPanelProps {
   contactName: string | null;
   phone: string | null;
   leadId?: string | null;
+  conversationId?: string | null;
+  conversation?: Conversation | null;
+  isAdmin?: boolean;
   onClose: () => void;
+  onConversationUpdated?: () => void;
 }
 
 interface LeadInfo {
@@ -45,11 +57,43 @@ interface QuoteInfo {
   created_at: string;
 }
 
-export function ContactPanel({ contactName, phone, leadId, onClose }: ContactPanelProps) {
+export function ContactPanel({
+  contactName,
+  phone,
+  leadId,
+  conversationId,
+  conversation,
+  isAdmin,
+  onClose,
+  onConversationUpdated,
+}: ContactPanelProps) {
   const [lead, setLead] = useState<LeadInfo | null>(null);
   const [quotes, setQuotes] = useState<QuoteInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [showQuotes, setShowQuotes] = useState(false);
+
+  // Inline edit states
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(contactName || '');
+  const [showMerge, setShowMerge] = useState(false);
+
+  // Custom attributes
+  const [customAttrs, setCustomAttrs] = useState<Record<string, string>>(
+    conversation?.custom_attributes || {}
+  );
+  const [editingAttr, setEditingAttr] = useState(false);
+  const [newAttrKey, setNewAttrKey] = useState('');
+  const [newAttrValue, setNewAttrValue] = useState('');
+
+  const updateConvMutation = useUpdateConversation();
+
+  useEffect(() => {
+    setNameValue(contactName || '');
+  }, [contactName]);
+
+  useEffect(() => {
+    setCustomAttrs(conversation?.custom_attributes || {});
+  }, [conversation?.custom_attributes]);
 
   useEffect(() => {
     async function fetchData() {
@@ -73,6 +117,64 @@ export function ContactPanel({ contactName, phone, leadId, onClose }: ContactPan
   }, [leadId]);
 
   const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
+
+  const handleSaveName = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      await updateConvMutation.mutateAsync({
+        conversationId,
+        data: { contact_name: nameValue.trim() || null },
+      });
+      setEditingName(false);
+      onConversationUpdated?.();
+      toast.success('تم تحديث الاسم');
+    } catch {
+      toast.error('فشل تحديث الاسم');
+    }
+  }, [conversationId, nameValue, updateConvMutation, onConversationUpdated]);
+
+  const handleSaveAttrs = useCallback(async (attrs: Record<string, string>) => {
+    if (!conversationId) return;
+    try {
+      await updateConvMutation.mutateAsync({
+        conversationId,
+        data: { custom_attributes: attrs },
+      });
+      setCustomAttrs(attrs);
+      onConversationUpdated?.();
+    } catch {
+      toast.error('فشل تحديث البيانات المخصصة');
+    }
+  }, [conversationId, updateConvMutation, onConversationUpdated]);
+
+  const handleAddAttr = () => {
+    if (!newAttrKey.trim()) return;
+    const updated = { ...customAttrs, [newAttrKey.trim()]: newAttrValue.trim() };
+    handleSaveAttrs(updated);
+    setNewAttrKey('');
+    setNewAttrValue('');
+    setEditingAttr(false);
+  };
+
+  const handleRemoveAttr = (key: string) => {
+    const updated = { ...customAttrs };
+    delete updated[key];
+    handleSaveAttrs(updated);
+  };
+
+  const handleUnlinkLead = useCallback(async () => {
+    if (!conversationId) return;
+    try {
+      await updateConvMutation.mutateAsync({
+        conversationId,
+        data: { lead_id: null },
+      });
+      onConversationUpdated?.();
+      toast.success('تم إلغاء الربط');
+    } catch {
+      toast.error('فشل إلغاء الربط');
+    }
+  }, [conversationId, updateConvMutation, onConversationUpdated]);
 
   const priorityColors: Record<string, string> = {
     urgent: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -107,7 +209,38 @@ export function ContactPanel({ contactName, phone, leadId, onClose }: ContactPan
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-emerald-500/15">
             {(contactName || phone || '?').charAt(0).toUpperCase()}
           </div>
-          <p className="font-semibold text-base mt-2">{contactName || displayPhone || 'غير معروف'}</p>
+          {/* Editable Name */}
+          {editingName ? (
+            <div className="flex items-center gap-1 mt-2 justify-center">
+              <Input
+                value={nameValue}
+                onChange={e => setNameValue(e.target.value)}
+                className="h-8 text-sm text-center max-w-[160px]"
+                placeholder="اسم جهة الاتصال"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
+              />
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-green-600" onClick={handleSaveName}>
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md" onClick={() => { setEditingName(false); setNameValue(contactName || ''); }}>
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-1 mt-2 group">
+              <p className="font-semibold text-base">{contactName || displayPhone || 'غير معروف'}</p>
+              {conversationId && (
+                <button
+                  onClick={() => setEditingName(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted/50"
+                  title="تعديل الاسم"
+                >
+                  <Pencil className="h-3 w-3 text-muted-foreground" />
+                </button>
+              )}
+            </div>
+          )}
           {displayPhone && contactName && (
             <p className="text-sm text-muted-foreground/60 tabular-nums" dir="ltr">{displayPhone}</p>
           )}
@@ -135,10 +268,109 @@ export function ContactPanel({ contactName, phone, leadId, onClose }: ContactPan
           )}
         </div>
 
+        {/* Conversation Labels */}
+        {conversationId && (
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                التسميات
+              </h4>
+              <LabelPicker
+                conversationId={conversationId}
+                assignedLabels={conversation?.labels}
+                compact
+              />
+            </div>
+            <LabelBadges
+              labels={conversation?.labels}
+              conversationId={conversationId}
+              editable
+            />
+            {(!conversation?.labels || conversation.labels.length === 0) && (
+              <p className="text-[11px] text-muted-foreground/40 py-1">لا توجد تسميات</p>
+            )}
+          </div>
+        )}
+
+        {/* Custom Attributes */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+              بيانات مخصصة
+            </h4>
+            {conversationId && (
+              <button
+                onClick={() => setEditingAttr(!editingAttr)}
+                className="text-muted-foreground/40 hover:text-foreground transition-colors"
+                title="إضافة حقل"
+              >
+                <Plus className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+          {Object.entries(customAttrs).length > 0 && (
+            <div className="space-y-1.5">
+              {Object.entries(customAttrs).map(([key, val]) => (
+                <div key={key} className="flex items-center justify-between p-2 rounded-lg bg-muted/20 group">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-muted-foreground/50 uppercase">{key}</p>
+                    <p className="text-xs truncate">{val}</p>
+                  </div>
+                  <button
+                    onClick={() => handleRemoveAttr(key)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-destructive/10 text-destructive/50 hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {editingAttr && (
+            <div className="mt-2 space-y-2 p-2 rounded-lg border border-border/60 bg-muted/10">
+              <Input
+                value={newAttrKey}
+                onChange={e => setNewAttrKey(e.target.value)}
+                placeholder="اسم الحقل"
+                className="h-7 text-xs"
+              />
+              <Input
+                value={newAttrValue}
+                onChange={e => setNewAttrValue(e.target.value)}
+                placeholder="القيمة"
+                className="h-7 text-xs"
+                onKeyDown={e => { if (e.key === 'Enter') handleAddAttr(); }}
+              />
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" className="h-6 text-[10px] flex-1 rounded-md" onClick={handleAddAttr}>
+                  إضافة
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 text-[10px] rounded-md" onClick={() => setEditingAttr(false)}>
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+          )}
+          {Object.entries(customAttrs).length === 0 && !editingAttr && (
+            <p className="text-[11px] text-muted-foreground/40 py-1">لا توجد بيانات مخصصة</p>
+          )}
+        </div>
+
         {/* Lead Status */}
         {lead && (
           <div className="space-y-3">
-            <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">حالة العميل المحتمل</h4>
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">حالة العميل المحتمل</h4>
+              {conversationId && (
+                <button
+                  onClick={handleUnlinkLead}
+                  className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                  title="إلغاء ربط العميل المحتمل"
+                >
+                  <Link2Off className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
 
             <div className="flex flex-wrap gap-2">
               {lead.stage && (
@@ -249,7 +481,37 @@ export function ContactPanel({ contactName, phone, leadId, onClose }: ContactPan
             )}
           </div>
         )}
+
+        {/* Previous Conversations */}
+        <PreviousConversations
+          contactPhone={phone}
+          currentConversationId={conversationId || null}
+        />
+
+        {/* Merge Button — admin only */}
+        {isAdmin && conversationId && conversation && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full rounded-lg text-xs"
+            onClick={() => setShowMerge(true)}
+          >
+            <Merge className="h-3 w-3 me-1.5" />
+            دمج محادثات
+          </Button>
+        )}
       </div>
+
+      {/* Merge Dialog */}
+      {showMerge && conversation && (
+        <MergeDialog
+          open={showMerge}
+          onClose={() => setShowMerge(false)}
+          primaryConversation={conversation}
+          contactPhone={phone}
+          onMerged={() => onConversationUpdated?.()}
+        />
+      )}
     </div>
   );
 }

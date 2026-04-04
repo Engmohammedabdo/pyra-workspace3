@@ -81,6 +81,12 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     if (body.status !== undefined) updates.status = body.status;
     if (body.priority !== undefined) updates.priority = body.priority;
     if (body.is_pinned !== undefined) updates.is_pinned = body.is_pinned;
+    if (body.is_muted !== undefined) updates.is_muted = body.is_muted;
+    if (body.snoozed_until !== undefined) updates.snoozed_until = body.snoozed_until;
+    if (body.team_id !== undefined) updates.team_id = body.team_id;
+    if (body.contact_name !== undefined) updates.contact_name = body.contact_name;
+    if (body.custom_attributes !== undefined) updates.custom_attributes = body.custom_attributes;
+    if (body.lead_id !== undefined) updates.lead_id = body.lead_id;
 
     const { data, error } = await supabase
       .from('pyra_whatsapp_conversations')
