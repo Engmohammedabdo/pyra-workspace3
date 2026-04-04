@@ -79,8 +79,8 @@ export default function ChatInboxPage() {
     setMobileView('chat');
   }, []);
 
-  // Tabs visible to agent: mine + unassigned. Admin sees all.
-  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key === 'mine' || t.key === 'unassigned');
+  // Agent sees ONLY "mine" tab — unassigned is admin's job to distribute
+  const visibleTabs = isAdmin ? TABS : TABS.filter(t => t.key === 'mine');
 
   if (loading && conversations.length === 0) {
     return (

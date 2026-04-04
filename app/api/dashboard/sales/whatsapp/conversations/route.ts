@@ -60,15 +60,9 @@ export async function GET(request: NextRequest) {
       }
       // 'all' = no filter for admin
     } else {
-      // Agent: sees only their assigned + unassigned
-      if (assignedFilter === 'me') {
-        query = query.eq('assigned_to', username);
-      } else if (assignedFilter === 'unassigned') {
-        query = query.is('assigned_to', null);
-      } else {
-        // Default for agent: assigned to me OR unassigned
-        query = query.or(`assigned_to.eq.${username},assigned_to.is.null`);
-      }
+      // Agent: sees ONLY conversations assigned to them — nothing else
+      // Unassigned conversations are admin's responsibility to distribute
+      query = query.eq('assigned_to', username);
     }
 
     // Search by contact name or phone

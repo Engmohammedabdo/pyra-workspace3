@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
       .eq('id', conversationId)
       .maybeSingle();
 
-    // Agent can see assigned + unassigned conversations
-    if (conv && conv.assigned_to !== null && conv.assigned_to !== auth.pyraUser.username) {
+    // Agent can ONLY see conversations assigned to them
+    if (conv && conv.assigned_to !== auth.pyraUser.username) {
       return apiSuccess([]);
     }
   }
