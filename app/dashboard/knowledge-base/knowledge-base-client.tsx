@@ -246,7 +246,7 @@ export default function KnowledgeBaseClient() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <BookOpen className="h-6 w-6" /> قاعدة المعرفة
@@ -457,7 +457,7 @@ export default function KnowledgeBaseClient() {
 
       {/* ── Category Add/Edit Dialog ── */}
       <Dialog open={showCatDialog} onOpenChange={setShowCatDialog}>
-        <DialogContent className="sm:max-w-[480px]">
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingCat ? 'تعديل التصنيف' : 'تصنيف جديد'}</DialogTitle>
           </DialogHeader>
@@ -500,6 +500,7 @@ export default function KnowledgeBaseClient() {
                   value={catSortOrder}
                   onChange={e => setCatSortOrder(parseInt(e.target.value) || 0)}
                   min={0}
+                  dir="ltr"
                 />
               </div>
             </div>

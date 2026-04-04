@@ -435,7 +435,7 @@ export default function LeaveSettingsClient() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingId ? 'تعديل نوع الإجازة' : 'إضافة نوع إجازة جديد'}

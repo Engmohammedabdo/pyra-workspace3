@@ -15,7 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Save, RefreshCcw } from 'lucide-react';
+import { ArrowRight, Save, RefreshCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const CONTRACT_TYPES = [
@@ -132,7 +132,7 @@ export default function NewContractPage() {
               </div>
               <div className="space-y-2">
                 <Label>القيمة الإجمالية</Label>
-                <Input type="number" step="0.01" min="0" value={form.total_value} onChange={e => u('total_value', e.target.value)} placeholder="0.00" />
+                <Input type="number" step="0.01" min="0" value={form.total_value} onChange={e => u('total_value', e.target.value)} placeholder="0.00" dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label>العملة</Label>
@@ -148,7 +148,7 @@ export default function NewContractPage() {
               </div>
               <div className="space-y-2">
                 <Label>نسبة الضريبة (%)</Label>
-                <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => u('vat_rate', e.target.value)} />
+                <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => u('vat_rate', e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label>تاريخ البداية</Label>
@@ -170,7 +170,7 @@ export default function NewContractPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>المبلغ الشهري</Label>
-                  <Input type="number" step="0.01" min="0" value={form.retainer_amount} onChange={e => u('retainer_amount', e.target.value)} placeholder="0.00" />
+                  <Input type="number" step="0.01" min="0" value={form.retainer_amount} onChange={e => u('retainer_amount', e.target.value)} placeholder="0.00" dir="ltr" />
                 </div>
                 <div className="space-y-2">
                   <Label>دورة الفوترة</Label>
@@ -206,7 +206,7 @@ export default function NewContractPage() {
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 me-2" />
+                {saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}
                 {saving ? 'جاري الحفظ...' : 'إنشاء العقد'}
               </Button>
             </div>

@@ -142,7 +142,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
       className="space-y-6"
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-orange-500" />
           <h2 className="text-lg font-semibold">إعدادات معايير التقييم</h2>
@@ -219,7 +219,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
 
       {/* Create Criterion Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>معيار تقييم جديد</DialogTitle>
           </DialogHeader>
@@ -261,6 +261,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
                 value={formData.weight}
                 onChange={(e) => setFormData((p) => ({ ...p, weight: e.target.value }))}
                 className="mt-1"
+                dir="ltr"
               />
             </div>
             <div>

@@ -97,7 +97,7 @@ export default function NewSupplierPage() {
             </div>
             <div className="space-y-2">
               <Label>شروط الدفع (أيام)</Label>
-              <Input type="number" min={0} value={paymentTerms} onChange={e => setPaymentTerms(parseInt(e.target.value) || 0)} />
+              <Input type="number" min={0} value={paymentTerms} onChange={e => setPaymentTerms(parseInt(e.target.value) || 0)} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>العملة</Label>

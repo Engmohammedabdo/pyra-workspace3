@@ -18,6 +18,7 @@ import {
   Layout, FileText, Palette, Megaphone, Video, Share2,
 } from 'lucide-react';
 import { BOARD_TEMPLATES } from '@/lib/config/board-templates';
+import { motion } from 'framer-motion';
 import type { AuthSession } from '@/lib/auth/guards';
 import type { LucideIcon } from 'lucide-react';
 
@@ -128,7 +129,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                 {'\u0644\u0648\u062D\u0629 \u062C\u062F\u064A\u062F\u0629'}
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{'\u0625\u0646\u0634\u0627\u0621 \u0644\u0648\u062D\u0629 \u0639\u0645\u0644 \u062C\u062F\u064A\u062F\u0629'}</DialogTitle>
               </DialogHeader>
@@ -230,8 +231,14 @@ export default function BoardsClient({ session }: BoardsClientProps) {
         />
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedBoards.map((board) => (
-            <Link key={board.id} href={`/dashboard/boards/${board.id}`}>
+          {sortedBoards.map((board, idx) => (
+            <motion.div
+              key={board.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03, duration: 0.2 }}
+            >
+            <Link href={`/dashboard/boards/${board.id}`}>
               <Card className="hover:border-orange-300 dark:hover:border-orange-700 transition-all cursor-pointer h-full">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -273,6 +280,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                 </CardContent>
               </Card>
             </Link>
+            </motion.div>
           ))}
         </div>
       )}

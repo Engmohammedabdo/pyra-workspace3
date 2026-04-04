@@ -445,7 +445,7 @@ export default function ContentPipelineClient() {
 
       {/* ─── Create Dialog ───────────────────────────── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="max-w-md" dir="rtl">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>إنشاء محتوى جديد</DialogTitle>
           </DialogHeader>

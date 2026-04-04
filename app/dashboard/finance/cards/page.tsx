@@ -16,7 +16,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, CreditCard, Plus, Pencil, Trash2, Star } from 'lucide-react';
+import { ArrowRight, CreditCard, Plus, Pencil, Trash2, Star, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils/cn';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -245,11 +245,11 @@ export default function CardsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>شهر الانتهاء</Label>
-                <Input type="number" min="1" max="12" value={form.expiry_month} onChange={e => u('expiry_month', e.target.value)} placeholder="MM" />
+                <Input type="number" min="1" max="12" value={form.expiry_month} onChange={e => u('expiry_month', e.target.value)} placeholder="MM" dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label>سنة الانتهاء</Label>
-                <Input type="number" min="2024" max="2040" value={form.expiry_year} onChange={e => u('expiry_year', e.target.value)} placeholder="YYYY" />
+                <Input type="number" min="2024" max="2040" value={form.expiry_year} onChange={e => u('expiry_year', e.target.value)} placeholder="YYYY" dir="ltr" />
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export default function CardsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}</Button>
             </div>
           </div>
         </DialogContent>

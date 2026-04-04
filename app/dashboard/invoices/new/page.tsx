@@ -115,7 +115,7 @@ export default function NewInvoicePage() {
             <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2"><span>خصم</span>
                     <Select value={discountType} onValueChange={v => setDiscountType(v === 'none' ? '' : v)}><SelectTrigger className="w-28 h-7 text-xs"><SelectValue placeholder="بدون" /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="percentage">نسبة %</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem></SelectContent></Select>
-                    {discountType && <Input type="number" value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" />}
+                    {discountType && <Input type="number" value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" dir="ltr" />}
                 </div>
                 <span className="font-mono text-red-500">{discountAmount > 0 ? `- ${formatCurrency(discountAmount)}` : '—'}</span>
             </div>

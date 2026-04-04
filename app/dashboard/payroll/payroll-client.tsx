@@ -738,7 +738,7 @@ export default function PayrollClient() {
 
       {/* ═══════════ Create Dialog ═══════════ */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إنشاء مسير رواتب جديد</DialogTitle>
           </DialogHeader>
@@ -799,7 +799,7 @@ export default function PayrollClient() {
 
       {/* ═══════════ Add Payment Dialog ═══════════ */}
       <Dialog open={paymentOpen} onOpenChange={setPaymentOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إضافة دفعة جديدة</DialogTitle>
             <DialogDescription>تسجيل عمولة أو مكافأة أو خصم لموظف</DialogDescription>
@@ -845,6 +845,7 @@ export default function PayrollClient() {
                   value={payForm.amount}
                   onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
                   placeholder="0.00"
+                  dir="ltr"
                 />
               </div>
               <div className="space-y-2">

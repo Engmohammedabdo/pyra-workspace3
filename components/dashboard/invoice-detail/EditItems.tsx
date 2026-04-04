@@ -75,10 +75,10 @@ export function EditItems({
               <Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder="وصف البند" />
             </div>
             <div className="sm:col-span-2">
-              <Input type="number" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} />
+              <Input type="number" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} dir="ltr" />
             </div>
             <div className="sm:col-span-2">
-              <Input type="number" step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} />
+              <Input type="number" step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} dir="ltr" />
             </div>
             <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.amount, currency)}</div>
             <div className="sm:col-span-1 flex justify-end">

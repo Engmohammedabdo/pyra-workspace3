@@ -146,13 +146,13 @@ export default function TrashClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Trash2 className="h-6 w-6" /> المحذوفات</h1>
           <p className="text-muted-foreground">الملفات المحذوفة — يتم حذفها نهائياً بعد 30 يوماً تلقائياً</p>
         </div>
         {items.length > 0 && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => setShowPurgeExpired(true)} disabled={saving}>
               <Clock className="h-4 w-4 me-1" /> حذف المنتهية
             </Button>

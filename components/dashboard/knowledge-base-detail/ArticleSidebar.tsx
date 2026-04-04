@@ -42,7 +42,7 @@ export function ArticleSidebar({ article, categories, categoryId, setCategoryId,
           </div>
           <div className="space-y-2">
             <Label>الترتيب</Label>
-            <Input type="number" value={sortOrder} onChange={e => setSortOrder(parseInt(e.target.value) || 0)} min={0} />
+            <Input type="number" value={sortOrder} onChange={e => setSortOrder(parseInt(e.target.value) || 0)} min={0} dir="ltr" />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="is-public" checked={isPublic} onChange={e => setIsPublic(e.target.checked)} className="rounded border-gray-300" />

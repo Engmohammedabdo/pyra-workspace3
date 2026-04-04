@@ -44,15 +44,15 @@ export function LineItems({ items, currency, updateItem, addItem, removeItem }: 
             </div>
             <div className="space-y-1">
               <Label className="md:hidden text-xs text-muted-foreground">الكمية</Label>
-              <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} placeholder="1" />
+              <Input type="number" min={1} value={item.quantity} onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} placeholder="1" dir="ltr" />
             </div>
             <div className="space-y-1">
               <Label className="md:hidden text-xs text-muted-foreground">السعر</Label>
-              <Input type="number" min={0} step="0.01" value={item.rate} onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} placeholder="0.00" />
+              <Input type="number" min={0} step="0.01" value={item.rate} onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} placeholder="0.00" dir="ltr" />
             </div>
             <div className="space-y-1">
               <Label className="md:hidden text-xs text-muted-foreground">المبلغ</Label>
-              <Input type="number" value={item.amount.toFixed(2)} readOnly className="bg-muted" />
+              <Input type="number" value={item.amount.toFixed(2)} readOnly className="bg-muted" dir="ltr" />
             </div>
             <div className="flex items-end">
               <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(index)} disabled={items.length <= 1} aria-label="حذف">

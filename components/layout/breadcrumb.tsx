@@ -71,7 +71,7 @@ export function Breadcrumb() {
   if (segments.length <= 1) return null;
 
   return (
-    <nav aria-label="التنقل" className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground">
+    <nav aria-label="التنقل" className="flex items-center gap-1 text-sm text-muted-foreground">
       {/* Back button for deep pages */}
       {segments.length > 2 && (
         <Button
@@ -85,13 +85,24 @@ export function Breadcrumb() {
         </Button>
       )}
 
+      {/* Mobile: only show current page name */}
+      <span className="sm:hidden font-medium text-foreground flex items-center gap-1.5">
+        {routeLabels[segments[segments.length - 1]] || decodeURIComponent(segments[segments.length - 1])}
+        {extra.resultCount !== undefined && extra.resultCount > 0 && (
+          <span className="inline-flex items-center justify-center rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground min-w-[20px]">
+            {extra.resultCount}
+          </span>
+        )}
+      </span>
+
+      {/* Desktop: full breadcrumb trail */}
       {segments.map((segment, index) => {
         const href = '/' + segments.slice(0, index + 1).join('/');
         const isLast = index === segments.length - 1;
         const label = routeLabels[segment] || decodeURIComponent(segment);
 
         return (
-          <span key={href} className="flex items-center gap-1">
+          <span key={href} className="hidden sm:flex items-center gap-1">
             {index > 0 && <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" />}
             {isLast ? (
               <span className="font-medium text-foreground flex items-center gap-1.5">

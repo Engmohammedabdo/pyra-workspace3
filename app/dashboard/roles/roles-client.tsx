@@ -48,6 +48,7 @@ import {
 } from 'lucide-react';
 import { PERMISSION_MODULES, ROLE_COLORS, getRoleColorClasses } from '@/lib/auth/rbac';
 import { usePermission } from '@/hooks/usePermission';
+import { motion } from 'framer-motion';
 import type { PyraRole } from '@/types/database';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -297,13 +298,19 @@ export default function RolesClient() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {roles.map((role) => {
+          {roles.map((role, idx) => {
             const IconComp = ICON_MAP[role.icon] || Shield;
             const colorClasses = getRoleColorClasses(role.color);
             const isSuperAdmin = role.permissions.includes('*');
 
             return (
-              <Card key={role.id} className="relative overflow-hidden">
+              <motion.div
+                key={role.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.03, duration: 0.2 }}
+              >
+              <Card className="relative overflow-hidden">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -361,6 +368,7 @@ export default function RolesClient() {
                   )}
                 </CardContent>
               </Card>
+              </motion.div>
             );
           })}
         </div>

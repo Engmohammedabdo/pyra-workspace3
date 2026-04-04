@@ -45,7 +45,7 @@ export function SupplierEditForm({ form, setForm }: EditFormProps) {
         </div>
         <div className="space-y-2">
           <Label>شروط الدفع (أيام)</Label>
-          <Input type="number" min={0} value={form.payment_terms_days || 0} onChange={e => u('payment_terms_days', parseInt(e.target.value) || 0)} />
+          <Input type="number" min={0} value={form.payment_terms_days || 0} onChange={e => u('payment_terms_days', parseInt(e.target.value) || 0)} dir="ltr" />
         </div>
         <div className="space-y-2">
           <Label>العملة</Label>

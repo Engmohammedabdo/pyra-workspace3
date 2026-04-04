@@ -3,6 +3,7 @@
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,6 +63,7 @@ export function RevenueTargetForm({ form, setForm, onSave, onCancel, saving, edi
             value={form.target_amount}
             onChange={e => u('target_amount', e.target.value)}
             placeholder="0.00"
+            dir="ltr"
           />
         </div>
         <div className="space-y-2">
@@ -90,7 +92,7 @@ export function RevenueTargetForm({ form, setForm, onSave, onCancel, saving, edi
       <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={onCancel}>إلغاء</Button>
         <Button onClick={onSave} disabled={saving}>
-          {saving ? 'جاري الحفظ...' : 'حفظ'}
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}
         </Button>
       </div>
     </div>

@@ -711,7 +711,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 
       {/* Create Evaluation Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>تقييم جديد</DialogTitle>
           </DialogHeader>
@@ -1004,7 +1004,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
 
       {/* Create Period Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>فترة تقييم جديدة</DialogTitle>
           </DialogHeader>
@@ -1218,7 +1218,7 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
 
       {/* Create KPI Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
           <DialogHeader>
             <DialogTitle>مؤشر أداء جديد</DialogTitle>
           </DialogHeader>
@@ -1258,6 +1258,7 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
                 onChange={(e) => setNewKpi((p) => ({ ...p, target_value: e.target.value }))}
                 placeholder="مثال: 10"
                 className="mt-1"
+                dir="ltr"
               />
             </div>
             <div>

@@ -12,7 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { ArrowRight, Plus, Pencil, Trash2, Tag } from 'lucide-react';
+import { ArrowRight, Plus, Pencil, Trash2, Tag, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Category {
@@ -163,7 +163,7 @@ export default function ExpenseCategoriesPage() {
             <div className="space-y-2"><Label>اللون</Label><Input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="h-10 w-20" /></div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? 'جاري الحفظ...' : 'حفظ'}</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}</Button>
             </div>
           </div>
         </DialogContent>

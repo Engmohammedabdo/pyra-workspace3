@@ -63,6 +63,7 @@ import {
   History,
   ChevronUp,
   ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -1409,7 +1410,7 @@ function TaskDetailDialog({
                           disabled={advancing}
                           onClick={handleAdvance}
                         >
-                          {advancing ? 'جاري...' : needsApproval ? 'موافقة ونقل' : 'نقل للتالي'}
+                          {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : needsApproval ? 'موافقة ونقل' : 'نقل للتالي'}
                         </Button>
                       </>
                     )}
@@ -2329,7 +2330,7 @@ function BoardSettingsForm({
           </div>
         )}
         <Button onClick={handleSaveGeneral} disabled={saving || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
-          {saving ? 'جاري الحفظ...' : 'حفظ'}
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}
         </Button>
       </TabsContent>
 

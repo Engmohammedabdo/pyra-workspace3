@@ -31,7 +31,7 @@ export function MilestoneDialog({ open, onOpenChange, milestone, form, setForm, 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>النسبة (%) *</Label>
-              <Input type="number" step="0.01" min="0.01" max="100" value={form.percentage} onChange={e => setForm((p: any) => ({ ...p, percentage: e.target.value }))} />
+              <Input type="number" step="0.01" min="0.01" max="100" value={form.percentage} onChange={e => setForm((p: any) => ({ ...p, percentage: e.target.value }))} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>المبلغ المحسوب</Label>

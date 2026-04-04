@@ -14,6 +14,10 @@ import {
   Download,
 } from 'lucide-react';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -193,16 +197,31 @@ export function FileToolbar({
 
         {/* Delete selected */}
         {selectedCount > 0 && onDeleteSelected && (
-          <button
-            onClick={onDeleteSelected}
-            className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              'bg-destructive text-destructive-foreground hover:bg-destructive/90'
-            )}
-          >
-            <Trash2 size={16} />
-            <span>حذف ({selectedCount})</span>
-          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                className={cn(
+                  'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                )}
+              >
+                <Trash2 size={16} />
+                <span>حذف ({selectedCount})</span>
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                <AlertDialogDescription>
+                  هل أنت متأكد من حذف {selectedCount} ملف محدد؟ لا يمكن التراجع عن هذا الإجراء.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                <AlertDialogAction onClick={onDeleteSelected} className="bg-red-500 hover:bg-red-600">حذف</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
         {/* Spacer */}

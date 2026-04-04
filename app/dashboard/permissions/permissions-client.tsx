@@ -227,7 +227,7 @@ export default function PermissionsClient() {
       )}
 
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>إضافة صلاحية جديدة</DialogTitle></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

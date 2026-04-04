@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArrowRight, Repeat, Plus, Search, Zap } from 'lucide-react';
+import { ArrowRight, Repeat, Plus, Search, Zap, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useRecurringInvoices } from '@/hooks/useRecurring';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -50,13 +50,13 @@ export default function RecurringInvoicesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Repeat className="h-6 w-6" /> الفواتير المتكررة</h1>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}><Zap className="h-4 w-4 me-2" />{generateMutation.isPending ? 'جاري...' : 'توليد'}</Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>{generateMutation.isPending ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Zap className="h-4 w-4 me-2" />}{generateMutation.isPending ? 'جاري...' : 'توليد'}</Button>
           <Link href="/dashboard/finance/recurring/new"><Button><Plus className="h-4 w-4 me-2" /> إضافة</Button></Link>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default function RecurringInvoicesPage() {
           <p className="text-muted-foreground">هل أنت متأكد؟</p>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => setDeleteId(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={() => deleteId && deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>{deleteMutation.isPending ? 'جاري...' : 'حذف'}</Button>
+            <Button variant="destructive" onClick={() => deleteId && deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}>{deleteMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : 'حذف'}</Button>
           </div>
         </DialogContent>
       </Dialog>

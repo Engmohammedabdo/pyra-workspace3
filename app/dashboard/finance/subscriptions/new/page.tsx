@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowRight, Save } from 'lucide-react';
+import { ArrowRight, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface CardItem { id: string; card_name: string; last_four: string; }
@@ -56,7 +56,7 @@ export default function NewSubscriptionPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2"><Label>اسم الاشتراك *</Label><Input value={form.name} onChange={e => u('name', e.target.value)} required /></div>
               <div className="space-y-2"><Label>المزود</Label><Input value={form.provider} onChange={e => u('provider', e.target.value)} /></div>
-              <div className="space-y-2"><Label>التكلفة *</Label><Input type="number" step="0.01" min="0" value={form.cost} onChange={e => u('cost', e.target.value)} required /></div>
+              <div className="space-y-2"><Label>التكلفة *</Label><Input type="number" step="0.01" min="0" value={form.cost} onChange={e => u('cost', e.target.value)} required dir="ltr" /></div>
               <div className="space-y-2"><Label>العملة</Label>
                 <Select value={form.currency} onValueChange={v => u('currency', v)}><SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent><SelectItem value="AED">AED</SelectItem><SelectItem value="USD">USD</SelectItem><SelectItem value="EUR">EUR</SelectItem><SelectItem value="SAR">SAR</SelectItem></SelectContent></Select></div>
@@ -78,7 +78,7 @@ export default function NewSubscriptionPage() {
               <Label className="cursor-pointer" onClick={() => u('auto_renew', !form.auto_renew)}>تجديد تلقائي</Label>
             </div>
             <div className="space-y-2"><Label>ملاحظات</Label><Textarea value={form.notes} onChange={e => u('notes', e.target.value)} rows={3} /></div>
-            <div className="flex justify-end"><Button type="submit" disabled={saving}><Save className="h-4 w-4 me-2" />{saving ? 'جاري الحفظ...' : 'حفظ'}</Button></div>
+            <div className="flex justify-end"><Button type="submit" disabled={saving}>{saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}{saving ? 'جاري الحفظ...' : 'حفظ'}</Button></div>
           </CardContent>
         </Card>
       </form>

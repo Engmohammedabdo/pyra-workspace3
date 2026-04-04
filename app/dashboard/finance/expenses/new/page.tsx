@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { ArrowRight, Save } from 'lucide-react';
+import { ArrowRight, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Category { id: string; name: string; name_ar: string; }
@@ -116,11 +116,11 @@ export default function NewExpensePage() {
               </div>
               <div className="space-y-2">
                 <Label>المبلغ *</Label>
-                <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => update('amount', e.target.value)} placeholder="0.00" required />
+                <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => update('amount', e.target.value)} placeholder="0.00" required dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label>نسبة الضريبة (%)</Label>
-                <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => update('vat_rate', e.target.value)} />
+                <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => update('vat_rate', e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-2">
                 <Label>التصنيف</Label>
@@ -175,7 +175,7 @@ export default function NewExpensePage() {
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
-                <Save className="h-4 w-4 me-2" />
+                {saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}
                 {saving ? 'جاري الحفظ...' : 'حفظ المصروف'}
               </Button>
             </div>

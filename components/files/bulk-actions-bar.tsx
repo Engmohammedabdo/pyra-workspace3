@@ -21,6 +21,10 @@ import {
   X,
   Loader2,
 } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 
 interface BulkActionsBarProps {
@@ -167,15 +171,30 @@ export function BulkActionsBar({
           </Button>
 
           <div className="border-s ps-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 gap-1.5 text-destructive hover:text-destructive"
-              onClick={onDeleteSelected}
-            >
-              <Trash2 className="h-4 w-4" />
-              <span className="hidden sm:inline">حذف</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 gap-1.5 text-destructive hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">حذف</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    هل أنت متأكد من حذف {selectedCount} ملف محدد؟ لا يمكن التراجع عن هذا الإجراء.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>إلغاء</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDeleteSelected} className="bg-red-500 hover:bg-red-600">حذف</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
 
           {/* Clear */}

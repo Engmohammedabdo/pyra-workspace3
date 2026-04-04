@@ -138,8 +138,8 @@ export default function NewPurchaseOrderPage() {
           {items.map((item, index) => (
             <div key={index} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
               <div className="sm:col-span-5"><Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder="وصف البند" /></div>
-              <div className="sm:col-span-2"><Input type="number" min={1} value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} /></div>
-              <div className="sm:col-span-2"><Input type="number" min={0} step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} /></div>
+              <div className="sm:col-span-2"><Input type="number" min={1} value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} dir="ltr" /></div>
+              <div className="sm:col-span-2"><Input type="number" min={0} step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} dir="ltr" /></div>
               <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.quantity * item.rate)}</div>
               <div className="sm:col-span-1 flex justify-end">
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={items.length <= 1} onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
@@ -151,7 +151,7 @@ export default function NewPurchaseOrderPage() {
             <div className="flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 <span>ضريبة القيمة المضافة</span>
-                <Input type="number" min={0} max={100} step={0.5} value={vatRate} onChange={e => setVatRate(parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" />
+                <Input type="number" min={0} max={100} step={0.5} value={vatRate} onChange={e => setVatRate(parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" dir="ltr" />
                 <span className="text-muted-foreground">%</span>
               </div>
               <span className="font-mono">{formatCurrency(vatAmount)}</span>

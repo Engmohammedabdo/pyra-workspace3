@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import {
   Clock, Plus, Send, CheckCircle, XCircle, Trash2, Briefcase,
-  Timer, CalendarRange, DollarSign, AlertTriangle,
+  Timer, CalendarRange, DollarSign, AlertTriangle, Loader2,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -362,7 +362,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                 disabled={saving || !formHours}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
-                {saving ? 'جاري الحفظ...' : 'حفظ'}
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}
               </Button>
             </div>
           </DialogContent>

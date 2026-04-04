@@ -14,8 +14,9 @@ import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import { formatRelativeDate } from '@/lib/utils/format';
 import {
-  Megaphone, Plus, Pin, Trash2, Edit,
+  Megaphone, Plus, Pin, Trash2, Edit, Loader2,
 } from 'lucide-react';
+import { motion } from 'framer-motion';
 import type { AuthSession } from '@/lib/auth/guards';
 
 interface Announcement {
@@ -135,7 +136,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">الإعلانات</h1>
           <p className="text-sm text-muted-foreground">
@@ -159,7 +160,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
                 إعلان جديد
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-lg">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{editItem ? 'تعديل الإعلان' : 'إعلان جديد'}</DialogTitle>
               </DialogHeader>
@@ -212,7 +213,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
                   disabled={saving || !formTitle.trim() || !formContent.trim()}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {saving ? 'جاري الحفظ...' : editItem ? 'تحديث الإعلان' : 'نشر الإعلان'}
+                  {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : editItem ? 'تحديث الإعلان' : 'نشر الإعلان'}
                 </Button>
               </div>
             </DialogContent>
@@ -230,9 +231,14 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
         />
       ) : (
         <div className="space-y-3">
-          {announcements.map((a) => (
-            <Card
+          {announcements.map((a, idx) => (
+            <motion.div
               key={a.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.03, duration: 0.2 }}
+            >
+            <Card
               className={`transition-colors cursor-pointer ${
                 !a.is_read ? 'border-s-4 border-s-blue-500 bg-blue-500/5' : ''
               } ${a.is_pinned ? 'border-orange-200 dark:border-orange-800' : ''}`}
@@ -291,6 +297,7 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           ))}
         </div>
       )}

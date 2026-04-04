@@ -379,7 +379,7 @@ export default function UsersClient() {
 
       {/* Create User */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[550px] max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>إضافة مستخدم جديد</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             {/* Section 1: Account Info */}

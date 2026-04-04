@@ -911,6 +911,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       defaultValue={task.estimated_hours || ''}
                       onBlur={e => saveField('estimated_hours', Number(e.target.value) || null)}
                       className="h-8 text-xs"
+                      dir="ltr"
                     />
                   </div>
                   <div>
@@ -922,6 +923,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       defaultValue={task.actual_hours || ''}
                       onBlur={e => saveField('actual_hours', Number(e.target.value) || null)}
                       className="h-8 text-xs"
+                      dir="ltr"
                     />
                   </div>
                 </PopoverContent>

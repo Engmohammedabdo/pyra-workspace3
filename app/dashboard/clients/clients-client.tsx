@@ -256,14 +256,14 @@ export default function ClientsClient() {
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* ── Header ─────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Building2 className="h-6 w-6" /> العملاء
           </h1>
           <p className="text-muted-foreground">إدارة حسابات العملاء وعلاقاتهم</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <ClientExportButton
             search={debouncedSearch}
             active=""
@@ -570,7 +570,7 @@ export default function ClientsClient() {
 
       {/* ── Create Dialog ──────────────────────────────── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>إضافة عميل جديد</DialogTitle>
           </DialogHeader>
@@ -652,7 +652,7 @@ export default function ClientsClient() {
 
       {/* ── Edit Dialog ────────────────────────────────── */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
-        <DialogContent className="sm:max-w-[560px]">
+        <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>تعديل العميل — {selected?.name}</DialogTitle>
           </DialogHeader>

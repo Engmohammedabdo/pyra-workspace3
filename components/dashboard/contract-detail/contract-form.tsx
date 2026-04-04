@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Save, RefreshCcw } from 'lucide-react';
+import { Save, RefreshCcw, Loader2 } from 'lucide-react';
 
 export function ContractForm({ form, setForm, clients, projects, onSubmit, saving }: { form: any, setForm: any, clients: any[], projects: any[], onSubmit: any, saving: boolean }) {
   const isRetainer = form.contract_type === 'retainer';
@@ -84,7 +84,7 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
             </div>
             <div className="space-y-2">
               <Label>القيمة الإجمالية</Label>
-              <Input type="number" step="0.01" min="0" value={form.total_value} onChange={e => u('total_value', e.target.value)} />
+              <Input type="number" step="0.01" min="0" value={form.total_value} onChange={e => u('total_value', e.target.value)} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>العملة</Label>
@@ -100,15 +100,15 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
             </div>
             <div className="space-y-2">
               <Label>نسبة الضريبة (%)</Label>
-              <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => u('vat_rate', e.target.value)} />
+              <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => u('vat_rate', e.target.value)} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>المبلغ المفوتر</Label>
-              <Input type="number" step="0.01" min="0" value={form.amount_billed} onChange={e => u('amount_billed', e.target.value)} />
+              <Input type="number" step="0.01" min="0" value={form.amount_billed} onChange={e => u('amount_billed', e.target.value)} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>المبلغ المحصل</Label>
-              <Input type="number" step="0.01" min="0" value={form.amount_collected} onChange={e => u('amount_collected', e.target.value)} />
+              <Input type="number" step="0.01" min="0" value={form.amount_collected} onChange={e => u('amount_collected', e.target.value)} dir="ltr" />
             </div>
             <div className="space-y-2">
               <Label>تاريخ البداية</Label>
@@ -137,6 +137,7 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
                   value={form.retainer_amount}
                   onChange={e => u('retainer_amount', e.target.value)}
                   placeholder="0.00"
+                  dir="ltr"
                 />
               </div>
               <div className="space-y-2">
@@ -173,7 +174,7 @@ export function ContractForm({ form, setForm, clients, projects, onSubmit, savin
           </div>
           <div className="flex justify-end">
             <Button type="submit" disabled={saving}>
-              <Save className="h-4 w-4 me-2" />
+              {saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}
               {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
             </Button>
           </div>
