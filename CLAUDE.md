@@ -258,12 +258,27 @@ app/dashboard/[module]/[module]-client.tsx → Client component ('use client', h
 ```
 Large pages are split into focused sub-components to keep files <300 lines.
 
+### Role Permission Inheritance (`lib/auth/rbac.ts`)
+**ALL internal roles inherit `BASE_EMPLOYEE` permissions automatically.**
+When adding employee-facing features, add permission to `BASE_EMPLOYEE` — all roles get it.
+
+```
+BASE_EMPLOYEE (every internal user):
+  dashboard, notifications, directory, timesheet, announcements,
+  leave, attendance, payroll (my-payslips), evaluations, overtime
+
+ROLE_EXTRAS (added on top):
+  employee:     (nothing extra — base only)
+  sales_agent:  + sales, leads, whatsapp, quotes, clients
+  // Future: call_center, accountant, project_manager, etc.
+```
+
 ### Default Roles & What They See
 | Role | Sidebar Groups | Key Pages |
 |------|---------------|-----------|
 | `admin` | ALL (9 groups) | Everything — full control |
 | `employee` | عام + موارد بشرية | my-tasks, timesheet, attendance, leave, my-payslips, directory, announcements, profile |
-| `sales_agent` | عام + مبيعات + أعمال (partial) | sales/*, leads, WhatsApp chat, quotes (view+create), clients.view, follow-ups |
+| `sales_agent` | عام + مبيعات + موارد بشرية | sales/*, leads, WhatsApp, quotes, clients + ALL employee HR pages |
 
 Portal (Client) has its own sidebar: `components/portal/portal-sidebar.tsx`
 

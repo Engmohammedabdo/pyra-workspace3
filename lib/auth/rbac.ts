@@ -590,67 +590,69 @@ export function isSuperAdmin(userPermissions: string[]): boolean {
 // Backward Compatibility
 // ============================================================
 
+// ============================================================
+// Role Permission Inheritance
+// ============================================================
+// Every internal user (employee, sales_agent, etc.) inherits BASE_EMPLOYEE.
+// Role-specific permissions are ADDED on top — never duplicated.
+// When adding a new employee-facing feature, add permission to
+// BASE_EMPLOYEE and ALL roles get it automatically.
+// ============================================================
+
+/** Permissions every internal user gets (HR self-service) */
+const BASE_EMPLOYEE: string[] = [
+  'dashboard.view',
+  'notifications.view',
+  // HR Self-Service — every employee needs these
+  'directory.view',
+  'timesheet.view',
+  'timesheet.manage',
+  'announcements.view',
+  'leave.view',
+  'leave.manage',
+  'attendance.view',
+  'attendance.manage',
+  'payroll.view',       // كشف حسابي (my-payslips)
+  'evaluations.view',
+  'overtime.view',
+];
+
+/** Role-specific permissions added ON TOP of BASE_EMPLOYEE */
+const ROLE_EXTRAS: Record<string, string[]> = {
+  employee: [],  // Employee = BASE_EMPLOYEE only (no extras)
+
+  sales_agent: [
+    // Sales CRM
+    'sales.view',
+    'sales_leads.view',
+    'sales_leads.create',
+    'sales_leads.manage',
+    'sales_whatsapp.view',
+    'sales_whatsapp.send',
+    'quotes.view',
+    'quotes.create',
+    'quote_approvals.view',
+    'clients.view',
+  ],
+
+  // Add future roles here:
+  // call_center: ['sales_whatsapp.view', 'sales_whatsapp.send', 'sales_leads.view'],
+  // accountant: ['finance.view', 'invoices.view', 'invoices.manage'],
+  // project_manager: ['projects.view', 'projects.manage', 'boards.view', 'boards.manage'],
+};
+
 /**
- * Get default permissions for legacy role values (before RBAC migration).
- * Used when role_id is null.
+ * Get default permissions for a role.
+ * Admin gets wildcard. Internal roles inherit BASE_EMPLOYEE + extras.
+ * Client gets minimal access.
  */
 export function getDefaultPermissionsForLegacyRole(role: string): string[] {
-  switch (role) {
-    case 'admin':
-      return ['*'];
-    case 'employee':
-      // Employees get MINIMAL permissions by default.
-      // All module access must be granted explicitly via a role assignment.
-      // They can only see the dashboard, their own profile, their tasks, and basic personal tools.
-      return [
-        'dashboard.view',
-        'notifications.view',
-        'directory.view',
-        'timesheet.view',
-        'timesheet.manage',
-        'announcements.view',
-        'leave.view',
-        'leave.manage',
-        'attendance.view',
-        'attendance.manage',
-        'payroll.view',
-        'evaluations.view',
-        'overtime.view',
-      ];
-    case 'sales_agent':
-      // Sales agents = CRM + HR self-service (they are employees too)
-      return [
-        // Core
-        'dashboard.view',
-        'notifications.view',
-        // Sales CRM
-        'sales.view',
-        'sales_leads.view',
-        'sales_leads.create',
-        'sales_leads.manage',
-        'sales_whatsapp.view',
-        'sales_whatsapp.send',
-        'quotes.view',
-        'quotes.create',
-        'quote_approvals.view',
-        'clients.view',
-        // HR Self-Service (same as employee — they need payslips, attendance, etc.)
-        'directory.view',
-        'timesheet.view',
-        'timesheet.manage',
-        'announcements.view',
-        'leave.view',
-        'leave.manage',
-        'attendance.view',
-        'attendance.manage',
-        'payroll.view',
-        'evaluations.view',
-        'overtime.view',
-      ];
-    case 'client':
-    default:
-      return ['dashboard.view', 'notifications.view'];
-  }
+  if (role === 'admin') return ['*'];
+  if (role === 'client') return ['dashboard.view', 'notifications.view'];
+
+  // All internal roles inherit BASE_EMPLOYEE
+  const extras = ROLE_EXTRAS[role] || [];
+  return [...BASE_EMPLOYEE, ...extras];
 }
 
 // ============================================================
