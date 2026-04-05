@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
   const labelFilter = sp.get('label') || '';
   const teamFilter = sp.get('team') || '';
   const priorityFilter = sp.get('priority') || '';
+  const assignedAgents = sp.get('assigned_agents') || '';
   const sortBy = sp.get('sort') || 'newest';
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
@@ -53,6 +54,7 @@ export async function GET(request: NextRequest) {
       .from('pyra_whatsapp_conversations')
       .select(WA_CONVERSATION_FIELDS)
       .neq('contact_phone', OWN_PHONE)
+      .is('merged_into_id', null)
       .limit(limit);
 
     // Snoozed tab: show only snoozed conversations
@@ -109,6 +111,16 @@ export async function GET(request: NextRequest) {
         query = query.eq('priority', priorities[0]);
       } else if (priorities.length > 1) {
         query = query.in('priority', priorities);
+      }
+    }
+
+    // Assigned agents filter (supports comma-separated usernames)
+    if (assignedAgents) {
+      const agents = assignedAgents.split(',').map(a => a.trim()).filter(Boolean);
+      if (agents.length === 1) {
+        query = query.eq('assigned_to', agents[0]);
+      } else if (agents.length > 1) {
+        query = query.in('assigned_to', agents);
       }
     }
 
@@ -185,7 +197,8 @@ export async function GET(request: NextRequest) {
 
     // Helper: build a count query with optional agent scoping
     function scopedCount() {
-      let q = supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true });
+      let q = supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+        .is('merged_into_id', null);
       if (!isAdmin) q = q.eq('assigned_to', username);
       return q;
     }
@@ -202,6 +215,7 @@ export async function GET(request: NextRequest) {
       isAdmin
         ? supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
             .is('assigned_to', null)
+            .is('merged_into_id', null)
             .neq('status', CONVERSATION_STATUS.RESOLVED)
         : Promise.resolve({ count: 0 }), // Agents don't see unassigned tab
       scopedCount()

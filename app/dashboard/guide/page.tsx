@@ -63,6 +63,7 @@ const SECTIONS = [
       '/dashboard/sales',
       '/dashboard/sales/leads',
       '/dashboard/sales/chat',
+      '/dashboard/sales/whatsapp-analytics',
       '/dashboard/sales/approvals',
       '/dashboard/sales/follow-ups',
       '/dashboard/sales/reports',

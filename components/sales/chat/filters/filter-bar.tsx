@@ -3,8 +3,9 @@
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils/cn';
-import { Filter, X, Check } from 'lucide-react';
+import { Filter, X, Check, User } from 'lucide-react';
 import { useConversationLabels } from '@/hooks/useWhatsApp';
+import { useUsers } from '@/hooks/useUsers';
 import { useChatStore, type FilterState } from '../use-chat-store';
 
 const PRIORITY_OPTIONS = [
@@ -17,6 +18,16 @@ const PRIORITY_OPTIONS = [
 export function FilterBar() {
   const { filters, setFilters, resetFilters, activeFilterCount } = useChatStore();
   const { data: labels = [] } = useConversationLabels();
+  const { data: users = [] } = useUsers();
+
+  // Build agent list from users (only those with relevant roles)
+  const agents = users
+    .filter(u => u.role === 'admin' || u.role === 'sales_agent')
+    .map(u => ({
+      username: (u as Record<string, unknown>).username as string || u.name || u.id,
+      display_name: u.name || u.email || u.id,
+    }))
+    .filter(a => a.username);
 
   function togglePriority(p: string) {
     const current = filters.priority;
@@ -24,6 +35,14 @@ export function FilterBar() {
       ? current.filter(x => x !== p)
       : [...current, p];
     setFilters({ ...filters, priority: next });
+  }
+
+  function toggleAgent(username: string) {
+    const current = filters.assignedTo;
+    const next = current.includes(username)
+      ? current.filter(x => x !== username)
+      : [...current, username];
+    setFilters({ ...filters, assignedTo: next });
   }
 
   function setLabel(labelId: string) {
@@ -57,7 +76,9 @@ export function FilterBar() {
         <FilterContent
           filters={filters}
           labels={labels}
+          agents={agents}
           onTogglePriority={togglePriority}
+          onToggleAgent={toggleAgent}
           onSetLabel={setLabel}
           onReset={resetFilters}
         />
@@ -84,7 +105,9 @@ export function FilterBar() {
         <FilterContent
           filters={filters}
           labels={labels}
+          agents={agents}
           onTogglePriority={togglePriority}
+          onToggleAgent={toggleAgent}
           onSetLabel={setLabel}
           onReset={resetFilters}
         />
@@ -98,6 +121,19 @@ export function FilterBar() {
             <span className={cn('w-1.5 h-1.5 rounded-full', opt?.color)} />
             {opt?.label}
             <button onClick={() => togglePriority(p)} className="hover:text-destructive">
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        );
+      })}
+
+      {filters.assignedTo.map(agentUsername => {
+        const agent = agents.find(a => a.username === agentUsername);
+        return (
+          <span key={agentUsername} className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 text-[10px]">
+            <User className="h-2.5 w-2.5 text-blue-500" />
+            {agent?.display_name || agentUsername}
+            <button onClick={() => toggleAgent(agentUsername)} className="hover:text-destructive">
               <X className="h-2.5 w-2.5" />
             </button>
           </span>
@@ -119,13 +155,17 @@ export function FilterBar() {
 function FilterContent({
   filters,
   labels,
+  agents,
   onTogglePriority,
+  onToggleAgent,
   onSetLabel,
   onReset,
 }: {
   filters: FilterState;
   labels: Array<{ id: string; name: string; name_ar: string; color: string }>;
+  agents: Array<{ username: string; display_name: string }>;
   onTogglePriority: (p: string) => void;
+  onToggleAgent: (username: string) => void;
   onSetLabel: (id: string) => void;
   onReset: () => void;
 }) {
@@ -152,6 +192,30 @@ function FilterContent({
           ))}
         </div>
       </div>
+
+      {/* Agents */}
+      {agents.length > 0 && (
+        <div className="p-3 border-b border-border/40">
+          <h4 className="text-[10px] font-semibold text-muted-foreground/70 uppercase mb-2">
+            الوكيل
+          </h4>
+          <div className="space-y-0.5 max-h-32 overflow-y-auto">
+            {agents.map(agent => (
+              <button
+                key={agent.username}
+                onClick={() => onToggleAgent(agent.username)}
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs hover:bg-muted/50 transition-colors"
+              >
+                <User className="h-3 w-3 text-blue-500 shrink-0" />
+                <span className="flex-1 text-start truncate">{agent.display_name}</span>
+                {filters.assignedTo.includes(agent.username) && (
+                  <Check className="h-3 w-3 text-emerald-500" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Labels */}
       {labels.length > 0 && (

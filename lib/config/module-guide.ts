@@ -820,6 +820,18 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['follow-ups', 'متابعات', 'تذكيرات', 'reminders'],
   },
+  '/dashboard/sales/whatsapp-analytics': {
+    href: '/dashboard/sales/whatsapp-analytics',
+    description: 'تحليلات واتساب',
+    descriptionEn: 'WhatsApp conversation analytics and performance metrics',
+    goal: 'عرض إحصائيات رضا العملاء (CSAT) ومستوى الخدمة (SLA) لمحادثات واتساب مع فلترة حسب التاريخ.',
+    tips: [
+      'استخدم فلتر التاريخ لمقارنة أداء فترات مختلفة',
+      'تقييم CSAT يعرض متوسط الرضا وتوزيع التقييمات حسب الوكيل',
+      'SLA يعرض نسبة الالتزام بوقت الرد الأول ووقت الحل',
+    ],
+    keywords: ['whatsapp', 'analytics', 'تحليلات', 'واتساب', 'CSAT', 'SLA', 'رضا العملاء'],
+  },
   '/dashboard/sales/reports': {
     href: '/dashboard/sales/reports',
     description: 'تقارير وإحصائيات المبيعات',

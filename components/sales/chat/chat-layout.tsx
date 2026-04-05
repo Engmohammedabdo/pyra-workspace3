@@ -1,20 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock } from 'lucide-react';
+import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
-import { useConversations, usePollWhatsApp, useCheckSla } from '@/hooks/useWhatsApp';
+import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation } from '@/hooks/useWhatsApp';
+import { toast } from 'sonner';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
 import { BulkActionsBar } from './bulk-actions-bar';
 import { FilterBar } from './filters/filter-bar';
 import { SortSelector } from './filters/sort-selector';
+import { AssignDialog } from './dialogs/assign-dialog';
 import { useChatStore, TABS } from './use-chat-store';
 import { useChatShortcuts } from './use-chat-shortcuts';
 import {
@@ -71,6 +74,7 @@ export function ChatLayout() {
     if (filters.label) params.label = filters.label;
     if (filters.team) params.team = filters.team;
     if (filters.priority.length > 0) params.priority = filters.priority.join(',');
+    if (filters.assignedTo.length > 0) params.assigned_agents = filters.assignedTo.join(',');
     return params;
   }, [currentTab, sortBy, filters]);
 
@@ -102,8 +106,35 @@ export function ChatLayout() {
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, []);
 
+  // Resolve mutation for keyboard shortcut (E)
+  const updateConversation = useUpdateConversation();
+  const [shortcutAssignOpen, setShortcutAssignOpen] = useState(false);
+
+  const handleShortcutResolve = useCallback(() => {
+    if (!selectedConversation?.id) return;
+    updateConversation.mutate(
+      { conversationId: selectedConversation.id, data: { status: 'resolved' } },
+      {
+        onSuccess: () => {
+          toast.success('تم حل المحادثة');
+          setSelectedConversation(null);
+        },
+        onError: () => toast.error('فشل في حل المحادثة'),
+      }
+    );
+  }, [selectedConversation, updateConversation, setSelectedConversation]);
+
+  const handleShortcutAssign = useCallback(() => {
+    if (!selectedConversation?.id) return;
+    setShortcutAssignOpen(true);
+  }, [selectedConversation]);
+
   // Keyboard shortcuts
-  useChatShortcuts({ conversations });
+  useChatShortcuts({
+    conversations,
+    onResolve: handleShortcutResolve,
+    onOpenAssign: handleShortcutAssign,
+  });
 
   // Request desktop notification permission on mount
   useEffect(() => {
@@ -159,6 +190,15 @@ export function ChatLayout() {
           <h1 className="text-xl font-bold tracking-tight">محادثات واتساب</h1>
           <p className="text-xs text-muted-foreground/60">Shared Inbox</p>
         </div>
+        <div className="flex-1" />
+        {isAdmin && (
+          <Link href="/dashboard/sales/whatsapp-analytics">
+            <Button variant="outline" size="sm" className="rounded-lg text-xs h-8 gap-1.5">
+              <BarChart3 className="h-3.5 w-3.5" />
+              عرض التحليلات
+            </Button>
+          </Link>
+        )}
       </div>
 
       {/* Tabs */}
@@ -293,6 +333,19 @@ export function ChatLayout() {
             clearSelectedIds();
             setBulkMode(false);
           }}
+        />
+      )}
+
+      {/* Assign Dialog triggered by keyboard shortcut (A) */}
+      {selectedConversation && (
+        <AssignDialog
+          open={shortcutAssignOpen}
+          conversationId={selectedConversation.id}
+          remoteJid={selectedConversation.remote_jid}
+          instanceName={selectedConversation.instance_name || 'pyraai'}
+          currentAgent={selectedConversation.assigned_to || null}
+          onAssigned={() => setShortcutAssignOpen(false)}
+          onClose={() => setShortcutAssignOpen(false)}
         />
       )}
     </motion.div>

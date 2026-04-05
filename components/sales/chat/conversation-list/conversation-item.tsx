@@ -152,6 +152,11 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
           {conv.sla_policy_id && conv.status !== 'resolved' && (
             <SlaIndicator conversation={conv} compact />
           )}
+          {conv.waiting_since && conv.status === 'open' && (
+            <span className="text-[9px] text-orange-500 dark:text-orange-400 shrink-0" title="مدة الانتظار">
+              {formatRelativeDate(conv.waiting_since)}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-0.5">
