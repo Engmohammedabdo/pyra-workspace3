@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils/cn';
 import { User, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import type { Conversation } from '@/hooks/useWhatsApp';
+import { isCurrentlySnoozed } from '@/lib/whatsapp/sla';
 import { LabelDots } from '../dialogs/label-picker';
 import { SlaIndicator } from '../sla/sla-indicator';
 import { CsatBadge } from '../csat/csat-badge';
@@ -56,7 +57,7 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
     ? MEDIA_LABELS[msgType] || '📎 ملف'
     : conv.last_message || '...';
 
-  const isSnoozed = conv.snoozed_until && new Date(conv.snoozed_until) > new Date();
+  const isSnoozed = isCurrentlySnoozed(conv.snoozed_until);
 
   return (
     <button

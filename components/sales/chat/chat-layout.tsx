@@ -86,7 +86,7 @@ export function ChatLayout() {
 
   useEffect(() => {
     pollRef.current(); // Poll on mount
-    const interval = setInterval(() => pollRef.current(), 15000);
+    const interval = setInterval(() => pollRef.current(), 15_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -97,8 +97,8 @@ export function ChatLayout() {
 
   useEffect(() => {
     // Initial check after 10s (give conversations time to load first)
-    const timeout = setTimeout(() => slaCheckRef.current(), 10000);
-    const interval = setInterval(() => slaCheckRef.current(), 60000);
+    const timeout = setTimeout(() => slaCheckRef.current(), 10_000);
+    const interval = setInterval(() => slaCheckRef.current(), 60_000);
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, []);
 

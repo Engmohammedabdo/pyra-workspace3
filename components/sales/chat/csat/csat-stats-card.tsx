@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Star, TrendingUp, Users } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { CsatStars } from './csat-badge';
+import { CsatStars, CSAT_RATING_LABELS } from './csat-badge';
 import { useCsatStats } from '@/hooks/useWhatsApp';
 
 interface CsatStatsCardProps {
@@ -18,14 +18,6 @@ const RATING_COLORS: Record<number, string> = {
   3: 'bg-yellow-500',
   4: 'bg-lime-500',
   5: 'bg-emerald-500',
-};
-
-const RATING_LABELS: Record<number, string> = {
-  1: '\u0633\u064a\u0621 \u062c\u062f\u0627\u064b',
-  2: '\u0633\u064a\u0621',
-  3: '\u0645\u062a\u0648\u0633\u0637',
-  4: '\u062c\u064a\u062f',
-  5: '\u0645\u0645\u062a\u0627\u0632',
 };
 
 /**
@@ -69,7 +61,7 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
           <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
-          {'\u0631\u0636\u0627 \u0627\u0644\u0639\u0645\u0644\u0627\u0621 (CSAT)'}
+          {'رضا العملاء (CSAT)'}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -81,7 +73,7 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
             </p>
             <CsatStars rating={Math.round(data.average)} size="md" />
             <p className="text-xs text-muted-foreground/60 mt-1">
-              {data.total} {'\u062a\u0642\u064a\u064a\u0645'}
+              {data.total} {'تقييم'}
             </p>
           </div>
 
@@ -117,7 +109,7 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
             <div className="flex items-center gap-2 mb-3">
               <Users className="h-4 w-4 text-muted-foreground/60" />
               <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                {'\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u0648\u0643\u0644\u0627\u0621'}
+                {'تقييم الوكلاء'}
               </h4>
             </div>
             <div className="space-y-2">
@@ -131,7 +123,7 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
                       {agent.agent.charAt(0).toUpperCase()}
                     </div>
                     <span className="text-sm truncate">
-                      {agent.agent === 'unassigned' ? '\u063a\u064a\u0631 \u0645\u0639\u064a\u0651\u0646' : agent.agent}
+                      {agent.agent === 'unassigned' ? 'غير معيّن' : agent.agent}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -155,7 +147,7 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
             <div className="flex items-center gap-2 mb-3">
               <TrendingUp className="h-4 w-4 text-muted-foreground/60" />
               <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
-                {'\u0627\u0644\u0627\u062a\u062c\u0627\u0647'}
+                {'الاتجاه'}
               </h4>
             </div>
             <div className="flex items-end gap-1 h-16">
@@ -187,10 +179,10 @@ export function CsatStatsCard({ params, className }: CsatStatsCardProps) {
           <div className="text-center py-6">
             <Star className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
             <p className="text-sm text-muted-foreground/50">
-              {'\u0644\u0627 \u062a\u0648\u062c\u062f \u062a\u0642\u064a\u064a\u0645\u0627\u062a \u0628\u0639\u062f'}
+              {'لا توجد تقييمات بعد'}
             </p>
             <p className="text-xs text-muted-foreground/30 mt-1">
-              {'\u0633\u062a\u0638\u0647\u0631 \u0627\u0644\u062a\u0642\u064a\u064a\u0645\u0627\u062a \u0639\u0646\u062f \u062d\u0644 \u0627\u0644\u0645\u062d\u0627\u062f\u062b\u0627\u062a'}
+              {'ستظهر التقييمات عند حل المحادثات'}
             </p>
           </div>
         )}

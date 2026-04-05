@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
+import type { SlaPolicy } from '@/lib/whatsapp/sla';
 
 // ============================================================
 // Types
@@ -493,17 +494,7 @@ export function useAiSuggestions(
 // Hooks: SLA Policies
 // ============================================================
 
-export interface SlaPolicy {
-  id: string;
-  name: string;
-  name_ar: string | null;
-  first_response_minutes: number;
-  resolution_minutes: number;
-  priority: string;
-  is_active: boolean;
-  created_by: string | null;
-  created_at: string;
-}
+export type { SlaPolicy };
 
 export interface SlaStats {
   total: number;

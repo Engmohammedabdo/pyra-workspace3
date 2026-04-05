@@ -12,7 +12,7 @@ import {
 import { getSlaStatus, getSlaTimeRemaining, getActiveSlaDeadline } from '@/lib/whatsapp/sla';
 import type { SlaStatus } from '@/lib/whatsapp/sla';
 
-interface SlaConversationData {
+export interface SlaConversationData {
   sla_policy_id?: string | null;
   sla_first_response_due?: string | null;
   sla_resolution_due?: string | null;

@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils/cn';
 import { Merge, Loader2, MessageCircle, Calendar, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatRelativeDate } from '@/lib/utils/format';
+import { CONVERSATION_STATUS_LABELS } from '@/lib/constants/statuses';
 import type { ConversationsResponse, Conversation } from '@/hooks/useWhatsApp';
 
 interface MergeDialogProps {
@@ -82,12 +83,6 @@ export function MergeDialog({
     mergeMutation.mutate(selectedId);
   };
 
-  const statusLabels: Record<string, string> = {
-    open: 'مفتوح',
-    pending: 'معلّق',
-    resolved: 'محلول',
-  };
-
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-md">
@@ -134,7 +129,7 @@ export function MergeDialog({
                         conv.status === 'resolved' && 'border-gray-300 text-gray-500'
                       )}
                     >
-                      {statusLabels[conv.status || 'open'] || conv.status}
+                      {CONVERSATION_STATUS_LABELS[conv.status as keyof typeof CONVERSATION_STATUS_LABELS] || conv.status}
                     </Badge>
                     {conv.total_messages && (
                       <span className="text-[10px] text-muted-foreground/50 flex items-center gap-0.5">

@@ -16,6 +16,13 @@ export interface SlaPolicy {
 
 export type SlaStatus = 'ok' | 'warning' | 'breached';
 
+// ── Snooze Helper ───────────────────────────────────────
+
+/** Check whether a conversation is currently snoozed. */
+export function isCurrentlySnoozed(snoozedUntil: string | null | undefined): boolean {
+  return !!snoozedUntil && new Date(snoozedUntil) > new Date();
+}
+
 // ── Apply SLA Policy to a Conversation ───────────────────
 
 /**

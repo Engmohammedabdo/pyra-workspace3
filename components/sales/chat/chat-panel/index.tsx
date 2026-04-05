@@ -26,11 +26,15 @@ import { ChatInput } from '../chat-input';
 import { NoteInput } from './note-input';
 import { SuggestBar } from '../ai-suggest/suggest-bar';
 import { ContactPanel } from '../contact-panel';
+import type { SlaConversationData } from '../sla/sla-indicator';
 import { SendQuoteDialog } from '../dialogs/send-quote-dialog';
 import { SendInvoiceDialog } from '../dialogs/send-invoice-dialog';
 import { CreateLeadDialog } from '../dialogs/create-lead-dialog';
 import { AddNoteDialog } from '../dialogs/add-note-dialog';
 import { ScheduleFollowupDialog } from '../dialogs/schedule-followup-dialog';
+
+/** Fallback upload size limit (2 MB) */
+const MAX_FALLBACK_UPLOAD_SIZE = 2 * 1024 * 1024;
 
 interface ChatPanelProps {
   remoteJid: string;
@@ -45,16 +49,7 @@ interface ChatPanelProps {
   snoozedUntil?: string | null;
   isMuted?: boolean;
   labels?: import('@/hooks/useWhatsApp').ConversationLabel[];
-  slaData?: {
-    sla_policy_id?: string | null;
-    sla_first_response_due?: string | null;
-    sla_resolution_due?: string | null;
-    sla_first_response_breached?: boolean;
-    sla_resolution_breached?: boolean;
-    first_reply_at?: string | null;
-    resolved_at?: string | null;
-    status?: string;
-  } | null;
+  slaData?: SlaConversationData | null;
   isAdmin?: boolean;
   onBack?: () => void;
   onConversationUpdated?: () => void;
@@ -69,7 +64,7 @@ export function ChatPanel({
   phone: phoneProp,
   assignedTo,
   conversationId,
-  conversationStatus,
+  conversationStatus: initialConversationStatus,
   snoozedUntil: initialSnoozedUntil,
   isMuted: initialMuted,
   labels,
@@ -92,7 +87,7 @@ export function ChatPanel({
   const [showAssign, setShowAssign] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [currentLeadId, setCurrentLeadId] = useState(leadId);
-  const [convStatus, setConvStatus] = useState(conversationStatus || 'open');
+  const [conversationStatus, setConversationStatus] = useState(initialConversationStatus || 'open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isMuted, setIsMuted] = useState(initialMuted || false);
   const [isTyping, setIsTyping] = useState(false);
@@ -184,7 +179,7 @@ export function ChatPanel({
         const uploadData = await uploadRes.json();
         mediaUrl = uploadData.data?.url || uploadData.url;
       } else {
-        if (file.size > 2 * 1024 * 1024) {
+        if (file.size > MAX_FALLBACK_UPLOAD_SIZE) {
           toast.error('فشل رفع الملف — حاول ملف أصغر');
           return;
         }
@@ -238,7 +233,7 @@ export function ChatPanel({
         conversationId,
         data: { status: newStatus },
       });
-      setConvStatus(newStatus);
+      setConversationStatus(newStatus);
       onConversationUpdated?.();
       toast.success(newStatus === 'resolved' ? 'تم حل المحادثة' : newStatus === 'pending' ? 'تم تعليق المحادثة' : 'تم فتح المحادثة');
     } catch {
@@ -303,7 +298,7 @@ export function ChatPanel({
           conversationId={conversationId}
           remoteJid={remoteJid}
           instanceName={instanceName}
-          convStatus={convStatus}
+          conversationStatus={conversationStatus}
           isAdmin={isAdmin}
           updatingStatus={updatingStatus}
           showSidebar={showSidebar}

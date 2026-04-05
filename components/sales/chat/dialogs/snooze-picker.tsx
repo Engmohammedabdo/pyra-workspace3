@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils/cn';
 import { AlarmClock, Clock, Sun, CalendarDays, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUpdateConversation } from '@/hooks/useWhatsApp';
+import { isCurrentlySnoozed } from '@/lib/whatsapp/sla';
 
 interface SnoozePickerProps {
   conversationId: string;
@@ -63,7 +64,7 @@ export function SnoozePicker({ conversationId, snoozedUntil, onSnoozed }: Snooze
   const [customTime, setCustomTime] = useState('09:00');
   const updateConversation = useUpdateConversation();
 
-  const isSnoozed = snoozedUntil && new Date(snoozedUntil) > new Date();
+  const isSnoozed = isCurrentlySnoozed(snoozedUntil);
 
   function handleSnooze(until: Date) {
     updateConversation.mutate(

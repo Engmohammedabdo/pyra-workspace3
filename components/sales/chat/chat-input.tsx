@@ -23,6 +23,9 @@ import {
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
 
+/** WhatsApp media size limit (16 MB) */
+const MAX_MEDIA_SIZE = 16 * 1024 * 1024;
+
 /** Variables available for template substitution */
 export interface TemplateVariables {
   contact_name?: string;
@@ -202,7 +205,7 @@ export function ChatInput({
   }
 
   function processFile(file: File) {
-    if (file.size > 16 * 1024 * 1024) {
+    if (file.size > MAX_MEDIA_SIZE) {
       toast.error('حجم الملف أكبر من 16 ميجابايت');
       return;
     }

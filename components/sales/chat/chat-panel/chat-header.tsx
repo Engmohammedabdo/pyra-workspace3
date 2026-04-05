@@ -13,6 +13,7 @@ import { AssignDialog } from '../dialogs/assign-dialog';
 import { SnoozePicker } from '../dialogs/snooze-picker';
 import { LabelPicker } from '../dialogs/label-picker';
 import { SlaIndicator } from '../sla/sla-indicator';
+import type { SlaConversationData } from '../sla/sla-indicator';
 import type { ConversationLabel } from '@/hooks/useWhatsApp';
 
 interface ChatHeaderProps {
@@ -24,7 +25,7 @@ interface ChatHeaderProps {
   conversationId?: string | null;
   remoteJid: string;
   instanceName: string;
-  convStatus: string;
+  conversationStatus: string;
   isAdmin?: boolean;
   updatingStatus: boolean;
   showSidebar: boolean;
@@ -35,16 +36,7 @@ interface ChatHeaderProps {
   snoozedUntil?: string | null;
   isMuted?: boolean;
   labels?: ConversationLabel[];
-  slaData?: {
-    sla_policy_id?: string | null;
-    sla_first_response_due?: string | null;
-    sla_resolution_due?: string | null;
-    sla_first_response_breached?: boolean;
-    sla_resolution_breached?: boolean;
-    first_reply_at?: string | null;
-    resolved_at?: string | null;
-    status?: string;
-  } | null;
+  slaData?: SlaConversationData | null;
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -66,7 +58,7 @@ export function ChatHeader({
   conversationId,
   remoteJid,
   instanceName,
-  convStatus,
+  conversationStatus,
   isAdmin,
   updatingStatus,
   showSidebar,
@@ -197,7 +189,7 @@ export function ChatHeader({
           {/* Status Actions */}
           {conversationId && (
             <div className="flex items-center gap-1">
-              {convStatus !== 'resolved' && (
+              {conversationStatus !== 'resolved' && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -210,7 +202,7 @@ export function ChatHeader({
                   حل
                 </Button>
               )}
-              {convStatus === 'open' && (
+              {conversationStatus === 'open' && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -222,7 +214,7 @@ export function ChatHeader({
                   تعليق
                 </Button>
               )}
-              {convStatus === 'resolved' && (
+              {conversationStatus === 'resolved' && (
                 <Button
                   variant="ghost"
                   size="sm"

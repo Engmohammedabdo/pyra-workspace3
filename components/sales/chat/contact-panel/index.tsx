@@ -170,11 +170,11 @@ export function ContactPanel({
     }
   }, [newAttrKey, newAttrValue, customAttrs, handleSaveAttrs]);
 
-  const handleRemoveAttr = (key: string) => {
+  const handleRemoveAttr = useCallback((key: string) => {
     const updated = { ...customAttrs };
     delete updated[key];
     handleSaveAttrs(updated);
-  };
+  }, [customAttrs, handleSaveAttrs]);
 
   const handleUnlinkLead = useCallback(async () => {
     if (!conversationId) return;
@@ -272,7 +272,7 @@ export function ContactPanel({
             <div className="flex items-center justify-between mb-1.5">
               <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
                 <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
-                {'\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u0639\u0645\u064a\u0644'}
+                {'تقييم العميل'}
               </h4>
               <CsatBadge rating={csatData?.rating || conversation?.csat_rating || 0} size="sm" showLabel />
             </div>

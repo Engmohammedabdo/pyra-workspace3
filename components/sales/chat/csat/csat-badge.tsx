@@ -26,12 +26,12 @@ const RATING_BG: Record<number, string> = {
   5: 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30',
 };
 
-const RATING_LABELS: Record<number, string> = {
-  1: '\u0633\u064a\u0621 \u062c\u062f\u0627\u064b',
-  2: '\u0633\u064a\u0621',
-  3: '\u0645\u062a\u0648\u0633\u0637',
-  4: '\u062c\u064a\u062f',
-  5: '\u0645\u0645\u062a\u0627\u0632',
+export const CSAT_RATING_LABELS: Record<number, string> = {
+  1: 'سيء جداً',
+  2: 'سيء',
+  3: 'متوسط',
+  4: 'جيد',
+  5: 'ممتاز',
 };
 
 /**
@@ -51,7 +51,7 @@ export function CsatBadge({ rating, size = 'sm', showLabel = false, className }:
         RATING_BG[rating],
         className
       )}
-      title={`CSAT: ${rating}/5 - ${RATING_LABELS[rating]}`}
+      title={`CSAT: ${rating}/5 - ${CSAT_RATING_LABELS[rating]}`}
     >
       <Star className={cn(starSize, RATING_COLORS[rating], 'fill-current')} />
       <span className={cn(textSize, 'font-semibold tabular-nums', RATING_COLORS[rating])}>
@@ -59,7 +59,7 @@ export function CsatBadge({ rating, size = 'sm', showLabel = false, className }:
       </span>
       {showLabel && (
         <span className={cn(textSize, 'text-muted-foreground/70 ms-0.5')}>
-          {RATING_LABELS[rating]}
+          {CSAT_RATING_LABELS[rating]}
         </span>
       )}
     </span>

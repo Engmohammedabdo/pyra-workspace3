@@ -1,7 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
-import React from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
 // ============================================================
@@ -233,6 +232,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setActiveDialog,
   ]);
 
+  // This file uses .ts (not .tsx), so we use createElement instead of JSX
   return React.createElement(ChatStoreContext.Provider, { value }, children);
 }
 
