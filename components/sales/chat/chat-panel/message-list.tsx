@@ -14,9 +14,11 @@ interface MessageListProps {
   notes: ConversationNote[];
   onReply?: (quote: QuotedMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onSaveToFiles?: (messageId: string) => void;
+  onForward?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, notes, onReply, onReact }: MessageListProps) {
+export function MessageList({ messages, notes, onReply, onReact, onSaveToFiles, onForward }: MessageListProps) {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -111,6 +113,8 @@ export function MessageList({ messages, notes, onReply, onReact }: MessageListPr
                         reactions={msg.reactions}
                         onReply={onReply}
                         onReact={onReact}
+                        onSaveToFiles={onSaveToFiles}
+                        onForward={onForward}
                       />
                     );
                   }

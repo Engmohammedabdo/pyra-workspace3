@@ -152,6 +152,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', labelEn: 'Leads', icon: UserPlus, permission: 'sales_leads.view' },
       { href: '/dashboard/sales/chat', label: 'محادثات واتساب', labelEn: 'WhatsApp Chat', icon: MessageCircle, permission: 'sales_whatsapp.view', badgeKey: 'unassigned_conversations' },
       { href: '/dashboard/sales/whatsapp-analytics', label: 'تحليلات واتساب', labelEn: 'WhatsApp Analytics', icon: PieChart, permission: 'sales_whatsapp.view' },
+      { href: '/dashboard/sales/whatsapp-campaigns', label: 'حملات الرسائل', labelEn: 'Campaigns', icon: Megaphone, permission: 'sales_whatsapp.manage' },
       { href: '/dashboard/sales/approvals', label: 'موافقات العروض', labelEn: 'Quote Approvals', icon: CheckCircle, permission: 'quote_approvals.view', badgeKey: 'pending_approvals' },
       { href: '/dashboard/sales/follow-ups', label: 'المتابعات', labelEn: 'Follow-ups', icon: Clock, permission: 'sales_leads.view' },
       { href: '/dashboard/sales/reports', label: 'تقارير المبيعات', labelEn: 'Sales Reports', icon: BarChart3, permission: 'sales.view' },

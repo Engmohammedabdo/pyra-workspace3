@@ -97,6 +97,9 @@ const ALLOWED_KEYS = new Set([
   'board_done_auto_archive_days',
   // WhatsApp settings
   'whatsapp_ai_suggestions_enabled',
+  'whatsapp_ai_provider',
+  'whatsapp_ai_api_key',
+  'whatsapp_business_hours',
 ]);
 
 // =============================================================

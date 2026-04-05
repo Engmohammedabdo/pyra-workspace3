@@ -266,6 +266,16 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             .eq('id', matchedLead.id);
         }
 
+        // ── Business Hours — Auto Away Message ──
+        if (direction === 'incoming') {
+          void handleBusinessHoursAutoReply(supabase, phone, instanceName || 'pyraai');
+        }
+
+        // ── Profile Photo Fetch (fire-and-forget on new conversations) ──
+        if (!existingConv && direction === 'incoming' && phone) {
+          void fetchAndStoreProfilePhoto(supabase, conversationId, phone, instanceName || 'pyraai');
+        }
+
         // ── CSAT Response Detection ──
         // If incoming message is a single digit 1-5 and conversation was
         // recently resolved (within 24h), record as CSAT response.
@@ -387,15 +397,33 @@ async function processWebhook(event: string, instanceName: string, data: Record<
     }
 
     case 'PRESENCE_UPDATE': {
-      // Typing indicator from contacts
-      const remoteJid = (data.remoteJid || data.id) as string | undefined;
+      // Typing indicator from contacts + online/last-seen tracking
+      const presJid = (data.remoteJid || data.id) as string | undefined;
       const presenceStatus = (data.status || data.presence) as string | undefined;
-      if (remoteJid && presenceStatus) {
+      if (presJid && presenceStatus) {
         cleanupTypingMap();
-        typingMap.set(remoteJid, {
+        typingMap.set(presJid, {
           typing: presenceStatus === 'composing',
           updatedAt: Date.now(),
         });
+
+        // Store last_seen_at when contact is online
+        if (presenceStatus === 'available' || presenceStatus === 'composing') {
+          const { data: conv } = await supabase
+            .from('pyra_whatsapp_conversations')
+            .select('id, custom_attributes')
+            .eq('remote_jid', presJid)
+            .maybeSingle();
+
+          if (conv) {
+            const attrs = (typeof conv.custom_attributes === 'object' && conv.custom_attributes) ? { ...conv.custom_attributes as Record<string, string> } : {};
+            attrs.last_seen_at = new Date().toISOString();
+            void supabase
+              .from('pyra_whatsapp_conversations')
+              .update({ custom_attributes: attrs })
+              .eq('id', conv.id);
+          }
+        }
       }
       break;
     }
@@ -407,6 +435,10 @@ function extractTextContent(msg: EvoMessageData): string | null {
   if (msg.message?.extendedTextMessage?.text) return msg.message.extendedTextMessage.text;
   if (msg.message?.imageMessage?.caption) return msg.message.imageMessage.caption;
   if (msg.message?.videoMessage?.caption) return msg.message.videoMessage.caption;
+  // Button response messages
+  const buttonsResponse = (msg.message as Record<string, unknown>)?.buttonsResponseMessage as
+    | { selectedDisplayText?: string; selectedButtonId?: string } | undefined;
+  if (buttonsResponse?.selectedDisplayText) return buttonsResponse.selectedDisplayText;
   return null;
 }
 
@@ -415,6 +447,11 @@ function detectMessageType(msg: EvoMessageData): string {
   if (msg.message?.documentMessage) return 'document';
   if (msg.message?.audioMessage) return 'audio';
   if (msg.message?.videoMessage) return 'video';
+  const raw = msg.message as Record<string, unknown> | undefined;
+  if (raw?.pollCreationMessage || raw?.pollCreationMessageV3) return 'poll';
+  if (raw?.locationMessage) return 'location';
+  if (raw?.contactMessage || raw?.contactsArrayMessage) return 'contact';
+  if (raw?.stickerMessage) return 'sticker';
   return 'text';
 }
 
@@ -603,5 +640,93 @@ async function handleCsatResponse(
     console.log(`[CSAT] Recorded rating ${rating} for conversation ${conversationId}`);
   } catch (err) {
     console.error('[CSAT] handleCsatResponse error:', err);
+  }
+}
+
+/**
+ * Check business hours and auto-reply with away message if outside hours.
+ * Rate-limited: only sends once per phone per hour to avoid spam.
+ */
+const awayMessageSentCache = new Map<string, number>();
+
+async function handleBusinessHoursAutoReply(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  phone: string,
+  instanceName: string,
+) {
+  try {
+    // Check rate limit — don't send more than once per hour per phone
+    const cacheKey = `${phone}_${instanceName}`;
+    const lastSent = awayMessageSentCache.get(cacheKey);
+    if (lastSent && Date.now() - lastSent < 60 * 60 * 1000) return;
+
+    // Read business hours setting
+    const { data: setting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'whatsapp_business_hours')
+      .maybeSingle();
+
+    if (!setting?.value?.enabled) return;
+
+    const { isWithinBusinessHours } = await import('@/lib/whatsapp/business-hours');
+    const config = setting.value;
+
+    if (isWithinBusinessHours(config)) return;
+
+    // Outside business hours — send away message
+    const awayMessage = config.away_message || 'نحن خارج ساعات العمل حالياً. سنرد عليك قريباً.';
+
+    const { evolutionClient } = await import('@/lib/evolution/client');
+    await evolutionClient.sendText(instanceName, {
+      number: phone,
+      text: awayMessage,
+    });
+
+    awayMessageSentCache.set(cacheKey, Date.now());
+
+    // Clean up old entries
+    for (const [key, ts] of awayMessageSentCache.entries()) {
+      if (Date.now() - ts > 2 * 60 * 60 * 1000) awayMessageSentCache.delete(key);
+    }
+
+    console.log(`[Business Hours] Sent away message to ${phone}`);
+  } catch (err) {
+    console.error('[Business Hours] Auto-reply error:', err);
+  }
+}
+
+/**
+ * Fetch and store profile photo for a new conversation.
+ */
+async function fetchAndStoreProfilePhoto(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  conversationId: string,
+  phone: string,
+  instanceName: string,
+) {
+  try {
+    const { evolutionClient } = await import('@/lib/evolution/client');
+    const result = await evolutionClient.fetchProfilePhoto(instanceName, phone);
+    if (result?.profilePictureUrl) {
+      // Get current custom_attributes
+      const { data: conv } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('custom_attributes')
+        .eq('id', conversationId)
+        .maybeSingle();
+
+      const attrs = (conv?.custom_attributes || {}) as Record<string, string>;
+      attrs.profile_pic = result.profilePictureUrl;
+
+      await supabase
+        .from('pyra_whatsapp_conversations')
+        .update({ custom_attributes: attrs })
+        .eq('id', conversationId);
+
+      console.log(`[Profile] Stored profile photo for ${phone}`);
+    }
+  } catch (err) {
+    console.error('[Profile] Fetch profile photo error:', err);
   }
 }

@@ -15,6 +15,9 @@ import {
   Plus,
   Mic,
   Square,
+  MapPin,
+  Vote,
+  Contact,
 } from 'lucide-react';
 import {
   Popover,
@@ -43,6 +46,9 @@ export interface QuotedMessageForInput {
 interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
   onSendMedia?: (file: File, caption?: string) => Promise<void>;
+  onSendPoll?: (name: string, options: string[]) => Promise<void>;
+  onSendLocation?: (lat: number, lng: number, name?: string) => Promise<void>;
+  onSendContact?: (fullName: string, phoneNumber: string) => Promise<void>;
   disabled?: boolean;
   /** Variables for template substitution */
   templateVariables?: TemplateVariables;
@@ -61,6 +67,9 @@ interface ChatInputProps {
 export function ChatInput({
   onSend,
   onSendMedia,
+  onSendPoll,
+  onSendLocation,
+  onSendContact,
   disabled,
   templateVariables,
   injectedText,
@@ -448,6 +457,53 @@ export function ChatInput({
               <FileText className="h-4 w-4 text-red-500" />
               مستند
             </button>
+            {onSendPoll && (
+              <button
+                onClick={() => {
+                  const question = prompt('سؤال الاستطلاع:');
+                  if (!question) return;
+                  const optionsStr = prompt('الخيارات (مفصولة بفاصلة):');
+                  if (!optionsStr) return;
+                  const options = optionsStr.split(',').map((o) => o.trim()).filter(Boolean);
+                  if (options.length < 2) { toast.error('يجب إدخال خيارين على الأقل'); return; }
+                  onSendPoll(question, options);
+                }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <Vote className="h-4 w-4 text-purple-500" />
+                استطلاع
+              </button>
+            )}
+            {onSendLocation && (
+              <button
+                onClick={() => {
+                  const latStr = prompt('خط العرض (Latitude):');
+                  const lngStr = prompt('خط الطول (Longitude):');
+                  if (!latStr || !lngStr) return;
+                  const locName = prompt('اسم الموقع (اختياري):') || undefined;
+                  onSendLocation(parseFloat(latStr), parseFloat(lngStr), locName);
+                }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <MapPin className="h-4 w-4 text-red-500" />
+                موقع
+              </button>
+            )}
+            {onSendContact && (
+              <button
+                onClick={() => {
+                  const fullName = prompt('اسم جهة الاتصال:');
+                  if (!fullName) return;
+                  const phoneNumber = prompt('رقم الهاتف:');
+                  if (!phoneNumber) return;
+                  onSendContact(fullName, phoneNumber);
+                }}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm rounded-lg hover:bg-muted/50 transition-colors"
+              >
+                <Contact className="h-4 w-4 text-teal-500" />
+                جهة اتصال
+              </button>
+            )}
           </PopoverContent>
         </Popover>
         <input

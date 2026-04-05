@@ -19,6 +19,7 @@ import {
   useAiSuggestions,
   useReactToMessage,
   useSendTypingIndicator,
+  useSaveToFiles,
 } from '@/hooks/useWhatsApp';
 import { useSettings } from '@/hooks/useSettings';
 import { useChatStore } from '../use-chat-store';
@@ -35,6 +36,8 @@ import { SendInvoiceDialog } from '../dialogs/send-invoice-dialog';
 import { CreateLeadDialog } from '../dialogs/create-lead-dialog';
 import { AddNoteDialog } from '../dialogs/add-note-dialog';
 import { ScheduleFollowupDialog } from '../dialogs/schedule-followup-dialog';
+import { ForwardDialog } from '../dialogs/forward-dialog';
+import { useConversationPresence } from '../hooks/use-conversation-presence';
 
 /** Fallback upload size limit (2 MB) */
 const MAX_FALLBACK_UPLOAD_SIZE = 2 * 1024 * 1024;
@@ -98,6 +101,7 @@ export function ChatPanel({
   const [isTyping, setIsTyping] = useState(false);
   const [injectedText, setInjectedText] = useState<string | null>(null);
   const [quotedMessage, setQuotedMessage] = useState<QuotedMessageForInput | null>(null);
+  const [forwardMsgId, setForwardMsgId] = useState<string | null>(null);
 
   // AbortController for file uploads — abort on unmount
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -129,6 +133,10 @@ export function ChatPanel({
   const updateConvMutation = useUpdateConversation();
   const reactMutation = useReactToMessage();
   const typingMutation = useSendTypingIndicator();
+  const saveToFilesMutation = useSaveToFiles();
+
+  // Agent collision presence
+  const { otherViewers } = useConversationPresence(conversationId || undefined);
 
   // Debounced typing indicator — send composing/paused to WhatsApp
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -182,6 +190,19 @@ export function ChatPanel({
       const input = document.querySelector('[data-chat-input]') as HTMLTextAreaElement;
       input?.focus();
     }, 50);
+  }, []);
+
+  // Handle save-to-files
+  const handleSaveToFiles = useCallback((messageId: string) => {
+    saveToFilesMutation.mutate(messageId, {
+      onSuccess: () => toast.success('تم حفظ الملف'),
+      onError: () => toast.error('فشل حفظ الملف'),
+    });
+  }, [saveToFilesMutation]);
+
+  // Handle forward
+  const handleForward = useCallback((messageId: string) => {
+    setForwardMsgId(messageId);
   }, []);
 
   // Handle reaction on a message
@@ -370,6 +391,7 @@ export function ChatPanel({
           labels={labels}
           slaData={slaData}
           isContactTyping={isContactTyping}
+          otherViewers={otherViewers}
           onBack={onBack}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
@@ -391,6 +413,8 @@ export function ChatPanel({
           notes={notes}
           onReply={handleReply}
           onReact={handleReact}
+          onSaveToFiles={handleSaveToFiles}
+          onForward={handleForward}
         />
 
         {/* AI Suggest Bar — between messages and quick actions */}
@@ -554,6 +578,13 @@ export function ChatPanel({
           leadId={currentLeadId}
           onClose={() => setActiveDialog(null)}
           onScheduled={() => {}}
+        />
+      )}
+      {forwardMsgId && (
+        <ForwardDialog
+          open={!!forwardMsgId}
+          messageId={forwardMsgId}
+          onClose={() => setForwardMsgId(null)}
         />
       )}
     </div>

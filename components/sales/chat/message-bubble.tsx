@@ -8,13 +8,18 @@ import {
   Clock,
   Download,
   FileText,
+  Forward,
+  HardDrive,
   Image as ImageIcon,
+  MapPin,
   Mic,
   Pause,
+  Phone,
   Play,
   Reply,
   SmilePlus,
   Video,
+  Vote,
   X,
   ZoomIn,
 } from 'lucide-react';
@@ -41,6 +46,8 @@ interface MessageBubbleProps {
   reactions?: Array<{ emoji: string; from: string }>;
   onReply?: (quote: QuotedMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
+  onSaveToFiles?: (messageId: string) => void;
+  onForward?: (messageId: string) => void;
 }
 
 const MEDIA_ICONS: Record<string, React.ReactNode> = {
@@ -52,7 +59,7 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
 
 const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '🙏'];
 
-export function MessageBubble({ id, content, direction, messageType, mediaUrl, fileName, status, timestamp, messageId, contactName, replyPreview, reactions, onReply, onReact }: MessageBubbleProps) {
+export function MessageBubble({ id, content, direction, messageType, mediaUrl, fileName, status, timestamp, messageId, contactName, replyPreview, reactions, onReply, onReact, onSaveToFiles, onForward }: MessageBubbleProps) {
   const [imagePreview, setImagePreview] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
@@ -122,6 +129,26 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
               title="تفاعل"
             >
               <SmilePlus className="h-3 w-3" />
+            </button>
+          )}
+          {onSaveToFiles && ['image', 'document', 'video', 'audio'].includes(messageType) && (
+            <button
+              onClick={() => onSaveToFiles(id)}
+              className="p-1 rounded-md bg-card border border-border/40 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="حفظ"
+              title="حفظ"
+            >
+              <HardDrive className="h-3 w-3" />
+            </button>
+          )}
+          {onForward && (
+            <button
+              onClick={() => onForward(id)}
+              className="p-1 rounded-md bg-card border border-border/40 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="تحويل"
+              title="تحويل"
+            >
+              <Forward className="h-3 w-3" />
             </button>
           )}
         </div>
@@ -297,8 +324,66 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
             </a>
           )}
 
+          {/* ── Poll Message ── */}
+          {messageType === 'poll' && content && (
+            <div className={cn(
+              'rounded-xl px-3 py-2.5',
+              isOutgoing ? 'bg-white/10' : 'bg-muted/40'
+            )}>
+              <div className="flex items-center gap-2 mb-2">
+                <Vote className={cn('h-4 w-4', isOutgoing ? 'text-white/70' : 'text-purple-500')} />
+                <span className={cn('text-xs font-medium', isOutgoing ? 'text-white/70' : 'text-purple-600 dark:text-purple-400')}>
+                  استطلاع
+                </span>
+              </div>
+              <p className={cn('text-sm font-semibold mb-1.5', isOutgoing ? 'text-white' : 'text-foreground')}>
+                {content}
+              </p>
+            </div>
+          )}
+
+          {/* ── Location Message ── */}
+          {messageType === 'location' && (
+            <div className={cn(
+              'rounded-xl px-3 py-2.5',
+              isOutgoing ? 'bg-white/10' : 'bg-muted/40'
+            )}>
+              <div className="flex items-center gap-2">
+                <MapPin className={cn('h-4 w-4', isOutgoing ? 'text-white/70' : 'text-red-500')} />
+                <span className={cn('text-xs font-medium', isOutgoing ? 'text-white/70' : 'text-red-600 dark:text-red-400')}>
+                  موقع
+                </span>
+              </div>
+              {content && (
+                <p className={cn('text-sm mt-1', isOutgoing ? 'text-white/80' : 'text-foreground')}>
+                  {content}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Contact Card ── */}
+          {messageType === 'contact' && (
+            <div className={cn(
+              'rounded-xl px-3 py-2.5',
+              isOutgoing ? 'bg-white/10' : 'bg-muted/40'
+            )}>
+              <div className="flex items-center gap-2">
+                <Phone className={cn('h-4 w-4', isOutgoing ? 'text-white/70' : 'text-blue-500')} />
+                <span className={cn('text-xs font-medium', isOutgoing ? 'text-white/70' : 'text-blue-600 dark:text-blue-400')}>
+                  جهة اتصال
+                </span>
+              </div>
+              {content && (
+                <p className={cn('text-sm mt-1 font-medium', isOutgoing ? 'text-white' : 'text-foreground')}>
+                  {content}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* ── Fallback media badge (no URL) ── */}
-          {messageType !== 'text' && !resolvedMediaUrl && (
+          {messageType !== 'text' && !resolvedMediaUrl && !['poll', 'location', 'contact'].includes(messageType) && (
             <div className={cn(
               'flex items-center gap-2 text-sm',
               isOutgoing ? 'text-white/70' : 'text-muted-foreground/70'

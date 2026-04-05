@@ -192,7 +192,7 @@ export const SALES_LABEL_FIELDS = `
 `;
 
 export const WA_TEMPLATE_FIELDS = `
-  id, title, content, category, shortcut, created_by, created_at
+  id, title, content, category, shortcut, type, button_config, created_by, created_at
 `;
 
 export const WA_CONVERSATION_FIELDS = `

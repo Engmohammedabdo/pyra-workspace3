@@ -5,7 +5,7 @@ import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
-import { X, Receipt, Send, Search, Loader2, ExternalLink } from 'lucide-react';
+import { X, Receipt, Send, Search, Loader2, ExternalLink, File } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
@@ -25,6 +25,7 @@ interface Invoice {
 interface SendInvoiceDialogProps {
   leadId: string | null;
   clientId?: string | null;
+  conversationId?: string | null;
   remoteJid: string;
   instanceName: string;
   phone: string;
@@ -43,10 +44,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 
-export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, phone, onClose, onSent }: SendInvoiceDialogProps) {
+export function SendInvoiceDialog({ leadId, clientId, conversationId, remoteJid, instanceName, phone, onClose, onSent }: SendInvoiceDialogProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
+  const [sendingPdf, setSendingPdf] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -93,6 +95,28 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
       toast.error('فشل إرسال الفاتورة');
     } finally {
       setSending(null);
+    }
+  }
+
+  async function handleSendPdf(inv: Invoice) {
+    if (!conversationId) {
+      toast.error('لا يمكن إرسال PDF بدون محادثة');
+      return;
+    }
+    setSendingPdf(inv.id);
+    try {
+      await mutateAPI('/api/dashboard/sales/whatsapp/send-pdf', 'POST', {
+        conversation_id: conversationId,
+        type: 'invoice',
+        document_id: inv.id,
+      });
+      toast.success(`تم إرسال الفاتورة ${inv.invoice_number} كـ PDF`);
+      onSent();
+      onClose();
+    } catch {
+      toast.error('فشل إرسال PDF');
+    } finally {
+      setSendingPdf(null);
     }
   }
 
@@ -171,6 +195,22 @@ export function SendInvoiceDialog({ leadId, clientId, remoteJid, instanceName, p
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
+                  {conversationId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl text-xs h-8 px-2.5"
+                      onClick={() => handleSendPdf(inv)}
+                      disabled={sendingPdf === inv.id}
+                      title="إرسال كـ PDF"
+                    >
+                      {sendingPdf === inv.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <File className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     className="rounded-xl text-xs bg-purple-600 hover:bg-purple-700 text-white h-8 px-3"

@@ -5,7 +5,7 @@ import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
-import { X, FileText, Send, Search, Loader2, ExternalLink, Plus } from 'lucide-react';
+import { X, FileText, Send, Search, Loader2, ExternalLink, Plus, File } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
@@ -23,6 +23,7 @@ interface Quote {
 
 interface SendQuoteDialogProps {
   leadId: string | null;
+  conversationId?: string | null;
   remoteJid: string;
   instanceName: string;
   phone: string;
@@ -41,10 +42,11 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 
-export function SendQuoteDialog({ leadId, remoteJid, instanceName, phone, onClose, onSent }: SendQuoteDialogProps) {
+export function SendQuoteDialog({ leadId, conversationId, remoteJid, instanceName, phone, onClose, onSent }: SendQuoteDialogProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
+  const [sendingPdf, setSendingPdf] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
@@ -92,6 +94,28 @@ export function SendQuoteDialog({ leadId, remoteJid, instanceName, phone, onClos
       toast.error('فشل إرسال عرض السعر');
     } finally {
       setSending(null);
+    }
+  }
+
+  async function handleSendPdf(quote: Quote) {
+    if (!conversationId) {
+      toast.error('لا يمكن إرسال PDF بدون محادثة');
+      return;
+    }
+    setSendingPdf(quote.id);
+    try {
+      await mutateAPI('/api/dashboard/sales/whatsapp/send-pdf', 'POST', {
+        conversation_id: conversationId,
+        type: 'quote',
+        document_id: quote.id,
+      });
+      toast.success(`تم إرسال عرض السعر ${quote.quote_number} كـ PDF`);
+      onSent();
+      onClose();
+    } catch {
+      toast.error('فشل إرسال PDF');
+    } finally {
+      setSendingPdf(null);
     }
   }
 
@@ -171,6 +195,22 @@ export function SendQuoteDialog({ leadId, remoteJid, instanceName, phone, onClos
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
+                  {conversationId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl text-xs h-8 px-2.5"
+                      onClick={() => handleSendPdf(q)}
+                      disabled={sendingPdf === q.id}
+                      title="إرسال كـ PDF"
+                    >
+                      {sendingPdf === q.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <File className="h-3 w-3" />
+                      )}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     className="rounded-xl text-xs bg-emerald-600 hover:bg-emerald-700 text-white h-8 px-3"

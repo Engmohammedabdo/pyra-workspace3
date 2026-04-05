@@ -98,6 +98,11 @@ export interface WhatsAppTemplate {
   content: string;
   category: string;
   shortcut: string | null;
+  type?: 'text' | 'button';
+  button_config?: {
+    buttons: Array<{ buttonId: string; buttonText: string }>;
+    footerText?: string;
+  } | null;
 }
 
 // ============================================================
@@ -460,6 +465,29 @@ export function useSubmitCsat() {
 }
 
 // ============================================================
+// Hooks: Send PDF
+// ============================================================
+
+/** Send a quote or invoice as PDF via WhatsApp */
+export function useSendPdf() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      conversation_id: string;
+      type: 'quote' | 'invoice';
+      document_id: string;
+    }) =>
+      mutateAPI('/api/dashboard/sales/whatsapp/send-pdf', 'POST', payload),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({
+        queryKey: ['whatsapp-messages', variables.conversation_id],
+      });
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+// ============================================================
 // Hooks: Bulk Actions
 // ============================================================
 
@@ -620,5 +648,125 @@ export function useCheckSla() {
   return useMutation({
     mutationFn: () =>
       mutateAPI('/api/dashboard/sales/whatsapp/sla/check', 'POST'),
+  });
+}
+
+// ============================================================
+// Hooks: Save to Files (P3.1)
+// ============================================================
+
+/** Save a WhatsApp media message to file index */
+export function useSaveToFiles() {
+  return useMutation({
+    mutationFn: (messageId: string) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/messages/${messageId}/save-to-files`, 'POST'),
+  });
+}
+
+// ============================================================
+// Hooks: Forward Message (P3.4)
+// ============================================================
+
+/** Forward a message to another contact */
+export function useForwardMessage() {
+  return useMutation({
+    mutationFn: (payload: { messageId: string; toNumber: string }) =>
+      mutateAPI(
+        `/api/dashboard/sales/whatsapp/messages/${payload.messageId}/forward`,
+        'POST',
+        { to_number: payload.toNumber },
+      ),
+  });
+}
+
+// ============================================================
+// Hooks: Campaigns (P4.1)
+// ============================================================
+
+export interface Campaign {
+  id: string;
+  name: string;
+  message_template: string;
+  status: string;
+  total_contacts: number;
+  sent_count: number;
+  delivered_count: number;
+  read_count: number;
+  replied_count: number;
+  created_by: string;
+  created_at: string;
+  sent_at: string | null;
+  completed_at: string | null;
+}
+
+export interface CampaignContact {
+  id: string;
+  campaign_id: string;
+  contact_phone: string;
+  contact_name: string | null;
+  status: string;
+  sent_at: string | null;
+  error_message: string | null;
+}
+
+/** Fetch all campaigns */
+export function useCampaigns() {
+  return useQuery<Campaign[]>({
+    queryKey: ['whatsapp-campaigns'],
+    queryFn: () => fetchAPI<Campaign[]>('/api/dashboard/sales/whatsapp/campaigns'),
+    staleTime: 15_000,
+  });
+}
+
+/** Fetch single campaign with contacts */
+export function useCampaign(id: string | undefined) {
+  return useQuery<Campaign & { contacts: CampaignContact[] }>({
+    queryKey: ['whatsapp-campaign', id],
+    queryFn: () =>
+      fetchAPI<Campaign & { contacts: CampaignContact[] }>(
+        `/api/dashboard/sales/whatsapp/campaigns/${id}`,
+      ),
+    enabled: !!id,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
+  });
+}
+
+/** Create a new campaign */
+export function useCreateCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      message_template: string;
+      contacts: { phone: string; name?: string }[];
+    }) => mutateAPI('/api/dashboard/sales/whatsapp/campaigns', 'POST', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });
+    },
+  });
+}
+
+/** Delete a campaign */
+export function useDeleteCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/campaigns/${id}`, 'DELETE'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });
+    },
+  });
+}
+
+/** Send a campaign */
+export function useSendCampaign() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/campaigns/${id}/send`, 'POST'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });
+    },
   });
 }

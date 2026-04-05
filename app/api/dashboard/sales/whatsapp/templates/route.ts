@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    const templateType = body.type === 'button' ? 'button' : 'text';
+    const buttonConfig = templateType === 'button' && body.button_config ? body.button_config : null;
+
     const { data, error } = await supabase
       .from('pyra_whatsapp_templates')
       .insert({
@@ -64,6 +67,8 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         category: category?.trim() || 'general',
         shortcut: shortcut?.trim() || null,
+        type: templateType,
+        button_config: buttonConfig,
         created_by: auth.pyraUser.username,
       })
       .select(WA_TEMPLATE_FIELDS)

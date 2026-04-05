@@ -1,6 +1,6 @@
 'use client';
 
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { User, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -53,11 +53,19 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
   const displayName = conv.contact_name || phone;
   const avatarColor = getAvatarColor(conv.remote_jid);
   const msgType = conv.last_message_type || 'text';
+  const profilePic = (conv.custom_attributes as Record<string, string> | null)?.profile_pic || null;
+  const [imgError, setImgError] = useState(false);
   const lastMsgPreview = msgType !== 'text'
     ? MEDIA_LABELS[msgType] || '📎 ملف'
     : conv.last_message || '...';
 
   const isSnoozed = isCurrentlySnoozed(conv.snoozed_until);
+
+  // Online status — check if last_seen_at is within 5 minutes
+  const lastSeenAt = (conv.custom_attributes as Record<string, string> | null)?.last_seen_at;
+  const isOnline = lastSeenAt
+    ? (Date.now() - new Date(lastSeenAt).getTime()) < 5 * 60 * 1000
+    : false;
 
   return (
     <button
@@ -88,13 +96,28 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
         </div>
       )}
 
-      {/* Avatar */}
-      <div className={cn(
-        'w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shrink-0 shadow-sm',
-        'bg-gradient-to-br text-white',
-        isSelected ? 'from-emerald-500 to-teal-600 shadow-emerald-500/20' : avatarColor
-      )}>
-        {displayName.charAt(0).toUpperCase()}
+      {/* Avatar with Online Status */}
+      <div className="relative shrink-0">
+        {profilePic && !imgError ? (
+          <img
+            src={profilePic}
+            alt={displayName}
+            className="w-11 h-11 rounded-full shadow-sm object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className={cn(
+            'w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm shadow-sm',
+            'bg-gradient-to-br text-white',
+            isSelected ? 'from-emerald-500 to-teal-600 shadow-emerald-500/20' : avatarColor
+          )}>
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        {/* Online indicator — show green dot if last_seen_at is within 5 min */}
+        {isOnline && (
+          <div className="absolute -bottom-0.5 -end-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-card" />
+        )}
       </div>
 
       {/* Info */}

@@ -251,6 +251,74 @@ function generateRuleSuggestions(
   return suggestions.slice(0, 3);
 }
 
+// ── Claude AI suggestion generator ──────────────────────────
+
+async function generateClaudeSuggestions(
+  messages: IncomingMessage[],
+  contactName: string,
+  apiKey: string,
+): Promise<string[]> {
+  // Take last 10 messages for context
+  const recentMsgs = messages.slice(-10).map((m) => ({
+    role: m.direction === 'incoming' ? 'user' : 'assistant',
+    content: m.content || '[media]',
+  }));
+
+  const systemPrompt = `أنت مساعد مبيعات في شركة إنتاج إعلامي في الإمارات (Pyramedia X).
+اقترح 3 ردود قصيرة بالعربية مناسبة للرد على آخر رسالة من العميل.
+${contactName ? `اسم العميل: ${contactName}` : ''}
+الردود يجب أن تكون:
+- مختصرة (جملة أو جملتين كحد أقصى)
+- مهنية ودودة
+- مناسبة لسياق المحادثة
+أجب بصيغة JSON فقط: ["رد 1", "رد 2", "رد 3"]`;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      system: systemPrompt,
+      messages: recentMsgs.map((m) => ({
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: m.content,
+      })),
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    console.error('[AI Suggest] Claude API error:', res.status, errText);
+    return [];
+  }
+
+  const data = await res.json();
+  const textBlock = data?.content?.[0]?.text || '';
+
+  // Parse JSON from response
+  try {
+    const parsed = JSON.parse(textBlock);
+    if (Array.isArray(parsed)) return parsed.slice(0, 3);
+  } catch {
+    // Try to extract JSON from the text
+    const jsonMatch = textBlock.match(/\[[\s\S]*?\]/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(parsed)) return parsed.slice(0, 3);
+      } catch {
+        // Fallback: return empty
+      }
+    }
+  }
+  return [];
+}
+
 // ── POST handler ─────────────────────────────────────────────
 
 /**
@@ -278,6 +346,44 @@ export async function POST(request: NextRequest) {
       return apiSuccess<string[]>([]);
     }
 
+    const supabase = createServiceRoleClient();
+
+    // Check AI provider setting
+    let aiProvider = 'rules';
+    let aiApiKey = '';
+    try {
+      const { data: providerSetting } = await supabase
+        .from('pyra_settings')
+        .select('value')
+        .eq('key', 'whatsapp_ai_provider')
+        .maybeSingle();
+      if (providerSetting?.value) aiProvider = String(providerSetting.value);
+
+      if (aiProvider === 'claude') {
+        const { data: keySetting } = await supabase
+          .from('pyra_settings')
+          .select('value')
+          .eq('key', 'whatsapp_ai_api_key')
+          .maybeSingle();
+        if (keySetting?.value) aiApiKey = String(keySetting.value);
+      }
+    } catch {
+      // Settings not found — use rules
+    }
+
+    // If Claude provider is selected and key is available, use it
+    if (aiProvider === 'claude' && aiApiKey) {
+      const claudeSuggestions = await generateClaudeSuggestions(
+        messages,
+        contact_name || '',
+        aiApiKey,
+      );
+      if (claudeSuggestions.length > 0) {
+        return apiSuccess(claudeSuggestions);
+      }
+      // Fallback to rules if Claude fails
+    }
+
     // 1) Generate rule-based suggestions
     const ruleSuggestions = generateRuleSuggestions(
       messages,
@@ -287,7 +393,6 @@ export async function POST(request: NextRequest) {
     // 2) Try to find matching canned responses (templates)
     const templateSuggestions: string[] = [];
     try {
-      const supabase = createServiceRoleClient();
       const { data: templates } = await supabase
         .from('pyra_whatsapp_templates')
         .select('content')

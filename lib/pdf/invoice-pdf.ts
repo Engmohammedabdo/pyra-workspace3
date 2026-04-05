@@ -161,7 +161,7 @@ const TERMS: Record<string, string[]> = {
 const FOOTER = { phone: '+971 565799505', social: 'PYRAMEDIA.DXB', web: 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI' };
 
 // ============================================================
-export async function generateInvoicePDF(invoice: InvoiceData) {
+export async function generateInvoicePDF(invoice: InvoiceData, options?: { returnBlob?: boolean }): Promise<Blob | void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   await registerArabicFont(doc);
   const ar = (t: string) => doc.processArabic(t);
@@ -743,6 +743,9 @@ export async function generateInvoicePDF(invoice: InvoiceData) {
     doc.text(FOOTER.web, M + 7, fy + 10);
   }
 
-  // Save
+  // Save or return blob
+  if (options?.returnBlob) {
+    return doc.output('blob');
+  }
   doc.save(`invoice-${invoice.invoice_number}.pdf`);
 }

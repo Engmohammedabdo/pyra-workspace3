@@ -8,7 +8,7 @@ import {
   BellOff, Bell,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { AssignDialog } from '../dialogs/assign-dialog';
 import { SnoozePicker } from '../dialogs/snooze-picker';
 import { LabelPicker } from '../dialogs/label-picker';
@@ -38,6 +38,9 @@ interface ChatHeaderProps {
   labels?: ConversationLabel[];
   slaData?: SlaConversationData | null;
   isContactTyping?: boolean;
+  otherViewers?: string[];
+  profilePic?: string | null;
+  isOutsideBusinessHours?: boolean;
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -80,10 +83,14 @@ export function ChatHeader({
   onCloseSearch,
   onStatusChange,
   isContactTyping,
+  otherViewers = [],
+  profilePic,
+  isOutsideBusinessHours,
   onMuteToggle,
   onSnoozed,
 }: ChatHeaderProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [headerImgError, setHeaderImgError] = useState(false);
 
   return (
     <>
@@ -107,9 +114,18 @@ export function ChatHeader({
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             onClick={onToggleSidebar}
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/15">
-              {(contactName || phone).charAt(0).toUpperCase()}
-            </div>
+            {profilePic && !headerImgError ? (
+              <img
+                src={profilePic}
+                alt={contactName || phone}
+                className="w-10 h-10 rounded-full shadow-md object-cover"
+                onError={() => setHeaderImgError(true)}
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-emerald-500/15">
+                {(contactName || phone).charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="min-w-0 text-start">
               <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
               {isContactTyping ? (
@@ -132,6 +148,33 @@ export function ChatHeader({
 
           {/* SLA Indicator */}
           {slaData && <SlaIndicator conversation={slaData} />}
+
+          {/* Other Agents Viewing (Collision Detection) */}
+          {otherViewers.length > 0 && (
+            <div className="flex items-center gap-1 shrink-0" title={otherViewers.join(', ')}>
+              <div className="flex -space-x-1.5 rtl:space-x-reverse">
+                {otherViewers.slice(0, 3).map((agent) => (
+                  <div
+                    key={agent}
+                    className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center text-white text-[9px] font-bold border-2 border-card"
+                  >
+                    {agent.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+              </div>
+              <span className="text-[9px] text-blue-500 dark:text-blue-400 font-medium">
+                {otherViewers.length === 1 ? `${otherViewers[0]} يشاهد` : `${otherViewers.length} يشاهدون`}
+              </span>
+            </div>
+          )}
+
+          {/* Business Hours Badge */}
+          {isOutsideBusinessHours && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/30 flex items-center gap-1 shrink-0">
+              <Clock className="h-2.5 w-2.5" />
+              خارج ساعات العمل
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1 relative">
           {/* Assign to Agent — admin only */}

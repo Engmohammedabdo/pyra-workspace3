@@ -260,6 +260,134 @@ class EvolutionClient {
       return null;
     }
   }
+
+  // ─── Forward ──────────────────────────────────────────────
+
+  /** Forward a message to another contact */
+  async forwardMessage(instanceName: string, payload: { number: string; messageId: string }) {
+    return this.request('POST', `/chat/forwardMessage/${instanceName}`, {
+      number: payload.number,
+      messageId: payload.messageId,
+    });
+  }
+
+  // ─── Templates ────────────────────────────────────────────
+
+  /** Send a WhatsApp Business template message */
+  async sendTemplate(
+    instanceName: string,
+    payload: { number: string; name: string; language: string; components?: unknown[] },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendTemplate/${instanceName}`,
+      payload,
+    );
+  }
+
+  // ─── Polls / Location / Contact Cards ─────────────────────
+
+  /** Send a poll message */
+  async sendPoll(
+    instanceName: string,
+    payload: { number: string; name: string; options: string[]; selectableCount?: number },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendPoll/${instanceName}`,
+      {
+        number: payload.number,
+        name: payload.name,
+        values: payload.options,
+        selectableCount: payload.selectableCount || 1,
+      },
+    );
+  }
+
+  /** Send a location message */
+  async sendLocation(
+    instanceName: string,
+    payload: { number: string; latitude: number; longitude: number; name?: string; address?: string },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendLocation/${instanceName}`,
+      {
+        number: payload.number,
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        name: payload.name,
+        address: payload.address,
+      },
+    );
+  }
+
+  // ─── Button Messages ──────────────────────────────────────
+
+  /** Send interactive button message */
+  async sendButtons(
+    instanceName: string,
+    payload: {
+      number: string;
+      title: string;
+      description?: string;
+      buttons: Array<{ buttonId: string; buttonText: string }>;
+      footerText?: string;
+    },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendButtons/${instanceName}`,
+      {
+        number: payload.number,
+        buttonMessage: {
+          title: payload.title,
+          description: payload.description || '',
+          buttons: payload.buttons,
+          footerText: payload.footerText || '',
+        },
+      },
+    );
+  }
+
+  // ─── Profile Photos ─────────────────────────────────────
+
+  /** Fetch contact profile photo URL */
+  async fetchProfilePhoto(
+    instanceName: string,
+    number: string,
+  ): Promise<{ profilePictureUrl?: string } | null> {
+    try {
+      return await this.request<{ profilePictureUrl?: string }>(
+        'GET',
+        `/chat/fetchProfileUrl/${instanceName}?number=${number}`,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** Send a contact card */
+  async sendContact(
+    instanceName: string,
+    payload: { number: string; contact: { fullName: string; phoneNumber: string; organization?: string } },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendContact/${instanceName}`,
+      {
+        number: payload.number,
+        contact: [
+          {
+            fullName: payload.contact.fullName,
+            wuid: payload.contact.phoneNumber,
+            phoneNumber: payload.contact.phoneNumber,
+            organization: payload.contact.organization,
+          },
+        ],
+      },
+    );
+  }
 }
 
 /** Singleton instance */

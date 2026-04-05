@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useUpdateConversation, useConversationCsat } from '@/hooks/useWhatsApp';
@@ -98,6 +98,12 @@ export function ContactPanel({
   const [editingAttr, setEditingAttr] = useState(false);
   const [newAttrKey, setNewAttrKey] = useState('');
   const [newAttrValue, setNewAttrValue] = useState('');
+
+  const [panelImgError, setPanelImgError] = useState(false);
+  const profilePic = useMemo(() => {
+    const attrs = conversation?.custom_attributes as Record<string, string> | null;
+    return attrs?.profile_pic || null;
+  }, [conversation?.custom_attributes]);
 
   const updateConvMutation = useUpdateConversation();
   const { data: csatData } = useConversationCsat(conversationId || undefined);
@@ -204,9 +210,18 @@ export function ContactPanel({
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {/* Contact Avatar + Name */}
         <div className="text-center">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-emerald-500/15">
-            {(contactName || phone || '?').charAt(0).toUpperCase()}
-          </div>
+          {profilePic && !panelImgError ? (
+            <img
+              src={profilePic}
+              alt={contactName || phone || ''}
+              className="w-16 h-16 rounded-full mx-auto shadow-lg object-cover"
+              onError={() => setPanelImgError(true)}
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xl mx-auto shadow-lg shadow-emerald-500/15">
+              {(contactName || phone || '?').charAt(0).toUpperCase()}
+            </div>
+          )}
           {/* Editable Name */}
           {editingName ? (
             <div className="flex items-center gap-1 mt-2 justify-center">
