@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
 import { CONVERSATION_STATUS } from '@/lib/constants/statuses';
+import { typingMap } from '@/lib/whatsapp/typing-map';
 
 /**
  * GET /api/dashboard/sales/whatsapp/conversations
@@ -186,11 +187,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Enrich conversations with labels
-    const enriched = conversations.map(c => ({
-      ...c,
-      labels: labelsMap[c.id] || [],
-    }));
+    // Enrich conversations with labels and typing state
+    const now = Date.now();
+    const enriched = conversations.map(c => {
+      // Check typing state from in-memory map
+      const typingEntry = c.remote_jid ? typingMap.get(c.remote_jid) : undefined;
+      const isTyping = typingEntry
+        ? typingEntry.typing && (now - typingEntry.updatedAt < 10_000)
+        : false;
+
+      return {
+        ...c,
+        labels: labelsMap[c.id] || [],
+        is_typing: isTyping,
+      };
+    });
 
     // Counts per status for tab badges (scoped to agent for non-admins)
     const nowIso = new Date().toISOString();

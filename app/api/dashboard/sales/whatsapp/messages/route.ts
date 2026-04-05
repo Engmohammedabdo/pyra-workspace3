@@ -82,6 +82,23 @@ export async function GET(request: NextRequest) {
         .from('pyra_whatsapp_conversations')
         .update({ unread_count: 0 })
         .eq('id', conversationId);
+
+      // Sync read status back to WhatsApp (customer sees blue ticks)
+      let jidToMark = remoteJid;
+      if (!jidToMark) {
+        const { data: conv } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('remote_jid')
+          .eq('id', conversationId)
+          .maybeSingle();
+        jidToMark = conv?.remote_jid || null;
+      }
+
+      if (jidToMark) {
+        import('@/lib/evolution/client').then(({ evolutionClient }) => {
+          evolutionClient.markChatRead('pyraai', jidToMark!).catch(() => {});
+        }).catch(() => {});
+      }
     }
 
     return apiSuccess(data);

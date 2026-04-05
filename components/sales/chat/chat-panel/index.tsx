@@ -17,12 +17,15 @@ import {
   useUpdateConversation,
   useAddConversationNote,
   useAiSuggestions,
+  useReactToMessage,
+  useSendTypingIndicator,
 } from '@/hooks/useWhatsApp';
 import { useSettings } from '@/hooks/useSettings';
 import { useChatStore } from '../use-chat-store';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
-import { ChatInput } from '../chat-input';
+import { ChatInput, type QuotedMessageForInput } from '../chat-input';
+import type { QuotedMessage } from '../message-bubble';
 import { NoteInput } from './note-input';
 import { SuggestBar } from '../ai-suggest/suggest-bar';
 import { ContactPanel } from '../contact-panel';
@@ -51,6 +54,7 @@ interface ChatPanelProps {
   labels?: import('@/hooks/useWhatsApp').ConversationLabel[];
   slaData?: SlaConversationData | null;
   isAdmin?: boolean;
+  isContactTyping?: boolean;
   onBack?: () => void;
   onConversationUpdated?: () => void;
 }
@@ -70,6 +74,7 @@ export function ChatPanel({
   labels,
   slaData,
   isAdmin,
+  isContactTyping,
   onBack,
   onConversationUpdated,
 }: ChatPanelProps) {
@@ -92,6 +97,7 @@ export function ChatPanel({
   const [isMuted, setIsMuted] = useState(initialMuted || false);
   const [isTyping, setIsTyping] = useState(false);
   const [injectedText, setInjectedText] = useState<string | null>(null);
+  const [quotedMessage, setQuotedMessage] = useState<QuotedMessageForInput | null>(null);
 
   // AbortController for file uploads — abort on unmount
   const uploadAbortRef = useRef<AbortController | null>(null);
@@ -121,6 +127,12 @@ export function ChatPanel({
   const sendMediaMutation = useSendMediaMessage();
   const addNoteMutation = useAddConversationNote();
   const updateConvMutation = useUpdateConversation();
+  const reactMutation = useReactToMessage();
+  const typingMutation = useSendTypingIndicator();
+
+  // Debounced typing indicator — send composing/paused to WhatsApp
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastTypingSentRef = useRef<boolean>(false);
 
   // ── AI Suggestions ──
   const { data: settingsData } = useSettings();
@@ -139,7 +151,47 @@ export function ChatPanel({
 
   const handleTypingChange = useCallback((typing: boolean) => {
     setIsTyping(typing);
+
+    // Send typing indicator to WhatsApp (debounced)
+    if (!conversationId) return;
+    if (typing && !lastTypingSentRef.current) {
+      lastTypingSentRef.current = true;
+      typingMutation.mutate({ conversation_id: conversationId, is_typing: true });
+    }
+    // Clear previous timeout
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    // Set paused after 2s of no typing
+    typingTimeoutRef.current = setTimeout(() => {
+      if (lastTypingSentRef.current) {
+        lastTypingSentRef.current = false;
+        typingMutation.mutate({ conversation_id: conversationId, is_typing: false });
+      }
+    }, 2000);
+  }, [conversationId, typingMutation]);
+
+  // Handle reply action from message bubble
+  const handleReply = useCallback((quote: QuotedMessage) => {
+    setQuotedMessage({
+      id: quote.id,
+      messageId: quote.messageId,
+      content: quote.content,
+      sender: quote.sender,
+    });
+    // Focus the input
+    setTimeout(() => {
+      const input = document.querySelector('[data-chat-input]') as HTMLTextAreaElement;
+      input?.focus();
+    }, 50);
   }, []);
+
+  // Handle reaction on a message
+  const handleReact = useCallback((messageId: string, emoji: string) => {
+    reactMutation.mutate({
+      messageId,
+      reaction: emoji,
+      conversationKey: conversationId || remoteJid,
+    });
+  }, [reactMutation, conversationId, remoteJid]);
 
   // Filter messages for search count
   const displayMessages = searchQuery
@@ -155,12 +207,19 @@ export function ChatPanel({
         number: phone,
         text,
         lead_id: leadId,
+        quoted_message_id: quotedMessage?.id,
       });
+      setQuotedMessage(null); // Clear quote after successful send
+      // Reset typing indicator
+      if (lastTypingSentRef.current && conversationId) {
+        lastTypingSentRef.current = false;
+        typingMutation.mutate({ conversation_id: conversationId, is_typing: false });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الرسالة');
       throw err;
     }
-  }, [sendMessageMutation, instanceName, remoteJid, conversationId, phone, leadId]);
+  }, [sendMessageMutation, instanceName, remoteJid, conversationId, phone, leadId, quotedMessage, typingMutation]);
 
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     try {
@@ -310,6 +369,7 @@ export function ChatPanel({
           isMuted={isMuted}
           labels={labels}
           slaData={slaData}
+          isContactTyping={isContactTyping}
           onBack={onBack}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
@@ -329,6 +389,8 @@ export function ChatPanel({
         <MessageList
           messages={displayMessages}
           notes={notes}
+          onReply={handleReply}
+          onReact={handleReact}
         />
 
         {/* AI Suggest Bar — between messages and quick actions */}
@@ -424,6 +486,8 @@ export function ChatPanel({
             injectedText={injectedText}
             onInjectedTextConsumed={() => setInjectedText(null)}
             onTypingChange={handleTypingChange}
+            quotedMessage={quotedMessage}
+            onClearQuote={() => setQuotedMessage(null)}
           />
         )}
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { MessageBubble } from '../message-bubble';
+import { MessageBubble, type QuotedMessage } from '../message-bubble';
 import { MessageCircle, ChevronDown, Pencil } from 'lucide-react';
 import type { Message, ConversationNote } from '@/hooks/useWhatsApp';
 
@@ -12,9 +12,11 @@ type TimelineItem =
 interface MessageListProps {
   messages: Message[];
   notes: ConversationNote[];
+  onReply?: (quote: QuotedMessage) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
-export function MessageList({ messages, notes }: MessageListProps) {
+export function MessageList({ messages, notes, onReply, onReact }: MessageListProps) {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -103,6 +105,12 @@ export function MessageList({ messages, notes }: MessageListProps) {
                         fileName={msg.file_name}
                         status={msg.status}
                         timestamp={msg.timestamp}
+                        messageId={msg.message_id}
+                        contactName={msg.contact_name}
+                        replyPreview={msg.reply_preview}
+                        reactions={msg.reactions}
+                        onReply={onReply}
+                        onReact={onReact}
                       />
                     );
                   }

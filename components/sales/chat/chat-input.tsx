@@ -33,6 +33,13 @@ export interface TemplateVariables {
   phone?: string;
 }
 
+export interface QuotedMessageForInput {
+  id: string;
+  messageId: string;
+  content: string;
+  sender?: string;
+}
+
 interface ChatInputProps {
   onSend: (text: string) => Promise<void>;
   onSendMedia?: (file: File, caption?: string) => Promise<void>;
@@ -45,6 +52,10 @@ interface ChatInputProps {
   onInjectedTextConsumed?: () => void;
   /** Notify parent when the user starts/stops typing */
   onTypingChange?: (isTyping: boolean) => void;
+  /** Quoted message to reply to */
+  quotedMessage?: QuotedMessageForInput | null;
+  /** Clear the quoted message */
+  onClearQuote?: () => void;
 }
 
 export function ChatInput({
@@ -55,6 +66,8 @@ export function ChatInput({
   injectedText,
   onInjectedTextConsumed,
   onTypingChange,
+  quotedMessage,
+  onClearQuote,
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -305,6 +318,29 @@ export function ChatInput({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Quoted message preview */}
+      {quotedMessage && (
+        <div className="px-3 py-2 border-b border-border/30 flex items-center gap-2 bg-muted/20">
+          <div className="flex-1 border-s-2 border-s-emerald-500 ps-2 min-w-0">
+            {quotedMessage.sender && (
+              <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                {quotedMessage.sender}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground line-clamp-1">
+              {quotedMessage.content || '...'}
+            </p>
+          </div>
+          <button
+            onClick={onClearQuote}
+            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="إلغاء الرد"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Drag overlay */}
       {isDragging && (
         <div className="px-3 pt-3 text-center text-sm text-orange-600 dark:text-orange-400 font-medium">

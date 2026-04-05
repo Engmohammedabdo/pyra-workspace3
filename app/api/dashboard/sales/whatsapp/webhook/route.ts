@@ -4,6 +4,7 @@ import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 import { applySlaPolicy } from '@/lib/whatsapp/sla';
+import { typingMap, cleanupTypingMap } from '@/lib/whatsapp/typing-map';
 
 /** Shared secret for webhook authentication */
 const WEBHOOK_SECRET = process.env.EVOLUTION_API_KEY || '';
@@ -79,6 +80,25 @@ async function processWebhook(event: string, instanceName: string, data: Record<
         const messageType = detectMessageType(msg);
         const mediaUrl = extractMediaUrl(msg);
         const fileName = extractFileName(msg);
+
+        // ── Extract quoted reply info ──
+        const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+        const replyToId = contextInfo?.stanzaId || null;
+        let replyPreview: { text: string; sender?: string } | null = null;
+        if (replyToId && contextInfo) {
+          const quotedMsg = contextInfo.quotedMessage;
+          const quotedText =
+            quotedMsg?.conversation ||
+            quotedMsg?.imageMessage?.caption ||
+            quotedMsg?.documentMessage?.fileName ||
+            '...';
+          replyPreview = {
+            text: quotedText,
+            sender: contextInfo.participant
+              ? contextInfo.participant.replace('@s.whatsapp.net', '').replace('@lid', '')
+              : undefined,
+          };
+        }
 
         // Skip if we already have this message (dedup by message_id)
         if (msg.key.id) {
@@ -228,6 +248,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           contact_name: msg.pushName || null,
           status: direction === 'incoming' ? 'received' : 'sent',
           timestamp: msgTimestamp,
+          reply_to_id: replyToId,
+          reply_preview: replyPreview,
           metadata: {
             pushName: msg.pushName,
             remoteJidAlt: msg.key.remoteJidAlt || null,
@@ -293,10 +315,43 @@ async function processWebhook(event: string, instanceName: string, data: Record<
     }
 
     case 'MESSAGES_UPDATE': {
-      // Status updates (delivered, read)
+      // Status updates (delivered, read) and reactions
       const updates = Array.isArray(data) ? data : [data];
       for (const update of updates) {
-        const key = update.key as { id?: string };
+        const key = update.key as { id?: string; remoteJid?: string; fromMe?: boolean };
+
+        // ── Handle reaction updates ──
+        const reactionMessage = (update as Record<string, unknown>).reactionMessage as
+          | { key?: { id?: string }; text?: string; senderId?: string }
+          | undefined;
+        if (reactionMessage?.key?.id) {
+          const targetMsgId = reactionMessage.key.id;
+          const emoji = reactionMessage.text || '';
+          const sender = reactionMessage.senderId || key?.remoteJid || '';
+
+          // Fetch current reactions
+          const { data: msg } = await supabase
+            .from('pyra_whatsapp_messages')
+            .select('reactions')
+            .eq('message_id', targetMsgId)
+            .maybeSingle();
+
+          if (msg) {
+            const reactions: Array<{ emoji: string; from: string }> = Array.isArray(msg.reactions) ? msg.reactions : [];
+            // Remove existing reaction from this sender
+            const filtered = reactions.filter((r: { from: string }) => r.from !== sender);
+            // Add new reaction (empty emoji = remove)
+            if (emoji) filtered.push({ emoji, from: sender });
+
+            await supabase
+              .from('pyra_whatsapp_messages')
+              .update({ reactions: filtered })
+              .eq('message_id', targetMsgId);
+          }
+          continue;
+        }
+
+        // ── Status updates ──
         const statusMap: Record<number, string> = {
           2: 'sent',
           3: 'delivered',
@@ -327,6 +382,20 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           .from('pyra_whatsapp_instances')
           .update({ status: newStatus, updated_at: new Date().toISOString() })
           .eq('instance_name', instanceName);
+      }
+      break;
+    }
+
+    case 'PRESENCE_UPDATE': {
+      // Typing indicator from contacts
+      const remoteJid = (data.remoteJid || data.id) as string | undefined;
+      const presenceStatus = (data.status || data.presence) as string | undefined;
+      if (remoteJid && presenceStatus) {
+        cleanupTypingMap();
+        typingMap.set(remoteJid, {
+          typing: presenceStatus === 'composing',
+          updatedAt: Date.now(),
+        });
       }
       break;
     }

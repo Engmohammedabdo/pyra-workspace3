@@ -50,7 +50,8 @@ export type EvoWebhookEvent =
   | 'MESSAGES_UPSERT'
   | 'MESSAGES_UPDATE'
   | 'CONNECTION_UPDATE'
-  | 'QRCODE_UPDATED';
+  | 'QRCODE_UPDATED'
+  | 'PRESENCE_UPDATE';
 
 export interface EvoWebhookPayload {
   event: EvoWebhookEvent;
@@ -72,7 +73,18 @@ export interface EvoMessageData {
   pushName?: string;
   message?: {
     conversation?: string;
-    extendedTextMessage?: { text: string };
+    extendedTextMessage?: {
+      text?: string;
+      contextInfo?: {
+        stanzaId?: string;
+        participant?: string;
+        quotedMessage?: {
+          conversation?: string;
+          imageMessage?: { caption?: string };
+          documentMessage?: { fileName?: string };
+        };
+      };
+    };
     imageMessage?: { url?: string; caption?: string; mimetype?: string };
     documentMessage?: { url?: string; fileName?: string; mimetype?: string };
     audioMessage?: { url?: string; mimetype?: string };

@@ -161,9 +161,15 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
 
         <div className="flex items-center justify-between mt-0.5">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <p className="text-xs text-muted-foreground/60 truncate">
-              {lastMsgPreview}
-            </p>
+            {conv.is_typing ? (
+              <span className="text-xs text-emerald-500 animate-pulse">
+                يكتب...
+              </span>
+            ) : (
+              <p className="text-xs text-muted-foreground/60 truncate">
+                {lastMsgPreview}
+              </p>
+            )}
             <LabelDots labels={conv.labels} />
             {conv.status === 'resolved' && conv.csat_rating && (
               <CsatBadge rating={conv.csat_rating} size="sm" />

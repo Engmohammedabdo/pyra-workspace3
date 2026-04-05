@@ -58,6 +58,8 @@ export interface Conversation {
   resolved_at?: string | null;
   // CSAT fields
   csat_rating?: number | null;
+  // Typing indicator
+  is_typing?: boolean;
 }
 
 export interface ConversationsResponse {
@@ -76,6 +78,11 @@ export interface Message {
   file_name?: string | null;
   status: string;
   timestamp: string;
+  message_id?: string | null;
+  contact_name?: string | null;
+  reply_to_id?: string | null;
+  reply_preview?: { text: string; sender?: string } | null;
+  reactions?: Array<{ emoji: string; from: string }>;
 }
 
 export interface ConversationNote {
@@ -179,6 +186,7 @@ export function useSendMessage() {
       number: string;
       text: string;
       lead_id?: string | null;
+      quoted_message_id?: string;
     }) => mutateAPI('/api/dashboard/sales/whatsapp/send', 'POST', payload),
     onSuccess: (_, variables) => {
       qc.invalidateQueries({
@@ -276,6 +284,34 @@ export function useAddConversationNote() {
         queryKey: ['whatsapp-notes', variables.conversationId],
       });
     },
+  });
+}
+
+/** React to a message with an emoji */
+export function useReactToMessage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { messageId: string; reaction: string; conversationKey?: string }) =>
+      mutateAPI(
+        `/api/dashboard/sales/whatsapp/messages/${payload.messageId}/react`,
+        'POST',
+        { reaction: payload.reaction },
+      ),
+    onSuccess: (_, variables) => {
+      if (variables.conversationKey) {
+        qc.invalidateQueries({
+          queryKey: ['whatsapp-messages', variables.conversationKey],
+        });
+      }
+    },
+  });
+}
+
+/** Send typing indicator to WhatsApp */
+export function useSendTypingIndicator() {
+  return useMutation({
+    mutationFn: (payload: { conversation_id: string; is_typing: boolean }) =>
+      mutateAPI('/api/dashboard/sales/whatsapp/typing', 'POST', payload),
   });
 }
 

@@ -302,6 +302,7 @@ export function ChatLayout() {
                   status: selectedConversation.status,
                 } : null}
                 isAdmin={isAdmin}
+                isContactTyping={selectedConversation.is_typing}
                 onBack={() => setMobileView('list')}
                 onConversationUpdated={() => {
                   // Conversations will auto-refresh via React Query

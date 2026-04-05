@@ -70,6 +70,7 @@ class EvolutionClient {
               'MESSAGES_UPSERT',
               'MESSAGES_UPDATE',
               'CONNECTION_UPDATE',
+              'PRESENCE_UPDATE',
             ],
           }
         : undefined,
@@ -112,6 +113,7 @@ class EvolutionClient {
         'MESSAGES_UPSERT',
         'MESSAGES_UPDATE',
         'CONNECTION_UPDATE',
+        'PRESENCE_UPDATE',
       ],
     });
   }
@@ -136,6 +138,61 @@ class EvolutionClient {
         text: payload.text,
       },
     );
+  }
+
+  /** Send a text message quoting another message */
+  async sendTextQuoted(
+    instanceName: string,
+    payload: { number: string; text: string; quotedMessageId: string },
+  ): Promise<EvoSendResponse> {
+    return this.request<EvoSendResponse>(
+      'POST',
+      `/message/sendText/${instanceName}`,
+      {
+        number: payload.number,
+        text: payload.text,
+        quoted: { key: { id: payload.quotedMessageId } },
+      },
+    );
+  }
+
+  /** Send an emoji reaction to a message */
+  async sendReaction(
+    instanceName: string,
+    payload: { remoteJid: string; messageId: string; reaction: string },
+  ) {
+    return this.request('POST', `/message/sendReaction/${instanceName}`, {
+      key: { remoteJid: payload.remoteJid, id: payload.messageId },
+      reaction: payload.reaction,
+    });
+  }
+
+  /** Mark a chat as read (syncs blue ticks back to WhatsApp) */
+  async markChatRead(instanceName: string, remoteJid: string) {
+    try {
+      return await this.request('POST', `/chat/markChatUnread/${instanceName}`, {
+        lastMessage: { key: { remoteJid } },
+        read: true,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  /** Send typing / presence indicator */
+  async sendPresence(
+    instanceName: string,
+    remoteJid: string,
+    state: 'composing' | 'paused' | 'available',
+  ) {
+    try {
+      return await this.request('POST', `/chat/updatePresence/${instanceName}`, {
+        remoteJid,
+        presence: state,
+      });
+    } catch {
+      return null;
+    }
   }
 
   /** Send a media message (image, document, audio, video) */

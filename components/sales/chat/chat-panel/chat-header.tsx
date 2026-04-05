@@ -37,6 +37,7 @@ interface ChatHeaderProps {
   isMuted?: boolean;
   labels?: ConversationLabel[];
   slaData?: SlaConversationData | null;
+  isContactTyping?: boolean;
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -78,6 +79,7 @@ export function ChatHeader({
   onSearchChange,
   onCloseSearch,
   onStatusChange,
+  isContactTyping,
   onMuteToggle,
   onSnoozed,
 }: ChatHeaderProps) {
@@ -110,12 +112,21 @@ export function ChatHeader({
             </div>
             <div className="min-w-0 text-start">
               <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
-              {displayPhone && (
+              {isContactTyping ? (
+                <span className="text-[10px] text-emerald-500 flex items-center gap-1 animate-pulse">
+                  <span>يكتب</span>
+                  <span className="flex gap-0.5">
+                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0s' }} />
+                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
+                    <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0.4s' }} />
+                  </span>
+                </span>
+              ) : displayPhone ? (
                 <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums" dir="ltr">
                   <Phone className="h-2.5 w-2.5" />
                   {displayPhone}
                 </p>
-              )}
+              ) : null}
             </div>
           </button>
 

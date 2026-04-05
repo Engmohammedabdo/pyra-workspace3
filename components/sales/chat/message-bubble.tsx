@@ -12,10 +12,19 @@ import {
   Mic,
   Pause,
   Play,
+  Reply,
+  SmilePlus,
   Video,
   X,
   ZoomIn,
 } from 'lucide-react';
+
+export interface QuotedMessage {
+  id: string;
+  messageId: string;
+  content: string;
+  sender?: string;
+}
 
 interface MessageBubbleProps {
   id: string;
@@ -26,6 +35,12 @@ interface MessageBubbleProps {
   fileName?: string | null;
   status?: string;
   timestamp: string;
+  messageId?: string | null;
+  contactName?: string | null;
+  replyPreview?: { text: string; sender?: string } | null;
+  reactions?: Array<{ emoji: string; from: string }>;
+  onReply?: (quote: QuotedMessage) => void;
+  onReact?: (messageId: string, emoji: string) => void;
 }
 
 const MEDIA_ICONS: Record<string, React.ReactNode> = {
@@ -35,10 +50,13 @@ const MEDIA_ICONS: Record<string, React.ReactNode> = {
   video: <Video className="h-4 w-4" />,
 };
 
-export function MessageBubble({ id, content, direction, messageType, mediaUrl, fileName, status, timestamp }: MessageBubbleProps) {
+const QUICK_REACTIONS = ['👍', '❤️', '😂', '😮', '🙏'];
+
+export function MessageBubble({ id, content, direction, messageType, mediaUrl, fileName, status, timestamp, messageId, contactName, replyPreview, reactions, onReply, onReact }: MessageBubbleProps) {
   const [imagePreview, setImagePreview] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioProgress, setAudioProgress] = useState(0);
+  const [showReactions, setShowReactions] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Clean up audio on unmount
@@ -72,7 +90,63 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
 
   return (
     <>
-      <div className={cn('flex', isOutgoing ? 'justify-end' : 'justify-start')}>
+      <div
+        className={cn('flex group/msg relative', isOutgoing ? 'justify-end' : 'justify-start')}
+        onMouseEnter={() => setShowReactions(false)}
+      >
+        {/* Hover action buttons */}
+        <div className={cn(
+          'absolute top-0 flex items-center gap-0.5 opacity-0 group-hover/msg:opacity-100 transition-opacity z-10',
+          isOutgoing ? 'start-0 -translate-x-full pe-1' : 'end-0 translate-x-full ps-1'
+        )}>
+          {onReply && (
+            <button
+              onClick={() => onReply({
+                id,
+                messageId: messageId || id,
+                content: content || '',
+                sender: direction === 'incoming' ? (contactName || undefined) : 'أنت',
+              })}
+              className="p-1 rounded-md bg-card border border-border/40 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="رد"
+              title="رد"
+            >
+              <Reply className="h-3 w-3" />
+            </button>
+          )}
+          {onReact && (
+            <button
+              onClick={() => setShowReactions(!showReactions)}
+              className="p-1 rounded-md bg-card border border-border/40 shadow-sm text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              aria-label="تفاعل"
+              title="تفاعل"
+            >
+              <SmilePlus className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick reactions picker */}
+        {showReactions && onReact && (
+          <div className={cn(
+            'absolute -top-8 flex items-center gap-0.5 bg-card border border-border/50 rounded-full px-1.5 py-1 shadow-lg z-20',
+            isOutgoing ? 'end-0' : 'start-0'
+          )}>
+            {QUICK_REACTIONS.map(emoji => (
+              <button
+                key={emoji}
+                onClick={() => {
+                  onReact(id, emoji);
+                  setShowReactions(false);
+                }}
+                className="w-7 h-7 rounded-full hover:bg-muted/50 flex items-center justify-center text-sm transition-transform hover:scale-125"
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
         <div
           className={cn(
             'max-w-[75%] rounded-2xl px-3.5 py-2 space-y-1 relative',
@@ -81,6 +155,30 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
               : 'bg-card border border-border/50 text-foreground shadow-sm rounded-es-sm'
           )}
         >
+          {/* ── Quoted Reply Preview ── */}
+          {replyPreview && (
+            <div className={cn(
+              'rounded-lg px-2.5 py-1.5 mb-1.5 border-s-2 text-xs',
+              isOutgoing
+                ? 'bg-white/10 border-s-white/30'
+                : 'bg-muted/40 border-s-emerald-500/50'
+            )}>
+              {replyPreview.sender && (
+                <span className={cn(
+                  'text-[10px] font-medium block',
+                  isOutgoing ? 'text-white/60' : 'text-emerald-600 dark:text-emerald-400'
+                )}>
+                  {replyPreview.sender}
+                </span>
+              )}
+              <span className={cn(
+                'line-clamp-2',
+                isOutgoing ? 'text-white/70' : 'text-muted-foreground/70'
+              )}>
+                {replyPreview.text || '...'}
+              </span>
+            </div>
+          )}
           {/* ── Image Preview ── */}
           {messageType === 'image' && resolvedMediaUrl && (
             <div
@@ -225,6 +323,23 @@ export function MessageBubble({ id, content, direction, messageType, mediaUrl, f
             <span className="text-[10px] tabular-nums">{time}</span>
             {statusIcon}
           </div>
+
+          {/* ── Reaction Pills ── */}
+          {reactions && reactions.length > 0 && (
+            <div className="flex gap-0.5 mt-1 flex-wrap">
+              {reactions.map((r, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    'text-xs rounded-full px-1.5 py-0.5',
+                    isOutgoing ? 'bg-white/15' : 'bg-muted/40'
+                  )}
+                >
+                  {r.emoji}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

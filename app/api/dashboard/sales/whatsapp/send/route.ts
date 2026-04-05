@@ -29,6 +29,7 @@ export async function POST(request: NextRequest) {
     text,
     media_url, media_type, mime_type, file_name,
     lead_id, client_id,
+    quoted_message_id,
   } = body;
 
   if (!number) return apiError('رقم الهاتف مطلوب');
@@ -53,6 +54,17 @@ export async function POST(request: NextRequest) {
   const instanceToUse = 'pyraai';
 
   try {
+    // Resolve Evolution message key ID for quoted reply
+    let evoQuotedId: string | null = null;
+    if (quoted_message_id) {
+      const { data: quotedMsg } = await supabase
+        .from('pyra_whatsapp_messages')
+        .select('message_id')
+        .eq('id', quoted_message_id)
+        .maybeSingle();
+      evoQuotedId = quotedMsg?.message_id || null;
+    }
+
     let response;
     let messageType = 'text';
     let content = text;
@@ -68,6 +80,12 @@ export async function POST(request: NextRequest) {
       });
       messageType = media_type || 'document';
       content = text || file_name || media_url;
+    } else if (evoQuotedId) {
+      response = await evolutionClient.sendTextQuoted(instanceToUse, {
+        number,
+        text,
+        quotedMessageId: evoQuotedId,
+      });
     } else {
       response = await evolutionClient.sendText(instanceToUse, { number, text });
     }
@@ -83,6 +101,22 @@ export async function POST(request: NextRequest) {
         .eq('remote_jid', finalRemoteJid)
         .maybeSingle();
       convId = conv?.id || null;
+    }
+
+    // Build reply preview if quoting
+    let replyPreview: { text: string; sender?: string } | null = null;
+    if (quoted_message_id) {
+      const { data: qMsg } = await supabase
+        .from('pyra_whatsapp_messages')
+        .select('content, direction, contact_name')
+        .eq('id', quoted_message_id)
+        .maybeSingle();
+      if (qMsg) {
+        replyPreview = {
+          text: qMsg.content || '...',
+          sender: qMsg.direction === 'incoming' ? (qMsg.contact_name || undefined) : undefined,
+        };
+      }
     }
 
     // Save message with conversation_id
@@ -101,6 +135,8 @@ export async function POST(request: NextRequest) {
       file_name: file_name || null,
       status: 'sent',
       timestamp: new Date().toISOString(),
+      reply_to_id: evoQuotedId || null,
+      reply_preview: replyPreview,
     });
 
     // Update conversation timestamps
