@@ -21,7 +21,7 @@ export function usePayroll(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<PayrollRecord[]>({
     queryKey: ['payroll', params],
-    queryFn: () => fetchAPI(`/api/payroll${qs}`),
+    queryFn: () => fetchAPI(`/api/dashboard/payroll${qs}`),
     staleTime: 60_000,
   });
 }
@@ -29,7 +29,7 @@ export function usePayroll(params?: Record<string, string | undefined>) {
 export function usePayrollRecord(id: string | undefined) {
   return useQuery<PayrollRecord>({
     queryKey: ['payroll', id],
-    queryFn: () => fetchAPI(`/api/payroll/${id}`),
+    queryFn: () => fetchAPI(`/api/dashboard/payroll/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });

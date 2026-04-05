@@ -21,7 +21,7 @@ export function useSubscriptions(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<Subscription[]>({
     queryKey: ['subscriptions', params],
-    queryFn: () => fetchAPI(`/api/subscriptions${qs}`),
+    queryFn: () => fetchAPI(`/api/finance/subscriptions${qs}`),
     staleTime: 60_000,
   });
 }
@@ -29,7 +29,7 @@ export function useSubscriptions(params?: Record<string, string | undefined>) {
 export function useSubscription(id: string | undefined) {
   return useQuery<Subscription>({
     queryKey: ['subscriptions', id],
-    queryFn: () => fetchAPI(`/api/subscriptions/${id}`),
+    queryFn: () => fetchAPI(`/api/finance/subscriptions/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -38,7 +38,7 @@ export function useSubscription(id: string | undefined) {
 export function useCreateSubscription() {
   const queryClient = useQueryClient();
   return useMutation<Subscription, Error, Partial<Subscription>>({
-    mutationFn: (data) => mutateAPI('/api/subscriptions', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/finance/subscriptions', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     },
@@ -48,7 +48,7 @@ export function useCreateSubscription() {
 export function useUpdateSubscription() {
   const queryClient = useQueryClient();
   return useMutation<Subscription, Error, { id: string; data: Partial<Subscription> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/subscriptions/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/subscriptions/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions', id] });
@@ -59,7 +59,7 @@ export function useUpdateSubscription() {
 export function useDeleteSubscription() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/subscriptions/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/finance/subscriptions/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
     },

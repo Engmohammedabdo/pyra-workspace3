@@ -19,7 +19,7 @@ export function usePurchaseOrders(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<PurchaseOrder[]>({
     queryKey: ['purchase-orders', params],
-    queryFn: () => fetchAPI(`/api/purchase-orders${qs}`),
+    queryFn: () => fetchAPI(`/api/dashboard/purchase-orders${qs}`),
     staleTime: 60_000,
   });
 }
@@ -27,7 +27,7 @@ export function usePurchaseOrders(params?: Record<string, string | undefined>) {
 export function usePurchaseOrder(id: string | undefined) {
   return useQuery<PurchaseOrder>({
     queryKey: ['purchase-orders', id],
-    queryFn: () => fetchAPI(`/api/purchase-orders/${id}`),
+    queryFn: () => fetchAPI(`/api/dashboard/purchase-orders/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -36,7 +36,7 @@ export function usePurchaseOrder(id: string | undefined) {
 export function useCreatePurchaseOrder() {
   const queryClient = useQueryClient();
   return useMutation<PurchaseOrder, Error, Partial<PurchaseOrder>>({
-    mutationFn: (data) => mutateAPI('/api/purchase-orders', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/dashboard/purchase-orders', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
     },
@@ -46,7 +46,7 @@ export function useCreatePurchaseOrder() {
 export function useUpdatePurchaseOrder() {
   const queryClient = useQueryClient();
   return useMutation<PurchaseOrder, Error, { id: string; data: Partial<PurchaseOrder> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/purchase-orders/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/purchase-orders/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders', id] });
@@ -57,7 +57,7 @@ export function useUpdatePurchaseOrder() {
 export function useDeletePurchaseOrder() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/purchase-orders/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/dashboard/purchase-orders/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
     },

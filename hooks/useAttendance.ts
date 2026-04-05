@@ -20,7 +20,7 @@ export function useAttendance(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<AttendanceRecord[]>({
     queryKey: ['attendance', params],
-    queryFn: () => fetchAPI(`/api/attendance${qs}`),
+    queryFn: () => fetchAPI(`/api/dashboard/attendance${qs}`),
     staleTime: 60_000,
   });
 }
@@ -28,7 +28,7 @@ export function useAttendance(params?: Record<string, string | undefined>) {
 export function useAttendanceRecord(id: string | undefined) {
   return useQuery<AttendanceRecord>({
     queryKey: ['attendance', id],
-    queryFn: () => fetchAPI(`/api/attendance/${id}`),
+    queryFn: () => fetchAPI(`/api/dashboard/attendance/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });

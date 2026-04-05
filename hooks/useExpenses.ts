@@ -30,7 +30,7 @@ export function useExpenses(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<Expense[]>({
     queryKey: ['expenses', params],
-    queryFn: () => fetchAPI(`/api/expenses${qs}`),
+    queryFn: () => fetchAPI(`/api/finance/expenses${qs}`),
     staleTime: 60_000,
   });
 }
@@ -38,7 +38,7 @@ export function useExpenses(params?: Record<string, string | undefined>) {
 export function useExpense(id: string | undefined) {
   return useQuery<Expense>({
     queryKey: ['expenses', id],
-    queryFn: () => fetchAPI(`/api/expenses/${id}`),
+    queryFn: () => fetchAPI(`/api/finance/expenses/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -47,7 +47,7 @@ export function useExpense(id: string | undefined) {
 export function useCreateExpense() {
   const queryClient = useQueryClient();
   return useMutation<Expense, Error, Partial<Expense>>({
-    mutationFn: (data) => mutateAPI('/api/expenses', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/finance/expenses', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
     },
@@ -57,7 +57,7 @@ export function useCreateExpense() {
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
   return useMutation<Expense, Error, { id: string; data: Partial<Expense> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/expenses/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/expenses/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['expenses', id] });
@@ -68,7 +68,7 @@ export function useUpdateExpense() {
 export function useDeleteExpense() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/expenses/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/finance/expenses/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
     },

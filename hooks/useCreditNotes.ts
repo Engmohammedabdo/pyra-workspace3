@@ -19,7 +19,7 @@ export function useCreditNotes(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<CreditNote[]>({
     queryKey: ['credit-notes', params],
-    queryFn: () => fetchAPI(`/api/credit-notes${qs}`),
+    queryFn: () => fetchAPI(`/api/dashboard/credit-notes${qs}`),
     staleTime: 60_000,
   });
 }
@@ -27,7 +27,7 @@ export function useCreditNotes(params?: Record<string, string | undefined>) {
 export function useCreditNote(id: string | undefined) {
   return useQuery<CreditNote>({
     queryKey: ['credit-notes', id],
-    queryFn: () => fetchAPI(`/api/credit-notes/${id}`),
+    queryFn: () => fetchAPI(`/api/dashboard/credit-notes/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -36,7 +36,7 @@ export function useCreditNote(id: string | undefined) {
 export function useCreateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation<CreditNote, Error, Partial<CreditNote>>({
-    mutationFn: (data) => mutateAPI('/api/credit-notes', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/dashboard/credit-notes', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
     },
@@ -46,7 +46,7 @@ export function useCreateCreditNote() {
 export function useUpdateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation<CreditNote, Error, { id: string; data: Partial<CreditNote> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/credit-notes/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/credit-notes/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
       queryClient.invalidateQueries({ queryKey: ['credit-notes', id] });
@@ -57,7 +57,7 @@ export function useUpdateCreditNote() {
 export function useDeleteCreditNote() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/credit-notes/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/dashboard/credit-notes/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
     },

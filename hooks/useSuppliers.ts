@@ -19,7 +19,7 @@ export function useSuppliers(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<Supplier[]>({
     queryKey: ['suppliers', params],
-    queryFn: () => fetchAPI(`/api/suppliers${qs}`),
+    queryFn: () => fetchAPI(`/api/dashboard/suppliers${qs}`),
     staleTime: 60_000,
   });
 }
@@ -27,7 +27,7 @@ export function useSuppliers(params?: Record<string, string | undefined>) {
 export function useSupplier(id: string | undefined) {
   return useQuery<Supplier>({
     queryKey: ['suppliers', id],
-    queryFn: () => fetchAPI(`/api/suppliers/${id}`),
+    queryFn: () => fetchAPI(`/api/dashboard/suppliers/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -36,7 +36,7 @@ export function useSupplier(id: string | undefined) {
 export function useCreateSupplier() {
   const queryClient = useQueryClient();
   return useMutation<Supplier, Error, Partial<Supplier>>({
-    mutationFn: (data) => mutateAPI('/api/suppliers', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/dashboard/suppliers', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
@@ -46,7 +46,7 @@ export function useCreateSupplier() {
 export function useUpdateSupplier() {
   const queryClient = useQueryClient();
   return useMutation<Supplier, Error, { id: string; data: Partial<Supplier> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/suppliers/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/suppliers/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers', id] });
@@ -57,7 +57,7 @@ export function useUpdateSupplier() {
 export function useDeleteSupplier() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/suppliers/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/dashboard/suppliers/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
     },
