@@ -19,7 +19,7 @@ export function useKnowledgeBase(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<KnowledgeBaseArticle[]>({
     queryKey: ['knowledge-base', params],
-    queryFn: () => fetchAPI(`/api/knowledge-base${qs}`),
+    queryFn: () => fetchAPI(`/api/kb/articles${qs}`),
     staleTime: 60_000,
   });
 }
@@ -27,7 +27,7 @@ export function useKnowledgeBase(params?: Record<string, string | undefined>) {
 export function useKnowledgeBaseArticle(id: string | undefined) {
   return useQuery<KnowledgeBaseArticle>({
     queryKey: ['knowledge-base', id],
-    queryFn: () => fetchAPI(`/api/knowledge-base/${id}`),
+    queryFn: () => fetchAPI(`/api/kb/articles/${id}`),
     enabled: !!id,
     staleTime: 60_000,
   });
@@ -36,7 +36,7 @@ export function useKnowledgeBaseArticle(id: string | undefined) {
 export function useCreateKnowledgeBaseArticle() {
   const queryClient = useQueryClient();
   return useMutation<KnowledgeBaseArticle, Error, Partial<KnowledgeBaseArticle>>({
-    mutationFn: (data) => mutateAPI('/api/knowledge-base', 'POST', data),
+    mutationFn: (data) => mutateAPI('/api/kb/articles', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
     },
@@ -46,7 +46,7 @@ export function useCreateKnowledgeBaseArticle() {
 export function useUpdateKnowledgeBaseArticle() {
   const queryClient = useQueryClient();
   return useMutation<KnowledgeBaseArticle, Error, { id: string; data: Partial<KnowledgeBaseArticle> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/knowledge-base/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/kb/articles/${id}`, 'PUT', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
       queryClient.invalidateQueries({ queryKey: ['knowledge-base', id] });
@@ -57,7 +57,7 @@ export function useUpdateKnowledgeBaseArticle() {
 export function useDeleteKnowledgeBaseArticle() {
   const queryClient = useQueryClient();
   return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/knowledge-base/${id}`, 'DELETE'),
+    mutationFn: (id) => mutateAPI(`/api/kb/articles/${id}`, 'DELETE'),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
     },
