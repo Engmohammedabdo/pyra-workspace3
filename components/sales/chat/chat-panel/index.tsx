@@ -19,6 +19,7 @@ import {
   useAiSuggestions,
 } from '@/hooks/useWhatsApp';
 import { useSettings } from '@/hooks/useSettings';
+import { useChatStore } from '../use-chat-store';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from '../chat-input';
@@ -77,13 +78,20 @@ export function ChatPanel({
   onBack,
   onConversationUpdated,
 }: ChatPanelProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const {
+    searchOpen,
+    setSearchOpen,
+    searchQuery,
+    setSearchQuery,
+    inputMode,
+    setInputMode,
+    activeDialog,
+    setActiveDialog,
+  } = useChatStore();
+
   const [showAssign, setShowAssign] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
-  const [activeDialog, setActiveDialog] = useState<'quote' | 'invoice' | 'lead' | 'note' | 'followup' | null>(null);
   const [currentLeadId, setCurrentLeadId] = useState(leadId);
-  const [inputMode, setInputMode] = useState<'message' | 'note'>('message');
   const [convStatus, setConvStatus] = useState(conversationStatus || 'open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isMuted, setIsMuted] = useState(initialMuted || false);
@@ -316,9 +324,8 @@ export function ChatPanel({
 
         {/* Messages */}
         <MessageList
-          messages={messages}
+          messages={displayMessages}
           notes={notes}
-          searchQuery={searchQuery}
         />
 
         {/* AI Suggest Bar — between messages and quick actions */}
@@ -421,8 +428,6 @@ export function ChatPanel({
       {/* Contact Info Sidebar */}
       {showSidebar && (
         <ContactPanel
-          remoteJid={remoteJid}
-          instanceName={instanceName}
           contactName={contactName}
           phone={phone}
           leadId={currentLeadId}

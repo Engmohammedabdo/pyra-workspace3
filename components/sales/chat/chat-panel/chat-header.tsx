@@ -179,6 +179,7 @@ export function ChatHeader({
               )}
               onClick={onMuteToggle}
               title={isMuted ? 'إلغاء الكتم' : 'كتم'}
+              aria-label={isMuted ? 'إلغاء الكتم' : 'كتم'}
             >
               {isMuted ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
             </Button>

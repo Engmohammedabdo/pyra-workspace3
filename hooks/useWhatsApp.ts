@@ -118,9 +118,6 @@ export function useConversations(params?: Record<string, string | undefined>) {
 
 /** Fetch messages for a specific conversation */
 export function useMessages(conversationId: string | undefined, remoteJid?: string) {
-  const qc = useQueryClient();
-  const prevCountRef = { current: 0 };
-
   return useQuery<Message[]>({
     queryKey: ['whatsapp-messages', conversationId || remoteJid],
     queryFn: async () => {
@@ -131,16 +128,7 @@ export function useMessages(conversationId: string | undefined, remoteJid?: stri
         params.set('remote_jid', remoteJid);
       }
       const msgs = await fetchAPI<Message[]>(`/api/dashboard/sales/whatsapp/messages?${params}`);
-      const result = (msgs || []).reverse();
-
-      // When messages are fetched, the API clears unread_count.
-      // Invalidate conversations so the badge updates immediately.
-      if (result.length !== prevCountRef.current) {
-        prevCountRef.current = result.length;
-        qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
-      }
-
-      return result;
+      return (msgs || []).reverse();
     },
     enabled: !!(conversationId || remoteJid),
     staleTime: 5_000,
@@ -471,16 +459,19 @@ export function useAiSuggestions(
         timestamp: m.timestamp,
       }));
 
-      const result = await mutateAPI<string[]>(
-        '/api/dashboard/sales/whatsapp/ai-suggest',
-        'POST',
-        {
+      // eslint-disable-next-line no-restricted-globals -- POST-based query endpoint
+      const res = await fetch('/api/dashboard/sales/whatsapp/ai-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           conversation_id: conversationId,
           messages: recentMessages,
           contact_name: contactName || undefined,
-        }
-      );
-      return result || [];
+        }),
+      });
+      if (!res.ok) throw new Error('AI suggest failed');
+      const json = await res.json();
+      return (json.data as string[]) || [];
     },
     enabled:
       enabled &&

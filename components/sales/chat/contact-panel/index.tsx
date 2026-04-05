@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useUpdateConversation, useConversationCsat } from '@/hooks/useWhatsApp';
 import { Button } from '@/components/ui/button';
@@ -22,8 +23,6 @@ import { CsatBadge, CsatStars } from '../csat/csat-badge';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
 interface ContactPanelProps {
-  remoteJid: string;
-  instanceName: string;
   contactName: string | null;
   phone: string | null;
   leadId?: string | null;
@@ -68,9 +67,6 @@ export function ContactPanel({
   onClose,
   onConversationUpdated,
 }: ContactPanelProps) {
-  const [lead, setLead] = useState<LeadInfo | null>(null);
-  const [quotes, setQuotes] = useState<QuoteInfo[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showQuotes, setShowQuotes] = useState(false);
 
   // Inline edit states
@@ -89,6 +85,22 @@ export function ContactPanel({
   const updateConvMutation = useUpdateConversation();
   const { data: csatData } = useConversationCsat(conversationId || undefined);
 
+  // Fetch lead data via React Query
+  const { data: lead = null } = useQuery<LeadInfo | null>({
+    queryKey: ['lead', leadId],
+    queryFn: () => fetchAPI<LeadInfo>(`/api/dashboard/sales/leads/${leadId}`),
+    enabled: !!leadId,
+    staleTime: 60_000,
+  });
+
+  // Fetch quotes linked to this lead
+  const { data: quotes = [], isLoading: loading } = useQuery<QuoteInfo[]>({
+    queryKey: ['lead-quotes', leadId],
+    queryFn: () => fetchAPI<QuoteInfo[]>(`/api/dashboard/sales/leads/${leadId}/quotes`),
+    enabled: !!leadId,
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
     setNameValue(contactName || '');
   }, [contactName]);
@@ -96,27 +108,6 @@ export function ContactPanel({
   useEffect(() => {
     setCustomAttrs(conversation?.custom_attributes || {});
   }, [conversation?.custom_attributes]);
-
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      try {
-        if (leadId) {
-          const leadData = await fetchAPI<LeadInfo>(`/api/dashboard/sales/leads/${leadId}`);
-          setLead(leadData);
-
-          // Fetch quotes linked to this lead
-          const quotesData = await fetchAPI<QuoteInfo[]>(`/api/dashboard/sales/leads/${leadId}/quotes`);
-          setQuotes(quotesData);
-        }
-      } catch {
-        console.error('Failed to fetch contact data');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchData();
-  }, [leadId]);
 
   const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
 
@@ -149,13 +140,17 @@ export function ContactPanel({
     }
   }, [conversationId, updateConvMutation, onConversationUpdated]);
 
-  const handleAddAttr = () => {
+  const handleAddAttr = async () => {
     if (!newAttrKey.trim()) return;
     const updated = { ...customAttrs, [newAttrKey.trim()]: newAttrValue.trim() };
-    handleSaveAttrs(updated);
-    setNewAttrKey('');
-    setNewAttrValue('');
-    setEditingAttr(false);
+    try {
+      await handleSaveAttrs(updated);
+      setNewAttrKey('');
+      setNewAttrValue('');
+      setEditingAttr(false);
+    } catch {
+      // Error already handled in handleSaveAttrs
+    }
   };
 
   const handleRemoveAttr = (key: string) => {

@@ -30,6 +30,15 @@ export function setNotificationPrefs(prefs: Partial<NotificationPrefs>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 }
 
+// Shared AudioContext singleton to prevent resource leaks
+let sharedAudioCtx: AudioContext | null = null;
+function getAudioCtx(): AudioContext {
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new AudioContext();
+  }
+  return sharedAudioCtx;
+}
+
 /**
  * Play a simple notification beep using the Web Audio API.
  * No external sound file needed.
@@ -39,7 +48,7 @@ export function playNotificationSound() {
   if (!prefs.soundEnabled) return;
 
   try {
-    const audioCtx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const audioCtx = getAudioCtx();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
 

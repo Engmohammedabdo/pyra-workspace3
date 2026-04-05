@@ -82,6 +82,7 @@ export function LabelPicker({ conversationId, assignedLabels: externalLabels, co
             size="icon"
             className="rounded-xl h-9 w-9"
             title="التسميات"
+            aria-label="إدارة التسميات"
           >
             <Tag className="h-4 w-4" />
           </Button>

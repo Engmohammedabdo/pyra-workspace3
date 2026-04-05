@@ -92,7 +92,7 @@ export function useChatShortcuts({
         case 'ArrowUp': {
           e.preventDefault();
           const prevIndex = Math.max(currentIndex - 1, 0);
-          if (convs[prevIndex]) selectConversation(convs[prevIndex]);
+          if (prevIndex !== currentIndex && convs[prevIndex]) selectConversation(convs[prevIndex]);
           break;
         }
         case 'Enter': {

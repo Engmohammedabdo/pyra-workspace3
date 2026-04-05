@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
-import { useConversations, usePollWhatsApp } from '@/hooks/useWhatsApp';
+import { useConversations, usePollWhatsApp, useCheckSla } from '@/hooks/useWhatsApp';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
 import { BulkActionsBar } from './bulk-actions-bar';
@@ -80,24 +80,25 @@ export function ChatLayout() {
   const counts = conversationsResponse?.meta?.counts || {};
 
   // Poll Evolution API on mount and every 15s
-  // Using raw fetch to avoid stale closure issues with useMutation
+  const pollMutation = usePollWhatsApp();
+  const pollRef = useRef(pollMutation.mutate);
+  pollRef.current = pollMutation.mutate;
+
   useEffect(() => {
-    const poll = () => {
-      fetch('/api/dashboard/sales/whatsapp/poll', { method: 'POST' }).catch(() => {});
-    };
-    poll(); // Poll on mount
-    const interval = setInterval(poll, 15000);
+    pollRef.current(); // Poll on mount
+    const interval = setInterval(() => pollRef.current(), 15000);
     return () => clearInterval(interval);
   }, []);
 
   // SLA breach check — runs every 60s
+  const slaCheckMutation = useCheckSla();
+  const slaCheckRef = useRef(slaCheckMutation.mutate);
+  slaCheckRef.current = slaCheckMutation.mutate;
+
   useEffect(() => {
-    const checkSla = () => {
-      fetch('/api/dashboard/sales/whatsapp/sla/check', { method: 'POST' }).catch(() => {});
-    };
     // Initial check after 10s (give conversations time to load first)
-    const timeout = setTimeout(checkSla, 10000);
-    const interval = setInterval(checkSla, 60000);
+    const timeout = setTimeout(() => slaCheckRef.current(), 10000);
+    const interval = setInterval(() => slaCheckRef.current(), 60000);
     return () => { clearTimeout(timeout); clearInterval(interval); };
   }, []);
 

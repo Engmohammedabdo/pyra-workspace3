@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import React from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
@@ -169,7 +169,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setSelectedIds(new Set());
   }, []);
 
-  const value: ChatState = {
+  const value: ChatState = useMemo(() => ({
     selectedConversation,
     setSelectedConversation,
     activeTab,
@@ -200,7 +200,38 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setInputMode,
     activeDialog,
     setActiveDialog,
-  };
+  }), [
+    selectedConversation,
+    activeTab,
+    sortBy,
+    filters,
+    activeFilterCount,
+    showContactPanel,
+    mobileView,
+    bulkMode,
+    selectedIds,
+    searchOpen,
+    searchQuery,
+    inputMode,
+    activeDialog,
+    setSelectedConversation,
+    setActiveTab,
+    setSortBy,
+    setFilters,
+    resetFilters,
+    toggleContactPanel,
+    setShowContactPanel,
+    setMobileView,
+    selectConversation,
+    setBulkMode,
+    toggleSelectedId,
+    selectAllIds,
+    clearSelectedIds,
+    setSearchOpen,
+    setSearchQuery,
+    setInputMode,
+    setActiveDialog,
+  ]);
 
   return React.createElement(ChatStoreContext.Provider, { value }, children);
 }

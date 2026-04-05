@@ -5,8 +5,6 @@ import { Search, MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { ConversationItem } from './conversation-list/conversation-item';
-import { SortSelector } from './filters/sort-selector';
-import { useChatStore } from './use-chat-store';
 
 // Re-export Conversation type for backward compatibility
 export type { Conversation } from '@/hooks/useWhatsApp';
@@ -23,7 +21,6 @@ interface ConversationListProps {
 
 export function ConversationList({ conversations, selectedJid, onSelect, bulkMode, selectedIds, onToggleCheck, onSelectAll }: ConversationListProps) {
   const [search, setSearch] = useState('');
-  const { sortBy, setSortBy } = useChatStore();
 
   const filtered = conversations.filter(c => {
     if (!search) return true;
@@ -52,8 +49,7 @@ export function ConversationList({ conversations, selectedJid, onSelect, bulkMod
             )}
           />
         </div>
-        <div className="flex items-center justify-between">
-          <SortSelector value={sortBy} onChange={setSortBy} />
+        <div className="flex items-center justify-end">
           <div className="flex items-center gap-2">
             {bulkMode && onSelectAll && (
               <button

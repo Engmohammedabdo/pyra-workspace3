@@ -15,42 +15,46 @@ interface SnoozePickerProps {
   onSnoozed?: () => void;
 }
 
-function getPresets(): Array<{ label: string; icon: React.ReactNode; getDate: () => Date }> {
-  return [
-    {
-      label: 'ساعة واحدة',
-      icon: <Clock className="h-3.5 w-3.5" />,
-      getDate: () => new Date(Date.now() + 60 * 60 * 1000),
+const SNOOZE_PRESETS: Array<{ label: string; iconName: 'clock' | 'sun' | 'calendar'; getDate: () => Date }> = [
+  {
+    label: 'ساعة واحدة',
+    iconName: 'clock',
+    getDate: () => new Date(Date.now() + 60 * 60 * 1000),
+  },
+  {
+    label: '3 ساعات',
+    iconName: 'clock',
+    getDate: () => new Date(Date.now() + 3 * 60 * 60 * 1000),
+  },
+  {
+    label: 'غداً الساعة 9 صباحاً',
+    iconName: 'sun',
+    getDate: () => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(9, 0, 0, 0);
+      return d;
     },
-    {
-      label: '3 ساعات',
-      icon: <Clock className="h-3.5 w-3.5" />,
-      getDate: () => new Date(Date.now() + 3 * 60 * 60 * 1000),
+  },
+  {
+    label: 'الأسبوع القادم',
+    iconName: 'calendar',
+    getDate: () => {
+      const d = new Date();
+      // Next Monday
+      const daysUntilMonday = (8 - d.getDay()) % 7 || 7;
+      d.setDate(d.getDate() + daysUntilMonday);
+      d.setHours(9, 0, 0, 0);
+      return d;
     },
-    {
-      label: 'غداً الساعة 9 صباحاً',
-      icon: <Sun className="h-3.5 w-3.5" />,
-      getDate: () => {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        d.setHours(9, 0, 0, 0);
-        return d;
-      },
-    },
-    {
-      label: 'الأسبوع القادم',
-      icon: <CalendarDays className="h-3.5 w-3.5" />,
-      getDate: () => {
-        const d = new Date();
-        // Next Monday
-        const daysUntilMonday = (8 - d.getDay()) % 7 || 7;
-        d.setDate(d.getDate() + daysUntilMonday);
-        d.setHours(9, 0, 0, 0);
-        return d;
-      },
-    },
-  ];
-}
+  },
+];
+
+const PRESET_ICONS = {
+  clock: <Clock className="h-3.5 w-3.5" />,
+  sun: <Sun className="h-3.5 w-3.5" />,
+  calendar: <CalendarDays className="h-3.5 w-3.5" />,
+};
 
 export function SnoozePicker({ conversationId, snoozedUntil, onSnoozed }: SnoozePickerProps) {
   const [open, setOpen] = useState(false);
@@ -101,8 +105,6 @@ export function SnoozePicker({ conversationId, snoozedUntil, onSnoozed }: Snooze
     handleSnooze(until);
   }
 
-  const presets = getPresets();
-
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -114,6 +116,7 @@ export function SnoozePicker({ conversationId, snoozedUntil, onSnoozed }: Snooze
             isSnoozed && 'bg-amber-50 dark:bg-amber-950/20 text-amber-600'
           )}
           title={isSnoozed ? `مؤجلة حتى ${new Date(snoozedUntil!).toLocaleString('ar-EG')}` : 'تأجيل'}
+          aria-label={isSnoozed ? 'إلغاء التأجيل' : 'تأجيل'}
         >
           <AlarmClock className="h-4 w-4" />
         </Button>
@@ -140,14 +143,14 @@ export function SnoozePicker({ conversationId, snoozedUntil, onSnoozed }: Snooze
 
         {/* Presets */}
         <div className="p-1">
-          {presets.map((preset, i) => (
+          {SNOOZE_PRESETS.map(preset => (
             <button
-              key={i}
+              key={preset.label}
               onClick={() => handleSnooze(preset.getDate())}
               disabled={updateConversation.isPending}
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs hover:bg-muted/50 transition-colors"
             >
-              {preset.icon}
+              {PRESET_ICONS[preset.iconName]}
               <span className="flex-1 text-start">{preset.label}</span>
               <span className="text-[10px] text-muted-foreground/40 tabular-nums" dir="ltr">
                 {preset.getDate().toLocaleString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

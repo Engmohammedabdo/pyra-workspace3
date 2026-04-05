@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
+import { cn } from '@/lib/utils/cn';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -139,7 +140,7 @@ export function PreviousConversations({
             {viewLoading ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map(i => (
-                  <Skeleton key={i} className={`h-10 rounded-2xl ${i % 2 === 0 ? 'w-48 ms-auto' : 'w-56'}`} />
+                  <Skeleton key={i} className={cn('h-10 rounded-2xl', i % 2 === 0 ? 'w-48 ms-auto' : 'w-56')} />
                 ))}
               </div>
             ) : viewMessages.length === 0 ? (

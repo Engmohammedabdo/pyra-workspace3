@@ -71,9 +71,9 @@ export function SuggestBar({
               ))}
             </div>
           ) : (
-            suggestions.map((suggestion, idx) => (
+            suggestions.map((suggestion) => (
               <button
-                key={idx}
+                key={suggestion}
                 onClick={() => onSelect(suggestion)}
                 className={cn(
                   'px-3 py-1.5 rounded-full text-[12px] font-medium whitespace-nowrap',

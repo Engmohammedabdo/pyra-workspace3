@@ -60,13 +60,13 @@ const STATUS_CONFIG: Record<SlaStatus, {
 };
 
 export function SlaIndicator({ conversation, compact = false }: SlaIndicatorProps) {
-  // Don't show if no SLA policy assigned or conversation is resolved
-  if (!conversation.sla_policy_id) return null;
-  if (conversation.status === 'resolved') return null;
-
   const status = useMemo(() => getSlaStatus(conversation), [conversation]);
   const deadline = useMemo(() => getActiveSlaDeadline(conversation), [conversation]);
   const timeRemaining = useMemo(() => getSlaTimeRemaining(deadline), [deadline]);
+
+  // Don't show if no SLA policy assigned or conversation is resolved
+  if (!conversation.sla_policy_id) return null;
+  if (conversation.status === 'resolved') return null;
 
   const config = STATUS_CONFIG[status];
   const Icon = config.icon;

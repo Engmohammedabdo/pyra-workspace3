@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { cn } from '@/lib/utils/cn';
 import { User, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
@@ -46,7 +47,7 @@ const MEDIA_LABELS: Record<string, string> = {
   location: '📍 موقع',
 };
 
-export function ConversationItem({ conversation: conv, isSelected, onSelect, bulkMode, isChecked, onToggleCheck }: ConversationItemProps) {
+export const ConversationItem = memo(function ConversationItem({ conversation: conv, isSelected, onSelect, bulkMode, isChecked, onToggleCheck }: ConversationItemProps) {
   const phone = conv.contact_phone || conv.phone || conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
   const displayName = conv.contact_name || phone;
   const avatarColor = getAvatarColor(conv.remote_jid);
@@ -169,4 +170,4 @@ export function ConversationItem({ conversation: conv, isSelected, onSelect, bul
       </div>
     </button>
   );
-}
+});

@@ -1,13 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { mutateAPI } from '@/hooks/api-helpers';
 import { Loader2, UserPlus } from 'lucide-react';
+import { useUsers } from '@/hooks/useUsers';
+import { useTeams } from '@/hooks/useTeams';
+import { useConversations } from '@/hooks/useWhatsApp';
 
 interface AssignDialogProps {
   open: boolean;
@@ -32,60 +35,46 @@ interface TeamOption {
 }
 
 export function AssignDialog({ open, conversationId, remoteJid, instanceName, currentAgent, onAssigned, onClose }: AssignDialogProps) {
-  const [agents, setAgents] = useState<AgentOption[]>([]);
-  const [teams, setTeams] = useState<TeamOption[]>([]);
-  const [workload, setWorkload] = useState<Record<string, number>>({});
   const [selectedAgent, setSelectedAgent] = useState(currentAgent || '');
   const [selectedTeam, setSelectedTeam] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
+  // Use existing hooks instead of raw fetches
+  const { data: usersData = [] } = useUsers();
+  const { data: teamsData = [] } = useTeams();
+  const { data: convsResponse } = useConversations(
+    open ? { status: 'all', assigned: 'all' } : undefined
+  );
 
-    // Fetch agents + workload + online status + teams in parallel
-    Promise.all([
-      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=sales_agent'),
-      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=employee'),
-      fetchAPI<Array<{ username: string; display_name: string }>>('/api/users?role=admin'),
-      fetchAPI<Array<{ assigned_to?: string; status?: string }>>('/api/dashboard/sales/whatsapp/conversations?status=all&assigned=all&limit=200'),
-      fetchAPI<Array<{ username: string; last_activity?: string }>>('/api/sessions').catch(() => []),
-      fetchAPI<TeamOption[]>('/api/teams').catch(() => []),
-    ]).then(([salesData, empData, adminData, convsData, sessionsData, teamsData]) => {
-      setTeams(teamsData || []);
-      // Build online set (active within last 5 minutes)
-      const fiveMinAgo = Date.now() - 5 * 60 * 1000;
-      const onlineUsers = new Set<string>();
-      for (const s of sessionsData || []) {
-        if (s.last_activity && new Date(s.last_activity).getTime() > fiveMinAgo) {
-          onlineUsers.add(s.username);
-        }
-      }
+  const teams: TeamOption[] = useMemo(
+    () => (teamsData as unknown as TeamOption[]) || [],
+    [teamsData]
+  );
 
-      const all = [
-        ...(salesData || []),
-        ...(empData || []),
-        ...(adminData || []),
-      ].map((u) => ({
+  const { agents, workload } = useMemo(() => {
+    if (!open) return { agents: [] as AgentOption[], workload: {} as Record<string, number> };
+
+    const userList = usersData as unknown as Array<{ username: string; display_name: string; role?: string }>;
+    const allUsers = (userList || [])
+      .filter(u => u.role === 'admin' || u.role === 'sales_agent' || u.role === 'employee')
+      .map(u => ({
         username: u.username,
         display_name: u.display_name,
-        is_online: onlineUsers.has(u.username),
+        is_online: false,
       }));
-      const unique = Array.from(new Map(all.map(a => [a.username, a])).values());
-      // Sort: online first
-      unique.sort((a, b) => (b.is_online ? 1 : 0) - (a.is_online ? 1 : 0));
-      setAgents(unique);
+    const unique = Array.from(new Map(allUsers.map(a => [a.username, a])).values());
 
-      // Calculate workload (active conversations per agent)
-      const convs = Array.isArray(convsData) ? convsData : [];
-      const counts: Record<string, number> = {};
-      for (const c of convs) {
-        if (c.assigned_to && c.status !== 'resolved') {
-          counts[c.assigned_to] = (counts[c.assigned_to] || 0) + 1;
-        }
+    // Calculate workload (active conversations per agent)
+    const convs = convsResponse?.data || [];
+    const counts: Record<string, number> = {};
+    for (const c of convs) {
+      if (c.assigned_to && c.status !== 'resolved') {
+        counts[c.assigned_to] = (counts[c.assigned_to] || 0) + 1;
       }
-      setWorkload(counts);
-    }).catch(() => {});
-  }, [open]);
+    }
+
+    return { agents: unique, workload: counts };
+  }, [open, usersData, convsResponse]);
 
   async function handleAssign() {
     setSaving(true);

@@ -83,6 +83,7 @@ export function getSlaStatus(conversation: {
   sla_resolution_breached?: boolean;
   first_reply_at?: string | null;
   resolved_at?: string | null;
+  created_at?: string | null;
 }): SlaStatus {
   // If already breached
   if (conversation.sla_first_response_breached || conversation.sla_resolution_breached) {
@@ -90,24 +91,28 @@ export function getSlaStatus(conversation: {
   }
 
   const now = Date.now();
+  // Use created_at as the start time; fallback to 1 hour before due if unknown
+  const created = conversation.created_at
+    ? new Date(conversation.created_at).getTime()
+    : 0;
 
   // Check first response SLA (only if not yet replied)
   if (!conversation.first_reply_at && conversation.sla_first_response_due) {
     const due = new Date(conversation.sla_first_response_due).getTime();
     if (now > due) return 'breached';
-    // Warning at 80% of time elapsed
-    const total = due - (due - 30 * 60 * 1000); // rough estimate
-    const remaining = due - now;
-    if (remaining < total * 0.2) return 'warning';
+    // Warning when 80% of the total SLA time has elapsed
+    const total = due - (created || due - 30 * 60 * 1000);
+    const elapsed = now - (created || due - 30 * 60 * 1000);
+    if (total > 0 && elapsed >= total * 0.8) return 'warning';
   }
 
   // Check resolution SLA (only if not yet resolved)
   if (!conversation.resolved_at && conversation.sla_resolution_due) {
     const due = new Date(conversation.sla_resolution_due).getTime();
     if (now > due) return 'breached';
-    const total = due - (due - 480 * 60 * 1000); // rough estimate
-    const remaining = due - now;
-    if (remaining < total * 0.2) return 'warning';
+    const total = due - (created || due - 480 * 60 * 1000);
+    const elapsed = now - (created || due - 480 * 60 * 1000);
+    if (total > 0 && elapsed >= total * 0.8) return 'warning';
   }
 
   return 'ok';

@@ -30,6 +30,17 @@ export function FilterBar() {
     setFilters({ ...filters, label: filters.label === labelId ? '' : labelId });
   }
 
+  const activeLabel = filters.label ? labels.find(lb => lb.id === filters.label) : null;
+  const activeLabelChip = activeLabel ? (
+    <span className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 text-[10px]">
+      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: activeLabel.color }} />
+      {activeLabel.name_ar || activeLabel.name}
+      <button onClick={() => setLabel(activeLabel.id)} className="hover:text-destructive">
+        <X className="h-2.5 w-2.5" />
+      </button>
+    </span>
+  ) : null;
+
   if (activeFilterCount === 0) {
     return (
       <Popover>
@@ -93,19 +104,7 @@ export function FilterBar() {
         );
       })}
 
-      {filters.label && (() => {
-        const l = labels.find(lb => lb.id === filters.label);
-        if (!l) return null;
-        return (
-          <span className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 text-[10px]">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: l.color }} />
-            {l.name_ar || l.name}
-            <button onClick={() => setLabel(l.id)} className="hover:text-destructive">
-              <X className="h-2.5 w-2.5" />
-            </button>
-          </span>
-        );
-      })()}
+      {activeLabelChip}
 
       <button
         onClick={resetFilters}
