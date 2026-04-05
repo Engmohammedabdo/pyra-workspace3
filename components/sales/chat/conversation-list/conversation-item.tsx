@@ -73,6 +73,7 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
         'hover:bg-muted/30',
         isSelected && 'bg-emerald-50/80 dark:bg-emerald-950/15 border-s-[3px] border-s-emerald-500 hover:bg-emerald-50/80 dark:hover:bg-emerald-950/15'
       )}
+      style={{ contentVisibility: 'auto', containIntrinsicSize: '0 76px' }}
     >
       {/* Bulk checkbox */}
       {bulkMode && (

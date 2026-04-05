@@ -69,7 +69,7 @@ export function ConversationList({ conversations, selectedJid, onSelect, bulkMod
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto" style={{ contentVisibility: 'auto' }}>
+      <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
             <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center mb-3">

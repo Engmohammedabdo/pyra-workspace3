@@ -88,6 +88,21 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             .eq('message_id', msg.key.id)
             .maybeSingle();
           if (existing) continue;
+        } else {
+          // Fallback dedup when message_id is absent: match by jid + timestamp + direction
+          const fallbackTs = msg.messageTimestamp
+            ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
+            : null;
+          if (fallbackTs) {
+            const { data: existing } = await supabase
+              .from('pyra_whatsapp_messages')
+              .select('id')
+              .eq('remote_jid', msg.key.remoteJid)
+              .eq('timestamp', fallbackTs)
+              .eq('direction', direction)
+              .maybeSingle();
+            if (existing) continue;
+          }
         }
 
         // ── Extract phone: handle both @lid and @s.whatsapp.net formats ──
@@ -121,11 +136,11 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // ── Upsert conversation (Shared Inbox model) ──
         // Find by PHONE first (prevents @lid/@s.whatsapp.net duplicates), then by JID
-        let existingConv: { id: string; assigned_to: string | null; status: string } | null = null;
+        let existingConv: { id: string; assigned_to: string | null; status: string; unread_count: number } | null = null;
         if (phone && /^\d{7,20}$/.test(phone)) {
           const { data } = await supabase
             .from('pyra_whatsapp_conversations')
-            .select('id, assigned_to, status')
+            .select('id, assigned_to, status, unread_count')
             .eq('contact_phone', phone)
             .eq('instance_name', instanceName || 'pyraai')
             .maybeSingle();
@@ -134,7 +149,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
         if (!existingConv) {
           const { data } = await supabase
             .from('pyra_whatsapp_conversations')
-            .select('id, assigned_to, status')
+            .select('id, assigned_to, status, unread_count')
             .eq('remote_jid', conversationJid)
             .eq('instance_name', instanceName || 'pyraai')
             .maybeSingle();
@@ -152,9 +167,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           };
           if (direction === 'incoming') {
             convUpdate.last_customer_message_at = msgTimestamp;
-            convUpdate.unread_count = (existingConv as unknown as { unread_count?: number }).unread_count
-              ? Number((existingConv as unknown as { unread_count: number }).unread_count) + 1
-              : 1;
+            convUpdate.unread_count = (existingConv.unread_count || 0) + 1;
             // Auto-reopen if resolved or pending
             if (existingConv.status === CONVERSATION_STATUS.RESOLVED || existingConv.status === CONVERSATION_STATUS.PENDING) {
               convUpdate.status = CONVERSATION_STATUS.OPEN;
@@ -402,15 +415,17 @@ async function resolveAutoAssignment(
     }
 
     if (mode === 'least_busy') {
-      // Count open conversations per agent
+      // Single query to count open conversations per agent (replaces N+1 loop)
+      const { data: agentConvs } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('assigned_to')
+        .eq('status', CONVERSATION_STATUS.OPEN)
+        .in('assigned_to', agentUsernames);
+
       const counts: Record<string, number> = {};
-      for (const username of agentUsernames) {
-        const { count } = await supabase
-          .from('pyra_whatsapp_conversations')
-          .select('id', { count: 'exact', head: true })
-          .eq('assigned_to', username)
-          .eq('status', CONVERSATION_STATUS.OPEN);
-        counts[username] = count || 0;
+      for (const username of agentUsernames) counts[username] = 0;
+      for (const row of agentConvs || []) {
+        if (row.assigned_to) counts[row.assigned_to] = (counts[row.assigned_to] || 0) + 1;
       }
 
       // Find agent with fewest open conversations

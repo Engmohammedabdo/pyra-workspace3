@@ -280,8 +280,12 @@ export function useAddConversationNote() {
 
 /** Poll Evolution API for new messages */
 export function usePollWhatsApp() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: () => mutateAPI('/api/dashboard/sales/whatsapp/poll', 'POST'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
   });
 }
 

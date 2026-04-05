@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -98,6 +98,12 @@ export function ChatPanel({
   const [isTyping, setIsTyping] = useState(false);
   const [injectedText, setInjectedText] = useState<string | null>(null);
 
+  // AbortController for file uploads — abort on unmount
+  const uploadAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    return () => { uploadAbortRef.current?.abort(); };
+  }, []);
+
   // Use phone prop (from conversation metadata) or extract from JID
   const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
   const displayPhone = phone && phone.length > 5 ? `+${phone}` : phone;
@@ -165,10 +171,12 @@ export function ChatPanel({
     try {
       const formData = new FormData();
       formData.append('file', file);
+      uploadAbortRef.current = new AbortController();
       // eslint-disable-next-line no-restricted-globals -- FormData upload requires raw fetch
       const uploadRes = await fetch('/api/dashboard/files/upload-temp', {
         method: 'POST',
         body: formData,
+        signal: uploadAbortRef.current.signal,
       });
 
       let mediaUrl: string;

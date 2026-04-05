@@ -220,7 +220,20 @@ export function ChatInput({
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+      // Detect supported MIME type (Safari doesn't support audio/webm)
+      const mimeType = typeof MediaRecorder.isTypeSupported === 'function'
+        && MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : typeof MediaRecorder.isTypeSupported === 'function'
+          && MediaRecorder.isTypeSupported('audio/mp4')
+          ? 'audio/mp4'
+          : '';
+      const ext = mimeType === 'audio/mp4' ? 'mp4' : 'webm';
+
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
       recordingChunksRef.current = [];
 
       recorder.ondataavailable = (e) => {
@@ -229,8 +242,9 @@ export function ChatInput({
 
       recorder.onstop = () => {
         stream.getTracks().forEach(t => t.stop());
-        const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
-        const file = new File([blob], `voice-${Date.now()}.webm`, { type: 'audio/webm' });
+        const finalType = mimeType || 'audio/webm';
+        const blob = new Blob(recordingChunksRef.current, { type: finalType });
+        const file = new File([blob], `voice-${Date.now()}.${ext}`, { type: finalType });
         processFile(file);
         setIsRecording(false);
         setRecordingTime(0);

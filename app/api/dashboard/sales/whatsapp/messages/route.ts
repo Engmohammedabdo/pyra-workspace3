@@ -43,6 +43,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Scoping: verify agent can access via remoteJid (prevent bypass)
+    if (!isAdmin && remoteJid && !conversationId) {
+      const { data: conv } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('assigned_to')
+        .eq('remote_jid', remoteJid)
+        .maybeSingle();
+
+      if (conv && conv.assigned_to !== auth.pyraUser.username) {
+        return apiSuccess([]); // Agent not assigned — return empty
+      }
+    }
+
     let query = supabase
       .from('pyra_whatsapp_messages')
       .select(WA_MESSAGE_FIELDS)

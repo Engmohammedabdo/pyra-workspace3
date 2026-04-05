@@ -139,8 +139,9 @@ async function sendCsatSurvey(
   const isEnabled = setting?.value?.enabled === true;
   if (!isEnabled) return;
 
-  const phone = conversation.contact_phone as string | null;
-  if (!phone) return;
+  const rawPhone = (conversation.contact_phone as string | null) || '';
+  const phone = rawPhone.replace(/@[^@]+$/, '');
+  if (!phone || !/^\d{7,20}$/.test(phone)) return;
 
   const { evolutionClient } = await import('@/lib/evolution/client');
 

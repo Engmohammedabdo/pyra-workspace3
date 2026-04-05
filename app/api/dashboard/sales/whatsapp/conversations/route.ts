@@ -91,9 +91,10 @@ export async function GET(request: NextRequest) {
       query = query.neq('id', excludeId);
     }
 
-    // Search by contact name or phone
-    if (search) {
-      query = query.or(`contact_name.ilike.%${search}%,contact_phone.ilike.%${search}%`);
+    // Search by contact name or phone (sanitize PostgREST special chars)
+    const safeSearch = search.replace(/[,().%*]/g, '');
+    if (safeSearch) {
+      query = query.or(`contact_name.ilike.%${safeSearch}%,contact_phone.ilike.%${safeSearch}%`);
     }
 
     // Team filter
@@ -179,21 +180,31 @@ export async function GET(request: NextRequest) {
       labels: labelsMap[c.id] || [],
     }));
 
-    // Counts per status for tab badges
+    // Counts per status for tab badges (scoped to agent for non-admins)
     const nowIso = new Date().toISOString();
+
+    // Helper: build a count query with optional agent scoping
+    function scopedCount() {
+      let q = supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true });
+      if (!isAdmin) q = q.eq('assigned_to', username);
+      return q;
+    }
+
     const [openRes, pendingRes, resolvedRes, unassignedRes, snoozedRes] = await Promise.all([
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+      scopedCount()
         .eq('status', CONVERSATION_STATUS.OPEN)
         .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+      scopedCount()
         .eq('status', CONVERSATION_STATUS.PENDING)
         .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+      scopedCount()
         .eq('status', CONVERSATION_STATUS.RESOLVED),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
-        .is('assigned_to', null)
-        .neq('status', CONVERSATION_STATUS.RESOLVED),
-      supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+      isAdmin
+        ? supabase.from('pyra_whatsapp_conversations').select('id', { count: 'exact', head: true })
+            .is('assigned_to', null)
+            .neq('status', CONVERSATION_STATUS.RESOLVED)
+        : Promise.resolve({ count: 0 }), // Agents don't see unassigned tab
+      scopedCount()
         .gt('snoozed_until', nowIso),
     ]);
 

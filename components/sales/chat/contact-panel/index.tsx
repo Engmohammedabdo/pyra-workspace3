@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils/cn';
 import {
   X, Phone, Mail, Building, Calendar, FileText, Tag,
-  MessageCircle, ChevronDown, ChevronUp, ExternalLink, UserPlus,
+  MessageCircle, ChevronDown, ChevronUp, ExternalLink,
   Pencil, Check, Plus, Trash2, Link2Off, Merge, Star,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -458,14 +458,10 @@ export function ContactPanel({
           </div>
         )}
 
-        {/* No Lead — show create button */}
+        {/* No Lead — informational text (lead creation handled in ChatPanel quick actions) */}
         {!leadId && !loading && (
-          <div className="text-center py-4 space-y-2">
+          <div className="text-center py-4">
             <p className="text-xs text-muted-foreground/60">لا يوجد عميل محتمل مرتبط</p>
-            <Button variant="outline" size="sm" className="rounded-lg text-xs">
-              <UserPlus className="h-3 w-3 me-1.5" />
-              إنشاء عميل محتمل
-            </Button>
           </div>
         )}
 

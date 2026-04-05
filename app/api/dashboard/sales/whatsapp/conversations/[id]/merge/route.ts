@@ -30,12 +30,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     // Verify both conversations exist
     const [{ data: primary }, { data: secondary }] = await Promise.all([
-      supabase.from('pyra_whatsapp_conversations').select('id, contact_phone').eq('id', primaryId).maybeSingle(),
-      supabase.from('pyra_whatsapp_conversations').select('id, contact_phone').eq('id', secondaryId).maybeSingle(),
+      supabase.from('pyra_whatsapp_conversations').select('id, contact_phone, merged_into_id').eq('id', primaryId).maybeSingle(),
+      supabase.from('pyra_whatsapp_conversations').select('id, contact_phone, merged_into_id').eq('id', secondaryId).maybeSingle(),
     ]);
 
     if (!primary) return apiNotFound('المحادثة الأساسية غير موجودة');
     if (!secondary) return apiNotFound('المحادثة المطلوب دمجها غير موجودة');
+
+    // Prevent merging a conversation that is already merged
+    if (secondary.merged_into_id) {
+      return apiValidationError('هذه المحادثة مدمجة بالفعل');
+    }
+    if (primary.merged_into_id) {
+      return apiValidationError('المحادثة الأساسية مدمجة بالفعل في محادثة أخرى');
+    }
 
     // Move all messages from secondary to primary
     const { error: msgError } = await supabase
