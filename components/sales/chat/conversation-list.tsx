@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils/cn';
 import { Search, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { ConversationItem } from './conversation-list/conversation-item';
 
@@ -22,13 +22,15 @@ interface ConversationListProps {
 export function ConversationList({ conversations, selectedJid, onSelect, bulkMode, selectedIds, onToggleCheck, onSelectAll }: ConversationListProps) {
   const [search, setSearch] = useState('');
 
-  const filtered = conversations.filter(c => {
-    if (!search) return true;
+  const filtered = useMemo(() => {
+    if (!search) return conversations;
     const q = search.toLowerCase();
-    const name = c.contact_name?.toLowerCase() || '';
-    const phone = c.contact_phone || c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
-    return name.includes(q) || phone.includes(q);
-  });
+    return conversations.filter(c => {
+      const name = c.contact_name?.toLowerCase() || '';
+      const phone = c.contact_phone || c.phone || c.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
+      return name.includes(q) || phone.includes(q);
+    });
+  }, [conversations, search]);
 
   return (
     <div className="flex flex-col h-full border-e border-border/60 bg-card/50">
@@ -67,7 +69,7 @@ export function ConversationList({ conversations, selectedJid, onSelect, bulkMod
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ contentVisibility: 'auto' }}>
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
             <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center mb-3">

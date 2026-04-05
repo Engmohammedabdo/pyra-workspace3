@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useWhatsAppTemplates, type WhatsAppTemplate } from '@/hooks/useWhatsApp';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -22,14 +22,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { toast } from 'sonner';
-
-interface Template {
-  id: string;
-  title: string;
-  content: string;
-  category: string;
-  shortcut: string | null;
-}
 
 /** Variables available for template substitution */
 export interface TemplateVariables {
@@ -63,7 +55,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const { data: templates = [] } = useWhatsAppTemplates();
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templateSearch, setTemplateSearch] = useState('');
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
@@ -98,21 +90,16 @@ export function ChatInput({
     onTypingChange?.(text.trim().length > 0);
   }, [text, onTypingChange]);
 
-  // Fetch templates on first open
-  const fetchTemplates = useCallback(async () => {
-    try {
-      const data = await fetchAPI<Template[]>('/api/dashboard/sales/whatsapp/templates');
-      setTemplates(data);
-    } catch {
-      console.error('Failed to fetch templates');
-    }
-  }, []);
-
+  // Cleanup MediaRecorder and recording timer on unmount
   useEffect(() => {
-    if (templatesOpen && templates.length === 0) {
-      fetchTemplates();
-    }
-  }, [templatesOpen, templates.length, fetchTemplates]);
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stream?.getTracks().forEach(t => t.stop());
+        mediaRecorderRef.current = null;
+      }
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    };
+  }, []);
 
   const filteredTemplates = templates.filter(t => {
     if (!templateSearch) return true;
@@ -132,10 +119,10 @@ export function ChatInput({
       } else if (trimmed) {
         await onSend(trimmed);
       }
-      setText('');
+      setText(''); // Only clear on success
       inputRef.current?.focus();
     } catch {
-      // Error handled upstream
+      // Don't clear text — user can retry
     } finally {
       setSending(false);
     }
@@ -149,7 +136,7 @@ export function ChatInput({
       .replace(/\{\{phone\}\}/g, templateVariables.phone || '');
   }
 
-  function handleTemplateSelect(template: Template) {
+  function handleTemplateSelect(template: WhatsAppTemplate) {
     setText(substituteVariables(template.content));
     setTemplatesOpen(false);
     setTemplateSearch('');
@@ -540,6 +527,7 @@ export function ChatInput({
             disabled={(!text.trim() && !attachmentFile) || sending || disabled}
             size="icon"
             aria-label="إرسال"
+            data-testid="chat-send-button"
             className={cn(
               'shrink-0 rounded-xl w-10 h-10 shadow-md dark:shadow-black/20 transition-all duration-200',
               'bg-gradient-to-br from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700',

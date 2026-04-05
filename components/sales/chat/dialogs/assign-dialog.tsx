@@ -10,7 +10,6 @@ import { mutateAPI } from '@/hooks/api-helpers';
 import { Loader2, UserPlus } from 'lucide-react';
 import { useUsers } from '@/hooks/useUsers';
 import { useTeams } from '@/hooks/useTeams';
-import { useConversations } from '@/hooks/useWhatsApp';
 
 interface AssignDialogProps {
   open: boolean;
@@ -25,7 +24,6 @@ interface AssignDialogProps {
 interface AgentOption {
   username: string;
   display_name: string;
-  is_online?: boolean;
 }
 
 interface TeamOption {
@@ -39,42 +37,30 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
   const [selectedTeam, setSelectedTeam] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Use existing hooks instead of raw fetches
+  // Use existing hooks
   const { data: usersData = [] } = useUsers();
   const { data: teamsData = [] } = useTeams();
-  const { data: convsResponse } = useConversations(
-    open ? { status: 'all', assigned: 'all' } : undefined
-  );
 
-  const teams: TeamOption[] = useMemo(
-    () => (teamsData as unknown as TeamOption[]) || [],
+  const teams = useMemo<TeamOption[]>(
+    () => teamsData.map(t => ({
+      id: t.id,
+      name: t.name,
+      name_ar: t.name_ar as string | undefined,
+    })),
     [teamsData]
   );
 
-  const { agents, workload } = useMemo(() => {
-    if (!open) return { agents: [] as AgentOption[], workload: {} as Record<string, number> };
+  const agents = useMemo<AgentOption[]>(() => {
+    if (!open) return [];
 
-    const userList = usersData as unknown as Array<{ username: string; display_name: string; role?: string }>;
-    const allUsers = (userList || [])
-      .filter(u => u.role === 'admin' || u.role === 'sales_agent' || u.role === 'employee')
-      .map(u => ({
-        username: u.username,
-        display_name: u.display_name,
-        is_online: false,
-      }));
-    const unique = Array.from(new Map(allUsers.map(a => [a.username, a])).values());
-
-    // Calculate workload (active conversations per agent)
-    const convs = convsResponse?.data || [];
-    const counts: Record<string, number> = {};
-    for (const c of convs) {
-      if (c.assigned_to && c.status !== 'resolved') {
-        counts[c.assigned_to] = (counts[c.assigned_to] || 0) + 1;
-      }
-    }
-
-    return { agents: unique, workload: counts };
-  }, [open, usersData, convsResponse]);
+    const eligible = usersData
+      .filter(u => u.role === 'admin' || u.role === 'sales_agent' || u.role === 'employee');
+    const mapped = eligible.map(u => ({
+      username: String((u as Record<string, unknown>).username || u.id),
+      display_name: String((u as Record<string, unknown>).display_name || u.name || u.email || u.id),
+    }));
+    return Array.from(new Map(mapped.map(a => [a.username, a])).values());
+  }, [open, usersData]);
 
   async function handleAssign() {
     setSaving(true);
@@ -119,13 +105,7 @@ export function AssignDialog({ open, conversationId, remoteJid, instanceName, cu
                 <SelectItem value="__none__">بدون تعيين</SelectItem>
                 {agents.map(agent => (
                   <SelectItem key={agent.username} value={agent.username}>
-                    <span className="flex items-center gap-1.5">
-                      <span className={`w-2 h-2 rounded-full shrink-0 ${agent.is_online ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`} />
-                      {agent.display_name}
-                      <span className="text-muted-foreground text-xs">
-                        {workload[agent.username] ? `(${workload[agent.username]})` : ''}
-                      </span>
-                    </span>
+                    {agent.display_name}
                   </SelectItem>
                 ))}
               </SelectContent>

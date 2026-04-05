@@ -60,6 +60,7 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
 
   return (
     <button
+      data-testid={conv.id ? `conversation-${conv.id}` : undefined}
       onClick={() => {
         if (bulkMode && onToggleCheck && conv.id) {
           onToggleCheck(conv.id);

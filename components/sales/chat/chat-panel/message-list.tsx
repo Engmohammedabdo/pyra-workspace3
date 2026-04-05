@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { MessageBubble } from '../message-bubble';
 import { MessageCircle, ChevronDown, Pencil } from 'lucide-react';
 import type { Message, ConversationNote } from '@/hooks/useWhatsApp';
@@ -20,27 +20,33 @@ export function MessageList({ messages, notes }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Merge notes into the message timeline by timestamp
-  const timeline: TimelineItem[] = [
-    ...messages.map(m => ({ type: 'message' as const, data: m, sortTime: m.timestamp })),
-    ...notes.map(n => ({ type: 'note' as const, data: n, sortTime: n.created_at })),
-  ].sort((a, b) => new Date(a.sortTime).getTime() - new Date(b.sortTime).getTime());
+  const timeline = useMemo<TimelineItem[]>(() =>
+    [
+      ...messages.map(m => ({ type: 'message' as const, data: m, sortTime: m.timestamp })),
+      ...notes.map(n => ({ type: 'note' as const, data: n, sortTime: n.created_at })),
+    ].sort((a, b) => new Date(a.sortTime).getTime() - new Date(b.sortTime).getTime()),
+    [messages, notes]
+  );
 
   // Group timeline items by date
-  const groupedItems: { date: string; items: TimelineItem[] }[] = [];
-  let currentDate = '';
-  for (const item of timeline) {
-    const itemDate = new Date(item.sortTime).toLocaleDateString('ar-EG', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-    if (itemDate !== currentDate) {
-      currentDate = itemDate;
-      groupedItems.push({ date: itemDate, items: [] });
+  const groupedItems = useMemo(() => {
+    const groups: { date: string; items: TimelineItem[] }[] = [];
+    let currentDate = '';
+    for (const item of timeline) {
+      const itemDate = new Date(item.sortTime).toLocaleDateString('ar-EG', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      if (itemDate !== currentDate) {
+        currentDate = itemDate;
+        groups.push({ date: itemDate, items: [] });
+      }
+      groups[groups.length - 1].items.push(item);
     }
-    groupedItems[groupedItems.length - 1].items.push(item);
-  }
+    return groups;
+  }, [timeline]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -54,9 +60,9 @@ export function MessageList({ messages, notes }: MessageListProps) {
     setShowScrollDown(distFromBottom > 200);
   }, []);
 
-  function scrollToBottom() {
+  const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }
+  }, []);
 
   return (
     <div

@@ -22,6 +22,23 @@ import { LabelPicker, LabelBadges } from '../dialogs/label-picker';
 import { CsatBadge, CsatStars } from '../csat/csat-badge';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
+// Static lookup tables — moved to module scope to avoid re-creation per render
+const priorityColors: Record<string, string> = {
+  urgent: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
+  high: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+  medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  low: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+};
+
+const priorityLabels: Record<string, string> = {
+  urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض',
+};
+
+const statusLabels: Record<string, string> = {
+  draft: 'مسودة', sent: 'مرسل', viewed: 'تمت المعاينة', signed: 'تم التوقيع',
+  approved: 'معتمد', rejected: 'مرفوض', expired: 'منتهي', invoiced: 'تمت الفوترة',
+};
+
 interface ContactPanelProps {
   contactName: string | null;
   phone: string | null;
@@ -140,7 +157,7 @@ export function ContactPanel({
     }
   }, [conversationId, updateConvMutation, onConversationUpdated]);
 
-  const handleAddAttr = async () => {
+  const handleAddAttr = useCallback(async () => {
     if (!newAttrKey.trim()) return;
     const updated = { ...customAttrs, [newAttrKey.trim()]: newAttrValue.trim() };
     try {
@@ -151,7 +168,7 @@ export function ContactPanel({
     } catch {
       // Error already handled in handleSaveAttrs
     }
-  };
+  }, [newAttrKey, newAttrValue, customAttrs, handleSaveAttrs]);
 
   const handleRemoveAttr = (key: string) => {
     const updated = { ...customAttrs };
@@ -172,22 +189,6 @@ export function ContactPanel({
       toast.error('فشل إلغاء الربط');
     }
   }, [conversationId, updateConvMutation, onConversationUpdated]);
-
-  const priorityColors: Record<string, string> = {
-    urgent: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-    high: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
-    medium: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-    low: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  };
-
-  const priorityLabels: Record<string, string> = {
-    urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض',
-  };
-
-  const statusLabels: Record<string, string> = {
-    draft: 'مسودة', sent: 'مرسل', viewed: 'تمت المعاينة', signed: 'تم التوقيع',
-    approved: 'معتمد', rejected: 'مرفوض', expired: 'منتهي', invoiced: 'تمت الفوترة',
-  };
 
   return (
     <div className="h-full flex flex-col border-s border-border/60 bg-card/50 w-72 lg:w-80 animate-in slide-in-from-end duration-200">

@@ -162,7 +162,7 @@ export function ChatLayout() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-muted/50 rounded-xl p-1 overflow-x-auto">
+      <div role="tablist" aria-label="تصفية المحادثات" className="flex gap-1 bg-muted/50 rounded-xl p-1 overflow-x-auto">
         {visibleTabs.map(tab => {
           const count = tab.key === 'unassigned' ? counts.unassigned
             : tab.key === 'pending' ? counts.pending
@@ -174,6 +174,8 @@ export function ChatLayout() {
           return (
             <button
               key={tab.key}
+              role="tab"
+              aria-selected={activeTab === tab.key}
               onClick={() => { setActiveTab(tab.key); setSelectedConversation(null); }}
               className={cn(
                 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap',

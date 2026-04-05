@@ -96,16 +96,21 @@ export interface WhatsAppTemplate {
 // Hooks: Queries
 // ============================================================
 
+/** Raw shape from the conversations API (may be wrapped or bare array) */
+type RawConvResponse =
+  | { data?: Conversation[]; meta?: { counts?: Record<string, number> } }
+  | Conversation[];
+
 /** Fetch conversations with filter params (status, assigned) */
 export function useConversations(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<ConversationsResponse>({
     queryKey: ['whatsapp-conversations', params],
     queryFn: async () => {
-      const result = await fetchAPI<any>(`/api/dashboard/sales/whatsapp/conversations${qs}`);
+      const result = await fetchAPI<RawConvResponse>(`/api/dashboard/sales/whatsapp/conversations${qs}`);
       // API may return data + meta.counts or just an array
       const data = Array.isArray(result) ? result : (result?.data || result || []);
-      const meta = result?.meta || undefined;
+      const meta = Array.isArray(result) ? undefined : result?.meta || undefined;
       return {
         data: Array.isArray(data) ? data : [],
         meta,
@@ -276,8 +281,7 @@ export function useAddConversationNote() {
 /** Poll Evolution API for new messages */
 export function usePollWhatsApp() {
   return useMutation({
-    mutationFn: () =>
-      fetch('/api/dashboard/sales/whatsapp/poll', { method: 'POST' }).then(() => undefined),
+    mutationFn: () => mutateAPI('/api/dashboard/sales/whatsapp/poll', 'POST'),
   });
 }
 
@@ -459,19 +463,16 @@ export function useAiSuggestions(
         timestamp: m.timestamp,
       }));
 
-      // eslint-disable-next-line no-restricted-globals -- POST-based query endpoint
-      const res = await fetch('/api/dashboard/sales/whatsapp/ai-suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const result = await mutateAPI<string[]>(
+        '/api/dashboard/sales/whatsapp/ai-suggest',
+        'POST',
+        {
           conversation_id: conversationId,
           messages: recentMessages,
           contact_name: contactName || undefined,
-        }),
-      });
-      if (!res.ok) throw new Error('AI suggest failed');
-      const json = await res.json();
-      return (json.data as string[]) || [];
+        }
+      );
+      return result || [];
     },
     enabled:
       enabled &&

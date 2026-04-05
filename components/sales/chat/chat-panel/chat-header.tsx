@@ -204,6 +204,7 @@ export function ChatHeader({
                   className="h-7 text-[11px] rounded-lg text-green-600 hover:bg-green-50 dark:hover:bg-green-950/20"
                   onClick={() => onStatusChange('resolved')}
                   disabled={updatingStatus}
+                  data-testid="btn-resolve"
                 >
                   <CheckCircle2 className="h-3 w-3 me-0.5" />
                   حل
