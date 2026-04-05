@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
-import { useUpdateConversation } from '@/hooks/useWhatsApp';
+import { useUpdateConversation, useConversationCsat } from '@/hooks/useWhatsApp';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils/cn';
 import {
   X, Phone, Mail, Building, Calendar, FileText, Tag,
   MessageCircle, ChevronDown, ChevronUp, ExternalLink, UserPlus,
-  Pencil, Check, Plus, Trash2, Link2Off, Merge,
+  Pencil, Check, Plus, Trash2, Link2Off, Merge, Star,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ import { formatRelativeDate } from '@/lib/utils/format';
 import { PreviousConversations } from './previous-conversations';
 import { MergeDialog } from '../dialogs/merge-dialog';
 import { LabelPicker, LabelBadges } from '../dialogs/label-picker';
+import { CsatBadge, CsatStars } from '../csat/csat-badge';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
 interface ContactPanelProps {
@@ -86,6 +87,7 @@ export function ContactPanel({
   const [newAttrValue, setNewAttrValue] = useState('');
 
   const updateConvMutation = useUpdateConversation();
+  const { data: csatData } = useConversationCsat(conversationId || undefined);
 
   useEffect(() => {
     setNameValue(contactName || '');
@@ -267,6 +269,30 @@ export function ContactPanel({
             </div>
           )}
         </div>
+
+        {/* CSAT Rating */}
+        {(csatData || conversation?.csat_rating) && (
+          <div className="p-3 rounded-xl bg-amber-50/50 dark:bg-amber-950/15 border border-amber-200/40 dark:border-amber-800/30">
+            <div className="flex items-center justify-between mb-1.5">
+              <h4 className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider flex items-center gap-1.5">
+                <Star className="h-3 w-3 text-amber-500 fill-amber-500" />
+                {'\u062a\u0642\u064a\u064a\u0645 \u0627\u0644\u0639\u0645\u064a\u0644'}
+              </h4>
+              <CsatBadge rating={csatData?.rating || conversation?.csat_rating || 0} size="sm" showLabel />
+            </div>
+            <CsatStars rating={csatData?.rating || conversation?.csat_rating || 0} size="md" />
+            {csatData?.comment && (
+              <p className="text-xs text-muted-foreground/70 mt-2 italic leading-relaxed">
+                &ldquo;{csatData.comment}&rdquo;
+              </p>
+            )}
+            {csatData?.submitted_at && (
+              <p className="text-[10px] text-muted-foreground/40 mt-1">
+                {formatRelativeDate(csatData.submitted_at)}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Conversation Labels */}
         {conversationId && (

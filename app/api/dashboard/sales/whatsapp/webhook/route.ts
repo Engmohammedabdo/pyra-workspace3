@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
+import { applySlaPolicy } from '@/lib/whatsapp/sla';
 
 /** Shared secret for webhook authentication */
 const WEBHOOK_SECRET = process.env.EVOLUTION_API_KEY || '';
@@ -192,6 +193,9 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             last_agent_message_at: direction === 'outgoing' ? msgTimestamp : null,
             unread_count: direction === 'incoming' ? 1 : 0,
           });
+
+          // Apply SLA policy to new conversation
+          void applySlaPolicy(supabase, conversationId, CONVERSATION_PRIORITY.NORMAL);
         }
 
         // ── Insert message with conversation_id ──
@@ -225,6 +229,17 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             .from('pyra_sales_leads')
             .update({ last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', matchedLead.id);
+        }
+
+        // ── CSAT Response Detection ──
+        // If incoming message is a single digit 1-5 and conversation was
+        // recently resolved (within 24h), record as CSAT response.
+        if (direction === 'incoming' && content) {
+          const trimmed = content.trim();
+          const csatRating = /^[1-5]$/.test(trimmed) ? parseInt(trimmed, 10) : null;
+          if (csatRating && existingConv) {
+            void handleCsatResponse(supabase, existingConv.id, csatRating, phone, instanceName || 'pyraai');
+          }
         }
 
         // ── Notifications (Shared Inbox) ──
@@ -414,5 +429,95 @@ async function resolveAutoAssignment(
   } catch (err) {
     console.error('[Auto-Assignment] Error:', err);
     return null;
+  }
+}
+
+/**
+ * Handle a CSAT response: check if conversation was recently resolved (within 24h),
+ * create/update CSAT record, update conversation, and send thank-you message.
+ */
+async function handleCsatResponse(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  conversationId: string,
+  rating: number,
+  phone: string,
+  instanceName: string
+) {
+  try {
+    // Check if CSAT is enabled
+    const { data: setting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'whatsapp_csat_enabled')
+      .maybeSingle();
+
+    if (setting?.value?.enabled !== true) return;
+
+    // Check if conversation was resolved within the last 24 hours
+    const { data: conv } = await supabase
+      .from('pyra_whatsapp_conversations')
+      .select('id, resolved_at, contact_name, contact_phone, assigned_to, csat_rating')
+      .eq('id', conversationId)
+      .maybeSingle();
+
+    if (!conv?.resolved_at) return;
+
+    const resolvedAt = new Date(conv.resolved_at).getTime();
+    const now = Date.now();
+    const twentyFourHours = 24 * 60 * 60 * 1000;
+
+    if (now - resolvedAt > twentyFourHours) return;
+
+    // Don't overwrite existing CSAT
+    if (conv.csat_rating) return;
+
+    // Check if CSAT record already exists
+    const { data: existing } = await supabase
+      .from('pyra_csat_surveys')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .maybeSingle();
+
+    if (existing) {
+      // Update existing record
+      await supabase
+        .from('pyra_csat_surveys')
+        .update({ rating, submitted_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    } else {
+      // Create new CSAT record
+      await supabase
+        .from('pyra_csat_surveys')
+        .insert({
+          id: generateId('csat'),
+          conversation_id: conversationId,
+          rating,
+          contact_phone: conv.contact_phone || phone,
+          contact_name: conv.contact_name || null,
+          agent_username: conv.assigned_to || null,
+          submitted_at: new Date().toISOString(),
+        });
+    }
+
+    // Update conversation csat_rating
+    await supabase
+      .from('pyra_whatsapp_conversations')
+      .update({ csat_rating: rating })
+      .eq('id', conversationId);
+
+    // Send thank you message
+    try {
+      const { evolutionClient } = await import('@/lib/evolution/client');
+      await evolutionClient.sendText(instanceName, {
+        number: phone,
+        text: '\u0634\u0643\u0631\u0627\u064b \u0644\u062a\u0642\u064a\u064a\u0645\u0643! \ud83c\udf1f',
+      });
+    } catch (sendErr) {
+      console.error('[CSAT] Failed to send thank-you message:', sendErr);
+    }
+
+    console.log(`[CSAT] Recorded rating ${rating} for conversation ${conversationId}`);
+  } catch (err) {
+    console.error('[CSAT] handleCsatResponse error:', err);
   }
 }

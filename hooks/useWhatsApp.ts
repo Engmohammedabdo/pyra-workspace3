@@ -48,6 +48,15 @@ export interface Conversation {
   waiting_since?: string | null;
   labels?: ConversationLabel[];
   created_at?: string;
+  // SLA fields
+  sla_policy_id?: string | null;
+  sla_first_response_due?: string | null;
+  sla_resolution_due?: string | null;
+  sla_first_response_breached?: boolean;
+  sla_resolution_breached?: boolean;
+  resolved_at?: string | null;
+  // CSAT fields
+  csat_rating?: number | null;
 }
 
 export interface ConversationsResponse {
@@ -357,6 +366,67 @@ export function useRemoveLabel() {
 }
 
 // ============================================================
+// Hooks: CSAT
+// ============================================================
+
+export interface CsatSurvey {
+  id: string;
+  conversation_id: string;
+  rating: number;
+  comment: string | null;
+  contact_phone: string | null;
+  contact_name: string | null;
+  agent_username: string | null;
+  submitted_at: string | null;
+  created_at: string;
+}
+
+export interface CsatStats {
+  average: number;
+  total: number;
+  distribution: Record<number, number>;
+  byAgent: { agent: string; average: number; count: number }[];
+  trend: { date: string; average: number; count: number }[];
+}
+
+/** Fetch CSAT stats (analytics dashboard) */
+export function useCsatStats(params?: Record<string, string | undefined>) {
+  const qs = buildQueryString(params);
+  return useQuery<CsatStats>({
+    queryKey: ['csat-stats', params],
+    queryFn: () => fetchAPI<CsatStats>(`/api/dashboard/sales/whatsapp/csat/stats${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+/** Fetch CSAT survey for a specific conversation */
+export function useConversationCsat(conversationId: string | undefined) {
+  return useQuery<CsatSurvey>({
+    queryKey: ['csat-conversation', conversationId],
+    queryFn: () => fetchAPI<CsatSurvey>(`/api/dashboard/sales/whatsapp/csat/${conversationId}`),
+    enabled: !!conversationId,
+    staleTime: 60_000,
+  });
+}
+
+/** Submit CSAT survey */
+export function useSubmitCsat() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      conversation_id: string;
+      rating: number;
+      comment?: string;
+    }) => mutateAPI('/api/dashboard/sales/whatsapp/csat', 'POST', payload),
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['csat-stats'] });
+      qc.invalidateQueries({ queryKey: ['csat-conversation', variables.conversation_id] });
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+// ============================================================
 // Hooks: Bulk Actions
 // ============================================================
 
@@ -373,5 +443,159 @@ export function useBulkUpdateConversations() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
     },
+  });
+}
+
+// ============================================================
+// Hooks: AI Suggestions
+// ============================================================
+
+/** Generate AI reply suggestions based on recent messages */
+export function useAiSuggestions(
+  conversationId: string | undefined,
+  messages: Message[],
+  contactName: string | null,
+  enabled: boolean = true
+) {
+  // Derive a stable key from the last incoming message ID
+  const lastIncoming = [...messages].reverse().find((m) => m.direction === 'incoming');
+  const lastIncomingId = lastIncoming?.id || '';
+
+  return useQuery<string[]>({
+    queryKey: ['whatsapp-ai-suggestions', conversationId, lastIncomingId],
+    queryFn: async () => {
+      // Send only the last 5 messages for context
+      const recentMessages = messages.slice(-5).map((m) => ({
+        direction: m.direction,
+        content: m.content,
+        timestamp: m.timestamp,
+      }));
+
+      const result = await mutateAPI<string[]>(
+        '/api/dashboard/sales/whatsapp/ai-suggest',
+        'POST',
+        {
+          conversation_id: conversationId,
+          messages: recentMessages,
+          contact_name: contactName || undefined,
+        }
+      );
+      return result || [];
+    },
+    enabled:
+      enabled &&
+      !!lastIncomingId &&
+      messages.length > 0 &&
+      // Only suggest if the last message is incoming (no reply yet)
+      messages[messages.length - 1]?.direction === 'incoming',
+    staleTime: 60_000, // Cache for 1 minute per message
+    retry: false,
+  });
+}
+
+// ============================================================
+// Hooks: SLA Policies
+// ============================================================
+
+export interface SlaPolicy {
+  id: string;
+  name: string;
+  name_ar: string | null;
+  first_response_minutes: number;
+  resolution_minutes: number;
+  priority: string;
+  is_active: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface SlaStats {
+  total: number;
+  within_sla: number;
+  breached: number;
+  compliance_rate: number;
+  avg_first_response_mins: number;
+  avg_resolution_mins: number;
+  by_agent: {
+    agent: string;
+    total: number;
+    breached: number;
+    within_sla: number;
+    compliance_rate: number;
+  }[];
+}
+
+/** Fetch all SLA policies */
+export function useSlaPolicies() {
+  return useQuery<SlaPolicy[]>({
+    queryKey: ['sla-policies'],
+    queryFn: () => fetchAPI<SlaPolicy[]>('/api/dashboard/sales/whatsapp/sla'),
+    staleTime: 60_000,
+  });
+}
+
+/** Create a new SLA policy */
+export function useCreateSlaPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      name: string;
+      name_ar?: string;
+      first_response_minutes: number;
+      resolution_minutes: number;
+      priority: string;
+    }) => mutateAPI('/api/dashboard/sales/whatsapp/sla', 'POST', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+    },
+  });
+}
+
+/** Update an SLA policy */
+export function useUpdateSlaPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      id: string;
+      name?: string;
+      name_ar?: string;
+      first_response_minutes?: number;
+      resolution_minutes?: number;
+      priority?: string;
+      is_active?: boolean;
+    }) => mutateAPI('/api/dashboard/sales/whatsapp/sla', 'PUT', data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+    },
+  });
+}
+
+/** Delete an SLA policy */
+export function useDeleteSlaPolicy() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/sla?id=${id}`, 'DELETE'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['sla-policies'] });
+    },
+  });
+}
+
+/** Fetch SLA compliance stats */
+export function useSlaStats(params?: { days?: number }) {
+  const qs = buildQueryString(params as Record<string, string | undefined>);
+  return useQuery<SlaStats>({
+    queryKey: ['sla-stats', params],
+    queryFn: () => fetchAPI<SlaStats>(`/api/dashboard/sales/whatsapp/sla/stats${qs}`),
+    staleTime: 30_000,
+  });
+}
+
+/** Trigger SLA breach check */
+export function useCheckSla() {
+  return useMutation({
+    mutationFn: () =>
+      mutateAPI('/api/dashboard/sales/whatsapp/sla/check', 'POST'),
   });
 }

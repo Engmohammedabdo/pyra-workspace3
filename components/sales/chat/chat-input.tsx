@@ -44,9 +44,23 @@ interface ChatInputProps {
   disabled?: boolean;
   /** Variables for template substitution */
   templateVariables?: TemplateVariables;
+  /** Inject text externally (e.g. from AI suggestions) */
+  injectedText?: string | null;
+  /** Callback when injected text has been consumed */
+  onInjectedTextConsumed?: () => void;
+  /** Notify parent when the user starts/stops typing */
+  onTypingChange?: (isTyping: boolean) => void;
 }
 
-export function ChatInput({ onSend, onSendMedia, disabled, templateVariables }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  onSendMedia,
+  disabled,
+  templateVariables,
+  injectedText,
+  onInjectedTextConsumed,
+  onTypingChange,
+}: ChatInputProps) {
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -62,6 +76,27 @@ export function ChatInput({ onSend, onSendMedia, disabled, templateVariables }: 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle injected text from AI suggestions
+  useEffect(() => {
+    if (injectedText) {
+      setText(injectedText);
+      onInjectedTextConsumed?.();
+      // Focus and move cursor to end
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.style.height = 'auto';
+          inputRef.current.style.height = Math.min(inputRef.current.scrollHeight, 120) + 'px';
+        }
+      }, 50);
+    }
+  }, [injectedText, onInjectedTextConsumed]);
+
+  // Notify parent of typing state changes
+  useEffect(() => {
+    onTypingChange?.(text.trim().length > 0);
+  }, [text, onTypingChange]);
 
   // Fetch templates on first open
   const fetchTemplates = useCallback(async () => {

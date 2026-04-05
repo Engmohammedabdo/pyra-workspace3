@@ -201,7 +201,8 @@ export const WA_CONVERSATION_FIELDS = `
   unread_count, is_pinned, created_at, updated_at,
   team_id, snoozed_until, is_muted,
   first_reply_at, waiting_since,
-  custom_attributes, merged_into_id
+  custom_attributes, merged_into_id,
+  csat_rating, resolved_at
 `;
 
 export const CONVERSATION_NOTE_FIELDS = `

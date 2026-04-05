@@ -12,6 +12,7 @@ import { useRef } from 'react';
 import { AssignDialog } from '../dialogs/assign-dialog';
 import { SnoozePicker } from '../dialogs/snooze-picker';
 import { LabelPicker } from '../dialogs/label-picker';
+import { SlaIndicator } from '../sla/sla-indicator';
 import type { ConversationLabel } from '@/hooks/useWhatsApp';
 
 interface ChatHeaderProps {
@@ -34,6 +35,16 @@ interface ChatHeaderProps {
   snoozedUntil?: string | null;
   isMuted?: boolean;
   labels?: ConversationLabel[];
+  slaData?: {
+    sla_policy_id?: string | null;
+    sla_first_response_due?: string | null;
+    sla_resolution_due?: string | null;
+    sla_first_response_breached?: boolean;
+    sla_resolution_breached?: boolean;
+    first_reply_at?: string | null;
+    resolved_at?: string | null;
+    status?: string;
+  } | null;
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -66,6 +77,7 @@ export function ChatHeader({
   snoozedUntil,
   isMuted,
   labels,
+  slaData,
   onBack,
   onToggleSidebar,
   onToggleAssign,
@@ -114,6 +126,9 @@ export function ChatHeader({
               )}
             </div>
           </button>
+
+          {/* SLA Indicator */}
+          {slaData && <SlaIndicator conversation={slaData} />}
         </div>
         <div className="flex items-center gap-1 relative">
           {/* Assign to Agent — admin only */}

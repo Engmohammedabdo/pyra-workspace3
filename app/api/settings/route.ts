@@ -95,6 +95,8 @@ const ALLOWED_KEYS = new Set([
   'board_client_portal_visible',
   'board_max_attachments_mb',
   'board_done_auto_archive_days',
+  // WhatsApp settings
+  'whatsapp_ai_suggestions_enabled',
 ]);
 
 // =============================================================

@@ -105,12 +105,26 @@ export async function POST(request: NextRequest) {
 
     // Update conversation timestamps
     if (convId) {
-      await supabase.from('pyra_whatsapp_conversations').update({
+      // Check if this is the first agent reply (for SLA tracking)
+      const { data: convData } = await supabase
+        .from('pyra_whatsapp_conversations')
+        .select('first_reply_at')
+        .eq('id', convId)
+        .maybeSingle();
+
+      const updatePayload: Record<string, unknown> = {
         last_message: content,
         last_message_at: new Date().toISOString(),
         last_agent_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-      }).eq('id', convId);
+      };
+
+      // Set first_reply_at if this is the first agent reply
+      if (convData && !convData.first_reply_at) {
+        updatePayload.first_reply_at = new Date().toISOString();
+      }
+
+      await supabase.from('pyra_whatsapp_conversations').update(updatePayload).eq('id', convId);
     }
 
     

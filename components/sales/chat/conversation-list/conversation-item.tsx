@@ -5,6 +5,8 @@ import { User, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { LabelDots } from '../dialogs/label-picker';
+import { SlaIndicator } from '../sla/sla-indicator';
+import { CsatBadge } from '../csat/csat-badge';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -143,6 +145,9 @@ export function ConversationItem({ conversation: conv, isSelected, onSelect, bul
           {conv.is_muted && (
             <span title="صامتة"><BellOff className="h-3 w-3 text-gray-400 shrink-0" /></span>
           )}
+          {conv.sla_policy_id && conv.status !== 'resolved' && (
+            <SlaIndicator conversation={conv} compact />
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-0.5">
@@ -151,6 +156,9 @@ export function ConversationItem({ conversation: conv, isSelected, onSelect, bul
               {lastMsgPreview}
             </p>
             <LabelDots labels={conv.labels} />
+            {conv.status === 'resolved' && conv.csat_rating && (
+              <CsatBadge rating={conv.csat_rating} size="sm" />
+            )}
           </div>
           {conv.unread_count > 0 && (
             <div className="min-w-[20px] h-[20px] rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center shrink-0 ms-2 shadow-sm shadow-emerald-500/20">

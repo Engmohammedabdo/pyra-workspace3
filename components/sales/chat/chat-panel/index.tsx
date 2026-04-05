@@ -16,11 +16,14 @@ import {
   useSendMediaMessage,
   useUpdateConversation,
   useAddConversationNote,
+  useAiSuggestions,
 } from '@/hooks/useWhatsApp';
+import { useSettings } from '@/hooks/useSettings';
 import { ChatHeader } from './chat-header';
 import { MessageList } from './message-list';
 import { ChatInput } from '../chat-input';
 import { NoteInput } from './note-input';
+import { SuggestBar } from '../ai-suggest/suggest-bar';
 import { ContactPanel } from '../contact-panel';
 import { SendQuoteDialog } from '../dialogs/send-quote-dialog';
 import { SendInvoiceDialog } from '../dialogs/send-invoice-dialog';
@@ -41,6 +44,16 @@ interface ChatPanelProps {
   snoozedUntil?: string | null;
   isMuted?: boolean;
   labels?: import('@/hooks/useWhatsApp').ConversationLabel[];
+  slaData?: {
+    sla_policy_id?: string | null;
+    sla_first_response_due?: string | null;
+    sla_resolution_due?: string | null;
+    sla_first_response_breached?: boolean;
+    sla_resolution_breached?: boolean;
+    first_reply_at?: string | null;
+    resolved_at?: string | null;
+    status?: string;
+  } | null;
   isAdmin?: boolean;
   onBack?: () => void;
   onConversationUpdated?: () => void;
@@ -59,6 +72,7 @@ export function ChatPanel({
   snoozedUntil: initialSnoozedUntil,
   isMuted: initialMuted,
   labels,
+  slaData,
   isAdmin,
   onBack,
   onConversationUpdated,
@@ -73,6 +87,8 @@ export function ChatPanel({
   const [convStatus, setConvStatus] = useState(conversationStatus || 'open');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [isMuted, setIsMuted] = useState(initialMuted || false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [injectedText, setInjectedText] = useState<string | null>(null);
 
   // Use phone prop (from conversation metadata) or extract from JID
   const phone = phoneProp || remoteJid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
@@ -96,6 +112,25 @@ export function ChatPanel({
   const sendMediaMutation = useSendMediaMessage();
   const addNoteMutation = useAddConversationNote();
   const updateConvMutation = useUpdateConversation();
+
+  // ── AI Suggestions ──
+  const { data: settingsData } = useSettings();
+  const aiSuggestionsEnabled = settingsData?.whatsapp_ai_suggestions_enabled !== false;
+
+  const { data: aiSuggestions = [], isLoading: suggestionsLoading } = useAiSuggestions(
+    conversationId || undefined,
+    messages,
+    contactName,
+    aiSuggestionsEnabled
+  );
+
+  const handleSuggestionSelect = useCallback((text: string) => {
+    setInjectedText(text);
+  }, []);
+
+  const handleTypingChange = useCallback((typing: boolean) => {
+    setIsTyping(typing);
+  }, []);
 
   // Filter messages for search count
   const displayMessages = searchQuery
@@ -263,6 +298,7 @@ export function ChatPanel({
           snoozedUntil={initialSnoozedUntil}
           isMuted={isMuted}
           labels={labels}
+          slaData={slaData}
           onBack={onBack}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
@@ -284,6 +320,16 @@ export function ChatPanel({
           notes={notes}
           searchQuery={searchQuery}
         />
+
+        {/* AI Suggest Bar — between messages and quick actions */}
+        {aiSuggestionsEnabled && inputMode === 'message' && (
+          <SuggestBar
+            suggestions={aiSuggestions}
+            isLoading={suggestionsLoading}
+            isTyping={isTyping}
+            onSelect={handleSuggestionSelect}
+          />
+        )}
 
         {/* Quick Actions Bar */}
         <div className="px-3 py-1.5 border-t border-border/30 flex items-center gap-1 overflow-x-auto scrollbar-none bg-muted/10">
@@ -365,6 +411,9 @@ export function ChatPanel({
             onSend={handleSend}
             onSendMedia={handleSendMedia}
             templateVariables={templateVariables}
+            injectedText={injectedText}
+            onInjectedTextConsumed={() => setInjectedText(null)}
+            onTypingChange={handleTypingChange}
           />
         )}
       </div>

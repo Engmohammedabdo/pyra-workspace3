@@ -90,6 +90,17 @@ export function ChatLayout() {
     return () => clearInterval(interval);
   }, []);
 
+  // SLA breach check — runs every 60s
+  useEffect(() => {
+    const checkSla = () => {
+      fetch('/api/dashboard/sales/whatsapp/sla/check', { method: 'POST' }).catch(() => {});
+    };
+    // Initial check after 10s (give conversations time to load first)
+    const timeout = setTimeout(checkSla, 10000);
+    const interval = setInterval(checkSla, 60000);
+    return () => { clearTimeout(timeout); clearInterval(interval); };
+  }, []);
+
   // Keyboard shortcuts
   useChatShortcuts({ conversations });
 
@@ -237,6 +248,16 @@ export function ChatLayout() {
                 snoozedUntil={selectedConversation.snoozed_until}
                 isMuted={selectedConversation.is_muted}
                 labels={selectedConversation.labels}
+                slaData={selectedConversation.sla_policy_id ? {
+                  sla_policy_id: selectedConversation.sla_policy_id,
+                  sla_first_response_due: selectedConversation.sla_first_response_due,
+                  sla_resolution_due: selectedConversation.sla_resolution_due,
+                  sla_first_response_breached: selectedConversation.sla_first_response_breached,
+                  sla_resolution_breached: selectedConversation.sla_resolution_breached,
+                  first_reply_at: selectedConversation.first_reply_at,
+                  resolved_at: selectedConversation.resolved_at,
+                  status: selectedConversation.status,
+                } : null}
                 isAdmin={isAdmin}
                 onBack={() => setMobileView('list')}
                 onConversationUpdated={() => {
