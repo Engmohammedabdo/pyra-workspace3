@@ -200,6 +200,19 @@ export async function DELETE(
     const { id } = await params;
     const supabase = await createServerSupabaseClient();
 
+    // Agent scoping: verify ownership before deletion
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin) {
+      const { data: existing } = await supabase
+        .from('pyra_sales_leads')
+        .select('assigned_to')
+        .eq('id', id)
+        .single();
+      if (!existing || existing.assigned_to !== auth.pyraUser.username) {
+        return apiNotFound('العميل المحتمل غير موجود');
+      }
+    }
+
     const { error } = await supabase
       .from('pyra_sales_leads')
       .delete()

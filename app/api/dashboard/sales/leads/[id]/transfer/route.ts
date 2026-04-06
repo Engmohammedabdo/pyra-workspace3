@@ -4,6 +4,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { notifyLeadAssigned } from '@/lib/email/notify';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 export async function POST(
   request: NextRequest,
@@ -28,6 +29,12 @@ export async function POST(
       .single();
 
     if (fetchError || !lead) return apiNotFound('العميل المحتمل غير موجود');
+
+    // Agent scoping: only assigned agent or admin can transfer
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin && lead.assigned_to !== auth.pyraUser.username) {
+      return apiNotFound('العميل المحتمل غير موجود');
+    }
 
     const fromAgent = lead.assigned_to;
 

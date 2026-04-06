@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { FOLLOW_UP_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
@@ -101,6 +101,19 @@ export async function PATCH(request: NextRequest) {
 
     if (!id) return apiError('معرّف المتابعة مطلوب');
 
+    // Agent scoping: verify ownership before update
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin) {
+      const { data: existing } = await supabase
+        .from('pyra_sales_follow_ups')
+        .select('assigned_to')
+        .eq('id', id)
+        .single();
+      if (!existing || existing.assigned_to !== auth.pyraUser.username) {
+        return apiNotFound('المتابعة غير موجودة');
+      }
+    }
+
     const updates: Record<string, unknown> = {};
     if (status !== undefined) updates.status = status;
     if (title !== undefined) updates.title = title;
@@ -120,6 +133,44 @@ export async function PATCH(request: NextRequest) {
 
   } catch (err) {
     console.error('[PATCH /api/dashboard/sales/follow-ups] error:', err);
+    return apiServerError();
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const auth = await requireApiPermission('sales_leads.manage');
+    if (isApiError(auth)) return auth;
+
+    const supabase = await createServerSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) return apiError('معرّف المتابعة مطلوب');
+
+    // Agent scoping: verify ownership before deletion
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin) {
+      const { data: existing } = await supabase
+        .from('pyra_sales_follow_ups')
+        .select('assigned_to')
+        .eq('id', id)
+        .single();
+      if (!existing || existing.assigned_to !== auth.pyraUser.username) {
+        return apiNotFound('المتابعة غير موجودة');
+      }
+    }
+
+    const { error } = await supabase
+      .from('pyra_sales_follow_ups')
+      .delete()
+      .eq('id', id);
+
+    if (error) return apiServerError(error.message);
+    return apiSuccess({ deleted: true });
+
+  } catch (err) {
+    console.error('[DELETE /api/dashboard/sales/follow-ups] error:', err);
     return apiServerError();
   }
 }

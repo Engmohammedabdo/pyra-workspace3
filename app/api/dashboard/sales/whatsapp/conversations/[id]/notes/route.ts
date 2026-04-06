@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiForbidden, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CONVERSATION_NOTE_FIELDS } from '@/lib/supabase/fields';
 import { logActivity } from '@/lib/api/activity';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -53,14 +54,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
     const supabase = createServiceRoleClient();
 
-    // Verify conversation exists
+    // Verify conversation exists and agent is assigned
     const { data: conv } = await supabase
       .from('pyra_whatsapp_conversations')
-      .select('id')
+      .select('id, assigned_to')
       .eq('id', id)
       .maybeSingle();
 
     if (!conv) return apiNotFound('المحادثة غير موجودة');
+
+    // Agent scoping: only assigned agent or admin can add notes
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin && conv.assigned_to !== auth.pyraUser.username) {
+      return apiForbidden('لا يمكنك إضافة ملاحظة لمحادثة غير مسندة إليك');
+    }
 
     const { data: note, error } = await supabase
       .from('pyra_conversation_notes')

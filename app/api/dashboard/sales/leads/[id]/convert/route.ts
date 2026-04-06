@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 interface Params {
   params: Promise<{ id: string }>;
@@ -29,7 +30,14 @@ export async function POST(request: NextRequest, { params }: Params) {
     .eq('id', id)
     .single();
 
-  if (leadError || !lead) return apiError('العميل المحتمل غير موجود', 404);
+  if (leadError || !lead) return apiNotFound('العميل المحتمل غير موجود');
+
+  // Agent scoping: verify ownership before conversion
+  const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+  if (!isAdmin && lead.assigned_to !== auth.pyraUser.username) {
+    return apiNotFound('العميل المحتمل غير موجود');
+  }
+
   if (lead.is_converted) return apiError('تم تحويل هذا العميل المحتمل بالفعل');
 
   // 2. Create client record

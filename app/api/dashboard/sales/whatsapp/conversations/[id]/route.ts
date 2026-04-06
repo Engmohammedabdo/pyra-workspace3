@@ -30,9 +30,9 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     if (error) return apiServerError();
     if (!conv) return apiNotFound('المحادثة غير موجودة');
 
-    // Agent scoping: must be assigned or admin
+    // Agent scoping: must be assigned to the agent (admins see all)
     const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
-    if (!isAdmin && conv.assigned_to !== auth.pyraUser.username && conv.assigned_to !== null) {
+    if (!isAdmin && conv.assigned_to !== auth.pyraUser.username) {
       return apiNotFound('المحادثة غير موجودة');
     }
 
@@ -56,7 +56,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
  */
 export async function PATCH(req: NextRequest, ctx: Ctx) {
   try {
-    const auth = await requireApiPermission('sales_whatsapp.view');
+    const auth = await requireApiPermission('sales_whatsapp.send');
     if (isApiError(auth)) return auth;
 
     const { id } = await ctx.params;

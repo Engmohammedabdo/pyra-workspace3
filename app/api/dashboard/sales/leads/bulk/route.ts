@@ -3,10 +3,12 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiValidationError,
+  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 /**
  * POST /api/dashboard/sales/leads/bulk
@@ -40,6 +42,20 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServiceRoleClient();
+
+    // Agent scoping: verify ALL leads belong to the current agent
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin) {
+      const { data: leads } = await supabase
+        .from('pyra_sales_leads')
+        .select('id, assigned_to')
+        .in('id', lead_ids);
+      const unauthorized = (leads || []).filter(l => l.assigned_to !== auth.pyraUser.username);
+      if (unauthorized.length > 0) {
+        return apiForbidden('لا يمكنك تعديل عملاء محتملين غير مسندين إليك');
+      }
+    }
+
     let affected = 0;
 
     switch (action) {

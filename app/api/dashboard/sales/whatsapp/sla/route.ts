@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
@@ -10,8 +10,8 @@ import { logActivity } from '@/lib/api/activity';
  * List all SLA policies.
  */
 export async function GET() {
-  const auth = await getApiAuth();
-  if (!auth) return apiError('غير مصرح', 401);
+  const auth = await requireApiPermission('sales_whatsapp.view');
+  if (isApiError(auth)) return auth;
 
   try {
     const supabase = createServiceRoleClient();
