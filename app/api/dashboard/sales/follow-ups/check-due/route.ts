@@ -47,6 +47,19 @@ export async function POST(_request: NextRequest) {
 
     const notifiedPaths = new Set(existingNotifs?.map(n => n.target_path) || []);
 
+    // F3: Update overdue follow-ups status to 'overdue'
+    const overdueIds = dueFollowUps
+      .filter(fu => new Date(fu.due_at) < now)
+      .map(fu => fu.id);
+
+    if (overdueIds.length > 0) {
+      await supabase
+        .from('pyra_sales_follow_ups')
+        .update({ status: 'overdue' })
+        .in('id', overdueIds)
+        .eq('status', FOLLOW_UP_STATUS.PENDING);
+    }
+
     const notifications = [];
     for (const fu of dueFollowUps) {
       const targetPath = `/dashboard/sales/follow-ups?highlight=${fu.id}`;

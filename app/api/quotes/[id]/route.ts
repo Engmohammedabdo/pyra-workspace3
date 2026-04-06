@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_quotes')
-      .select('id, status, client_id, tax_rate, discount_type, discount_value')
+      .select('id, status, client_id, tax_rate, discount_type, discount_value, created_by')
       .eq('id', id)
       .maybeSingle();
 
@@ -130,6 +130,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Scope check: non-admins can only edit quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {
       return apiForbidden();
+    }
+
+    // Q2: Ownership check — non-admins can only edit quotes they created
+    if (!scope.isAdmin && existing.created_by !== auth.pyraUser.username) {
+      return apiForbidden('لا يمكنك تعديل عرض سعر لم تنشئه');
+    }
+
+    // Q7: Lock quotes during pending approval — only admins can edit
+    if (existing.status === 'pending_approval' && !scope.isAdmin) {
+      return apiForbidden('عرض السعر قيد الموافقة ولا يمكن تعديله');
     }
 
     const {
@@ -181,6 +191,18 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           `لا يمكن تغيير حالة عرض السعر من "${currentStatus}" إلى "${status}"`
         );
       }
+
+      // Q1: Only admins can change status away from pending_approval
+      if (currentStatus === 'pending_approval' && !scope.isAdmin) {
+        return apiForbidden('عرض السعر قيد الموافقة ولا يمكن تعديل حالته');
+      }
+
+      // Q8: Status revert transitions (back to draft) are admin-only
+      const REVERT_STATUSES = ['sent', 'viewed', 'rejected', 'expired', 'cancelled'];
+      if (REVERT_STATUSES.includes(currentStatus) && status === 'draft' && !scope.isAdmin) {
+        return apiForbidden('فقط الأدمن يمكنه إعادة عرض السعر إلى مسودة');
+      }
+
       updates.status = status;
     }
 

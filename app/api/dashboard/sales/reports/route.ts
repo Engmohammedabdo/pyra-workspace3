@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { isSuperAdmin } from '@/lib/auth/rbac';
 
 /**
  * GET /api/dashboard/sales/reports?type=funnel|velocity|agents|aging|lost
@@ -24,17 +25,21 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // R1-R5: Agent scoping — non-admins only see their own leads data
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    const agentUsername = isAdmin ? null : auth.pyraUser.username;
+
     switch (reportType) {
       case 'funnel':
-        return await funnelReport(supabase, { from, to });
+        return await funnelReport(supabase, { from, to }, agentUsername);
       case 'velocity':
-        return await velocityReport(supabase, { from, to });
+        return await velocityReport(supabase, { from, to }, agentUsername);
       case 'agents':
-        return await agentsReport(supabase, { from, to, agent });
+        return await agentsReport(supabase, { from, to, agent }, agentUsername);
       case 'aging':
-        return await agingReport(supabase);
+        return await agingReport(supabase, agentUsername);
       case 'lost':
-        return await lostReport(supabase, { from, to });
+        return await lostReport(supabase, { from, to }, agentUsername);
       default:
         return apiValidationError('نوع التقرير غير صالح');
     }
@@ -57,11 +62,12 @@ interface DateFilter {
  * Funnel report — conversion by source.
  * How many leads from each source, and how many converted.
  */
-async function funnelReport(supabase: SupabaseClient, { from, to }: DateFilter) {
+async function funnelReport(supabase: SupabaseClient, { from, to }: DateFilter, agentUsername: string | null) {
   let query = supabase
     .from('pyra_sales_leads')
     .select('source, is_converted');
 
+  if (agentUsername) query = query.eq('assigned_to', agentUsername);
   if (from) query = query.gte('created_at', from);
   if (to) query = query.lte('created_at', to + 'T23:59:59');
 
@@ -100,13 +106,14 @@ async function funnelReport(supabase: SupabaseClient, { from, to }: DateFilter) 
 /**
  * Velocity report — average days to convert.
  */
-async function velocityReport(supabase: SupabaseClient, { from, to }: DateFilter) {
+async function velocityReport(supabase: SupabaseClient, { from, to }: DateFilter, agentUsername: string | null) {
   let query = supabase
     .from('pyra_sales_leads')
     .select('created_at, converted_at')
     .eq('is_converted', true)
     .not('converted_at', 'is', null);
 
+  if (agentUsername) query = query.eq('assigned_to', agentUsername);
   if (from) query = query.gte('converted_at', from);
   if (to) query = query.lte('converted_at', to + 'T23:59:59');
 
@@ -151,14 +158,19 @@ async function velocityReport(supabase: SupabaseClient, { from, to }: DateFilter
 /**
  * Agents performance report.
  */
-async function agentsReport(supabase: SupabaseClient, { from, to, agent }: DateFilter) {
+async function agentsReport(supabase: SupabaseClient, { from, to, agent }: DateFilter, agentUsername: string | null) {
   let query = supabase
     .from('pyra_sales_leads')
     .select('assigned_to, is_converted, score');
 
+  // R3: Non-admins only see their own stats (overrides agent filter)
+  if (agentUsername) {
+    query = query.eq('assigned_to', agentUsername);
+  } else if (agent) {
+    query = query.eq('assigned_to', agent);
+  }
   if (from) query = query.gte('created_at', from);
   if (to) query = query.lte('created_at', to + 'T23:59:59');
-  if (agent) query = query.eq('assigned_to', agent);
 
   const { data: leads, error } = await query;
   if (error) return apiServerError(error.message);
@@ -167,6 +179,7 @@ async function agentsReport(supabase: SupabaseClient, { from, to, agent }: DateF
   let quotesQuery = supabase
     .from('pyra_quotes')
     .select('total, lead_id, created_by');
+  if (agentUsername) quotesQuery = quotesQuery.eq('created_by', agentUsername);
   if (from) quotesQuery = quotesQuery.gte('created_at', from);
   if (to) quotesQuery = quotesQuery.lte('created_at', to + 'T23:59:59');
 
@@ -208,11 +221,15 @@ async function agentsReport(supabase: SupabaseClient, { from, to, agent }: DateF
 /**
  * Aging report — how long leads have been in each stage.
  */
-async function agingReport(supabase: SupabaseClient) {
-  const { data: leads, error } = await supabase
+async function agingReport(supabase: SupabaseClient, agentUsername: string | null) {
+  let leadsQuery = supabase
     .from('pyra_sales_leads')
     .select('stage_id, updated_at, created_at')
     .eq('is_converted', false);
+
+  if (agentUsername) leadsQuery = leadsQuery.eq('assigned_to', agentUsername);
+
+  const { data: leads, error } = await leadsQuery;
 
   if (error) return apiServerError(error.message);
 
@@ -253,7 +270,7 @@ async function agingReport(supabase: SupabaseClient) {
 /**
  * Lost leads report — leads in "lost" stage with reasons.
  */
-async function lostReport(supabase: SupabaseClient, { from, to }: DateFilter) {
+async function lostReport(supabase: SupabaseClient, { from, to }: DateFilter, agentUsername: string | null) {
   // Find the "lost" stage(s)
   const { data: lostStages } = await supabase
     .from('pyra_sales_pipeline_stages')
@@ -271,6 +288,7 @@ async function lostReport(supabase: SupabaseClient, { from, to }: DateFilter) {
     .select('id, name, company, source, assigned_to, notes, created_at, updated_at')
     .in('stage_id', lostStageIds);
 
+  if (agentUsername) query = query.eq('assigned_to', agentUsername);
   if (from) query = query.gte('updated_at', from);
   if (to) query = query.lte('updated_at', to + 'T23:59:59');
 

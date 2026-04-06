@@ -3,8 +3,10 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiNotFound,
+  apiForbidden,
   apiServerError,
 } from '@/lib/api/response';
+import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextQuoteNumber } from '@/lib/utils/quote-number';
@@ -22,6 +24,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
@@ -33,6 +36,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!original) return apiNotFound('عرض السعر غير موجود');
+
+    // Q4: Scope check — non-admins can only duplicate quotes for their own clients
+    if (!scope.isAdmin && !scope.clientIds.includes(original.client_id)) {
+      return apiForbidden('لا يمكنك نسخ عرض سعر لعميل غير مسند إليك');
+    }
 
     // Get original items
     const { data: originalItems } = await supabase

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiForbidden, apiNotFound, apiServerError } from '@/lib/api/response';
 import { FOLLOW_UP_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
@@ -55,13 +55,29 @@ export async function POST(request: NextRequest) {
     const { lead_id, quote_id, due_at, title, notes, assigned_to } = body;
     if ((!lead_id && !quote_id) || !due_at) return apiError('العميل المحتمل أو عرض السعر ووقت المتابعة مطلوبين');
 
+    // F1: Verify lead ownership for non-admins
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (!isAdmin && lead_id) {
+      const { data: lead } = await supabase
+        .from('pyra_sales_leads')
+        .select('assigned_to')
+        .eq('id', lead_id)
+        .single();
+      if (!lead || lead.assigned_to !== auth.pyraUser.username) {
+        return apiForbidden('لا يمكنك إنشاء متابعة لعميل محتمل غير مسند إليك');
+      }
+    }
+
+    // F2: Non-admins always assigned to self
+    const actualAssignedTo = isAdmin ? (assigned_to || auth.pyraUser.username) : auth.pyraUser.username;
+
     const { data, error } = await supabase
       .from('pyra_sales_follow_ups')
       .insert({
         id: generateId('fu'),
         lead_id: lead_id || null,
         quote_id: quote_id || null,
-        assigned_to: assigned_to || auth.pyraUser.username,
+        assigned_to: actualAssignedTo,
         due_at,
         title: title || null,
         notes: notes || null,

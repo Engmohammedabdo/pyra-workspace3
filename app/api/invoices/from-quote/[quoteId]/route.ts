@@ -3,9 +3,11 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiNotFound,
+  apiForbidden,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
+import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
@@ -24,6 +26,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const auth = await requireApiPermission('invoices.create');
     if (isApiError(auth)) return auth;
 
+    const scope = await resolveUserScope(auth);
     const { quoteId } = await context.params;
     const supabase = createServiceRoleClient();
 
@@ -35,6 +38,12 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .maybeSingle();
 
     if (!quote) return apiNotFound('عرض السعر غير موجود');
+
+    // Q6: Scope check — non-admins can only create invoices from their own clients' quotes
+    if (!scope.isAdmin && !scope.clientIds.includes(quote.client_id)) {
+      return apiForbidden('لا يمكنك إنشاء فاتورة من عرض سعر لعميل غير مسند إليك');
+    }
+
     if (quote.status !== 'signed') {
       return apiValidationError('يمكن إنشاء فاتورة فقط من عرض سعر موقع');
     }
