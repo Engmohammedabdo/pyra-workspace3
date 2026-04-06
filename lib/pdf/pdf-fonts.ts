@@ -46,16 +46,33 @@ export async function registerArabicFont(doc: jsPDF): Promise<void> {
 }
 
 /**
- * Load an image from URL and return as base64 data URI for jsPDF addImage().
+ * Load an image from URL, RESIZE it to a max width for PDF embedding,
+ * and return as base64 data URI for jsPDF addImage().
+ *
+ * Why resize? jsPDF decompresses PNG to raw RGBA bitmap when embedding.
+ * A 4000x2250 logo = 34MB in the PDF, but it's displayed at ~40mm wide
+ * which only needs ~500px at 300 DPI. Resizing to 500px max width reduces
+ * the PDF from 34MB to ~400KB.
+ *
  * Returns null if the image can't be loaded (graceful fallback to text branding).
  */
 const imageCache: Record<string, string> = {};
+
+/** Max width in pixels for images embedded in PDFs (300 DPI at ~45mm) */
+const MAX_IMAGE_WIDTH = 500;
 
 export async function loadImageAsBase64(url: string): Promise<string | null> {
   if (!url) return null;
   if (imageCache[url]) return imageCache[url];
 
   try {
+    // In browser: use canvas to resize
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      return await loadAndResizeInBrowser(url);
+    }
+
+    // Server-side: fetch raw and hope it's reasonable size
+    // (server-side PDF generation should pre-resize images)
     const response = await fetch(url);
     if (!response.ok) return null;
 
@@ -74,4 +91,46 @@ export async function loadImageAsBase64(url: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Load image in browser, resize via canvas, return as compressed JPEG data URI.
+ * This is the key optimization — shrinks a 4000x2250 PNG (34MB uncompressed)
+ * to a 500px-wide JPEG (~30KB).
+ */
+async function loadAndResizeInBrowser(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+
+    img.onload = () => {
+      let { width, height } = img;
+
+      // Only resize if larger than max
+      if (width > MAX_IMAGE_WIDTH) {
+        const ratio = MAX_IMAGE_WIDTH / width;
+        width = MAX_IMAGE_WIDTH;
+        height = Math.round(height * ratio);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { resolve(null); return; }
+
+      // White background (for transparent PNGs)
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      // Output as JPEG (much smaller than PNG for photos/logos)
+      const dataUri = canvas.toDataURL('image/jpeg', 0.85);
+      imageCache[url] = dataUri;
+      resolve(dataUri);
+    };
+
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
 }

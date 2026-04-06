@@ -181,7 +181,7 @@ export async function generateInvoicePDF(invoice: InvoiceData, options?: { retur
   const logoW = 52;
   const logoH = 22;
   if (logo) {
-    try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
+    try { doc.addImage(logo, 'JPEG', M, y, logoW, logoH); } catch { logo = null; }
   }
   // Company name: always show as text (fallback or below logo)
   if (!logo) {

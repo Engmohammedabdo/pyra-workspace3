@@ -138,7 +138,7 @@ export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?
   const logoW = 52;
   const logoH = 22;
   if (logo) {
-    try { doc.addImage(logo, 'PNG', M, y, logoW, logoH); } catch { logo = null; }
+    try { doc.addImage(logo, 'JPEG', M, y, logoW, logoH); } catch { logo = null; }
   }
   // Company name text: always show below logo (or as fallback if no logo)
   if (!logo) {
