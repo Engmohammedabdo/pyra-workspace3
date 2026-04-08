@@ -15,7 +15,9 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { FileText } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
+import { FileText, Loader2 } from 'lucide-react';
+import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';
 import Link from 'next/link';
 
 // ... (Invoice interface + constants remain in original or separate file)
@@ -121,6 +123,115 @@ export default function InvoiceDetailPage() {
     }
   };
 
+  const handleSend = async () => {
+    if (!invoice) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/invoices/${id}/send`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل في إرسال الفاتورة');
+        return;
+      }
+      toast.success('تم إرسال الفاتورة بنجاح');
+      fetchInvoice();
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!invoice || !confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
+    try {
+      const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل في حذف الفاتورة');
+        return;
+      }
+      toast.success('تم حذف الفاتورة');
+      router.push('/dashboard/invoices');
+    } catch {
+      toast.error('حدث خطأ');
+    }
+  };
+
+  const handleGeneratePaymentLink = async () => {
+    if (!invoice) return;
+    setGeneratingLink(true);
+    try {
+      const res = await fetch('/api/stripe/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id: id }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل في إنشاء رابط الدفع');
+        return;
+      }
+      if (json.data?.url) {
+        navigator.clipboard.writeText(json.data.url);
+        toast.success('تم نسخ رابط الدفع');
+      }
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  const resetPaymentForm = () => {
+    setPayAmount('');
+    setPayDate(new Date().toISOString().split('T')[0]);
+    setPayMethod('bank_transfer');
+    setPayReference('');
+    setPayNotes('');
+  };
+
+  const handleRecordPayment = async () => {
+    if (!invoice) return;
+    const amount = parseFloat(payAmount);
+    if (!amount || amount <= 0) {
+      toast.error('المبلغ يجب أن يكون أكبر من صفر');
+      return;
+    }
+    if (amount > invoice.amount_due) {
+      toast.error(`المبلغ يتجاوز المستحق (${invoice.amount_due} ${invoice.currency})`);
+      return;
+    }
+
+    setRecordingPayment(true);
+    try {
+      const res = await fetch(`/api/invoices/${id}/payments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          payment_date: payDate,
+          method: payMethod,
+          reference: payReference || null,
+          notes: payNotes || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل في تسجيل الدفعة');
+        return;
+      }
+      toast.success('تم تسجيل الدفعة بنجاح');
+      setShowPayment(false);
+      resetPaymentForm();
+      fetchInvoice();
+    } catch {
+      toast.error('حدث خطأ أثناء تسجيل الدفعة');
+    } finally {
+      setRecordingPayment(false);
+    }
+  };
+
   if (loading) return <Skeleton className="h-[400px]" />;
   if (error) return <div>{error}</div>;
 
@@ -138,11 +249,11 @@ export default function InvoiceDetailPage() {
         sending={sending}
         generatingLink={generatingLink}
         onEdit={startEditing}
-        onSend={() => {}}
+        onSend={handleSend}
         onDownload={() => generateInvoicePDF(invoice)}
-        onDelete={() => {}}
+        onDelete={handleDelete}
         onRecordPayment={() => setShowPayment(true)}
-        onGeneratePaymentLink={() => {}}
+        onGeneratePaymentLink={handleGeneratePaymentLink}
       />
       <ClientInfo
         name={invoice.client_name}
@@ -167,7 +278,109 @@ export default function InvoiceDetailPage() {
       ) : (
         <PaymentHistory payments={invoice.payments} currency={invoice.currency} />
       )}
-      {/* Add dialogs etc */}
+      {/* Payment Recording Dialog */}
+      <Dialog open={showPayment} onOpenChange={open => { if (!open) { setShowPayment(false); resetPaymentForm(); } }}>
+        <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>تسجيل دفعة جديدة</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {/* Amount */}
+            <div className="space-y-2">
+              <Label htmlFor="pay-amount">المبلغ <span className="text-red-500">*</span></Label>
+              <div className="relative">
+                <Input
+                  id="pay-amount"
+                  type="number"
+                  dir="ltr"
+                  value={payAmount}
+                  onChange={e => setPayAmount(e.target.value)}
+                  placeholder={`المستحق: ${invoice?.amount_due || 0}`}
+                  min={0}
+                  max={invoice?.amount_due}
+                  step={0.01}
+                />
+                <span className="absolute end-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  {invoice?.currency || 'AED'}
+                </span>
+              </div>
+              {invoice?.amount_due > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPayAmount(String(invoice.amount_due))}
+                  className="text-xs text-orange-600 hover:underline"
+                >
+                  دفع كامل المبلغ ({invoice.amount_due} {invoice.currency})
+                </button>
+              )}
+            </div>
+
+            {/* Payment Date */}
+            <div className="space-y-2">
+              <Label htmlFor="pay-date">تاريخ الدفع <span className="text-red-500">*</span></Label>
+              <Input
+                id="pay-date"
+                type="date"
+                dir="ltr"
+                value={payDate}
+                onChange={e => setPayDate(e.target.value)}
+              />
+            </div>
+
+            {/* Payment Method */}
+            <div className="space-y-2">
+              <Label>طريقة الدفع</Label>
+              <Select value={payMethod} onValueChange={setPayMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Reference */}
+            <div className="space-y-2">
+              <Label htmlFor="pay-ref">رقم المرجع</Label>
+              <Input
+                id="pay-ref"
+                dir="ltr"
+                value={payReference}
+                onChange={e => setPayReference(e.target.value)}
+                placeholder="رقم التحويل أو الشيك"
+              />
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-2">
+              <Label htmlFor="pay-notes">ملاحظات</Label>
+              <Textarea
+                id="pay-notes"
+                value={payNotes}
+                onChange={e => setPayNotes(e.target.value)}
+                placeholder="ملاحظات إضافية..."
+                rows={2}
+              />
+            </div>
+
+            {/* Submit */}
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setShowPayment(false); resetPaymentForm(); }}>
+                إلغاء
+              </Button>
+              <Button
+                onClick={handleRecordPayment}
+                disabled={recordingPayment || !payAmount || parseFloat(payAmount) <= 0}
+                className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
+              >
+                {recordingPayment && <Loader2 className="h-4 w-4 animate-spin" />}
+                تسجيل الدفعة
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
