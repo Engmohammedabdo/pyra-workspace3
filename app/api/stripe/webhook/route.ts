@@ -106,10 +106,13 @@ export async function POST(req: NextRequest) {
         .from('pyra_payments')
         .select('amount')
         .eq('invoice_id', invoiceId);
-      const newAmountPaid = (allPayments || []).reduce(
-        (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-      );
-      const newAmountDue = invoice.total - newAmountPaid;
+      // Race-condition safe: re-sum ALL payments for this invoice.
+      // Both concurrent webhooks compute the full sum independently.
+      // The last write wins with the correct total.
+      const newAmountPaid = Math.round(
+        (allPayments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount), 0) * 100
+      ) / 100;
+      const newAmountDue = Math.round(Math.max(0, Number(invoice.total) - newAmountPaid) * 100) / 100;
       const newStatus = newAmountDue <= 0 ? 'paid' : 'partially_paid';
 
       // 6. Update invoice amounts
@@ -376,7 +379,8 @@ export async function POST(req: NextRequest) {
                   title: 'تم استرجاع المبلغ',
                   message: `تم استرجاع ${refundAmount} ${currency} للفاتورة ${invoice.invoice_number}`,
                   is_read: false,
-                });
+                })
+                  .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
               }
 
               // Log activity
@@ -395,7 +399,8 @@ export async function POST(req: NextRequest) {
                   source: 'stripe_webhook',
                 },
                 ip_address: 'stripe_webhook',
-              });
+              })
+                .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
             }
           }
         }
@@ -443,7 +448,8 @@ export async function POST(req: NextRequest) {
             source_display_name: 'Stripe',
             target_path: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
             is_read: false,
-          });
+          })
+            .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
         }
       }
 
@@ -465,7 +471,8 @@ export async function POST(req: NextRequest) {
           source: 'stripe_webhook',
         },
         ip_address: 'stripe_webhook',
-      });
+      })
+        .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
 
       console.log(`[Stripe Webhook] Dispute created: dispute=${dispute.id}, amount=${disputeAmount}, reason=${reason}`);
     }
@@ -551,7 +558,8 @@ export async function POST(req: NextRequest) {
             source_display_name: 'Stripe',
             target_path: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
             is_read: false,
-          });
+          })
+            .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
         }
       }
 
@@ -563,7 +571,8 @@ export async function POST(req: NextRequest) {
         target_path: '/dashboard/finance',
         details: { dispute_id: dispute.id, outcome, source: 'stripe_webhook' },
         ip_address: 'stripe_webhook',
-      });
+      })
+        .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
 
       console.log(`[Stripe Webhook] Dispute closed: dispute=${dispute.id}, outcome=${outcome}`);
     }
@@ -603,7 +612,8 @@ export async function POST(req: NextRequest) {
           title: 'فشل عملية الدفع',
           message: `فشلت عملية الدفع للفاتورة ${invoice?.invoice_number || invoiceId}. يرجى المحاولة مرة أخرى.`,
           is_read: false,
-        });
+        })
+          .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
       }
 
       // Admin notification
@@ -617,7 +627,8 @@ export async function POST(req: NextRequest) {
         source_display_name: 'Stripe',
         target_path: invoiceId ? `/dashboard/invoices/${invoiceId}` : '/dashboard/finance',
         is_read: false,
-      });
+      })
+        .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
 
       // Log activity
       void supabase.from('pyra_activity_log').insert({
@@ -634,17 +645,21 @@ export async function POST(req: NextRequest) {
           source: 'stripe_webhook',
         },
         ip_address: 'stripe_webhook',
-      });
+      })
+        .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
 
       console.log(`[Stripe Webhook] Payment failed: intent=${paymentIntent.id}, error=${failureCode}: ${failureMessage}`);
     }
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error('[Stripe Webhook] Error:', error);
-    return NextResponse.json(
-      { error: 'Webhook handler failed' },
-      { status: 400 }
-    );
+    // Differentiate signature errors from processing errors
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('signature') || message.includes('Webhook')) {
+      console.error('[Stripe Webhook] Signature verification failed:', message);
+      return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
+    }
+    console.error('[Stripe Webhook] Processing error:', message);
+    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
 }

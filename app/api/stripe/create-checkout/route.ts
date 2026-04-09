@@ -1,9 +1,38 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient } from '@/lib/stripe';
+
+// Simple retry helper for Stripe API failures
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === maxRetries) throw err;
+      // Exponential backoff: 1s, 2s
+      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
+// Simple in-memory rate limiter
+const checkoutRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkRate(key: string, maxPerMinute = 5): boolean {
+  const now = Date.now();
+  const entry = checkoutRateLimit.get(key);
+  if (!entry || now > entry.resetAt) {
+    checkoutRateLimit.set(key, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= maxPerMinute) return false;
+  entry.count++;
+  return true;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,12 +59,20 @@ export async function POST(req: NextRequest) {
       return apiError('Invoice not found');
     }
 
-    if (invoice.amount_due <= 0) {
-      return apiError('Invoice has no amount due');
-    }
-
     if (invoice.status === 'paid') {
       return apiError('Invoice is already paid');
+    }
+
+    // Amount validation with proper rounding
+    const amountDue = Math.round(Number(invoice.amount_due) * 100) / 100;
+    if (amountDue <= 0) {
+      return apiValidationError('لا يوجد مبلغ مستحق على هذه الفاتورة');
+    }
+    const unitAmount = Math.round(amountDue * 100); // Convert to fils/cents for Stripe
+
+    // Rate limiting
+    if (!checkRate(auth.pyraUser.username)) {
+      return apiError('تم تجاوز عدد الطلبات المسموح. حاول بعد دقيقة.', 429);
     }
 
     // Fetch client name and contract_id for metadata
@@ -65,31 +102,36 @@ export async function POST(req: NextRequest) {
       if (milestone?.contract_id) contractId = milestone.contract_id;
     }
 
-    // Create Stripe Checkout session
+    // Create Stripe Checkout session with retry + idempotency
     const stripe = await getStripeClient();
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      line_items: [{
-        price_data: {
-          currency: invoice.currency.toLowerCase(),
-          product_data: {
-            name: `Invoice ${invoice.invoice_number}`,
-            description: clientName ? `Client: ${clientName}` : undefined,
+    const idempotencyKey = `checkout_${invoice.id}_${Date.now()}`;
+    const session = await withRetry(() =>
+      stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: invoice.currency.toLowerCase(),
+            product_data: {
+              name: `Invoice ${invoice.invoice_number}`,
+              description: clientName ? `Client: ${clientName}` : undefined,
+            },
+            unit_amount: unitAmount,
           },
-          unit_amount: Math.round(invoice.amount_due * 100),
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/invoices/${invoice_id}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/invoices/${invoice_id}/pay/cancel`,
+        metadata: {
+          invoice_id: invoice.id,
+          invoice_number: invoice.invoice_number,
+          client_id: invoice.client_id || '',
+          contract_id: contractId,
         },
-        quantity: 1,
-      }],
-      mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/invoices/${invoice_id}/pay/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/portal/invoices/${invoice_id}/pay/cancel`,
-      metadata: {
-        invoice_id: invoice.id,
-        invoice_number: invoice.invoice_number,
-        client_id: invoice.client_id || '',
-        contract_id: contractId,
-      },
-    });
+      }, {
+        idempotencyKey,
+      })
+    );
 
     // Insert payment record
     await supabase.from('pyra_stripe_payments').insert({

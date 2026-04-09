@@ -870,7 +870,9 @@ export interface PyraStripePayment {
   stripe_payment_intent_id: string | null;
   amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
+  // Status values: pending, completed, failed, cancelled, refunded, disputed
+  // Ensure pyra_stripe_payments.status column accepts all these values
+  status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded' | 'disputed';
   client_id: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string;

@@ -31,7 +31,10 @@ export async function getStripeClient(): Promise<Stripe> {
   if (!key) throw new Error('Stripe secret key not configured');
 
   if (!_stripe || _cachedKey !== key) {
-    _stripe = new Stripe(key, { typescript: true });
+    _stripe = new Stripe(key, {
+      typescript: true,
+      apiVersion: '2025-02-24.acacia',
+    });
     _cachedKey = key;
   }
   return _stripe;
@@ -52,14 +55,3 @@ export async function isStripeEnabled(): Promise<boolean> {
   return !!key;
 }
 
-/**
- * @deprecated Use getStripeClient() instead. Kept for sync compatibility.
- */
-export function getStripe(): Stripe {
-  if (!_stripe) {
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      typescript: true,
-    });
-  }
-  return _stripe;
-}
