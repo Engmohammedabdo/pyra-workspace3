@@ -157,8 +157,6 @@ export async function POST(request: NextRequest) {
         'company_logo',
         'payment_terms_days',
         'default_currency',
-        'default_early_payment_discount_percent',
-        'default_early_payment_discount_days',
       ]);
 
     const settingsMap: Record<string, string> = {};
@@ -264,10 +262,6 @@ export async function POST(request: NextRequest) {
       discountAmount = Math.min(discountValue, subtotal);
     }
 
-    // Early payment discount defaults from settings
-    const earlyPaymentDiscountPercent = parseFloat(settingsMap.default_early_payment_discount_percent || '0');
-    const earlyPaymentDiscountDays = parseInt(settingsMap.default_early_payment_discount_days || '0');
-
     // Tax is calculated on subtotal AFTER discount (UAE standard)
     const taxableAmount = subtotal - discountAmount;
     const taxAmount = taxableAmount * (taxRate / 100);
@@ -291,8 +285,6 @@ export async function POST(request: NextRequest) {
         discount_type: discountType,
         discount_value: discountValue,
         discount_amount: discountAmount,
-        early_payment_discount_percent: earlyPaymentDiscountPercent,
-        early_payment_discount_days: earlyPaymentDiscountDays,
         tax_rate: taxRate,
         tax_amount: taxAmount,
         total,
