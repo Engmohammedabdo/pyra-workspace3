@@ -36,11 +36,11 @@ export async function POST() {
       // Admin notification
       await supabase.from('pyra_notifications').insert({
         id: generateId('ntf'),
-        username: auth.pyraUser.username,
+        recipient_username: auth.pyraUser.username,
         type: 'retainer_billing_upcoming',
         title: 'فاتورة اشتراك قادمة',
         message: `ستصدر فاتورة "${template.title}" بتاريخ ${template.next_generation_date}`,
-        action_url: template.contract_id ? `/dashboard/finance/contracts/${template.contract_id}` : null,
+        target_path: template.contract_id ? `/dashboard/finance/contracts/${template.contract_id}` : null,
         is_read: false,
       }).then(null, (e: unknown) => console.error('Alert insert error:', e));
 
@@ -71,11 +71,11 @@ export async function POST() {
     for (const inv of overdueInvoices || []) {
       await supabase.from('pyra_notifications').insert({
         id: generateId('ntf'),
-        username: auth.pyraUser.username,
+        recipient_username: auth.pyraUser.username,
         type: 'retainer_invoice_overdue',
         title: 'فاتورة اشتراك متأخرة',
         message: `الفاتورة ${inv.invoice_number} (${inv.total} ${inv.currency}) متأخرة منذ ${inv.due_date}`,
-        action_url: `/dashboard/invoices/${inv.id}`,
+        target_path: `/dashboard/invoices/${inv.id}`,
         is_read: false,
       }).then(null, (e: unknown) => console.error('Alert insert error:', e));
 

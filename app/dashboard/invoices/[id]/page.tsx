@@ -37,6 +37,8 @@ export default function InvoiceDetailPage() {
   const [editDueDate, setEditDueDate] = useState('');
   const [editVatRate, setEditVatRate] = useState(0);
   const [editDisplayName, setEditDisplayName] = useState('');
+  const [editDiscountType, setEditDiscountType] = useState<string | null>(null);
+  const [editDiscountValue, setEditDiscountValue] = useState(0);
   const [savingEdit, setSavingEdit] = useState(false);
   const [sending, setSending] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
@@ -74,6 +76,8 @@ export default function InvoiceDetailPage() {
     setEditDueDate(invoice.due_date);
     setEditVatRate(invoice.tax_rate);
     setEditDisplayName(invoice.display_client_name || '');
+    setEditDiscountType(invoice.discount_type || null);
+    setEditDiscountValue(invoice.discount_value ?? 0);
     setEditing(true);
   };
 
@@ -110,6 +114,8 @@ export default function InvoiceDetailPage() {
           due_date: editDueDate,
           tax_rate: editVatRate,
           display_client_name: editDisplayName.trim() || null,
+          discount_type: editDiscountType,
+          discount_value: editDiscountValue,
           items: editItems.filter(i => i.description.trim()).map(i => ({ description: i.description.trim(), quantity: i.quantity, rate: i.rate })),
         }),
       });
@@ -271,6 +277,8 @@ export default function InvoiceDetailPage() {
           dueDate={editDueDate} setDueDate={setEditDueDate}
           vatRate={editVatRate} setVatRate={setEditVatRate}
           displayName={editDisplayName} setDisplayName={setEditDisplayName}
+          discountType={editDiscountType} setDiscountType={setEditDiscountType}
+          discountValue={editDiscountValue} setDiscountValue={setEditDiscountValue}
           currency={invoice.currency} defaultClientName={invoice.client_name}
           updateItem={updateEditItem} addItem={addEditItem} removeItem={removeEditItem}
           onSave={handleSaveEdit} onCancel={() => setEditing(false)} saving={savingEdit}

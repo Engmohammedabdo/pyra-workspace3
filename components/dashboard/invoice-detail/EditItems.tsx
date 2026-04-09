@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Trash2, Plus, Save, X, Loader2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 
@@ -29,6 +30,10 @@ interface EditItemsProps {
   setVatRate: (val: number) => void;
   displayName: string;
   setDisplayName: (val: string) => void;
+  discountType: string | null;
+  setDiscountType: (v: string | null) => void;
+  discountValue: number;
+  setDiscountValue: (v: number) => void;
   currency: string;
   defaultClientName: string | null;
   updateItem: (index: number, field: keyof InvoiceItem, val: string | number) => void;
@@ -41,12 +46,22 @@ interface EditItemsProps {
 
 export function EditItems({
   items, projectName, setProjectName, notes, setNotes, dueDate, setDueDate,
-  vatRate, setVatRate, displayName, setDisplayName, currency, defaultClientName,
+  vatRate, setVatRate, displayName, setDisplayName,
+  discountType, setDiscountType, discountValue, setDiscountValue,
+  currency, defaultClientName,
   updateItem, addItem, removeItem, onSave, onCancel, saving
 }: EditItemsProps) {
   const subtotal = items.reduce((sum, i) => sum + (i.quantity * i.rate), 0);
-  const vatAmount = subtotal * (vatRate / 100);
-  const total = subtotal + vatAmount;
+
+  let discountAmount = 0;
+  if (discountType === 'percentage' && discountValue > 0) {
+    discountAmount = Math.round(subtotal * (discountValue / 100) * 100) / 100;
+  } else if (discountType === 'fixed' && discountValue > 0) {
+    discountAmount = Math.min(discountValue, subtotal);
+  }
+  const taxableAmount = subtotal - discountAmount;
+  const vatAmount = Math.round(taxableAmount * (vatRate / 100) * 100) / 100;
+  const total = Math.round((taxableAmount + vatAmount) * 100) / 100;
 
   return (
     <Card>
@@ -90,8 +105,45 @@ export function EditItems({
           <Label>ملاحظات</Label>
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
         </div>
-        <div className="border-t pt-4">
-          <div className="flex justify-between font-bold"><span>الإجمالي</span><span>{formatCurrency(total, currency)}</span></div>
+        {/* Discount */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>الخصم</Label>
+            <Select value={discountType || 'none'} onValueChange={v => setDiscountType(v === 'none' ? null : v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">بدون خصم</SelectItem>
+                <SelectItem value="percentage">نسبة %</SelectItem>
+                <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {discountType && discountType !== 'none' && (
+            <div className="space-y-2">
+              <Label>{discountType === 'percentage' ? 'النسبة %' : 'المبلغ'}</Label>
+              <Input type="number" dir="ltr" min={0} step={0.01} value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} />
+            </div>
+          )}
+        </div>
+        {/* VAT Rate */}
+        <div className="space-y-2">
+          <Label>نسبة الضريبة (VAT) %</Label>
+          <Input type="number" dir="ltr" min={0} step={0.01} value={vatRate} onChange={e => setVatRate(parseFloat(e.target.value) || 0)} />
+        </div>
+        {/* Totals */}
+        <div className="border-t pt-4 space-y-2 text-sm">
+          <div className="flex justify-between"><span>المجموع الفرعي</span><span>{formatCurrency(subtotal, currency)}</span></div>
+          {discountAmount > 0 && (
+            <div className="flex justify-between text-red-600 dark:text-red-400">
+              <span>الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''}</span>
+              <span>- {formatCurrency(discountAmount, currency)}</span>
+            </div>
+          )}
+          {discountAmount > 0 && (
+            <div className="flex justify-between"><span>بعد الخصم</span><span>{formatCurrency(taxableAmount, currency)}</span></div>
+          )}
+          <div className="flex justify-between"><span>الضريبة ({vatRate}%)</span><span>{formatCurrency(vatAmount, currency)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>الإجمالي</span><span>{formatCurrency(total, currency)}</span></div>
         </div>
         <div className="flex gap-2 justify-end">
           <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 me-1" /> إلغاء</Button>

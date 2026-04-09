@@ -81,36 +81,41 @@ export async function PATCH(
 
     // ── When PO is received, auto-create an expense ──
     if (status === PO_STATUS.RECEIVED) {
-      try {
-        // Fetch PO items for description
-        const { data: poItems } = await supabase
-          .from('pyra_purchase_order_items')
-          .select('description')
-          .eq('purchase_order_id', id)
-          .order('sort_order', { ascending: true })
-          .limit(1);
+      // Fetch PO items for description
+      const { data: poItems } = await supabase
+        .from('pyra_purchase_order_items')
+        .select('description')
+        .eq('purchase_order_id', id)
+        .order('sort_order', { ascending: true })
+        .limit(1);
 
-        const firstItemDesc = poItems?.[0]?.description || '';
-        const expenseDesc = `أمر شراء ${data.po_number} — ${firstItemDesc}`.trim();
+      const firstItemDesc = poItems?.[0]?.description || '';
+      const expenseDesc = `أمر شراء ${data.po_number} — ${firstItemDesc}`.trim();
 
-        await supabase.from('pyra_expenses').insert({
-          id: generateId('exp'),
-          description: expenseDesc,
-          amount: data.total,
-          currency: data.currency || 'AED',
-          vat_rate: data.tax_rate || 0,
-          vat_amount: data.tax_amount || 0,
-          supplier_id: data.supplier_id || null,
-          project_id: data.project_id || null,
-          purchase_order_id: data.id,
-          vendor: data.supplier_name || null,
-          status: EXPENSE_STATUS.APPROVED,
-          expense_date: new Date().toISOString().split('T')[0],
-          created_by: auth.pyraUser.username,
-        });
-      } catch (expErr) {
-        // Non-critical: log and continue
-        console.error('Auto-create expense from PO error:', expErr);
+      const { error: expErr } = await supabase.from('pyra_expenses').insert({
+        id: generateId('exp'),
+        description: expenseDesc,
+        amount: data.total,
+        currency: data.currency || 'AED',
+        vat_rate: data.tax_rate || 0,
+        vat_amount: data.tax_amount || 0,
+        supplier_id: data.supplier_id || null,
+        project_id: data.project_id || null,
+        purchase_order_id: data.id,
+        vendor: data.supplier_name || null,
+        status: EXPENSE_STATUS.APPROVED,
+        expense_date: new Date().toISOString().split('T')[0],
+        created_by: auth.pyraUser.username,
+      });
+
+      if (expErr) {
+        console.error('Auto-create expense error:', expErr);
+        // Rollback PO status to previous value
+        await supabase
+          .from('pyra_purchase_orders')
+          .update({ status: existing.status, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        return apiServerError('فشل في إنشاء المصروف تلقائياً — تم إلغاء تحديث الحالة');
       }
     }
 

@@ -5,6 +5,7 @@ import {
   apiError,
   apiNotFound,
   apiServerError,
+  apiValidationError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
@@ -102,6 +103,22 @@ export async function POST(
         .limit(1)
         .maybeSingle();
       finalSortOrder = (lastMilestone?.sort_order ?? 0) + 1;
+    }
+
+    // Validate total milestone percentages don't exceed 100%
+    const { data: existingMilestones } = await supabase
+      .from('pyra_contract_milestones')
+      .select('percentage')
+      .eq('contract_id', id);
+
+    const currentTotal = (existingMilestones || []).reduce(
+      (sum: number, m: { percentage: number }) => sum + Number(m.percentage || 0), 0
+    );
+
+    if (currentTotal + Number(percentage) > 100) {
+      return apiValidationError(
+        `إجمالي نسب المراحل سيتجاوز 100% (الحالي: ${currentTotal}% + الجديد: ${percentage}%)`
+      );
     }
 
     const milestoneId = generateId('cm');

@@ -108,7 +108,7 @@ export function useCreateInvoice() {
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
   return useMutation<Invoice, Error, { id: string; data: Partial<Invoice> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/invoices/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/invoices/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoices', id] });

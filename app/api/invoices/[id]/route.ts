@@ -171,7 +171,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_invoices')
-      .select('id, status, tax_rate, amount_paid, client_id')
+      .select('id, status, tax_rate, amount_paid, client_id, discount_type, discount_value, discount_amount')
       .eq('id', id)
       .maybeSingle();
 
@@ -190,7 +190,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiValidationError('لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)');
     }
 
-    const { items, status, ...updateFields } = body;
+    const { items, status, discount_type: bodyDiscountType, discount_value: bodyDiscountValue, ...updateFields } = body;
 
     // Build update object
     const updates: Record<string, unknown> = {
@@ -255,16 +255,31 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         0
       );
 
+      // Recalculate discount
+      const discountType = bodyDiscountType ?? existing.discount_type ?? null;
+      const discountValue = Number(bodyDiscountValue ?? existing.discount_value ?? 0);
+      let discountAmount = 0;
+      if (discountType === 'percentage' && discountValue > 0) {
+        discountAmount = Math.round(subtotal * (discountValue / 100) * 100) / 100;
+      } else if (discountType === 'fixed' && discountValue > 0) {
+        discountAmount = Math.min(discountValue, subtotal);
+      }
+
+      // Calculate tax on post-discount amount
       const effectiveTaxRate = updates.tax_rate ?? existing.tax_rate ?? 5;
-      const taxAmount = subtotal * ((effectiveTaxRate as number) / 100);
-      const total = subtotal + taxAmount;
+      const taxableAmount = subtotal - discountAmount;
+      const taxAmount = Math.round(taxableAmount * ((effectiveTaxRate as number) / 100) * 100) / 100;
+      const total = Math.round((taxableAmount + taxAmount) * 100) / 100;
       const amountPaid = existing.amount_paid ?? 0;
 
       updates.subtotal = subtotal;
       updates.tax_rate = effectiveTaxRate;
       updates.tax_amount = taxAmount;
       updates.total = total;
-      updates.amount_due = total - amountPaid;
+      updates.amount_due = Math.round((total - amountPaid) * 100) / 100;
+      updates.discount_type = discountType;
+      updates.discount_value = discountValue;
+      updates.discount_amount = discountAmount;
     }
 
     const { data: invoice, error: updateError } = await supabase

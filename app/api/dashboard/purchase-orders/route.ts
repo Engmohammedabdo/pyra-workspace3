@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
 
     if (!items || items.length === 0) return apiValidationError('يجب إضافة بند واحد على الأقل');
     if (!issue_date) return apiValidationError('تاريخ الإصدار مطلوب');
+    if (!supplier_id) return apiValidationError('يجب تحديد المورد');
 
     // Look up supplier details
     let supplierName: string | null = null;
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
         supplier_name: supplierName,
         supplier_company: supplierCompany,
         supplier_email: supplierEmail,
-        created_by: auth.userId,
+        created_by: auth.pyraUser.username,
       });
 
     if (poError) return apiServerError(poError.message);

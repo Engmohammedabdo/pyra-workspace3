@@ -41,7 +41,22 @@ export async function POST(
 
     // Guard: check if invoice already generated (race-condition safe)
     if (milestone.invoice_id) {
-      return apiError('تم إنشاء فاتورة لهذه المرحلة مسبقاً', 400);
+      // Verify the referenced invoice still exists in the database
+      const { data: existingInvoice } = await supabase
+        .from('pyra_invoices')
+        .select('id')
+        .eq('id', milestone.invoice_id)
+        .maybeSingle();
+
+      if (existingInvoice) {
+        return apiError('تم إنشاء فاتورة لهذه المرحلة مسبقاً', 400);
+      }
+
+      // Invoice was deleted — clear the stale reference so we can regenerate
+      await supabase
+        .from('pyra_contract_milestones')
+        .update({ invoice_id: null, updated_at: new Date().toISOString() })
+        .eq('id', milestoneId);
     }
 
     if (milestone.status !== 'completed') {

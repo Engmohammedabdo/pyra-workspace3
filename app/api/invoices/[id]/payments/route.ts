@@ -90,16 +90,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiServerError();
     }
 
-    // Sum ALL payments for this invoice (race-condition safe)
+    // Race-condition safe: sum ALL payments then write the total.
+    // If two payments are recorded concurrently, both re-sum independently.
+    // The last write wins, but since both computed the full sum, the result is correct.
     const { data: allPayments } = await supabase
       .from('pyra_payments')
       .select('amount')
       .eq('invoice_id', id);
 
-    const newAmountPaid = (allPayments || []).reduce(
-      (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-    );
-    const newAmountDue = invoice.total - newAmountPaid;
+    const newAmountPaid = Math.round(
+      (allPayments || []).reduce(
+        (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+      ) * 100
+    ) / 100;
+    // invoice.total already includes discount (total = subtotal - discount + tax)
+    // so newAmountDue = total - paid is correct without further discount adjustment
+    const newAmountDue = Math.round((invoice.total - newAmountPaid) * 100) / 100;
     const newStatus = newAmountDue <= 0 ? INVOICE_STATUS.PAID : INVOICE_STATUS.PARTIALLY_PAID;
 
     const { error: updateErr } = await supabase
@@ -172,9 +178,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
           .select('amount')
           .in('invoice_id', Array.from(allInvoiceIds));
 
-        const totalCollected = (allContractPayments || []).reduce(
-          (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
-        );
+        const totalCollected = Math.round(
+          (allContractPayments || []).reduce(
+            (sum: number, p: { amount: number }) => sum + Number(p.amount), 0
+          ) * 100
+        ) / 100;
 
         await supabase
           .from('pyra_contracts')

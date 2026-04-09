@@ -83,22 +83,24 @@ export async function GET(req: NextRequest) {
     if (invoiceIds.length > 0) {
       const { data: invTaxes } = await supabase
         .from('pyra_invoices')
-        .select('id, tax_rate, total, tax_amount')
+        .select('id, tax_rate')
         .in('id', invoiceIds);
       for (const inv of invTaxes || []) {
-        // Calculate effective tax fraction: tax_amount / total (more accurate than tax_rate alone)
-        const total = Number(inv.total || 0);
-        const taxAmt = Number(inv.tax_amount || 0);
-        taxRateMap[inv.id] = total > 0 ? taxAmt / total : 0;
+        taxRateMap[inv.id] = Number(inv.tax_rate || 0);
       }
     }
 
     // Build virtual invoice-like records for backward compatibility with period logic
-    const invoices = (paymentsRaw || []).map((p: { amount: number; payment_date: string; invoice_id: string }) => ({
-      tax_amount: Math.abs(Number(p.amount || 0)) * (taxRateMap[p.invoice_id] || 0),
-      currency: 'AED' as const,
-      issue_date: p.payment_date, // Use payment_date for period bucketing
-    }));
+    // VAT = payment_amount * rate / (100 + rate) — extract VAT from gross payment
+    const invoices = (paymentsRaw || []).map((p: { amount: number; payment_date: string; invoice_id: string }) => {
+      const rate = taxRateMap[p.invoice_id] || 0;
+      const vatAmount = Math.round(Math.abs(Number(p.amount || 0)) * rate / (100 + rate) * 100) / 100;
+      return {
+        tax_amount: vatAmount,
+        currency: 'AED' as const,
+        issue_date: p.payment_date, // Use payment_date for period bucketing
+      };
+    });
 
     // VAT Paid: vat_amount from expenses
     const { data: expenses, error: expErr } = await supabase

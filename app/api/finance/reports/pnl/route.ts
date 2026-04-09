@@ -105,11 +105,24 @@ export async function GET(req: NextRequest) {
     // Fetch all payments in the full range (cash-basis: revenue by payment_date)
     const { data: payments, error: payErr } = await supabase
       .from('pyra_payments')
-      .select('amount, payment_date')
+      .select('amount, payment_date, invoice_id')
       .gte('payment_date', from)
       .lte('payment_date', to);
 
     if (payErr) throw payErr;
+
+    // Get currency for each invoice to convert payments to AED
+    const invoiceIds = [...new Set((payments || []).map(p => p.invoice_id).filter(Boolean))];
+    const currencyMap: Record<string, string> = {};
+    if (invoiceIds.length > 0) {
+      const { data: invCurrencies } = await supabase
+        .from('pyra_invoices')
+        .select('id, currency')
+        .in('id', invoiceIds);
+      for (const inv of invCurrencies || []) {
+        currencyMap[inv.id] = inv.currency || 'AED';
+      }
+    }
 
     // Fetch all expenses in the full range at once (include category_id for breakdown)
     const { data: expenses, error: expErr } = await supabase
@@ -130,7 +143,7 @@ export async function GET(req: NextRequest) {
     const periodResults = periods.map((p) => {
       const periodRevenue = (payments || [])
         .filter((pay: { payment_date: string }) => pay.payment_date >= p.start && pay.payment_date <= p.end)
-        .reduce((sum: number, pay: { amount: number }) => sum + Number(pay.amount || 0), 0);
+        .reduce((sum: number, pay: { amount: number; invoice_id: string }) => sum + toAED(Number(pay.amount || 0), currencyMap[pay.invoice_id] || 'AED'), 0);
 
       const periodExpenseItems = (expenses || [])
         .filter((exp: { expense_date: string }) => exp.expense_date >= p.start && exp.expense_date <= p.end);

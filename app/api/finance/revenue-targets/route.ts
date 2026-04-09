@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
-    // For each target, calculate actual_revenue from paid/partially_paid invoices
+    // For each target, calculate actual_revenue from payments (cash-basis)
     const enriched = await Promise.all(
       (data || []).map(async (target: {
         id: string;
@@ -40,17 +40,15 @@ export async function GET(req: NextRequest) {
         period_end: string;
         target_amount: number;
       }) => {
-        const { data: invoices } = await supabase
-          .from('pyra_invoices')
-          .select('amount_paid')
-          .in('status', ['paid', 'partially_paid'])
-          .gte('issue_date', target.period_start)
-          .lte('issue_date', target.period_end);
+        const { data: targetPayments } = await supabase
+          .from('pyra_payments')
+          .select('amount, payment_date')
+          .gte('payment_date', target.period_start)
+          .lte('payment_date', target.period_end);
 
-        const actual_revenue = (invoices || []).reduce(
-          (sum: number, inv: { amount_paid: number }) => sum + Number(inv.amount_paid),
-          0
-        );
+        const actual_revenue = Math.round(
+          (targetPayments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0) * 100
+        ) / 100;
 
         const progress_percentage = target.target_amount > 0
           ? Math.round((actual_revenue / target.target_amount) * 100)

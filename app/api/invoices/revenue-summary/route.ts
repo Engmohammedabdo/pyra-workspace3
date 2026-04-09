@@ -31,29 +31,40 @@ export async function GET(_request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Get invoices for aggregation (scoped for non-admins)
-    let query = supabase
-      .from('pyra_invoices')
-      .select('status, total, amount_paid, amount_due, created_at, updated_at');
+    // Cash-basis revenue: use actual payments received
+    const { data: allPayments, error: payError } = await supabase
+      .from('pyra_payments')
+      .select('amount, payment_date');
 
-    if (!scope.isAdmin) {
-      query = query.in('client_id', scope.clientIds);
-    }
-
-    const { data: invoices, error } = await query;
-
-    if (error) {
-      console.error('Revenue summary error:', error);
+    if (payError) {
+      console.error('Revenue summary payments error:', payError);
       return apiServerError();
     }
 
-    const now = new Date();
-    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    const totalRevenue = (allPayments || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const revenueThisMonth = (allPayments || [])
+      .filter(p => p.payment_date?.startsWith(thisMonth))
+      .reduce((sum, p) => sum + Number(p.amount || 0), 0);
 
-    let totalRevenue = 0;
+    // Outstanding and overdue: still invoice-based (correct)
+    let invoiceQuery = supabase
+      .from('pyra_invoices')
+      .select('status, total, amount_due');
+
+    if (!scope.isAdmin) {
+      invoiceQuery = invoiceQuery.in('client_id', scope.clientIds);
+    }
+
+    const { data: invoices, error: invError } = await invoiceQuery;
+
+    if (invError) {
+      console.error('Revenue summary invoices error:', invError);
+      return apiServerError();
+    }
+
     let totalOutstanding = 0;
     let totalOverdue = 0;
-    let revenueThisMonth = 0;
     let totalInvoices = 0;
     let paidInvoices = 0;
     let overdueInvoices = 0;
@@ -62,11 +73,7 @@ export async function GET(_request: NextRequest) {
       totalInvoices++;
 
       if (inv.status === 'paid') {
-        totalRevenue += inv.total;
         paidInvoices++;
-        if (inv.updated_at?.startsWith(thisMonth)) {
-          revenueThisMonth += inv.total;
-        }
       }
 
       if (['sent', 'partially_paid', 'overdue'].includes(inv.status)) {

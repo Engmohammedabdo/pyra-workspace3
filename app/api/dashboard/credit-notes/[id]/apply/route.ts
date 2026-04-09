@@ -43,9 +43,17 @@ export async function POST(
 
     // Apply credit note as a refund — works on paid invoices too
     // Credit note reduces what was paid (creates negative payment)
-    const applyAmount = cn.total;
+    const applyAmount = Math.round(Number(cn.total) * 100) / 100;
 
     if (applyAmount <= 0) return apiValidationError('مبلغ الإشعار الدائن صفر');
+
+    // Cap apply amount at invoice amount_due to prevent over-crediting
+    const currentDue = Math.round(Number(invoice.amount_due || 0) * 100) / 100;
+    if (applyAmount > currentDue) {
+      return apiValidationError(
+        `مبلغ الإشعار الدائن (${applyAmount}) يتجاوز المبلغ المستحق على الفاتورة (${currentDue})`
+      );
+    }
 
     // 1. Create a NEGATIVE payment record (same pattern as refunds in Stripe webhook)
     const paymentId = generateId('pay');

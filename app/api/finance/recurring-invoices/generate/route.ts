@@ -12,29 +12,36 @@ import { SUBSCRIPTION_STATUS, INVOICE_STATUS } from '@/lib/constants/statuses';
  */
 function calculateNextDate(currentDate: string, billingCycle: string): string {
   const date = new Date(currentDate);
-  const day = date.getDate();
+  const originalDay = date.getDate();
+  let year = date.getFullYear();
+  let month = date.getMonth(); // 0-based
 
   switch (billingCycle) {
+    case 'weekly':
+      date.setDate(date.getDate() + 7);
+      return date.toISOString().split('T')[0];
     case 'monthly':
-      date.setMonth(date.getMonth() + 1);
+      month += 1;
       break;
     case 'quarterly':
-      date.setMonth(date.getMonth() + 3);
+      month += 3;
       break;
     case 'yearly':
-      date.setFullYear(date.getFullYear() + 1);
+      year += 1;
       break;
     default:
-      date.setMonth(date.getMonth() + 1);
+      month += 1;
   }
 
-  // Fix month overflow: if original day was 31 but new month only has 28-30 days,
-  // setMonth overflows to next month. Clamp back to last day of target month.
-  if (date.getDate() !== day) {
-    date.setDate(0); // goes to last day of previous month (the intended month)
-  }
+  // Handle month overflow (e.g., month 13 → next year month 1)
+  year += Math.floor(month / 12);
+  month = month % 12;
 
-  return date.toISOString().split('T')[0];
+  // Clamp day to last day of target month (handles 31→30, 31→28, etc.)
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+  const clampedDay = Math.min(originalDay, lastDayOfMonth);
+
+  return new Date(year, month, clampedDay).toISOString().split('T')[0];
 }
 
 /**

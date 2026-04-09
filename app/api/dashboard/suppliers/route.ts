@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
         bank_iban: bank_iban || null,
         notes: notes || null,
         is_active: true,
-        created_by: auth.userId,
+        created_by: auth.pyraUser.username,
       })
       .select(SUPPLIER_FIELDS)
       .single();

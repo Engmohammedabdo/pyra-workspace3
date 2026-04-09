@@ -153,7 +153,14 @@ export async function POST(req: NextRequest, context: RouteContext) {
       else console.error('Invoice item insert error:', itemErr);
     }
 
-    // 11. Update contract amount_billed — only if items were inserted
+    // 11. Rollback: delete the invoice if no items were inserted
+    if (itemsInserted === 0) {
+      // Rollback: delete the invoice that has no items
+      await supabase.from('pyra_invoices').delete().eq('id', invoiceId);
+      return apiServerError('فشل في إدراج بنود الفاتورة — تم التراجع عن إنشاء الفاتورة');
+    }
+
+    // 12. Update contract amount_billed — only if items were inserted
     if (itemsInserted > 0) {
       await supabase.from('pyra_contracts').update({
         amount_billed: (contract.amount_billed || 0) + subtotal,

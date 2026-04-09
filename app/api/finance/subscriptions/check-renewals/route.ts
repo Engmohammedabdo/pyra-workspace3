@@ -27,6 +27,9 @@ export async function POST(req: NextRequest) {
     in7Days.setDate(in7Days.getDate() + 7);
     const in7DaysStr = in7Days.toISOString().split('T')[0];
 
+    // ISO 8601 dates (YYYY-MM-DD) sort lexicographically in chronological order,
+    // so string comparison with .lte() / .lt() is safe for date filtering.
+
     // ── 1. Notify about due auto-renew subscriptions (pending approval) ──
     const { data: dueAutoRenew } = await supabase
       .from('pyra_subscriptions')

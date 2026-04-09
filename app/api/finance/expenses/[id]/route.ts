@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiForbidden, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiForbidden, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
@@ -66,7 +66,27 @@ export async function PATCH(
 
     // Handle approval/rejection action
     if (body.action === 'approve' || body.action === 'reject') {
+      // State machine: validate transition
+      const EXPENSE_TRANSITIONS: Record<string, string[]> = {
+        pending: ['approved', 'rejected'],
+        approved: [],
+        rejected: ['pending'],
+      };
+
+      const { data: existing } = await supabase
+        .from('pyra_expenses')
+        .select('status')
+        .eq('id', id)
+        .single();
+      if (!existing) return apiNotFound();
+
+      const currentStatus = existing.status;
       const newStatus = body.action === 'approve' ? 'approved' : 'rejected';
+      const allowed = EXPENSE_TRANSITIONS[currentStatus] || [];
+      if (!allowed.includes(newStatus)) {
+        return apiValidationError(`لا يمكن تغيير حالة المصروف من "${currentStatus}" إلى "${newStatus}"`);
+      }
+
       const { data: approvedData, error: approveError } = await supabase
         .from('pyra_expenses')
         .update({
