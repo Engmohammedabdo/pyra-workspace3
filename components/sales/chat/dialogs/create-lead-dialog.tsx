@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
-import { X, UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface PipelineStage {
@@ -15,13 +16,14 @@ interface PipelineStage {
 }
 
 interface CreateLeadDialogProps {
+  open?: boolean;
   contactName: string | null;
   phone: string;
   onClose: () => void;
   onCreated: (leadId: string) => void;
 }
 
-export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: CreateLeadDialogProps) {
+export function CreateLeadDialog({ open = true, contactName, phone, onClose, onCreated }: CreateLeadDialogProps) {
   const [name, setName] = useState(contactName || '');
   const [phoneValue, setPhoneValue] = useState(phone ? `+${phone}` : '');
   const [email, setEmail] = useState('');
@@ -80,30 +82,23 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
   const inputCls = 'w-full bg-muted/30 rounded-xl px-3 py-2 text-sm border border-border/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500/40';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-md mx-4 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md p-0 gap-0 rounded-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-              <UserPlus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <h3 className="font-semibold text-sm">إنشاء عميل محتمل</h3>
+        <DialogHeader className="px-5 py-4 border-b border-border/60 flex-row items-center gap-2.5 space-y-0">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
+            <UserPlus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+          <DialogTitle className="text-sm">إنشاء عميل محتمل</DialogTitle>
+        </DialogHeader>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Name */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الاسم *</label>
+            <label htmlFor="create-lead-name" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الاسم *</label>
             <input
+              id="create-lead-name"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="اسم العميل المحتمل"
@@ -115,8 +110,9 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
 
           {/* Phone */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">رقم الهاتف</label>
+            <label htmlFor="create-lead-phone" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">رقم الهاتف</label>
             <input
+              id="create-lead-phone"
               value={phoneValue}
               onChange={e => setPhoneValue(e.target.value)}
               placeholder="+971..."
@@ -127,8 +123,9 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
 
           {/* Email */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">البريد الإلكتروني</label>
+            <label htmlFor="create-lead-email" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">البريد الإلكتروني</label>
             <input
+              id="create-lead-email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="email@example.com"
@@ -140,8 +137,9 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
 
           {/* Company */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الشركة</label>
+            <label htmlFor="create-lead-company" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الشركة</label>
             <input
+              id="create-lead-company"
               value={company}
               onChange={e => setCompany(e.target.value)}
               placeholder="اسم الشركة"
@@ -150,18 +148,18 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
           </div>
 
           {/* Stage + Priority */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">المرحلة</label>
-              <select value={stageId} onChange={e => setStageId(e.target.value)} className={inputCls}>
+              <label htmlFor="create-lead-stage" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">المرحلة</label>
+              <select id="create-lead-stage" value={stageId} onChange={e => setStageId(e.target.value)} className={inputCls}>
                 {stages.map(s => (
                   <option key={s.id} value={s.id}>{s.name_ar}</option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الأولوية</label>
-              <select value={priority} onChange={e => setPriority(e.target.value)} className={inputCls}>
+              <label htmlFor="create-lead-priority" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">الأولوية</label>
+              <select id="create-lead-priority" value={priority} onChange={e => setPriority(e.target.value)} className={inputCls}>
                 <option value="low">منخفض</option>
                 <option value="medium">متوسط</option>
                 <option value="high">مرتفع</option>
@@ -172,8 +170,9 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>
+            <label htmlFor="create-lead-notes" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>
             <textarea
+              id="create-lead-notes"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="ملاحظات اختيارية..."
@@ -196,7 +195,7 @@ export function CreateLeadDialog({ contactName, phone, onClose, onCreated }: Cre
             إنشاء عميل محتمل
           </Button>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

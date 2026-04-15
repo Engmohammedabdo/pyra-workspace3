@@ -110,7 +110,7 @@ export function PortalMobileNav() {
           <span className="sr-only">القائمة</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[280px] p-0">
+      <SheetContent side="right" className="w-[min(280px,85vw)] p-0">
         <SheetTitle className="sr-only">قائمة بوابة العملاء</SheetTitle>
 
         {/* Logo header */}

@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
-import { X, FileText, Send, Search, Loader2, ExternalLink, Plus, File } from 'lucide-react';
+import { FileText, Send, Search, Loader2, ExternalLink, Plus, File } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
@@ -22,6 +23,7 @@ interface Quote {
 }
 
 interface SendQuoteDialogProps {
+  open?: boolean;
   leadId: string | null;
   conversationId?: string | null;
   remoteJid: string;
@@ -42,7 +44,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 
-export function SendQuoteDialog({ leadId, conversationId, remoteJid, instanceName, phone, onClose, onSent }: SendQuoteDialogProps) {
+export function SendQuoteDialog({ open = true, leadId, conversationId, remoteJid, instanceName, phone, onClose, onSent }: SendQuoteDialogProps) {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
@@ -120,29 +122,23 @@ export function SendQuoteDialog({ leadId, conversationId, remoteJid, instanceNam
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-md mx-4 max-h-[80vh] flex flex-col animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md p-0 gap-0 rounded-2xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center">
-              <FileText className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
-            </div>
-            <h3 className="font-semibold text-sm">إرسال عرض سعر</h3>
+        <DialogHeader className="px-5 py-4 border-b border-border/60 flex-row items-center gap-2.5 space-y-0">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0">
+            <FileText className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+          <DialogTitle className="text-sm">إرسال عرض سعر</DialogTitle>
+        </DialogHeader>
 
         {/* Search */}
         <div className="px-5 py-3 border-b border-border/30">
           <div className="relative">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
+            <label htmlFor="quote-search" className="sr-only">بحث عروض الأسعار</label>
             <input
+              id="quote-search"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="بحث بالرقم أو اسم المشروع..."
@@ -231,7 +227,7 @@ export function SendQuoteDialog({ leadId, conversationId, remoteJid, instanceNam
             ))
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

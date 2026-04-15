@@ -178,6 +178,7 @@ export function CannedResponsesManager({ templates, onRefresh }: Props) {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="حذف الزر"
                         className="h-8 w-8 text-destructive shrink-0"
                         onClick={() => setButtons(buttons.filter((_, i) => i !== idx))}
                       >

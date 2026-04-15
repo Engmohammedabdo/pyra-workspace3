@@ -22,20 +22,20 @@ export function RecurringSummary({ total, activeCount, dueCount }: SummaryProps)
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">نشطة</p>
-            <p className="text-2xl font-bold mt-1 text-green-600">{activeCount}</p>
+            <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{activeCount}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">مستحقة التوليد</p>
-            <p className="text-2xl font-bold mt-1 text-orange-600">{dueCount}</p>
+            <p className="text-2xl font-bold mt-1 text-orange-600 dark:text-orange-400">{dueCount}</p>
           </CardContent>
         </Card>
       </div>
 
       {dueCount > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+          <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-yellow-800 dark:text-yellow-200">
               {dueCount} فاتورة متكررة مستحقة التوليد

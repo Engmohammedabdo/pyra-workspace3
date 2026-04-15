@@ -66,13 +66,13 @@ export default function TeamReportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/reports">
+          <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">
             <Button variant="ghost" size="icon">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <UserCheck className="h-6 w-6" />
+            <UserCheck className="h-6 w-6" aria-hidden="true" />
             تقرير الفريق
           </h1>
         </div>

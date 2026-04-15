@@ -60,7 +60,7 @@ export default function WhatsAppAnalyticsPage() {
           <BarChart3 className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-bold tracking-tight">تحليلات واتساب</h1>
+          <h1 className="text-2xl font-bold">تحليلات واتساب</h1>
           <p className="text-xs text-muted-foreground/60">WhatsApp Analytics</p>
         </div>
         <div className="flex-1" />

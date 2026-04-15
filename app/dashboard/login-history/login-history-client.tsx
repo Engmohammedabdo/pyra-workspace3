@@ -79,7 +79,7 @@ export default function LoginHistoryClient() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Shield className="h-6 w-6" /> سجل الدخول
+          <Shield className="h-6 w-6" aria-hidden="true" /> سجل الدخول
         </h1>
         <p className="text-muted-foreground">محاولات تسجيل الدخول للنظام</p>
       </div>
@@ -99,7 +99,7 @@ export default function LoginHistoryClient() {
           <CardContent className="p-4 flex items-center gap-3">
             <CheckCircle className="h-8 w-8 text-green-500" />
             <div>
-              <div className="text-2xl font-bold text-green-600">{successCount}</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{successCount}</div>
               <div className="text-xs text-muted-foreground">ناجح (هذه الصفحة)</div>
             </div>
           </CardContent>
@@ -108,7 +108,7 @@ export default function LoginHistoryClient() {
           <CardContent className="p-4 flex items-center gap-3">
             <XCircle className="h-8 w-8 text-red-500" />
             <div>
-              <div className="text-2xl font-bold text-red-600">{failedCount}</div>
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{failedCount}</div>
               <div className="text-xs text-muted-foreground">فاشل (هذه الصفحة)</div>
             </div>
           </CardContent>

@@ -31,11 +31,11 @@ export function FinanceSubscriptions({
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-4"><Clock className="h-5 w-5 text-orange-500" /> اشتراكات تحتاج موافقتك</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-4"><Clock className="h-5 w-5 text-orange-500" aria-hidden="true" /> اشتراكات تحتاج موافقتك</h3>
           {dueSubscriptions?.length > 0 ? (
             <div className="space-y-2">
               {dueSubscriptions.map((sub) => (
-                <div key={sub.id} className="flex items-center justify-between rounded-lg border border-orange-200 bg-orange-50/50 p-3">
+                <div key={sub.id} className="flex items-center justify-between rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-50/50 dark:bg-orange-950/20 p-3">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate">{sub.name}</p>
                     <p className="text-xs text-muted-foreground">{formatCurrency(sub.cost, sub.currency)} · {sub.provider}</p>
@@ -52,7 +52,7 @@ export function FinanceSubscriptions({
       </Card>
       <Card>
         <CardContent className="p-5">
-          <h3 className="font-semibold flex items-center gap-2 mb-4"><RefreshCw className="h-5 w-5" /> تجديدات قادمة</h3>
+          <h3 className="font-semibold flex items-center gap-2 mb-4"><RefreshCw className="h-5 w-5" aria-hidden="true" /> تجديدات قادمة</h3>
           {summary.monthly_subs_cost > 0 && <p className="text-xs text-muted-foreground mb-4">التكلفة الشهرية: {formatCurrency(summary.monthly_subs_cost)}</p>}
           {upcomingRenewals?.length > 0 ? (
             <div className="space-y-2">

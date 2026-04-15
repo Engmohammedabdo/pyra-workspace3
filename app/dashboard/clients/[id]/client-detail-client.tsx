@@ -1304,7 +1304,7 @@ export function ClientDetailClient() {
         <DialogContent className="sm:max-w-md" dir="rtl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
+              <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               تفعيل حساب البورتال
             </DialogTitle>
           </DialogHeader>

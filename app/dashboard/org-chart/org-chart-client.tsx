@@ -289,7 +289,7 @@ export default function OrgChartClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Network className="h-6 w-6 text-orange-500" />
+            <Network className="h-6 w-6 text-orange-500" aria-hidden="true" />
             الهيكل التنظيمي
           </h1>
           <p className="text-sm text-muted-foreground">

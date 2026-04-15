@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ContractItemsEditor } from '@/components/finance/contract-items-editor';
 import { ContractForm } from '@/components/dashboard/contract-detail/contract-form';
 import { MilestonesSection } from '@/components/dashboard/contract-detail/milestones-section';
@@ -41,6 +42,8 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   const [milestoneForm, setMilestoneForm] = useState<any>(EMPTY_MILESTONE_FORM);
   const [milestoneSaving, setMilestoneSaving] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
+  const [showDeleteMilestoneDialog, setShowDeleteMilestoneDialog] = useState(false);
+  const [deleteMilestoneTarget, setDeleteMilestoneTarget] = useState<any>(null);
 
   const [billingHistory, setBillingHistory] = useState<any>(null);
   const [billingLoading, setBillingLoading] = useState(false);
@@ -156,11 +159,17 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
     setGeneratingInvoice(null);
   };
 
-  const handleDeleteMilestone = async (m: any) => {
-    if (confirm('هل أنت متأكد من حذف المرحلة؟')) {
-      await fetch(`/api/finance/contracts/${id}/milestones/${m.id}`, { method: 'DELETE' });
-      fetchMilestones();
-    }
+  const handleDeleteMilestone = (m: any) => {
+    setDeleteMilestoneTarget(m);
+    setShowDeleteMilestoneDialog(true);
+  };
+
+  const confirmDeleteMilestone = async () => {
+    if (!deleteMilestoneTarget) return;
+    await fetch(`/api/finance/contracts/${id}/milestones/${deleteMilestoneTarget.id}`, { method: 'DELETE' });
+    fetchMilestones();
+    setShowDeleteMilestoneDialog(false);
+    setDeleteMilestoneTarget(null);
   };
 
   if (loading) return (
@@ -173,7 +182,7 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/finance/contracts"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <Link href="/dashboard/finance/contracts" aria-label="العودة إلى العقود"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
         <h1 className="text-2xl font-bold">تعديل العقد</h1>
       </div>
       <ContractForm form={form} setForm={setForm} clients={clients} projects={allProjects} onSubmit={handleSubmit} saving={saving} />
@@ -202,11 +211,28 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
           generatingInvoice={generatingInvoice}
         />
       )}
-      <MilestoneDialog 
+      <MilestoneDialog
         open={milestoneDialogOpen} onOpenChange={setMilestoneDialogOpen} milestone={editingMilestone}
         form={milestoneForm} setForm={setMilestoneForm} onSave={handleSaveMilestone} loading={milestoneSaving}
         totalValue={Number(form.total_value)} currency={form.currency}
       />
+
+      <AlertDialog open={showDeleteMilestoneDialog} onOpenChange={setShowDeleteMilestoneDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذه المرحلة؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteMilestone} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

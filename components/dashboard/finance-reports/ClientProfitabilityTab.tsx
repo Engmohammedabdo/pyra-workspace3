@@ -5,10 +5,11 @@ import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { FileText } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { DateRangeFilter } from './DateRangeFilter';
-import { EmptyState } from './EmptyState';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface ClientProfitability { client_id: string; client_name: string; company: string | null; revenue: number; expenses: number; profit: number; margin: number; contract_count: number; }
 function getDefaultFrom(): string { const d = new Date(); return `${d.getFullYear()}-01-01`; }
@@ -37,7 +38,7 @@ export function ClientProfitabilityTab() {
   return (
     <div className="space-y-6">
       <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} onApply={fetchData} />
-      {!data || data.length === 0 ? <EmptyState message="لا توجد بيانات ربحية للعملاء" /> : (
+      {!data || data.length === 0 ? <EmptyState icon={FileText} title="لا توجد بيانات ربحية للعملاء" /> : (
         <Card>
           <CardHeader><CardTitle className="text-base">ربحية العملاء</CardTitle></CardHeader>
           <CardContent>

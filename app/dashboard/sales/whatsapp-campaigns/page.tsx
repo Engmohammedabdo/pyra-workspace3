@@ -114,7 +114,7 @@ export default function WhatsAppCampaignsPage() {
             <Megaphone className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold tracking-tight">حملات الرسائل</h1>
+            <h1 className="text-2xl font-bold">حملات الرسائل</h1>
             <p className="text-xs text-muted-foreground/60">إرسال رسائل جماعية عبر واتساب</p>
           </div>
         </div>

@@ -97,7 +97,7 @@ export default function NewInvoicePage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/invoices"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <Link href="/dashboard/invoices" aria-label="العودة إلى الفواتير"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
         <div><h1 className="text-2xl font-bold">فاتورة جديدة</h1></div>
       </div>
       <Card><CardContent className="space-y-4 pt-6">

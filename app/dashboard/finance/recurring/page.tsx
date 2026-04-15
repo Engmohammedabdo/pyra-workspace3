@@ -52,8 +52,8 @@ export default function RecurringInvoicesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Repeat className="h-6 w-6" /> الفواتير المتكررة</h1>
+          <Link href="/dashboard/finance" aria-label="العودة إلى المالية"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Repeat className="h-6 w-6" aria-hidden="true" /> الفواتير المتكررة</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" onClick={() => generateMutation.mutate()} disabled={generateMutation.isPending}>{generateMutation.isPending ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Zap className="h-4 w-4 me-2" />}{generateMutation.isPending ? 'جاري...' : 'توليد'}</Button>

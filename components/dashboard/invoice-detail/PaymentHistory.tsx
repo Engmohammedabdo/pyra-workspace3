@@ -43,7 +43,7 @@ export function PaymentHistory({ payments, currency }: { payments: Payment[]; cu
                 {payments.map(payment => (
                   <tr key={payment.id} className="border-b">
                     <td className="p-3 text-muted-foreground">{formatDate(payment.payment_date)}</td>
-                    <td className={`p-3 font-mono ${payment.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    <td className={`p-3 font-mono ${payment.amount < 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
                       {payment.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(payment.amount), currency)}
                     </td>
                     <td className="p-3">{PAYMENT_METHODS[payment.method] || payment.method}</td>

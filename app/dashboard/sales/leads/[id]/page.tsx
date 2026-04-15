@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -63,6 +64,7 @@ export default function LeadDetailPage() {
   const [convertPortal, setConvertPortal] = useState(false);
   const [convertPassword, setConvertPassword] = useState('');
   const [converting, setConverting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const fetchLead = useCallback(async () => {
     try {
@@ -94,7 +96,6 @@ export default function LeadDetailPage() {
   }
 
   async function handleDelete() {
-    if (!confirm('هل أنت متأكد؟')) return;
     try { await mutateAPI(`/api/dashboard/sales/leads/${id}`, 'DELETE'); toast.success('تم الحذف'); router.push('/dashboard/sales/leads'); } catch { toast.error('فشل الحذف'); }
   }
 
@@ -134,10 +135,10 @@ export default function LeadDetailPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowTransfer(true)}><ArrowRightLeft className="h-4 w-4 me-1" />تحويل</Button>
           {!editing ? <Button variant="outline" size="sm" onClick={() => { setEditing(true); setEditForm(lead); }}><Edit2 className="h-4 w-4 me-1" />تعديل</Button> : <><Button size="sm" onClick={handleSave} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">{saving ? <Loader2 className="h-4 w-4 animate-spin me-1" /> : <Save className="h-4 w-4 me-1" />}حفظ</Button><Button variant="ghost" size="sm" onClick={() => setEditing(false)}><X className="h-4 w-4" /></Button></>}
-          <Button variant="ghost" size="sm" className="text-destructive" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
         </div>
       </div>
-      <div className="flex items-center gap-1 overflow-x-auto pb-2">{stages.map((stage, i) => { const isActive = stage.id === lead.stage_id; const isPast = stages.findIndex(s => s.id === lead.stage_id) > i; return (<button key={stage.id} onClick={() => handleStageChange(stage.id)} className={cn('px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap', isActive ? 'bg-orange-500 text-white shadow-md' : isPast ? 'bg-orange-100 text-orange-700' : 'bg-muted text-muted-foreground')}>{stage.name_ar}</button>); })}</div>
+      <div className="flex items-center gap-1 overflow-x-auto pb-2">{stages.map((stage, i) => { const isActive = stage.id === lead.stage_id; const isPast = stages.findIndex(s => s.id === lead.stage_id) > i; return (<button key={stage.id} onClick={() => handleStageChange(stage.id)} className={cn('px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap', isActive ? 'bg-orange-500 text-white shadow-md' : isPast ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300' : 'bg-muted text-muted-foreground')}>{stage.name_ar}</button>); })}</div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Tabs defaultValue="info">
@@ -153,6 +154,23 @@ export default function LeadDetailPage() {
       </div>
       <LeadTransferDialog open={showTransfer} onOpenChange={setShowTransfer} leadId={lead.id} leadName={lead.name} currentAgent={lead.assigned_to} onTransferred={fetchLead} />
       <Dialog open={showConvert} onOpenChange={setShowConvert}><DialogContent><DialogHeader><DialogTitle>تحويل لعميل</DialogTitle></DialogHeader><Button onClick={handleConvert}>تأكيد</Button></DialogContent></Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا العميل المحتمل؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

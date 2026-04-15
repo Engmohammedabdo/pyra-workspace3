@@ -154,7 +154,7 @@ export function TwoFactorSetup({ isEnabled, onStatusChange }: TwoFactorSetupProp
                 <code className="flex-1 text-xs bg-muted px-3 py-2 rounded-md font-mono break-all" dir="ltr">
                   {secret}
                 </code>
-                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={copySecret}>
+                <Button variant="outline" size="icon" aria-label="نسخ المفتاح السري" className="h-8 w-8 shrink-0" onClick={copySecret}>
                   {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
                 </Button>
               </div>

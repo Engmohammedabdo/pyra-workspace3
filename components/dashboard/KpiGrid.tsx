@@ -79,7 +79,7 @@ export function KpiGrid() {
       variants={containerMotion}
       initial="hidden"
       animate="show"
-      className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+      className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
     >
       {/* Revenue */}
       <motion.div variants={itemMotion}>

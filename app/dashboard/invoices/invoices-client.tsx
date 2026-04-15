@@ -237,13 +237,13 @@ export default function InvoicesClient() {
       key: 'amount_paid',
       header: 'المدفوع',
       sortable: true,
-      render: (inv) => <span className="font-mono text-green-600">{formatCurrency(inv.amount_paid, inv.currency)}</span>,
+      render: (inv) => <span className="font-mono text-green-600 dark:text-green-400">{formatCurrency(inv.amount_paid, inv.currency)}</span>,
     },
     {
       key: 'amount_due',
       header: 'المتبقي',
       sortable: true,
-      render: (inv) => <span className="font-mono text-orange-600">{formatCurrency(inv.amount_due, inv.currency)}</span>,
+      render: (inv) => <span className="font-mono text-orange-600 dark:text-orange-400">{formatCurrency(inv.amount_due, inv.currency)}</span>,
     },
     {
       key: 'status',
@@ -298,11 +298,11 @@ export default function InvoicesClient() {
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="h-6 w-6" /> الفواتير
+              <FileText className="h-6 w-6" aria-hidden="true" /> الفواتير
             </h1>
             <p className="text-muted-foreground">إدارة الفواتير والمدفوعات</p>
           </div>
@@ -338,7 +338,7 @@ export default function InvoicesClient() {
           <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">إجمالي الإيرادات</p>
@@ -356,7 +356,7 @@ export default function InvoicesClient() {
           <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-blue-600" />
+                <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">المبالغ المستحقة</p>
@@ -374,7 +374,7 @@ export default function InvoicesClient() {
           <Card className="transition-all duration-200 hover:shadow-md hover:border-orange-500/30 hover:-translate-y-0.5">
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">المبالغ المتأخرة</p>

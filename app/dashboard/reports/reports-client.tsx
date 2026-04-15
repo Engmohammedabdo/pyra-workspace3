@@ -76,7 +76,7 @@ export default function ReportsClient() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <BarChart3 className="h-6 w-6" />
+          <BarChart3 className="h-6 w-6" aria-hidden="true" />
           التقارير
         </h1>
         <p className="text-muted-foreground">تقارير وتحليلات شاملة للنظام</p>

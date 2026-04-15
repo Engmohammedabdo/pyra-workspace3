@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ArrowRight, Truck, Edit2, Save, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SupplierInfo } from '@/components/dashboard/supplier-detail/SupplierInfo';
@@ -22,6 +23,7 @@ export default function SupplierDetailPage() {
   const [form, setForm] = useState<any>({});
   const [expenses, setExpenses] = useState<any[]>([]);
   const [expensesTotal, setExpensesTotal] = useState(0);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetch(`/api/dashboard/suppliers/${id}`)
@@ -53,7 +55,6 @@ export default function SupplierDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('هل أنت متأكد؟')) return;
     const res = await fetch(`/api/dashboard/suppliers/${id}`, { method: 'DELETE' });
     if (res.ok) { router.push('/dashboard/finance/suppliers'); toast.success('تم الحذف'); }
     else { toast.error('خطأ في الحذف'); }
@@ -66,12 +67,12 @@ export default function SupplierDetailPage() {
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance/suppliers"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <Link href="/dashboard/finance/suppliers" aria-label="العودة إلى الموردين"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
           <div>
             <div className="flex items-center gap-2">
               <Truck className="h-5 w-5" />
               <h1 className="text-2xl font-bold">{supplier.name}</h1>
-              <Badge className={supplier.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100'}>{supplier.is_active ? 'نشط' : 'غير نشط'}</Badge>
+              <Badge className={supplier.is_active ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800'}>{supplier.is_active ? 'نشط' : 'غير نشط'}</Badge>
             </div>
             {supplier.company && <p className="text-sm text-muted-foreground">{supplier.company}</p>}
           </div>
@@ -80,7 +81,7 @@ export default function SupplierDetailPage() {
           {!editing ? (
             <>
               <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4 me-2" /> تعديل</Button>
-              <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="destructive" size="icon" aria-label="حذف المورد" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
             </>
           ) : (
             <>
@@ -97,6 +98,23 @@ export default function SupplierDetailPage() {
           <LinkedExpenses expenses={expenses} total={expensesTotal} />
         </>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

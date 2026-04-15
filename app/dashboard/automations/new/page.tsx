@@ -60,12 +60,12 @@ export default function NewAutomationPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/automations"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <Link href="/dashboard/automations" aria-label="العودة إلى الأتمتة"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
         <div><h1 className="text-2xl font-bold">قاعدة أتمتة جديدة</h1><p className="text-muted-foreground">إنشاء قاعدة أتمتة</p></div>
       </div>
       <div className="flex items-center gap-2 border-b">
-        <button className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'template' ? 'border-orange-500 text-orange-600' : 'border-transparent'}`} onClick={() => setActiveTab('template')}><LayoutTemplate className="h-4 w-4 inline-block me-1" /> من قالب</button>
-        <button className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'manual' ? 'border-orange-500 text-orange-600' : 'border-transparent'}`} onClick={() => setActiveTab('manual')}><FileText className="h-4 w-4 inline-block me-1" /> يدوي</button>
+        <button className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'template' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent'}`} onClick={() => setActiveTab('template')}><LayoutTemplate className="h-4 w-4 inline-block me-1" /> من قالب</button>
+        <button className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'manual' ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'border-transparent'}`} onClick={() => setActiveTab('manual')}><FileText className="h-4 w-4 inline-block me-1" /> يدوي</button>
       </div>
       {activeTab === 'template' ? (
         <TemplatesView loading={loadingTemplates} templates={templates} onApply={applyTemplate} />

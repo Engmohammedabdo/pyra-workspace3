@@ -25,7 +25,7 @@ export function WhatsAppQuickStats({ waStats }: Props) {
             فتح الشات <ChevronLeft className="h-3 w-3" />
           </Link>
         </div>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4">
           <div className="text-center"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.total_conversations}</p><p className="text-[11px] text-muted-foreground">محادثة</p></div>
           <div className="text-center"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.messages_received_today}</p><p className="text-[11px] text-muted-foreground">نشطة اليوم</p></div>
           <div className="text-center"><p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{waStats.messages_today}</p><p className="text-[11px] text-muted-foreground">غير مقروءة</p></div>

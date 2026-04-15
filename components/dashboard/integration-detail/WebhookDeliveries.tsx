@@ -86,7 +86,7 @@ export function WebhookDeliveries({
                 </thead>
                 <tbody>
                   {deliveries.map(delivery => {
-                    const statusInfo = STATUS_BADGES[delivery.status] || { label: delivery.status, color: 'bg-gray-100 text-gray-700' };
+                    const statusInfo = STATUS_BADGES[delivery.status] || { label: delivery.status, color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300' };
                     const canRetry = (delivery.status === 'failed' || delivery.status === 'retrying') && delivery.attempt_count < (delivery.max_attempts || 3);
                     return (
                       <tr key={delivery.id} className="border-b">

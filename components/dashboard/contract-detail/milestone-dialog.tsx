@@ -28,7 +28,7 @@ export function MilestoneDialog({ open, onOpenChange, milestone, form, setForm, 
             <Label>الوصف</Label>
             <Textarea value={form.description} onChange={e => setForm((p: any) => ({ ...p, description: e.target.value }))} rows={2} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>النسبة (%) *</Label>
               <Input type="number" step="0.01" min="0.01" max="100" value={form.percentage} onChange={e => setForm((p: any) => ({ ...p, percentage: e.target.value }))} dir="ltr" />

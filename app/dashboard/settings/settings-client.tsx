@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { EmptyState } from '@/components/ui/empty-state';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import {
   Settings, Save, Key, Copy, Trash2, Plus, Shield, Check,
   Building2, FileText, Receipt, Landmark, HardDrive, Globe,
@@ -629,6 +630,8 @@ function ApiKeysSection() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTargetKey, setDeleteTargetKey] = useState<ApiKey | null>(null);
 
   const { data: apiKeysData, isLoading: loadingKeys, refetch: refetchApiKeys } = useQuery<ApiKey[]>({
     queryKey: ['api-keys'],
@@ -700,13 +703,21 @@ function ApiKeysSection() {
     } finally { setTogglingId(null); }
   };
 
-  const handleDeleteKey = async (key: ApiKey) => {
-    const confirmed = window.confirm(`هل أنت متأكد من حذف المفتاح "${key.name}"؟ لا يمكن التراجع عن هذا الإجراء.`);
-    if (!confirmed) return;
-    setDeletingId(key.id);
+  const handleDeleteKey = (key: ApiKey) => {
+    setDeleteTargetKey(key);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteKey = async () => {
+    if (!deleteTargetKey) return;
+    setDeletingId(deleteTargetKey.id);
     try {
-      await deleteKeyMutation.mutateAsync(key);
-    } finally { setDeletingId(null); }
+      await deleteKeyMutation.mutateAsync(deleteTargetKey);
+    } finally {
+      setDeletingId(null);
+      setShowDeleteDialog(false);
+      setDeleteTargetKey(null);
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -874,6 +885,23 @@ function ApiKeysSection() {
           )}
         </div>
       </SectionCard>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف المفتاح &quot;{deleteTargetKey?.name}&quot;؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteKey} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   );
 }

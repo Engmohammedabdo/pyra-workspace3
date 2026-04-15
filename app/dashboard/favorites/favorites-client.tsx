@@ -55,7 +55,7 @@ export default function FavoritesClient() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Star className="h-6 w-6 fill-yellow-400 text-yellow-500" /> المفضلة
+          <Star className="h-6 w-6 fill-yellow-400 text-yellow-500" aria-hidden="true" /> المفضلة
         </h1>
         <p className="text-muted-foreground">
           الملفات والمجلدات المفضلة لديك ({favorites.length})
@@ -90,7 +90,7 @@ export default function FavoritesClient() {
           {folders.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                <FolderOpen className="h-4 w-4" /> المجلدات ({folders.length})
+                <FolderOpen className="h-4 w-4" aria-hidden="true" /> المجلدات ({folders.length})
               </h2>
               <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {folders.map((fav) => (
@@ -110,7 +110,7 @@ export default function FavoritesClient() {
           {files.length > 0 && (
             <div>
               <h2 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
-                <FileText className="h-4 w-4" /> الملفات ({files.length})
+                <FileText className="h-4 w-4" aria-hidden="true" /> الملفات ({files.length})
               </h2>
               <StaggerContainer className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {files.map((fav) => (

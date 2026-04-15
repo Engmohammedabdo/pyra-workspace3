@@ -60,7 +60,7 @@ export default function StorageClient() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <HardDrive className="h-6 w-6" /> التخزين
+            <HardDrive className="h-6 w-6" aria-hidden="true" /> التخزين
           </h1>
           <p className="text-muted-foreground">إحصائيات استخدام مساحة التخزين</p>
         </div>
@@ -93,7 +93,7 @@ export default function StorageClient() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <HardDrive className="h-6 w-6" /> التخزين
+            <HardDrive className="h-6 w-6" aria-hidden="true" /> التخزين
           </h1>
           <p className="text-muted-foreground">إحصائيات استخدام مساحة التخزين</p>
         </div>

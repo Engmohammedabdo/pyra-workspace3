@@ -4,10 +4,11 @@ import { useState, useCallback, useEffect } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FileText } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { DateRangeFilter } from './DateRangeFilter';
-import { EmptyState } from './EmptyState';
+import { EmptyState } from '@/components/ui/empty-state';
 
 interface ProjectProfitability { project_id: string; project_name: string; client_name: string | null; budget: number | null; revenue: number; expenses: number; profit: number; margin: number; budget_utilization: number | null; }
 function getDefaultFrom(): string { const d = new Date(); return `${d.getFullYear()}-01-01`; }
@@ -36,7 +37,7 @@ export function ProjectProfitabilityTab() {
   return (
     <div className="space-y-6">
       <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} onApply={fetchData} />
-      {!data || data.length === 0 ? <EmptyState message="لا توجد بيانات ربحية للمشاريع" /> : (
+      {!data || data.length === 0 ? <EmptyState icon={FileText} title="لا توجد بيانات ربحية للمشاريع" /> : (
         <Card>
           <CardHeader><CardTitle className="text-base">ربحية المشاريع</CardTitle></CardHeader>
           <CardContent>

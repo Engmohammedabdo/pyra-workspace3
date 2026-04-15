@@ -576,6 +576,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="حذف الصف"
                           className="h-7 w-7 text-destructive"
                           onClick={() => removeRow(idx)}
                           disabled={services.length <= 1}
@@ -693,7 +694,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
             <div className="border rounded-lg p-4 bg-muted/30">
               <h3 className="text-sm font-semibold mb-2">التوقيع الإلكتروني</h3>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={quote.signature_data} alt="Signature" className="border bg-white rounded max-w-[300px] h-auto" />
+              <img src={quote.signature_data} alt="Signature" className="border bg-white dark:bg-gray-900 rounded max-w-[300px] h-auto" />
               {quote.signed_by && (
                 <p className="text-xs text-muted-foreground mt-2">
                   تم التوقيع بواسطة: {quote.signed_by}
@@ -737,6 +738,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="حذف الشرط"
                     className="h-8 w-8 text-destructive shrink-0"
                     onClick={() => removeTerm(idx)}
                     disabled={terms.length <= 1}
@@ -751,7 +753,7 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       </Card>
 
       {/* Toolbar */}
-      <div className="max-w-[900px] mx-auto flex items-center justify-between bg-background border rounded-lg p-3 sticky bottom-4 shadow-lg dark:shadow-black/20">
+      <div className="max-w-[900px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-background border rounded-lg p-3 sticky bottom-4 shadow-lg dark:shadow-black/20">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => onClose?.()}>
             <X className="h-4 w-4 me-1" /> إغلاق

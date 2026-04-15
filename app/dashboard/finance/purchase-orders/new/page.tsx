@@ -142,7 +142,7 @@ export default function NewPurchaseOrderPage() {
               <div className="sm:col-span-2"><Input type="number" min={0} step={0.01} value={item.rate} onChange={e => updateItem(index, 'rate', parseFloat(e.target.value) || 0)} dir="ltr" /></div>
               <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.quantity * item.rate)}</div>
               <div className="sm:col-span-1 flex justify-end">
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={items.length <= 1} onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" aria-label="حذف البند" className="h-8 w-8 text-destructive" disabled={items.length <= 1} onClick={() => removeItem(index)}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
           ))}

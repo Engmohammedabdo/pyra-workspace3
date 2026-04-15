@@ -327,7 +327,7 @@ export default function LeaveSettingsClient() {
                   )}
                 </Button>
                 {carryToYear <= carryFromYear && (
-                  <p className="text-xs text-red-500">
+                  <p className="text-xs text-destructive">
                     سنة الهدف يجب أن تكون بعد سنة المصدر
                   </p>
                 )}

@@ -117,7 +117,7 @@ export default function AutomationsClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Zap className="h-6 w-6" /> الأتمتة
+            <Zap className="h-6 w-6" aria-hidden="true" /> الأتمتة
           </h1>
           <p className="text-muted-foreground">إدارة قواعد الأتمتة والتشغيل التلقائي</p>
         </div>

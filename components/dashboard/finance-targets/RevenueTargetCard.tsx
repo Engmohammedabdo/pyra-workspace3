@@ -20,9 +20,9 @@ const PERIOD_TYPE_MAP: Record<string, string> = {
 };
 
 function getProgressColor(pct: number): string {
-  if (pct >= 100) return 'text-green-600';
-  if (pct >= 70) return 'text-yellow-600';
-  return 'text-red-600';
+  if (pct >= 100) return 'text-green-600 dark:text-green-400';
+  if (pct >= 70) return 'text-yellow-600 dark:text-yellow-400';
+  return 'text-red-600 dark:text-red-400';
 }
 
 function getProgressBarClass(pct: number): string {
@@ -43,7 +43,7 @@ export function RevenueTargetCard({ target, onEdit, onDelete }: TargetCardProps)
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit} aria-label="تعديل الهدف">
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={onDelete} aria-label="حذف الهدف">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={onDelete} aria-label="حذف الهدف">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>

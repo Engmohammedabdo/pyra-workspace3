@@ -107,7 +107,7 @@ export default function NewWebhookPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Webhook className="h-6 w-6" /> إضافة Webhook جديد
+            <Webhook className="h-6 w-6" aria-hidden="true" /> إضافة Webhook جديد
           </h1>
           <p className="text-muted-foreground">إنشاء نقطة تكامل خارجية جديدة</p>
         </div>

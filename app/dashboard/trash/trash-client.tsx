@@ -148,7 +148,7 @@ export default function TrashClient() {
     <div className="space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Trash2 className="h-6 w-6" /> المحذوفات</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Trash2 className="h-6 w-6" aria-hidden="true" /> المحذوفات</h1>
           <p className="text-muted-foreground">الملفات المحذوفة — يتم حذفها نهائياً بعد 30 يوماً تلقائياً</p>
         </div>
         {items.length > 0 && (

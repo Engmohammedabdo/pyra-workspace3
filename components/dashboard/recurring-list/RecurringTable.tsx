@@ -53,7 +53,7 @@ export function RecurringTable({ items, onDelete }: TableProps) {
                 <td className="p-3">{CYCLE_LABELS[ri.billing_cycle] || ri.billing_cycle}</td>
                 <td className="p-3 font-mono">{formatCurrency(cost, ri.currency)}</td>
                 <td className="p-3">
-                  <span className={isDue ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>{formatDate(ri.next_generation_date)}</span>
+                  <span className={isDue ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-muted-foreground'}>{formatDate(ri.next_generation_date)}</span>
                   {isDue && <Badge variant="destructive" className="ms-2 text-xs">مستحق</Badge>}
                 </td>
                 <td className="p-3 text-muted-foreground">{ri.last_generated_at ? formatDate(ri.last_generated_at) : '—'}</td>
@@ -65,7 +65,7 @@ export function RecurringTable({ items, onDelete }: TableProps) {
                     <Link href={`/dashboard/finance/recurring/${ri.id}`}>
                       <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل"><Pencil className="h-3.5 w-3.5" /></Button>
                     </Link>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => onDelete(ri.id)} aria-label="حذف"><Trash2 className="h-3.5 w-3.5" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => onDelete(ri.id)} aria-label="حذف"><Trash2 className="h-3.5 w-3.5" /></Button>
                   </div>
                 </td>
               </tr>

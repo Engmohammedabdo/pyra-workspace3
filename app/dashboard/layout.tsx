@@ -23,7 +23,7 @@ export default async function DashboardLayout({
     <BreadcrumbProvider>
       <div className="min-h-screen bg-background">
         <Sidebar user={layoutUser} />
-        <div className="lg:ps-[280px] transition-all duration-300">
+        <div className="lg:ps-[var(--sidebar-width,280px)] transition-all duration-300">
           <Topbar user={layoutUser} />
           <main className="p-4 lg:p-6">
             <ErrorBoundaryWrapper>

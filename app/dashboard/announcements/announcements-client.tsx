@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
@@ -49,6 +50,8 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
   const [formPriority, setFormPriority] = useState('normal');
   const [formPinned, setFormPinned] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'announcements.manage');
 
   const { data: announcements = [], isLoading: loading } = useQuery<Announcement[]>({
@@ -100,9 +103,16 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
     }
   };
 
-  const deleteAnnouncement = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا الإعلان؟')) return;
-    await deleteMutation.mutateAsync(id);
+  const deleteAnnouncement = (id: string) => {
+    setDeleteTargetId(id);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleteTargetId) return;
+    await deleteMutation.mutateAsync(deleteTargetId);
+    setShowDeleteDialog(false);
+    setDeleteTargetId(null);
   };
 
   const resetForm = () => {
@@ -301,6 +311,23 @@ export default function AnnouncementsClient({ session }: AnnouncementsClientProp
           ))}
         </div>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا الإعلان؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteAnnouncement} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

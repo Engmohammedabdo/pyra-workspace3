@@ -601,7 +601,7 @@ export default function RolesClient() {
               <div className="space-y-2">
                 <Label className="text-sm font-medium">الأعضاء الحاليون ({members.length})</Label>
                 {members.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">لا يوجد أعضاء معينون لهذا الدور</p>
+                  <EmptyState icon={Users} title="لا يوجد أعضاء معينون لهذا الدور" className="py-4" />
                 ) : (
                   <div className="space-y-2">
                     {members.map((user: any) => (

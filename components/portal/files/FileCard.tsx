@@ -191,7 +191,7 @@ export function FileCard({
           className={cn(
             'absolute top-2 end-2 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all',
             favorited
-              ? 'bg-amber-100 text-amber-500'
+              ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-500'
               : 'bg-black/20 text-white opacity-0 group-hover:opacity-100'
           )}
         >

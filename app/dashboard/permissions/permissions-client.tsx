@@ -166,7 +166,7 @@ export default function PermissionsClient() {
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" /> الصلاحيات</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Shield className="h-6 w-6" aria-hidden="true" /> الصلاحيات</h1>
           <p className="text-muted-foreground">إدارة صلاحيات الوصول للملفات والمجلدات</p>
         </div>
         <Button onClick={() => setShowCreate(true)}>

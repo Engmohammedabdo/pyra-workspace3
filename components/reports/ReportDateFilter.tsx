@@ -76,7 +76,7 @@ export function ReportDateFilter({ from, to, onFromChange, onToChange }: Props) 
           type="date"
           value={from}
           onChange={(e) => onFromChange(e.target.value)}
-          className="w-[160px] h-9"
+          className="w-full sm:w-[160px] h-9"
         />
       </div>
       <div className="flex items-center gap-1.5">
@@ -85,7 +85,7 @@ export function ReportDateFilter({ from, to, onFromChange, onToChange }: Props) 
           type="date"
           value={to}
           onChange={(e) => onToChange(e.target.value)}
-          className="w-[160px] h-9"
+          className="w-full sm:w-[160px] h-9"
         />
       </div>
       <div className="flex items-center gap-1 flex-wrap">

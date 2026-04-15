@@ -422,7 +422,7 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
         <Card className="border-0 shadow-sm lg:col-span-1">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-orange-500" />
+              <CalendarDays className="h-4 w-4 text-orange-500" aria-hidden="true" />
               تقويم الحضور
             </h3>
 
@@ -490,7 +490,7 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
         <Card className="border-0 shadow-sm lg:col-span-2">
           <CardContent className="pt-5">
             <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-orange-500" />
+              <Clock className="h-4 w-4 text-orange-500" aria-hidden="true" />
               سجل الحضور
             </h3>
 

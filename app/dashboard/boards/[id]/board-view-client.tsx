@@ -349,7 +349,7 @@ function DroppableColumn({
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex-shrink-0 w-[300px] rounded-xl p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors ${
+      className={`flex-shrink-0 w-[300px] snap-start rounded-xl p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors ${
         isOver
           ? 'bg-orange-500/10 ring-2 ring-orange-500/30'
           : 'bg-muted/50'
@@ -1882,7 +1882,7 @@ export default function BoardViewClient({
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={columns.map(c => `col-${c.id}`)} strategy={verticalListSortingStrategy}>
-          <div className="flex gap-4 overflow-x-auto pb-4" dir="ltr">
+          <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory" dir="ltr">
             {columns.map((col) => {
               const colTasks = filteredTasks
                 .filter((t) => t.column_id === col.id)

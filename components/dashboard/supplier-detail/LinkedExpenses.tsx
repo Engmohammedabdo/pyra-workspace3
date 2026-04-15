@@ -16,7 +16,7 @@ export function LinkedExpenses({ expenses, total }: { expenses: any[], total: nu
           المصروفات المرتبطة
           {expenses.length > 0 && <Badge variant="secondary" className="ms-2">{expenses.length}</Badge>}
         </CardTitle>
-        {total > 0 && <span className="text-sm font-bold font-mono text-red-600">{formatCurrency(total)}</span>}
+        {total > 0 && <span className="text-sm font-bold font-mono text-red-600 dark:text-red-400">{formatCurrency(total)}</span>}
       </CardHeader>
       <CardContent>
         {expenses.length === 0 ? (
@@ -30,7 +30,7 @@ export function LinkedExpenses({ expenses, total }: { expenses: any[], total: nu
                     <p className="text-sm font-medium">{exp.description || exp.vendor || '—'}</p>
                     <p className="text-xs text-muted-foreground">{exp.expense_date ? formatDate(exp.expense_date) : '—'}</p>
                   </div>
-                  <span className="font-mono text-sm font-bold text-red-600">{formatCurrency(exp.amount, exp.currency)}</span>
+                  <span className="font-mono text-sm font-bold text-red-600 dark:text-red-400">{formatCurrency(exp.amount, exp.currency)}</span>
                 </div>
               </Link>
             ))}

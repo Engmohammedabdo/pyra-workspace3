@@ -32,7 +32,7 @@ export function InvoicesTable({ invoices, loading }: { invoices: Invoice[]; load
     <Card>
       <div className="p-4 border-b">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <FileText className="h-5 w-5" /> الفواتير
+          <FileText className="h-5 w-5" aria-hidden="true" /> الفواتير
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -67,8 +67,8 @@ export function InvoicesTable({ invoices, loading }: { invoices: Invoice[]; load
                   </td>
                   <td className="p-3 text-muted-foreground">{formatDate(inv.issue_date)}</td>
                   <td className="p-3 font-mono">{formatCurrency(inv.total)}</td>
-                  <td className="p-3 font-mono text-green-600">{formatCurrency(inv.amount_paid)}</td>
-                  <td className="p-3 font-mono text-orange-600">{formatCurrency(inv.amount_due)}</td>
+                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(inv.amount_paid)}</td>
+                  <td className="p-3 font-mono text-orange-600 dark:text-orange-400">{formatCurrency(inv.amount_due)}</td>
                   <td className="p-3"><Badge variant={st.variant}>{st.label}</Badge></td>
                 </tr>
               );

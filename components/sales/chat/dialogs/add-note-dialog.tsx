@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
-import { X, StickyNote, Loader2, Phone, Mail, Users, FileText } from 'lucide-react';
+import { StickyNote, Loader2, Phone, Mail, Users, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface AddNoteDialogProps {
+  open?: boolean;
   leadId: string;
   onClose: () => void;
   onAdded: () => void;
@@ -20,7 +22,7 @@ const ACTIVITY_TYPES = [
   { value: 'meeting', label: 'اجتماع', icon: Users, color: 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10' },
 ];
 
-export function AddNoteDialog({ leadId, onClose, onAdded }: AddNoteDialogProps) {
+export function AddNoteDialog({ open = true, leadId, onClose, onAdded }: AddNoteDialogProps) {
   const [type, setType] = useState('note');
   const [description, setDescription] = useState('');
   const [saving, setSaving] = useState(false);
@@ -50,23 +52,15 @@ export function AddNoteDialog({ leadId, onClose, onAdded }: AddNoteDialogProps) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-sm p-0 gap-0 rounded-2xl">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center">
-              <FileText className="h-4.5 w-4.5 text-yellow-600 dark:text-yellow-400" />
-            </div>
-            <h3 className="font-semibold text-sm">إضافة نشاط</h3>
+        <DialogHeader className="px-5 py-4 border-b border-border/60 flex-row items-center gap-2.5 space-y-0">
+          <div className="w-9 h-9 rounded-xl bg-yellow-500/10 flex items-center justify-center shrink-0">
+            <FileText className="h-4.5 w-4.5 text-yellow-600 dark:text-yellow-400" />
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+          <DialogTitle className="text-sm">إضافة ملاحظة</DialogTitle>
+        </DialogHeader>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -94,15 +88,19 @@ export function AddNoteDialog({ leadId, onClose, onAdded }: AddNoteDialogProps) 
           </div>
 
           {/* Description */}
-          <textarea
-            value={description}
-            onChange={e => setDescription(e.target.value)}
-            placeholder="اكتب الملاحظة هنا..."
-            rows={4}
-            className="w-full bg-muted/30 rounded-xl px-3 py-2.5 text-sm border border-border/40 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500/40 resize-none"
-            autoFocus
-            required
-          />
+          <div>
+            <label htmlFor="add-note-description" className="sr-only">الملاحظة</label>
+            <textarea
+              id="add-note-description"
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="اكتب الملاحظة هنا..."
+              rows={4}
+              className="w-full bg-muted/30 rounded-xl px-3 py-2.5 text-sm border border-border/40 focus:outline-none focus:ring-2 focus:ring-yellow-500/20 focus:border-yellow-500/40 resize-none"
+              autoFocus
+              required
+            />
+          </div>
 
           {/* Submit */}
           <Button
@@ -118,7 +116,7 @@ export function AddNoteDialog({ leadId, onClose, onAdded }: AddNoteDialogProps) 
             حفظ
           </Button>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

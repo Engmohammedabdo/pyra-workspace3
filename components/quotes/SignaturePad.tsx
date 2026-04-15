@@ -31,7 +31,7 @@ export default function SignaturePad({ onSignatureChange, readOnly }: SignatureP
 
   return (
     <div className="space-y-2">
-      <div className="border rounded-lg bg-white overflow-hidden" style={{ width: 400, height: 200 }}>
+      <div className="border rounded-lg bg-white dark:bg-gray-900 overflow-hidden" style={{ width: 400, height: 200 }}>
         <SignatureCanvas
           ref={sigRef}
           canvasProps={{

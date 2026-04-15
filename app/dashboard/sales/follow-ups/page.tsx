@@ -30,7 +30,7 @@ export default function FollowUpsPage() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-4">
-          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg"><Bell className="h-6 w-6 text-white" /></div>
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg"><Bell className="h-6 w-6 text-white" /></div>
           <div><h1 className="text-2xl font-bold tracking-tight">المتابعات</h1></div>
         </div>
         <div className="flex items-center gap-2">

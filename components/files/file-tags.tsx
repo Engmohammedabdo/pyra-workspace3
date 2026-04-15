@@ -65,7 +65,7 @@ function TagEditorContent({
   return (
     <div className="space-y-3 p-3">
       <h4 className="text-sm font-medium flex items-center gap-2">
-        <Tags className="h-4 w-4" /> وسوم الملف
+        <Tags className="h-4 w-4" aria-hidden="true" /> وسوم الملف
       </h4>
 
       {/* Current tags */}

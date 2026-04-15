@@ -249,6 +249,7 @@ export function ProjectBoardEmbed({ projectId }: { projectId: string }) {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="إضافة مهمة"
                   className="h-5 w-5"
                   onClick={() => { setAddingTo(addingTo === col.id ? null : col.id); setNewTitle(''); }}
                 >

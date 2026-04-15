@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ArrowRight, FileCheck, Send, Trash2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
@@ -53,6 +54,7 @@ export default function CreditNoteDetailPage() {
   const [cn, setCn] = useState<CreditNote | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetch(`/api/dashboard/credit-notes/${id}`)
@@ -91,7 +93,6 @@ export default function CreditNoteDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('هل أنت متأكد من حذف هذا الإشعار الدائن؟')) return;
     try {
       const res = await fetch(`/api/dashboard/credit-notes/${id}`, { method: 'DELETE' });
       if (!res.ok) { toast.error('فشل في الحذف'); return; }
@@ -134,7 +135,7 @@ export default function CreditNoteDetailPage() {
                 {actionLoading === 'issued' ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Send className="h-4 w-4 me-2" />}
                 إصدار
               </Button>
-              <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="destructive" size="icon" aria-label="حذف إشعار الدائن" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
             </>
           )}
           {cn.status === 'issued' && cn.invoice_id && (
@@ -144,7 +145,7 @@ export default function CreditNoteDetailPage() {
             </Button>
           )}
           {cn.status === 'issued' && (
-            <Button variant="outline" className="text-red-600" onClick={() => handleStatusChange('cancelled')} disabled={!!actionLoading}>
+            <Button variant="outline" className="text-red-600 dark:text-red-400" onClick={() => handleStatusChange('cancelled')} disabled={!!actionLoading}>
               <XCircle className="h-4 w-4 me-2" /> إلغاء
             </Button>
           )}
@@ -216,7 +217,7 @@ export default function CreditNoteDetailPage() {
               <span className="font-mono">{formatCurrency(cn.total, cn.currency)}</span>
             </div>
             {cn.applied_amount > 0 && (
-              <div className="flex justify-between text-sm text-green-600">
+              <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                 <span>المبلغ المطبق</span>
                 <span className="font-mono">{formatCurrency(cn.applied_amount, cn.currency)}</span>
               </div>
@@ -232,6 +233,23 @@ export default function CreditNoteDetailPage() {
           <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{cn.notes}</p></CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذا الإشعار الدائن؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

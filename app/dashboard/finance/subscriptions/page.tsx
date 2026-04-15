@@ -102,7 +102,7 @@ export default function SubscriptionsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance"><Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button></Link>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><RefreshCw className="h-6 w-6" /> الاشتراكات</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><RefreshCw className="h-6 w-6" aria-hidden="true" /> الاشتراكات</h1>
         </div>
         <Link href="/dashboard/finance/subscriptions/new">
           <Button><Plus className="h-4 w-4 me-2" /> إضافة اشتراك</Button>
@@ -113,7 +113,7 @@ export default function SubscriptionsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card><CardContent className="p-4">
           <p className="text-sm text-muted-foreground">التكلفة الشهرية</p>
-          <p className="text-2xl font-bold mt-1 text-orange-600">{formatCurrency(monthlyTotal)}</p>
+          <p className="text-2xl font-bold mt-1 text-orange-600 dark:text-orange-400">{formatCurrency(monthlyTotal)}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
           <p className="text-sm text-muted-foreground">عدد الاشتراكات</p>
@@ -125,7 +125,7 @@ export default function SubscriptionsPage() {
       {dueRenewals.length > 0 && (
         <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-orange-600 shrink-0" />
+            <Clock className="h-5 w-5 text-orange-600 dark:text-orange-400 shrink-0" />
             <p className="font-semibold text-orange-800 dark:text-orange-200">{dueRenewals.length} اشتراكات تحتاج موافقتك على التجديد</p>
           </div>
           <div className="space-y-2">
@@ -159,7 +159,7 @@ export default function SubscriptionsPage() {
       {/* Upcoming Renewal Alert */}
       {upcomingRenewals.length > 0 && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 flex items-start gap-3">
-          <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
+          <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 shrink-0" />
           <div>
             <p className="font-medium text-yellow-800 dark:text-yellow-200">{upcomingRenewals.length} اشتراكات تتجدد خلال 7 أيام</p>
             <ul className="mt-1 text-sm text-yellow-700 dark:text-yellow-300">
@@ -229,7 +229,7 @@ export default function SubscriptionsPage() {
                       <Link href={`/dashboard/finance/subscriptions/${s.id}`}>
                         <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل"><Pencil className="h-3.5 w-3.5" /></Button>
                       </Link>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" aria-label="حذف" onClick={() => setDeleteId(s.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" aria-label="حذف" onClick={() => setDeleteId(s.id)}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>

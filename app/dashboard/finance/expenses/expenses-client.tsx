@@ -186,7 +186,7 @@ export default function ExpensesClient() {
       key: 'amount',
       header: 'المبلغ',
       sortable: true,
-      render: (exp) => <span className="text-red-600 font-mono">{formatCurrency(exp.amount, exp.currency)}</span>,
+      render: (exp) => <span className="text-red-600 dark:text-red-400 font-mono">{formatCurrency(exp.amount, exp.currency)}</span>,
     },
     {
       key: 'category',
@@ -231,10 +231,10 @@ export default function ExpensesClient() {
         <div className="flex items-center gap-1" data-no-row-click>
           {exp.status === 'pending' && (
             <>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد" aria-label="اعتماد المصروف">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 dark:text-green-400" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد" aria-label="اعتماد المصروف">
                 <CheckCircle className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleApproval(exp.id, 'reject')} title="رفض" aria-label="رفض المصروف">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => handleApproval(exp.id, 'reject')} title="رفض" aria-label="رفض المصروف">
                 <XCircle className="h-3.5 w-3.5" />
               </Button>
             </>
@@ -242,7 +242,7 @@ export default function ExpensesClient() {
           <Link href={`/dashboard/finance/expenses/${exp.id}`}>
             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل المصروف"><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(exp.id)} aria-label="حذف المصروف">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => setDeleteId(exp.id)} aria-label="حذف المصروف">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -258,7 +258,7 @@ export default function ExpensesClient() {
             <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ArrowDownCircle className="h-6 w-6" /> المصاريف
+            <ArrowDownCircle className="h-6 w-6" aria-hidden="true" /> المصاريف
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function ExpensesClient() {
           <>
             <Card><CardContent className="p-4">
               <p className="text-sm text-muted-foreground">إجمالي المصاريف</p>
-              <p className="text-2xl font-bold mt-1 text-red-600">{formatCurrency(summary.total_amount)}</p>
+              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(summary.total_amount)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
               <p className="text-sm text-muted-foreground">ضريبة القيمة المضافة</p>

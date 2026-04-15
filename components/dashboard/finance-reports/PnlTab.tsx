@@ -12,7 +12,7 @@ import { formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { DateRangeFilter } from './DateRangeFilter';
 import { SummaryCard } from './SummaryCard';
-import { EmptyState } from './EmptyState';
+import { EmptyState } from '@/components/ui/empty-state';
 
 // Types
 interface ExpenseBreakdown { total: number; salaries: number; operational: number; subscriptions: number; }
@@ -62,13 +62,13 @@ export function PnlTab() {
         </div>
       </DateRangeFilter>
 
-      {!data ? <EmptyState message="لا توجد بيانات لعرضها" /> : (
+      {!data ? <EmptyState icon={FileText} title="لا توجد بيانات لعرضها" /> : (
         <>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <SummaryCard title="إجمالي الإيرادات" value={formatCurrency(data.totals.revenue)} icon={TrendingUp} colorClass="text-green-600" />
-            <SummaryCard title="إجمالي المصاريف" value={formatCurrency(data.totals.expenses.total)} icon={TrendingDown} colorClass="text-red-600" />
-            <SummaryCard title="صافي الربح" value={formatCurrency(data.totals.profit)} icon={TrendingUp} colorClass={data.totals.profit >= 0 ? 'text-green-600' : 'text-red-600'} />
-            <SummaryCard title="هامش الربح" value={`${data.totals.margin}%`} icon={FileText} colorClass={data.totals.margin >= 0 ? 'text-green-600' : 'text-red-600'} />
+            <SummaryCard title="إجمالي الإيرادات" value={formatCurrency(data.totals.revenue)} icon={TrendingUp} colorClass="text-green-600 dark:text-green-400" />
+            <SummaryCard title="إجمالي المصاريف" value={formatCurrency(data.totals.expenses.total)} icon={TrendingDown} colorClass="text-red-600 dark:text-red-400" />
+            <SummaryCard title="صافي الربح" value={formatCurrency(data.totals.profit)} icon={TrendingUp} colorClass={data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+            <SummaryCard title="هامش الربح" value={`${data.totals.margin}%`} icon={FileText} colorClass={data.totals.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
           </div>
           {data.periods.length > 0 && (
             <Card>
@@ -93,8 +93,8 @@ export function PnlTab() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead><tr className="border-b text-muted-foreground"><th className="text-end py-3 px-2 font-medium">الفترة</th><th className="text-end py-3 px-2 font-medium">الإيرادات</th><th className="text-end py-3 px-2 font-medium">الرواتب</th><th className="text-end py-3 px-2 font-medium">تشغيلية</th><th className="text-end py-3 px-2 font-medium">اشتراكات</th><th className="text-end py-3 px-2 font-medium">إجمالي المصاريف</th><th className="text-end py-3 px-2 font-medium">الربح</th></tr></thead>
-                  <tbody>{data.periods.map((p) => <tr key={p.start} className="border-b last:border-0 hover:bg-muted/50"><td className="py-3 px-2 font-medium">{p.label}</td><td className="py-3 px-2 font-mono text-green-600">{formatCurrency(p.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(p.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(p.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(p.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 font-semibold">{formatCurrency(p.expenses.total)}</td><td className={`py-3 px-2 font-mono font-semibold ${p.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(p.profit)}</td></tr>)}</tbody>
-                  <tfoot><tr className="border-t-2 font-bold"><td className="py-3 px-2">الإجمالي</td><td className="py-3 px-2 font-mono text-green-600">{formatCurrency(data.totals.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(data.totals.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(data.totals.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(data.totals.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600">{formatCurrency(data.totals.expenses.total)}</td><td className={`py-3 px-2 font-mono ${data.totals.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{formatCurrency(data.totals.profit)}</td></tr></tfoot>
+                  <tbody>{data.periods.map((p) => <tr key={p.start} className="border-b last:border-0 hover:bg-muted/50"><td className="py-3 px-2 font-medium">{p.label}</td><td className="py-3 px-2 font-mono text-green-600 dark:text-green-400">{formatCurrency(p.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(p.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(p.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(p.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 dark:text-red-400 font-semibold">{formatCurrency(p.expenses.total)}</td><td className={`py-3 px-2 font-mono font-semibold ${p.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(p.profit)}</td></tr>)}</tbody>
+                  <tfoot><tr className="border-t-2 font-bold"><td className="py-3 px-2">الإجمالي</td><td className="py-3 px-2 font-mono text-green-600 dark:text-green-400">{formatCurrency(data.totals.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(data.totals.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(data.totals.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(data.totals.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 dark:text-red-400">{formatCurrency(data.totals.expenses.total)}</td><td className={`py-3 px-2 font-mono ${data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(data.totals.profit)}</td></tr></tfoot>
                 </table>
               </div>
             </CardContent>

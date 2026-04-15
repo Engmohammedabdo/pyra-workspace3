@@ -124,7 +124,7 @@ export default function NotificationsClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Bell className="h-6 w-6" /> الإشعارات
+            <Bell className="h-6 w-6" aria-hidden="true" /> الإشعارات
             {unreadCount > 0 && <Badge variant="destructive" className="text-xs">{unreadCount}</Badge>}
           </h1>
           <p className="text-muted-foreground">جميع الإشعارات والتنبيهات</p>
@@ -171,7 +171,7 @@ export default function NotificationsClient() {
                       {targetLink && (
                         <>
                           <span>·</span>
-                          <span className="text-orange-600 flex items-center gap-0.5">
+                          <span className="text-orange-600 dark:text-orange-400 flex items-center gap-0.5">
                             <ExternalLink className="h-2.5 w-2.5" /> فتح
                           </span>
                         </>

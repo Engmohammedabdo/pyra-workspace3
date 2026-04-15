@@ -128,7 +128,7 @@ export default function IntegrationsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Webhook className="h-6 w-6" /> التكاملات
+            <Webhook className="h-6 w-6" aria-hidden="true" /> التكاملات
           </h1>
           <p className="text-muted-foreground">إدارة Webhooks والتكاملات الخارجية</p>
         </div>

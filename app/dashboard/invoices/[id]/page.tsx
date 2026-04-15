@@ -9,6 +9,7 @@ import { ClientInfo } from '@/components/dashboard/invoice-detail/ClientInfo';
 import { EditItems } from '@/components/dashboard/invoice-detail/EditItems';
 import { PaymentHistory } from '@/components/dashboard/invoice-detail/PaymentHistory';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -49,6 +50,7 @@ export default function InvoiceDetailPage() {
   const [payReference, setPayReference] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [recordingPayment, setRecordingPayment] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const fetchInvoice = useCallback(async () => {
     try {
@@ -149,7 +151,7 @@ export default function InvoiceDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!invoice || !confirm('هل أنت متأكد من حذف هذه الفاتورة؟')) return;
+    if (!invoice) return;
     try {
       const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
       const json = await res.json();
@@ -257,7 +259,7 @@ export default function InvoiceDetailPage() {
         onEdit={startEditing}
         onSend={handleSend}
         onDownload={() => generateInvoicePDF(invoice)}
-        onDelete={handleDelete}
+        onDelete={() => setShowDeleteDialog(true)}
         onRecordPayment={() => setShowPayment(true)}
         onGeneratePaymentLink={handleGeneratePaymentLink}
       />
@@ -389,6 +391,23 @@ export default function InvoiceDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import {
 import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
+import { EmptyState } from '@/components/ui/empty-state';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -249,7 +250,7 @@ export default function KnowledgeBaseClient() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BookOpen className="h-6 w-6" /> قاعدة المعرفة
+            <BookOpen className="h-6 w-6" aria-hidden="true" /> قاعدة المعرفة
           </h1>
           <p className="text-muted-foreground">إدارة التصنيفات والمقالات</p>
         </div>
@@ -272,7 +273,7 @@ export default function KnowledgeBaseClient() {
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'categories'
-              ? 'border-orange-500 text-orange-600'
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('categories')}
@@ -283,7 +284,7 @@ export default function KnowledgeBaseClient() {
         <button
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'articles'
-              ? 'border-orange-500 text-orange-600'
+              ? 'border-orange-500 text-orange-600 dark:text-orange-400'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('articles')}
@@ -303,13 +304,7 @@ export default function KnowledgeBaseClient() {
               ))}
             </div>
           ) : categories.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-                <FolderOpen className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                <p className="text-muted-foreground">لا توجد تصنيفات</p>
-                <p className="text-xs text-muted-foreground mt-1">أضف تصنيفًا جديدًا للبدء</p>
-              </CardContent>
-            </Card>
+            <EmptyState icon={FolderOpen} title="لا توجد تصنيفات" description="أضف تصنيفًا جديدًا للبدء" />
           ) : (
             <StaggerContainer className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categories.map(cat => (
@@ -411,10 +406,8 @@ export default function KnowledgeBaseClient() {
                       ))
                     ) : articles.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="p-12 text-center text-muted-foreground">
-                          <FileText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                          <p>لا توجد مقالات</p>
-                          <p className="text-xs mt-1">أنشئ مقالة جديدة للبدء</p>
+                        <td colSpan={6}>
+                          <EmptyState icon={FileText} title="لا توجد مقالات" description="أنشئ مقالة جديدة للبدء" />
                         </td>
                       </tr>
                     ) : (

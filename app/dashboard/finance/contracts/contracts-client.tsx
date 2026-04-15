@@ -206,7 +206,7 @@ export default function ContractsClient() {
           <Link href={`/dashboard/finance/contracts/${c.id}`}>
             <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل العقد"><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)} aria-label="حذف العقد">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => setDeleteId(c.id)} aria-label="حذف العقد">
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -222,7 +222,7 @@ export default function ContractsClient() {
             <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileSignature className="h-6 w-6" /> العقود
+            <FileSignature className="h-6 w-6" aria-hidden="true" /> العقود
           </h1>
         </div>
         <Link href="/dashboard/finance/contracts/new">

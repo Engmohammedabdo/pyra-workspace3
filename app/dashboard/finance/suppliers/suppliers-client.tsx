@@ -66,7 +66,7 @@ export default function SuppliersClient() {
             <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Truck className="h-6 w-6" /> الموردين
+            <Truck className="h-6 w-6" aria-hidden="true" /> الموردين
           </h1>
         </div>
         <Link href="/dashboard/finance/suppliers/new">
@@ -112,7 +112,7 @@ export default function SuppliersClient() {
               <Card className="hover:shadow-md transition-shadow cursor-pointer">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
                       <Truck className="h-5 w-5 text-white" />
                     </div>
                     <div>

@@ -36,7 +36,7 @@ export function WAInstancesManager({ instances, onRefresh, agents }: { instances
           <div key={inst.id} className="border border-border/60 rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', inst.status === 'connected' ? 'bg-green-100' : 'bg-red-100')}>
+                <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0', inst.status === 'connected' ? 'bg-green-100 dark:bg-green-900/50' : 'bg-red-100 dark:bg-red-900/50')}>
                   {inst.status === 'connected' ? <Wifi className="h-5 w-5 text-green-600" /> : <WifiOff className="h-5 w-5 text-red-600" />}
                 </div>
                 <div><p className="font-semibold text-sm">{inst.instance_name}</p></div>

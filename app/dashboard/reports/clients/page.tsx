@@ -52,13 +52,13 @@ export default function ClientsReportPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/reports">
+          <Link href="/dashboard/reports" aria-label="العودة إلى التقارير">
             <Button variant="ghost" size="icon">
               <ArrowRight className="h-5 w-5" />
             </Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
+            <Users className="h-6 w-6" aria-hidden="true" />
             تقرير العملاء
           </h1>
         </div>
@@ -93,7 +93,7 @@ export default function ClientsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <UserCheck className="h-3.5 w-3.5" /> نشط
                 </p>
-                <p className="text-2xl font-bold mt-1 text-green-600">{data?.summary?.active ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">{data?.summary?.active ?? 0}</p>
               </CardContent>
             </Card>
             <Card>
@@ -101,7 +101,7 @@ export default function ClientsReportPage() {
                 <p className="text-sm text-muted-foreground flex items-center gap-1">
                   <UserPlus className="h-3.5 w-3.5" /> جديد في الفترة
                 </p>
-                <p className="text-2xl font-bold mt-1 text-blue-600">{data?.summary?.new_this_period ?? 0}</p>
+                <p className="text-2xl font-bold mt-1 text-blue-600 dark:text-blue-400">{data?.summary?.new_this_period ?? 0}</p>
               </CardContent>
             </Card>
           </>

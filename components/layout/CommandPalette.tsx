@@ -58,6 +58,7 @@ import {
   MessageSquare,
   BarChart3,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // ---- Quick Actions ----
 const QUICK_ACTIONS = [
@@ -206,6 +207,11 @@ export function CommandPalette({ trigger }: CommandPaletteProps) {
           {trigger}
         </div>
       )}
+
+      {/* Mobile search icon */}
+      <Button variant="ghost" size="icon" className="sm:hidden h-9 w-9" onClick={() => setOpen(true)} aria-label="البحث">
+        <Search className="h-4 w-4" />
+      </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput placeholder="ابحث عن صفحة أو إجراء..." dir="rtl" />

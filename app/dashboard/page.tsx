@@ -5,6 +5,7 @@ import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   FolderOpen,
@@ -167,7 +168,7 @@ export default function DashboardPage() {
       {isAdmin && (
         <>
           <motion.div variants={itemMotion}><RevenueTrendChart /></motion.div>
-          <motion.div variants={itemMotion}><div className="grid gap-4 lg:grid-cols-3"><ProjectPipelineChart /><ClientDistributionChart /><TeamWorkloadChart /></div></motion.div>
+          <motion.div variants={itemMotion}><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3"><ProjectPipelineChart /><ClientDistributionChart /><TeamWorkloadChart /></div></motion.div>
           <motion.div variants={itemMotion}><DashboardCharts /></motion.div>
         </>
       )}
@@ -192,7 +193,7 @@ export default function DashboardPage() {
                     </motion.div>
                   ))}
                 </div>
-              ) : <div className="flex flex-col items-center justify-center h-48 text-muted-foreground/40"><p>لا توجد نشاطات حديثة</p></div>}
+              ) : <EmptyState icon={Activity} title="لا توجد نشاطات حديثة" className="py-8" />}
             </ScrollArea>
           </div>
           <div className="space-y-4">

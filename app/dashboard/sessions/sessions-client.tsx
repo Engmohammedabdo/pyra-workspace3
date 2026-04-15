@@ -73,7 +73,7 @@ export default function SessionsClient() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Monitor className="h-6 w-6" /> إدارة الجلسات
+            <Monitor className="h-6 w-6" aria-hidden="true" /> إدارة الجلسات
           </h1>
           <p className="text-muted-foreground">الجلسات النشطة للعملاء على البورتال</p>
         </div>
@@ -89,7 +89,7 @@ export default function SessionsClient() {
           <CardContent className="p-4 flex items-center gap-3">
             <Wifi className="h-8 w-8 text-green-500" />
             <div>
-              <div className="text-2xl font-bold text-green-600">{activeSessions.length}</div>
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{activeSessions.length}</div>
               <div className="text-xs text-muted-foreground">جلسات نشطة</div>
             </div>
           </CardContent>

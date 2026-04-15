@@ -94,7 +94,7 @@ export default function ReviewsClient() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><MessageSquare className="h-6 w-6" /> المراجعات</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><MessageSquare className="h-6 w-6" aria-hidden="true" /> المراجعات</h1>
         <p className="text-muted-foreground">مراجعات وتعليقات الملفات</p>
       </div>
 
@@ -129,7 +129,7 @@ export default function ReviewsClient() {
                             <Badge variant={r.type === 'approval' ? 'default' : 'secondary'} className="text-[10px]">
                               {r.type === 'approval' ? 'موافقة' : 'تعليق'}
                             </Badge>
-                            {r.resolved && <Badge variant="outline" className="text-[10px] text-green-600">محلول</Badge>}
+                            {r.resolved && <Badge variant="outline" className="text-[10px] text-green-600 dark:text-green-400">محلول</Badge>}
                           </div>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleResolve(r.id)} title={r.resolved ? 'إلغاء الحل' : 'تحديد كمحلول'} aria-label={r.resolved ? 'إلغاء الحل' : 'تحديد كمحلول'}>

@@ -415,7 +415,7 @@ export function ContactPanel({
                   {lead.stage.name_ar}
                 </Badge>
               )}
-              <Badge className={cn('text-xs', priorityColors[lead.priority] || 'bg-gray-100 text-gray-700')}>
+              <Badge className={cn('text-xs', priorityColors[lead.priority] || 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300')}>
                 {priorityLabels[lead.priority] || lead.priority}
               </Badge>
               {lead.is_converted && (

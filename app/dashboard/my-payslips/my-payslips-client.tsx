@@ -330,7 +330,7 @@ export default function MyPayslipsClient() {
       {!loading && payments.length > 0 && (
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-orange-500" />
+            <Wallet className="h-5 w-5 text-orange-500" aria-hidden="true" />
             سجل المدفوعات والعمولات
           </h2>
           {payments.map(p => (

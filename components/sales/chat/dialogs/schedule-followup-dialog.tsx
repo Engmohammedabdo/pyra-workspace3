@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
-import { X, Clock, Loader2 } from 'lucide-react';
+import { Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ScheduleFollowupDialogProps {
+  open?: boolean;
   leadId: string;
   onClose: () => void;
   onScheduled: () => void;
@@ -51,7 +53,7 @@ function toLocalDatetime(d: Date): string {
   return `${year}-${month}-${day}T${hours}:${minutes}`;
 }
 
-export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: ScheduleFollowupDialogProps) {
+export function ScheduleFollowupDialog({ open = true, leadId, onClose, onScheduled }: ScheduleFollowupDialogProps) {
   const [dueAt, setDueAt] = useState(toLocalDatetime(new Date(Date.now() + 3600000)));
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
@@ -86,23 +88,15 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
   const inputCls = 'w-full bg-muted/30 rounded-xl px-3 py-2 text-sm border border-border/40 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500/40';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" onClick={onClose}>
-      <div
-        className="bg-card border border-border/60 rounded-2xl shadow-2xl dark:shadow-black/25 w-full max-w-sm mx-4 animate-in zoom-in-95 duration-200"
-        onClick={e => e.stopPropagation()}
-      >
+    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-sm p-0 gap-0 rounded-2xl">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-border/60 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center">
-              <Clock className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
-            </div>
-            <h3 className="font-semibold text-sm">جدولة متابعة</h3>
+        <DialogHeader className="px-5 py-4 border-b border-border/60 flex-row items-center gap-2.5 space-y-0">
+          <div className="w-9 h-9 rounded-xl bg-sky-500/10 flex items-center justify-center shrink-0">
+            <Clock className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={onClose} aria-label="إغلاق">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+          <DialogTitle className="text-sm">جدولة متابعة</DialogTitle>
+        </DialogHeader>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
@@ -125,8 +119,9 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
 
           {/* Date Time */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">التاريخ والوقت *</label>
+            <label htmlFor="followup-due-at" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">التاريخ والوقت *</label>
             <input
+              id="followup-due-at"
               type="datetime-local"
               value={dueAt}
               onChange={e => setDueAt(e.target.value)}
@@ -138,8 +133,9 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
 
           {/* Title */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">العنوان</label>
+            <label htmlFor="followup-title" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">العنوان</label>
             <input
+              id="followup-title"
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="متابعة واتساب"
@@ -149,8 +145,9 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>
+            <label htmlFor="followup-notes" className="text-xs font-medium text-muted-foreground/70 mb-1.5 block">ملاحظات</label>
             <textarea
+              id="followup-notes"
               value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="ملاحظات اختيارية..."
@@ -173,7 +170,7 @@ export function ScheduleFollowupDialog({ leadId, onClose, onScheduled }: Schedul
             جدولة المتابعة
           </Button>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

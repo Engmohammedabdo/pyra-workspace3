@@ -71,7 +71,7 @@ export default function ProjectDetailPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/projects')}><ArrowRight className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" aria-label="العودة إلى المشاريع" onClick={() => router.push('/dashboard/projects')}><ArrowRight className="h-5 w-5" /></Button>
         <h1 className="text-2xl font-bold">{(project as any).name}</h1>
       </div>
 

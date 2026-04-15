@@ -21,10 +21,10 @@ interface LeadsTableProps {
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
-  low: 'bg-gray-100 text-gray-700',
-  medium: 'bg-blue-100 text-blue-700',
-  high: 'bg-orange-100 text-orange-700',
-  urgent: 'bg-red-100 text-red-700',
+  low: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+  medium: 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300',
+  high: 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300',
+  urgent: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300',
 };
 
 export function LeadsTable({ 

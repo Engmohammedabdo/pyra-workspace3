@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -104,7 +105,7 @@ export default function AutomationLogPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ScrollText className="h-6 w-6" /> سجل تنفيذ الأتمتة
+              <ScrollText className="h-6 w-6" aria-hidden="true" /> سجل تنفيذ الأتمتة
             </h1>
             <p className="text-muted-foreground">عرض جميع سجلات تنفيذ قواعد الأتمتة</p>
           </div>
@@ -155,16 +156,15 @@ export default function AutomationLogPage() {
                   ))
                 ) : logs.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-12 text-center text-muted-foreground">
-                      <ScrollText className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
-                      <p>لا توجد سجلات تنفيذ</p>
+                    <td colSpan={6}>
+                      <EmptyState icon={ScrollText} title="لا توجد سجلات تنفيذ" />
                     </td>
                   </tr>
                 ) : (
                   logs.map(log => {
                     const statusInfo = STATUS_BADGES[log.status] || {
                       label: log.status,
-                      color: 'bg-gray-100 text-gray-700',
+                      color: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
                     };
                     const isExpanded = expandedId === log.id;
 
@@ -265,6 +265,7 @@ export default function AutomationLogPage() {
           <Button
             variant="outline"
             size="icon"
+            aria-label="الصفحة السابقة"
             disabled={page <= 1}
             onClick={() => setPage(p => p - 1)}
           >
@@ -276,6 +277,7 @@ export default function AutomationLogPage() {
           <Button
             variant="outline"
             size="icon"
+            aria-label="الصفحة التالية"
             disabled={page >= totalPages}
             onClick={() => setPage(p => p + 1)}
           >

@@ -137,7 +137,7 @@ export default function CardsPage() {
             <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <CreditCard className="h-6 w-6" /> البطاقات
+            <CreditCard className="h-6 w-6" aria-hidden="true" /> البطاقات
           </h1>
         </div>
         <Button onClick={openNew}><Plus className="h-4 w-4 me-2" /> إضافة بطاقة</Button>
@@ -177,7 +177,7 @@ export default function CardsPage() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)} aria-label="تعديل البطاقة">
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(c.id)} aria-label="حذف البطاقة">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => setDeleteId(c.id)} aria-label="حذف البطاقة">
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -226,7 +226,7 @@ export default function CardsPage() {
               <Label>البنك</Label>
               <Input value={form.bank_name} onChange={e => u('bank_name', e.target.value)} placeholder="اسم البنك" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>آخر 4 أرقام</Label>
                 <Input value={form.last_four} onChange={e => u('last_four', e.target.value.slice(0, 4))} placeholder="1234" maxLength={4} />
@@ -242,7 +242,7 @@ export default function CardsPage() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>شهر الانتهاء</Label>
                 <Input type="number" min="1" max="12" value={form.expiry_month} onChange={e => u('expiry_month', e.target.value)} placeholder="MM" dir="ltr" />

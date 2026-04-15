@@ -315,7 +315,7 @@ export default function ProjectsClient() {
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Briefcase className="h-6 w-6" /> المشاريع</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Briefcase className="h-6 w-6" aria-hidden="true" /> المشاريع</h1>
           <p className="text-muted-foreground">إدارة مشاريع العملاء</p>
         </div>
         {canCreate && (

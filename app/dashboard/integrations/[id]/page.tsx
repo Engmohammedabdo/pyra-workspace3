@@ -143,15 +143,15 @@ export default function WebhookDetailPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/integrations"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <Link href="/dashboard/integrations" aria-label="العودة إلى التكاملات"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><Webhook className="h-6 w-6" /> تفاصيل الـ Webhook</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Webhook className="h-6 w-6" aria-hidden="true" /> تفاصيل الـ Webhook</h1>
             <p className="text-sm text-muted-foreground">{webhook.name}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={handleTest} disabled={testing}>{testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4 me-2" />} اختبار</Button>
-          <Badge className={webhook.is_enabled ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>{webhook.is_enabled ? 'مفعّل' : 'معطّل'}</Badge>
+          <Badge className={webhook.is_enabled ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'}>{webhook.is_enabled ? 'مفعّل' : 'معطّل'}</Badge>
         </div>
       </div>
       <WebhookBasicInfo {...{ webhook, name, setName, url, setUrl, isEnabled, setIsEnabled, onSave: handleSave, saving }} />

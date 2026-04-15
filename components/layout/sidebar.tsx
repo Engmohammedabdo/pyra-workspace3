@@ -293,6 +293,14 @@ export function Sidebar({ user }: SidebarProps) {
     setFavorites(loadFavorites());
   }, []);
 
+  // Sync sidebar width to CSS custom property so layout can track it
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      '--sidebar-width',
+      collapsed ? '72px' : '280px'
+    );
+  }, [collapsed]);
+
   // Auto-expand the group containing the active page
   useEffect(() => {
     const activeGroup = navGroups.find(g =>

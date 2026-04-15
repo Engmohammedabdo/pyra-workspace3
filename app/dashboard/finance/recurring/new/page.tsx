@@ -58,7 +58,7 @@ export default function CreateRecurringInvoicePage() {
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/finance/recurring')}><ArrowRight className="h-5 w-5" /></Button>
+        <Button variant="ghost" size="icon" aria-label="العودة" onClick={() => router.push('/dashboard/finance/recurring')}><ArrowRight className="h-5 w-5" /></Button>
         <h1 className="text-2xl font-bold">إنشاء فاتورة متكررة جديدة</h1>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">

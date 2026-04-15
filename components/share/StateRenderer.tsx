@@ -37,7 +37,7 @@ export const StateRenderer = ({ state, password, setPassword, passwordError, set
           <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => { setPassword(e.target.value); setPasswordError(''); }} className="w-full h-11 px-4 pe-10 rounded-xl border bg-neutral-50 text-sm focus:ring-2 focus:ring-portal" placeholder="كلمة المرور" />
           <button onClick={() => setShowPassword(!showPassword)} className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground"><EyeOff className="h-4 w-4" /></button>
         </div>
-        {passwordError && <p className="text-sm text-red-500 text-center">{passwordError}</p>}
+        {passwordError && <p className="text-sm text-destructive text-center">{passwordError}</p>}
         <button onClick={handlePasswordSubmit} disabled={!password.trim() || verifying} className="w-full h-11 rounded-xl bg-portal text-white font-medium text-sm transition-colors">{verifying ? 'جاري التحقق...' : 'فتح الملف'}</button>
       </div>
     </div>

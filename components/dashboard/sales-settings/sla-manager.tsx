@@ -216,6 +216,7 @@ export function SlaManager() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="تعديل السياسة"
                         className="h-7 w-7 rounded-lg"
                         onClick={() => openEdit(policy)}
                       >
@@ -224,6 +225,7 @@ export function SlaManager() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="حذف السياسة"
                         className="h-7 w-7 rounded-lg text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
                         onClick={() => handleDelete(policy.id)}
                       >
@@ -284,7 +286,7 @@ export function SlaManager() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>مهلة الرد الأول (دقيقة)</Label>
                 <Input

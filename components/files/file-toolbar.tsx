@@ -242,7 +242,7 @@ export function FileToolbar({
               onSearch(e.target.value);
             }}
             className={cn(
-              'ps-9 pe-3 py-2 rounded-lg text-sm w-[200px]',
+              'ps-9 pe-3 py-2 rounded-lg text-sm w-full sm:w-[200px]',
               'bg-secondary/50 border border-border',
               'placeholder:text-muted-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1'

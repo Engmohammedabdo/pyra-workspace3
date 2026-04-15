@@ -351,7 +351,7 @@ function DashboardFilePreviewInner({ file, open, onOpenChange, projectId, fileId
           {showInfo && (
             <div className="w-72 border-s bg-card/50 backdrop-blur-sm p-4 space-y-4 overflow-y-auto shrink-0 animate-in slide-in-from-left duration-200">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
+                <Info className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 معلومات الملف
               </h3>
               <div className="space-y-3">

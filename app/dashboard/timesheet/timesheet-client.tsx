@@ -562,7 +562,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="h-7 text-xs text-green-600"
+                              className="h-7 text-xs text-green-600 dark:text-green-400"
                               onClick={() => approveEntry(entry.id, true)}
                             >
                               <CheckCircle className="h-3 w-3 me-1" />
@@ -709,7 +709,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-7 text-xs text-green-600"
+                                className="h-7 text-xs text-green-600 dark:text-green-400"
                                 onClick={() => updatePeriodStatus(period.id, 'approve')}
                               >
                                 <CheckCircle className="h-3 w-3 me-1" />

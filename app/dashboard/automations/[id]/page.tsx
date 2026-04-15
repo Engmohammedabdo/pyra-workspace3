@@ -84,7 +84,7 @@ export default function EditAutomationPage() {
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/automations"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <Link href="/dashboard/automations" aria-label="العودة إلى الأتمتة"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
           <h1 className="text-2xl font-bold">تعديل {rule.name}</h1>
         </div>
       </div>

@@ -77,7 +77,7 @@ export default function PurchaseOrdersClient() {
             <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6" /> أوامر الشراء
+            <ShoppingCart className="h-6 w-6" aria-hidden="true" /> أوامر الشراء
           </h1>
         </div>
         <Link href="/dashboard/finance/purchase-orders/new">

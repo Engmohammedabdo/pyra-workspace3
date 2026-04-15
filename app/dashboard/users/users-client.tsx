@@ -246,7 +246,7 @@ export default function UsersClient() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="h-6 w-6" />
+            <Users className="h-6 w-6" aria-hidden="true" />
             المستخدمون
           </h1>
           <p className="text-muted-foreground">إدارة حسابات المستخدمين والصلاحيات</p>

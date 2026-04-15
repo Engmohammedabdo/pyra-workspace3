@@ -407,7 +407,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                         </p>
                         {req.reason && <p className="text-xs text-muted-foreground mt-0.5">{req.reason}</p>}
                         {isCancelled && req.cancellation_reason && (
-                          <p className="text-xs text-red-500/80 mt-0.5">سبب الإلغاء: {req.cancellation_reason}</p>
+                          <p className="text-xs text-destructive/80 mt-0.5">سبب الإلغاء: {req.cancellation_reason}</p>
                         )}
                         {canManage && req.username !== session.pyraUser.username && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">مقدم من: {req.username}</p>
@@ -438,7 +438,7 @@ export default function LeaveClient({ session }: LeaveClientProps) {
                       )}
                       {canApprove && req.status === 'pending' && (
                         <>
-                          <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600" onClick={() => reviewRequest(req.id, 'approved')}>
+                          <Button variant="ghost" size="sm" className="h-7 text-xs text-green-600 dark:text-green-400" onClick={() => reviewRequest(req.id, 'approved')}>
                             <CheckCircle className="h-3 w-3 me-1" />
                             موافقة
                           </Button>

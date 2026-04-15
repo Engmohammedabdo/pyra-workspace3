@@ -166,7 +166,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
         return (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">
-              <GitBranch className="h-4 w-4 text-emerald-500" />
+              <GitBranch className="h-4 w-4 text-emerald-500" aria-hidden="true" />
               تقدم الـ Pipeline
             </h2>
             {Array.from(boardMap.entries()).map(([bId, info]) => {
@@ -205,7 +205,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           <TaskSection title="اليوم" icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} />
           <TaskSection title="هذا الأسبوع" icon={Clock} color="text-green-500" tasks={categorized.thisWeek} />
           <TaskSection title="قادمة" icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} />
-          <TaskSection title="مكتملة" icon={CheckCircle} color="text-green-600" tasks={categorized.done} collapsed />
+          <TaskSection title="مكتملة" icon={CheckCircle} color="text-green-600 dark:text-green-400" tasks={categorized.done} collapsed />
         </div>
       ) : (
         <div className="space-y-6">

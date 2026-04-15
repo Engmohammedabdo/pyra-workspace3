@@ -129,7 +129,7 @@ export default function ActivityClient() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" /> سجل النشاط</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6" aria-hidden="true" /> سجل النشاط</h1>
           <p className="text-muted-foreground">جميع الإجراءات والعمليات في النظام</p>
         </div>
         <Button
@@ -188,14 +188,14 @@ export default function ActivityClient() {
             type="date"
             value={dateFrom}
             onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-            className="w-[150px] h-9 text-xs"
+            className="w-full sm:w-[150px] h-9 text-xs"
           />
           <span className="text-xs text-muted-foreground">إلى</span>
           <Input
             type="date"
             value={dateTo}
             onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-            className="w-[150px] h-9 text-xs"
+            className="w-full sm:w-[150px] h-9 text-xs"
           />
         </div>
 

@@ -213,7 +213,7 @@ export function MobileNav({ user }: MobileNavProps) {
           <span className="sr-only">القائمة</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[280px] p-0">
+      <SheetContent side="right" className="w-[min(280px,85vw)] p-0">
         <SheetTitle className="sr-only">القائمة الرئيسية</SheetTitle>
         <div className="flex items-center h-16 border-b px-4 gap-3">
           <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold text-sm">

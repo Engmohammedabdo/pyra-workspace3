@@ -29,7 +29,7 @@ export function PaymentsTable({ payments, loading, invoiceNumberMap }: { payment
     <Card>
       <div className="p-4 border-b">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Receipt className="h-5 w-5" /> المدفوعات
+          <Receipt className="h-5 w-5" aria-hidden="true" /> المدفوعات
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -52,7 +52,7 @@ export function PaymentsTable({ payments, loading, invoiceNumberMap }: { payment
             ) : payments.map(p => (
               <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3 text-muted-foreground">{formatDate(p.payment_date)}</td>
-                <td className="p-3 font-mono text-green-600">{formatCurrency(p.amount)}</td>
+                <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(p.amount)}</td>
                 <td className="p-3">{METHOD_MAP[p.method] || p.method}</td>
                 <td className="p-3 text-muted-foreground">{invoiceNumberMap[p.invoice_id] || p.invoice_id}</td>
               </tr>
@@ -69,7 +69,7 @@ export function ContractsTable({ contracts, loading }: { contracts: any[]; loadi
     <Card>
       <div className="p-4 border-b">
         <h2 className="text-lg font-semibold flex items-center gap-2">
-          <Briefcase className="h-5 w-5" /> العقود
+          <Briefcase className="h-5 w-5" aria-hidden="true" /> العقود
         </h2>
       </div>
       <div className="overflow-x-auto">
@@ -98,7 +98,7 @@ export function ContractsTable({ contracts, loading }: { contracts: any[]; loadi
                   <td className="p-3 font-mono">{formatCurrency(c.total_value)}</td>
                   <td className="p-3"><Badge variant={st.variant}>{st.label}</Badge></td>
                   <td className="p-3 font-mono">{formatCurrency(c.amount_billed)}</td>
-                  <td className="p-3 font-mono text-green-600">{formatCurrency(c.amount_collected)}</td>
+                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(c.amount_collected)}</td>
                 </tr>
               );
             })}

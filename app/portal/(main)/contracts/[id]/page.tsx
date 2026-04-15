@@ -42,7 +42,7 @@ export default function PortalContractDetailPage({ params }: { params: Promise<{
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/portal/contracts"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <Link href="/portal/contracts" aria-label="العودة إلى العقود"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
         <h1 className="text-2xl font-bold truncate">{contract.title || 'بدون عنوان'}</h1>
         <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
       </div>

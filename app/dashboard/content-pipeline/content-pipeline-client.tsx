@@ -348,7 +348,7 @@ export default function ContentPipelineClient() {
         <div className="flex items-center gap-3 flex-wrap">
           {/* Filter by type */}
           <Select value={filterType} onValueChange={setFilterType}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-full sm:w-[140px]">
               <SelectValue placeholder="نوع المحتوى" />
             </SelectTrigger>
             <SelectContent>
@@ -363,7 +363,7 @@ export default function ContentPipelineClient() {
 
           {/* Filter by project */}
           <Select value={filterProject} onValueChange={setFilterProject}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="المشروع" />
             </SelectTrigger>
             <SelectContent>
@@ -424,9 +424,7 @@ export default function ContentPipelineClient() {
                 {/* Cards */}
                 <div className="space-y-2.5">
                   {stageItems.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-muted-foreground">
-                      لا يوجد عناصر
-                    </div>
+                    <EmptyState icon={FileText} title="لا يوجد عناصر" className="py-6" />
                   ) : (
                     stageItems.map((item) => (
                       <PipelineCard

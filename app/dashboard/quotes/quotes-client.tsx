@@ -278,9 +278,9 @@ export default function QuotesClient() {
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" /> عروض الأسعار</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" aria-hidden="true" /> عروض الأسعار</h1>
           <p className="text-muted-foreground">إدارة عروض الأسعار والفواتير</p>
         </div>
         {canCreate && (

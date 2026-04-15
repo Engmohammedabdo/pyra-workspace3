@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import {
   ArrowRight, ShoppingCart, Send, PackageCheck, Truck as TruckIcon,
@@ -50,15 +51,15 @@ const STATUS_MAP: Record<string, { label: string }> = {
 const STATUS_ACTIONS: Record<string, { nextStatus: string; label: string; icon: React.ElementType; className?: string }[]> = {
   draft: [
     { nextStatus: 'sent', label: 'إرسال للمورد', icon: Send },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600' },
+    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
   ],
   sent: [
     { nextStatus: 'acknowledged', label: 'تأكيد الاستلام', icon: PackageCheck },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600' },
+    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
   ],
   acknowledged: [
     { nextStatus: 'received', label: 'تم الاستلام', icon: TruckIcon, className: 'bg-green-600 hover:bg-green-700 text-white' },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600' },
+    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
   ],
   received: [
     { nextStatus: 'invoiced', label: 'تم الفوترة', icon: FileText, className: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
@@ -71,6 +72,7 @@ export default function PurchaseOrderDetailPage() {
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetch(`/api/dashboard/purchase-orders/${id}`)
@@ -97,7 +99,6 @@ export default function PurchaseOrderDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('هل أنت متأكد من حذف أمر الشراء هذا؟')) return;
     try {
       const res = await fetch(`/api/dashboard/purchase-orders/${id}`, { method: 'DELETE' });
       if (!res.ok) { toast.error('فشل في الحذف'); return; }
@@ -154,7 +155,7 @@ export default function PurchaseOrderDetailPage() {
             );
           })}
           {po.status === 'draft' && (
-            <Button variant="destructive" size="icon" onClick={handleDelete}><Trash2 className="h-4 w-4" /></Button>
+            <Button variant="destructive" size="icon" aria-label="حذف أمر الشراء" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
           )}
         </div>
       </div>
@@ -233,6 +234,23 @@ export default function PurchaseOrderDetailPage() {
           <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{po.notes}</p></CardContent>
         </Card>
       )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogDescription>
+              هل أنت متأكد من حذف أمر الشراء هذا؟ لا يمكن التراجع عن هذا الإجراء.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

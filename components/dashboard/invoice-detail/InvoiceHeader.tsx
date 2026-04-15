@@ -81,7 +81,7 @@ export function InvoiceHeader({
           </Button>
         )}
         {isDraft && (
-          <Button variant="outline" size="sm" className="text-blue-600" onClick={onSend} disabled={sending}>
+          <Button variant="outline" size="sm" className="text-blue-600 dark:text-blue-400" onClick={onSend} disabled={sending}>
             {sending ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Send className="h-4 w-4 me-1" />}
             إرسال
           </Button>
@@ -91,7 +91,7 @@ export function InvoiceHeader({
             <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={onRecordPayment}>
               <CreditCard className="h-4 w-4 me-1" /> تسجيل دفعة
             </Button>
-            <Button variant="outline" size="sm" className="text-indigo-600 border-indigo-200" onClick={onGeneratePaymentLink} disabled={generatingLink}>
+            <Button variant="outline" size="sm" className="text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/40" onClick={onGeneratePaymentLink} disabled={generatingLink}>
               {generatingLink ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Link2 className="h-4 w-4 me-1" />}
               رابط دفع Stripe
             </Button>

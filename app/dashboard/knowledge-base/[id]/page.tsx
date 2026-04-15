@@ -81,7 +81,7 @@ export default function EditArticlePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/knowledge-base"><Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button></Link>
+          <Link href="/dashboard/knowledge-base" aria-label="العودة إلى قاعدة المعرفة"><Button variant="ghost" size="icon"><ArrowRight className="h-4 w-4" /></Button></Link>
           <div><h1 className="text-2xl font-bold">تعديل المقالة</h1><p className="text-muted-foreground text-sm">{article.title}</p></div>
         </div>
         <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10" onClick={() => setShowDelete(true)}><Trash2 className="h-4 w-4 me-2" /> حذف</Button>

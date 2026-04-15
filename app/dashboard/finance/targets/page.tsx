@@ -99,10 +99,10 @@ export default function RevenueTargetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance">
+          <Link href="/dashboard/finance" aria-label="العودة إلى المالية">
             <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6" /> أهداف الإيرادات</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6" aria-hidden="true" /> أهداف الإيرادات</h1>
         </div>
         <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> إضافة هدف</Button>
       </div>
