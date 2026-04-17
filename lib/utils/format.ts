@@ -10,12 +10,18 @@ export function formatFileSize(bytes: number): string {
   return `\u200E${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export function formatDate(date: string | Date, pattern: string = 'dd-MM-yyyy'): string {
-  return format(new Date(date), pattern, { locale: ar });
+export function formatDate(date: string | Date | null | undefined, pattern: string = 'dd-MM-yyyy'): string {
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return format(d, pattern, { locale: ar });
 }
 
-export function formatRelativeDate(date: string | Date): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: ar });
+export function formatRelativeDate(date: string | Date | null | undefined): string {
+  if (!date) return '';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return '';
+  return formatDistanceToNow(d, { addSuffix: true, locale: ar });
 }
 
 export function formatCurrency(amount: number, currency: string = 'AED'): string {
