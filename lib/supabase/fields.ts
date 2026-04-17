@@ -175,7 +175,8 @@ export const WA_MESSAGE_FIELDS = `
   direction, message_type, content, media_url, file_name,
   contact_name, status, timestamp, metadata,
   reply_to_id, reply_preview, reactions,
-  created_at
+  created_at,
+  sender_jid, sender_name
 `;
 
 export const QUOTE_APPROVAL_FIELDS = `
@@ -204,7 +205,8 @@ export const WA_CONVERSATION_FIELDS = `
   team_id, snoozed_until, is_muted,
   first_reply_at, waiting_since,
   custom_attributes, merged_into_id,
-  csat_rating, resolved_at
+  csat_rating, resolved_at,
+  is_group, group_subject, group_description, group_owner, group_picture_url, participant_count, group_settings
 `;
 
 export const CONVERSATION_NOTE_FIELDS = `

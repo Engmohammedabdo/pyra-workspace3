@@ -3,7 +3,28 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { MessageBubble, type QuotedMessage } from '../message-bubble';
 import { MessageCircle, ChevronDown, Pencil } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
 import type { Message, ConversationNote } from '@/hooks/useWhatsApp';
+
+const SENDER_COLORS = [
+  'text-blue-600 dark:text-blue-400',
+  'text-emerald-600 dark:text-emerald-400',
+  'text-purple-600 dark:text-purple-400',
+  'text-pink-600 dark:text-pink-400',
+  'text-amber-600 dark:text-amber-400',
+  'text-cyan-600 dark:text-cyan-400',
+  'text-rose-600 dark:text-rose-400',
+  'text-indigo-600 dark:text-indigo-400',
+];
+
+function getSenderColor(senderJid: string): string {
+  let hash = 0;
+  for (let i = 0; i < senderJid.length; i++) {
+    hash = ((hash << 5) - hash) + senderJid.charCodeAt(i);
+    hash |= 0;
+  }
+  return SENDER_COLORS[Math.abs(hash) % SENDER_COLORS.length];
+}
 
 type TimelineItem =
   | { type: 'message'; data: Message; sortTime: string }
@@ -12,13 +33,14 @@ type TimelineItem =
 interface MessageListProps {
   messages: Message[];
   notes: ConversationNote[];
+  isGroup?: boolean;
   onReply?: (quote: QuotedMessage) => void;
   onReact?: (messageId: string, emoji: string) => void;
   onSaveToFiles?: (messageId: string) => void;
   onForward?: (messageId: string) => void;
 }
 
-export function MessageList({ messages, notes, onReply, onReact, onSaveToFiles, onForward }: MessageListProps) {
+export function MessageList({ messages, notes, isGroup, onReply, onReact, onSaveToFiles, onForward }: MessageListProps) {
   const [showScrollDown, setShowScrollDown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -97,25 +119,31 @@ export function MessageList({ messages, notes, onReply, onReact, onSaveToFiles, 
                   if (item.type === 'message') {
                     const msg = item.data;
                     return (
-                      <MessageBubble
-                        key={msg.id}
-                        id={msg.id}
-                        content={msg.content}
-                        direction={msg.direction as 'incoming' | 'outgoing'}
-                        messageType={msg.message_type}
-                        mediaUrl={msg.media_url}
-                        fileName={msg.file_name}
-                        status={msg.status}
-                        timestamp={msg.timestamp}
-                        messageId={msg.message_id}
-                        contactName={msg.contact_name}
-                        replyPreview={msg.reply_preview}
-                        reactions={msg.reactions}
-                        onReply={onReply}
-                        onReact={onReact}
-                        onSaveToFiles={onSaveToFiles}
-                        onForward={onForward}
-                      />
+                      <div key={msg.id}>
+                        {isGroup && msg.direction === 'incoming' && msg.sender_name && (
+                          <p className={cn('text-xs font-medium mb-0.5 px-1', getSenderColor(msg.sender_jid || msg.sender_name))}>
+                            {msg.sender_name}
+                          </p>
+                        )}
+                        <MessageBubble
+                          id={msg.id}
+                          content={msg.content}
+                          direction={msg.direction as 'incoming' | 'outgoing'}
+                          messageType={msg.message_type}
+                          mediaUrl={msg.media_url}
+                          fileName={msg.file_name}
+                          status={msg.status}
+                          timestamp={msg.timestamp}
+                          messageId={msg.message_id}
+                          contactName={msg.contact_name}
+                          replyPreview={msg.reply_preview}
+                          reactions={msg.reactions}
+                          onReply={onReply}
+                          onReact={onReact}
+                          onSaveToFiles={onSaveToFiles}
+                          onForward={onForward}
+                        />
+                      </div>
                     );
                   }
                   const note = item.data;

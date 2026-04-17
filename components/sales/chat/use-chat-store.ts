@@ -10,6 +10,7 @@ import type { Conversation } from '@/hooks/useWhatsApp';
 type TabKey = 'all' | 'mine' | 'unassigned' | 'pending' | 'resolved' | 'snoozed';
 type SortBy = 'newest' | 'oldest' | 'priority' | 'waiting_longest';
 type MobileView = 'list' | 'chat';
+export type ConversationType = 'all' | 'individual' | 'group';
 
 export interface FilterState {
   priority: string[];     // multi-select: low, normal, high, urgent
@@ -33,6 +34,10 @@ interface ChatState {
   // Tab & filtering
   activeTab: TabKey;
   setActiveTab: (tab: TabKey) => void;
+
+  // Conversation type filter (all / individual / group)
+  conversationType: ConversationType;
+  setConversationType: (type: ConversationType) => void;
 
   // Sort
   sortBy: SortBy;
@@ -105,6 +110,7 @@ const ChatStoreContext = createContext<ChatState | null>(null);
 export function ChatStoreProvider({ children }: { children: ReactNode }) {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [activeTab, setActiveTabState] = useState<TabKey>('all');
+  const [conversationType, setConversationType] = useState<ConversationType>('all');
   const [sortBy, setSortBy] = useState<SortBy>('newest');
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [showContactPanel, setShowContactPanel] = useState(false);
@@ -173,6 +179,8 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
     setSelectedConversation,
     activeTab,
     setActiveTab,
+    conversationType,
+    setConversationType,
     sortBy,
     setSortBy,
     filters,
@@ -202,6 +210,7 @@ export function ChatStoreProvider({ children }: { children: ReactNode }) {
   }), [
     selectedConversation,
     activeTab,
+    conversationType,
     sortBy,
     filters,
     activeFilterCount,

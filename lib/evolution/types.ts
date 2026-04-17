@@ -45,13 +45,45 @@ export interface EvoSendResponse {
   status: string;
 }
 
+/** Evolution API Group */
+export interface EvoGroup {
+  id: string; // group JID ending with @g.us
+  subject: string;
+  subjectOwner?: string;
+  subjectTime?: number;
+  pictureUrl?: string | null;
+  size?: number;
+  creation?: number;
+  owner?: string;
+  desc?: string;
+  descId?: string;
+  restrict?: boolean;
+  announce?: boolean;
+  participants?: EvoGroupParticipant[];
+}
+
+/** Evolution API Group Participant */
+export interface EvoGroupParticipant {
+  id: string; // participant JID (phone@s.whatsapp.net)
+  admin: 'superadmin' | 'admin' | null;
+}
+
+/** Group invite code response */
+export interface EvoGroupInvite {
+  inviteUrl: string;
+  inviteCode: string;
+}
+
 /** Webhook event types we handle */
 export type EvoWebhookEvent =
   | 'MESSAGES_UPSERT'
   | 'MESSAGES_UPDATE'
   | 'CONNECTION_UPDATE'
   | 'QRCODE_UPDATED'
-  | 'PRESENCE_UPDATE';
+  | 'PRESENCE_UPDATE'
+  | 'GROUPS_UPSERT'
+  | 'GROUPS_UPDATE'
+  | 'GROUP_PARTICIPANTS_UPDATE';
 
 export interface EvoWebhookPayload {
   event: EvoWebhookEvent;

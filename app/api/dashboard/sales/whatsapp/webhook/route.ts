@@ -5,6 +5,18 @@ import type { EvoMessageData } from '@/lib/evolution/types';
 import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/statuses';
 import { applySlaPolicy } from '@/lib/whatsapp/sla';
 import { typingMap, cleanupTypingMap } from '@/lib/whatsapp/typing-map';
+import type { EvoGroup } from '@/lib/evolution/types';
+
+/** Fetch group metadata from Evolution API (fire-and-forget safe) */
+async function fetchGroupMetadata(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
+  try {
+    const { evolutionClient } = await import('@/lib/evolution/client');
+    const info = await evolutionClient.findGroupInfo(instanceName, groupJid);
+    return info;
+  } catch {
+    return null;
+  }
+}
 
 /** Shared secret for webhook authentication */
 const WEBHOOK_SECRET = process.env.EVOLUTION_API_KEY || '';
@@ -73,7 +85,10 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // Skip status/broadcast messages
         if (msg.key.remoteJid === 'status@broadcast') continue;
-        if (msg.key.remoteJid.endsWith('@g.us')) continue; // Skip group messages
+        // ── Group detection ──
+        const isGroup = msg.key.remoteJid.endsWith('@g.us');
+        const senderJid = isGroup ? msg.key.participant || null : null;
+        const senderName = isGroup ? msg.pushName || null : null;
 
         const direction = msg.key.fromMe ? 'outgoing' : 'incoming';
         const content = extractTextContent(msg);
@@ -127,19 +142,23 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // ── Extract phone: handle both @lid and @s.whatsapp.net formats ──
         // New WhatsApp uses @lid (Linked ID) format. The real phone is in remoteJidAlt.
-        const jidForPhone = msg.key.remoteJidAlt || msg.key.remoteJid;
-        const rawPhone = jidForPhone
-          .replace('@s.whatsapp.net', '')
-          .replace('@c.us', '')
-          .replace('@lid', '');
-        const phone = normalizePhone(rawPhone);
+        // Groups don't have a phone number — phone stays null for groups.
+        let phone: string | null = null;
+        if (!isGroup) {
+          const jidForPhone = msg.key.remoteJidAlt || msg.key.remoteJid;
+          const rawPhone = jidForPhone
+            .replace('@s.whatsapp.net', '')
+            .replace('@c.us', '')
+            .replace('@lid', '');
+          phone = normalizePhone(rawPhone);
+        }
 
         // Use remoteJid as the conversation key (could be @lid or @s.whatsapp.net)
         const conversationJid = msg.key.remoteJid;
 
-        // Try to match with a lead by normalized phone number
+        // Try to match with a lead by normalized phone number (skip for groups)
         let matchedLead: { id: string; client_id: string | null } | null = null;
-        if (phone && /^\d{7,20}$/.test(phone)) {
+        if (!isGroup && phone && /^\d{7,20}$/.test(phone)) {
           const { data: candidateLeads } = await supabase
             .from('pyra_sales_leads')
             .select('id, client_id, phone')
@@ -155,12 +174,13 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           : new Date().toISOString();
 
         // ── Upsert conversation (Shared Inbox model) ──
-        // Find by PHONE first (prevents @lid/@s.whatsapp.net duplicates), then by JID
-        let existingConv: { id: string; assigned_to: string | null; status: string; unread_count: number } | null = null;
-        if (phone && /^\d{7,20}$/.test(phone)) {
+        // For individual chats: find by PHONE first (prevents @lid/@s.whatsapp.net duplicates), then by JID
+        // For groups: find by remote_jid only
+        let existingConv: { id: string; assigned_to: string | null; status: string; unread_count: number; is_group?: boolean; group_subject?: string | null } | null = null;
+        if (!isGroup && phone && /^\d{7,20}$/.test(phone)) {
           const { data } = await supabase
             .from('pyra_whatsapp_conversations')
-            .select('id, assigned_to, status, unread_count')
+            .select('id, assigned_to, status, unread_count, is_group, group_subject')
             .eq('contact_phone', phone)
             .eq('instance_name', instanceName || 'pyraai')
             .maybeSingle();
@@ -169,7 +189,7 @@ async function processWebhook(event: string, instanceName: string, data: Record<
         if (!existingConv) {
           const { data } = await supabase
             .from('pyra_whatsapp_conversations')
-            .select('id, assigned_to, status, unread_count')
+            .select('id, assigned_to, status, unread_count, is_group, group_subject')
             .eq('remote_jid', conversationJid)
             .eq('instance_name', instanceName || 'pyraai')
             .maybeSingle();
@@ -195,11 +215,13 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           } else {
             convUpdate.last_agent_message_at = msgTimestamp;
           }
-          // Update contact info if available
-          if (msg.pushName) convUpdate.contact_name = msg.pushName;
-          if (matchedLead?.id) convUpdate.lead_id = matchedLead.id;
-          if (matchedLead?.client_id) convUpdate.client_id = matchedLead.client_id;
-          if (phone) convUpdate.contact_phone = phone;
+          // Update contact info if available (for individual chats only — group contact_name is the group subject)
+          if (!isGroup) {
+            if (msg.pushName) convUpdate.contact_name = msg.pushName;
+            if (matchedLead?.id) convUpdate.lead_id = matchedLead.id;
+            if (matchedLead?.client_id) convUpdate.client_id = matchedLead.client_id;
+            if (phone) convUpdate.contact_phone = phone;
+          }
 
           await supabase.from('pyra_whatsapp_conversations').update(convUpdate).eq('id', existingConv.id);
         } else {
@@ -211,8 +233,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             id: conversationId,
             remote_jid: conversationJid,
             instance_name: instanceName || 'pyraai',
-            contact_name: msg.pushName || null,
-            contact_phone: phone || null,
+            contact_name: isGroup ? conversationJid : (msg.pushName || null),
+            contact_phone: isGroup ? null : (phone || null),
             lead_id: matchedLead?.id || null,
             client_id: matchedLead?.client_id || null,
             status: CONVERSATION_STATUS.OPEN,
@@ -225,7 +247,29 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             last_customer_message_at: direction === 'incoming' ? msgTimestamp : null,
             last_agent_message_at: direction === 'outgoing' ? msgTimestamp : null,
             unread_count: direction === 'incoming' ? 1 : 0,
+            ...(isGroup ? { is_group: true } : {}),
           });
+
+          // Fetch and store group metadata for new group conversations
+          if (isGroup) {
+            void (async () => {
+              const groupInfo = await fetchGroupMetadata(instanceName || 'pyraai', conversationJid);
+              if (groupInfo) {
+                await supabase.from('pyra_whatsapp_conversations').update({
+                  group_subject: groupInfo.subject || null,
+                  group_description: groupInfo.desc || null,
+                  group_owner: groupInfo.owner || null,
+                  group_picture_url: groupInfo.pictureUrl || null,
+                  participant_count: groupInfo.size || 0,
+                  contact_name: groupInfo.subject || conversationJid,
+                  group_settings: {
+                    restrict: groupInfo.restrict || false,
+                    announce: groupInfo.announce || false,
+                  },
+                }).eq('id', conversationId);
+              }
+            })();
+          }
 
           // Apply SLA policy to new conversation
           void applySlaPolicy(supabase, conversationId, CONVERSATION_PRIORITY.NORMAL);
@@ -246,6 +290,8 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           media_url: mediaUrl,
           file_name: fileName,
           contact_name: msg.pushName || null,
+          sender_jid: senderJid,
+          sender_name: senderName,
           status: direction === 'incoming' ? 'received' : 'sent',
           timestamp: msgTimestamp,
           reply_to_id: replyToId,
@@ -258,28 +304,28 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           },
         });
 
-        // Update lead's last_contact_at
-        if (matchedLead?.id && direction === 'incoming') {
+        // Update lead's last_contact_at (individual chats only)
+        if (!isGroup && matchedLead?.id && direction === 'incoming') {
           void supabase
             .from('pyra_sales_leads')
             .update({ last_contact_at: new Date().toISOString(), updated_at: new Date().toISOString() })
             .eq('id', matchedLead.id);
         }
 
-        // ── Business Hours — Auto Away Message ──
-        if (direction === 'incoming') {
+        // ── Business Hours — Auto Away Message (individual chats only) ──
+        if (!isGroup && direction === 'incoming' && phone) {
           void handleBusinessHoursAutoReply(supabase, phone, instanceName || 'pyraai');
         }
 
-        // ── Profile Photo Fetch (fire-and-forget on new conversations) ──
-        if (!existingConv && direction === 'incoming' && phone) {
+        // ── Profile Photo Fetch (fire-and-forget on new individual conversations) ──
+        if (!isGroup && !existingConv && direction === 'incoming' && phone) {
           void fetchAndStoreProfilePhoto(supabase, conversationId, phone, instanceName || 'pyraai');
         }
 
-        // ── CSAT Response Detection ──
+        // ── CSAT Response Detection (individual chats only) ──
         // If incoming message is a single digit 1-5 and conversation was
         // recently resolved (within 24h), record as CSAT response.
-        if (direction === 'incoming' && content) {
+        if (!isGroup && direction === 'incoming' && content && phone) {
           const trimmed = content.trim();
           const csatRating = /^[1-5]$/.test(trimmed) ? parseInt(trimmed, 10) : null;
           if (csatRating && existingConv) {
@@ -289,7 +335,14 @@ async function processWebhook(event: string, instanceName: string, data: Record<
 
         // ── Notifications (Shared Inbox) ──
         if (direction === 'incoming') {
-          const senderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
+          // For groups: "سارة في [group_subject]: message..."
+          // For individual: "سارة: message..."
+          const msgSenderName = msg.pushName || (phone ? `+${phone}` : 'جهة اتصال');
+          const groupSubject = existingConv?.group_subject || null;
+          const notifSenderDisplay = isGroup && groupSubject
+            ? `${msgSenderName} في ${groupSubject}`
+            : msgSenderName;
+
           const preview = content
             ? (content.length > 60 ? content.slice(0, 60) + '...' : content)
             : (messageType === 'image' ? '📷 صورة' : messageType === 'audio' ? '🎤 صوتية' : messageType === 'video' ? '🎬 فيديو' : '📎 ملف');
@@ -300,9 +353,9 @@ async function processWebhook(event: string, instanceName: string, data: Record<
               id: generateId('n'),
               recipient_username: existingConv.assigned_to,
               type: 'whatsapp_message',
-              title: `رسالة من ${senderName}`,
+              title: `رسالة من ${notifSenderDisplay}`,
               message: preview,
-              source_display_name: senderName,
+              source_display_name: notifSenderDisplay,
               target_path: '/dashboard/sales/chat',
               is_read: false,
             });
@@ -311,10 +364,10 @@ async function processWebhook(event: string, instanceName: string, data: Record<
             void supabase.from('pyra_notifications').insert({
               id: generateId('n'),
               recipient_username: 'admin',
-              type: 'whatsapp_new_conversation',
-              title: `محادثة جديدة من ${senderName}`,
+              type: isGroup ? 'whatsapp_new_conversation' : 'whatsapp_new_conversation',
+              title: isGroup ? `مجموعة جديدة: ${msgSenderName}` : `محادثة جديدة من ${msgSenderName}`,
               message: `${preview} — بحاجة للتعيين`,
-              source_display_name: senderName,
+              source_display_name: notifSenderDisplay,
               target_path: '/dashboard/sales/chat',
               is_read: false,
             });
@@ -423,6 +476,93 @@ async function processWebhook(event: string, instanceName: string, data: Record<
               .update({ custom_attributes: attrs })
               .eq('id', conv.id);
           }
+        }
+      }
+      break;
+    }
+
+    // ── GROUPS_UPDATE — group metadata changed ──
+    case 'GROUPS_UPDATE':
+    case 'groups.update': {
+      const groupData = data as Record<string, unknown>;
+      const groupId = groupData.id as string | undefined;
+      if (groupId) {
+        const updatePayload: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
+        if (groupData.subject) {
+          updatePayload.group_subject = groupData.subject;
+          updatePayload.contact_name = groupData.subject;
+        }
+        if (groupData.desc !== undefined) updatePayload.group_description = groupData.desc;
+        if (groupData.restrict !== undefined || groupData.announce !== undefined) {
+          updatePayload.group_settings = {
+            restrict: groupData.restrict ?? false,
+            announce: groupData.announce ?? false,
+          };
+        }
+        await supabase.from('pyra_whatsapp_conversations').update(updatePayload)
+          .eq('remote_jid', groupId)
+          .eq('is_group', true);
+      }
+      break;
+    }
+
+    // ── GROUP_PARTICIPANTS_UPDATE — member added/removed/promoted/demoted ──
+    case 'GROUP_PARTICIPANTS_UPDATE':
+    case 'group-participants.update': {
+      const gpData = data as Record<string, unknown>;
+      const groupJid = gpData.id as string | undefined;
+      const participants = gpData.participants as string[] | undefined;
+      const action = gpData.action as string | undefined;
+
+      if (groupJid && participants && action) {
+        const { data: conv } = await supabase
+          .from('pyra_whatsapp_conversations')
+          .select('id')
+          .eq('remote_jid', groupJid)
+          .eq('is_group', true)
+          .maybeSingle();
+
+        if (conv) {
+          if (action === 'add') {
+            for (const pJid of participants) {
+              const pPhone = pJid.replace('@s.whatsapp.net', '').replace('@lid', '');
+              await supabase.from('pyra_whatsapp_group_participants').upsert({
+                id: generateId('gp'),
+                conversation_id: conv.id,
+                participant_jid: pJid,
+                phone: pPhone,
+                role: 'member',
+              }, { onConflict: 'conversation_id,participant_jid' });
+            }
+          } else if (action === 'remove') {
+            await supabase.from('pyra_whatsapp_group_participants')
+              .delete()
+              .eq('conversation_id', conv.id)
+              .in('participant_jid', participants);
+          } else if (action === 'promote') {
+            await supabase.from('pyra_whatsapp_group_participants')
+              .update({ role: 'admin', updated_at: new Date().toISOString() })
+              .eq('conversation_id', conv.id)
+              .in('participant_jid', participants);
+          } else if (action === 'demote') {
+            await supabase.from('pyra_whatsapp_group_participants')
+              .update({ role: 'member', updated_at: new Date().toISOString() })
+              .eq('conversation_id', conv.id)
+              .in('participant_jid', participants);
+          }
+
+          // Update participant count
+          const { count } = await supabase
+            .from('pyra_whatsapp_group_participants')
+            .select('id', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id);
+
+          await supabase.from('pyra_whatsapp_conversations').update({
+            participant_count: count || 0,
+            updated_at: new Date().toISOString(),
+          }).eq('id', conv.id);
         }
       }
       break;

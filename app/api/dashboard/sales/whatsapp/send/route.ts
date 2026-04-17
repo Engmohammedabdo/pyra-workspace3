@@ -32,8 +32,11 @@ export async function POST(request: NextRequest) {
     quoted_message_id,
   } = body;
 
-  if (!number) return apiError('رقم الهاتف مطلوب');
+  if (!number && !remote_jid) return apiError('رقم الهاتف مطلوب');
   if (!text && !media_url) return apiError('محتوى الرسالة مطلوب');
+
+  // Detect group sends: group JIDs end with @g.us
+  const isGroupSend = number?.endsWith('@g.us') || remote_jid?.endsWith('@g.us');
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
 
@@ -65,13 +68,16 @@ export async function POST(request: NextRequest) {
       evoQuotedId = quotedMsg?.message_id || null;
     }
 
+    // For group sends, use the group JID directly; for individual, use the phone number
+    const sendNumber = isGroupSend ? (remote_jid || number) : number;
+
     let response;
     let messageType = 'text';
     let content = text;
 
     if (media_url) {
       response = await evolutionClient.sendMedia(instanceToUse, {
-        number,
+        number: sendNumber,
         mediatype: media_type || 'document',
         mimetype: mime_type || 'application/pdf',
         media: media_url,
@@ -82,15 +88,17 @@ export async function POST(request: NextRequest) {
       content = text || file_name || media_url;
     } else if (evoQuotedId) {
       response = await evolutionClient.sendTextQuoted(instanceToUse, {
-        number,
+        number: sendNumber,
         text,
         quotedMessageId: evoQuotedId,
       });
     } else {
-      response = await evolutionClient.sendText(instanceToUse, { number, text });
+      response = await evolutionClient.sendText(instanceToUse, { number: sendNumber, text });
     }
 
-    const finalRemoteJid = remote_jid || response.key?.remoteJid || `${number.replace(/\D/g, '')}@s.whatsapp.net`;
+    const finalRemoteJid = remote_jid || response.key?.remoteJid || (
+      isGroupSend ? sendNumber : `${number.replace(/\D/g, '')}@s.whatsapp.net`
+    );
 
     // Find or create conversation_id
     let convId = conversation_id;
@@ -137,6 +145,9 @@ export async function POST(request: NextRequest) {
       timestamp: new Date().toISOString(),
       reply_to_id: evoQuotedId || null,
       reply_preview: replyPreview,
+      // Group support: store sender info for outgoing messages
+      sender_jid: null, // we are the sender (our own instance)
+      sender_name: auth.pyraUser.display_name || auth.pyraUser.username,
     });
 
     // Update conversation timestamps
@@ -148,8 +159,13 @@ export async function POST(request: NextRequest) {
         .eq('id', convId)
         .maybeSingle();
 
+      // For group conversations, prefix last_message with sender name
+      const lastMessageText = isGroupSend
+        ? `${auth.pyraUser.display_name || 'أنت'}: ${content || '[ملف]'}`
+        : content;
+
       const updatePayload: Record<string, unknown> = {
-        last_message: content,
+        last_message: lastMessageText,
         last_message_at: new Date().toISOString(),
         last_agent_message_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

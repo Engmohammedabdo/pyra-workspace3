@@ -19,6 +19,7 @@ import { typingMap } from '@/lib/whatsapp/typing-map';
  *   team     = team ID to filter by
  *   priority = low | normal | high | urgent (comma-separated for multi)
  *   sort     = newest | oldest | priority | waiting_longest (default: newest)
+ *   type     = individual | group | all (default: all)
  *   limit    = number (default: 100)
  *
  * Scoping:
@@ -43,6 +44,7 @@ export async function GET(request: NextRequest) {
   const priorityFilter = sp.get('priority') || '';
   const assignedAgents = sp.get('assigned_agents') || '';
   const sortBy = sp.get('sort') || 'newest';
+  const type = sp.get('type') || 'all'; // 'individual' | 'group' | 'all'
 
   const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
   const username = auth.pyraUser.username;
@@ -57,6 +59,13 @@ export async function GET(request: NextRequest) {
       .neq('contact_phone', OWN_PHONE)
       .is('merged_into_id', null)
       .limit(limit);
+
+    // Filter by conversation type
+    if (type === 'individual') {
+      query = query.eq('is_group', false);
+    } else if (type === 'group') {
+      query = query.eq('is_group', true);
+    }
 
     // Snoozed tab: show only snoozed conversations
     if (statusFilter === 'snoozed') {
@@ -214,7 +223,7 @@ export async function GET(request: NextRequest) {
       return q;
     }
 
-    const [openRes, pendingRes, resolvedRes, unassignedRes, snoozedRes] = await Promise.all([
+    const [openRes, pendingRes, resolvedRes, unassignedRes, snoozedRes, groupRes] = await Promise.all([
       scopedCount()
         .eq('status', CONVERSATION_STATUS.OPEN)
         .or('snoozed_until.is.null,snoozed_until.lte.' + nowIso),
@@ -231,6 +240,10 @@ export async function GET(request: NextRequest) {
         : Promise.resolve({ count: 0 }), // Agents don't see unassigned tab
       scopedCount()
         .gt('snoozed_until', nowIso),
+      // Group conversations count (non-resolved)
+      scopedCount()
+        .eq('is_group', true)
+        .neq('status', CONVERSATION_STATUS.RESOLVED),
     ]);
 
     const tabCounts = {
@@ -239,6 +252,7 @@ export async function GET(request: NextRequest) {
       resolved: resolvedRes.count || 0,
       unassigned: unassignedRes.count || 0,
       snoozed: snoozedRes.count || 0,
+      groups: groupRes.count || 0,
     };
 
     return apiSuccess(enriched, { counts: tabCounts });

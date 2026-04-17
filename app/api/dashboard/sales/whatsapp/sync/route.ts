@@ -232,25 +232,30 @@ async function processPage(
   for (const msg of records) {
     if (!msg.key?.remoteJid) { skipped++; continue; }
 
-    // Skip status/broadcast and group messages
+    // Skip status/broadcast messages (groups are now accepted)
     if (msg.key.remoteJid === 'status@broadcast') { skipped++; continue; }
-    if (msg.key.remoteJid.endsWith('@g.us')) { skipped++; continue; }
+
+    // ── Group detection ──
+    const isGroup = msg.key.remoteJid.endsWith('@g.us');
 
     // Dedup
     if (msg.key.id && existingIds.has(msg.key.id)) { skipped++; continue; }
 
     const direction = msg.key.fromMe ? 'outgoing' : 'incoming';
 
-    // Extract phone — handle @lid format
-    const jidForPhone = msg.key.remoteJidAlt || msg.key.remoteJid;
-    const rawPhone = jidForPhone
-      .replace('@s.whatsapp.net', '')
-      .replace('@c.us', '')
-      .replace('@lid', '');
-    const phone = normalizePhone(rawPhone);
+    // Extract phone — handle @lid format (groups don't have a phone)
+    let phone: string | null = null;
+    if (!isGroup) {
+      const jidForPhone = msg.key.remoteJidAlt || msg.key.remoteJid;
+      const rawPhone = jidForPhone
+        .replace('@s.whatsapp.net', '')
+        .replace('@c.us', '')
+        .replace('@lid', '');
+      phone = normalizePhone(rawPhone);
+    }
 
-    // Match lead
-    const matchedLead = phone ? leadsByPhone.get(phone) || null : null;
+    // Match lead (individual chats only)
+    const matchedLead = (!isGroup && phone) ? leadsByPhone.get(phone) || null : null;
 
     // Extract content
     const content = extractTextContent(msg.message);
@@ -271,6 +276,8 @@ async function processPage(
       media_url: mediaUrl,
       file_name: fileName,
       contact_name: msg.pushName || null,
+      sender_jid: isGroup ? (msg.key.participant || null) : null,
+      sender_name: isGroup && msg.key.participant ? (msg.pushName || null) : null,
       status: direction === 'incoming' ? 'received' : 'sent',
       timestamp: msg.messageTimestamp
         ? new Date(Number(msg.messageTimestamp) * 1000).toISOString()
@@ -280,6 +287,7 @@ async function processPage(
         remoteJidAlt: msg.key.remoteJidAlt || null,
         addressingMode: msg.key.addressingMode || null,
         phone: phone || null,
+        isGroup,
       },
     });
 

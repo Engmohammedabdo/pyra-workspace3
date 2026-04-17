@@ -58,6 +58,10 @@ interface ChatPanelProps {
   slaData?: SlaConversationData | null;
   isAdmin?: boolean;
   isContactTyping?: boolean;
+  isGroup?: boolean;
+  groupSubject?: string | null;
+  participantCount?: number;
+  groupPictureUrl?: string | null;
   onBack?: () => void;
   onConversationUpdated?: () => void;
 }
@@ -78,6 +82,10 @@ export function ChatPanel({
   slaData,
   isAdmin,
   isContactTyping,
+  isGroup,
+  groupSubject,
+  participantCount,
+  groupPictureUrl,
   onBack,
   onConversationUpdated,
 }: ChatPanelProps) {
@@ -160,8 +168,8 @@ export function ChatPanel({
   const handleTypingChange = useCallback((typing: boolean) => {
     setIsTyping(typing);
 
-    // Send typing indicator to WhatsApp (debounced)
-    if (!conversationId) return;
+    // Only send typing indicator for individual chats (not groups)
+    if (!conversationId || isGroup) return;
     if (typing && !lastTypingSentRef.current) {
       lastTypingSentRef.current = true;
       typingMutation.mutate({ conversation_id: conversationId, is_typing: true });
@@ -175,7 +183,7 @@ export function ChatPanel({
         typingMutation.mutate({ conversation_id: conversationId, is_typing: false });
       }
     }, 2000);
-  }, [conversationId, typingMutation]);
+  }, [conversationId, isGroup, typingMutation]);
 
   // Handle reply action from message bubble
   const handleReply = useCallback((quote: QuotedMessage) => {
@@ -219,13 +227,16 @@ export function ChatPanel({
     ? messages.filter(m => m.content?.toLowerCase().includes(searchQuery.toLowerCase()))
     : messages;
 
+  // For group sends, use remote_jid directly as the number (group JID)
+  const sendNumber = isGroup ? remoteJid : (phone || '');
+
   const handleSend = useCallback(async (text: string) => {
     try {
       await sendMessageMutation.mutateAsync({
         instance_name: instanceName,
         remote_jid: remoteJid,
         conversation_id: conversationId || undefined,
-        number: phone,
+        number: sendNumber,
         text,
         lead_id: leadId,
         quoted_message_id: quotedMessage?.id,
@@ -240,7 +251,7 @@ export function ChatPanel({
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الرسالة');
       throw err;
     }
-  }, [sendMessageMutation, instanceName, remoteJid, conversationId, phone, leadId, quotedMessage, typingMutation]);
+  }, [sendMessageMutation, instanceName, remoteJid, conversationId, sendNumber, leadId, quotedMessage, typingMutation]);
 
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     try {
@@ -279,7 +290,7 @@ export function ChatPanel({
         instance_name: instanceName,
         remote_jid: remoteJid,
         conversation_id: conversationId || undefined,
-        number: phone,
+        number: sendNumber,
         text: caption || undefined,
         media_url: mediaUrl,
         media_type: mediaType,
@@ -291,7 +302,7 @@ export function ChatPanel({
       toast.error(err instanceof Error ? err.message : 'فشل إرسال الملف');
       throw err;
     }
-  }, [sendMediaMutation, instanceName, remoteJid, conversationId, phone, leadId]);
+  }, [sendMediaMutation, instanceName, remoteJid, conversationId, sendNumber, leadId]);
 
   // Send internal note (NOT sent to WhatsApp)
   const handleSendNote = useCallback(async (text: string) => {
@@ -392,6 +403,10 @@ export function ChatPanel({
           slaData={slaData}
           isContactTyping={isContactTyping}
           otherViewers={otherViewers}
+          isGroup={isGroup}
+          groupSubject={groupSubject}
+          participantCount={participantCount}
+          groupPictureUrl={groupPictureUrl}
           onBack={onBack}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
           onToggleAssign={() => setShowAssign(!showAssign)}
@@ -411,6 +426,7 @@ export function ChatPanel({
         <MessageList
           messages={displayMessages}
           notes={notes}
+          isGroup={isGroup}
           onReply={handleReply}
           onReact={handleReact}
           onSaveToFiles={handleSaveToFiles}

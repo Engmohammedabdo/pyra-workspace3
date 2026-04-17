@@ -4,13 +4,13 @@ import { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock, BarChart3 } from 'lucide-react';
+import { MessageCircle, Wifi, Inbox, User, Clock, CheckCircle2, AlarmClock, BarChart3, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { isSuperAdmin } from '@/lib/auth/rbac';
-import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation } from '@/hooks/useWhatsApp';
+import { useConversations, usePollWhatsApp, useCheckSla, useUpdateConversation, useSyncGroups } from '@/hooks/useWhatsApp';
 import { toast } from 'sonner';
 import { ConversationList } from './conversation-list';
 import { ChatPanel } from './chat-panel';
@@ -44,6 +44,8 @@ export function ChatLayout() {
     setSelectedConversation,
     activeTab,
     setActiveTab,
+    conversationType,
+    setConversationType,
     sortBy,
     setSortBy,
     filters,
@@ -70,18 +72,22 @@ export function ChatLayout() {
       status: currentTab.status || 'open',
       assigned: currentTab.assigned || 'all',
       sort: sortBy,
+      ...(conversationType !== 'all' ? { type: conversationType } : {}),
     };
     if (filters.label) params.label = filters.label;
     if (filters.team) params.team = filters.team;
     if (filters.priority.length > 0) params.priority = filters.priority.join(',');
     if (filters.assignedTo.length > 0) params.assigned_agents = filters.assignedTo.join(',');
     return params;
-  }, [currentTab, sortBy, filters]);
+  }, [currentTab, sortBy, filters, conversationType]);
 
   // Fetch conversations via React Query with auto-refresh
   const { data: conversationsResponse, isLoading } = useConversations(queryParams);
   const conversations = conversationsResponse?.data || [];
   const counts = conversationsResponse?.meta?.counts || {};
+
+  // Sync groups mutation
+  const syncGroupsMutation = useSyncGroups();
 
   // Poll Evolution API on mount and every 15s
   const pollMutation = usePollWhatsApp();
@@ -236,6 +242,37 @@ export function ChatLayout() {
         })}
       </div>
 
+      {/* Conversation Type Filter */}
+      <div className="flex items-center gap-1 px-1">
+        {(['all', 'individual', 'group'] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => setConversationType(t)}
+            className={cn(
+              'px-2.5 py-1 text-xs rounded-full transition-colors',
+              conversationType === t
+                ? 'bg-orange-500 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            {t === 'all' ? 'الكل' : t === 'individual' ? 'فردي' : 'مجموعات'}
+            {t === 'group' && counts.groups ? ` (${counts.groups})` : ''}
+          </button>
+        ))}
+        {isAdmin && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs gap-1 ms-auto"
+            onClick={() => syncGroupsMutation.mutate()}
+            disabled={syncGroupsMutation.isPending}
+          >
+            <RefreshCw className={cn('h-3 w-3', syncGroupsMutation.isPending && 'animate-spin')} />
+            مزامنة
+          </Button>
+        )}
+      </div>
+
       {/* Toolbar: Filters + Sort + Bulk Mode */}
       {isAdmin && (
         <div className="flex items-center gap-2 flex-wrap">
@@ -303,6 +340,10 @@ export function ChatLayout() {
                 } : null}
                 isAdmin={isAdmin}
                 isContactTyping={selectedConversation.is_typing}
+                isGroup={selectedConversation.is_group}
+                groupSubject={selectedConversation.group_subject}
+                participantCount={selectedConversation.participant_count}
+                groupPictureUrl={selectedConversation.group_picture_url}
                 onBack={() => setMobileView('list')}
                 onConversationUpdated={() => {
                   // Conversations will auto-refresh via React Query

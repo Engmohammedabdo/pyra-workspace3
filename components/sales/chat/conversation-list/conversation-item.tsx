@@ -2,7 +2,7 @@
 
 import { memo, useState } from 'react';
 import { cn } from '@/lib/utils/cn';
-import { User, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
+import { User, Users, Pin, AlarmClock, BellOff, Check } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import type { Conversation } from '@/hooks/useWhatsApp';
 import { isCurrentlySnoozed } from '@/lib/whatsapp/sla';
@@ -50,7 +50,9 @@ const MEDIA_LABELS: Record<string, string> = {
 
 export const ConversationItem = memo(function ConversationItem({ conversation: conv, isSelected, onSelect, bulkMode, isChecked, onToggleCheck }: ConversationItemProps) {
   const phone = conv.contact_phone || conv.phone || conv.remote_jid.replace('@s.whatsapp.net', '').replace('@c.us', '').replace('@lid', '');
-  const displayName = conv.contact_name || phone;
+  const displayName = conv.is_group
+    ? (conv.group_subject || conv.contact_name || conv.remote_jid)
+    : (conv.contact_name || phone);
   const avatarColor = getAvatarColor(conv.remote_jid);
   const msgType = conv.last_message_type || 'text';
   const profilePic = (conv.custom_attributes as Record<string, string> | null)?.profile_pic || null;
@@ -98,7 +100,15 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
 
       {/* Avatar with Online Status */}
       <div className="relative shrink-0">
-        {profilePic && !imgError ? (
+        {conv.is_group ? (
+          conv.group_picture_url ? (
+            <img src={conv.group_picture_url} alt="" className="w-11 h-11 rounded-full shadow-sm object-cover" />
+          ) : (
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-sm shrink-0">
+              <Users className="h-5 w-5" />
+            </div>
+          )
+        ) : profilePic && !imgError ? (
           <img
             src={profilePic}
             alt={displayName}
@@ -115,7 +125,7 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
           </div>
         )}
         {/* Online indicator — show green dot if last_seen_at is within 5 min */}
-        {isOnline && (
+        {!conv.is_group && isOnline && (
           <div className="absolute -bottom-0.5 -end-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-card" />
         )}
       </div>
@@ -128,12 +138,17 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
               'font-semibold text-sm truncate',
               isSelected && 'text-emerald-700 dark:text-emerald-400'
             )}>
-              {conv.contact_name || (phone.length > 5 ? `+${phone}` : phone)}
+              {conv.is_group
+                ? displayName
+                : (conv.contact_name || (phone.length > 5 ? `+${phone}` : phone))}
             </p>
+            {conv.is_group && (
+              <Users className="h-3 w-3 text-emerald-500 shrink-0" />
+            )}
             {conv.is_pinned && (
               <Pin className="h-3 w-3 text-orange-500 shrink-0" />
             )}
-            {conv.lead_id && (
+            {!conv.is_group && conv.lead_id && (
               <div className="shrink-0 w-4 h-4 rounded-full bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center" title="عميل محتمل">
                 <User className="h-2.5 w-2.5 text-orange-600 dark:text-orange-400" />
               </div>
@@ -146,10 +161,14 @@ export const ConversationItem = memo(function ConversationItem({ conversation: c
 
         {/* Phone + assigned agent */}
         <div className="flex items-center gap-2 mt-0.5">
-          {conv.contact_name && phone && phone.length > 5 && (
-            <span className="text-[10px] text-muted-foreground/40 tabular-nums" dir="ltr">
-              +{phone}
-            </span>
+          {conv.is_group ? (
+            <span className="text-[10px] text-muted-foreground">{conv.participant_count || 0} عضو</span>
+          ) : (
+            conv.contact_name && phone && phone.length > 5 && (
+              <span className="text-[10px] text-muted-foreground/40 tabular-nums" dir="ltr">
+                +{phone}
+              </span>
+            )
           )}
           {conv.assigned_to ? (
             <span className="text-[10px] bg-blue-50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-full">

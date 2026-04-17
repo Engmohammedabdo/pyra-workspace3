@@ -2231,6 +2231,8 @@ WhatsApp message history synced from Evolution API.
 | content | text | YES | — |
 | media_url | text | YES | — |
 | file_name | text | YES | — |
+| sender_jid | varchar | YES | Sender JID for group messages |
+| sender_name | varchar | YES | Sender display name for group messages |
 | status | varchar | YES | `'sent'` |
 | timestamp | timestamptz | NOT NULL | — |
 | metadata | jsonb | YES | — |
@@ -2489,3 +2491,32 @@ WhatsApp conversation assignment to agents.
 | created_at | timestamptz | NOT NULL | `now()` |
 
 **Unique**: `(remote_jid, instance_name)`
+
+### pyra_whatsapp_conversations — New columns (Group support)
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| is_group | boolean | NOT NULL | `false` |
+| group_subject | varchar | YES | — |
+| group_description | text | YES | — |
+| group_owner | varchar | YES | — |
+| group_picture_url | text | YES | — |
+| participant_count | integer | YES | `0` |
+| group_settings | jsonb | YES | `'{}'` |
+
+### pyra_whatsapp_group_participants
+WhatsApp group participant membership.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(30) | NOT NULL | — |
+| conversation_id | varchar(30) | NOT NULL | FK → pyra_whatsapp_conversations(id) CASCADE |
+| participant_jid | varchar | NOT NULL | WhatsApp JID of participant |
+| phone | varchar | YES | — |
+| display_name | varchar | YES | — |
+| role | varchar | YES | `'member'` ('superadmin' / 'admin' / 'member') |
+| joined_at | timestamptz | YES | — |
+| updated_at | timestamptz | YES | — |
+
+**PK**: `id`
+**Unique**: `(conversation_id, participant_jid)`
+**Indexes**: `idx_group_participants_conv` on `conversation_id`

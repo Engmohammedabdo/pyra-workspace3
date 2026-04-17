@@ -14,6 +14,9 @@ import type {
   EvoSendTextPayload,
   EvoSendMediaPayload,
   EvoSendResponse,
+  EvoGroup,
+  EvoGroupParticipant,
+  EvoGroupInvite,
 } from './types';
 
 class EvolutionClient {
@@ -387,6 +390,98 @@ class EvolutionClient {
         ],
       },
     );
+  }
+
+  // ─── Groups ─────────────────────────────────────────────
+
+  /** Fetch all groups the instance is part of */
+  async fetchAllGroups(instanceName: string, getParticipants = false): Promise<EvoGroup[]> {
+    try {
+      return await this.request<EvoGroup[]>(
+        'GET',
+        `/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipants}`,
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /** Get info for a specific group by JID */
+  async findGroupInfo(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
+    try {
+      return await this.request<EvoGroup>(
+        'GET',
+        `/group/findGroupInfos/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** Get participants of a group */
+  async findGroupParticipants(instanceName: string, groupJid: string): Promise<EvoGroupParticipant[]> {
+    try {
+      const data = await this.request<{ participants?: EvoGroupParticipant[] }>(
+        'GET',
+        `/group/participants/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      );
+      return data?.participants || [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Update group subject (name) */
+  async updateGroupSubject(instanceName: string, groupJid: string, subject: string) {
+    return this.request(
+      'POST',
+      `/group/updateGroupSubject/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      { subject },
+    );
+  }
+
+  /** Update group description */
+  async updateGroupDescription(instanceName: string, groupJid: string, description: string) {
+    return this.request(
+      'POST',
+      `/group/updateGroupDescription/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      { description },
+    );
+  }
+
+  /** Update group picture */
+  async updateGroupPicture(instanceName: string, groupJid: string, imageUrl: string) {
+    return this.request(
+      'POST',
+      `/group/updateGroupPicture/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      { image: imageUrl },
+    );
+  }
+
+  /** Manage group participants (add/remove/promote/demote) */
+  async updateGroupParticipants(
+    instanceName: string,
+    groupJid: string,
+    action: 'add' | 'remove' | 'promote' | 'demote',
+    participants: string[],
+  ) {
+    return this.request(
+      'POST',
+      `/group/updateParticipant/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      { action, participants },
+    );
+  }
+
+  /** Get group invite code/URL */
+  async fetchGroupInviteCode(instanceName: string, groupJid: string): Promise<EvoGroupInvite | null> {
+    try {
+      return await this.request<EvoGroupInvite>(
+        'GET',
+        `/group/inviteCode/${instanceName}?groupJid=${encodeURIComponent(groupJid)}`,
+      );
+    } catch {
+      return null;
+    }
   }
 }
 

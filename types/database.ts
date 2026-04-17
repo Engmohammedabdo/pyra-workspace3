@@ -1354,8 +1354,22 @@ export interface PyraWhatsAppMessage {
   timestamp: string;
   metadata: Record<string, unknown> | null;
   created_at: string;
+  // Group message fields
+  sender_jid: string | null;
+  sender_name: string | null;
   // Joined
   lead_name?: string;
+}
+
+export interface PyraWhatsAppGroupParticipant {
+  id: string;
+  conversation_id: string;
+  participant_jid: string;
+  phone: string | null;
+  display_name: string | null;
+  role: 'superadmin' | 'admin' | 'member';
+  joined_at: string;
+  updated_at: string;
 }
 
 export interface PyraQuoteApproval {

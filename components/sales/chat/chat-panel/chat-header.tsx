@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils/cn';
 import {
   Phone, Search, X, ArrowRight, UserPlus,
   PanelRightOpen, User, CheckCircle2, Clock,
-  BellOff, Bell,
+  BellOff, Bell, Users,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRef, useState } from 'react';
@@ -41,6 +41,10 @@ interface ChatHeaderProps {
   otherViewers?: string[];
   profilePic?: string | null;
   isOutsideBusinessHours?: boolean;
+  isGroup?: boolean;
+  groupSubject?: string | null;
+  participantCount?: number;
+  groupPictureUrl?: string | null;
   onBack?: () => void;
   onToggleSidebar: () => void;
   onToggleAssign: () => void;
@@ -86,6 +90,10 @@ export function ChatHeader({
   otherViewers = [],
   profilePic,
   isOutsideBusinessHours,
+  isGroup,
+  groupSubject,
+  participantCount,
+  groupPictureUrl,
   onMuteToggle,
   onSnoozed,
 }: ChatHeaderProps) {
@@ -114,7 +122,20 @@ export function ChatHeader({
             className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
             onClick={onToggleSidebar}
           >
-            {profilePic && !headerImgError ? (
+            {isGroup ? (
+              groupPictureUrl && !headerImgError ? (
+                <img
+                  src={groupPictureUrl}
+                  alt={groupSubject || contactName || phone}
+                  className="w-10 h-10 rounded-full shadow-md object-cover"
+                  onError={() => setHeaderImgError(true)}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center text-white shadow-md shadow-orange-500/15">
+                  <Users className="h-5 w-5" />
+                </div>
+              )
+            ) : profilePic && !headerImgError ? (
               <img
                 src={profilePic}
                 alt={contactName || phone}
@@ -127,7 +148,9 @@ export function ChatHeader({
               </div>
             )}
             <div className="min-w-0 text-start">
-              <p className="font-semibold text-sm truncate">{contactName || displayPhone}</p>
+              <p className="font-semibold text-sm truncate">
+                {isGroup ? (groupSubject || contactName || displayPhone) : (contactName || displayPhone)}
+              </p>
               {isContactTyping ? (
                 <span className="text-[10px] text-emerald-500 flex items-center gap-1 animate-pulse">
                   <span>يكتب</span>
@@ -136,6 +159,11 @@ export function ChatHeader({
                     <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
                     <span className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0.4s' }} />
                   </span>
+                </span>
+              ) : isGroup ? (
+                <span className="text-[11px] text-muted-foreground/50 flex items-center gap-1">
+                  <Users className="h-2.5 w-2.5" />
+                  {participantCount || 0} عضو
                 </span>
               ) : displayPhone ? (
                 <p className="text-[11px] text-muted-foreground/50 flex items-center gap-1 tabular-nums" dir="ltr">

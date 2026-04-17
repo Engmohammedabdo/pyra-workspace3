@@ -60,6 +60,14 @@ export interface Conversation {
   csat_rating?: number | null;
   // Typing indicator
   is_typing?: boolean;
+  // Group fields
+  is_group?: boolean;
+  group_subject?: string | null;
+  group_description?: string | null;
+  group_owner?: string | null;
+  group_picture_url?: string | null;
+  participant_count?: number;
+  group_settings?: Record<string, unknown> | null;
 }
 
 export interface ConversationsResponse {
@@ -83,6 +91,20 @@ export interface Message {
   reply_to_id?: string | null;
   reply_preview?: { text: string; sender?: string } | null;
   reactions?: Array<{ emoji: string; from: string }>;
+  // Group message fields
+  sender_jid?: string | null;
+  sender_name?: string | null;
+}
+
+export interface GroupParticipant {
+  id: string;
+  conversation_id: string;
+  participant_jid: string;
+  phone: string | null;
+  display_name: string | null;
+  role: 'superadmin' | 'admin' | 'member';
+  joined_at: string;
+  updated_at: string;
 }
 
 export interface ConversationNote {
@@ -767,6 +789,67 @@ export function useSendCampaign() {
       mutateAPI(`/api/dashboard/sales/whatsapp/campaigns/${id}/send`, 'POST'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['whatsapp-campaigns'] });
+    },
+  });
+}
+
+// ============================================================
+// Hooks: Groups
+// ============================================================
+
+/** Fetch group info + participants */
+export function useGroupInfo(conversationId: string | undefined) {
+  return useQuery<{ participants: GroupParticipant[] } & Record<string, unknown>>({
+    queryKey: ['whatsapp-group-info', conversationId],
+    queryFn: () => fetchAPI(`/api/dashboard/sales/whatsapp/groups/${conversationId}`),
+    enabled: !!conversationId,
+    staleTime: 60_000,
+  });
+}
+
+/** Fetch group participants */
+export function useGroupParticipants(conversationId: string | undefined) {
+  return useQuery<GroupParticipant[]>({
+    queryKey: ['whatsapp-group-participants', conversationId],
+    queryFn: () => fetchAPI(`/api/dashboard/sales/whatsapp/groups/${conversationId}/participants`),
+    enabled: !!conversationId,
+    staleTime: 60_000,
+  });
+}
+
+/** Sync all groups from Evolution API */
+export function useSyncGroups() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => mutateAPI('/api/dashboard/sales/whatsapp/groups/sync', 'POST'),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+/** Update group info (subject/description) */
+export function useUpdateGroup() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; subject?: string; description?: string }) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/groups/${id}`, 'PATCH', data),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-group-info', variables.id] });
+      qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
+    },
+  });
+}
+
+/** Manage group participants (add/remove/promote/demote) */
+export function useManageGroupParticipants() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, action, participants }: { id: string; action: 'add' | 'remove' | 'promote' | 'demote'; participants: string[] }) =>
+      mutateAPI(`/api/dashboard/sales/whatsapp/groups/${id}/participants`, 'POST', { action, participants }),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ['whatsapp-group-participants', variables.id] });
+      qc.invalidateQueries({ queryKey: ['whatsapp-group-info', variables.id] });
     },
   });
 }
