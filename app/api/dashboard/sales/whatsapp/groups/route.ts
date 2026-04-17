@@ -126,30 +126,87 @@ export async function POST(_request: NextRequest) {
             const key = msg.key || {};
             const messageId = key.id;
             if (!messageId || existingIds.has(messageId)) continue;
-            if (key.remoteJid !== group.id) continue;
+            // Accept messages for this group (some API responses include other JIDs)
+            if (key.remoteJid && key.remoteJid !== group.id) continue;
 
             const fromMe = key.fromMe || false;
             const senderJid = key.participant || null;
             const senderName = msg.pushName || null;
             const msgContent = msg.message;
+            if (!msgContent) continue; // Skip protocol/system messages
 
-            // Extract text content
+            // Extract text content AND media URL
             let text = '';
             let messageType = 'text';
-            if (msgContent?.conversation) text = msgContent.conversation;
-            else if (msgContent?.extendedTextMessage?.text) text = msgContent.extendedTextMessage.text;
-            else if (msgContent?.imageMessage) { messageType = 'image'; text = msgContent.imageMessage.caption || ''; }
-            else if (msgContent?.videoMessage) { messageType = 'video'; text = msgContent.videoMessage.caption || ''; }
-            else if (msgContent?.audioMessage) { messageType = 'audio'; }
-            else if (msgContent?.documentMessage) { messageType = 'document'; text = msgContent.documentMessage.fileName || ''; }
-            else if (msgContent?.stickerMessage) { messageType = 'sticker'; }
+            let mediaUrl: string | null = null;
+            let fileName: string | null = null;
 
-            const timestamp = msg.messageTimestamp
-              ? new Date(typeof msg.messageTimestamp === 'number'
-                  ? msg.messageTimestamp * 1000
-                  : Number(msg.messageTimestamp) * 1000
-                ).toISOString()
-              : new Date().toISOString();
+            if (msgContent.conversation) {
+              text = msgContent.conversation;
+            } else if (msgContent.extendedTextMessage?.text) {
+              text = msgContent.extendedTextMessage.text;
+            } else if (msgContent.imageMessage) {
+              messageType = 'image';
+              text = msgContent.imageMessage.caption || '';
+              mediaUrl = msgContent.imageMessage.url || msgContent.imageMessage.directPath || null;
+            } else if (msgContent.videoMessage) {
+              messageType = 'video';
+              text = msgContent.videoMessage.caption || '';
+              mediaUrl = msgContent.videoMessage.url || msgContent.videoMessage.directPath || null;
+            } else if (msgContent.audioMessage) {
+              messageType = 'audio';
+              mediaUrl = msgContent.audioMessage.url || msgContent.audioMessage.directPath || null;
+            } else if (msgContent.documentMessage) {
+              messageType = 'document';
+              fileName = msgContent.documentMessage.fileName || null;
+              text = fileName || '';
+              mediaUrl = msgContent.documentMessage.url || msgContent.documentMessage.directPath || null;
+            } else if (msgContent.stickerMessage) {
+              messageType = 'sticker';
+              mediaUrl = msgContent.stickerMessage.url || msgContent.stickerMessage.directPath || null;
+            } else if (msgContent.contactMessage || msgContent.contactsArrayMessage) {
+              messageType = 'contact';
+              text = msgContent.contactMessage?.displayName || '';
+            } else if (msgContent.locationMessage) {
+              messageType = 'location';
+              text = msgContent.locationMessage.name || msgContent.locationMessage.address || '';
+            } else if (msgContent.pollCreationMessage || msgContent.pollCreationMessageV3) {
+              messageType = 'poll';
+              text = (msgContent.pollCreationMessage || msgContent.pollCreationMessageV3)?.name || '';
+            } else if (msgContent.reactionMessage) {
+              // Skip reaction messages — they're handled separately
+              continue;
+            } else if (msgContent.protocolMessage || msgContent.senderKeyDistributionMessage) {
+              // Skip protocol/system messages
+              continue;
+            }
+
+            // Parse timestamp — Evolution API returns Unix SECONDS
+            let timestamp: string;
+            const rawTs = msg.messageTimestamp;
+            if (rawTs && Number(rawTs) > 1000000000) {
+              // Valid Unix timestamp (after year 2001)
+              const ms = Number(rawTs) > 1e12 ? Number(rawTs) : Number(rawTs) * 1000;
+              timestamp = new Date(ms).toISOString();
+            } else {
+              timestamp = new Date().toISOString();
+            }
+
+            // Extract reply info
+            const quotedMsg = msgContent.extendedTextMessage?.contextInfo?.quotedMessage;
+            const replyToId = msgContent.extendedTextMessage?.contextInfo?.stanzaId || null;
+            const replyPreview = quotedMsg ? {
+              text: quotedMsg.conversation || quotedMsg.extendedTextMessage?.text || '[وسائط]',
+              sender: msgContent.extendedTextMessage?.contextInfo?.participant || undefined,
+            } : null;
+
+            // Extract reactions
+            const reactions = msg.reactions
+              ? msg.reactions.map((r: { key?: { participant?: string }; text?: string }) => ({
+                  emoji: r.text || '',
+                  from: r.key?.participant || '',
+                })).filter((r: { emoji: string }) => r.emoji)
+              : null;
 
             newMessages.push({
               id: generateId('wm'),
@@ -160,19 +217,24 @@ export async function POST(_request: NextRequest) {
               direction: fromMe ? 'outgoing' : 'incoming',
               message_type: messageType,
               content: text || null,
+              media_url: mediaUrl,
               sender_jid: senderJid,
               sender_name: senderName,
               contact_name: senderName,
               status: fromMe ? 'sent' : 'received',
               timestamp,
-              file_name: msgContent?.documentMessage?.fileName || null,
+              file_name: fileName,
+              reply_to_id: replyToId,
+              reply_preview: replyPreview,
+              reactions,
               metadata: { pushName: senderName, isGroup: true },
             });
 
             // Track last message for conversation update
             if (!lastMsgAt || timestamp > lastMsgAt) {
               lastMsgAt = timestamp;
-              lastMsg = senderName ? `${senderName}: ${text || `[${messageType}]`}` : (text || `[${messageType}]`);
+              const preview = text || `[${messageType === 'audio' ? 'صوت' : messageType === 'image' ? 'صورة' : messageType}]`;
+              lastMsg = senderName ? `${senderName}: ${preview}` : preview;
             }
           }
 
