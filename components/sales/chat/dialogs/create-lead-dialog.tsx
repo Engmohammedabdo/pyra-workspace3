@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
 import { UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -90,6 +90,7 @@ export function CreateLeadDialog({ open = true, contactName, phone, onClose, onC
             <UserPlus className="h-4.5 w-4.5 text-emerald-600 dark:text-emerald-400" />
           </div>
           <DialogTitle className="text-sm">إنشاء عميل محتمل</DialogTitle>
+          <DialogDescription className="sr-only">نموذج</DialogDescription>
         </DialogHeader>
 
         {/* Form */}

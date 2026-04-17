@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
 import { FileText, Send, Search, Loader2, ExternalLink, Plus, File } from 'lucide-react';
 import { toast } from 'sonner';
@@ -130,6 +130,7 @@ export function SendQuoteDialog({ open = true, leadId, conversationId, remoteJid
             <FileText className="h-4.5 w-4.5 text-orange-600 dark:text-orange-400" />
           </div>
           <DialogTitle className="text-sm">إرسال عرض سعر</DialogTitle>
+          <DialogDescription className="sr-only">نموذج</DialogDescription>
         </DialogHeader>
 
         {/* Search */}

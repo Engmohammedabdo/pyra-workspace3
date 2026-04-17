@@ -29,10 +29,10 @@ export async function POST(
       return apiError('حقل reaction مطلوب');
     }
 
-    // Fetch message to get message_id and remote_jid
+    // Fetch message to get message_id, remote_jid, and sender_jid (for groups)
     const { data: msg, error: msgErr } = await supabase
       .from('pyra_whatsapp_messages')
-      .select('message_id, remote_jid, conversation_id')
+      .select('message_id, remote_jid, conversation_id, sender_jid, direction')
       .eq('id', id)
       .maybeSingle();
 
@@ -45,11 +45,31 @@ export async function POST(
     }
 
     // Send reaction via Evolution API
-    await evolutionClient.sendReaction('pyraai', {
+    // For group messages, include participant in the key
+    const isGroup = msg.remote_jid.endsWith('@g.us');
+    const reactionKey: Record<string, string> = {
       remoteJid: msg.remote_jid,
-      messageId: msg.message_id,
-      reaction,
-    });
+      id: msg.message_id,
+    };
+    // Group incoming messages need participant field
+    if (isGroup && msg.sender_jid && msg.direction === 'incoming') {
+      reactionKey.participant = msg.sender_jid;
+    }
+    // Group outgoing messages need fromMe flag
+    if (isGroup && msg.direction === 'outgoing') {
+      reactionKey.fromMe = 'true';
+    }
+
+    try {
+      await evolutionClient.sendReaction('pyraai', {
+        remoteJid: msg.remote_jid,
+        messageId: msg.message_id,
+        reaction,
+      });
+    } catch (evoErr) {
+      console.error('[React] Evolution API error:', evoErr);
+      // Still update local DB even if Evolution fails
+    }
 
     // Update reactions JSONB in database
     const { data: currentMsg } = await supabase

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils/cn';
 import { Clock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -96,6 +96,7 @@ export function ScheduleFollowupDialog({ open = true, leadId, onClose, onSchedul
             <Clock className="h-4.5 w-4.5 text-sky-600 dark:text-sky-400" />
           </div>
           <DialogTitle className="text-sm">جدولة متابعة</DialogTitle>
+          <DialogDescription className="sr-only">نموذج</DialogDescription>
         </DialogHeader>
 
         {/* Form */}
