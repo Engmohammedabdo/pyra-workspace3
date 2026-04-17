@@ -94,25 +94,25 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
     <div
       ref={containerRef}
       onScroll={handleScroll}
-      className="flex-1 overflow-y-auto px-4 py-3 relative"
+      className="flex-1 overflow-y-auto px-4 py-3 relative bg-[#efeae2] dark:bg-[#0b141a]"
     >
       {timeline.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-full text-muted-foreground/40">
-          <div className="w-16 h-16 rounded-2xl bg-muted/30 flex items-center justify-center mb-4">
-            <MessageCircle className="h-7 w-7 opacity-40" />
+        <div className="flex flex-col items-center justify-center h-full text-[#667781] dark:text-[#8696a0]">
+          <div className="w-16 h-16 rounded-full bg-[#dfe5e7] dark:bg-[#6b7b8a] flex items-center justify-center mb-4">
+            <MessageCircle className="h-7 w-7 text-white" />
           </div>
-          <p className="text-sm font-medium">لا توجد رسائل بعد</p>
-          <p className="text-xs mt-1">ابدأ المحادثة بإرسال رسالة</p>
+          <p className="text-sm font-normal text-[#111b21] dark:text-[#e9edef]">لا توجد رسائل بعد</p>
+          <p className="text-[13px] mt-1">ابدأ المحادثة بإرسال رسالة</p>
         </div>
       ) : (
         <div className="space-y-1">
           {groupedItems.map((group, gi) => (
             <div key={group.date || gi}>
-              {/* Date separator */}
-              <div className="flex items-center justify-center my-4">
-                <div className="px-3 py-1 rounded-full bg-muted/50 text-[10px] font-medium text-muted-foreground/60 shadow-sm">
+              {/* Date separator — WhatsApp pill style */}
+              <div className="flex justify-center my-3">
+                <span className="bg-white/90 dark:bg-[#182229] text-[#54656f] dark:text-[#8696a0] text-[12.5px] px-3 py-1 rounded-lg shadow-sm">
                   {group.date}
-                </div>
+                </span>
               </div>
               <div className="space-y-2">
                 {group.items.map(item => {
@@ -121,7 +121,7 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
                     return (
                       <div key={msg.id}>
                         {isGroup && msg.direction === 'incoming' && msg.sender_name && (
-                          <p className={cn('text-xs font-medium mb-0.5 px-1', getSenderColor(msg.sender_jid || msg.sender_name))}>
+                          <p className={cn('text-[13px] font-medium mb-0.5 px-1', getSenderColor(msg.sender_jid || msg.sender_name))}>
                             {msg.sender_name}
                           </p>
                         )}
@@ -148,15 +148,15 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
                   }
                   const note = item.data;
                   return (
-                    <div key={note.id} className="flex justify-center px-4 py-1">
-                      <div className="max-w-[80%] bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/30 rounded-xl px-3 py-2">
-                        <div className="flex items-center gap-1.5 mb-0.5">
+                    <div key={note.id} className="flex justify-center px-4 py-0.5">
+                      <div className="max-w-[80%] bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/30 rounded-lg px-2.5 py-1.5">
+                        <div className="flex items-center gap-1 mb-0.5">
                           <Pencil className="h-2.5 w-2.5 text-amber-600 dark:text-amber-400" />
                           <span className="text-[10px] font-medium text-amber-700 dark:text-amber-400">ملاحظة داخلية</span>
-                          <span className="text-[10px] text-muted-foreground/50">-- {note.author_display_name}</span>
+                          <span className="text-[10px] text-[#667781] dark:text-[#8696a0]">-- {note.author_display_name}</span>
                         </div>
-                        <p className="text-xs text-amber-900 dark:text-amber-200 whitespace-pre-wrap">{note.content}</p>
-                        <span className="text-[9px] text-muted-foreground/40 mt-0.5 block">
+                        <p className="text-[13px] text-amber-900 dark:text-amber-200 whitespace-pre-wrap leading-snug">{note.content}</p>
+                        <span className="text-[10px] text-[#667781] dark:text-[#8696a0] mt-0.5 block">
                           {new Date(note.created_at).toLocaleString('ar-EG', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
                         </span>
                       </div>
@@ -175,7 +175,7 @@ export function MessageList({ messages, notes, isGroup, onReply, onReact, onSave
       {showScrollDown && (
         <button
           onClick={scrollToBottom}
-          className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-card border border-border/60 shadow-lg dark:shadow-black/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-10"
+          className="sticky bottom-3 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-white dark:bg-[#202c33] border border-[#e9edef] dark:border-[#313d45] shadow-md flex items-center justify-center text-[#54656f] dark:text-[#8696a0] hover:text-[#111b21] dark:hover:text-[#e9edef] transition-all hover:scale-110 z-10"
         >
           <ChevronDown className="h-4 w-4" />
         </button>

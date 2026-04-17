@@ -400,7 +400,6 @@ export function ChatPanel({
           snoozedUntil={initialSnoozedUntil}
           isMuted={isMuted}
           labels={labels}
-          slaData={slaData}
           isContactTyping={isContactTyping}
           otherViewers={otherViewers}
           isGroup={isGroup}

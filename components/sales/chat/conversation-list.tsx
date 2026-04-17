@@ -33,57 +33,53 @@ export function ConversationList({ conversations, selectedJid, onSelect, bulkMod
   }, [conversations, search]);
 
   return (
-    <div className="flex flex-col h-full border-e border-border/60 bg-card/50">
-      {/* Search + Sort */}
-      <div className="p-3 border-b border-border/40 bg-card/80 space-y-2">
+    <div className="flex flex-col h-full border-e border-[#e9edef] dark:border-[#313d45] bg-white dark:bg-[#111b21]">
+      {/* Search — WhatsApp Web style */}
+      <div className="px-3 py-2 bg-[#f0f2f5] dark:bg-[#111b21] border-b border-[#e9edef] dark:border-[#313d45]">
         <div className="relative">
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/40" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#54656f] dark:text-[#8696a0]" />
           <input
             data-chat-search
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="بحث بالاسم أو الرقم..."
             className={cn(
-              'w-full rounded-xl border border-border/50 bg-muted/20 ps-9 pe-3 py-2.5 text-sm',
-              'placeholder:text-muted-foreground/40',
-              'focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400/60',
-              'transition-all duration-200'
+              'w-full rounded-lg border-0 bg-white dark:bg-[#202c33] ps-9 pe-3 h-9 text-[14px]',
+              'text-[#111b21] dark:text-[#e9edef]',
+              'placeholder:text-[#667781] dark:placeholder:text-[#8696a0]',
+              'focus:outline-none focus:ring-0',
+              'transition-colors duration-200'
             )}
           />
         </div>
-        <div className="flex items-center justify-end">
-          <div className="flex items-center gap-2">
-            {bulkMode && onSelectAll && (
-              <button
-                onClick={onSelectAll}
-                className="text-[10px] text-orange-600 dark:text-orange-400 hover:underline"
-              >
-                تحديد الكل
-              </button>
-            )}
-            <span className="text-[10px] text-muted-foreground/40">
-              {filtered.length} محادثة
-            </span>
+        {bulkMode && onSelectAll && (
+          <div className="flex items-center justify-end mt-1.5">
+            <button
+              onClick={onSelectAll}
+              className="text-[12px] text-[#00a884] hover:underline"
+            >
+              تحديد الكل
+            </button>
           </div>
-        </div>
+        )}
       </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground/50">
-            <div className="w-14 h-14 rounded-2xl bg-muted/40 flex items-center justify-center mb-3">
+          <div className="flex flex-col items-center justify-center py-20 text-[#667781] dark:text-[#8696a0]">
+            <div className="w-14 h-14 rounded-full bg-[#dfe5e7] dark:bg-[#6b7b8a] flex items-center justify-center mb-3">
               {search ? (
-                <Search className="h-6 w-6 opacity-40" />
+                <Search className="h-6 w-6 text-white" />
               ) : (
-                <MessageCircle className="h-6 w-6 opacity-40" />
+                <MessageCircle className="h-6 w-6 text-white" />
               )}
             </div>
-            <p className="text-sm font-medium">
+            <p className="text-sm font-normal text-[#111b21] dark:text-[#e9edef]">
               {search ? 'لا توجد نتائج' : 'لا توجد محادثات'}
             </p>
             {search && (
-              <p className="text-xs text-muted-foreground/40 mt-1">حاول بكلمة بحث مختلفة</p>
+              <p className="text-[13px] text-[#667781] dark:text-[#8696a0] mt-1">حاول بكلمة بحث مختلفة</p>
             )}
           </div>
         ) : (
