@@ -39,13 +39,12 @@ export function ChatLayout() {
   const { data: currentUser } = useCurrentUser();
   const isAdmin = currentUser ? isSuperAdmin(currentUser.rolePermissions) : false;
 
+  const store = useChatStore();
   const {
     selectedConversation,
     setSelectedConversation,
     activeTab,
     setActiveTab,
-    conversationType,
-    setConversationType,
     sortBy,
     setSortBy,
     filters,
@@ -58,7 +57,11 @@ export function ChatLayout() {
     toggleSelectedId,
     selectAllIds,
     clearSelectedIds,
-  } = useChatStore();
+  } = store;
+
+  // Group type filter (with safety fallback)
+  const conversationType = store.conversationType || 'all';
+  const setConversationType = store.setConversationType || (() => {});
 
   // Get current tab definition for API params
   const currentTab = useMemo(
@@ -256,7 +259,7 @@ export function ChatLayout() {
             )}
           >
             {t === 'all' ? 'الكل' : t === 'individual' ? 'فردي' : 'مجموعات'}
-            {t === 'group' && counts.groups ? ` (${counts.groups})` : ''}
+            {t === 'group' && (counts as Record<string, number>).groups ? ` (${(counts as Record<string, number>).groups})` : ''}
           </button>
         ))}
         {isAdmin && (

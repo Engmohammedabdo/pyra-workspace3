@@ -1,5 +1,6 @@
 'use client';
 
+// Chat store — manages WhatsApp chat UI state (tabs, filters, group type, selection, etc.)
 import React, { createContext, useContext, useState, useCallback, useMemo, type ReactNode } from 'react';
 import type { Conversation } from '@/hooks/useWhatsApp';
 
