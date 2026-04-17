@@ -56,7 +56,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('pyra_whatsapp_conversations')
       .select(WA_CONVERSATION_FIELDS)
-      .neq('contact_phone', OWN_PHONE)
+      .or(`contact_phone.neq.${OWN_PHONE},contact_phone.is.null`)
       .is('merged_into_id', null)
       .limit(limit);
 
