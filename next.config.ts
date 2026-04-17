@@ -52,7 +52,7 @@ const nextConfig: NextConfig = {
           "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com",
-          `img-src 'self' data: blob: ${supabaseUrl} ${appUrl}`,
+          `img-src 'self' data: blob: ${supabaseUrl} ${appUrl} https://pps.whatsapp.net https://*.whatsapp.net`,
           `connect-src 'self' blob: ${supabaseUrl} ${appUrl} https://cdn.jsdelivr.net wss://*.supabase.co wss://*.pyramedia.cloud`,
           `frame-src 'self' ${supabaseUrl} blob: https://view.officeapps.live.com`,
           `media-src 'self' blob: ${supabaseUrl}`,

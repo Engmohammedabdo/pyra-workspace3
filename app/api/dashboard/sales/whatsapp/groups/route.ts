@@ -104,6 +104,97 @@ export async function POST(_request: NextRequest) {
         }
       }
 
+      // Sync recent messages for this group
+      try {
+        const messages = await evolutionClient.fetchMessages(instanceName, group.id, 50);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msgArray = Array.isArray(messages) ? messages : ((messages as any)?.messages?.records || []);
+
+        if (Array.isArray(msgArray) && msgArray.length > 0) {
+          // Get existing message IDs to avoid duplicates
+          const { data: existingMsgs } = await supabase
+            .from('pyra_whatsapp_messages')
+            .select('message_id')
+            .eq('remote_jid', group.id);
+          const existingIds = new Set((existingMsgs || []).map(m => m.message_id).filter(Boolean));
+
+          const newMessages = [];
+          let lastMsg = '';
+          let lastMsgAt = '';
+
+          for (const msg of msgArray) {
+            const key = msg.key || {};
+            const messageId = key.id;
+            if (!messageId || existingIds.has(messageId)) continue;
+            if (key.remoteJid !== group.id) continue;
+
+            const fromMe = key.fromMe || false;
+            const senderJid = key.participant || null;
+            const senderName = msg.pushName || null;
+            const msgContent = msg.message;
+
+            // Extract text content
+            let text = '';
+            let messageType = 'text';
+            if (msgContent?.conversation) text = msgContent.conversation;
+            else if (msgContent?.extendedTextMessage?.text) text = msgContent.extendedTextMessage.text;
+            else if (msgContent?.imageMessage) { messageType = 'image'; text = msgContent.imageMessage.caption || ''; }
+            else if (msgContent?.videoMessage) { messageType = 'video'; text = msgContent.videoMessage.caption || ''; }
+            else if (msgContent?.audioMessage) { messageType = 'audio'; }
+            else if (msgContent?.documentMessage) { messageType = 'document'; text = msgContent.documentMessage.fileName || ''; }
+            else if (msgContent?.stickerMessage) { messageType = 'sticker'; }
+
+            const timestamp = msg.messageTimestamp
+              ? new Date(typeof msg.messageTimestamp === 'number'
+                  ? msg.messageTimestamp * 1000
+                  : Number(msg.messageTimestamp) * 1000
+                ).toISOString()
+              : new Date().toISOString();
+
+            newMessages.push({
+              id: generateId('wm'),
+              instance_name: instanceName,
+              remote_jid: group.id,
+              conversation_id: convId,
+              message_id: messageId,
+              direction: fromMe ? 'outgoing' : 'incoming',
+              message_type: messageType,
+              content: text || null,
+              sender_jid: senderJid,
+              sender_name: senderName,
+              contact_name: senderName,
+              status: fromMe ? 'sent' : 'received',
+              timestamp,
+              file_name: msgContent?.documentMessage?.fileName || null,
+              metadata: { pushName: senderName, isGroup: true },
+            });
+
+            // Track last message for conversation update
+            if (!lastMsgAt || timestamp > lastMsgAt) {
+              lastMsgAt = timestamp;
+              lastMsg = senderName ? `${senderName}: ${text || `[${messageType}]`}` : (text || `[${messageType}]`);
+            }
+          }
+
+          // Batch insert messages
+          if (newMessages.length > 0) {
+            await supabase.from('pyra_whatsapp_messages').insert(newMessages);
+
+            // Update conversation with last message info
+            if (lastMsg && lastMsgAt) {
+              await supabase.from('pyra_whatsapp_conversations').update({
+                last_message: lastMsg,
+                last_message_at: lastMsgAt,
+                updated_at: new Date().toISOString(),
+              }).eq('id', convId);
+            }
+          }
+        }
+      } catch (msgErr) {
+        console.error(`[Group Sync] Failed to sync messages for ${group.subject}:`, msgErr);
+        // Don't fail the whole sync — continue with next group
+      }
+
       synced++;
     }
 
