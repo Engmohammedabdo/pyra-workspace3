@@ -821,7 +821,7 @@ export function useGroupParticipants(conversationId: string | undefined) {
 export function useSyncGroups() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => mutateAPI('/api/dashboard/sales/whatsapp/groups/sync', 'POST'),
+    mutationFn: () => mutateAPI('/api/dashboard/sales/whatsapp/groups', 'POST'),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['whatsapp-conversations'] });
     },
