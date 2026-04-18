@@ -167,12 +167,20 @@ export async function POST(request: NextRequest) {
       return apiServerError(`فشل في إنشاء المستخدم: ${insertError.message}`);
     }
 
-    // Step 3: Insert auth mapping
-    await serviceClient.from('pyra_auth_mapping').insert({
+    // Step 3: Insert auth mapping (fail-fast — without this, password change & related flows break)
+    const { error: mappingError } = await serviceClient.from('pyra_auth_mapping').insert({
       id: generateId('am'),
       auth_user_id: authData.user.id,
       pyra_username: cleanUsername,
     });
+
+    if (mappingError) {
+      console.error('pyra_auth_mapping insert error:', mappingError);
+      // Rollback: delete pyra_users row + auth user we just created
+      await serviceClient.from('pyra_users').delete().eq('username', cleanUsername);
+      await serviceClient.auth.admin.deleteUser(authData.user.id);
+      return apiServerError(`فشل في إنشاء ربط المصادقة: ${mappingError.message}`);
+    }
 
     // Step 3.5: Initialize leave balances for employees
     if (role === 'employee') {

@@ -7,6 +7,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
 import { userPasswordChangeLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
@@ -52,24 +53,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return apiNotFound('المستخدم غير موجود');
     }
 
-    // Find the Supabase Auth user ID via mapping
-    const { data: mapping } = await supabase
-      .from('pyra_auth_mapping')
-      .select('auth_user_id')
-      .eq('pyra_username', username)
-      .single();
+    // Resolve Supabase Auth user ID (heals legacy users missing from pyra_auth_mapping)
+    const serviceClient = createServiceRoleClient();
+    const authUserId = await resolveAuthUserId(serviceClient, username);
 
-    if (!mapping) {
-      return apiServerError('لم يتم العثور على ربط حساب المصادقة');
+    if (!authUserId) {
+      return apiServerError('لم يتم العثور على حساب المصادقة لهذا المستخدم');
     }
 
     // For self-change, verify current password
-    const serviceClient = createServiceRoleClient();
     if (isSelf) {
       if (!current_password) {
         return apiValidationError('كلمة المرور الحالية مطلوبة');
       }
-      const { data: authUser } = await serviceClient.auth.admin.getUserById(mapping.auth_user_id);
+      const { data: authUser } = await serviceClient.auth.admin.getUserById(authUserId);
       if (!authUser?.user?.email) {
         return apiServerError('لم يتم العثور على بيانات المصادقة');
       }
@@ -82,7 +79,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
     const { error: updateError } = await serviceClient.auth.admin.updateUserById(
-      mapping.auth_user_id,
+      authUserId,
       { password }
     );
 

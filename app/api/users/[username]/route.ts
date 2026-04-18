@@ -8,6 +8,7 @@ import {
   apiError,
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
 
 /**
@@ -297,15 +298,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Update Supabase Auth user metadata if display_name or role changed
     if (updateData.display_name || updateData.role) {
-      const { data: mapping } = await supabase
-        .from('pyra_auth_mapping')
-        .select('auth_user_id')
-        .eq('pyra_username', username)
-        .single();
+      const serviceClient = createServiceRoleClient();
+      const authUserId = await resolveAuthUserId(serviceClient, username);
 
-      if (mapping) {
-        const serviceClient = createServiceRoleClient();
-        await serviceClient.auth.admin.updateUserById(mapping.auth_user_id, {
+      if (authUserId) {
+        await serviceClient.auth.admin.updateUserById(authUserId, {
           user_metadata: {
             username,
             display_name: updatedUser.display_name,
@@ -409,14 +406,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Step 3: Find and delete Supabase Auth user
-    const { data: mapping } = await supabase
-      .from('pyra_auth_mapping')
-      .select('auth_user_id')
-      .eq('pyra_username', username)
-      .single();
+    const authUserId = await resolveAuthUserId(serviceClient, username);
 
-    if (mapping) {
-      await serviceClient.auth.admin.deleteUser(mapping.auth_user_id);
+    if (authUserId) {
+      await serviceClient.auth.admin.deleteUser(authUserId);
 
       // Clean up the mapping record
       await serviceClient
