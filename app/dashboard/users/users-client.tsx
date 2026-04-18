@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -172,7 +173,7 @@ export default function UsersClient() {
   });
 
   const passwordMutation = useMutation({
-    mutationFn: ({ username, password }: { username: string; password: string }) => mutateAPI(`/api/users/${username}/password`, 'POST', { new_password: password }),
+    mutationFn: ({ username, password }: { username: string; password: string }) => mutateAPI(`/api/users/${username}/password`, 'POST', { password }),
     onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success('تم تغيير كلمة المرور'); },
     onError: () => toast.error('حدث خطأ'),
   });
@@ -675,19 +676,24 @@ export default function UsersClient() {
       {/* Change Password */}
       <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle></DialogHeader>
-          <div className="space-y-4 py-4">
+          <DialogHeader>
+            <DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle>
+            <DialogDescription>اختر كلمة مرور قوية (12 حرف على الأقل)</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={e => { e.preventDefault(); handlePasswordChange(); }} className="space-y-4 py-4">
+            {/* Hidden username field for autofill accessibility */}
+            <input type="text" name="username" autoComplete="username" defaultValue={selectedUser?.username || ''} className="sr-only" readOnly tabIndex={-1} />
             <div className="space-y-2">
-              <FormLabel required>كلمة المرور الجديدة</FormLabel>
-              <Input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="12 حرف على الأقل" dir="ltr" />
+              <FormLabel required htmlFor="new-password">كلمة المرور الجديدة</FormLabel>
+              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="12 حرف على الأقل" dir="ltr" />
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>
-            <Button onClick={handlePasswordChange} disabled={saving}>
-              {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'تغيير'}
-            </Button>
-          </DialogFooter>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>
+              <Button type="submit" disabled={saving}>
+                {saving ? <><Loader2 className="h-4 w-4 me-2 animate-spin" /> جارٍ الحفظ...</> : 'تغيير'}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
