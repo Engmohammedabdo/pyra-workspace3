@@ -23,7 +23,7 @@ export function useCurrentUser() {
   return useQuery<CurrentUser>({
     queryKey: ['currentUser'],
     queryFn: () => fetchAPI<CurrentUser>('/api/auth/me'),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    refetchOnWindowFocus: false,
+    staleTime: 30 * 1000, // 30 seconds — so permission changes are reflected quickly
+    refetchOnWindowFocus: true, // Refetch when user switches back to tab
   });
 }
