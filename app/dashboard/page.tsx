@@ -40,6 +40,7 @@ import { WelcomeHero } from '@/components/dashboard/home/WelcomeHero';
 import { StatCard } from '@/components/dashboard/home/StatCard';
 import { QuickAction } from '@/components/dashboard/home/QuickAction';
 import { LeaveBar } from '@/components/dashboard/home/LeaveBar';
+import { MyWorkInbox } from '@/components/dashboard/MyWorkInbox';
 
 interface DashboardData {
   total_files?: number;
@@ -139,6 +140,11 @@ export default function DashboardPage() {
   return (
     <motion.div variants={containerMotion} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemMotion}><WelcomeHero today={today} onRefresh={loadDashboard} loading={loading} /></motion.div>
+
+      {/* My Work inbox — surfaces everything assigned to or waiting on the user.
+          Shown for ALL roles. Admin sees their assigned items + team approvals. */}
+      <motion.div variants={itemMotion}><MyWorkInbox /></motion.div>
+
       {isAdmin && <motion.div variants={itemMotion}><SmartAlerts /></motion.div>}
       {isAdmin && <motion.div variants={itemMotion}><KpiGrid /></motion.div>}
       {!isAdmin && data && (
