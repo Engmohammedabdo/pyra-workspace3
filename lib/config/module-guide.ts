@@ -283,6 +283,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['دليل', 'فريق', 'موظفين', 'directory', 'team', 'تواصل'],
   },
+  '/dashboard/approvals': {
+    href: '/dashboard/approvals',
+    description: 'موافقات إجازات ومصاريف وساعات عمل فريقك',
+    descriptionEn: 'Team leave, expense, and timesheet approvals',
+    goal: 'مكان واحد بتراجع فيه كل طلبات موظفينك المباشرين: إجازات، مصاريف، وجداول ساعات. توافق أو ترفض بضغطة زرار.',
+    tips: [
+      'بتشوف هنا بس طلبات الموظفين تحت إدارتك المباشرة',
+      'الأدمن يشوف كل الطلبات في النظام',
+      'الرفض يطلب منك سبب عشان الموظف يفهم ويصلح',
+      'بمجرد ما توافق على إجازة، الرصيد يُخصم تلقائياً',
+      'الـ Badge جنب الاسم بيعد كل الطلبات المستنياك من الـ 3 أنواع',
+    ],
+    keywords: ['موافقات', 'إجازات', 'مصاريف', 'مدير', 'فريق', 'approvals', 'manager', 'team'],
+  },
   '/dashboard/timesheet': {
     href: '/dashboard/timesheet',
     description: 'تسجيل ومتابعة ساعات العمل والعمل الإضافي',

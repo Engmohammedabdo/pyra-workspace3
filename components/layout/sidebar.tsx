@@ -73,6 +73,7 @@ import {
   FileCheck,
   Truck,
   ShoppingCart,
+  ClipboardCheck,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -90,7 +91,7 @@ interface NavItem {
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations';
+  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations' | 'team_approvals';
 }
 
 interface NavGroup {
@@ -164,6 +165,7 @@ const navGroups: NavGroup[] = [
     titleEn: 'HR',
     description: 'الحضور والإجازات والرواتب والتقييمات',
     items: [
+      { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.view', badgeKey: 'team_approvals' },
       { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
       { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
       { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },

@@ -78,6 +78,7 @@ const SECTIONS = [
     color: 'text-indigo-600 dark:text-indigo-400',
     bgColor: 'bg-indigo-500/10',
     hrefs: [
+      '/dashboard/approvals',
       '/dashboard/timesheet',
       '/dashboard/attendance',
       '/dashboard/leave',
