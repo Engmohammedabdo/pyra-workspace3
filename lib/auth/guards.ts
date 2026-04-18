@@ -32,8 +32,15 @@ async function loadUserWithRole(supabase: ReturnType<typeof import('@/lib/supaba
   if (!pyraUser) return null;
 
   const role = pyraUser.pyra_roles;
-  const rolePermissions: string[] = role?.permissions
+  const basePermissions: string[] = role?.permissions
     ?? getDefaultPermissionsForLegacyRole(pyraUser.role);
+
+  // Merge with user's extra permissions (deduplicated)
+  const extraPermissions: string[] = Array.isArray(pyraUser.extra_permissions)
+    ? pyraUser.extra_permissions
+    : [];
+
+  const rolePermissions: string[] = Array.from(new Set([...basePermissions, ...extraPermissions]));
 
   return {
     id: pyraUser.id,
