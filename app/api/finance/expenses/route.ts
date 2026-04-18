@@ -9,6 +9,8 @@ import { toAED } from '@/lib/utils/currency';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
+import { getManagerOf } from '@/lib/auth/team-scope';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -212,6 +214,22 @@ export async function POST(req: NextRequest) {
     );
 
     dispatchWebhookEvent('expense_created', { expense_id: data.id, description, amount, vendor });
+
+    // If approval is required, notify the employee's manager
+    if (approvalRequired) {
+      const managerUsername = await getManagerOf(supabase, auth.pyraUser.username);
+      if (managerUsername) {
+        await notify(supabase, {
+          to: managerUsername,
+          type: 'expense_pending',
+          title: `مصروف بانتظار موافقتك — ${(currency || 'AED')} ${amount}`,
+          message: `${description || vendor || 'مصروف جديد'} من ${auth.pyraUser.display_name}`,
+          link: '/dashboard/approvals',
+          entity: { type: 'expense', id: data.id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      }
+    }
 
     return apiSuccess(data, undefined, 201);
   } catch {

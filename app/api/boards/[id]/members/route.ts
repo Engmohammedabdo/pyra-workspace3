@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { invalidateScopeCache } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 // GET /api/boards/[id]/members
 export async function GET(
@@ -78,15 +79,15 @@ export async function POST(
 
     invalidateScopeCache(username);
 
-    // Notify
-    await supabase.from('pyra_notifications').insert({
-      id: generateId('ntf'),
-      username,
-      type: 'board_member_added',
+    // Notify (was previously broken — used wrong column names `username`/`link`)
+    await notify(supabase, {
+      to: username,
+      type: 'task_assigned',
       title: 'تمت إضافتك إلى لوحة عمل',
       message: `أضافك ${auth.pyraUser.display_name} إلى لوحة عمل`,
       link: `/dashboard/boards/${boardId}`,
-      is_read: false,
+      entity: { type: 'board', id: boardId },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
     });
 
     logActivity(

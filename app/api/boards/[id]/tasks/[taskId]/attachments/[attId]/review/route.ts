@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/l
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string; attId: string }> };
 
@@ -51,18 +52,18 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('id', taskId)
       .single();
 
-    // Notify the uploader
-    if (data.uploaded_by && data.uploaded_by !== auth.pyraUser.username) {
-      await supabase.from('pyra_notifications').insert({
-        id: generateId('ntf'),
-        username: data.uploaded_by,
-        type: action === 'approve' ? 'file_approved' : 'file_revision_requested',
+    // Notify the uploader (was previously broken — used wrong column names `username`/`link`)
+    if (data.uploaded_by) {
+      await notify(supabase, {
+        to: data.uploaded_by,
+        type: action === 'approve' ? 'file_approval_requested' : 'file_approval_requested',
         title: action === 'approve'
           ? `تمت الموافقة على الملف: ${data.file_name}`
           : `مطلوب تعديل على الملف: ${data.file_name}`,
         message: note || (action === 'approve' ? 'تمت الموافقة' : 'مطلوب تعديل'),
-        link: `/dashboard/boards/${boardId}`,
-        is_read: false,
+        link: `/dashboard/boards/${boardId}?task=${taskId}`,
+        entity: { type: 'task_attachment', id: attId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
     }
 

@@ -6,6 +6,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
+import { notify } from '@/lib/notifications/notify';
+import { getManagerOf } from '@/lib/auth/team-scope';
 
 export async function GET(req: NextRequest) {
   const auth = await getApiAuth();
@@ -136,6 +138,20 @@ export async function POST(req: NextRequest) {
     ip_address: req.headers.get('x-forwarded-for') || 'unknown',
   });
   if (logErr) console.error('Activity log error:', logErr);
+
+  // Notify the employee's manager that a leave request needs approval
+  const managerUsername = await getManagerOf(serviceSupabase, auth.pyraUser.username);
+  if (managerUsername) {
+    await notify(serviceSupabase, {
+      to: managerUsername,
+      type: 'leave_request_pending',
+      title: `طلب إجازة جديد من ${auth.pyraUser.display_name}`,
+      message: `${days_count} يوم — من ${start_date} إلى ${end_date}`,
+      link: '/dashboard/approvals',
+      entity: { type: 'leave_request', id: data.id },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    });
+  }
 
   return apiSuccess(data, undefined, 201);
 }
