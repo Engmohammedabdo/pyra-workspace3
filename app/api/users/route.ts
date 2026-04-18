@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)');
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (['admin', 'employee', 'sales_agent'].includes(role)) {
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      username, password, role, display_name, permissions, role_id, phone, job_title,
+      username, password, role, display_name, permissions, extra_permissions, role_id, phone, job_title,
       employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, manager_username, email,
     } = body;
 
@@ -96,6 +96,16 @@ export async function POST(request: NextRequest) {
 
     if (role_id !== undefined && role_id !== null && typeof role_id !== 'string') {
       return apiValidationError('معرّف الدور الوظيفي غير صالح');
+    }
+
+    // Validate extra_permissions if provided
+    if (extra_permissions !== undefined && extra_permissions !== null) {
+      if (!Array.isArray(extra_permissions)) {
+        return apiValidationError('extra_permissions must be an array');
+      }
+      if (!extra_permissions.every((p: unknown) => typeof p === 'string')) {
+        return apiValidationError('extra_permissions must be array of strings');
+      }
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -142,6 +152,7 @@ export async function POST(request: NextRequest) {
         role,
         display_name: display_name.trim(),
         permissions: permissions || {},
+        extra_permissions: Array.isArray(extra_permissions) ? extra_permissions : [],
         role_id: role_id || null,
         phone: phone ? String(phone).trim() : null,
         job_title: job_title ? String(job_title).trim() : null,
@@ -155,7 +166,7 @@ export async function POST(request: NextRequest) {
         manager_username: manager_username || null,
         email: email || null,
       })
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at')
       .single();
 
     if (insertError) {

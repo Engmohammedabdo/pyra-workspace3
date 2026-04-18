@@ -55,7 +55,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', username)
       .single();
 
@@ -88,7 +88,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Verify user exists
     const { data: existingUser, error: findError } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
       .eq('username', username)
       .single();
 
@@ -132,6 +132,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return apiValidationError('الصلاحيات يجب أن تكون كائن JSON');
       }
       updateData.permissions = body.permissions;
+    }
+
+    // --- extra_permissions (per-user additional RBAC permissions) ---
+    if (body.extra_permissions !== undefined) {
+      if (!Array.isArray(body.extra_permissions)) {
+        return apiValidationError('extra_permissions must be an array');
+      }
+      if (!body.extra_permissions.every((p: unknown) => typeof p === 'string')) {
+        return apiValidationError('extra_permissions must be array of strings');
+      }
+      updateData.extra_permissions = body.extra_permissions;
     }
 
     // --- role_id (RBAC role assignment) ---
@@ -269,7 +280,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)
-      .select('id, username, role, display_name, permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
       .single();
 
     if (updateError) {

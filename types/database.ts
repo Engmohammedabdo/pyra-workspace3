@@ -36,6 +36,8 @@ export interface PyraUser {
   avatar_url?: string;
   bio?: string;
   status?: 'active' | 'inactive' | 'suspended';
+  // Additional permissions granted beyond role
+  extra_permissions?: string[];
   // Joined from pyra_roles
   role_name?: string;
   role_name_ar?: string;

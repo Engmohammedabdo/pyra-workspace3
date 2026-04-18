@@ -48,7 +48,7 @@ import { toast } from 'sonner';
 import { formatDate } from '@/lib/utils/format';
 import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils/cn';
-import { getRoleColorClasses } from '@/lib/auth/rbac';
+import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
 
 interface PyraRole {
   name: string;
@@ -77,6 +77,7 @@ interface PyraUser {
   hourly_rate?: number;
   hire_date?: string;
   department?: string;
+  extra_permissions?: string[];
 }
 
 interface RoleOption {
@@ -129,6 +130,8 @@ export default function UsersClient() {
     department: '',
   });
   const [newPassword, setNewPassword] = useState('');
+  const [extraPermissions, setExtraPermissions] = useState<string[]>([]);
+  const [showExtraPermissions, setShowExtraPermissions] = useState(false);
 
   // Debounce search input (350ms)
   useEffect(() => {
@@ -206,6 +209,7 @@ export default function UsersClient() {
       salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
       hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
       hire_date: formData.hire_date || null, department: formData.department || null,
+      extra_permissions: extraPermissions,
     }});
   };
 
@@ -239,6 +243,8 @@ export default function UsersClient() {
       department: user.department || '',
     });
     setEditStatus(user.status || 'active');
+    setExtraPermissions(Array.isArray(user.extra_permissions) ? user.extra_permissions : []);
+    setShowExtraPermissions(false);
     setShowEditDialog(true);
   };
 
@@ -571,6 +577,82 @@ export default function UsersClient() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* Section: Extra Permissions (admin only) */}
+            <div className="space-y-4 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowExtraPermissions(prev => !prev)}
+                className="flex items-center justify-between w-full text-start hover:opacity-80 transition-opacity"
+              >
+                <div>
+                  <h3 className="text-sm font-semibold">صلاحيات إضافية</h3>
+                  <p className="text-xs text-muted-foreground">صلاحيات ممنوحة لهذا المستخدم بالإضافة إلى صلاحيات دوره الأساسي</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {extraPermissions.length > 0 && (
+                    <Badge variant="secondary" className="text-xs">{extraPermissions.length}</Badge>
+                  )}
+                  <span className="text-xs text-muted-foreground">{showExtraPermissions ? 'إخفاء' : 'عرض'}</span>
+                </div>
+              </button>
+              {showExtraPermissions && (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pe-2">
+                  {PERMISSION_MODULES.map(module => {
+                    const modulePermKeys = module.permissions.map(p => p.key);
+                    const allChecked = modulePermKeys.every(p => extraPermissions.includes(p));
+                    return (
+                      <div key={module.key} className="border border-border/40 rounded-lg p-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium">{module.labelAr}</h4>
+                            <p className="text-xs text-muted-foreground">{module.label}</p>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => {
+                              if (allChecked) {
+                                setExtraPermissions(prev => prev.filter(p => !modulePermKeys.includes(p)));
+                              } else {
+                                setExtraPermissions(prev => Array.from(new Set([...prev, ...modulePermKeys])));
+                              }
+                            }}
+                          >
+                            {allChecked ? 'إلغاء الكل' : 'تحديد الكل'}
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {module.permissions.map(perm => (
+                            <label
+                              key={perm.key}
+                              className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/30 rounded p-1.5 transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={extraPermissions.includes(perm.key)}
+                                onChange={(e) => {
+                                  setExtraPermissions(prev =>
+                                    e.target.checked
+                                      ? Array.from(new Set([...prev, perm.key]))
+                                      : prev.filter(p => p !== perm.key)
+                                  );
+                                }}
+                                className="rounded border-border"
+                              />
+                              <span className="flex-1">{perm.labelAr || perm.label}</span>
+                              <code className="text-[10px] text-muted-foreground">{perm.key}</code>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Section 3: Employment Data */}

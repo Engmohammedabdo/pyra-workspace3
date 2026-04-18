@@ -277,6 +277,29 @@ ROLE_EXTRAS (added on top):
   // Future: call_center, accountant, project_manager, etc.
 ```
 
+### Per-User Extra Permissions
+
+Beyond role permissions, individual users can be granted additional permissions via the `pyra_users.extra_permissions` jsonb column. The final permission set for a user is:
+
+```
+user's final permissions = role permissions ∪ extra_permissions
+```
+
+**When to use:**
+- Grant a single employee access to WhatsApp chat without making them a sales_agent
+- Give an employee admin-level access to one specific module
+- Bypass role assignment for temporary access grants
+
+**How to assign:**
+- Admin opens user edit dialog → "صلاحيات إضافية" section
+- Check any permissions to grant them on top of role defaults
+- Save — permissions take effect immediately
+
+**Implementation:**
+- Merged in `lib/api/auth.ts` at the `rolePermissions` construction
+- No UI changes needed — sidebar/APIs automatically filter based on the merged set
+- Additive only — cannot REMOVE role permissions, only ADD on top
+
 ### Default Roles & What They See
 | Role | Sidebar Groups | Key Pages |
 |------|---------------|-----------|

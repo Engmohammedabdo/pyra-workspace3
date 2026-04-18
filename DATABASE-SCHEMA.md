@@ -646,22 +646,23 @@ Soft-deleted files with 30-day auto-purge. Original file is copied to `.trash/` 
 
 Employee and admin accounts. Passwords hashed with scrypt.
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| **id** | integer | NOT NULL | auto-increment |
-| username | varchar | NOT NULL | UNIQUE |
-| password_hash | varchar | NOT NULL | — |
-| role | varchar | NOT NULL | `'client'` |
-| display_name | varchar | NOT NULL | — |
-| permissions | jsonb | NOT NULL | `'{}'` |
-| salary | numeric(12,2) | YES | — |
-| hourly_rate | numeric(8,2) | YES | — |
-| department | varchar | YES | — |
-| payment_type | varchar | YES | `'monthly_salary'` |
-| employment_type | varchar | YES | `'full_time'` |
-| status | varchar | YES | `'active'` |
-| commission_rate | numeric(5,2) | YES | — |
-| created_at | timestamptz | YES | `now()` |
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| **id** | integer | NOT NULL | auto-increment | — |
+| username | varchar | NOT NULL | UNIQUE | — |
+| password_hash | varchar | NOT NULL | — | — |
+| role | varchar | NOT NULL | `'client'` | — |
+| display_name | varchar | NOT NULL | — | — |
+| permissions | jsonb | NOT NULL | `'{}'` | Per-file / per-path access rules (see structure below) |
+| extra_permissions | jsonb   | NOT NULL | '[]'     | Array of permission strings granted to this specific user IN ADDITION to their role permissions (e.g., ["sales_whatsapp.view"]) |
+| salary | numeric(12,2) | YES | — | — |
+| hourly_rate | numeric(8,2) | YES | — | — |
+| department | varchar | YES | — | — |
+| payment_type | varchar | YES | `'monthly_salary'` | — |
+| employment_type | varchar | YES | `'full_time'` | — |
+| status | varchar | YES | `'active'` | — |
+| commission_rate | numeric(5,2) | YES | — | — |
+| created_at | timestamptz | YES | `now()` | — |
 
 **payment_type values**: `monthly_salary`, `hourly`, `per_task`, `commission`
 **employment_type values**: `full_time`, `part_time`, `contractor`, `freelancer`
