@@ -67,22 +67,33 @@ export default function LeadDetailPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const fetchLead = useCallback(async () => {
-    try {
-      const [l, s, a, f, q] = await Promise.all([
-        fetchAPI<any>(`/api/dashboard/sales/leads/${id}`),
-        fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
-        fetchAPI<any>(`/api/dashboard/sales/leads/${id}/activities`),
-        fetchAPI<any>(`/api/dashboard/sales/follow-ups?lead_id=${id}`),
-        fetchAPI<any>(`/api/dashboard/sales/leads/${id}/quotes`),
-      ]);
-      const lead = (l as any).data ?? l;
-      if (!lead) { toast.error('العميل غير موجود'); router.push('/dashboard/sales/leads'); return; }
-      setLead(lead);
-      setStages((s as any).data ?? s ?? []);
-      setActivities((a as any).data ?? a ?? []);
-      setFollowUps((f as any).data ?? f ?? []);
-      setLinkedQuotes((q as any).data ?? q ?? []);
-    } catch { toast.error('فشل تحميل البيانات'); } finally { setLoading(false); }
+    // Use allSettled so a partial failure (e.g. one sub-resource the user
+    // lacks permission for) doesn't kill the whole page. The lead itself is
+    // the only essential fetch; everything else degrades gracefully.
+    const results = await Promise.allSettled([
+      fetchAPI<any>(`/api/dashboard/sales/leads/${id}`),
+      fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
+      fetchAPI<any>(`/api/dashboard/sales/leads/${id}/activities`),
+      fetchAPI<any>(`/api/dashboard/sales/follow-ups?lead_id=${id}`),
+      fetchAPI<any>(`/api/dashboard/sales/leads/${id}/quotes`),
+    ]);
+    const [lRes, sRes, aRes, fRes, qRes] = results;
+    const pick = <T,>(r: PromiseSettledResult<any>, fallback: T): T =>
+      r.status === 'fulfilled' ? (((r.value as any)?.data ?? r.value) as T) : fallback;
+
+    if (lRes.status !== 'fulfilled') {
+      toast.error('فشل تحميل العميل');
+      setLoading(false);
+      return;
+    }
+    const lead = pick<any>(lRes, null);
+    if (!lead) { toast.error('العميل غير موجود'); router.push('/dashboard/sales/leads'); return; }
+    setLead(lead);
+    setStages(pick<Stage[]>(sRes, []));
+    setActivities(pick<Activity[]>(aRes, []));
+    setFollowUps(pick<FollowUp[]>(fRes, []));
+    setLinkedQuotes(pick<LinkedQuote[]>(qRes, []));
+    setLoading(false);
   }, [id, router]);
 
   useEffect(() => { fetchLead(); }, [fetchLead]);
