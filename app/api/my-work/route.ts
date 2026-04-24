@@ -82,15 +82,15 @@ interface ConversationItem {
 }
 interface LeadItem {
   id: string;
-  full_name: string;
-  status: string;
+  name: string;
+  stage_id: string | null;
   last_contact_at: string | null;
   phone: string | null;
 }
 interface FollowUpItem {
   id: string;
   title: string;
-  scheduled_for: string;
+  due_at: string;
   lead_id: string | null;
   lead_name: string | null;
 }
@@ -241,38 +241,47 @@ export async function GET() {
 
     const conversations = (convData || []) as ConversationItem[];
 
-    // ─── LEADS — assigned to me, not closed, no recent contact ─
+    // ─── LEADS — assigned to me, not converted ──────────────────
+    // Schema note: pyra_sales_leads has `name` (not full_name), and lifecycle
+    // is tracked via `is_converted` + `stage_id` (no `status` column).
     const { data: leadsData } = await supabase
       .from('pyra_sales_leads')
-      .select('id, full_name, status, last_contact_at, phone')
+      .select('id, name, stage_id, last_contact_at, phone')
       .eq('assigned_to', username)
-      .not('status', 'in', '(won,lost,unqualified)')
+      .eq('is_converted', false)
       .order('last_contact_at', { ascending: true, nullsFirst: true })
       .limit(10);
 
-    const leads = (leadsData || []) as LeadItem[];
+    const leads: LeadItem[] = (leadsData || []).map((l) => ({
+      id: l.id,
+      name: l.name,
+      stage_id: l.stage_id || null,
+      last_contact_at: l.last_contact_at || null,
+      phone: l.phone || null,
+    }));
 
     // ─── FOLLOW-UPS — due today or overdue ─────────────────────
+    // Schema note: pyra_sales_follow_ups column is `due_at` (not scheduled_for).
     const { data: followUpsData } = await supabase
       .from('pyra_sales_follow_ups')
-      .select('id, title, scheduled_for, lead_id, status')
+      .select('id, title, due_at, lead_id, status')
       .eq('assigned_to', username)
       .eq('status', 'pending')
-      .lte('scheduled_for', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString())
-      .order('scheduled_for', { ascending: true })
+      .lte('due_at', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString())
+      .order('due_at', { ascending: true })
       .limit(10);
 
     const followUpLeadIds = Array.from(
       new Set((followUpsData || []).map((f) => f.lead_id).filter(Boolean))
     ) as string[];
     const { data: followUpLeads } = followUpLeadIds.length
-      ? await supabase.from('pyra_sales_leads').select('id, full_name').in('id', followUpLeadIds)
+      ? await supabase.from('pyra_sales_leads').select('id, name').in('id', followUpLeadIds)
       : { data: [] };
-    const leadMap = new Map((followUpLeads || []).map((l) => [l.id, l.full_name]));
+    const leadMap = new Map((followUpLeads || []).map((l) => [l.id, l.name]));
     const follow_ups: FollowUpItem[] = (followUpsData || []).map((f) => ({
       id: f.id,
       title: f.title,
-      scheduled_for: f.scheduled_for,
+      due_at: f.due_at,
       lead_id: f.lead_id || null,
       lead_name: f.lead_id ? leadMap.get(f.lead_id) || null : null,
     }));

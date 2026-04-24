@@ -320,9 +320,9 @@ export function MyWorkInbox() {
                 key={l.id}
                 icon={Users}
                 iconClass="bg-gradient-to-br from-indigo-500 to-blue-600"
-                href={`/dashboard/sales/leads?lead=${l.id}`}
-                title={l.full_name}
-                subtitle={l.phone || l.status}
+                href={`/dashboard/sales/leads/${l.id}`}
+                title={l.name}
+                subtitle={l.phone || ''}
                 meta={
                   l.last_contact_at
                     ? `آخر تواصل ${formatRelativeDate(l.last_contact_at)}`
@@ -358,7 +358,7 @@ export function MyWorkInbox() {
                 }
                 title={f.title}
                 subtitle={f.lead_name || ''}
-                meta={formatRelativeDate(f.scheduled_for)}
+                meta={formatRelativeDate(f.due_at)}
                 urgent
               />
             ))}

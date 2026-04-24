@@ -51,8 +51,8 @@ export interface MyWorkConversationItem {
 
 export interface MyWorkLeadItem {
   id: string;
-  full_name: string;
-  status: string;
+  name: string;
+  stage_id: string | null;
   last_contact_at: string | null;
   phone: string | null;
 }
@@ -60,7 +60,7 @@ export interface MyWorkLeadItem {
 export interface MyWorkFollowUpItem {
   id: string;
   title: string;
-  scheduled_for: string;
+  due_at: string;
   lead_id: string | null;
   lead_name: string | null;
 }

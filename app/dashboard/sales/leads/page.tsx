@@ -34,18 +34,26 @@ export default function LeadsPage() {
       if (search) params.set('search', search);
       if (filterPriority !== 'all') params.set('priority', filterPriority);
       if (filterSource !== 'all') params.set('source', filterSource);
-      if (view === 'table') {
-        params.set('page', String(page));
-        params.set('limit', '50');
-      }
-      const [leadsData, stagesData] = await Promise.all([
-        fetchAPI<any>(`/api/dashboard/sales/leads?${params}`),
-        fetchAPI<any>('/api/dashboard/sales/pipeline-stages'),
+      // Always request flat leads (table mode). LeadKanban groups client-side
+      // by stage_id, so the kanban-shape API response is never needed here.
+      // We keep pagination only for table view; kanban shows up to limit.
+      params.set('page', String(view === 'table' ? page : 1));
+      params.set('limit', view === 'table' ? '50' : '500');
+      // Use raw fetch — fetchAPI() unwraps `.data` and drops `.meta`, which
+      // silently broke this page (UI showed "no leads" while DB had rows).
+      const [leadsRes, stagesRes] = await Promise.all([
+        fetch(`/api/dashboard/sales/leads?${params}`),
+        fetch('/api/dashboard/sales/pipeline-stages'),
       ]);
-      setLeads((leadsData as any).data || []);
-      setStages((stagesData as any).data || []);
-      setTotalPages((leadsData as any).meta?.totalPages || 1);
-      setTotal((leadsData as any).meta?.total || ((leadsData as any).data?.length || 0));
+      if (!leadsRes.ok || !stagesRes.ok) throw new Error('fetch failed');
+      const leadsJson = await leadsRes.json();
+      const stagesJson = await stagesRes.json();
+      const leadsArr = Array.isArray(leadsJson?.data) ? leadsJson.data : [];
+      const stagesArr = Array.isArray(stagesJson?.data) ? stagesJson.data : [];
+      setLeads(leadsArr);
+      setStages(stagesArr);
+      setTotalPages(leadsJson?.meta?.totalPages || 1);
+      setTotal(leadsJson?.meta?.total ?? leadsArr.length);
     } catch {
       toast.error('فشل تحميل البيانات');
     } finally {
