@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import type { PyraUser } from '@/types/database';
-import { hasPermission, getDefaultPermissionsForLegacyRole } from '@/lib/auth/rbac';
+import { hasPermission, buildUserPermissions } from '@/lib/auth/rbac';
 import { NextResponse } from 'next/server';
 
 export interface ApiAuthResult {
@@ -32,15 +32,13 @@ export async function getApiAuth(): Promise<ApiAuthResult | null> {
     }
 
     const role = pyraUser.pyra_roles;
-    const basePermissions: string[] = role?.permissions
-      ?? getDefaultPermissionsForLegacyRole(pyraUser.role);
-
-    // Merge with user's extra permissions (deduplicated)
-    const extraPermissions: string[] = Array.isArray(pyraUser.extra_permissions)
-      ? pyraUser.extra_permissions
-      : [];
-
-    const rolePermissions: string[] = Array.from(new Set([...basePermissions, ...extraPermissions]));
+    // Build final permissions via central helper — guarantees BASE_EMPLOYEE
+    // inheritance for every internal user, regardless of DB role assignment.
+    const rolePermissions = buildUserPermissions(
+      pyraUser.role,
+      role?.permissions,
+      pyraUser.extra_permissions
+    );
 
     return {
       userId: user.id,

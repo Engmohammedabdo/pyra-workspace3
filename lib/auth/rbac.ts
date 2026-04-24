@@ -661,6 +661,49 @@ export function getDefaultPermissionsForLegacyRole(role: string): string[] {
   return [...BASE_EMPLOYEE, ...extras];
 }
 
+/**
+ * Build the FINAL permissions list for a user — single source of truth.
+ *
+ * Merges (deduplicated):
+ *   1. BASE_EMPLOYEE — HR self-service every internal user must have
+ *      (dashboard, notifications, leave, attendance, payroll, ...)
+ *   2. Role permissions — from DB pyra_roles.permissions if present,
+ *      otherwise from ROLE_EXTRAS legacy mapping
+ *   3. extra_permissions — per-user grants from pyra_users.extra_permissions
+ *
+ * Special cases (skip merging):
+ *   - legacyRole === 'admin' OR DB role contains '*' → wildcard ['*']
+ *   - legacyRole === 'client' → minimal portal access
+ *
+ * This function is the ONE place where the final permission set is built.
+ * Both lib/api/auth.ts and lib/auth/guards.ts must route through here so
+ * the same rules apply to API requests and page renders alike.
+ *
+ * Why this exists: previously each call site did
+ *   `dbRolePermissions ?? legacyMapping`
+ * which meant any user with a DB role_id silently lost their BASE_EMPLOYEE
+ * permissions (no leave, no attendance, no timesheet, etc.).
+ */
+export function buildUserPermissions(
+  legacyRole: string,
+  dbRolePermissions: string[] | null | undefined,
+  extraPermissions: string[] | null | undefined
+): string[] {
+  // Wildcard cases — bypass merging entirely
+  if (legacyRole === 'admin' || dbRolePermissions?.includes('*')) {
+    return ['*'];
+  }
+  if (legacyRole === 'client') {
+    return ['dashboard.view', 'notifications.view'];
+  }
+
+  // Internal user — always inherit BASE_EMPLOYEE
+  const rolePerms = dbRolePermissions ?? ROLE_EXTRAS[legacyRole] ?? [];
+  const extras = Array.isArray(extraPermissions) ? extraPermissions : [];
+
+  return Array.from(new Set([...BASE_EMPLOYEE, ...rolePerms, ...extras]));
+}
+
 // ============================================================
 // Role Color Utilities
 // ============================================================

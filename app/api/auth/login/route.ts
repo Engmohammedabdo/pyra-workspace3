@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
 import { escapePostgrestValue } from '@/lib/utils/path';
-import { hasPermission } from '@/lib/auth/rbac';
+import { hasPermission, buildUserPermissions } from '@/lib/auth/rbac';
 
 /** Record login attempt (fire-and-forget, never blocks the response) */
 function recordLoginAttempt(
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const username = data.user.user_metadata?.username || data.user.email;
     const { data: pyraUser, error: pyraErr } = await supabase
       .from('pyra_users')
-      .select('role, role_id, username, display_name, pyra_roles!left(name, name_ar, permissions, color, icon)')
+      .select('role, role_id, username, display_name, extra_permissions, pyra_roles!left(name, name_ar, permissions, color, icon)')
       .or(`username.eq.${escapePostgrestValue(username)},email.eq.${escapePostgrestValue(email)}`)
       .limit(1)
       .maybeSingle();
@@ -78,7 +78,14 @@ export async function POST(request: NextRequest) {
     // Check role permissions - user must have dashboard.view permission
     const roleData = pyraUser.pyra_roles as unknown;
     const role = (Array.isArray(roleData) ? roleData[0] : roleData) as { name: string; name_ar: string; permissions: string[]; color: string; icon: string } | null;
-    const rolePermissions: string[] = role?.permissions ?? [];
+    // Build final permissions via central helper — same source of truth as
+    // requireApiPermission/requirePermission. Guarantees BASE_EMPLOYEE
+    // inheritance, so users with custom DB roles still get dashboard.view.
+    const rolePermissions = buildUserPermissions(
+      pyraUser.role,
+      role?.permissions,
+      pyraUser.extra_permissions
+    );
 
     // If no role assigned and legacy role is not admin/employee, deny access
     if (!pyraUser.role_id && !['admin', 'employee'].includes(pyraUser.role)) {
