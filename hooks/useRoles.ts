@@ -44,7 +44,7 @@ export function useCreateRole() {
 export function useUpdateRole() {
   const queryClient = useQueryClient();
   return useMutation<Role, Error, { id: string; data: Partial<Role> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/roles/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/roles/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['roles'] });
       queryClient.invalidateQueries({ queryKey: ['roles', id] });

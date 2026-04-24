@@ -47,7 +47,7 @@ export function useCreateContract() {
 export function useUpdateContract() {
   const queryClient = useQueryClient();
   return useMutation<Contract, Error, { id: string; data: Partial<Contract> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/contracts/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/contracts/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
       queryClient.invalidateQueries({ queryKey: ['contracts', id] });

@@ -46,7 +46,7 @@ export function useCreateSupplier() {
 export function useUpdateSupplier() {
   const queryClient = useQueryClient();
   return useMutation<Supplier, Error, { id: string; data: Partial<Supplier> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/suppliers/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/suppliers/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       queryClient.invalidateQueries({ queryKey: ['suppliers', id] });

@@ -48,7 +48,7 @@ export function useCreateSubscription() {
 export function useUpdateSubscription() {
   const queryClient = useQueryClient();
   return useMutation<Subscription, Error, { id: string; data: Partial<Subscription> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/subscriptions/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/subscriptions/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['subscriptions'] });
       queryClient.invalidateQueries({ queryKey: ['subscriptions', id] });

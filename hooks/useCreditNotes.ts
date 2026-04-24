@@ -46,7 +46,7 @@ export function useCreateCreditNote() {
 export function useUpdateCreditNote() {
   const queryClient = useQueryClient();
   return useMutation<CreditNote, Error, { id: string; data: Partial<CreditNote> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/credit-notes/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/credit-notes/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['credit-notes'] });
       queryClient.invalidateQueries({ queryKey: ['credit-notes', id] });

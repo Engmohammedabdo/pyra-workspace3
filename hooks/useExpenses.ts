@@ -57,7 +57,7 @@ export function useCreateExpense() {
 export function useUpdateExpense() {
   const queryClient = useQueryClient();
   return useMutation<Expense, Error, { id: string; data: Partial<Expense> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/expenses/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/expenses/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
       queryClient.invalidateQueries({ queryKey: ['expenses', id] });

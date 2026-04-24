@@ -46,7 +46,7 @@ export function useCreateRecurringInvoice() {
 export function useUpdateRecurringInvoice() {
   const queryClient = useQueryClient();
   return useMutation<RecurringInvoice, Error, { id: string; data: Partial<RecurringInvoice> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/recurring-invoices/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/finance/recurring-invoices/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
       queryClient.invalidateQueries({ queryKey: ['recurring-invoices', id] });

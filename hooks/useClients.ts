@@ -84,7 +84,7 @@ export function useCreateClient() {
 export function useUpdateClient() {
   const queryClient = useQueryClient();
   return useMutation<Client, Error, { id: string; data: Partial<Client> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/clients/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/clients/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['clients'] });
       queryClient.invalidateQueries({ queryKey: ['clients', id] });

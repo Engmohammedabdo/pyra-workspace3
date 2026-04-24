@@ -46,7 +46,7 @@ export function useCreateKnowledgeBaseArticle() {
 export function useUpdateKnowledgeBaseArticle() {
   const queryClient = useQueryClient();
   return useMutation<KnowledgeBaseArticle, Error, { id: string; data: Partial<KnowledgeBaseArticle> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/kb/articles/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/kb/articles/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['knowledge-base'] });
       queryClient.invalidateQueries({ queryKey: ['knowledge-base', id] });

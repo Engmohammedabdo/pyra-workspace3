@@ -45,7 +45,7 @@ export function useCreateBoard() {
 export function useUpdateBoard() {
   const queryClient = useQueryClient();
   return useMutation<Board, Error, { id: string; data: Partial<Board> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/boards/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/boards/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['boards'] });
       queryClient.invalidateQueries({ queryKey: ['boards', id] });

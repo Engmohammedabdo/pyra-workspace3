@@ -47,7 +47,7 @@ export function useCreateEvaluation() {
 export function useUpdateEvaluation() {
   const queryClient = useQueryClient();
   return useMutation<Evaluation, Error, { id: string; data: Partial<Evaluation> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/evaluations/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/evaluations/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['evaluations'] });
       queryClient.invalidateQueries({ queryKey: ['evaluations', id] });

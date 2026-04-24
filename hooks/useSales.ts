@@ -49,7 +49,7 @@ export function useCreateSalesLead() {
 export function useUpdateSalesLead() {
   const queryClient = useQueryClient();
   return useMutation<SalesLead, Error, { id: string; data: Partial<SalesLead> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/sales/leads/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/sales/leads/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['sales-leads'] });
       queryClient.invalidateQueries({ queryKey: ['sales-leads', id] });

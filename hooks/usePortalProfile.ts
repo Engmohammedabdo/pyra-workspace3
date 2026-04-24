@@ -22,7 +22,7 @@ export function usePortalProfile() {
 export function useUpdatePortalProfile() {
   const queryClient = useQueryClient();
   return useMutation<ClientProfile, Error, Partial<ClientProfile>>({
-    mutationFn: (data) => mutateAPI('/api/portal/profile', 'PUT', data),
+    mutationFn: (data) => mutateAPI('/api/portal/profile', 'PATCH', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portal', 'profile'] });
     },

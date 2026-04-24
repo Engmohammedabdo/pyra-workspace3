@@ -82,7 +82,7 @@ export function useUpdateQuote() {
   const queryClient = useQueryClient();
   return useMutation<Quote, Error, { id: string; data: Partial<Quote> }>({
     mutationFn: ({ id, data }) =>
-      mutateAPI(`/api/dashboard/quotes/${id}`, 'PUT', data),
+      mutateAPI(`/api/quotes/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['quotes'] });
       queryClient.invalidateQueries({ queryKey: ['quotes', id] });

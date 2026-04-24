@@ -46,7 +46,7 @@ export function useCreatePurchaseOrder() {
 export function useUpdatePurchaseOrder() {
   const queryClient = useQueryClient();
   return useMutation<PurchaseOrder, Error, { id: string; data: Partial<PurchaseOrder> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/purchase-orders/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/dashboard/purchase-orders/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
       queryClient.invalidateQueries({ queryKey: ['purchase-orders', id] });

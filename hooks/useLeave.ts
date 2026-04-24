@@ -47,7 +47,7 @@ export function useCreateLeaveRequest() {
 export function useUpdateLeaveRequest() {
   const queryClient = useQueryClient();
   return useMutation<LeaveRequest, Error, { id: string; data: Partial<LeaveRequest> }>({
-    mutationFn: ({ id, data }) => mutateAPI(`/api/leave/${id}`, 'PUT', data),
+    mutationFn: ({ id, data }) => mutateAPI(`/api/leave/${id}`, 'PATCH', data),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ['leave'] });
       queryClient.invalidateQueries({ queryKey: ['leave', id] });
