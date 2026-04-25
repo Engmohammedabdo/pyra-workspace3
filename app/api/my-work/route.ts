@@ -2,6 +2,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getDirectReports } from '@/lib/auth/team-scope';
+import { hasPermission } from '@/lib/auth/rbac';
 
 // =============================================================
 // GET /api/my-work
@@ -153,18 +154,22 @@ export async function GET() {
     );
 
     // ─── APPROVALS — for direct reports (admin sees all) ───────
+    // Defense in depth: require leave.approve permission EVEN IF the user
+    // happens to be set as someone's manager. Without this, a sales_agent
+    // accidentally set as manager_username would see HR data.
+    const canSeeApprovals =
+      isAdmin || hasPermission(auth.pyraUser.rolePermissions, 'leave.approve');
+
     let approvalScope: string[] = [];
-    if (isAdmin) {
-      approvalScope = []; // admin: no scope filter (all)
-    } else {
-      approvalScope = await getDirectReports(serviceClient, username);
+    if (canSeeApprovals) {
+      approvalScope = isAdmin ? [] : await getDirectReports(serviceClient, username);
     }
 
     let leaveItems: LeaveItem[] = [];
     let expenseItems: ExpenseItem[] = [];
     let timesheetItems: TimesheetItem[] = [];
 
-    if (isAdmin || approvalScope.length > 0) {
+    if (canSeeApprovals && (isAdmin || approvalScope.length > 0)) {
       let leaveQuery = serviceClient
         .from('pyra_leave_requests')
         .select('id, username, type, start_date, end_date, days_count')

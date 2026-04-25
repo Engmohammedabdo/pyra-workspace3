@@ -21,11 +21,14 @@ export async function GET(req: NextRequest) {
     .select('*, pyra_projects!left(id, name)')
     .order('date', { ascending: false });
 
-  // Users with manage or approve permissions can see all; otherwise only own entries
+  // Only approvers/admins see other users' entries.
+  // `timesheet.approve` = manager who reviews submitted timesheets.
+  // `timesheet.manage` = admin-level (NOT in BASE_EMPLOYEE — would leak data).
+  // Self-service `timesheet.view` only shows own entries via the else branch.
   const perms = auth.pyraUser.rolePermissions;
   const canManage =
-    hasPermission(perms, 'timesheet.manage') ||
     hasPermission(perms, 'timesheet.approve') ||
+    hasPermission(perms, 'timesheet.manage') ||
     hasPermission(perms, '*') ||
     auth.pyraUser.role === 'admin';
 

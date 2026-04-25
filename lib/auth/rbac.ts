@@ -603,22 +603,38 @@ export function isSuperAdmin(userPermissions: string[]): boolean {
 // BASE_EMPLOYEE and ALL roles get it automatically.
 // ============================================================
 
-/** Permissions every internal user gets (HR self-service) */
+/**
+ * Permissions every internal user gets (HR self-service ONLY).
+ *
+ * Naming convention used across the codebase:
+ *   `*.view`     → read OWN data (self-service)
+ *   `*.create`   → create OWN records
+ *   `*.approve`  → approve OTHERS' records (manager/HR action — NEVER in BASE)
+ *   `*.manage`   → admin-level CRUD on ANY record (NEVER in BASE)
+ *
+ * Why: list endpoints (e.g. /api/leave GET) treat anyone with `*.manage` as
+ * a global manager and skip the `username = self` scope filter. Putting
+ * `leave.manage` in BASE_EMPLOYEE leaked every employee's leave records to
+ * every other employee. Same pattern for attendance and timesheet.
+ *
+ * If a feature needs employees to edit their OWN records, use ownership
+ * checks (`row.username === auth.pyraUser.username`), not a `*.manage` perm.
+ */
 const BASE_EMPLOYEE: string[] = [
   'dashboard.view',
   'notifications.view',
-  // HR Self-Service — every employee needs these
+  // HR Self-Service — every employee needs these (read-only or own-record)
   'directory.view',
-  'timesheet.view',
-  'timesheet.manage',
   'announcements.view',
-  'leave.view',
-  'leave.manage',
-  'attendance.view',
-  'attendance.manage',
-  'payroll.view',       // كشف حسابي (my-payslips)
-  'evaluations.view',
-  'overtime.view',
+  'timesheet.view',     // see own timesheet
+  'timesheet.create',   // log own hours
+  'leave.view',         // see own leave + balance
+  'leave.create',       // submit own leave request
+  'attendance.view',    // see own attendance
+  'attendance.create',  // check in / check out
+  'payroll.view',       // see own payslips (my-payslips)
+  'evaluations.view',   // see own evaluations
+  'overtime.view',      // see own overtime
 ];
 
 /** Role-specific permissions added ON TOP of BASE_EMPLOYEE */

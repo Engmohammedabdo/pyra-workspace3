@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { canApproveFor } from '@/lib/auth/team-scope';
 import { generateId } from '@/lib/utils/id';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,27 +47,33 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
       updates.status = 'submitted';
       updates.submitted_at = new Date().toISOString();
-    } else if (action === 'approve') {
+    } else if (action === 'approve' || action === 'reject') {
       if (!canApprove) {
         return apiError('ليس لديك صلاحية الاعتماد', 403);
       }
       if (period.status !== 'submitted') {
-        return apiError('لا يمكن اعتماد فترة لم يتم إرسالها', 400);
+        return apiError(
+          action === 'approve' ? 'لا يمكن اعتماد فترة لم يتم إرسالها' : 'لا يمكن رفض فترة لم يتم إرسالها',
+          400,
+        );
       }
-      updates.status = 'approved';
+      // Manager-scope guard — permission alone gates the action category;
+      // this guard enforces "only your direct reports" (admin overrides).
+      const allowedToApprove = await canApproveFor(
+        serviceClient,
+        auth.pyraUser.username,
+        auth.pyraUser.role,
+        period.username,
+      );
+      if (!allowedToApprove) {
+        return apiError('يمكنك فقط اعتماد جداول الموظفين تحت إدارتك المباشرة', 403);
+      }
+      updates.status = action === 'approve' ? 'approved' : 'rejected';
+      if (action === 'reject') {
+        updates.rejection_note = rejection_note || null;
+      }
       // NOTE: approved_by/approved_at are used for both approvals and rejections
       // A future migration will rename these to reviewed_by/reviewed_at
-      updates.approved_by = auth.pyraUser.username;
-      updates.approved_at = new Date().toISOString();
-    } else if (action === 'reject') {
-      if (!canApprove) {
-        return apiError('ليس لديك صلاحية الرفض', 403);
-      }
-      if (period.status !== 'submitted') {
-        return apiError('لا يمكن رفض فترة لم يتم إرسالها', 400);
-      }
-      updates.status = 'rejected';
-      updates.rejection_note = rejection_note || null;
       updates.approved_by = auth.pyraUser.username;
       updates.approved_at = new Date().toISOString();
     }

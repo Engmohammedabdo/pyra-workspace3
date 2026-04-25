@@ -116,6 +116,26 @@ export async function POST(request: NextRequest) {
     const { name, phone, email, company, source, stage_id, assigned_to, notes, priority } = body;
     if (!name) return apiError('اسم العميل المحتمل مطلوب');
 
+    // Authorization: an agent can only assign a new lead to themselves.
+    // Reassigning to other users requires sales_leads.manage AND that the
+    // target user is a real, active user. Without this, any sales_agent
+    // could dump leads onto any other user (admin or otherwise).
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    if (assigned_to && assigned_to !== auth.pyraUser.username) {
+      if (!isAdmin) {
+        return apiError('يمكنك فقط إنشاء عملاء معينين لك (للتعيين لشخص آخر استخدم خاصية النقل)', 403);
+      }
+      // Admin can assign to anyone — verify the target exists and is active
+      const { data: targetUser } = await supabase
+        .from('pyra_users')
+        .select('username, status')
+        .eq('username', assigned_to)
+        .maybeSingle();
+      if (!targetUser || targetUser.status !== 'active') {
+        return apiError('المستخدم المحدد للتعيين غير موجود أو غير نشط', 422);
+      }
+    }
+
     // If no stage_id, use default stage
     let finalStageId = stage_id;
     if (!finalStageId) {

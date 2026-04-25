@@ -69,7 +69,8 @@ export async function GET(req: NextRequest) {
 // =============================================================
 export async function POST(req: NextRequest) {
   try {
-    const auth = await requireApiPermission('attendance.manage');
+    // Self-service: every employee can clock in for themselves.
+    const auth = await requireApiPermission('attendance.create');
     if (isApiError(auth)) return auth;
 
     const body = await req.json().catch(() => ({}));

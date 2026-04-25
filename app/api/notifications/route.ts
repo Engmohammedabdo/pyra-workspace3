@@ -61,7 +61,16 @@ export async function GET(request: NextRequest) {
 
 // =============================================================
 // POST /api/notifications
-// Create a notification (admin only)
+// Create a notification.
+//
+// Authorization: only admins may create cross-user notifications via this
+// endpoint. Internal flows (task assignment, leave submission, etc.) use
+// the `notify()` helper directly with the service-role client and do NOT
+// hit this route. Self-addressed notifications (recipient_username === self)
+// are also allowed — useful for personal reminders.
+//
+// Previously this required only `notifications.view` (in BASE_EMPLOYEE),
+// which let any employee forge notifications to any user including admins.
 // =============================================================
 export async function POST(request: NextRequest) {
   try {
@@ -70,6 +79,14 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { recipient_username, type, title, message, target_path } = body;
+
+    // Enforce: cross-user notifications require admin.
+    const isAdmin = auth.pyraUser.role === 'admin' ||
+      (auth.pyraUser.rolePermissions || []).includes('*');
+    const isSelfAddressed = recipient_username === auth.pyraUser.username;
+    if (!isAdmin && !isSelfAddressed) {
+      return apiForbidden('غير مصرح بإرسال إشعارات لمستخدمين آخرين');
+    }
 
     // Validation
     if (!recipient_username?.trim()) {

@@ -18,9 +18,13 @@ export async function GET(req: NextRequest) {
 
   const supabase = await createServerSupabaseClient();
   const perms = auth.pyraUser.rolePermissions;
-  const canManage =
-    hasPermission(perms, 'leave.manage') ||
+  // Only `leave.approve` (manager/HR) or admin can see other users' requests.
+  // `leave.manage` was previously included here — but it's an admin-tier perm
+  // that should NOT be in BASE_EMPLOYEE. Listing it here would re-leak every
+  // employee's leave records to every employee if it ever gets re-added to BASE.
+  const canSeeAll =
     hasPermission(perms, 'leave.approve') ||
+    hasPermission(perms, 'leave.manage') ||
     hasPermission(perms, '*') ||
     auth.pyraUser.role === 'admin';
 
@@ -29,7 +33,7 @@ export async function GET(req: NextRequest) {
     .select('*')
     .order('created_at', { ascending: false });
 
-  if (!canManage) {
+  if (!canSeeAll) {
     // Non-admin employees: only see their own leave requests
     query = query.eq('username', auth.pyraUser.username);
   }

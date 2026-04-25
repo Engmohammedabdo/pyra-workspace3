@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EXPENSE_FIELDS } from '@/lib/supabase/fields';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { canApproveFor } from '@/lib/auth/team-scope';
 
 export async function GET(
   _req: NextRequest,
@@ -75,10 +76,26 @@ export async function PATCH(
 
       const { data: existing } = await supabase
         .from('pyra_expenses')
-        .select('status')
+        .select('status, submitted_by, created_by')
         .eq('id', id)
         .single();
       if (!existing) return apiNotFound();
+
+      // Manager-scope guard — only the submitter's direct manager (or admin)
+      // can approve/reject. The finance.manage permission is necessary but
+      // not sufficient: it gates the action but not the per-employee scope.
+      const submitterUsername = existing.submitted_by || existing.created_by;
+      if (submitterUsername) {
+        const allowedToApprove = await canApproveFor(
+          supabase,
+          auth.pyraUser.username,
+          auth.pyraUser.role,
+          submitterUsername,
+        );
+        if (!allowedToApprove) {
+          return apiForbidden('يمكنك فقط اعتماد مصاريف الموظفين تحت إدارتك المباشرة');
+        }
+      }
 
       const currentStatus = existing.status;
       const newStatus = body.action === 'approve' ? 'approved' : 'rejected';

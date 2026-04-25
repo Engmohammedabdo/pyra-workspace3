@@ -3,6 +3,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { canApproveFor } from '@/lib/auth/team-scope';
 import { generateId } from '@/lib/utils/id';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
 
@@ -19,8 +20,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Handle approval/rejection
   if (body.status === LEAVE_STATUS.APPROVED || body.status === LEAVE_STATUS.REJECTED) {
+    // Two-layer authorization (CRM/ERP standard):
+    //   1. Permission gate — does the role even allow approving leave?
+    //   2. Scope gate    — is the approver this employee's direct manager
+    //                       (or admin override)?
+    // Either alone is insufficient: a custom HR role might have leave.approve
+    // org-wide, but should still only approve THEIR direct reports.
     if (!hasPermission(auth.pyraUser.rolePermissions, 'leave.approve')) {
       return apiError('غير مصرح بالاعتماد', 403);
+    }
+    const allowed = await canApproveFor(
+      supabase,
+      auth.pyraUser.username,
+      auth.pyraUser.role,
+      existing.username,
+    );
+    if (!allowed) {
+      return apiError('يمكنك فقط اعتماد طلبات الموظفين تحت إدارتك المباشرة', 403);
     }
 
     const updates: Record<string, unknown> = {

@@ -1,7 +1,8 @@
-import { getApiAuth } from '@/lib/api/auth';
-import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
+import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { getDirectReports } from '@/lib/auth/team-scope';
+import { hasPermission } from '@/lib/auth/rbac';
 
 // =============================================================
 // GET /api/approvals/team
@@ -51,13 +52,34 @@ export interface TeamApprovalsResponse {
 
 export async function GET() {
   try {
-    const auth = await getApiAuth();
-    if (!auth) return apiUnauthorized();
+    // Entry gate: require leave.view (in BASE_EMPLOYEE — every internal user
+    // has it). This is the standard project-wide pattern (no API uses raw
+    // getApiAuth without a permission). Defense in depth: even after this
+    // gate, only admins or users with explicit leave.approve get data;
+    // everyone else gets is_manager:false with empty arrays.
+    const auth = await requireApiPermission('leave.view');
+    if (isApiError(auth)) return auth;
 
     const serviceClient = createServiceRoleClient();
     const supabase = await createServerSupabaseClient();
     const username = auth.pyraUser.username;
     const isAdmin = auth.pyraUser.role === 'admin';
+
+    // Only admins or users with explicit leave.approve permission get team
+    // approval data — even if they happen to be set as someone's manager.
+    // Misconfigured manager_username (e.g., a sales agent assigned by mistake)
+    // must not leak HR data to roles without an HR mandate.
+    const hasApprovalRights =
+      isAdmin || hasPermission(auth.pyraUser.rolePermissions, 'leave.approve');
+
+    if (!hasApprovalRights) {
+      return apiSuccess<TeamApprovalsResponse>({
+        leave: [],
+        expense: [],
+        timesheet: [],
+        is_manager: false,
+      });
+    }
 
     const reports = isAdmin ? null : await getDirectReports(serviceClient, username);
     const isManager = isAdmin || (reports !== null && reports.length > 0);

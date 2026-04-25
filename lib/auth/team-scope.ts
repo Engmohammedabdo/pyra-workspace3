@@ -67,3 +67,44 @@ export async function isManager(
   if (error) return false;
   return (count ?? 0) > 0;
 }
+
+/**
+ * Authoritative answer to: "Is `approverUsername` allowed to approve/reject
+ * an HR action (leave, expense, timesheet) for `employeeUsername`?"
+ *
+ * Rules (CRM/ERP standard):
+ *   1. Admins (role === 'admin') always pass — global override.
+ *   2. Otherwise, only the employee's direct manager may approve.
+ *      `pyra_users.manager_username` is the source of truth.
+ *
+ * Use at every approval mutation site. Permission strings (e.g.
+ * `leave.approve`, `finance.manage`) by themselves are NOT sufficient — they
+ * gate the action category but not the per-employee scope. Any granted
+ * approval permission combined with this helper enforces "only your team."
+ *
+ * Returns false on any error (fail-closed).
+ */
+export async function canApproveFor(
+  supabase: SupabaseClient,
+  approverUsername: string,
+  approverRole: string,
+  employeeUsername: string
+): Promise<boolean> {
+  if (!approverUsername || !employeeUsername) return false;
+
+  // Admin override — single source of truth for global authority.
+  if (approverRole === 'admin') return true;
+
+  // Self-approval is never allowed (defense in depth — most endpoints already
+  // block this, but a misconfigured cycle in manager_username shouldn't help).
+  if (approverUsername === employeeUsername) return false;
+
+  const { data, error } = await supabase
+    .from('pyra_users')
+    .select('manager_username')
+    .eq('username', employeeUsername)
+    .single();
+
+  if (error || !data) return false;
+  return data.manager_username === approverUsername;
+}
