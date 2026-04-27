@@ -7,11 +7,21 @@ import { isSuperAdmin } from '@/lib/auth/rbac';
 
 /**
  * GET /api/dashboard/sales/whatsapp/messages
- * Fetch messages for a conversation (by conversation_id or remote_jid).
+ * Fetch messages by conversation_id, remote_jid, OR lead_id.
  *
- * Shared Inbox scoping:
- * - Admin: can see any conversation
- * - Agent: must be assigned to the conversation
+ * Shared Inbox scoping (CRM/ERP standard):
+ *   - Admin: any conversation / any lead
+ *   - Agent (by conversation_id / remote_jid): must own the conversation
+ *     (pyra_whatsapp_conversations.assigned_to)
+ *   - Agent (by lead_id): must own the LEAD
+ *     (pyra_sales_leads.assigned_to). Used by /dashboard/sales/leads/[id]
+ *     "Messages" tab — only shows messages tied to this specific lead, not
+ *     a global feed.
+ *
+ * Without ANY identifier the endpoint returns []. (Previously it returned
+ * every message in pyra_whatsapp_messages, which leaked every customer's
+ * conversations to any agent who hit this URL — visible in the lead
+ * detail "messages" tab where lead_id was passed but never honored.)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -23,11 +33,18 @@ export async function GET(request: NextRequest) {
 
     const conversationId = sp.get('conversation_id');
     const remoteJid = sp.get('remote_jid');
+    const leadId = sp.get('lead_id');
     const limit = Math.min(parseInt(sp.get('limit') || '100'), 200);
     const offset = parseInt(sp.get('offset') || '0');
     const search = sp.get('search')?.trim();
 
     const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+
+    // Hard requirement — must scope by SOMETHING. Returning the whole
+    // messages table when callers forget a filter was the leak.
+    if (!conversationId && !remoteJid && !leadId) {
+      return apiSuccess([]);
+    }
 
     // Scoping: verify agent can access this conversation
     if (!isAdmin && conversationId) {
@@ -56,15 +73,32 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Scoping by lead_id: agent must own the lead. The lead-detail Messages
+    // tab calls this; an agent should only see messages tied to leads
+    // they're assigned to.
+    if (!isAdmin && leadId && !conversationId && !remoteJid) {
+      const { data: lead } = await supabase
+        .from('pyra_sales_leads')
+        .select('assigned_to')
+        .eq('id', leadId)
+        .maybeSingle();
+      if (!lead || lead.assigned_to !== auth.pyraUser.username) {
+        return apiSuccess([]);
+      }
+    }
+
     let query = supabase
       .from('pyra_whatsapp_messages')
       .select(WA_MESSAGE_FIELDS)
       .order('timestamp', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    // Filter by conversation_id (preferred) or remote_jid (legacy)
+    // Filter by conversation_id (most specific), then lead_id, then remote_jid.
+    // At least one is guaranteed present (early return above).
     if (conversationId) {
       query = query.eq('conversation_id', conversationId);
+    } else if (leadId) {
+      query = query.eq('lead_id', leadId);
     } else if (remoteJid) {
       query = query.eq('remote_jid', remoteJid);
     }

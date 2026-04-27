@@ -4,6 +4,8 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { evolutionClient } from '@/lib/evolution/client';
 import { logActivity } from '@/lib/api/activity';
+import { isSuperAdmin } from '@/lib/auth/rbac';
+import { canAccessWhatsAppMessage } from '@/lib/auth/whatsapp-scope';
 
 /**
  * POST /api/dashboard/sales/whatsapp/messages/[id]/react
@@ -28,6 +30,17 @@ export async function POST(
     if (typeof reaction !== 'string') {
       return apiError('حقل reaction مطلوب');
     }
+
+    // Scope guard: agent must own the conversation that holds this message.
+    // Previously any agent could react to any customer's messages.
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    const allowed = await canAccessWhatsAppMessage(
+      supabase,
+      auth.pyraUser.username,
+      isAdmin,
+      id,
+    );
+    if (!allowed) return apiError('الرسالة غير موجودة', 404);
 
     // Fetch message to get message_id, remote_jid, and sender_jid (for groups)
     const { data: msg, error: msgErr } = await supabase

@@ -4,6 +4,8 @@ import { apiSuccess, apiServerError, apiNotFound, apiValidationError } from '@/l
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 import { evolutionClient } from '@/lib/evolution/client';
+import { isSuperAdmin } from '@/lib/auth/rbac';
+import { canAccessWhatsAppMessage } from '@/lib/auth/whatsapp-scope';
 
 /**
  * POST /api/dashboard/sales/whatsapp/messages/[id]/forward
@@ -27,6 +29,18 @@ export async function POST(
     }
 
     const supabase = createServiceRoleClient();
+
+    // Scope guard: agent must own the conversation that holds this message.
+    // Without this any agent could forward any customer's WhatsApp messages
+    // to any phone number by guessing message IDs.
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    const allowed = await canAccessWhatsAppMessage(
+      supabase,
+      auth.pyraUser.username,
+      isAdmin,
+      messageId,
+    );
+    if (!allowed) return apiNotFound('الرسالة غير موجودة');
 
     // Fetch the message to get message_id and instance_name
     const { data: msg, error: msgErr } = await supabase

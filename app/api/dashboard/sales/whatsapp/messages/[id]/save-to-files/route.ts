@@ -5,6 +5,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
 import { evolutionClient } from '@/lib/evolution/client';
+import { isSuperAdmin } from '@/lib/auth/rbac';
+import { canAccessWhatsAppMessage } from '@/lib/auth/whatsapp-scope';
 
 /**
  * POST /api/dashboard/sales/whatsapp/messages/[id]/save-to-files
@@ -20,6 +22,18 @@ export async function POST(
 
     const { id: messageId } = await params;
     const supabase = createServiceRoleClient();
+
+    // Scope guard: agent must own the conversation that holds this message.
+    // Without this any agent could save any customer's media to their own
+    // file index by guessing message IDs.
+    const isAdmin = isSuperAdmin(auth.pyraUser.rolePermissions);
+    const allowed = await canAccessWhatsAppMessage(
+      supabase,
+      auth.pyraUser.username,
+      isAdmin,
+      messageId,
+    );
+    if (!allowed) return apiNotFound('الرسالة غير موجودة');
 
     // Fetch the message
     const { data: msg, error: msgErr } = await supabase
