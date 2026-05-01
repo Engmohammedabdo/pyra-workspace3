@@ -26,17 +26,32 @@ export async function POST(req: NextRequest, context: RouteContext) {
     // 1. Fetch contract
     const { data: contract, error: cErr } = await supabase
       .from('pyra_contracts')
-      .select('id, title, client_id, currency, vat_rate, total_value, amount_billed, retainer_amount, retainer_cycle, billing_structure, status')
+      .select('id, title, client_id, contract_type, currency, vat_rate, total_value, amount_billed, retainer_amount, retainer_cycle, billing_structure, status')
       .eq('id', id)
       .maybeSingle();
 
     if (cErr || !contract) return apiNotFound('العقد غير موجود');
     if (contract.status !== CONTRACT_STATUS.ACTIVE) return apiError('العقد غير نشط', 400);
 
-    // 2. Determine invoice amount
+    // 2. Determine invoice amount.
+    //
+    // Priority (canonical retainer fields ALWAYS win for retainer contracts):
+    //   1. body.amount        — explicit override from caller
+    //   2. retainer_amount    — current contract setting (single source of truth)
+    //   3. billing_structure.amount_per_period — legacy/migration field, fallback only
+    //
+    // Why this order matters: changing the retainer_cycle from quarterly to
+    // monthly updates retainer_amount but does NOT clear the legacy
+    // billing_structure JSONB. Reading billing_structure first would emit
+    // invoices at the OLD quarterly amount even though the user dropped to
+    // monthly — exactly the bug reported on the Etmam SMM contract
+    // (was generating 39000 quarterly instead of 13000 monthly).
+    const isRetainer = contract.contract_type === 'retainer';
     const amount = body.amount
       ? Number(body.amount)
-      : (contract.billing_structure?.amount_per_period || contract.retainer_amount || 0);
+      : isRetainer
+        ? (contract.retainer_amount || contract.billing_structure?.amount_per_period || 0)
+        : (contract.billing_structure?.amount_per_period || contract.retainer_amount || 0);
 
     if (!amount || amount <= 0) return apiError('المبلغ غير صالح', 400);
 
@@ -92,8 +107,13 @@ export async function POST(req: NextRequest, context: RouteContext) {
     const invoiceId = generateId('inv');
     const invoiceNumber = await generateNextInvoiceNumber(supabase);
 
-    // 7. Period label
-    const periodLabel = body.period_label || contract.billing_structure?.type || contract.retainer_cycle || '';
+    // 7. Period label — same priority logic as amount: retainer_cycle is
+    // the source of truth for retainer contracts; billing_structure.type
+    // is legacy fallback only.
+    const periodLabel = body.period_label
+      || (isRetainer
+        ? (contract.retainer_cycle || contract.billing_structure?.type || '')
+        : (contract.billing_structure?.type || contract.retainer_cycle || ''));
     const description = body.description || `${contract.title} — ${periodLabel}`;
 
     // 8. Items

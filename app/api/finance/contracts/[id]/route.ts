@@ -124,6 +124,20 @@ export async function PATCH(
     }
     update.updated_at = new Date().toISOString();
 
+    // Defense in depth: when retainer settings change, drop any stale
+    // billing_structure JSONB so legacy fallback paths can't surface old
+    // amounts (e.g. quarterly→monthly switch on a contract that was once
+    // quarterly leaves billing_structure.amount_per_period stuck at the
+    // old value). Only clear it if the caller didn't explicitly send a
+    // new billing_structure.
+    const retainerFieldsTouched =
+      body.retainer_amount !== undefined ||
+      body.retainer_cycle !== undefined ||
+      body.billing_day !== undefined;
+    if (retainerFieldsTouched && body.billing_structure === undefined) {
+      update.billing_structure = null;
+    }
+
     const { data, error } = await supabase
       .from('pyra_contracts')
       .update(update)
@@ -216,6 +230,62 @@ export async function PATCH(
             details: { contract_id: id, recurring_id: activeRecurring.id },
           }).then(null, (e: unknown) => console.error('Activity log error:', e));
         }
+      }
+    }
+
+    // ── Sync retainer-driven recurring invoice on field changes ──
+    // The original logic only created the recurring invoice when status
+    // flipped to ACTIVE. Subsequent edits to retainer_amount / cycle /
+    // billing_day on an already-active contract did NOT update the
+    // recurring invoice — meaning the cron would keep emitting invoices
+    // at the old amount/cycle until manually fixed.
+    if (contractType === 'retainer' && retainerFieldsTouched) {
+      const { data: existingRecurring } = await supabase
+        .from('pyra_recurring_invoices')
+        .select('id, status, items')
+        .eq('contract_id', id)
+        .maybeSingle();
+
+      if (existingRecurring) {
+        const newAmount = Number(data.retainer_amount) || 0;
+        const newCycle = data.retainer_cycle || 'monthly';
+        const newBillingDay = Number(data.billing_day) || 1;
+
+        const recurringUpdate: Record<string, unknown> = {
+          billing_cycle: newCycle,
+          updated_at: new Date().toISOString(),
+        };
+
+        // Replace items[0].rate with new amount, keep description.
+        if (newAmount > 0) {
+          const oldItems = Array.isArray(existingRecurring.items) ? existingRecurring.items : [];
+          const firstItem = oldItems[0] || { description: data.title, quantity: 1 };
+          recurringUpdate.items = [{
+            description: firstItem.description || data.title,
+            quantity: firstItem.quantity || 1,
+            rate: newAmount,
+          }];
+        }
+
+        // If billing_day changed, recompute next_generation_date so the
+        // next emission lands on the right day-of-month.
+        if (body.billing_day !== undefined) {
+          recurringUpdate.next_generation_date = calculateNextBillingDate(newBillingDay);
+        }
+
+        await supabase
+          .from('pyra_recurring_invoices')
+          .update(recurringUpdate)
+          .eq('id', existingRecurring.id);
+
+        supabase.from('pyra_activity_log').insert({
+          id: generateId('al'),
+          action_type: 'retainer_recurring_synced',
+          username: auth.pyraUser.username,
+          display_name: auth.pyraUser.display_name,
+          target_path: `/finance/contracts/${id}`,
+          details: { contract_id: id, recurring_id: existingRecurring.id, new_amount: newAmount, new_cycle: newCycle },
+        }).then(null, (e: unknown) => console.error('Activity log error:', e));
       }
     }
 
