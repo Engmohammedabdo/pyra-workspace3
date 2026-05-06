@@ -16,7 +16,7 @@
  * are shareable and the back button works.
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -35,6 +35,7 @@ import { LeadDealsTab } from '@/components/crm/lead-detail/lead-deals-tab';
 import { LeadFilesTab } from '@/components/crm/lead-detail/lead-files-tab';
 import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
 import { LeadSidebar } from '@/components/crm/lead-detail/lead-sidebar';
+import { FollowUpModal } from '@/components/crm/follow-up-modal/follow-up-modal';
 
 const VALID_TABS = ['overview', 'activity', 'deals', 'files', 'notes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -54,6 +55,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const activeTab: TabKey = (VALID_TABS as readonly string[]).includes(tabParam ?? '')
     ? (tabParam as TabKey)
     : 'overview';
+  const [followUpOpen, setFollowUpOpen] = useState(false);
 
   const { data, isLoading, error } = useLead(leadId);
   const { data: stages } = usePipelineStages();
@@ -109,7 +111,13 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
 
   return (
     <div className="space-y-4">
-      <LeadHeader lead={lead} stages={stages} />
+      <LeadHeader
+        lead={lead}
+        stages={stages}
+        onAddNote={() => switchTab('activity')}
+        onScheduleFollowUp={() => setFollowUpOpen(true)}
+      />
+      <FollowUpModal open={followUpOpen} onOpenChange={setFollowUpOpen} leadId={lead.id} />
       <LeadStatStrip lead={lead} lastActivityAt={latestActivityAt} />
 
       <Tabs value={activeTab} onValueChange={(v) => switchTab(v as TabKey)} className="space-y-4">

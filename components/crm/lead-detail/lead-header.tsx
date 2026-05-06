@@ -34,6 +34,10 @@ interface LeadHeaderProps {
   lead: PyraSalesLead;
   /** Stage rows so we can pull the correct color for the pill. */
   stages?: PipelineStage[];
+  /** Switch to the Activity tab and focus the note composer. */
+  onAddNote?: () => void;
+  /** Open the Schedule Follow-up modal. */
+  onScheduleFollowUp?: () => void;
 }
 
 function initials(name: string): string {
@@ -49,7 +53,7 @@ function whatsAppHref(phone: string | null | undefined, name: string | null | un
   return `https://wa.me/${digits}?text=${encodeURIComponent(greeting)}`;
 }
 
-export function LeadHeader({ lead, stages }: LeadHeaderProps) {
+export function LeadHeader({ lead, stages, onAddNote, onScheduleFollowUp }: LeadHeaderProps) {
   const stage = stages?.find((s) => s.id === lead.stage_id);
   const stageLabel = stage?.name_ar
     ?? (lead.stage_id ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId] : null);
@@ -141,18 +145,18 @@ export function LeadHeader({ lead, stages }: LeadHeaderProps) {
             <Button
               variant="outline"
               size="sm"
-              disabled
-              title="إضافة ملاحظة — جاي في Phase 6"
-              className="max-md:bg-white/10 max-md:text-white/60 max-md:border-white/20"
+              onClick={onAddNote}
+              disabled={!onAddNote}
+              className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
             >
               <NotebookPen className="size-4 me-1.5" /> ملاحظة
             </Button>
             <Button
               variant="outline"
               size="sm"
-              disabled
-              title="جدولة متابعة — جاي في Phase 6"
-              className="max-md:bg-white/10 max-md:text-white/60 max-md:border-white/20"
+              onClick={onScheduleFollowUp}
+              disabled={!onScheduleFollowUp}
+              className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
             >
               <CalendarPlus className="size-4 me-1.5" /> متابعة
             </Button>
