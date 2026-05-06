@@ -1,0 +1,147 @@
+# Baseline Inventory — Pre-Build Snapshot
+# Captured: 2026-05-06
+# Source: live DB at https://pyraworkspacedb.pyramedia.cloud (service role)
+# Purpose: frozen "before" state for verification after every migration step.
+#
+# ⚠️ DO NOT EDIT — these numbers form the rollback safety net.
+
+================================================================================
+QUERY 1 — Lead count + breakdown
+================================================================================
+SQL:
+  SELECT COUNT(*) AS total_leads,
+         COUNT(*) FILTER (WHERE is_converted = true) AS converted,
+         COUNT(*) FILTER (WHERE is_converted = false OR is_converted IS NULL) AS active,
+         COUNT(DISTINCT assigned_to) AS unique_owners,
+         COUNT(DISTINCT source) AS unique_sources
+  FROM pyra_sales_leads;
+
+Result:
+  total_leads     : 21
+  converted       : 0
+  active          : 21
+  unique_owners   : 1
+  unique_sources  : 4
+
+================================================================================
+QUERY 1b — Owner × source breakdown
+================================================================================
+Result:
+  sayed | ad        | 17
+  sayed | manual    | 2
+  sayed | referral  | 1
+  sayed | whatsapp  | 1
+
+→ All 21 leads currently belong to `sayed` (sole sales_agent).
+→ No NULL assigned_to.
+
+================================================================================
+QUERY 2 — Lead activity count
+================================================================================
+SQL:
+  SELECT COUNT(*) AS total_activities,
+         COUNT(DISTINCT lead_id) AS leads_with_activity
+  FROM pyra_lead_activities;
+
+Result:
+  total_activities      : 0
+  leads_with_activity   : 0
+
+⚠️ NOTE: Table currently empty. Activity-count "never decreased" check
+   starts from 0 baseline.
+
+================================================================================
+QUERY 3 — Existing pipeline stages
+================================================================================
+SQL:
+  SELECT id, name, name_ar, sort_order, is_default
+  FROM pyra_sales_pipeline_stages
+  ORDER BY sort_order;
+
+Result (legacy `stage_*` IDs — do NOT match PRD's new `stg_*`):
+  stage_new          | New             | جديد         | sort_order=0 | is_default=true
+  stage_contacted    | Initial Contact | تواصل أولي    | sort_order=1
+  stage_interested   | Interested      | مهتم          | sort_order=2
+  stage_quoted       | Quote Sent      | عرض مقدم      | sort_order=3
+  stage_negotiation  | Negotiation     | تفاوض         | sort_order=4
+  stage_won          | Won             | فاز           | sort_order=5
+  stage_lost         | Lost            | خسر           | sort_order=6
+
+================================================================================
+QUERY 4 — Existing sales labels
+================================================================================
+SQL:
+  SELECT id, name, name_ar, color FROM pyra_sales_labels;
+
+Result: [] (0 rows)
+
+→ Labels table exists but is empty.
+
+================================================================================
+QUERY 5 — Sales agents and sales-permissioned users
+================================================================================
+SQL:
+  SELECT username, display_name, role, manager_username, status
+  FROM pyra_users
+  WHERE role = 'sales_agent'
+     OR (extra_permissions IS NOT NULL AND extra_permissions::text LIKE '%sales%');
+
+Result:
+  ahmed.s | Ahmed Said | role=employee     | manager=elharm | status=active
+          → extra_permissions: ["sales.view", "sales_whatsapp.view",
+            "sales_whatsapp.send", "sales_whatsapp_groups.view",
+            "sales_whatsapp_groups.manage"]
+          (employee with sales-WhatsApp viewer/sender access; NOT the sales rep)
+
+  sayed   | Sayed      | role=sales_agent  | manager=elharm | status=active
+          → extra_permissions: []
+          (the actual sales rep — owns all 21 leads)
+
+  (admin reference, not in result):
+  elharm  | Abdou      | role=admin        | manager=null   | status=active
+
+================================================================================
+QUERY 6 — Follow-ups table
+================================================================================
+SQL:
+  SELECT EXISTS (...table = 'pyra_sales_follow_ups'...);
+  SELECT COUNT(*) FROM pyra_sales_follow_ups;
+
+Result:
+  exists           : true   ← Q-DB-001 ANSWERED: table EXISTS
+  total_followups  : 0
+
+================================================================================
+QUERY 7 — Contracts / Invoices / Clients
+================================================================================
+SQL:
+  SELECT (SELECT COUNT(*) FROM pyra_contracts) AS contracts,
+         (SELECT COUNT(*) FROM pyra_invoices)  AS invoices,
+         (SELECT COUNT(*) FROM pyra_clients)   AS clients;
+
+Result:
+  contracts : 3
+  invoices  : 13
+  clients   : 9
+
+================================================================================
+QUERY 8 — Label tables existence
+================================================================================
+Result:
+  pyra_lead_labels  exists : true
+  pyra_sales_labels exists : true
+
+================================================================================
+SUMMARY (key numbers to verify against after each phase)
+================================================================================
+  pyra_sales_leads.COUNT(*)          = 21    ← MUST stay 21 (lossless)
+  pyra_sales_leads converted=true    = 0     ← all leads → stg_new_inquiry
+                                              (none → stg_closed_won via Q-DB-002)
+  pyra_lead_activities.COUNT(*)      = 0     ← may grow, must NEVER decrease
+  pyra_sales_follow_ups.COUNT(*)     = 0     ← may grow, must NEVER decrease
+  pyra_contracts.COUNT(*)            = 3     ← MUST stay ≥ 3
+  pyra_invoices.COUNT(*)             = 13    ← MUST stay ≥ 13
+  pyra_clients.COUNT(*)              = 9     ← MUST stay ≥ 9
+  pyra_sales_pipeline_stages.COUNT(*)= 7     ← becomes 14 after stg_* added
+                                              (legacy 7 + new 7); cleanup deferred
+                                              to v1.1 per migration plan.
