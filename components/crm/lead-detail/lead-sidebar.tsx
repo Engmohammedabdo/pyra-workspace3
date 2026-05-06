@@ -12,11 +12,14 @@
  * with an empty state for now so the Phase 6 wire-up is mechanical.
  */
 
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import {
-  Phone, Mail, User, UserCheck, Building2, Users2, Tag, CalendarClock,
+  Phone, Mail, User, UserCheck, Building2, Users2, Tag, CalendarClock, Check, Loader2,
 } from 'lucide-react';
-import { useFollowUps } from '@/hooks/useFollowUps';
+import { useFollowUps, useCompleteFollowUp, type FollowUpsResponse } from '@/hooks/useFollowUps';
 import { formatRelativeDate } from '@/lib/utils/format';
 import type { PyraSalesLead } from '@/types/database';
 
@@ -25,16 +28,49 @@ interface LeadSidebarProps {
 }
 
 export function LeadSidebar({ lead }: LeadSidebarProps) {
+  const qc = useQueryClient();
   const { data: followUpsRes } = useFollowUps({
     lead_id: lead.id,
     status: 'pending',
     limit: '1',
   });
   const nextFollowUp = followUpsRes?.follow_ups?.[0];
+  const complete = useCompleteFollowUp();
 
   const customFieldEntries = Object.entries(lead.custom_fields ?? {}).filter(
     ([, v]) => v !== null && v !== undefined && v !== '',
   );
+
+  // Optimistic complete: cancel in-flight queries, snapshot every cached
+  // ['crm','follow-ups',…] entry, optimistically remove this row from each,
+  // then call the API. On error, restore the snapshots; on success the
+  // hook's onSuccess handler invalidates and reconciles.
+  async function handleComplete() {
+    if (!nextFollowUp) return;
+    const id = nextFollowUp.id;
+
+    await qc.cancelQueries({ queryKey: ['crm', 'follow-ups'] });
+
+    const snapshots = qc.getQueriesData<FollowUpsResponse>({ queryKey: ['crm', 'follow-ups'] });
+
+    qc.setQueriesData<FollowUpsResponse>({ queryKey: ['crm', 'follow-ups'] }, (old) => {
+      if (!old || !Array.isArray(old.follow_ups)) return old;
+      const next = old.follow_ups.filter((f) => f.id !== id);
+      if (next.length === old.follow_ups.length) return old;
+      return { ...old, follow_ups: next, total: Math.max(0, (old.total ?? 0) - 1) };
+    });
+
+    try {
+      await complete.mutateAsync({ id });
+      toast.success('تمّت المتابعة');
+    } catch (err) {
+      console.error('Complete follow-up failed:', err);
+      for (const [key, data] of snapshots) {
+        qc.setQueryData(key, data);
+      }
+      toast.error('فشل إكمال المتابعة');
+    }
+  }
 
   return (
     <aside className="space-y-3">
@@ -71,10 +107,25 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
           <>
             <p className="text-sm font-medium leading-5 line-clamp-2">{nextFollowUp.title ?? 'متابعة'}</p>
             <p className="text-xs text-muted-foreground">{formatRelativeDate(nextFollowUp.due_at)}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => void handleComplete()}
+              disabled={complete.isPending}
+              className="w-full mt-2 gap-1.5"
+            >
+              {complete.isPending ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Check className="size-3.5" />
+              )}
+              تمّت المتابعة
+            </Button>
           </>
         ) : (
           <p className="text-xs text-muted-foreground leading-5">
-            لا توجد متابعة مجدولة. <span className="text-muted-foreground/60">(الجدولة جاي في Phase 6)</span>
+            لا توجد متابعة مجدولة. اضغط زر "متابعة" بالأعلى لإنشاء واحدة.
           </p>
         )}
       </Card>
