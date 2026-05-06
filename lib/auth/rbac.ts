@@ -161,7 +161,7 @@ export const PERMISSIONS = {
   CONTENT_PIPELINE_VIEW: 'content_pipeline.view',
   CONTENT_PIPELINE_MANAGE: 'content_pipeline.manage',
 
-  // Sales & Call Center
+  // Sales & Call Center (legacy /dashboard/sales/* — preserved until Phase 12 sunset)
   SALES_VIEW: 'sales.view',
   SALES_MANAGE: 'sales.manage',
   SALES_LEADS_VIEW: 'sales_leads.view',
@@ -174,6 +174,26 @@ export const PERMISSIONS = {
   SALES_PIPELINE_MANAGE: 'sales_pipeline.manage',
   QUOTE_APPROVALS_VIEW: 'quote_approvals.view',
   QUOTE_APPROVALS_MANAGE: 'quote_approvals.manage',
+
+  // ── CRM rebuild (CRM-PRD/03-API-AND-PERMISSIONS.md § New RBAC Permissions) ──
+  // The new /dashboard/crm/* surface uses this namespace. Legacy sales_leads.*
+  // kept above so /dashboard/sales/* keeps working until Phase 12 sunset.
+  LEADS_VIEW:        'leads.view',         // see own leads (sales_agent), all leads (admin)
+  LEADS_CREATE:      'leads.create',
+  LEADS_UPDATE:      'leads.update',       // edit own lead fields (excluding closed_won transition)
+  LEADS_ASSIGN:      'leads.assign',       // change assigned_to (manager + admin)
+  LEADS_DELETE:      'leads.delete',       // archive/soft-delete (manager + admin)
+  LEADS_MOVE_STAGE:  'leads.move_stage',   // drag/drop stage change (own leads, except closed_won)
+  LEADS_APPROVE:     'leads.approve',      // approve closed_won (manager via canApproveFor; admin)
+  LEADS_MANAGE:      'leads.manage',       // admin override — sees all leads everywhere
+  LEAD_ACTIVITIES_VIEW:   'lead_activities.view',
+  LEAD_ACTIVITIES_CREATE: 'lead_activities.create',
+  FOLLOW_UPS_VIEW:        'follow_ups.view',
+  FOLLOW_UPS_CREATE:      'follow_ups.create',
+  FOLLOW_UPS_COMPLETE:    'follow_ups.complete',
+  FOLLOW_UPS_MANAGE:      'follow_ups.manage',         // admin only
+  CRM_REPORTS_VIEW:       'crm_reports.view',
+  CRM_REPORTS_TEAM_VIEW:  'crm_reports.team_view',     // manager + admin only
 } as const;
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -543,6 +563,29 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'quote_approvals.manage', label: 'Manage Quote Approvals', labelAr: 'إدارة موافقات العروض' },
     ],
   },
+  {
+    key: 'crm',
+    label: 'CRM (Sales rebuild)',
+    labelAr: 'الـ CRM',
+    permissions: [
+      { key: 'leads.view',        label: 'View Leads (CRM)',           labelAr: 'عرض الـ Leads' },
+      { key: 'leads.create',      label: 'Create Lead',                labelAr: 'إنشاء Lead' },
+      { key: 'leads.update',      label: 'Update Own Lead',            labelAr: 'تعديل بيانات الـ Lead' },
+      { key: 'leads.assign',      label: 'Assign / Transfer Lead',     labelAr: 'إسناد / نقل ملكية الـ Lead' },
+      { key: 'leads.delete',      label: 'Archive Lead',               labelAr: 'أرشفة Lead' },
+      { key: 'leads.move_stage',  label: 'Move Stage (Pipeline)',      labelAr: 'تغيير المرحلة' },
+      { key: 'leads.approve',     label: 'Approve Closed Won',         labelAr: 'اعتماد فوز بالصفقة' },
+      { key: 'leads.manage',      label: 'Admin: see all leads',       labelAr: 'إدارة كاملة (مشرف)' },
+      { key: 'lead_activities.view',   label: 'View Activity Timeline',  labelAr: 'عرض سجل النشاط' },
+      { key: 'lead_activities.create', label: 'Add Note / Log Call',     labelAr: 'إضافة ملاحظة / مكالمة' },
+      { key: 'follow_ups.view',     label: 'View Follow-ups',          labelAr: 'عرض المتابعات' },
+      { key: 'follow_ups.create',   label: 'Schedule Follow-up',       labelAr: 'إنشاء متابعة' },
+      { key: 'follow_ups.complete', label: 'Mark Follow-up Done',      labelAr: 'إتمام متابعة' },
+      { key: 'follow_ups.manage',   label: 'Admin: manage all follow-ups', labelAr: 'إدارة كاملة للمتابعات' },
+      { key: 'crm_reports.view',      label: 'View CRM Reports (own)',    labelAr: 'عرض تقارير المبيعات (شخصية)' },
+      { key: 'crm_reports.team_view', label: 'View CRM Reports (team)',   labelAr: 'عرض تقارير الفريق (مدير)' },
+    ],
+  },
 ];
 
 // ============================================================
@@ -642,7 +685,7 @@ const ROLE_EXTRAS: Record<string, string[]> = {
   employee: [],  // Employee = BASE_EMPLOYEE only (no extras)
 
   sales_agent: [
-    // Sales CRM
+    // Legacy Sales (until Phase 12 sunset of /dashboard/sales/*)
     'sales.view',
     'sales_leads.view',
     'sales_leads.create',
@@ -655,6 +698,19 @@ const ROLE_EXTRAS: Record<string, string[]> = {
     'quotes.create',
     'quote_approvals.view',
     'clients.view',
+    // CRM rebuild — own-only access; canAccessLead() enforces row scope.
+    // INTENTIONALLY OMITTED: leads.assign, leads.approve, leads.delete,
+    // leads.manage, follow_ups.manage, crm_reports.team_view
+    'leads.view',
+    'leads.create',
+    'leads.update',
+    'leads.move_stage',
+    'lead_activities.view',
+    'lead_activities.create',
+    'follow_ups.view',
+    'follow_ups.create',
+    'follow_ups.complete',
+    'crm_reports.view',
   ],
 
   // Add future roles here:

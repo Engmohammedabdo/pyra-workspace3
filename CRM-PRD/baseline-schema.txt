@@ -1,0 +1,185 @@
+# Baseline Schema — Pre-Build Snapshot
+# Captured: 2026-05-06
+# Source: information_schema.columns at https://pyraworkspacedb.pyramedia.cloud
+# Purpose: confirm existing column shapes BEFORE any ALTER TABLE.
+#
+# ⚠️ Compare every PRD assumption against this. Mismatches must be flagged
+#    in 06-OPEN-QUESTIONS.md before proceeding.
+
+================================================================================
+TABLE: pyra_sales_leads
+================================================================================
+  id                      VARCHAR    NOT NULL
+  name                    TEXT       NOT NULL
+  phone                   TEXT       NULLABLE
+  email                   TEXT       NULLABLE
+  company                 TEXT       NULLABLE
+  source                  VARCHAR    NULLABLE  default 'manual'
+  stage_id                VARCHAR    NULLABLE
+  assigned_to             VARCHAR    NULLABLE
+  client_id               VARCHAR    NULLABLE
+  notes                   TEXT       NULLABLE
+  priority                VARCHAR    NULLABLE  default 'medium'
+  last_contact_at         TIMESTAMPTZ NULLABLE
+  next_follow_up          TIMESTAMPTZ NULLABLE
+  converted_at            TIMESTAMPTZ NULLABLE
+  is_converted            BOOLEAN    NULLABLE  default false
+  created_by              VARCHAR    NULLABLE
+  created_at              TIMESTAMPTZ NULLABLE  default now()
+  updated_at              TIMESTAMPTZ NULLABLE  default now()
+  score                   INTEGER    NULLABLE  default 0    ← extra column, not in PRD
+
+PRD ASSUMPTION CHECK:
+  ✅ id, name, phone, email, company, source, stage_id, assigned_to
+  ✅ client_id, notes, priority, last_contact_at, next_follow_up
+  ✅ converted_at, is_converted, created_by, created_at, updated_at
+  ⚠️ EXTRA: `score INTEGER default 0` — exists, not mentioned in PRD.
+       Action: harmless; PRD migration adds win_probability separately.
+
+  Columns to be added by crm_001_extend_sales_leads.sql:
+     lead_type, industry, deal_type, expected_value, expected_value_currency,
+     billing_cycle, win_probability, lost_reason, contact_person, contact_role,
+     company_size, decision_maker, budget_range, custom_fields
+  ALL use IF NOT EXISTS — safe.
+
+================================================================================
+TABLE: pyra_lead_activities
+================================================================================
+  id                VARCHAR     NOT NULL
+  lead_id           VARCHAR     NULLABLE
+  activity_type     VARCHAR     NOT NULL
+  description       TEXT        NULLABLE   ← PRD assumed this column was named `content`
+  metadata          JSONB       NULLABLE   ← ALREADY EXISTS (PRD migration crm_005 idempotent)
+  created_by        VARCHAR     NULLABLE
+  created_at        TIMESTAMPTZ NULLABLE   default now()
+
+PRD ASSUMPTION CHECK:
+  ⚠️ MISMATCH: PRD § 02-DATABASE Phase 6 lists `content` as a column.
+       Actual column is `description`. This is a docs-level mismatch only —
+       the migration crm_005 ONLY adds `metadata` and an index, both
+       idempotent. Code that writes activities must use `description`,
+       NOT `content`. Will document in 06-OPEN-QUESTIONS as Q-DB-003 answer.
+  ⚠️ NOTE: `metadata jsonb` ALREADY EXISTS. Migration crm_005's
+       `ADD COLUMN IF NOT EXISTS metadata jsonb` is a no-op. Safe.
+
+================================================================================
+TABLE: pyra_sales_pipeline_stages
+================================================================================
+  id            VARCHAR
+  name          TEXT
+  name_ar       TEXT
+  color         VARCHAR
+  sort_order    INTEGER
+  is_default    BOOLEAN
+  created_at    TIMESTAMPTZ
+
+PRD ASSUMPTION CHECK:
+  ✅ All expected columns present.
+  ⚠️ NOTE: PRD's INSERT uses `created_at NOW()` — matches schema's TIMESTAMPTZ.
+  ⚠️ Existing 7 rows use `stage_*` ids (legacy). New 7 rows will use `stg_*` ids.
+       Legacy rows REMAIN until v1.1 cleanup.
+
+================================================================================
+TABLE: pyra_sales_follow_ups   (EXISTS — Q-DB-001 answered)
+================================================================================
+  id                      VARCHAR     NOT NULL
+  lead_id                 VARCHAR     NULLABLE
+  assigned_to             VARCHAR     NULLABLE
+  due_at                  TIMESTAMPTZ NOT NULL
+  title                   TEXT        NULLABLE
+  notes                   TEXT        NULLABLE
+  status                  VARCHAR     NULLABLE   default 'pending'
+  completed_at            TIMESTAMPTZ NULLABLE
+  created_by              VARCHAR     NULLABLE
+  created_at              TIMESTAMPTZ NULLABLE   default now()
+  quote_id                VARCHAR     NULLABLE   ← extra; not in PRD spec
+
+PRD ASSUMPTION CHECK:
+  ✅ id, lead_id, assigned_to, title, due_at, status, completed_at, notes,
+     created_by, created_at — match PRD.
+  ⚠️ EXTRA: `quote_id` (existing — links a follow-up to a quote)
+  ⚠️ MISSING vs PRD's CREATE TABLE shape:
+        - reminder_at         TIMESTAMPTZ
+        - whatsapp_reminder_sent BOOLEAN
+        - updated_at          TIMESTAMPTZ
+        - CHECK (status IN ('pending','completed','cancelled','overdue'))
+       Since the table already exists with 0 rows, migration crm_006
+       (CREATE TABLE IF NOT EXISTS) is a no-op. The missing columns must
+       be added via additive ALTER if cron-based reminder feature is built
+       (Phase 11). Not blocking for Phases 1–10.
+  → Will be covered by a future Tier-1 additive migration if Phase 11 needs it.
+
+================================================================================
+TABLE: pyra_contracts
+================================================================================
+  id                  VARCHAR
+  client_id           VARCHAR
+  project_id          VARCHAR
+  title               TEXT
+  description         TEXT
+  contract_type       VARCHAR
+  total_value         NUMERIC
+  currency            VARCHAR
+  vat_rate            NUMERIC
+  billing_structure   JSONB
+  start_date          DATE
+  end_date            DATE
+  status              VARCHAR
+  amount_billed       NUMERIC
+  amount_collected    NUMERIC
+  notes               TEXT
+  created_by          TEXT
+  created_at          TIMESTAMPTZ
+  updated_at          TIMESTAMPTZ
+  retainer_amount     NUMERIC
+  retainer_cycle      VARCHAR
+  billing_day         INTEGER
+
+PRD ASSUMPTION CHECK:
+  ✅ Has client_id (VARCHAR) — FK to pyra_clients
+  ✅ Does NOT have lead_id — to be added by crm_004_link_contracts_to_leads.sql
+       (REFERENCES pyra_sales_leads(id) ON DELETE SET NULL — types match VARCHAR)
+  ✅ Backfill UPDATE in crm_004 joins on client_id — column present.
+
+================================================================================
+TABLE: pyra_lead_labels (existence check)
+================================================================================
+  exists : true
+  (full schema not pulled — table is part of legacy label system; not modified
+  in v1. Schema can be inspected later if Phase 5 UI needs to render labels.)
+
+================================================================================
+DATA STATE (per-stage distribution at baseline)
+================================================================================
+  stage_id              count
+  ───────────────────────────
+  stage_new            10
+  stage_contacted       1
+  stage_interested      3
+  stage_quoted          5
+  stage_negotiation     2
+  ───────────────────────────
+  TOTAL                21
+  (none in stage_won, stage_lost — consistent with converted=0)
+
+  Null stage_id rows: 0
+
+After crm_003_remap_leads (Phase 2):
+  All 21 → stg_new_inquiry (since is_converted=false everywhere).
+  legacy_stage_id will preserve original stage_* values for rollback.
+
+================================================================================
+DISCREPANCIES TO LOG (will append to 06-OPEN-QUESTIONS.md)
+================================================================================
+1. Q-DB-003 (column name): pyra_lead_activities uses `description`, not
+   `content`. Migration not affected, but PRD docs and any code that writes
+   activities must use the actual name.
+2. Q-DB-001 (table existence): pyra_sales_follow_ups DOES exist. Schema
+   slightly differs from PRD's "if not exists" CREATE TABLE shape:
+   missing reminder_at, whatsapp_reminder_sent, updated_at, status CHECK.
+   → Use existing table as-is for Phases 1–10; add missing columns via
+   additive ALTER only if/when Phase 11 cron reminders need them.
+3. pyra_lead_activities.metadata column ALREADY EXISTS — crm_005 ALTER
+   becomes a no-op (still safe; IF NOT EXISTS).
+4. pyra_sales_leads has an extra `score INTEGER default 0` column not
+   referenced by PRD. Coexists fine with new `win_probability`.
