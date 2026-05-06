@@ -1,7 +1,16 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError } from '@/lib/api/response';
+import {
+  apiSuccess,
+  apiServerError,
+  apiValidationError,
+  apiForbidden,
+} from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { canAccessLead } from '@/lib/auth/lead-scope';
+import { generateId } from '@/lib/utils/id';
+import { logActivity, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 /**
  * GET /api/crm/follow-ups
@@ -81,6 +90,126 @@ export async function GET(request: NextRequest) {
     return apiSuccess({ follow_ups: enriched, total: count ?? enriched.length });
   } catch (err) {
     console.error('GET /api/crm/follow-ups threw:', err);
+    return apiServerError();
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// POST /api/crm/follow-ups
+//
+// Permission: follow_ups.create + canAccessLead(lead_id)
+//
+// Body:
+//   lead_id (required) · title (required) · due_at (required ISO)
+//   notes? · assigned_to? (default = caller)
+//   reminder_at? / send_whatsapp_reminder? — accepted but not persisted in
+//   v1 because Phase-0 baseline confirmed the live `pyra_sales_follow_ups`
+//   table is missing reminder_at + whatsapp_reminder_sent (per Q-DB-001
+//   answer). Phase 11 cron work adds those columns + persistence.
+//
+// Side effects:
+//   - INSERT pyra_lead_activities type=follow_up_created (so it appears
+//     in the Lead Detail timeline)
+//   - UPDATE leads.next_follow_up to the earliest pending due_at
+//   - notify(assignee, 'follow_up_due') ONLY when assignee !== caller
+// ────────────────────────────────────────────────────────────────────────────
+
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await requireApiPermission('follow_ups.create');
+    if (isApiError(auth)) return auth;
+
+    const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!body) return apiValidationError('JSON body مطلوب');
+
+    const leadId = typeof body.lead_id === 'string' ? body.lead_id : '';
+    const title = typeof body.title === 'string' ? body.title.trim() : '';
+    const dueAt = typeof body.due_at === 'string' ? body.due_at : '';
+    if (!leadId || !title || !dueAt) {
+      return apiValidationError('lead_id و title و due_at مطلوبة');
+    }
+
+    const supabase = createServiceRoleClient();
+
+    const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, leadId);
+    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+
+    const assignedTo =
+      (typeof body.assigned_to === 'string' && body.assigned_to.trim()) ||
+      auth.pyraUser.username;
+    const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null;
+
+    const insertId = generateId('fu');
+    const { data: followUp, error } = await supabase
+      .from('pyra_sales_follow_ups')
+      .insert({
+        id: insertId,
+        lead_id: leadId,
+        assigned_to: assignedTo,
+        due_at: dueAt,
+        title,
+        notes,
+        status: 'pending',
+        created_by: auth.pyraUser.username,
+      })
+      .select('*')
+      .single();
+    if (error || !followUp) {
+      console.error('POST /api/crm/follow-ups insert error:', error?.message);
+      return apiServerError(`فشل إنشاء المتابعة${error?.message ? ': ' + error.message : ''}`);
+    }
+
+    // Timeline entry on the parent lead.
+    void supabase.from('pyra_lead_activities').insert({
+      id: generateId('la'),
+      lead_id: leadId,
+      activity_type: 'follow_up_created',
+      description: title,
+      metadata: { follow_up_id: insertId, due_at: dueAt, assigned_to: assignedTo },
+      created_by: auth.pyraUser.username,
+    });
+
+    // Update leads.next_follow_up to the earliest pending due_at across
+    // this lead's follow-ups (so the pipeline card / lead header always
+    // reflects the most-imminent reminder).
+    const { data: pending } = await supabase
+      .from('pyra_sales_follow_ups')
+      .select('due_at')
+      .eq('lead_id', leadId)
+      .eq('status', 'pending')
+      .order('due_at', { ascending: true })
+      .limit(1);
+    if (pending && pending.length > 0) {
+      void supabase
+        .from('pyra_sales_leads')
+        .update({ next_follow_up: pending[0].due_at })
+        .eq('id', leadId);
+    }
+
+    if (assignedTo && assignedTo !== auth.pyraUser.username) {
+      void notify(supabase, {
+        to: assignedTo,
+        type: 'follow_up_due',
+        title: 'متابعة جديدة لك',
+        message: `${auth.pyraUser.display_name} جدول متابعة "${title}"`,
+        link: `/dashboard/crm/leads/${leadId}`,
+        entity: { type: 'follow_up', id: insertId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+    }
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `follow_up_${ACTIVITY_ACTIONS.CREATE}`,
+      `/dashboard/crm/leads/${leadId}`,
+      { lead_id: leadId, follow_up_id: insertId, due_at: dueAt },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
+
+    return apiSuccess({ follow_up: followUp }, undefined, 201);
+  } catch (err) {
+    console.error('POST /api/crm/follow-ups threw:', err);
     return apiServerError();
   }
 }
