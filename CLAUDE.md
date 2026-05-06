@@ -28,9 +28,10 @@ fetchAPI<T>(url: string): Promise<T>
 mutateAPI<T>(url: string, method: string, body?: unknown): Promise<T>
 ```
 
-### Using Existing Hooks (41 hooks available)
+### Using Existing Hooks (42+ hooks available)
 ```tsx
 // Dashboard hooks (hooks/use*.ts)
+import { useMyWork } from '@/hooks/useMyWork';        // Unified inbox aggregator
 import { useClients } from '@/hooks/useClients';
 import { useProjects } from '@/hooks/useProjects';
 import { useInvoices } from '@/hooks/useInvoices';
@@ -229,26 +230,38 @@ This system has **4 audiences**. Every feature must be evaluated against ALL of 
 
 ```
 app/dashboard/            → Admin + Employee + Sales (Supabase Auth + RBAC)
+app/dashboard/page.tsx    → "صندوق شغلي" inbox — surfaces tasks, approvals, conversations, leads, follow-ups
+app/dashboard/approvals/  → Manager Approvals dashboard (leave/expense/timesheet from direct reports)
 app/portal/               → Clients (Cookie Auth, separate from dashboard)
 app/api/dashboard/        → Admin API endpoints
 app/api/portal/           → Client API endpoints (scoped to client data)
 app/api/external/         → External API (n8n, Telegram Bot — API key auth)
 app/api/boards/           → Board CRUD, columns, tasks, labels, members, star
 app/api/tasks/            → Task CRUD, move, duplicate
-app/api/finance/contracts → Contract management + invoice generation
-hooks/                    → 41 React Query hooks (data fetching + mutations)
+app/api/finance/contracts → Contract management + invoice generation (retainer_amount = source of truth)
+app/api/my-work/          → Unified employee inbox aggregator (one round trip, all sections)
+app/api/approvals/team/   → Manager approvals data (leave + expense + timesheet, scoped to direct reports)
+hooks/                    → 42+ React Query hooks (data fetching + mutations)
 hooks/api-helpers.ts      → fetchAPI() + mutateAPI() — shared fetch wrappers
+hooks/useMyWork.ts        → Inbox aggregator hook (30s staleTime, refetch on focus)
 components/ui/            → Shared primitives (both dashboard + portal)
 components/layout/        → Dashboard layout (sidebar, topbar)
 components/portal/        → Portal layout
 components/boards/        → Board components (toolbar, task-sheet, calendar, list, settings)
 components/sales/chat/    → WhatsApp chat (conversation list, chat window, contact sidebar)
 components/files/         → Unified file-preview (shared between dashboard + portal)
-lib/auth/rbac.ts          → 79+ permissions across 34+ modules
+components/dashboard/MyWorkInbox.tsx → 5-section inbox card
+lib/auth/rbac.ts          → 79+ permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
+lib/auth/auth-mapping.ts  → resolveAuthUserId() — heals legacy users missing pyra_auth_mapping rows
+lib/auth/team-scope.ts    → getDirectReports / getManagerOf / isManager / canApproveFor()
+lib/auth/whatsapp-scope.ts → canAccessWhatsAppMessage() — gates message-level mutations
 lib/auth/scope.ts         → Dynamic scoping (team → project → board → member chain)
-lib/evolution/client.ts   → Evolution API v2 client (WhatsApp)
+lib/auth/guards.ts        → requireAuth / requirePermission for server pages
+lib/api/auth.ts           → getApiAuth / requireApiPermission for API routes
 lib/api/activity.ts       → logActivity() — fire-and-forget audit trail helper
 lib/api/response.ts       → apiSuccess()/apiError() — consistent API responses
+lib/notifications/notify.ts → notify() / notifyMany() — central pyra_notifications writer
+lib/evolution/client.ts   → Evolution API v2 client (WhatsApp)
 lib/constants/statuses.ts → Centralized status constants (17 entity types)
 lib/config/module-guide.ts → Guide data for every page
 eslint.config.mjs         → ESLint guard rails (raw fetch warning, RTL class warning)
@@ -266,16 +279,42 @@ Large pages are split into focused sub-components to keep files <300 lines.
 **ALL internal roles inherit `BASE_EMPLOYEE` permissions automatically.**
 When adding employee-facing features, add permission to `BASE_EMPLOYEE` — all roles get it.
 
+**Permission action naming (strictly enforced):**
+- `*.view` — read OWN data (self-service)
+- `*.create` — create OWN records (e.g. submit leave, log own timesheet)
+- `*.approve` — approve OTHERS' records (manager / HR — combine with `canApproveFor()` for scope)
+- `*.manage` — admin-level CRUD on ANY record (NEVER in `BASE_EMPLOYEE` — leaks data via list endpoints)
+
 ```
-BASE_EMPLOYEE (every internal user):
-  dashboard, notifications, directory, timesheet, announcements,
-  leave, attendance, payroll (my-payslips), evaluations, overtime
+BASE_EMPLOYEE (every internal user — HR self-service ONLY):
+  dashboard.view, notifications.view, directory.view, announcements.view,
+  timesheet.view, timesheet.create, leave.view, leave.create,
+  attendance.view, attendance.create, payroll.view (my-payslips),
+  evaluations.view, overtime.view
 
 ROLE_EXTRAS (added on top):
   employee:     (nothing extra — base only)
-  sales_agent:  + sales, leads, whatsapp, quotes, clients
+  sales_agent:  + sales, leads, whatsapp, whatsapp_groups, quotes, clients
   // Future: call_center, accountant, project_manager, etc.
 ```
+
+### Permission Build Pipeline (`buildUserPermissions()` in rbac.ts)
+**Single source of truth.** Every permission build goes through this helper:
+
+```ts
+final = BASE_EMPLOYEE ∪ (DB role.permissions ?? legacy mapping) ∪ extra_permissions
+```
+
+Three entry points all call `buildUserPermissions(legacyRole, dbRolePermissions, extraPermissions)`:
+- `lib/api/auth.ts::getApiAuth` — every API request
+- `lib/auth/guards.ts::loadUserWithRole` — every server page render
+- `app/api/auth/login/route.ts` — login dashboard.view check
+
+Special cases (short-circuit):
+- `legacyRole === 'admin'` OR DB role contains `'*'` → returns `['*']`
+- `legacyRole === 'client'` → returns minimal portal permissions
+
+**Why centralized:** previously each call site did `dbRolePermissions ?? legacyMapping` — meaning any user with a DB role_id silently lost BASE_EMPLOYEE permissions (no leave, no attendance, etc.). The helper guarantees inheritance even when a DB role is set.
 
 ### Per-User Extra Permissions
 
@@ -320,14 +359,73 @@ Lead → Activities → Convert to Client → full chain above
 Employee → Attendance + Leave + Timesheet → Payroll → Expenses
          → Employee Payments (commission/task/bonus) → Payslips
          → User Detail Page (/dashboard/users/[username])
+         → manager_username → Direct Manager → Approvals Dashboard → notify()
+Manager → /dashboard/approvals (leave + expense + timesheet of direct reports)
+       → canApproveFor() guard on every approval mutation
+       → Admin override: role === 'admin' bypasses scope
 Board → Columns → Tasks → Assignees + Labels + Checklist + Comments
      → Calendar View + List View + Pipeline View
      → Board Members (per-board access) → Scope System
 WhatsApp → Conversations → Messages → Lead matching
         → Agent Scoping → Assignments → Contact Sidebar
+        → canAccessWhatsAppMessage() guard on every message-level mutation
+        → Lead detail "Messages" tab filters by lead_id (agent must own lead)
         → Quick Actions (send quote/invoice, create lead, notes, follow-ups)
-Contract (retainer) → Generate Invoice → Billing History
+Contract (retainer) → retainer_amount + retainer_cycle (source of truth)
+                   → Generate Invoice → Billing History
+                   → Editing retainer fields auto-syncs linked recurring invoice
 Contract (milestone) → Complete Milestone → Generate Invoice
+My Work Inbox (/dashboard/page.tsx + /api/my-work):
+  → Tasks (assigned to me, overdue/today/this_week)
+  → Approvals (leave/expense/timesheet from direct reports + leave.approve gate)
+  → WhatsApp (conversations assigned + unread)
+  → Leads (assigned + needs follow-up)
+  → Follow-ups (due ≤24h)
+```
+
+### Notifications — Central Helper (`lib/notifications/notify.ts`)
+**NEVER `INSERT INTO pyra_notifications` directly.** Always go through `notify()`:
+
+```ts
+import { notify, notifyMany } from '@/lib/notifications/notify';
+
+await notify(supabase, {
+  to: 'ahmed.s',                                       // recipient_username
+  type: 'task_assigned',                               // see NotificationType union
+  title: 'تم تعيينك في مهمة',
+  message: `قام ${actor.display_name} بتعيينك`,
+  link: `/dashboard/boards/${boardId}?task=${taskId}`,  // deep link → target_path
+  entity: { type: 'task', id: taskId },                 // for grouping/dedup
+  from: { username: actor.username, displayName: actor.display_name },
+});
+```
+
+Why: 30+ scattered insert sites previously used wrong column names (`username`, `link`)
+and silently failed. The helper enforces correct shape, auto-skips self-notifications
+(actor == recipient), and is fire-and-forget (errors logged, never thrown).
+
+### Authorization Helpers — Use, Don't Reinvent
+
+| Helper | File | Purpose |
+|---|---|---|
+| `buildUserPermissions(role, dbPerms, extras)` | `lib/auth/rbac.ts` | Build final permission array (use in any new auth entry point) |
+| `hasPermission(perms, 'leave.view')` | `lib/auth/rbac.ts` | Check single permission with `*` wildcard support |
+| `requireApiPermission('leave.view')` | `lib/api/auth.ts` | Gate an API route — returns auth or 401/403 NextResponse |
+| `requirePermission('leave.view')` | `lib/auth/guards.ts` | Gate a server page — redirects on failure |
+| `getDirectReports(supabase, manager)` | `lib/auth/team-scope.ts` | List usernames reporting to a manager |
+| `getManagerOf(supabase, employee)` | `lib/auth/team-scope.ts` | Get manager_username for a user |
+| `canApproveFor(supabase, approver, role, employee)` | `lib/auth/team-scope.ts` | **Authoritative** — admin OR direct manager. Required on every approval mutation. |
+| `canAccessWhatsAppMessage(supabase, user, isAdmin, msgId)` | `lib/auth/whatsapp-scope.ts` | Required on every message-level mutation (forward/react/save-to-files). Returns false if agent doesn't own the conversation. |
+| `resolveAuthUserId(supabase, username)` | `lib/auth/auth-mapping.ts` | Resolve Supabase Auth user ID; auto-heals missing `pyra_auth_mapping` rows for legacy users. |
+| `resolveUserScope(auth)` | `lib/auth/scope.ts` | Compute team→project→board chain for project-scoped data |
+
+**Rule:** approval mutations (leave/expense/timesheet) MUST combine permission + scope:
+```ts
+// 1. Permission gate — does the role allow approving leave at all?
+if (!hasPermission(rolePerms, 'leave.approve')) return apiError('غير مصرح', 403);
+// 2. Scope gate — admin override OR is this employee's direct manager?
+const allowed = await canApproveFor(supabase, auth.pyraUser.username, auth.pyraUser.role, existing.username);
+if (!allowed) return apiError('يمكنك فقط اعتماد طلبات موظفينك المباشرين', 403);
 ```
 
 ## Status Constants (`lib/constants/statuses.ts`)

@@ -404,18 +404,37 @@ Tracks login attempts for security monitoring and brute-force detection.
 
 Internal notifications for team members (employees/admins).
 
-| Column | Type | Nullable | Default |
-|--------|------|----------|---------|
-| **id** | varchar | NOT NULL | — |
-| recipient_username | varchar | NOT NULL | FK → pyra_users(username) |
-| type | varchar | NOT NULL | — |
-| title | varchar | NOT NULL | — |
-| message | text | YES | `''` |
-| source_username | varchar | YES | `''` |
-| source_display_name | varchar | YES | `''` |
-| target_path | text | YES | `''` |
-| is_read | boolean | YES | `false` |
-| created_at | timestamptz | YES | `now()` |
+| Column | Type | Nullable | Default | Notes |
+|--------|------|----------|---------|-------|
+| **id** | varchar | NOT NULL | — | Prefix `ntf_` |
+| recipient_username | varchar | NOT NULL | FK → pyra_users(username) | The user this notification belongs to. NOT `username` — common typo that fails silently. |
+| type | varchar | NOT NULL | — | One of: `task_assigned`, `task_due_soon`, `lead_assigned`, `lead_transferred`, `follow_up_due`, `whatsapp_message`, `whatsapp_assigned`, `leave_request_pending`, `expense_pending`, `timesheet_pending`, `quote_approval_requested`, `file_approval_requested`, `leave_approved/rejected`, `expense_approved/rejected`, `comment_reply`, `mention`, `system`. See `NotificationType` union in `lib/notifications/notify.ts`. |
+| title | varchar | NOT NULL | — | Arabic title shown in bell + dropdown |
+| message | text | YES | NULL | Optional body |
+| source_username | varchar | YES | NULL | Actor who triggered the notification (auto-skipped if equals recipient) |
+| source_display_name | varchar | YES | NULL | Cached display name |
+| target_path | text | YES | NULL | Deep link — full route like `/dashboard/boards/abc?task=xyz`. The bell auto-routes when this starts with `/dashboard`. |
+| entity_type | varchar(50) | YES | NULL | e.g. `task`, `lead`, `leave_request`, `expense`. For future grouping & dedup. |
+| entity_id | varchar(255) | YES | NULL | The specific entity ID (e.g. task ID). |
+| is_read | boolean | YES | `false` | — |
+| created_at | timestamptz | YES | `now()` | — |
+
+**Index:** `idx_pyra_notifications_recipient_unread` on `(recipient_username, is_read, created_at DESC)` — fast inbox loads.
+
+**MUST insert via** `lib/notifications/notify.ts`:
+```ts
+await notify(supabase, {
+  to: 'ahmed.s',
+  type: 'task_assigned',
+  title: 'تم تعيينك في مهمة',
+  message: `قام ${actor.display_name} بتعيينك`,
+  link: `/dashboard/boards/${boardId}?task=${taskId}`,
+  entity: { type: 'task', id: taskId },
+  from: { username: actor.username, displayName: actor.display_name },
+});
+```
+
+The helper enforces correct column names, auto-skips self-notifications, and is fire-and-forget (errors logged, never thrown). Direct `INSERT` statements are forbidden — they regularly used wrong column names (`username` instead of `recipient_username`, `link` instead of `target_path`) and silently failed.
 
 ---
 

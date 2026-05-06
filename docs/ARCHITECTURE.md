@@ -76,7 +76,85 @@
 |--------|-----------|---------|
 | Supabase Auth | JWT tokens, `auth.users` table | Admin Dashboard |
 | Portal Sessions | `httpOnly` cookies, `pyra_clients` table | Client Portal |
-| RBAC | `pyra_roles` + `hasPermission()` | Admin API routes |
+| RBAC | `pyra_roles` + `buildUserPermissions()` + `hasPermission()` | Admin API routes |
+| Auth Mapping | `pyra_auth_mapping` (Supabase Auth ID ↔ pyra username) | Internal — auto-healed by `resolveAuthUserId()` for legacy users |
+
+### Authorization (CRM/ERP Standard)
+
+Authorization happens at three layers, in strict order:
+
+**1. Identity** — `getApiAuth()` (API) / `requireAuth()` (page) loads the user and resolves their final permission set via `buildUserPermissions()`:
+
+```
+final = BASE_EMPLOYEE ∪ (DB role.permissions ?? legacy mapping) ∪ extra_permissions
+```
+
+Special cases short-circuit: `role === 'admin'` or DB role contains `'*'` → returns `['*']`. `role === 'client'` → minimal portal permissions.
+
+**2. Action category** — permission gate via `hasPermission(perms, 'X.Y')`:
+- `*.view` (read own) / `*.create` (create own) — in `BASE_EMPLOYEE`
+- `*.approve` (approve others — manager/HR action) — granted via role or `extra_permissions`
+- `*.manage` (admin-level CRUD on any record) — NEVER in `BASE_EMPLOYEE`
+
+**3. Per-entity scope** — gates that compare the actor against the resource:
+
+| Helper | File | Used For |
+|---|---|---|
+| `canApproveFor(supabase, approver, role, employee)` | `lib/auth/team-scope.ts` | Leave / expense / timesheet approval mutations. Admin override + direct-manager check (`pyra_users.manager_username`). |
+| `canAccessWhatsAppMessage(supabase, user, isAdmin, msgId)` | `lib/auth/whatsapp-scope.ts` | Every WhatsApp message-level mutation (forward, react, save-to-files, media proxy). Verifies the agent owns the conversation that holds the message. |
+| `resolveUserScope(auth)` | `lib/auth/scope.ts` | Project/team-scoped finance and file access. Returns `{ isAdmin, clientIds, projectIds, teamIds }`. |
+
+**Mandatory pattern** for approval mutations:
+```ts
+// 1. Permission gate
+if (!hasPermission(rolePerms, 'leave.approve')) return apiError('غير مصرح', 403);
+// 2. Scope gate
+const allowed = await canApproveFor(supabase, auth.pyraUser.username, auth.pyraUser.role, existing.username);
+if (!allowed) return apiError('يمكنك فقط اعتماد طلبات موظفينك المباشرين', 403);
+```
+
+Either alone is insufficient. The permission gates the action *category*; the scope gate enforces *which employees* the actor can act on.
+
+### Notifications System
+
+`pyra_notifications` is the single internal-notifications table. **All inserts must go through `lib/notifications/notify.ts`**:
+
+```ts
+import { notify, notifyMany } from '@/lib/notifications/notify';
+
+await notify(supabase, {
+  to: 'ahmed.s',
+  type: 'task_assigned',  // see NotificationType union for full list
+  title: 'تم تعيينك في مهمة',
+  message: `قام ${actor.display_name} بتعيينك`,
+  link: `/dashboard/boards/${boardId}?task=${taskId}`,
+  entity: { type: 'task', id: taskId },
+  from: { username: actor.username, displayName: actor.display_name },
+});
+```
+
+The helper enforces correct column names (`recipient_username` not `username`; `target_path` not `link`), auto-skips self-notifications (actor == recipient), and is fire-and-forget (errors logged, never thrown).
+
+Why centralized: 30+ scattered raw `INSERT` sites previously used wrong column names and silently failed (notifications never reached the recipient). The helper plus a unique-by-design `NotificationType` union prevents recurrence.
+
+### My Work Inbox & Manager Approvals
+
+Two surfaces unify the employee experience:
+
+**`/dashboard` (My Work)** — Home page is now a 5-section inbox aggregator:
+- Tasks (overdue / today / this-week)
+- Approvals waiting on me (leave + expense + timesheet from direct reports)
+- WhatsApp conversations assigned to me with unread
+- Sales leads assigned to me, sorted by oldest contact
+- Follow-ups due in next 24h
+
+Single API call to `/api/my-work` returns all sections. Polls every 60s + refetches on window focus. Each section renders only when non-empty. Admin sees their assigned items + admin-overrides on the approvals section.
+
+**`/dashboard/approvals` (Manager Approvals)** — Three tabs (leave / expense / timesheet) with inline approve/reject actions. Reject opens a dialog requiring a note (sent back to the employee). Data scope:
+- Admin: all pending requests org-wide
+- Manager: only items where the requester's `manager_username` matches the current user
+
+Sidebar badge `team_approvals` (in `/api/dashboard/sidebar-badges`) shows total pending across all 3 types.
 
 ### File Management
 

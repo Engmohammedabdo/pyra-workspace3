@@ -45,11 +45,18 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 
 | الشاشة | المسار | المميزات | الجداول |
 |--------|--------|----------|---------|
-| **لوحة التحكم** | `/dashboard` | 5 بطاقات KPI (إيرادات، مشاريع، عملاء، ملفات، مستخدمين) • رسم بياني للإيرادات الشهرية • توزيع المشاريع • عبء عمل الفريق • آخر النشاطات • عرض الموظف (مهامي، ساعات، إجازات) | `pyra_invoices`, `pyra_projects`, `pyra_clients`, `pyra_file_index`, `pyra_users`, `pyra_activity_log` |
-| **الإشعارات** | `/dashboard/notifications` | قائمة الإشعارات • تعليم كمقروء • تعليم الكل كمقروء • فلتر بالنوع | `pyra_notifications` |
+| **لوحة التحكم — صندوق شغلي** | `/dashboard` | **For employees:** 5-section "My Work" inbox: مهامي (overdue/today/this-week) • مستني موافقتك (leave/expense/timesheet from direct reports — manager view) • محادثات جديدة (assigned WhatsApp + unread) • عملائي (assigned leads) • متابعات اليوم (follow-ups due ≤24h). All sections render only when non-empty.<br>**For admin:** "My Work" inbox + 5 KPI cards • Revenue chart • Project distribution • Team workload • Recent activity. | `pyra_tasks`, `pyra_leave_requests`, `pyra_expenses`, `pyra_timesheet_periods`, `pyra_whatsapp_conversations`, `pyra_sales_leads`, `pyra_sales_follow_ups`, `pyra_invoices`, `pyra_projects`, `pyra_clients`, `pyra_users`, `pyra_activity_log` |
+| **الإشعارات** | `/dashboard/notifications` | قائمة الإشعارات • تعليم كمقروء • تعليم الكل كمقروء • deep-linking via `target_path` to source entity (task in board, lead detail, conversation thread). All inserts go through `lib/notifications/notify.ts`. | `pyra_notifications` |
+| **الموافقات (للمدير)** | `/dashboard/approvals` | 3 tabs: الإجازات / المصاريف / ساعات العمل — pending requests from direct reports (`pyra_users.manager_username`). Inline approve/reject. Reject opens dialog asking for note (sent back to employee). Admin sees all pending across org. Sidebar badge `team_approvals`. | `pyra_leave_requests`, `pyra_expenses`, `pyra_timesheet_periods`, `pyra_users` |
 | **ملفي الشخصي** | `/dashboard/profile` | تعديل الاسم والبيانات • رفع صورة شخصية • تغيير كلمة المرور • عرض آخر النشاطات | `pyra_users`, `pyra_activity_log` |
 | **مهامي** | `/dashboard/my-tasks` | كل المهام المسندة للمستخدم • تجميع: متأخرة/اليوم/هذا الأسبوع/قادمة/مكتملة • بحث وفلتر • بطاقات إحصائية | `pyra_tasks`, `pyra_task_assignees`, `pyra_boards` |
 | **دليل الاستخدام** | `/dashboard/guide` | دليل تفاعلي لكل وحدات النظام • بحث • 6 أقسام • نصائح وشروحات | لا يوجد (بيانات ثابتة) |
+
+#### ← روابط التكامل:
+- **My Work Inbox** is fed by `GET /api/my-work` — single round trip aggregator
+- **Manager Approvals** is fed by `GET /api/approvals/team` — direct-reports scope, admin sees all
+- **Notification deep links** use `target_path` (e.g. `/dashboard/boards/abc?task=xyz`) to route directly to the source
+- **Sidebar badges** poll every 60s: `team_approvals` (manager view), `notifications`, `unassigned_conversations`, etc.
 
 ---
 

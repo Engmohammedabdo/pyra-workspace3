@@ -59,7 +59,25 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 
 ## Features
 
-### 1. Admin Dashboard (`/dashboard`) — 94 pages
+### 1. Admin Dashboard (`/dashboard`) — 95+ pages
+
+#### My Work Inbox (Home Page)
+- **Unified inbox** — On login, employees land on a single "My Work" surface that aggregates everything waiting on them, replacing the old generic stat-card dashboard
+- **Five sections** (each renders only when non-empty):
+  - **مهامي** — overdue / today / this-week tasks across all boards
+  - **مستني موافقتك** — leave + expense + timesheet from direct reports (manager view)
+  - **محادثات جديدة** — WhatsApp conversations assigned to me with unread
+  - **عملائي** — leads assigned to me sorted by oldest contact
+  - **متابعات اليوم** — sales follow-ups due in next 24h
+- **Single API call** (`/api/my-work`) returns all sections in one round trip
+- **Deep links** — every row routes to the source entity (task in board, lead detail, conversation thread)
+- **Admin coexistence** — analytics dashboard (KpiGrid, charts) still renders below the inbox; inbox is purely additive
+
+#### Manager Approvals (`/dashboard/approvals`)
+- **Three tabs** — leave / expense / timesheet pending requests from direct reports
+- **Inline actions** — approve / reject buttons with required-note dialog on rejection
+- **Admin override** — admins see all pending requests across the org; managers see only their direct reports (`pyra_users.manager_username` chain)
+- **Sidebar badge** — `team_approvals` counter shows total pending across all 3 types
 
 #### File Management
 - **File Explorer** — Grid/list views, upload, drag-drop, preview panel, sort/filter, bulk operations, keyboard shortcuts, context menu
@@ -234,6 +252,10 @@ Built with **Next.js 15** (App Router) + **TypeScript** + **Supabase** (self-hos
 - **Error Boundaries** — Arabic UI error pages
 - **RBAC Permission System** — 79 granular permissions across 34 modules
 - **Session Management** — Cookie-based with SHA-256 hashed tokens
+- **Two-layer Authorization** — On every approval mutation: (1) permission gate (`leave.approve`), (2) scope gate (`canApproveFor()` — admin OR direct manager). Permission alone is never sufficient.
+- **Centralized Permission Builder** — `buildUserPermissions()` is the single source of truth used by API auth, page guards, and login. It always merges `BASE_EMPLOYEE ∪ DB role permissions ∪ extra_permissions` so a custom DB role can never silently strip HR self-service from an employee.
+- **WhatsApp Message Scope Guard** — `canAccessWhatsAppMessage()` checks that the caller owns the conversation a message belongs to. Required on every message-level mutation (forward, react, save-to-files, media proxy).
+- **Permission Naming Convention** — `*.view` (own), `*.create` (own), `*.approve` (others' — manager action), `*.manage` (admin-only). `*.manage` is NEVER in `BASE_EMPLOYEE`.
 
 ---
 
@@ -295,7 +317,7 @@ The system unifies HR and Finance with these key integrations:
 | Sales CRM | `pyra_sales_leads`, `pyra_sales_labels`, `pyra_pipeline_stages`, `pyra_sales_follow_ups`, `pyra_lead_activities`, `pyra_whatsapp_instances`, `pyra_whatsapp_messages`, `pyra_whatsapp_conversations`, `pyra_whatsapp_assignments` | Sales pipeline + WhatsApp |
 | Automation | `pyra_automation_rules`, `pyra_automation_log`, `pyra_webhooks`, `pyra_webhook_deliveries`, `pyra_api_keys` | Workflows and integrations |
 | Content | `pyra_content_pipeline`, `pyra_pipeline_stages`, `pyra_kb_articles`, `pyra_kb_categories`, `pyra_script_reviews` | Content and knowledge |
-| System | `pyra_activity_log`, `pyra_notifications`, `pyra_client_notifications`, `pyra_login_attempts`, `pyra_announcements` | Audit and notifications |
+| System | `pyra_activity_log`, `pyra_notifications`, `pyra_client_notifications`, `pyra_login_attempts`, `pyra_announcements` | Audit and notifications. `pyra_notifications` carries `target_path` (deep link), `entity_type` + `entity_id` (for grouping), and `recipient_username` (NOT `username`). All inserts go through `lib/notifications/notify.ts` to enforce shape. |
 
 Full schema documentation: [`DATABASE-SCHEMA.md`](./DATABASE-SCHEMA.md)
 
@@ -390,7 +412,9 @@ docs/                         # Technical documentation
 | `/api/boards/*` | 18 | Unified Task Pipeline (boards, tasks, advance, approve, attachments, templates, members, star) |
 | `/api/tasks/*` | 6 | Task CRUD, move, duplicate (scope-protected) |
 | `/api/teams/*` | 3 | Team CRUD, member management |
-| `/api/notifications/*` | 3 | List, mark read, mark all |
+| `/api/notifications/*` | 3 | List, mark read, mark all (cross-user POST is admin-only) |
+| `/api/my-work` | 1 | Unified employee inbox aggregator (tasks + approvals + conversations + leads + follow-ups) |
+| `/api/approvals/*` | 1 | Manager approvals dashboard data (`/team` — direct-report scope, admin sees all) |
 | `/api/settings/*` | 4 | Config get/update, business entities management |
 | `/api/stripe/*` | 2 | Stripe checkout, webhooks |
 | `/api/timesheet/*` | 2 | Timesheet CRUD |
@@ -421,7 +445,26 @@ docs/                         # Technical documentation
 
 ## RBAC Permissions
 
-The system uses granular `module.action` permissions:
+The system uses granular `module.action` permissions, built by the central
+`buildUserPermissions()` helper in `lib/auth/rbac.ts`:
+
+```
+final = BASE_EMPLOYEE ∪ (DB role.permissions ?? legacy mapping) ∪ extra_permissions
+```
+
+**Action naming convention:**
+- `*.view` — read OWN data (self-service)
+- `*.create` — create OWN records (e.g. submit leave, log timesheet)
+- `*.approve` — approve OTHERS' records (manager / HR action — gated by `canApproveFor()` for per-employee scope)
+- `*.manage` — admin-level CRUD on ANY record (NEVER in `BASE_EMPLOYEE`)
+
+`BASE_EMPLOYEE` (every internal user inherits these — HR self-service only):
+`dashboard.view`, `notifications.view`, `directory.view`, `announcements.view`,
+`timesheet.view`, `timesheet.create`, `leave.view`, `leave.create`,
+`attendance.view`, `attendance.create`, `payroll.view`, `evaluations.view`,
+`overtime.view`.
+
+
 
 | Module | Permissions |
 |--------|------------|
