@@ -161,6 +161,15 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    title: 'CRM',
+    titleEn: 'CRM',
+    description: 'النظام الجديد لإدارة العملاء المحتملين والصفقات',
+    items: [
+      { href: '/dashboard/crm', label: 'لوحة المبيعات', labelEn: 'Sales Dashboard', icon: TrendingUp, permission: 'leads.view' },
+      { href: '/dashboard/crm/pipeline', label: 'خط المبيعات', labelEn: 'Pipeline', icon: Kanban, permission: 'leads.view' },
+    ],
+  },
+  {
     title: 'الموارد البشرية',
     titleEn: 'HR',
     description: 'الحضور والإجازات والرواتب والتقييمات',
