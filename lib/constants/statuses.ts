@@ -337,7 +337,9 @@ export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   inactive: 'غير نشط',
 };
 
-// ── Lead ──
+// ── Lead (legacy LEAD_STATUS — pre-CRM-rebuild) ──
+// Kept for any old code paths still importing it. New CRM code should use
+// the PIPELINE_STAGE_IDS / pipeline_stages table below.
 export const LEAD_STATUS = {
   NEW: 'new',
   CONTACTED: 'contacted',
@@ -358,6 +360,180 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
   negotiation: 'تفاوض',
   won: 'تم الكسب',
   lost: 'خسارة',
+};
+
+// ── CRM Pipeline Stages (post-rebuild — CRM-PRD/01-OVERVIEW-AND-SCOPE.md) ──
+//
+// IDs match the rows seeded by supabase/migrations/007_crm_pipeline_stages.sql.
+// Stage 5 (`contract_signed`) is a transit stage — leads parked here are
+// awaiting Manager approval before becoming `closed_won`.
+export const PIPELINE_STAGE_IDS = {
+  NEW_INQUIRY:     'stg_new_inquiry',
+  DISCOVERY_CALL:  'stg_discovery_call',
+  PROPOSAL_SENT:   'stg_proposal_sent',
+  NEGOTIATION:     'stg_negotiation',
+  CONTRACT_SIGNED: 'stg_contract_signed',
+  CLOSED_WON:      'stg_closed_won',
+  CLOSED_LOST:     'stg_closed_lost',
+} as const;
+
+export type PipelineStageId = typeof PIPELINE_STAGE_IDS[keyof typeof PIPELINE_STAGE_IDS];
+
+export const PIPELINE_STAGE_LABELS_AR: Record<PipelineStageId, string> = {
+  stg_new_inquiry:     'استفسار جديد',
+  stg_discovery_call:  'مكالمة استكشافية',
+  stg_proposal_sent:   'تم إرسال العرض',
+  stg_negotiation:     'تفاوض',
+  stg_contract_signed: 'تم توقيع العقد',
+  stg_closed_won:      'فوز بالصفقة',
+  stg_closed_lost:     'خسارة',
+};
+
+export const PIPELINE_STAGE_ORDER: PipelineStageId[] = [
+  'stg_new_inquiry',
+  'stg_discovery_call',
+  'stg_proposal_sent',
+  'stg_negotiation',
+  'stg_contract_signed',
+  'stg_closed_won',
+  'stg_closed_lost',
+];
+
+/**
+ * Hybrid win-probability defaults per Q-BIZ-001.
+ * Applied automatically on stage change UNLESS the lead's
+ * `win_probability_overridden = true`.
+ */
+export const STAGE_DEFAULT_WIN_PROBABILITY: Record<PipelineStageId, number> = {
+  stg_new_inquiry:     10,
+  stg_discovery_call:  25,
+  stg_proposal_sent:   50,
+  stg_negotiation:     72,
+  stg_contract_signed: 95,
+  stg_closed_won:      100,
+  stg_closed_lost:     0,
+};
+
+/** Stages where the lead is "in pipeline" (not yet finalised). */
+export const PIPELINE_ACTIVE_STAGES: PipelineStageId[] = [
+  'stg_new_inquiry',
+  'stg_discovery_call',
+  'stg_proposal_sent',
+  'stg_negotiation',
+  'stg_contract_signed',
+];
+
+/** Terminal stages — lead is finalised. */
+export const PIPELINE_FINAL_STAGES: PipelineStageId[] = [
+  'stg_closed_won',
+  'stg_closed_lost',
+];
+
+// ── CRM Lead Type ──
+export const LEAD_TYPE = {
+  B2B: 'b2b',
+  B2C: 'b2c',
+} as const;
+
+export type LeadType = typeof LEAD_TYPE[keyof typeof LEAD_TYPE];
+
+export const LEAD_TYPE_LABELS: Record<LeadType, string> = {
+  b2b: 'شركة (B2B)',
+  b2c: 'فرد (B2C)',
+};
+
+// ── CRM Deal Type (the service Pyramedia would deliver) ──
+export const LEAD_DEAL_TYPE = {
+  WEB_DESIGN:            'web_design',
+  SOCIAL_MEDIA_RETAINER: 'social_media_retainer',
+  BRANDING:              'branding',
+  PAYER_AI:              'payer_ai',
+  VIDEO_PRODUCTION:      'video_production',
+  PERFORMANCE_ADS:       'performance_ads',
+  HYBRID_PACKAGE:        'hybrid_package',
+  OTHER:                 'other',
+} as const;
+
+export type LeadDealType = typeof LEAD_DEAL_TYPE[keyof typeof LEAD_DEAL_TYPE];
+
+export const LEAD_DEAL_TYPE_LABELS: Record<LeadDealType, string> = {
+  web_design:            'تصميم موقع',
+  social_media_retainer: 'إدارة سوشيال (Retainer)',
+  branding:              'هوية بصرية',
+  payer_ai:              'Payer AI',
+  video_production:      'إنتاج فيديو',
+  performance_ads:       'حملات إعلانية',
+  hybrid_package:        'باقة مدمجة',
+  other:                 'غير ذلك',
+};
+
+// ── CRM Lead Billing Cycle (separate from the global BILLING_CYCLE — leads
+//    can be one-time deals, which doesn't apply to recurring contracts) ──
+export const LEAD_BILLING_CYCLE = {
+  ONE_TIME:  'one_time',
+  MONTHLY:   'monthly',
+  QUARTERLY: 'quarterly',
+  ANNUAL:    'annual',
+} as const;
+
+export type LeadBillingCycle = typeof LEAD_BILLING_CYCLE[keyof typeof LEAD_BILLING_CYCLE];
+
+export const LEAD_BILLING_CYCLE_LABELS: Record<LeadBillingCycle, string> = {
+  one_time:  'مرة واحدة',
+  monthly:   'شهري',
+  quarterly: 'ربع سنوي',
+  annual:    'سنوي',
+};
+
+// ── CRM Lead Activity Types (timeline events) ──
+//
+// Authoritative TypeScript union — DB does NOT enforce a CHECK constraint
+// on `pyra_lead_activities.activity_type` because that would break legacy
+// rows. New activities written by application code MUST use one of these.
+//
+// Reference: CRM-PRD/02-DATABASE-AND-MIGRATION.md § Phase 6.
+export const LEAD_ACTIVITY_TYPES = [
+  'lead_created',
+  'stage_change',
+  'note',
+  'call_logged',
+  'meeting_scheduled',
+  'whatsapp_inbound',
+  'whatsapp_outbound',
+  'email_sent',
+  'file_attached',
+  'field_updated',
+  'assignment_changed',
+  'closed_won_pending',
+  'closed_won_approved',
+  'closed_won_rejected',
+  'follow_up_created',
+  'follow_up_completed',
+  'follow_up_overdue',
+  'idle_warning',
+] as const;
+
+export type LeadActivityTypeNew = typeof LEAD_ACTIVITY_TYPES[number];
+
+export const LEAD_ACTIVITY_LABELS_AR: Record<LeadActivityTypeNew, string> = {
+  lead_created:        'تم إنشاء الـ Lead',
+  stage_change:        'انتقلت المرحلة',
+  note:                'ملاحظة',
+  call_logged:         'تم تسجيل مكالمة',
+  meeting_scheduled:   'اجتماع محدد',
+  whatsapp_inbound:    'رسالة واتساب واردة',
+  whatsapp_outbound:   'رسالة واتساب صادرة',
+  email_sent:          'تم إرسال إيميل',
+  file_attached:       'تم إرفاق ملف',
+  field_updated:       'تحديث حقل',
+  assignment_changed:  'تغيير المسؤول',
+  closed_won_pending:  'بانتظار اعتماد Closed Won',
+  closed_won_approved: 'تم اعتماد Closed Won',
+  closed_won_rejected: 'تم رفض Closed Won',
+  follow_up_created:   'متابعة جديدة',
+  follow_up_completed: 'تم تنفيذ المتابعة',
+  follow_up_overdue:   'متابعة متأخرة',
+  idle_warning:        'تنبيه — Lead بدون نشاط',
 };
 
 // ── Conversation (WhatsApp Shared Inbox) ──

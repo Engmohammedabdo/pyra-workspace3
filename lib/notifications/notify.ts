@@ -40,6 +40,12 @@ export type NotificationType =
   | 'follow_up_due'
   | 'whatsapp_message'
   | 'whatsapp_assigned'
+  // Sales CRM (added in CRM rebuild — CRM-PRD/01-OVERVIEW-AND-SCOPE.md § Notifications)
+  | 'lead_stage_changed'
+  | 'lead_closed_won_pending_approval'
+  | 'lead_closed_won_approved'
+  | 'lead_closed_won_rejected'
+  | 'lead_idle_warning'
   // Approvals (manager-facing)
   | 'leave_request_pending'
   | 'expense_pending'

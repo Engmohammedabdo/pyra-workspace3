@@ -255,183 +255,209 @@ Live `pyra_lead_activities` schema (0 rows in table at baseline):
 
 ## Q-DB-004 — Should `pyra_sales_follow_ups` exist as separate table or be merged into `pyra_lead_activities`?
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 1, Phase 6
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 Two viable designs:
 1. Separate `pyra_sales_follow_ups` table with `due_at`, `status`, etc. (planning + execution).
 2. Use `pyra_lead_activities` of type `follow_up_created` and update its `metadata` when completed.
 
-Design (1) is cleaner for queries like "my pending follow-ups". Design (2) avoids a new table.
-
-**My recommendation**: Design (1) — separate table. Cleaner schema, faster queries, easier to add reminders.
-
-**Blocker?**: No — but choice affects Phase 6 work.
-
 ---
 
-**Answer**:
-_(awaiting Abdou's preference. Default to Design (1) if no answer by Phase 6.)_
+### ✅ ANSWER FROM ABDOU:
+
+**Use the existing `pyra_sales_follow_ups` table as-is** (Design 1, with the live schema documented in Q-DB-001). Don't merge follow-ups into `pyra_lead_activities`.
+
+**Resolution applied**:
+- Phase 6 mutations: write to `pyra_sales_follow_ups` directly.
+- A `follow_up_created` activity is *also* logged into `pyra_lead_activities` for the timeline UI (with `metadata.follow_up_id` pointing back) — but the source of truth for "my pending follow-ups" stays the dedicated table.
 
 ---
 
 ## Q-API-001 — Phone number duplicate handling on Lead create
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 6 (Mutations)
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 When creating a new Lead with a phone number that matches an existing Lead, what should happen?
 
-**Options**:
-1. **Block** — return 409 Conflict with the existing lead ID, suggest the user open it.
-2. **Warn but allow** — show a soft warning in UI, let the user decide.
-3. **Auto-merge** — append a new activity to the existing lead instead of creating new.
-
-**My recommendation**: Option 2 (warn but allow). Avoids blocking legitimate cases (e.g., a friend uses the same phone for a different deal) while alerting Sayed to potential duplicates.
-
-**Blocker?**: No — Phase 6.
-
 ---
 
-**Answer**:
-_(awaiting Abdou's preference)_
+### ✅ ANSWER FROM ABDOU:
+
+**Option 2 — warn but allow.** When the user types a phone number that matches an existing lead, the Add Lead modal must show a soft warning with a clickable link to the existing lead:
+
+> "هذا الرقم موجود قبل كده، اضغط لفتح الـ lead الموجود"
+
+The warning is non-blocking — the user can still submit if it's a legitimate duplicate (e.g., shared phone, separate deals).
+
+**Resolution applied**:
+- `POST /api/crm/leads` (Phase 6): never returns 409 for duplicate phone. Always allows creation.
+- The Add-Lead modal calls `GET /api/crm/leads?phone=<value>` (or a dedicated lookup endpoint) on phone-field blur. If a match is returned, render the inline warning + link to `/dashboard/crm/leads/<id>`.
+- API duplicate-detection logic: trim + normalise the phone (strip whitespace, leading `+`, `00` prefix) before comparing — match on the normalised form.
 
 ---
 
 ## Q-API-002 — Notification dedup for repeated stage changes
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 7 (Approval Workflow)
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 If Sayed moves a lead to `contract_signed`, gets rejected (back to `negotiation`), then moves it again to `contract_signed`, Abdou gets two notifications.
 
-**Question**: Should we dedup on `entity_id` so a single approval queue item is shown? Or are two distinct notifications correct?
-
-**My recommendation**: Two distinct notifications are correct (each is a fresh approval request). The `entity_type='lead'`, `entity_id=lead_id` plus `created_at` together form a unique notification.
-
-**Blocker?**: No.
-
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Two separate notifications.** Each fresh move-to-`contract_signed` is a distinct approval request and gets its own row in `pyra_notifications`. Don't dedup.
+
+**Resolution applied**:
+- `notify()` calls in the approval workflow pass a unique notification per request — no upsert / merge.
+- The approvals queue (`/dashboard/crm/approvals`) shows the most recent open request per lead in the primary list, but Abdou can see the full history (older approved/rejected requests too) via the Activity Timeline on the Lead Detail page.
 
 ---
 
 ## Q-BIZ-001 — Win probability calculation
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 3 (Dashboard) and Phase 6
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
-Lead has `win_probability` (0-100). The Dashboard's Forecast computes "expected close value this month" based on this. Two approaches:
-
-1. **Manual** — agent sets it on each lead.
-2. **Auto by stage** — derive: `new_inquiry`=10, `discovery`=25, `proposal_sent`=50, `negotiation`=72, `contract_signed`=95, `closed_won`=100, `closed_lost`=0.
-3. **Hybrid** — auto by stage, but agent can override per lead.
-
-**My recommendation**: Hybrid (3). Default by stage, override allowed.
-
-**Blocker?**: No.
+Lead has `win_probability` (0-100). The Dashboard's Forecast computes "expected close value this month" based on this.
 
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Option 3 — Hybrid.** The system auto-defaults `win_probability` by stage; the agent can override per lead.
+
+Stage → default mapping (locked):
+
+| stage | win_probability default |
+|---|---|
+| `stg_new_inquiry`     | 10 |
+| `stg_discovery_call`  | 25 |
+| `stg_proposal_sent`   | 50 |
+| `stg_negotiation`     | 72 |
+| `stg_contract_signed` | 95 |
+| `stg_closed_won`      | 100 |
+| `stg_closed_lost`     | 0 |
+
+**Behaviour rules**:
+- On Lead create → set `win_probability` from the default for the lead's initial stage (always `stg_new_inquiry` after Phase 2).
+- On stage change → if the agent has not manually overridden the value (we'll track this via a small flag — see below), update `win_probability` to the new stage's default. If overridden, preserve the override.
+- Lead edit form: agent can directly edit `win_probability`. Doing so sets a `win_probability_overridden BOOLEAN DEFAULT false` flag. Once `true`, future stage changes do not auto-update.
+- A "Reset to stage default" button on the lead-edit form clears the override flag.
+
+**Resolution applied**:
+- Add the `win_probability_overridden` column via a Tier-1 additive migration (slot it into `crm_001_extend_sales_leads.sql` since that's still in Phase 1). Default `false`.
+- Stage-change endpoint (`POST /api/crm/leads/[id]/move-stage`) checks the flag before recalculating.
+- Lead-edit endpoint (`PATCH /api/crm/leads/[id]`) sets the flag to `true` whenever the request body contains `win_probability`.
+- A `STAGE_DEFAULT_WIN_PROBABILITY` constant lives in `lib/constants/statuses.ts` next to `PIPELINE_STAGE_IDS`.
 
 ---
 
 ## Q-BIZ-002 — Auto-create Contract on Closed Won?
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 7
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 When Sayed moves a lead to `contract_signed` and attaches a contract, that contract already exists in `pyra_contracts`. But what if no contract exists yet — only a quote/proposal?
 
-**Question**: Should the system auto-create a contract record from the quote on approval? Or require manual contract creation first?
-
-**My recommendation**: Require manual contract creation. The agent must have created the contract in `/dashboard/finance/contracts` first, and selects it during the move-to-contract-signed step. Cleaner separation of concerns.
-
-**Blocker?**: No (but affects Phase 7 UX).
-
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Manual contract creation required.** Sales rep must create the contract in `/dashboard/finance/contracts` *before* moving the lead to `contract_signed`. No auto-creation.
+
+**Resolution applied**:
+- Phase 7 move-to-`contract_signed` modal: the contract picker shows existing `pyra_contracts` filtered by `client_id` (or `lead_id` if already linked). If none exist, the modal shows a CTA "أنشئ عقد جديد" that deep-links to `/dashboard/finance/contracts/new?lead_id=<id>` and the user finishes the contract creation, then comes back.
+- Backend (`POST /api/crm/leads/[id]/move-stage`) rejects with 422 if the request targets `stg_contract_signed` and supplies neither a `contract_id` nor an `invoice_id`.
+- No auto-creation logic in the move-stage endpoint. Cleaner separation of concerns.
 
 ---
 
 ## Q-BIZ-003 — What happens to `assigned_to` when a sales agent leaves?
 
-**Status**: Open
-**Phase impacted**: Phase 6 (anytime)
+**Status**: ✅ ANSWERED — DEFERRED to v1.1
+**Phase impacted**: Phase 6 (anytime) → moved to v1.1
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 If Sayed leaves Pyramedia tomorrow, his leads need re-assignment. The system should support this.
 
-**Question**: Should there be a "transfer leads" bulk action accessible to admin? Or is this handled elsewhere?
-
-**My recommendation**: Yes, add `POST /api/crm/leads/bulk-reassign` for admin only. Keep simple in v1: one source agent → one target agent.
-
-**Blocker?**: No (v1.1 can address).
-
 ---
 
-**Answer**:
-_(awaiting — likely defer to v1.1)_
+### ✅ ANSWER FROM ABDOU:
+
+**Defer to v1.1.** Don't build the bulk re-assign endpoint or UI in v1.
+
+**Resolution applied**:
+- Out of scope for v1. No endpoint, no UI.
+- Per-lead re-assignment via the standard `PATCH /api/crm/leads/[id]` (admin can change `assigned_to` manually) IS in v1 — this covers the rare case until the bulk tool ships.
 
 ---
 
 ## Q-UI-001 — Pipeline drag-drop on mobile
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 4 / 7
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
-Drag-and-drop on touch devices is finicky. Options:
-1. Long-press to start drag (standard pattern).
-2. Disable drag on mobile; provide a "Move stage" button on each card that opens a sheet picker.
-3. Both — drag works, button is alternative.
-
-**My recommendation**: Option 2 only on mobile (button). Drag-drop is desktop-only. The "Move stage" button is faster and more reliable on phones.
-
-**Blocker?**: No.
+Drag-and-drop on touch devices is finicky.
 
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Option 2 — desktop drag-drop only; mobile uses a button.**
+
+- Desktop (≥ 768px): full `@dnd-kit` drag-and-drop on the Pipeline.
+- Mobile (< 768px): drag-drop disabled. Each card shows a **"نقل المرحلة"** button. Tapping it opens a bottom sheet with a stage picker; same validation rules apply (e.g., target = `stg_contract_signed` triggers the contract-attach flow).
+
+**Resolution applied**:
+- `pipeline-card.tsx` renders the button only at the mobile breakpoint (or always, with `dnd` wrapped in `hidden md:block` and the button in `block md:hidden`).
+- Stage-picker sheet shares the same backing mutation as desktop drag (`POST /api/crm/leads/[id]/move-stage`).
 
 ---
 
 ## Q-UI-002 — Activity Timeline pagination
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 5
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 A long-lived customer might have hundreds of activities. Loading them all is slow.
 
-**My recommendation**: Load most recent 50 by default, with "Load more" button. No pagination UI, just append.
-
-**Blocker?**: No.
-
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Load 50 most recent, then "تحميل المزيد" button to append the next 50.** No numbered pagination UI.
+
+**Resolution applied**:
+- `GET /api/crm/leads/[id]/activities?limit=50&before=<created_at>` — cursor-style. Initial load: no `before`. "Load more" passes the oldest `created_at` from the current list as `before`.
+- Hook `useLeadActivities(leadId)` uses React Query's `useInfiniteQuery` with this cursor.
+- "Load more" button hides when the API returns < 50 rows.
 
 ---
 
@@ -491,25 +517,28 @@ Any migration that touches existing data must be reviewed by Abdou before execut
 
 ## Q-OPS-002 — Cron job scheduling
 
-**Status**: Open
+**Status**: ✅ ANSWERED
 **Phase impacted**: Phase 11
 **Date asked**: PRD creation
+**Date answered**: 2026-05-06
 
 **Context**:
 The PRD mentions cron jobs:
 - Follow-up WhatsApp reminders (every 5 min)
 - Lead idle warning (daily 09:00)
 
-**Question**: Where do these run? n8n? Coolify cron? External scheduler?
-
-**My recommendation**: Use n8n (already in stack per memory). Configure n8n to call `/api/cron/...` endpoints with API key.
-
-**Blocker?**: Affects Phase 11.
-
 ---
 
-**Answer**:
-_(awaiting)_
+### ✅ ANSWER FROM ABDOU:
+
+**Use n8n.** Configure n8n workflows to call the `/api/cron/*` endpoints with API-key auth (same pattern as the existing external API surface in `app/api/external/`).
+
+**Resolution applied**:
+- Phase 11 endpoints:
+  - `POST /api/cron/follow-up-reminders` — n8n schedule: every 5 minutes
+  - `POST /api/cron/lead-idle-check` — n8n schedule: daily 09:00 UAE time
+- Auth: `x-api-key` header validated against the same env var the existing external endpoints use (Claude Code: confirm exact var name during Phase 11 by reading an existing `app/api/external/` route).
+- Each endpoint returns a structured summary of work performed, which n8n can log/alert on.
 
 ---
 

@@ -167,6 +167,8 @@ export const PERMISSIONS = {
   SALES_LEADS_VIEW: 'sales_leads.view',
   SALES_LEADS_CREATE: 'sales_leads.create',
   SALES_LEADS_MANAGE: 'sales_leads.manage',
+  // CRM rebuild — approve closed_won lifecycle event (manager scope via canApproveFor).
+  SALES_LEADS_APPROVE: 'sales_leads.approve',
   SALES_WHATSAPP_VIEW: 'sales_whatsapp.view',
   SALES_WHATSAPP_SEND: 'sales_whatsapp.send',
   SALES_WHATSAPP_GROUPS_VIEW: 'sales_whatsapp_groups.view',
@@ -534,6 +536,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'sales_leads.view', label: 'View Leads', labelAr: 'عرض العملاء المحتملين' },
       { key: 'sales_leads.create', label: 'Create Leads', labelAr: 'إنشاء عملاء محتملين' },
       { key: 'sales_leads.manage', label: 'Manage Leads', labelAr: 'إدارة العملاء المحتملين' },
+      { key: 'sales_leads.approve', label: 'Approve Closed Won', labelAr: 'اعتماد فوز بالصفقة' },
       { key: 'sales_whatsapp.view', label: 'View WhatsApp', labelAr: 'عرض واتساب' },
       { key: 'sales_whatsapp.send', label: 'Send WhatsApp', labelAr: 'إرسال واتساب' },
       { key: 'sales_whatsapp_groups.view', label: 'View WhatsApp Groups', labelAr: 'عرض مجموعات واتساب' },

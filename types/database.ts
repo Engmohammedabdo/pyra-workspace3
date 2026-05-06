@@ -795,6 +795,14 @@ export interface PyraContract {
   id: string;
   client_id: string | null;
   project_id: string | null;
+  /**
+   * CRM link — nullable. Legacy contracts created before the CRM rebuild
+   * (or contracts whose client never had a Lead) keep `lead_id = null` and
+   * still appear in finance flows. New contracts created from CRM should
+   * always have lead_id set.
+   * Migration: supabase/migrations/008_crm_link_contracts_to_leads.sql
+   */
+  lead_id: string | null;
   title: string | null;
   description: string | null;
   contract_type: string | null;
@@ -1296,6 +1304,32 @@ export interface PyraSalesLead {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  // ── CRM rebuild (migration 006_crm_extend_sales_leads) ──
+  /** Backup of pre-rebuild stage_id, populated in migration 003 (Phase 2). */
+  legacy_stage_id?: string | null;
+  lead_type: 'b2b' | 'b2c';
+  industry: string | null;
+  /**
+   * Free-form deal type. App-side enum:
+   *   web_design | social_media_retainer | branding | payer_ai
+   *   video_production | performance_ads | hybrid_package | other
+   */
+  deal_type: string | null;
+  expected_value: number;
+  expected_value_currency: string;
+  /** one_time | monthly | quarterly | annual */
+  billing_cycle: string;
+  /** 0-100. Auto-defaults by stage; override allowed via win_probability_overridden. */
+  win_probability: number;
+  /** True once an agent manually edits win_probability — locks future stage-based recalc. */
+  win_probability_overridden: boolean;
+  lost_reason: string | null;
+  contact_person: string | null;
+  contact_role: string | null;
+  company_size: string | null;
+  decision_maker: string | null;
+  budget_range: string | null;
+  custom_fields: Record<string, unknown>;
   // Joined
   stage_name_ar?: string;
   stage_color?: string;
@@ -1303,10 +1337,46 @@ export interface PyraSalesLead {
   labels?: PyraSalesLabel[];
 }
 
+/**
+ * Canonical activity types for `pyra_lead_activities.activity_type`.
+ * Enforced in TypeScript only — NO DB CHECK (legacy rows would break).
+ * Authoritative list lives in lib/constants/statuses.ts (LEAD_ACTIVITY_TYPES).
+ *
+ * Legacy values ('note', 'call', 'stage_change', 'label_change', 'transfer',
+ * 'message', 'conversion') predate the CRM rebuild. New code should use the
+ * CRM types below — see CRM-PRD/02-DATABASE-AND-MIGRATION.md § Phase 6.
+ */
+export type LeadActivityType =
+  // ── Legacy (kept for zero-row backward compat) ──
+  | 'note'
+  | 'call'
+  | 'stage_change'
+  | 'label_change'
+  | 'transfer'
+  | 'message'
+  | 'conversion'
+  // ── CRM rebuild canonical types ──
+  | 'lead_created'
+  | 'call_logged'
+  | 'meeting_scheduled'
+  | 'whatsapp_inbound'
+  | 'whatsapp_outbound'
+  | 'email_sent'
+  | 'file_attached'
+  | 'field_updated'
+  | 'assignment_changed'
+  | 'closed_won_pending'
+  | 'closed_won_approved'
+  | 'closed_won_rejected'
+  | 'follow_up_created'
+  | 'follow_up_completed'
+  | 'follow_up_overdue'
+  | 'idle_warning';
+
 export interface PyraLeadActivity {
   id: string;
   lead_id: string;
-  activity_type: 'note' | 'call' | 'stage_change' | 'label_change' | 'transfer' | 'message' | 'conversion';
+  activity_type: LeadActivityType;
   description: string | null;
   metadata: Record<string, unknown> | null;
   created_by: string | null;
