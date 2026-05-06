@@ -11,18 +11,21 @@
  * win-probability math actually work end-to-end.
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useCRMKPIs, useCRMFunnel } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GitBranch, Target, TrendingUp, Wallet, Repeat, ArrowRightCircle } from 'lucide-react';
+import { GitBranch, Target, TrendingUp, Wallet, Repeat, ArrowRightCircle, Plus } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
+import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
 
 export function CrmDashboardStub() {
   const { data: kpis, isLoading: kpisLoading } = useCRMKPIs('this_month');
   const { data: funnel } = useCRMFunnel();
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
 
   return (
     <div className="space-y-6">
@@ -39,7 +42,10 @@ export function CrmDashboardStub() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button asChild variant="default">
+          <Button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
+            <Plus className="size-4 me-2" /> Lead جديد
+          </Button>
+          <Button asChild variant="outline">
             <Link href="/dashboard/crm/pipeline">
               <GitBranch className="size-4 me-2" />
               فتح خط المبيعات
@@ -48,6 +54,8 @@ export function CrmDashboardStub() {
           </Button>
         </div>
       </header>
+
+      <AddLeadModal open={addLeadOpen} onOpenChange={setAddLeadOpen} />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard

@@ -11,7 +11,7 @@
  * Phase 7 will wrap PipelineBoard in @dnd-kit and turn drag-drop on.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,10 +21,12 @@ import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeads } from '@/hooks/useLeads';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
+import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
 
 export function PipelineClient() {
   const sp = useSearchParams();
   const { data: me } = useCurrentUser();
+  const [addLeadOpen, setAddLeadOpen] = useState(false);
 
   // Build filter object from URL (the same params the filter bar writes).
   const filters = useMemo<Record<string, string | undefined>>(() => {
@@ -67,7 +69,7 @@ export function PipelineClient() {
               <GitBranch className="size-6 text-orange-500" /> خط المبيعات
             </h1>
             <Badge variant="outline" className="bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-800/40">
-              Phase 4 · للقراءة فقط
+              للقراءة فقط
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
@@ -75,11 +77,13 @@ export function PipelineClient() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" disabled title="إنشاء Lead جديد — جاي في Phase 6">
+          <Button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
             <Plus className="size-4 me-2" /> Lead جديد
           </Button>
         </div>
       </header>
+
+      <AddLeadModal open={addLeadOpen} onOpenChange={setAddLeadOpen} />
 
       <PipelineFilterBar isAdmin={!!isAdmin} ownerOptions={ownerOptions} total={total} />
 
