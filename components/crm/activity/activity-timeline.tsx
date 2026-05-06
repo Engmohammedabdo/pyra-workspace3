@@ -20,10 +20,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Activity as ActivityIcon, Loader2 } from 'lucide-react';
 import { useLeadActivities, type LeadActivity } from '@/hooks/useLeadActivities';
 import { ActivityItem } from './activity-item';
+import { ActivityComposer } from './activity-composer';
 import { LEAD_ACTIVITY_TYPES, LEAD_ACTIVITY_LABELS_AR, type LeadActivityTypeNew } from '@/lib/constants/statuses';
 
 interface ActivityTimelineProps {
   leadId: string;
+  /** Render the composer at the top — defaults to true on the Activity tab. */
+  showComposer?: boolean;
 }
 
 const FILTER_GROUPS: Array<{ label: string; types: LeadActivityTypeNew[] | 'all' }> = [
@@ -35,7 +38,7 @@ const FILTER_GROUPS: Array<{ label: string; types: LeadActivityTypeNew[] | 'all'
   { label: 'متابعات',     types: ['follow_up_created', 'follow_up_completed', 'follow_up_overdue'] },
 ];
 
-export function ActivityTimeline({ leadId }: ActivityTimelineProps) {
+export function ActivityTimeline({ leadId, showComposer = true }: ActivityTimelineProps) {
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   const filterTypes = useMemo(() => {
@@ -70,6 +73,8 @@ export function ActivityTimeline({ leadId }: ActivityTimelineProps) {
 
   return (
     <div className="space-y-3">
+      {showComposer && <ActivityComposer leadId={leadId} />}
+
       {/* Filter chips */}
       <div className="flex flex-wrap gap-1.5">
         {FILTER_GROUPS.map((g) => {
