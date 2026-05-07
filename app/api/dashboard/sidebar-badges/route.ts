@@ -23,6 +23,7 @@ export async function GET() {
 
     const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
     const canViewWhatsApp = hasPermission(auth.pyraUser.rolePermissions, 'sales_whatsapp.view');
+    const canViewFollowUps = hasPermission(auth.pyraUser.rolePermissions, 'follow_ups.view');
 
     // Resolve approval scope — admins see all, managers see direct reports only
     const reports = isAdmin ? null : await getDirectReports(serviceClient, username);
@@ -35,7 +36,7 @@ export async function GET() {
       return q;
     };
 
-    const [notifResult, overdueResult, approvalsResult, unassignedWaResult, leaveResult, expenseResult, timesheetResult] = await Promise.all([
+    const [notifResult, overdueResult, approvalsResult, unassignedWaResult, leaveResult, expenseResult, timesheetResult, followUpsResult] = await Promise.all([
       // Unread notifications for this user
       supabase
         .from('pyra_notifications')
@@ -68,6 +69,17 @@ export async function GET() {
       teamApprovalsQuery('pyra_expenses', 'pending', 'submitted_by'),
       // Submitted timesheet periods from direct reports (or all for admins)
       teamApprovalsQuery('pyra_timesheet_periods', 'submitted'),
+      // Pending CRM follow-ups assigned to me (admin sees all)
+      canViewFollowUps
+        ? (() => {
+            let q = serviceClient
+              .from('pyra_sales_follow_ups')
+              .select('id', { count: 'exact', head: true })
+              .eq('status', 'pending');
+            if (!isAdmin) q = q.eq('assigned_to', username);
+            return q;
+          })()
+        : Promise.resolve({ count: 0 }),
     ]);
 
     const teamApprovalsCount =
@@ -79,6 +91,7 @@ export async function GET() {
       pending_approvals: approvalsResult.count ?? 0,
       unassigned_conversations: unassignedWaResult.count ?? 0,
       team_approvals: teamApprovalsCount,
+      follow_ups_pending: followUpsResult.count ?? 0,
     });
   } catch {
     return apiError('خطأ في الخادم', 500);

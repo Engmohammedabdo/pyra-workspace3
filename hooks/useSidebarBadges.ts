@@ -8,9 +8,17 @@ interface SidebarBadges {
   pending_approvals: number;
   unassigned_conversations: number;
   team_approvals: number;
+  follow_ups_pending: number;
 }
 
-const EMPTY_BADGES: SidebarBadges = { notifications: 0, overdue_invoices: 0, pending_approvals: 0, unassigned_conversations: 0, team_approvals: 0 };
+const EMPTY_BADGES: SidebarBadges = {
+  notifications: 0,
+  overdue_invoices: 0,
+  pending_approvals: 0,
+  unassigned_conversations: 0,
+  team_approvals: 0,
+  follow_ups_pending: 0,
+};
 const POLL_INTERVAL = 60_000; // 60 seconds
 
 export function useSidebarBadges() {

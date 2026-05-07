@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createMiddlewareSupabaseClient } from '@/lib/supabase/middleware';
 
+// ── CRM redirects ─────────────────────────────────────────────────────────
+// Old /dashboard/sales/* URLs that have a 1:1 home in the new CRM module
+// 307-redirect to their new equivalent. Order matters — the more-specific
+// /sales/leads/[id] rule MUST be tested before the bare /sales/leads rule.
+//
+// URLs intentionally NOT redirected (still served by their existing pages):
+//   /dashboard/sales/chat
+//   /dashboard/sales/whatsapp-analytics
+//   /dashboard/sales/whatsapp-campaigns
+//   /dashboard/sales/approvals
+//   /dashboard/sales/settings
+const CRM_REDIRECTS: Array<[RegExp, (path: string) => string]> = [
+  // /dashboard/sales/leads/<id>[/...]  →  /dashboard/crm/leads/<id>[/...]
+  [/^\/dashboard\/sales\/leads\/([^/]+)(\/.*)?$/,
+    (p) => p.replace(/^\/dashboard\/sales\/leads\//, '/dashboard/crm/leads/')],
+  [/^\/dashboard\/sales\/leads\/?$/,      () => '/dashboard/crm/pipeline'],
+  [/^\/dashboard\/sales\/follow-ups\/?$/, () => '/dashboard/crm/follow-ups'],
+  [/^\/dashboard\/sales\/reports\/?$/,    () => '/dashboard/crm'],
+  [/^\/dashboard\/sales\/?$/,             () => '/dashboard/crm'],
+];
+
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({
     request: {
@@ -14,6 +35,21 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
+
+  // ── CRM URL unification — redirect deprecated /dashboard/sales/* paths
+  // to their /dashboard/crm/* equivalents. Runs BEFORE auth so unauth'd
+  // users hitting an old URL still get routed to the new one cleanly
+  // (the auth gate below will then bounce them to /login with the new
+  // path captured in the redirect= param).
+  for (const [pattern, build] of CRM_REDIRECTS) {
+    if (pattern.test(pathname)) {
+      const target = build(pathname);
+      const url = new URL(target, request.url);
+      // Preserve search params on the way through
+      url.search = request.nextUrl.search;
+      return NextResponse.redirect(url, 307);
+    }
+  }
 
   // Public routes - no auth needed
   const publicRoutes = [

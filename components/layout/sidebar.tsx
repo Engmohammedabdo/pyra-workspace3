@@ -67,7 +67,6 @@ import {
   Pin,
   PinOff,
   TrendingUp,
-  UserPlus,
   MessageCircle,
   CheckCircle,
   FileCheck,
@@ -91,7 +90,7 @@ interface NavItem {
   labelEn: string;
   icon: React.ComponentType<{ className?: string }>;
   permission?: string;
-  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations' | 'team_approvals';
+  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations' | 'team_approvals' | 'follow_ups_pending';
 }
 
 interface NavGroup {
@@ -145,28 +144,20 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: 'المبيعات',
-    titleEn: 'Sales',
-    description: 'إدارة العملاء المحتملين والمتابعات وتقارير المبيعات',
-    items: [
-      { href: '/dashboard/sales', label: 'نظرة عامة', labelEn: 'Sales Overview', icon: TrendingUp, permission: 'sales.view' },
-      { href: '/dashboard/sales/leads', label: 'العملاء المحتملين', labelEn: 'Leads', icon: UserPlus, permission: 'sales_leads.view' },
-      { href: '/dashboard/sales/chat', label: 'محادثات واتساب', labelEn: 'WhatsApp Chat', icon: MessageCircle, permission: 'sales_whatsapp.view', badgeKey: 'unassigned_conversations' },
-      { href: '/dashboard/sales/whatsapp-analytics', label: 'تحليلات واتساب', labelEn: 'WhatsApp Analytics', icon: PieChart, permission: 'sales_whatsapp.view' },
-      { href: '/dashboard/sales/whatsapp-campaigns', label: 'حملات الرسائل', labelEn: 'Campaigns', icon: Megaphone, permission: 'sales_whatsapp.manage' },
-      { href: '/dashboard/sales/approvals', label: 'موافقات العروض', labelEn: 'Quote Approvals', icon: CheckCircle, permission: 'quote_approvals.view', badgeKey: 'pending_approvals' },
-      { href: '/dashboard/sales/follow-ups', label: 'المتابعات', labelEn: 'Follow-ups', icon: Clock, permission: 'sales_leads.view' },
-      { href: '/dashboard/sales/reports', label: 'تقارير المبيعات', labelEn: 'Sales Reports', icon: BarChart3, permission: 'sales.view' },
-      { href: '/dashboard/sales/settings', label: 'إعدادات المبيعات', labelEn: 'Sales Settings', icon: Settings2, permission: 'sales_pipeline.manage' },
-    ],
-  },
-  {
     title: 'CRM',
     titleEn: 'CRM',
-    description: 'النظام الجديد لإدارة العملاء المحتملين والصفقات',
+    description: 'إدارة العملاء المحتملين، خط المبيعات، WhatsApp، والمتابعات',
     items: [
-      { href: '/dashboard/crm', label: 'لوحة المبيعات', labelEn: 'Sales Dashboard', icon: TrendingUp, permission: 'leads.view' },
-      { href: '/dashboard/crm/pipeline', label: 'خط المبيعات', labelEn: 'Pipeline', icon: Kanban, permission: 'leads.view' },
+      { href: '/dashboard/crm',                       label: 'لوحة المبيعات',  labelEn: 'Sales Dashboard',     icon: TrendingUp,    permission: 'leads.view' },
+      { href: '/dashboard/crm/pipeline',              label: 'خط المبيعات',    labelEn: 'Pipeline',            icon: Kanban,        permission: 'leads.view' },
+      { href: '/dashboard/crm/customers',             label: 'العملاء',        labelEn: 'Customers',           icon: Users,         permission: 'leads.view' },
+      { href: '/dashboard/sales/chat',                label: 'محادثات واتساب', labelEn: 'WhatsApp Chat',       icon: MessageCircle, permission: 'sales_whatsapp.view',         badgeKey: 'unassigned_conversations' },
+      { href: '/dashboard/sales/whatsapp-analytics',  label: 'تحليلات واتساب', labelEn: 'WhatsApp Analytics',  icon: PieChart,      permission: 'sales_whatsapp.view' },
+      { href: '/dashboard/sales/whatsapp-campaigns',  label: 'حملات الرسائل',  labelEn: 'Campaigns',           icon: Megaphone,     permission: 'sales_whatsapp.manage' },
+      { href: '/dashboard/crm/follow-ups',            label: 'المتابعات',      labelEn: 'Follow-ups',          icon: Clock,         permission: 'follow_ups.view',             badgeKey: 'follow_ups_pending' },
+      { href: '/dashboard/sales/approvals',           label: 'موافقات العروض', labelEn: 'Quote Approvals',     icon: CheckCircle,   permission: 'quote_approvals.view',        badgeKey: 'pending_approvals' },
+      { href: '/dashboard/crm',                       label: 'التقارير',       labelEn: 'CRM Reports',         icon: BarChart3,     permission: 'crm_reports.view' },
+      { href: '/dashboard/sales/settings',            label: 'الإعدادات',      labelEn: 'Sales Settings',      icon: Settings2,     permission: 'sales_pipeline.manage' },
     ],
   },
   {
