@@ -36,22 +36,40 @@ export function usePendingApprovals() {
   });
 }
 
-// ── Mutations (endpoints land in Phase 7) ──
+// ── Mutations ──
+//
+// Endpoints live (Phase 7 Chunk 1):
+//   POST /api/crm/approvals/[lead_id]/approve
+//   POST /api/crm/approvals/[lead_id]/reject  { reason: string }
+//
+// Both mutations invalidate the same key set on settle so the approvals
+// queue, lead detail, sales dashboard, AND the sidebar badge all reconcile
+// with the server response. Optimistic updates live at the call-site
+// (ApprovalCard) using the cancelQueries/getQueriesData/setQueriesData/
+// rollback pattern — same shape as the Phase-6 mark-complete button.
 
 export interface DecideApprovalInput {
   lead_id: string;
   reason?: string;
 }
 
+const APPROVAL_INVALIDATIONS = [
+  ['crm', 'approvals'],
+  ['crm', 'leads'],
+  ['crm', 'dashboard'],
+  ['sidebar-badges'],
+] as const;
+
 export function useApproveCloseLeadWin() {
   const qc = useQueryClient();
   return useMutation<unknown, Error, DecideApprovalInput>({
     mutationFn: ({ lead_id }) =>
       mutateAPI(`/api/crm/approvals/${lead_id}/approve`, 'POST'),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crm', 'approvals'] });
-      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
-      qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+    onSettled: (_data, _err, vars) => {
+      for (const key of APPROVAL_INVALIDATIONS) {
+        qc.invalidateQueries({ queryKey: key as unknown as string[] });
+      }
+      qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
     },
   });
 }
@@ -61,10 +79,11 @@ export function useRejectCloseLeadWin() {
   return useMutation<unknown, Error, DecideApprovalInput>({
     mutationFn: ({ lead_id, reason }) =>
       mutateAPI(`/api/crm/approvals/${lead_id}/reject`, 'POST', { reason }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['crm', 'approvals'] });
-      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
-      qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+    onSettled: (_data, _err, vars) => {
+      for (const key of APPROVAL_INVALIDATIONS) {
+        qc.invalidateQueries({ queryKey: key as unknown as string[] });
+      }
+      qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
     },
   });
 }

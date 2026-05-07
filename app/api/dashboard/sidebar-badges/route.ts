@@ -24,6 +24,7 @@ export async function GET() {
     const canManageApprovals = hasPermission(auth.pyraUser.rolePermissions, 'quote_approvals.manage');
     const canViewWhatsApp = hasPermission(auth.pyraUser.rolePermissions, 'sales_whatsapp.view');
     const canViewFollowUps = hasPermission(auth.pyraUser.rolePermissions, 'follow_ups.view');
+    const canApproveCrm = hasPermission(auth.pyraUser.rolePermissions, 'leads.approve');
 
     // Resolve approval scope — admins see all, managers see direct reports only
     const reports = isAdmin ? null : await getDirectReports(serviceClient, username);
@@ -36,7 +37,17 @@ export async function GET() {
       return q;
     };
 
-    const [notifResult, overdueResult, approvalsResult, unassignedWaResult, leaveResult, expenseResult, timesheetResult, followUpsResult] = await Promise.all([
+    const [
+      notifResult,
+      overdueResult,
+      approvalsResult,
+      unassignedWaResult,
+      leaveResult,
+      expenseResult,
+      timesheetResult,
+      followUpsResult,
+      crmApprovalsResult,
+    ] = await Promise.all([
       // Unread notifications for this user
       supabase
         .from('pyra_notifications')
@@ -80,6 +91,23 @@ export async function GET() {
             return q;
           })()
         : Promise.resolve({ count: 0 }),
+      // CRM Closed-Won approvals waiting on me — leads currently parked in
+      // stg_contract_signed. Admin sees all; non-admin manager sees only
+      // leads owned by direct reports (mirrors GET /api/crm/approvals/pending).
+      canApproveCrm
+        ? (async () => {
+            let q = serviceClient
+              .from('pyra_sales_leads')
+              .select('id', { count: 'exact', head: true })
+              .eq('stage_id', 'stg_contract_signed');
+            if (!isAdmin) {
+              const myReports = reports ?? (await getDirectReports(serviceClient, username));
+              if (!myReports || myReports.length === 0) return { count: 0 };
+              q = q.in('assigned_to', myReports);
+            }
+            return q;
+          })()
+        : Promise.resolve({ count: 0 }),
     ]);
 
     const teamApprovalsCount =
@@ -92,6 +120,7 @@ export async function GET() {
       unassigned_conversations: unassignedWaResult.count ?? 0,
       team_approvals: teamApprovalsCount,
       follow_ups_pending: followUpsResult.count ?? 0,
+      crm_pending_approvals: crmApprovalsResult.count ?? 0,
     });
   } catch {
     return apiError('خطأ في الخادم', 500);
