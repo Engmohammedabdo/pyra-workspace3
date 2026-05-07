@@ -46,6 +46,9 @@ export type NotificationType =
   | 'lead_closed_won_approved'
   | 'lead_closed_won_rejected'
   | 'lead_idle_warning'
+  // Phase 7: admin reopen of a closed_won lead. Fires only via the
+  // leads.manage override path in /api/crm/leads/[id]/move-stage.
+  | 'lead_reopened'
   // Approvals (manager-facing)
   | 'leave_request_pending'
   | 'expense_pending'
