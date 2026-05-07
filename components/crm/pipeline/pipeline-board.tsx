@@ -3,17 +3,33 @@
 /**
  * The Kanban container.
  *
- * Desktop (md+): horizontal scrolling row of <PipelineColumn>.
- * Mobile (<md): sticky stage tabs + a single vertical card stack for the
- *               active stage. Same data, two layouts.
+ * Desktop (md+): horizontal scrolling row of <PipelineColumn>, plus
+ *                @dnd-kit drag-and-drop. PointerSensor activates after
+ *                8 px movement so plain clicks still navigate via the
+ *                <Link> wrapping each card.
+ * Mobile (<md): sticky stage tabs + single vertical card stack. Drag is
+ *               OFF — the sensor's activation distance is set to a value
+ *               that's effectively unreachable. Mobile drag-trigger is
+ *               replaced by a per-card "نقل المرحلة" button (Phase 7 Chunk 4).
  *
- * Drag-and-drop is OFF in Phase 4 — added in Phase 7 by wrapping this
- * board in @dnd-kit's <DndContext> + <SortableContext>.
+ * The board does NOT own the mutation. It surfaces drop events via
+ * onDropChangeStage(leadId, toStageId, fromStageId); the parent
+ * (pipeline-client) wires the optimistic update + toast.
  */
 
 import { useMemo, useState } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { cn } from '@/lib/utils/cn';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { PipelineColumn } from './pipeline-column';
 import { PipelineCard } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
@@ -24,6 +40,12 @@ interface PipelineBoardProps {
   stages: PipelineStage[] | undefined;
   leads: Lead[] | undefined;
   loading?: boolean;
+  /**
+   * Fired when the user drops a card on a different column.
+   * Same-column drops are filtered before this fires.
+   * The parent owns the mutation + optimistic update.
+   */
+  onDropChangeStage?: (leadId: string, toStageId: string, fromStageId: string | null) => void;
 }
 
 const ACCENT_DOT: Record<string, string> = {
@@ -36,7 +58,24 @@ const ACCENT_DOT: Record<string, string> = {
   stone:   'bg-stone-400',
 };
 
-export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
+// Effectively-disabled sensor on mobile.
+const MOBILE_DRAG_DISTANCE = Number.MAX_SAFE_INTEGER;
+const DESKTOP_DRAG_DISTANCE = 8;
+
+export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: PipelineBoardProps) {
+  const isDesktop = useIsDesktop();
+  const [activeLead, setActiveLead] = useState<Lead | null>(null);
+
+  // PointerSensor with viewport-aware activation. On mobile the threshold is
+  // unreachable so drag never starts; the card's Link click still works.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: isDesktop ? DESKTOP_DRAG_DISTANCE : MOBILE_DRAG_DISTANCE,
+      },
+    }),
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<string, Lead[]>();
     for (const s of stages ?? []) map.set(s.id, []);
@@ -46,6 +85,13 @@ export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
     return map;
   }, [stages, leads]);
 
+  // Quick lookup so onDragEnd can pass through the from-stage too.
+  const leadById = useMemo(() => {
+    const map = new Map<string, Lead>();
+    for (const l of leads ?? []) map.set(l.id, l);
+    return map;
+  }, [leads]);
+
   // Mobile stage tab — defaults to first stage with leads, fallback to first stage.
   const [activeStageId, setActiveStageId] = useState<string | null>(null);
   const effectiveActiveId =
@@ -53,6 +99,25 @@ export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
     stages?.find((s) => (grouped.get(s.id)?.length ?? 0) > 0)?.id ??
     stages?.[0]?.id ??
     null;
+
+  function handleDragStart(event: DragStartEvent) {
+    const id = String(event.active.id);
+    setActiveLead(leadById.get(id) ?? null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveLead(null);
+    const { active, over } = event;
+    if (!over || !onDropChangeStage) return;
+
+    const leadId = String(active.id);
+    const toStageId = String(over.id);
+    const lead = leadById.get(leadId);
+    if (!lead) return;
+    if (lead.stage_id === toStageId) return; // same-column drop = no-op
+
+    onDropChangeStage(leadId, toStageId, lead.stage_id ?? null);
+  }
 
   if (loading) return <BoardSkeleton />;
   if (!stages || stages.length === 0) {
@@ -64,7 +129,12 @@ export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
   }
 
   return (
-    <>
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveLead(null)}
+    >
       {/* Desktop / tablet — horizontal scroll */}
       <div className="hidden md:block">
         <div className="flex gap-3 overflow-x-auto pb-3" dir="rtl">
@@ -76,7 +146,9 @@ export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
         </div>
       </div>
 
-      {/* Mobile — stage tabs + single column */}
+      {/* Mobile — stage tabs + single column. Drag is sensor-disabled here,
+          so cards behave as plain Links. The "نقل المرحلة" button comes in
+          Phase 7 Chunk 4. */}
       <div className="md:hidden">
         <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" dir="rtl">
@@ -119,7 +191,18 @@ export function PipelineBoard({ stages, leads, loading }: PipelineBoardProps) {
           )}
         </div>
       </div>
-    </>
+
+      {/* Floating preview of the dragged card. Only renders during a drag.
+          The original card stays at opacity 0.3 in its column so the source
+          slot is still visible while the user moves the overlay. */}
+      <DragOverlay dropAnimation={null}>
+        {activeLead ? (
+          <div className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
+            <PipelineCard lead={activeLead} dragOverlay />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 

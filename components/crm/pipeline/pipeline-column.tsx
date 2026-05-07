@@ -3,10 +3,13 @@
 /**
  * Single Kanban column for one stg_* stage.
  *
- * Phase 4: visual only, no drop zone.
- * Phase 7 will wrap this in @dnd-kit's <SortableContext> and add drop logic.
+ * Phase 7 Chunk 3.1: wired to @dnd-kit's useDroppable. The whole column
+ * (header + body + empty placeholder) is the drop zone. While a card
+ * hovers over it, the column gets a soft tint matching its stage color
+ * so the user sees the target visually distinct from the others.
  */
 
+import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils/cn';
 import { PipelineCard } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
@@ -41,16 +44,36 @@ const COUNT_TONE: Record<string, string> = {
   stone:   'bg-stone-500/10 text-stone-700 dark:text-stone-300',
 };
 
+const OVER_TINT: Record<string, string> = {
+  sky:     'bg-sky-500/10 ring-2 ring-sky-300 dark:ring-sky-700/60',
+  indigo:  'bg-indigo-500/10 ring-2 ring-indigo-300 dark:ring-indigo-700/60',
+  amber:   'bg-amber-500/10 ring-2 ring-amber-300 dark:ring-amber-700/60',
+  orange:  'bg-orange-500/10 ring-2 ring-orange-300 dark:ring-orange-700/60',
+  emerald: 'bg-emerald-500/10 ring-2 ring-emerald-300 dark:ring-emerald-700/60',
+  gold:    'bg-yellow-500/10 ring-2 ring-yellow-300 dark:ring-yellow-700/60',
+  stone:   'bg-stone-500/10 ring-2 ring-stone-300 dark:ring-stone-600/60',
+};
+
 export function PipelineColumn({ stage, leads, className, compactCards }: PipelineColumnProps) {
   const total = leads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
   const headerTone = HEADER_TONE[stage.color] ?? 'border-t-muted-foreground/40';
   const countTone = COUNT_TONE[stage.color] ?? 'bg-muted text-muted-foreground';
+  const overTint = OVER_TINT[stage.color] ?? 'bg-muted/60 ring-2 ring-muted-foreground/40';
+
+  // Drop zone for the whole column. Carries the stage_id so the board's
+  // onDragEnd can identify the target.
+  const { isOver, setNodeRef } = useDroppable({
+    id: stage.id,
+    data: { stage_id: stage.id },
+  });
 
   return (
     <div
+      ref={setNodeRef}
       className={cn(
-        'flex flex-col rounded-xl border border-border bg-muted/20 border-t-4 min-h-[24rem]',
+        'flex flex-col rounded-xl border border-border bg-muted/20 border-t-4 min-h-[24rem] transition-colors duration-150',
         headerTone,
+        isOver && overTint,
         className,
       )}
     >

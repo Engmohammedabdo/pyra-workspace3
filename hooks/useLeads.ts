@@ -124,17 +124,80 @@ export interface MoveStageInput {
   to_stage_id: string;
   attachment?: { type: 'contract' | 'invoice'; id: string };
   lost_reason?: string;
+  reopen_reason?: string;
 }
 
+interface MoveStageContext {
+  // Snapshots of every cached LIST query before the optimistic write.
+  snapshots: Array<[readonly unknown[], LeadsListResponse | undefined]>;
+}
+
+/**
+ * Move a lead to a different pipeline stage.
+ *
+ * Optimistic update lifecycle:
+ *   onMutate   — cancel ['crm','leads'] queries, snapshot every LIST cache
+ *                entry, optimistically rewrite the lead's stage_id in each
+ *                so the pipeline UI reflects the move instantly. Single-lead
+ *                queries are deliberately NOT touched here (they invalidate
+ *                on settle).
+ *   onError    — restore each snapshot verbatim. The call-site shows the
+ *                toast (it has the from/to context for a richer message).
+ *   onSettled  — invalidate ['crm','leads'], the specific lead, dashboard
+ *                KPIs, approvals queue, AND the sidebar badge (since a move
+ *                to stg_contract_signed mints a fresh approval).
+ *
+ * Predicate filter on setQueriesData: only LIST queries (whose third key
+ * segment is the params object, not a string ID). Single-lead detail
+ * queries have a string id at index 2 and a different shape, so we skip
+ * those — they reconcile on the onSettled invalidate.
+ */
 export function useMoveLeadStage() {
   const qc = useQueryClient();
-  return useMutation<{ lead: PyraSalesLead }, Error, MoveStageInput>({
+  return useMutation<{ lead: PyraSalesLead }, Error, MoveStageInput, MoveStageContext>({
     mutationFn: ({ id, ...rest }) => mutateAPI(`/api/crm/leads/${id}/move-stage`, 'POST', rest),
-    onSuccess: (_res, vars) => {
+    onMutate: async (vars) => {
+      await qc.cancelQueries({ queryKey: ['crm', 'leads'] });
+      const snapshots = qc.getQueriesData<LeadsListResponse>({
+        predicate: (q) =>
+          q.queryKey[0] === 'crm' &&
+          q.queryKey[1] === 'leads' &&
+          typeof q.queryKey[2] === 'object' &&
+          q.queryKey[2] !== null,
+      });
+      qc.setQueriesData<LeadsListResponse>(
+        {
+          predicate: (q) =>
+            q.queryKey[0] === 'crm' &&
+            q.queryKey[1] === 'leads' &&
+            typeof q.queryKey[2] === 'object' &&
+            q.queryKey[2] !== null,
+        },
+        (old) => {
+          if (!old || !Array.isArray(old.leads)) return old;
+          let touched = false;
+          const nextLeads = old.leads.map((l) => {
+            if (l.id !== vars.id) return l;
+            touched = true;
+            return { ...l, stage_id: vars.to_stage_id };
+          });
+          return touched ? { ...old, leads: nextLeads } : old;
+        },
+      );
+      return { snapshots };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (!ctx?.snapshots) return;
+      for (const [key, data] of ctx.snapshots) {
+        qc.setQueryData(key, data);
+      }
+    },
+    onSettled: (_data, _err, vars) => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.id] });
       qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
       qc.invalidateQueries({ queryKey: ['crm', 'approvals'] });
+      qc.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
 }

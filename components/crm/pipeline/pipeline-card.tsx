@@ -3,16 +3,23 @@
 /**
  * Single lead card on the Kanban board.
  *
- * NOT draggable in Phase 4 — drag-and-drop is added in Phase 7 with @dnd-kit.
- * Click navigates to /dashboard/crm/leads/[id]. The whole card is the
- * navigation target via a wrapping <Link>.
+ * Click → navigates to /dashboard/crm/leads/[id] via the wrapping <Link>.
+ * Pointer drag (≥ 8 px movement) → activates @dnd-kit drag tracked at
+ * the board level. Sub-8px clicks pass through to the Link, so the
+ * navigation behavior from Phase 4-6 is preserved.
+ *
+ * The DragOverlay variant is rendered separately by pipeline-board (with
+ * `dragOverlay` set true here so we can dial back the visual decoration:
+ * shadow comes from DragOverlay's container, not the card itself).
  *
  * Quick-action buttons (WhatsApp/Phone) are visible on hover on desktop and
- * always visible on mobile — these stop event propagation so they don't
- * trigger the card-level navigation.
+ * always visible on mobile — they stop event propagation so they don't
+ * trigger the card-level navigation OR start a drag.
  */
 
 import Link from 'next/link';
+import { useDraggable } from '@dnd-kit/core';
+import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils/cn';
 import { Phone, MessageCircle } from 'lucide-react';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
@@ -24,6 +31,8 @@ interface PipelineCardProps {
   lead: Lead;
   /** Compact mode for tighter mobile layouts */
   compact?: boolean;
+  /** When true, this card is rendered inside <DragOverlay> — skip useDraggable */
+  dragOverlay?: boolean;
 }
 
 function daysAgoLabel(iso: string | null | undefined): string | null {
@@ -44,20 +53,44 @@ function whatsAppHref(phone: string | null | undefined): string | null {
   return `https://wa.me/${digits}`;
 }
 
-export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
+export function PipelineCard({ lead, compact = false, dragOverlay = false }: PipelineCardProps) {
   const lastContact = daysAgoLabel(lead.last_contact_at);
   const winProb = lead.win_probability ?? 0;
   const value = Number(lead.expected_value) || 0;
   const currency = lead.expected_value_currency || 'AED';
   const wa = whatsAppHref(lead.phone);
 
+  // Make the card draggable. Skip when rendering inside <DragOverlay> —
+  // that variant just paints the visual; @dnd-kit owns its position.
+  // Hooks-rule note: useDraggable must be called unconditionally per render,
+  // so we always call it but ignore the return values when dragOverlay=true.
+  const draggable = useDraggable({ id: lead.id, data: { lead } });
+  const dragStyle = !dragOverlay && draggable.transform
+    ? { transform: CSS.Translate.toString(draggable.transform) }
+    : undefined;
+
   return (
     <Link
+      ref={dragOverlay ? undefined : draggable.setNodeRef}
+      style={dragStyle}
+      {...(dragOverlay ? {} : draggable.attributes)}
+      {...(dragOverlay ? {} : draggable.listeners)}
       href={`/dashboard/crm/leads/${lead.id}`}
       className={cn(
         'group relative block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
         'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
         compact ? 'p-3' : 'p-3.5',
+        // Cursor + tactile hint that the card is grabbable on desktop.
+        // Mobile uses a "نقل المرحلة" button (Chunk 4) — drag is disabled
+        // there at the sensor level by useIsDesktop, so the cursor on small
+        // screens stays default.
+        !dragOverlay && 'md:cursor-grab md:active:cursor-grabbing',
+        // The original card hides under DragOverlay while dragging — the
+        // overlay paints the visual position.
+        !dragOverlay && draggable.isDragging && 'opacity-30 pointer-events-none',
+        // DragOverlay variant gets a visual lift via the wrapper, but we add
+        // a subtle rotation for character.
+        dragOverlay && 'shadow-lg ring-2 ring-orange-300/40 dark:ring-orange-700/40 rotate-[1deg]',
       )}
     >
       <div className="flex items-start justify-between gap-2">
