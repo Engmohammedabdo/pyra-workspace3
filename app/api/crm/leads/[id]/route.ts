@@ -203,20 +203,27 @@ export async function PATCH(
     }
 
     // ── Activity log: one row per "field of interest" change ──
+    // Supabase query builder is lazy; bare `void <builder>` never triggers
+    // execution. Always attach .then().
     const beforeRow = before as unknown as Record<string, unknown>;
     for (const key of Object.keys(updates)) {
       if (!FIELDS_OF_INTEREST.has(key)) continue;
       const oldValue = beforeRow[key];
       const newValue = updates[key];
       if (oldValue === newValue) continue;
-      void supabase.from('pyra_lead_activities').insert({
-        id: generateId('la'),
-        lead_id: id,
-        activity_type: 'field_updated',
-        description: null,
-        metadata: { field: key, old_value: oldValue ?? null, new_value: newValue ?? null },
-        created_by: auth.pyraUser.username,
-      });
+      void supabase
+        .from('pyra_lead_activities')
+        .insert({
+          id: generateId('la'),
+          lead_id: id,
+          activity_type: 'field_updated',
+          description: null,
+          metadata: { field: key, old_value: oldValue ?? null, new_value: newValue ?? null },
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[field_updated activity] insert failed:', e.message);
+        });
     }
 
     // ── Assignment change: dedicated activity + notify the new owner ──
@@ -226,14 +233,19 @@ export async function PATCH(
       updates.assigned_to !== beforeRow.assigned_to
     ) {
       const newOwner = updates.assigned_to;
-      void supabase.from('pyra_lead_activities').insert({
-        id: generateId('la'),
-        lead_id: id,
-        activity_type: 'assignment_changed',
-        description: null,
-        metadata: { from_user: beforeRow.assigned_to ?? null, to_user: newOwner },
-        created_by: auth.pyraUser.username,
-      });
+      void supabase
+        .from('pyra_lead_activities')
+        .insert({
+          id: generateId('la'),
+          lead_id: id,
+          activity_type: 'assignment_changed',
+          description: null,
+          metadata: { from_user: beforeRow.assigned_to ?? null, to_user: newOwner },
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[assignment_changed activity] insert failed:', e.message);
+        });
       if (newOwner && newOwner !== auth.pyraUser.username) {
         void notify(supabase, {
           to: newOwner,

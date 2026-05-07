@@ -239,37 +239,54 @@ export async function POST(request: NextRequest) {
     }
 
     // ── lead_created activity ──
-    void supabase.from('pyra_lead_activities').insert({
-      id: generateId('la'),
-      lead_id: insertId,
-      activity_type: 'lead_created',
-      description: null,
-      metadata: { source: insertRow.source, created_by: auth.pyraUser.username },
-      created_by: auth.pyraUser.username,
-    });
+    // Supabase query builder is lazy — `void <builder>` alone never triggers
+    // .then() so the query is never sent. Always attach .then() to fire it.
+    void supabase
+      .from('pyra_lead_activities')
+      .insert({
+        id: generateId('la'),
+        lead_id: insertId,
+        activity_type: 'lead_created',
+        description: null,
+        metadata: { source: insertRow.source, created_by: auth.pyraUser.username },
+        created_by: auth.pyraUser.username,
+      })
+      .then(({ error: e }) => {
+        if (e) console.error('[lead_created activity] insert failed:', e.message);
+      });
 
     // ── Optional follow-up bundled with create ──
     const followUpTitle = typeof body.follow_up_title === 'string' ? body.follow_up_title.trim() : '';
     const followUpDueAt = typeof body.next_follow_up === 'string' ? body.next_follow_up : '';
     if (followUpTitle && followUpDueAt) {
       const followId = generateId('fu');
-      void supabase.from('pyra_sales_follow_ups').insert({
-        id: followId,
-        lead_id: insertId,
-        assigned_to: assignedTo,
-        due_at: followUpDueAt,
-        title: followUpTitle,
-        status: 'pending',
-        created_by: auth.pyraUser.username,
-      });
-      void supabase.from('pyra_lead_activities').insert({
-        id: generateId('la'),
-        lead_id: insertId,
-        activity_type: 'follow_up_created',
-        description: followUpTitle,
-        metadata: { follow_up_id: followId, due_at: followUpDueAt },
-        created_by: auth.pyraUser.username,
-      });
+      void supabase
+        .from('pyra_sales_follow_ups')
+        .insert({
+          id: followId,
+          lead_id: insertId,
+          assigned_to: assignedTo,
+          due_at: followUpDueAt,
+          title: followUpTitle,
+          status: 'pending',
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[bundled follow-up] insert failed:', e.message);
+        });
+      void supabase
+        .from('pyra_lead_activities')
+        .insert({
+          id: generateId('la'),
+          lead_id: insertId,
+          activity_type: 'follow_up_created',
+          description: followUpTitle,
+          metadata: { follow_up_id: followId, due_at: followUpDueAt },
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[bundled follow_up_created activity] insert failed:', e.message);
+        });
     }
 
     // ── Notify the assignee if it isn't the creator ──

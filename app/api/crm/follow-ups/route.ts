@@ -160,14 +160,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Timeline entry on the parent lead.
-    void supabase.from('pyra_lead_activities').insert({
-      id: generateId('la'),
-      lead_id: leadId,
-      activity_type: 'follow_up_created',
-      description: title,
-      metadata: { follow_up_id: insertId, due_at: dueAt, assigned_to: assignedTo },
-      created_by: auth.pyraUser.username,
-    });
+    // NOTE: Supabase's query builder is a lazy thenable — `void <builder>`
+    // alone never triggers .then() so the query is built but never sent.
+    // Always attach .then() (or await) to actually execute the query.
+    void supabase
+      .from('pyra_lead_activities')
+      .insert({
+        id: generateId('la'),
+        lead_id: leadId,
+        activity_type: 'follow_up_created',
+        description: title,
+        metadata: { follow_up_id: insertId, due_at: dueAt, assigned_to: assignedTo },
+        created_by: auth.pyraUser.username,
+      })
+      .then(({ error: e }) => {
+        if (e) console.error('[follow_up_created activity] insert failed:', e.message);
+      });
 
     // Update leads.next_follow_up to the earliest pending due_at across
     // this lead's follow-ups (so the pipeline card / lead header always
@@ -183,7 +191,10 @@ export async function POST(request: NextRequest) {
       void supabase
         .from('pyra_sales_leads')
         .update({ next_follow_up: pending[0].due_at })
-        .eq('id', leadId);
+        .eq('id', leadId)
+        .then(({ error: e }) => {
+          if (e) console.error('[lead next_follow_up update] failed:', e.message);
+        });
     }
 
     if (assignedTo && assignedTo !== auth.pyraUser.username) {

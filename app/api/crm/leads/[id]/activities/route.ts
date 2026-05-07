@@ -161,10 +161,15 @@ export async function POST(
     }
 
     // Bump last_contact_at — every manual activity is a touchpoint.
+    // .then() required: Supabase query builder is lazy; bare `void <builder>`
+    // never triggers execution.
     void supabase
       .from('pyra_sales_leads')
       .update({ last_contact_at: new Date().toISOString() })
-      .eq('id', id);
+      .eq('id', id)
+      .then(({ error: e }) => {
+        if (e) console.error('[lead last_contact_at update] failed:', e.message);
+      });
 
     logActivity(
       auth.pyraUser.username,

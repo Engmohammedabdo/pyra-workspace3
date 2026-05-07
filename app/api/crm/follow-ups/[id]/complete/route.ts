@@ -75,14 +75,21 @@ export async function POST(
       return apiServerError();
     }
 
-    void supabase.from('pyra_lead_activities').insert({
-      id: generateId('la'),
-      lead_id: followUp.lead_id,
-      activity_type: 'follow_up_completed',
-      description: outcome || null,
-      metadata: { follow_up_id: id, title: followUp.title, completed_at: completedAt },
-      created_by: auth.pyraUser.username,
-    });
+    // .then() required — Supabase query builder is lazy; bare `void <builder>`
+    // never triggers execution.
+    void supabase
+      .from('pyra_lead_activities')
+      .insert({
+        id: generateId('la'),
+        lead_id: followUp.lead_id,
+        activity_type: 'follow_up_completed',
+        description: outcome || null,
+        metadata: { follow_up_id: id, title: followUp.title, completed_at: completedAt },
+        created_by: auth.pyraUser.username,
+      })
+      .then(({ error: e }) => {
+        if (e) console.error('[follow_up_completed activity] insert failed:', e.message);
+      });
 
     // Recalculate parent lead's next_follow_up to the earliest remaining pending one.
     const { data: nextPending } = await supabase
@@ -95,7 +102,10 @@ export async function POST(
     void supabase
       .from('pyra_sales_leads')
       .update({ next_follow_up: nextPending && nextPending.length > 0 ? nextPending[0].due_at : null })
-      .eq('id', followUp.lead_id);
+      .eq('id', followUp.lead_id)
+      .then(({ error: e }) => {
+        if (e) console.error('[lead next_follow_up update] failed:', e.message);
+      });
 
     logActivity(
       auth.pyraUser.username,
