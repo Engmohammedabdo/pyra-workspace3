@@ -1,420 +1,282 @@
-# Phase 7 Chunk 4 — Mobile Stage Picker Handoff
+# Phase 7 Exit Gate Handoff
 
-**Purpose:** This document is a self-contained handoff written immediately
-before a planned context auto-compact, so the next session can resume
-Chunk 4 implementation without losing critical state. **Read this end-to-end
-before doing anything else.**
+> **⚠️ FILENAME NOTE:** This file used to contain a Chunk 4 (mobile picker)
+> spec. Abdou re-read `/CRM-PRD/05-EXECUTION-PHASES.md` and confirmed mobile
+> picker is **Phase 10 (Mobile PWA Polish)**, NOT Phase 7. Chunk 4 + Chunk 5
+> are abandoned. The filename stays for git history continuity, but the
+> contents below are the **Phase 7 Exit Gate plan** — the actual path to
+> closing Phase 7.
+>
+> **PRD is the source of truth. No more inventing chunks.**
 
 ---
 
-## TL;DR — what just happened
+## TL;DR
 
-- Phase 7 Chunks 1, 2, 3 are **✅ COMPLETE** and deployed to production.
-- Chunk 3 (drag-drop kanban) had a long debugging arc resolved by adopting
-  the working `components/projects/project-kanban.tsx` pattern with three
-  documented deviations (see Architecture Invariants below).
-- Chunk 3 verified by Abdou: DragOverlay visible following cursor, drops
-  resolve to correct columns even in RTL, all modals fire correctly.
-- Reset SQL ran on test lead `sl_Y1wGyzfprQ2E4T7C` (back to
-  `stg_new_inquiry`) for Chunk 4 testing.
-- This doc was committed before triggering an auto-compact at ~98%
-  context utilization to free headroom for Chunks 4 + 5.
+Phase 7 closes via 8 acceptance tests from PRD § Phase 7. Four are
+already verified, four need verification (one of them — Test 8 — was
+just verified by static analysis pre-compact, see below). Mobile
+picker work is deferred to Phase 10. After all 8 pass, mark Phase 7
+complete and proceed to Phase 8 (Sales Dashboard).
 
-## Phase 7 status snapshot
+## Latest commit on `origin/main`
 
-| Chunk | Scope | Status |
-|---|---|---|
-| 1 | Backend — 5 new notification types, manager-approval workflow, win-probability stage matrix | ✅ complete |
-| 2 | Approvals UI dashboard | ✅ complete |
-| 3 | Drag-drop kanban with DragOverlay (3.1 → 3.4 + DragOverlay-invisibility series) | ✅ complete |
-| **4** | **Mobile stage picker — THIS HANDOFF** | **🟡 in progress** |
-| 5 | Acceptance tests + documentation updates | ⏳ pending |
+`ca6403f` — original Chunk 4 handoff doc. This rewrite supersedes it.
+The next commit will replace this file's content with the exit-gate
+plan and push, becoming the new HEAD.
 
-## Latest commits on `origin/main`
-
+Recent history:
 ```
-ed3fb47 fix(crm): pipeline collision detection — use pointerWithin for correct RTL column targeting
-6f926d8 fix(crm): pipeline drag-drop — adopt project-kanban pattern with opacity-0 source + null dropAnimation deviations
-aed3371 fix(crm): pipeline DragOverlay invisibility — separate overlay component, removes useDraggable conflict in shared component
-e263954 fix(crm): pipeline DragOverlay invisibility — unique id for overlay useDraggable to prevent draggableNodes Map overwrite
-46d663a chore(crm): pipeline DragOverlay diagnostics — 3 targeted logs (pre-fix)
+ca6403f docs(crm): Phase 7 Chunk 4 handoff (now superseded by THIS rewrite)
+ed3fb47 fix(crm): pipeline collision detection — pointerWithin for RTL
+6f926d8 fix(crm): pipeline drag-drop — adopt project-kanban pattern
+aed3371 fix(crm): pipeline DragOverlay invisibility — separate overlay
+e263954 fix(crm): pipeline DragOverlay invisibility — unique id
 ```
 
-`HEAD` of `origin/main` should match one of these (this doc commit will
-push on top, become the next HEAD). Always verify with
-`git log origin/main --oneline -3` after push.
-
 ---
 
-## Architecture invariants (DO NOT DEVIATE)
+## The 8 acceptance tests — current status
 
-These are the non-negotiable patterns Chunk 3 settled on. Chunk 4 must
-preserve all of them.
+| # | Test | Status | Verified by |
+|---|---|---|---|
+| 1 | Sayed cannot move directly to closed_won | ✅ verified | Phase 3.4 client guard, test (y) passed |
+| 2 | Sayed moves to contract_signed without attachment → blocked | ✅ verified | Backend test (b) passed |
+| 3 | Sayed moves to contract_signed WITH contract → notification appears in Abdou's bell within seconds | ⚠️ **NOT VERIFIED** | Backend tested via curl; no E2E with Sayed's account + Abdou's bell |
+| 4 | Abdou opens approvals → sees lead → approves → lead becomes closed_won | ✅ verified | Chunk 2 test (j) passed |
+| 5 | Sayed receives notification of approval | ⚠️ **NOT VERIFIED** | Need to log in as Sayed after Abdou approves |
+| 6 | Sayed cannot call /approve endpoint directly (403) | ✅ verified | Backend test (f) passed |
+| 7 | Activity timeline shows complete chain: stage_change → closed_won_pending → closed_won_approved | ⚠️ **NOT VERIFIED** | Need to inspect a real lead's timeline after full E2E |
+| 8 | No `INSERT INTO pyra_notifications` outside `notify()` | ✅ **JUST VERIFIED** (pre-compact) | `Grep` returned zero matches across `*.ts/*.tsx` |
 
-### 3-tier component split in `components/crm/pipeline/pipeline-card.tsx`
+**4 ✅ verified, 4 ⚠️ remaining (3 require E2E, 1 is now ✅).**
+
+Effective state: **3 E2E tests remain to close Phase 7** — Tests 3, 5, 7.
+
+## Pre-compact findings (queued for post-compact me)
+
+### Finding 1: Test 8 PASSES by static analysis ✅
 
 ```
-<PipelineCard>          source wrapper rendered in pipeline columns.
-  ├─ plain <div ref={setNodeRef}> with useDraggable + transform style
-  └─ <Link> {...attributes} {...listeners}>  ← navigation + drag handle
-       └─ <PipelineCardView>  ← pure visual
-
-<PipelineCardView>      pure visual presentational component (NOT exported,
-                        internal). NO @dnd-kit hooks. Quick-action buttons
-                        (Phone/WhatsApp) live here, suppressed when
-                        isDragging.
-
-<PipelineCardOverlay>   thin wrapper around <PipelineCardView isDragging />.
-                        NO @dnd-kit hooks. Rendered inside <DragOverlay>.
+Grep: INSERT INTO pyra_notifications across *.ts/*.tsx
+Result: zero matches
 ```
 
-**Why this matters:** only ONE `useDraggable` call per `lead.id` exists at
-any time (the source's). The overlay variant has zero hooks, so it cannot
-overwrite the source's entry in @dnd-kit's internal `draggableNodes` Map.
-That keeps the source's DOM ref valid → `activeNodeRect` measurable →
-`PositionedOverlay` actually renders the overlay DOM. Earlier attempts
-violated this and the overlay never painted.
+The `notify()` helper at `lib/notifications/notify.ts` is the sole writer
+to `pyra_notifications`. No drift from the architectural rule established
+in CLAUDE.md.
 
-### Three deliberate deviations from project-kanban
+### Finding 2: PRD gap — My Work Inbox doesn't surface `closed_won_pending` ⚠️
 
-`components/projects/project-kanban.tsx` is the working production reference.
-We mirror its pattern exactly EXCEPT for these three:
+```
+Grep: lead_closed_won_pending_approval | closed_won_pending across *.ts/*.tsx
+Found in 8 files:
+  ✓ components/crm/approvals/approval-card.tsx        (approvals dashboard UI)
+  ✓ lib/notifications/notify.ts                       (notify type union)
+  ✓ app/api/crm/leads/[id]/move-stage/route.ts        (backend mutation)
+  ✓ types/database.ts                                 (types)
+  ✓ lib/constants/statuses.ts                         (constants)
+  ✓ components/crm/activity/activity-timeline.tsx     (timeline)
+  ✓ components/crm/activity/activity-item.tsx         (timeline item)
+  ✓ app/api/crm/approvals/pending/route.ts            (pending approvals API)
 
-1. **Source `opacity-0 pointer-events-none`** during drag (project-kanban
-   uses `opacity-30`). HubSpot-style UX — no double-vision of the source.
-2. **`dropAnimation={null}`** on `<DragOverlay>` (project-kanban uses
-   default snap-back). Avoids "snap → animate back → snap forward" jank
-   when paired with our optimistic update flow.
-3. **`collisionDetection={pointerWithin}`** (project-kanban uses
-   `closestCorners`). Required for RTL — `closestCorners` measures rect
-   corners in document space and mis-targets columns under `dir="rtl"`
-   because visual order doesn't match DOM order. `pointerWithin` tests
-   cursor-vs-rect bounds in viewport coordinates and is direction-agnostic.
-
-If you find yourself questioning any of these, **STOP** and ask Abdou.
-They're locked in.
-
-### Other locked patterns
-
-- `useDraggable` is on a plain `<div>` wrapper, NOT on the `<Link>`
-- The `<Link>` inside the wrapper receives `{...attributes} {...listeners}`
-- Cursor classes (`md:cursor-grab md:active:cursor-grabbing`) live on the
-  `<Link>`, NOT on the wrapper div
-- The `data-pipeline-overlay="true"` attribute is on
-  `<PipelineCardView>`'s root when `isDragging=true` — kept for future
-  debugging via `document.querySelector`
-
----
-
-## Reuse without modification
-
-Chunk 4 **MUST NOT** modify any of these. Use as-is.
-
-### Hooks
-- **`hooks/useMoveLeadStage`** — mutation hook for stage changes. Signature
-  to be re-confirmed post-compact (see investigation list). Likely returns
-  a React Query mutation; takes `{ leadId, toStageId, ...optionalFields }`.
-
-### Components
-- **`components/crm/pipeline/move-stage-confirm-modal.tsx`**
-  (`MoveStageConfirmModal`) — already handles:
-  - `stg_contract_signed` → attachment picker UI
-  - `stg_closed_lost` → lost-reason form UI
-- The closed_won client-side guard pattern in
-  `app/dashboard/crm/pipeline/pipeline-client.tsx`'s drag-drop dispatch —
-  fires an instant Arabic toast without server roundtrip when the user
-  attempts to move a non-`stg_contract_signed` lead directly to
-  `stg_closed_won`.
-
-### Toast copy
-Reuse exact strings from existing dispatch logic. Successful stage move:
-`"تم نقل العميل المحتمل"` (or whatever pipeline-client.tsx uses — verify
-post-compact). Errors should surface via the `ApiError` class
-(`hooks/api-helpers.ts`) which exposes server's specific Arabic message
-as `Error.message`.
-
----
-
-## Chunk 4 scope (verbatim from Abdou's directive)
-
-> **Goal:** Bring stage-change UX to mobile (`md:hidden`) where drag-drop
-> isn't usable. Touch-friendly button + bottom sheet picker.
-
-1. On each `<PipelineCard>` in mobile mode (`md:hidden`), add a small
-   "نقل المرحلة" button (or icon button with arrows) somewhere visible —
-   bottom-right of card area, **doesn't conflict with the existing
-   Phone/WhatsApp quick-action buttons** which sit at `absolute end-2 bottom-2`.
-
-2. Tap the button → opens a bottom sheet (use existing shadcn Drawer or
-   Sheet — pick whichever is already used elsewhere in the workspace)
-   listing all stages.
-   - Current stage is highlighted/disabled (can't move to same stage).
-   - Each stage shown with its color pill + Arabic name.
-   - `stg_closed_won` shown but tapping it instantly fires the same toast
-     as the desktop client guard.
-
-3. Tapping a stage from the sheet:
-   - `stg_contract_signed` → opens `MoveStageConfirmModal` (attachment
-     picker, same as desktop)
-   - `stg_closed_lost` → opens `MoveStageConfirmModal` (lost reason, same
-     as desktop)
-   - All other stages → fires move-stage mutation directly (no modal)
-   - `stg_closed_won` → instant toast guard, no mutation, no modal
-
-4. After successful move (or modal confirm) → bottom sheet closes,
-   optimistic update applies, toast fires.
-
----
-
-## Approved implementation choices (Abdou approved before compact)
-
-### (B) Button placement
-Button lives in `<PipelineCard>` source wrapper, NOT inside
-`<PipelineCardView>`.
-- `<PipelineCardView>` stays purely visual (preserves the architecture
-  invariant from Chunk 3).
-- The mobile-only "نقل المرحلة" button is rendered conditionally in
-  `PipelineCard`'s wrapper, AFTER the `<Link>` (sibling, not child) — so
-  tapping it doesn't navigate to lead detail.
-- Gated with `md:hidden` so desktop never sees it.
-
-### (C) Sheet state ownership
-Each `<PipelineCard>` owns its own sheet `useState`. No prop drilling
-from the board.
-- Mobile sheets are mutually exclusive by physical impossibility (one
-  finger, one tap).
-- Centralization adds wiring with zero UX benefit.
-
----
-
-## Files plan
-
-### CREATE (1 new file)
-**`components/crm/pipeline/mobile-stage-picker-sheet.tsx`**
-
-Pure UI bottom sheet. Does NOT own the mutation. Lifts the chosen stage
-up to parent.
-
-Proposed props:
-```ts
-interface MobileStagePickerSheetProps {
-  lead: Lead;
-  stages: PipelineStage[];
-  currentStageId: string | null;
-  onSelectStage: (toStageId: string) => void;  // parent dispatches
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
+NOT FOUND in:
+  ✗ app/api/my-work/route.ts          (the unified inbox aggregator)
+  ✗ components/dashboard/MyWorkInbox.tsx
 ```
 
-UI layout:
-- Sheet header: "نقل المرحلة" + lead name as subtitle
-- Stage list: each stage as a button row with color dot + Arabic name +
-  badge showing current stage
-- Disabled state on `currentStageId` row (cannot move to same)
-- Tapping a row: calls `onSelectStage(stage.id)` then `onOpenChange(false)`
-  (or let parent close it after dispatch)
-- Cancel button at bottom (or rely on Sheet's swipe-to-dismiss)
+The PRD says **"My Work Inbox shows lead_closed_won_pending_approval for
+managers"** — this isn't satisfied. CRM closed-won pending approvals only
+surface in the approvals dashboard (`/dashboard/approvals`), not in the
+inbox card on `/dashboard`.
 
-Use shadcn Drawer or Sheet — **investigate post-compact** which is
-already wired in this workspace. Fall back to Sheet if neither (it's the
-shadcn standard for bottom sheets).
+**Decision needed from Abdou:**
+- (i) Wire CRM closed_won_pending into My Work Inbox before declaring
+  Phase 7 done (1 small change — likely union into the "Approvals" section
+  of `useMyWork`)
+- (ii) Treat as a known gap, document it, defer wiring to a small
+  follow-up commit, mark Phase 7 done now if Tests 3/5/7 pass
+- (iii) Re-read the PRD § Phase 7 to see if "managers see it via the
+  notification bell + approvals dashboard" is sufficient (the bell DOES
+  surface notifications, and `notify()` was called for closed_won_pending
+  per the move-stage route — so managers ARE notified, just not via the
+  inbox card specifically)
 
-### MODIFY (2 files)
-
-**`components/crm/pipeline/pipeline-card.tsx`**
-- Inside `PipelineCard` source variant only:
-  - `useState` for sheet open/closed
-  - After the `<Link>`, render a sibling `<button>` "نقل المرحلة" with:
-    - `md:hidden` class so desktop never sees it
-    - Position that doesn't conflict with `absolute end-2 bottom-2`
-      (where Phone/WhatsApp live). Options: bottom-start (left in RTL)
-      OR a discrete chevron button before/after the meta row OR an
-      inline button above the quick-actions area. **Investigate
-      post-compact** the exact PipelineCard JSX to find the cleanest
-      spot.
-  - Render `<MobileStagePickerSheet>` controlled by the useState
-- Need a way to dispatch the chosen stage. Two options for review
-  post-compact:
-  - **Option I:** PipelineCard accepts a new optional prop
-    `onMoveStageRequest?: (toStageId: string) => void` propagated from
-    the board via the existing `<PipelineCard ...>` call sites
-  - **Option II:** Hoist a `useStageChangeDispatch(lead)` hook in
-    `pipeline-client.tsx` (same logic the desktop drag-drop uses), have
-    `PipelineCard` import + call it directly. Avoids prop drilling.
-  - **Lean toward Option II** if the dispatch logic is already
-    extractable. Confirm by reading `pipeline-client.tsx` post-compact.
-
-**`components/crm/pipeline/pipeline-board.tsx`** (or
-**`app/dashboard/crm/pipeline/pipeline-client.tsx`** — TBD post-compact)
-- If Option I: add `onDropChangeStage` (renamed → `onChangeStage`) prop
-  to `<PipelineCard>` calls in both desktop column rendering AND mobile
-  fallback (line ~191 currently uses `<PipelineCard key={lead.id} lead={lead} />`).
-- If Option II: extract the dispatcher hook from `pipeline-client.tsx`,
-  no board changes needed.
-
-### Files to INVESTIGATE post-compact (read-only, gather facts)
-
-1. `app/dashboard/crm/pipeline/pipeline-client.tsx` — full read.
-   Understand how `onDropChangeStage` dispatches:
-   - closed_won client-side guard (the toast-without-server-call path)
-   - modal triggers (contract_signed / closed_lost)
-   - mutation calls
-   - error handling via ApiError
-   Note: it was too large to include in the previous summary, so read
-   fresh. Look for the React Query optimistic update pattern.
-2. `hooks/useMoveLeadStage.ts` — confirm exact signature and what
-   optional fields it accepts (lost_reason, attachment refs, etc.).
-3. `components/crm/pipeline/move-stage-confirm-modal.tsx` — confirm
-   prop signature: `lead`, `fromStageId`, `toStageId`, `open`,
-   `onOpenChange`?, callback shape?
-4. **Check shadcn primitive availability:** run `Glob` on
-   `components/ui/drawer.tsx` and `components/ui/sheet.tsx`. Whichever
-   exists is the one to use; if both, prefer Drawer (purpose-built for
-   bottom sheets on mobile). If neither, install via shadcn CLI (rare
-   in this project — most primitives already there).
-5. Re-read current `components/crm/pipeline/pipeline-card.tsx` to find
-   the exact location for the new button (current quick-actions block
-   is at `absolute end-2 bottom-2` inside `<PipelineCardView>`).
+My read: this is item (iii) territory — the user is alerted via bell +
+sees the approval in the dedicated approvals dashboard. But strict PRD
+wording says "My Work Inbox", so flagging for Abdou.
 
 ---
 
-## Test fixtures
+## E2E test plan for Tests 3, 5, 7
 
-- **Test lead:** `sl_Y1wGyzfprQ2E4T7C` ("تيست انتي")
-  - Reset state post-Chunk-3:
-    - `stage_id = stg_new_inquiry`
-    - `win_probability = 10`
-    - `win_probability_overridden = false`
-    - `lost_reason = NULL`
-    - `is_converted = false`
-  - Use this lead for ALL Chunk 4 manual testing (mobile viewport).
+### Setup
+- **Test lead:** `sl_Y1wGyzfprQ2E4T7C` ("تيست انتي") — already reset to
+  `stg_new_inquiry` (last reset confirmed pre-compact).
+- **Test accounts:**
+  - `sayed` (role: Sales — has 22 CRM permissions including `leads.update`,
+    `leads.move-stage`, etc.)
+  - `abdou` (admin — sees all approvals)
+- **Browser setup:** two browser profiles or one window with multiple
+  tabs and explicit logout-login between actor switches.
 
-## Test account
+### Steps (in order — tests interlock)
 
-- Username: `sayed`
-- Role: `Sales`
-  - DB: `pyra_users.role_id` linked to `pyra_roles` row where `name='Sales'`
-  - The `pyra_roles.permissions` (text[]) column was updated mid-Phase-7
-    to include all 22 CRM-related permissions for the Sales role.
-- Has all permissions needed for Chunk 4 testing.
+1. **Login as Sayed.**
+2. Navigate to `/dashboard/crm/pipeline`. Confirm test lead visible in
+   `stg_new_inquiry`.
+3. Drag lead through stages: `new_inquiry → discovery_call → proposal_sent →
+   negotiation`. (Each transition fires a routine `notify()` to the
+   manager but is non-blocking.)
+4. Drag/click to move lead to `stg_contract_signed`. Modal opens for
+   attachment picker. Attach a real file (any quote/contract from the
+   workspace's existing files, e.g., a previously generated quote PDF).
+   Confirm the move. **Expected:** toast "تم نقل العميل المحتمل" (or
+   the actual copy used in `pipeline-client.tsx`).
+5. **Without logging out**, open `/dashboard` in a new tab and check
+   the bell icon. **Expected:** `lead_contract_signed` notification for
+   Abdou (the manager). But Sayed is the actor, not the recipient — so
+   actually we need to switch accounts.
+
+   Wait — the move-stage route fires `notify()` to the manager
+   (Abdou). To verify Test 3, we need Abdou's bell. **Logout. Login
+   as Abdou.**
+
+6. **Login as Abdou.** Open `/dashboard`. **TEST 3:** the bell should
+   show a recent `lead_contract_signed` (or whatever the type is —
+   confirm by reading move-stage route post-compact) notification
+   pointing to the test lead. ✅ if visible within ~5 seconds of step 4.
+
+7. As Abdou, navigate to `/dashboard/approvals`. **TEST 4 (re-verify):**
+   the test lead should appear in the pending approvals list with
+   stage `stg_closed_won_pending_approval`.
+
+8. As Abdou, click "موافقة" (approve) on the test lead. **Expected:**
+   lead transitions to `stg_closed_won` (verify by re-loading
+   `/dashboard/crm/pipeline`).
+
+9. **Logout. Login as Sayed.** Open `/dashboard`.
+   **TEST 5:** the bell should show a `lead_closed_won_approved` (or
+   similar — confirm type post-compact) notification. ✅ if visible.
+
+10. As Sayed, navigate to `/dashboard/crm/leads/sl_Y1wGyzfprQ2E4T7C`.
+    Scroll to the activity timeline. **TEST 7:** the timeline should
+    show, in order:
+    - `stage_change` events for the routine moves (new_inquiry →
+      discovery_call → proposal_sent → negotiation)
+    - `stage_change` to `stg_contract_signed` with attachment ref
+    - `lead_closed_won_pending_approval` (the request entry)
+    - `lead_closed_won_approved` (the approval resolution by Abdou)
+    ✅ if all four phases present in chronological order.
+
+### Reset between runs
+
+If we need to re-run, run this SQL via the standard endpoint:
+```sql
+UPDATE pyra_sales_leads
+SET stage_id = 'stg_new_inquiry',
+    win_probability = 10,
+    win_probability_overridden = false,
+    lost_reason = NULL,
+    is_converted = false
+WHERE id = 'sl_Y1wGyzfprQ2E4T7C';
+```
+
+Plus delete generated notifications + activity rows scoped to this lead
+to keep timeline clean for re-test.
 
 ---
 
-## User & UI context
+## Phase 7 closure checklist
 
-- **Owner:** Abdou (Pyramedia X)
-- **Location:** Dubai, UAE
-- **UI language:** Arabic (English for code only)
-- **Layout:** RTL (`dir="rtl"` on the pipeline pages)
-- **Brand tokens** (use these exactly):
-  - Ink: `#0A0A0A`
-  - Orange: `#F97316` (Tailwind `orange-500`)
-  - Gold: `#D4A017`
-- **Font:** Cairo on all CRM UI (workspace standard, NOT Tajawal — the
-  original PRD suggested Tajawal but workspace convention won)
+After Tests 3, 5, 7 pass:
+
+- [ ] Update `docs/SYSTEM-STRUCTURE.md` with any Phase 7 details that
+      diverge from prior docs (e.g., Q-BIZ-001 hybrid win-probability
+      stage matrix; closed_won approval flow; pointerWithin RTL note)
+- [ ] Update `CLAUDE.md` with Phase 7 caveats (sales_agent finance.view
+      limitation if any, stage matrix, terminal closed_won, etc.)
+- [ ] Resolve My Work Inbox `closed_won_pending` decision (item (i) /
+      (ii) / (iii) above)
+- [ ] Mark Phase 7 complete in `/CRM-PRD/05-EXECUTION-PHASES.md` (or
+      whatever PROGRESS tracker exists in the repo — check)
+- [ ] Single commit titled
+      `chore(crm): Phase 7 complete — manager approval workflow shipped`
+- [ ] Push, verify on origin/main
+- [ ] Tag the commit (e.g., `crm-phase-7-complete`) if Abdou wants
+
+Then proceed to Phase 8 (Sales Dashboard) per PRD.
 
 ---
 
-## Standing policies (Abdou's rules — non-negotiable)
+## Standing policies — re-affirmed by Abdou
 
-1. **Push to `origin/main` after every commit.** No commit-without-push,
-   no speculative deploys. Coolify auto-deploys on push to main.
-2. **Propose before pushing** — for non-trivial changes (refactors, new
-   components), paste the diff in your response and wait for approval
-   BEFORE running `git push`. For surgical follow-ups (single-line
-   tweaks, comment fixes), proceeding is fine.
-3. **Verify on origin/main after push** — `git log origin/main --oneline -3`
-   confirms HEAD matches the commit hash you just pushed.
-4. **`pnpm run check` + `pnpm build` MUST both pass** before any push.
-5. **Use existing helpers — never reinvent:**
-   - `notify()` / `notifyMany()` from `lib/notifications/notify.ts`
-   - `logActivity()` from `lib/api/activity.ts`
-   - `requireApiPermission` / `getApiAuth` from `lib/api/auth.ts`
-   - `apiSuccess` / `apiError` from `lib/api/response.ts`
-   - `mutateAPI` / `fetchAPI` / `buildQueryString` from `hooks/api-helpers.ts`
-   - `cn()` from `lib/utils/cn`
-   - `formatCurrency` / `formatDate` from `lib/utils/format`
-   See CLAUDE.md and the user's MEMORY.md for the full catalog.
-6. **NEVER raw `fetch()` in components.** React Query is the mandatory
-   data layer. Use existing hooks from `hooks/` or inline `useQuery` /
-   `useMutation` with the helpers above.
-7. **RTL classes:** use `ms-/me-/ps-/pe-/start-/end-/text-start/text-end/border-s/border-e/rounded-s/rounded-e/float-start/float-end`.
-   NEVER `ml-/mr-/pl-/pr-/left-/right-/text-left/text-right/border-l/border-r/rounded-l/rounded-r/float-left/float-right`.
-   Exception: `left-1/2 -translate-x-1/2` for centering is OK.
-8. **Dark mode:** pair every light variant. e.g.,
-   `bg-orange-50 dark:bg-orange-950/30`, `text-orange-700 dark:text-orange-300`,
-   `border-orange-200 dark:border-orange-800/40`, `bg-white dark:bg-gray-900`.
-   Safe (no `dark:` needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars
-   (`bg-muted`, `text-muted-foreground`), shadcn Badge.
-9. **Status constants:** import from `lib/constants/statuses.ts`. Never
-   hardcode status strings.
-10. **DB migrations:** run directly via
-    ```bash
-    curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
-      -H "Content-Type: application/json" \
-      -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-      -d '{"query": "..."}'
-    ```
-    Never ask the user to run SQL manually. Service role key is in
-    `.env.local`.
-11. **Empty states**: `<EmptyState>` from `@/components/ui/empty-state` —
-    never inline.
-12. **Loading states**: `<Skeleton>` from `@/components/ui/skeleton` —
-    never blank pages. Use `isLoading` from React Query hooks.
-13. **Toasts:** `toast` from `sonner` — NEVER `alert()`.
-14. **Page size:** keep page files <300 lines. Split large pages into
-    sub-components.
+1. **PRD is the source of truth.** No more inventing chunks. Re-read
+   `/CRM-PRD/05-EXECUTION-PHASES.md` if scope feels off.
+2. **Push to `origin/main` after every commit.** Coolify auto-deploys.
+3. **Propose before pushing** non-trivial changes. For surgical
+   tweaks (config, single-line fix, doc edit) just push.
+4. **Verify on origin/main after push** — `git log origin/main --oneline -3`.
+5. **`pnpm run check` + `pnpm build` MUST both pass** before push.
+6. **DB migrations:** run via `curl -X POST` to the pg/query endpoint —
+   never ask Abdou to run SQL manually.
+7. Other rules from CLAUDE.md / MEMORY.md still apply (RTL classes,
+   dark mode pairing, status constants, React Query mandatory data
+   layer, helpers from `lib/api/*` and `hooks/api-helpers.ts`, etc.).
 
 ---
 
 ## First actions in the next session
 
-In this exact order:
-
-1. **Read this handoff doc end-to-end.** Don't skim.
-2. **Re-read `CLAUDE.md`** at the project root for project rules + helper
-   catalog.
-3. **Re-read user memory** at
-   `C:\Users\engmo\.claude\projects\C--xampp-htdocs-pyra-workspace-3\memory\MEMORY.md`
-   for Abdou's preferences.
-4. **Run the post-compact investigation list** (5 items, read-only).
-   Don't write any code yet.
-5. **Propose the final implementation diff** for Abdou's review. Include:
-   - Which dispatch option (I or II) you chose and why
-   - The exact button position in PipelineCard with rationale
-   - Drawer vs Sheet decision based on what's available
-   - Full diff of all files to be created/modified
-6. **Wait for approval.** Don't push speculatively.
-7. **After approval:** implement → `pnpm run check` → `pnpm build` →
-   single commit titled `feat(crm): pipeline mobile stage picker —
-   touch-friendly bottom sheet for stage moves` → `git push origin main`
-   → `git log origin/main --oneline -3` to verify HEAD.
-8. **Ping Abdou** for retest. Test matrix:
-   - Mobile viewport (`<md`): button visible, sheet opens on tap
-   - Routine moves: stage changes without modal
-   - `stg_contract_signed` tap: modal opens with attachment picker
-   - `stg_closed_lost` tap: modal opens with lost-reason form
-   - `stg_closed_won` tap: instant toast guard fires (no modal, no
-     mutation)
-   - Same-stage tap: button disabled or no-op
-   - Desktop viewport (`md+`): button NOT visible
-   - Desktop drag-drop: still works (regression check from Chunk 3)
+1. **Re-read this file end-to-end.**
+2. **Re-read `/CRM-PRD/05-EXECUTION-PHASES.md` § Phase 7** — confirm the
+   8 tests match what's documented above. (PRD wording may differ
+   slightly from Abdou's verbatim list — defer to PRD if conflict.)
+3. **Confirm "Pre-compact findings" still hold** — the grep results
+   should be reproducible. Re-run if uncertain.
+4. **Send Abdou the plan + status**:
+   - Test 8: ✅ verified by static grep (queue your reproduction)
+   - My Work Inbox gap: present options (i)/(ii)/(iii) for his decision
+   - E2E test plan: present the step-by-step above; ask if he wants any
+     modifications before we run live
+5. **Wait for Abdou's approval** before doing E2E (he wants to review
+   before live testing).
+6. **After approval:** run E2E walk-through with Abdou on the call /
+   in messages. Mark each test ✅ as verified.
+7. **After all 8 ✅:** execute the Phase 7 closure checklist.
 
 ---
 
-## Known unknowns (will resolve post-compact)
+## Architecture invariants (carried over from Chunk 3)
 
-- Exact `useMoveLeadStage` signature (likely
-  `{ mutate, mutateAsync, isPending, error }` from React Query, but
-  confirm)
-- Whether `pipeline-client.tsx` exports a reusable dispatcher or only
-  inlines it
-- Drawer vs Sheet availability in `components/ui/`
-- Cleanest button position in PipelineCard (depends on current JSX)
-- Whether the closed_won guard logic should be lifted into its own
-  helper (probably yes, to share between drag-drop and tap-to-pick paths
-  cleanly)
+These must NOT regress in any Phase 7 closure work or Phase 8 work:
 
-These are all read-only investigations — they shouldn't take long and
-shouldn't burn much context.
+- **3-tier component split** in `components/crm/pipeline/pipeline-card.tsx`:
+  `PipelineCard` (source wrapper) → `PipelineCardView` (pure visual) →
+  `PipelineCardOverlay` (overlay ghost)
+- **`useDraggable` only on the wrapper `<div>`**, never on the `<Link>` or
+  `<PipelineCardView>`
+- **3 deviations from project-kanban**, all intentional:
+  - Source uses `opacity-0 pointer-events-none` while dragging (HubSpot UX)
+  - `<DragOverlay dropAnimation={null}>` (avoid snap-back jank)
+  - `collisionDetection={pointerWithin}` (RTL correctness)
+
+---
+
+## Reuse without modification (carried over)
+
+- `hooks/useMoveLeadStage` — mutation hook
+- `components/crm/pipeline/move-stage-confirm-modal.tsx` — handles
+  contract_signed (attachment) + closed_lost (reason)
+- closed_won client-side instant toast guard
+- `notify()` / `notifyMany()` from `lib/notifications/notify.ts` (the
+  ONLY writer to `pyra_notifications`)
+- `logActivity()` from `lib/api/activity.ts`
+- All toast copy in `pipeline-client.tsx`'s drag-drop dispatch
+
+---
+
+## Phase 8 preview (per PRD, post Phase 7 closure)
+
+Phase 8 = Sales Dashboard. Out of scope for this handoff. The next
+session shouldn't touch it until Phase 7 is officially closed.
