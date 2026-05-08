@@ -212,7 +212,7 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
           bug Abdou diagnosed via DOM inspection. */}
       <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
         {activeLead ? (
-          <div className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
+          <div data-pipeline-overlay="true" className="w-72 lg:w-80 max-w-[calc(100vw-2rem)] outline outline-4 outline-red-500">
             <PipelineCard lead={activeLead} dragOverlay />
           </div>
         ) : null}
