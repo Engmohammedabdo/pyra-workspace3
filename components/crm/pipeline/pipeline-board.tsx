@@ -195,14 +195,27 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
       </div>
 
       {/* Floating preview of the dragged card. Only renders during a drag.
-          The original card stays at opacity 0.3 in its column so the source
+          The original card stays at opacity 0 in its column so the source
           slot is still visible while the user moves the overlay. */}
       <DragOverlay dropAnimation={null}>
-        {activeLead ? (
-          <div className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
-            <PipelineCard lead={activeLead} dragOverlay />
-          </div>
-        ) : null}
+        {activeLead ? (() => {
+          // PHASE 7 CHUNK 3.4 DIAGNOSTIC — confirms (a) bundle hash,
+          // (b) DragOverlay render branch is hit, (c) activeLead state.
+          // Remove once Abdou confirms the floating card visibility issue.
+          if (typeof window !== 'undefined') {
+            // eslint-disable-next-line no-console
+            console.log('[CRM-DRAG-OVERLAY-RENDER]', {
+              bundle: 'phase-3.4-diag-1',
+              leadId: activeLead.id,
+              leadName: activeLead.name,
+            });
+          }
+          return (
+            <div className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
+              <PipelineCard lead={activeLead} dragOverlay />
+            </div>
+          );
+        })() : null}
       </DragOverlay>
     </DndContext>
   );
