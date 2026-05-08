@@ -19,6 +19,50 @@ just verified by static analysis pre-compact, see below). Mobile
 picker work is deferred to Phase 10. After all 8 pass, mark Phase 7
 complete and proceed to Phase 8 (Sales Dashboard).
 
+## 🔒 Locked Deviations from PRD (do NOT re-litigate)
+
+### Deviation 1: Q-UI-001 — Mobile stage picker scoped to Phase 10 (was Phase 4/7)
+
+**Decision (locked by Abdou pre-compact):** the mobile button-picker for
+stage moves on pipeline cards is **deferred from Phase 7 to Phase 10
+(Mobile PWA Polish)**.
+
+**Rationale (Abdou's verbatim):**
+- The strict 8-test exit gate for Phase 7 (per PRD §05) does not include
+  any mobile-specific tests
+- Sayed's primary work mode is desktop (per current usage patterns) — no
+  operational gap from deferring
+- Phase 8 (Sales Dashboard) provides higher daily-management value than
+  mobile move-stage capability
+- Phase 10 (Mobile PWA Polish) is the natural home for all mobile-touch
+  concerns including the stage picker
+
+**Phase 10 scope expansion** — when next session re-reads
+`/CRM-PRD/05-EXECUTION-PHASES.md` § Phase 10, treat its work items as
+**expanded** with:
+- Mobile stage move picker (button + bottom sheet) on pipeline cards
+- Reuses `MoveStageConfirmModal` for contract_signed + closed_lost (no
+  modifications)
+- Reuses closed_won client-side guard pattern
+- Reuses `useMoveLeadStage` mutation (no modifications)
+- shadcn `Sheet` primitive at `components/ui/sheet.tsx` (already in
+  workspace; pre-compact grep confirmed; reference patterns:
+  `components/portal/portal-mobile-nav.tsx`,
+  `components/layout/mobile-nav.tsx`)
+- Architecture: button in `<PipelineCard>` source wrapper (NOT inside
+  `<PipelineCardView>`), per-card `useState` for sheet open/close.
+  See "Architecture invariants" section below.
+
+### Deviation 2: My Work Inbox `closed_won_pending` — Option (iii)
+
+PRD wording "My Work Inbox shows lead_closed_won_pending_approval for
+managers" is satisfied implicitly via the notification bell +
+`/dashboard/crm/approvals` dedicated surface. Adding to MyWorkInbox
+would be visual duplication. **Decision locked.** Full rationale in
+Finding 2 below.
+
+---
+
 ## Latest commit on `origin/main`
 
 `ca6403f` — original Chunk 4 handoff doc. This rewrite supersedes it.
@@ -210,9 +254,12 @@ After Tests 3, 5, 7 pass:
 - [x] **(decided pre-compact)** My Work Inbox `closed_won_pending`:
       Option (iii) selected — PRD satisfied implicitly via notification
       bell + dedicated `/dashboard/crm/approvals` surface
-- [ ] Transcribe Option (iii) decision + rationale into CLAUDE.md
-      under "Phase 7 caveats" (so the decision survives beyond this
-      ephemeral handoff doc)
+- [x] **(decided pre-compact)** Q-UI-001 mobile stage picker:
+      deferred from Phase 7 to Phase 10 — see "Locked Deviations"
+      section above for full rationale + Phase 10 scope expansion
+- [ ] Transcribe BOTH locked deviations (Option (iii) + Q-UI-001)
+      into CLAUDE.md under a new "Phase 7 caveats" section so the
+      decisions survive beyond this ephemeral handoff doc
 - [ ] Mark Phase 7 complete in `/CRM-PRD/05-EXECUTION-PHASES.md` (or
       whatever PROGRESS tracker exists in the repo — check)
 - [ ] Single commit titled
