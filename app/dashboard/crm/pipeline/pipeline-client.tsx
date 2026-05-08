@@ -10,23 +10,23 @@
  *   useMoveLeadStage  → drag-drop mutation (Phase 7 Chunk 3.1)
  *
  * Drag-drop is owned by <PipelineBoard>; this client wires the resulting
- * onDropChangeStage callback to the mutation. Optimistic update lives
- * inside useMoveLeadStage (onMutate / onError / onSettled). Toasts on
- * error are fired here because we have the from→to label context.
+ * onDropChangeStage callback. Optimistic update lives inside
+ * useMoveLeadStage. Toasts on error are fired here because we have the
+ * from→to label context.
  *
- * Modals for stg_contract_signed (attachment picker) and stg_closed_lost
- * (reason chips) come in Phase 3.2 + 3.3 — until then those drops fire
- * the mutation directly and the server returns 422 ("attachment required"
- * / "lost_reason required") which the rollback path catches with a toast.
- * Same pattern for stg_closed_won — server 422 with the "use approve flow"
- * message. Phase 3.4 replaces those server-side bounces with client-side
- * pre-checks for snappier UX.
+ * Phase 3.2 added: drops onto stg_contract_signed open the
+ * <MoveStageConfirmModal> picker BEFORE firing the mutation, so the user
+ * picks a contract or invoice attachment. The source card stays in its
+ * original column until they confirm — no flicker.
+ *
+ * Modal for stg_closed_lost (reason chips) comes in Phase 3.3.
+ * Phase 3.4 replaces the closed_won server-bounce with a client-side
+ * toast guard.
  */
 
 import { useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GitBranch, Plus, Info } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -35,16 +35,27 @@ import { useLeads, useMoveLeadStage } from '@/hooks/useLeads';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
+import { MoveStageConfirmModal } from '@/components/crm/pipeline/move-stage-confirm-modal';
 import {
+  PIPELINE_STAGE_IDS,
   PIPELINE_STAGE_LABELS_AR,
   type PipelineStageId,
 } from '@/lib/constants/statuses';
+import type { PyraSalesLead } from '@/types/database';
 
 export function PipelineClient() {
   const sp = useSearchParams();
   const { data: me } = useCurrentUser();
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const moveStage = useMoveLeadStage();
+
+  // contract_signed modal state — set when a card is dropped on that
+  // column. The lead reference is the source-of-truth for the modal title
+  // + client_id filtering. Mutation fires only on confirm.
+  const [contractSignedModal, setContractSignedModal] = useState<{
+    open: boolean;
+    lead: PyraSalesLead | null;
+  }>({ open: false, lead: null });
 
   // Build filter object from URL (the same params the filter bar writes).
   const filters = useMemo<Record<string, string | undefined>>(() => {
@@ -78,21 +89,28 @@ export function PipelineClient() {
     return Array.from(new Set(leads.map((l) => l.assigned_to).filter((x): x is string => !!x))).sort();
   }, [isAdmin, leads]);
 
-  // Drop handler — fired by PipelineBoard after a cross-column drop.
-  // The hook handles the optimistic update + rollback; we only need to
-  // surface a toast on error and a (optional) success toast for routine
-  // moves. The 422 family from the server (missing attachment / reason /
-  // direct closed_won) is caught here so the user sees a meaningful
-  // message instead of a generic "فشل".
-  const handleDropChangeStage = useCallback(
-    async (leadId: string, toStageId: string, fromStageId: string | null) => {
+  // Shared mutation runner — used both by the routine drop path and by
+  // the modal's confirm path. Surfaces a contextual success toast and
+  // catches the rollback path with a clear error message. The hook owns
+  // the optimistic update + rollback.
+  const runMoveStage = useCallback(
+    async (
+      leadId: string,
+      toStageId: string,
+      fromStageId: string | null,
+      attachment?: { type: 'contract' | 'invoice'; id: string },
+    ) => {
       const fromLabel = fromStageId
         ? PIPELINE_STAGE_LABELS_AR[fromStageId as PipelineStageId] ?? fromStageId
         : null;
       const toLabel = PIPELINE_STAGE_LABELS_AR[toStageId as PipelineStageId] ?? toStageId;
 
       try {
-        const res = await moveStage.mutateAsync({ id: leadId, to_stage_id: toStageId });
+        const res = await moveStage.mutateAsync({
+          id: leadId,
+          to_stage_id: toStageId,
+          ...(attachment ? { attachment } : {}),
+        });
         const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
         if (movedToContractSigned) {
           toast.success(`تم نقل الـ Lead إلى "${toLabel}" — في انتظار اعتماد المدير`);
@@ -102,16 +120,8 @@ export function PipelineClient() {
           toast.success(`تم نقل الـ Lead إلى "${toLabel}"`);
         }
       } catch (err: unknown) {
-        // The hook already rolled back the optimistic update via onError.
-        // We just need to surface the server's reason.
         const message =
           err instanceof Error && err.message ? err.message : 'فشل نقل المرحلة';
-        // The server returns Arabic copy on 422 (e.g.,
-        // "attachment مطلوب لمرحلة..."), but mutateAPI flattens to
-        // "API error: 422" since it doesn't unwrap the body. So we use a
-        // generic prefix and rely on the rollback to hint the user that
-        // something went wrong; the modal flows in 3.2/3.3 will replace
-        // these server bounces with client-side guards.
         if (message.includes('422')) {
           toast.error(`لا يمكن نقل الـ Lead إلى "${toLabel}" مباشرة — راجع متطلبات المرحلة`);
         } else {
@@ -120,6 +130,47 @@ export function PipelineClient() {
       }
     },
     [moveStage],
+  );
+
+  // Drop handler — fired by PipelineBoard after a cross-column drop.
+  // For stg_contract_signed we INTERCEPT and open the attachment modal
+  // (no optimistic update yet — source card stays put). For all other
+  // stages, the routine mutation runs immediately.
+  const handleDropChangeStage = useCallback(
+    (leadId: string, toStageId: string, fromStageId: string | null) => {
+      if (toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
+        const lead = leads?.find((l) => l.id === leadId);
+        if (!lead) {
+          // Shouldn't happen — board already validated the lead exists.
+          // Fall through to the routine path which will 422.
+          void runMoveStage(leadId, toStageId, fromStageId);
+          return;
+        }
+        setContractSignedModal({ open: true, lead });
+        return;
+      }
+      void runMoveStage(leadId, toStageId, fromStageId);
+    },
+    [leads, runMoveStage],
+  );
+
+  // Confirm handler from the contract_signed modal.
+  const handleContractSignedConfirm = useCallback(
+    async (attachment: { type: 'contract' | 'invoice'; id: string }) => {
+      const lead = contractSignedModal.lead;
+      if (!lead) return;
+      // Close the modal optimistically — the toast (success or error)
+      // will surface either way; if the mutation fails the user sees the
+      // error toast and the source card is still in its original column.
+      setContractSignedModal({ open: false, lead: null });
+      await runMoveStage(
+        lead.id,
+        PIPELINE_STAGE_IDS.CONTRACT_SIGNED,
+        lead.stage_id ?? null,
+        attachment,
+      );
+    },
+    [contractSignedModal.lead, runMoveStage],
   );
 
   return (
@@ -143,6 +194,16 @@ export function PipelineClient() {
       </header>
 
       <AddLeadModal open={addLeadOpen} onOpenChange={setAddLeadOpen} />
+
+      <MoveStageConfirmModal
+        open={contractSignedModal.open}
+        onOpenChange={(o) =>
+          setContractSignedModal((s) => (o ? s : { open: false, lead: null }))
+        }
+        lead={contractSignedModal.lead}
+        submitting={moveStage.isPending}
+        onConfirm={handleContractSignedConfirm}
+      />
 
       <PipelineFilterBar isAdmin={!!isAdmin} ownerOptions={ownerOptions} total={total} />
 
