@@ -603,6 +603,50 @@ and ask before changing.** The full debugging arc is in
 `docs/PHASE7-CHUNK4-HANDOFF.md` (which can be archived now that Phase 7
 is closed; this section preserves the conclusions).
 
+## CRM Conventions (Phase 8+)
+
+These conventions apply to the new CRM module under `/dashboard/crm/*`.
+Locked during Phase 8 planning (Sales Dashboard); future CRM features
+should follow the same patterns.
+
+### CRM AI Insights — Severity Scheme
+
+The Sales Dashboard's AI Insights banner uses **4 severity levels**.
+Server-side rules in `app/api/crm/dashboard/ai-insights/route.ts` emit
+insights with these severities; client renders the top 3 sorted by
+severity (critical > high > medium > low).
+
+| Severity | Trigger condition | Example rule types |
+|---|---|---|
+| `critical` | Pending approvals > 5 | `approvals_pending` |
+| `high` | Idle deals ≥ 3 **OR** overdue follow-ups > 5 | `idle_warning`, `overdue_followups` |
+| `medium` | Upcoming follow-ups today **OR** conversion rate dropped vs last period | `followups_today`, `conversion_dropped` |
+| `low` | Positive trends — closed-won streak, exceeded target | `closed_won_streak`, `target_exceeded` |
+
+Add new rule types in v1.1+ without breaking the existing severity
+contract. The `CRMInsight.type` union in `hooks/useCRMDashboard.ts`
+must be widened in lock-step with new server-side rules.
+
+### CRM Caching Conventions
+
+React Query `staleTime` + `refetchInterval` per CRM dashboard hook.
+Tighter intervals on hot data (KPIs, funnel, recent activity) and
+looser on cold data (team performance, deals-at-risk, AI rules).
+
+| Hook | `staleTime` | `refetchInterval` |
+|---|---|---|
+| `useCRMKPIs` | `60_000` (1 min) | `60_000` |
+| `useCRMFunnel` | `60_000` (1 min) | `60_000` |
+| `useDealsAtRisk` | `300_000` (5 min) | none |
+| `useTeamPerformance` | `300_000` (5 min) | none |
+| `useCRMRecentActivity` | `30_000` (30 s) | `30_000` |
+| `useCRMInsights` | `120_000` (2 min) | none |
+
+Rationale: KPIs and funnel update as deals move (high signal); deals-
+at-risk and team performance change slowly (cheap to be stale); recent
+activity is the live-feel hook; AI insights are derived from rules
+that re-evaluate every 2 min.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
