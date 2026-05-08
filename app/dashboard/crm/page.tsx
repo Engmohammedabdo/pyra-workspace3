@@ -8,6 +8,6 @@ export const metadata: Metadata = {
 };
 
 export default async function CrmDashboardPage() {
-  await requirePermission('leads.view');
+  await requirePermission('crm_reports.view');
   return <CrmDashboardStub />;
 }
