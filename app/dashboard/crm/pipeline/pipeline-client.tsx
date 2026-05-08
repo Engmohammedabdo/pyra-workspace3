@@ -35,7 +35,11 @@ import { useLeads, useMoveLeadStage } from '@/hooks/useLeads';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
-import { MoveStageConfirmModal } from '@/components/crm/pipeline/move-stage-confirm-modal';
+import {
+  MoveStageConfirmModal,
+  type MoveStageConfirmPayload,
+  type MoveStageConfirmTargetId,
+} from '@/components/crm/pipeline/move-stage-confirm-modal';
 import {
   PIPELINE_STAGE_IDS,
   PIPELINE_STAGE_LABELS_AR,
@@ -49,13 +53,16 @@ export function PipelineClient() {
   const [addLeadOpen, setAddLeadOpen] = useState(false);
   const moveStage = useMoveLeadStage();
 
-  // contract_signed modal state — set when a card is dropped on that
-  // column. The lead reference is the source-of-truth for the modal title
-  // + client_id filtering. Mutation fires only on confirm.
-  const [contractSignedModal, setContractSignedModal] = useState<{
+  // Shared "needs-extra-data" modal state. Set when a card is dropped on
+  // stg_contract_signed (needs attachment) or stg_closed_lost (needs
+  // reason). The lead reference is the source-of-truth for the modal
+  // title + client_id filtering; targetStageId picks the variant.
+  // Mutation fires only on confirm.
+  const [confirmModal, setConfirmModal] = useState<{
     open: boolean;
     lead: PyraSalesLead | null;
-  }>({ open: false, lead: null });
+    targetStageId: MoveStageConfirmTargetId | null;
+  }>({ open: false, lead: null, targetStageId: null });
 
   // Build filter object from URL (the same params the filter bar writes).
   const filters = useMemo<Record<string, string | undefined>>(() => {
@@ -98,7 +105,10 @@ export function PipelineClient() {
       leadId: string,
       toStageId: string,
       fromStageId: string | null,
-      attachment?: { type: 'contract' | 'invoice'; id: string },
+      extras?: {
+        attachment?: { type: 'contract' | 'invoice'; id: string };
+        lost_reason?: string;
+      },
     ) => {
       const fromLabel = fromStageId
         ? PIPELINE_STAGE_LABELS_AR[fromStageId as PipelineStageId] ?? fromStageId
@@ -109,10 +119,13 @@ export function PipelineClient() {
         const res = await moveStage.mutateAsync({
           id: leadId,
           to_stage_id: toStageId,
-          ...(attachment ? { attachment } : {}),
+          ...(extras?.attachment ? { attachment: extras.attachment } : {}),
+          ...(extras?.lost_reason ? { lost_reason: extras.lost_reason } : {}),
         });
         const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
-        if (movedToContractSigned) {
+        if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
+          toast.success(`تم نقل الصفقة إلى "${toLabel}" — تم تسجيل السبب`);
+        } else if (movedToContractSigned) {
           toast.success(`تم نقل الـ Lead إلى "${toLabel}" — في انتظار اعتماد المدير`);
         } else if (fromLabel) {
           toast.success(`تم نقل الـ Lead من "${fromLabel}" إلى "${toLabel}"`);
@@ -133,12 +146,16 @@ export function PipelineClient() {
   );
 
   // Drop handler — fired by PipelineBoard after a cross-column drop.
-  // For stg_contract_signed we INTERCEPT and open the attachment modal
-  // (no optimistic update yet — source card stays put). For all other
-  // stages, the routine mutation runs immediately.
+  // For stg_contract_signed (needs attachment) and stg_closed_lost (needs
+  // reason) we INTERCEPT and open the confirm modal — source card stays
+  // put, no optimistic update fires until the user confirms. For all
+  // other stages, the routine mutation runs immediately.
   const handleDropChangeStage = useCallback(
     (leadId: string, toStageId: string, fromStageId: string | null) => {
-      if (toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
+      const needsModal =
+        toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED ||
+        toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST;
+      if (needsModal) {
         const lead = leads?.find((l) => l.id === leadId);
         if (!lead) {
           // Shouldn't happen — board already validated the lead exists.
@@ -146,7 +163,11 @@ export function PipelineClient() {
           void runMoveStage(leadId, toStageId, fromStageId);
           return;
         }
-        setContractSignedModal({ open: true, lead });
+        setConfirmModal({
+          open: true,
+          lead,
+          targetStageId: toStageId as MoveStageConfirmTargetId,
+        });
         return;
       }
       void runMoveStage(leadId, toStageId, fromStageId);
@@ -154,23 +175,33 @@ export function PipelineClient() {
     [leads, runMoveStage],
   );
 
-  // Confirm handler from the contract_signed modal.
-  const handleContractSignedConfirm = useCallback(
-    async (attachment: { type: 'contract' | 'invoice'; id: string }) => {
-      const lead = contractSignedModal.lead;
-      if (!lead) return;
+  // Confirm handler shared between both modal variants — discriminates
+  // on the payload's `mode` field.
+  const handleConfirmModal = useCallback(
+    async (payload: MoveStageConfirmPayload) => {
+      const { lead, targetStageId } = confirmModal;
+      if (!lead || !targetStageId) return;
       // Close the modal optimistically — the toast (success or error)
       // will surface either way; if the mutation fails the user sees the
       // error toast and the source card is still in its original column.
-      setContractSignedModal({ open: false, lead: null });
-      await runMoveStage(
-        lead.id,
-        PIPELINE_STAGE_IDS.CONTRACT_SIGNED,
-        lead.stage_id ?? null,
-        attachment,
-      );
+      setConfirmModal({ open: false, lead: null, targetStageId: null });
+      if (payload.mode === 'contract_signed') {
+        await runMoveStage(
+          lead.id,
+          PIPELINE_STAGE_IDS.CONTRACT_SIGNED,
+          lead.stage_id ?? null,
+          { attachment: payload.attachment },
+        );
+      } else {
+        await runMoveStage(
+          lead.id,
+          PIPELINE_STAGE_IDS.CLOSED_LOST,
+          lead.stage_id ?? null,
+          { lost_reason: payload.lost_reason },
+        );
+      }
     },
-    [contractSignedModal.lead, runMoveStage],
+    [confirmModal, runMoveStage],
   );
 
   return (
@@ -196,13 +227,16 @@ export function PipelineClient() {
       <AddLeadModal open={addLeadOpen} onOpenChange={setAddLeadOpen} />
 
       <MoveStageConfirmModal
-        open={contractSignedModal.open}
+        open={confirmModal.open}
         onOpenChange={(o) =>
-          setContractSignedModal((s) => (o ? s : { open: false, lead: null }))
+          setConfirmModal((s) =>
+            o ? s : { open: false, lead: null, targetStageId: null },
+          )
         }
-        lead={contractSignedModal.lead}
+        lead={confirmModal.lead}
+        targetStageId={confirmModal.targetStageId}
         submitting={moveStage.isPending}
-        onConfirm={handleContractSignedConfirm}
+        onConfirm={handleConfirmModal}
       />
 
       <PipelineFilterBar isAdmin={!!isAdmin} ownerOptions={ownerOptions} total={total} />
