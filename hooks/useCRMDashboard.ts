@@ -64,9 +64,17 @@ export interface CRMRecentActivity {
   created_by_display_name: string | null;
 }
 
+/**
+ * AI Insight emitted by /api/crm/dashboard/ai-insights.
+ *
+ * Severity widened to 4 levels per CLAUDE.md "CRM AI Insights — Severity Scheme".
+ * Type union covers the 4 v1 rules (idle_warning, approvals_pending,
+ * overdue_followups, followups_today). v1.1 will add conversion_dropped,
+ * closed_won_streak, target_exceeded — widen this union when those rules ship.
+ */
 export interface CRMInsight {
-  type: 'idle_warning' | 'approvals_pending' | 'overdue_followups';
-  severity: 'high' | 'medium' | 'low';
+  type: 'idle_warning' | 'approvals_pending' | 'overdue_followups' | 'followups_today';
+  severity: 'critical' | 'high' | 'medium' | 'low';
   count: number;
   value?: number;
   message_ar: string;
@@ -74,12 +82,18 @@ export interface CRMInsight {
 }
 
 // ── Queries ──
+//
+// Caching strategy locked in CLAUDE.md "CRM Caching Conventions". Tighter
+// intervals on hot data (KPIs, funnel, recent activity) and looser on cold
+// data (team performance, deals-at-risk, AI rules). If you change a value
+// here, update the table in CLAUDE.md to match.
 
 export function useCRMKPIs(period: CRMPeriod = 'this_month') {
   return useQuery<CRMKPIs>({
     queryKey: ['crm', 'dashboard', 'kpis', period],
     queryFn: () => fetchAPI(`/api/crm/dashboard/kpis?period=${period}`),
-    staleTime: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -87,7 +101,8 @@ export function useCRMFunnel() {
   return useQuery<{ stages: CRMFunnelStage[] }>({
     queryKey: ['crm', 'dashboard', 'funnel'],
     queryFn: () => fetchAPI('/api/crm/dashboard/funnel'),
-    staleTime: 30_000,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
   });
 }
 
@@ -95,7 +110,7 @@ export function useDealsAtRisk(days = 7) {
   return useQuery<{ deals_at_risk: DealAtRisk[]; days_threshold: number }>({
     queryKey: ['crm', 'dashboard', 'deals-at-risk', days],
     queryFn: () => fetchAPI(`/api/crm/dashboard/deals-at-risk?days=${days}`),
-    staleTime: 60_000,
+    staleTime: 300_000, // 5 min — deals at risk change slowly
   });
 }
 
@@ -103,7 +118,7 @@ export function useTeamPerformance() {
   return useQuery<{ team: TeamPerfAgent[] }>({
     queryKey: ['crm', 'dashboard', 'team-performance'],
     queryFn: () => fetchAPI('/api/crm/dashboard/team-performance'),
-    staleTime: 60_000,
+    staleTime: 300_000, // 5 min — team rollups change slowly
   });
 }
 
@@ -112,6 +127,7 @@ export function useCRMRecentActivity(limit = 20) {
     queryKey: ['crm', 'dashboard', 'recent-activity', limit],
     queryFn: () => fetchAPI(`/api/crm/dashboard/recent-activity?limit=${limit}`),
     staleTime: 30_000,
+    refetchInterval: 30_000, // live-feel hook
   });
 }
 
@@ -119,6 +135,6 @@ export function useCRMInsights() {
   return useQuery<{ insights: CRMInsight[] }>({
     queryKey: ['crm', 'dashboard', 'ai-insights'],
     queryFn: () => fetchAPI('/api/crm/dashboard/ai-insights'),
-    staleTime: 60_000,
+    staleTime: 120_000, // 2 min — rules re-evaluate every 2 min
   });
 }
