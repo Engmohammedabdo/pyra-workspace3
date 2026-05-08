@@ -19,7 +19,6 @@
 
 import Link from 'next/link';
 import { useDraggable } from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
 import { cn } from '@/lib/utils/cn';
 import { Phone, MessageCircle } from 'lucide-react';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
@@ -64,15 +63,14 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
   // that variant just paints the visual; @dnd-kit owns its position.
   // Hooks-rule note: useDraggable must be called unconditionally per render,
   // so we always call it but ignore the return values when dragOverlay=true.
+  // We deliberately do NOT apply draggable.transform to the source — the
+  // DragOverlay paints the floating card; the source stays in place at
+  // opacity 0 to avoid the "two cards floating" double-vision effect.
   const draggable = useDraggable({ id: lead.id, data: { lead } });
-  const dragStyle = !dragOverlay && draggable.transform
-    ? { transform: CSS.Translate.toString(draggable.transform) }
-    : undefined;
 
   return (
     <Link
       ref={dragOverlay ? undefined : draggable.setNodeRef}
-      style={dragStyle}
       {...(dragOverlay ? {} : draggable.attributes)}
       {...(dragOverlay ? {} : draggable.listeners)}
       href={`/dashboard/crm/leads/${lead.id}`}
@@ -85,9 +83,10 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
         // there at the sensor level by useIsDesktop, so the cursor on small
         // screens stays default.
         !dragOverlay && 'md:cursor-grab md:active:cursor-grabbing',
-        // The original card hides under DragOverlay while dragging — the
-        // overlay paints the visual position.
-        !dragOverlay && draggable.isDragging && 'opacity-30 pointer-events-none',
+        // Source card goes invisible while a drag is active — only the
+        // DragOverlay paints. pointer-events-none is defensive against
+        // hover states leaking into the dragged card.
+        !dragOverlay && draggable.isDragging && 'opacity-0 pointer-events-none',
         // DragOverlay variant gets a visual lift via the wrapper, but we add
         // a subtle rotation for character.
         dragOverlay && 'shadow-lg ring-2 ring-orange-300/40 dark:ring-orange-700/40 rotate-[1deg]',

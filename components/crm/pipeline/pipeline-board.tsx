@@ -22,6 +22,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  pointerWithin,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -131,6 +132,7 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
   return (
     <DndContext
       sensors={sensors}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveLead(null)}
