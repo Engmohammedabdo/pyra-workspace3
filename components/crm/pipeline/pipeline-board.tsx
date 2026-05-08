@@ -22,7 +22,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  closestCorners,
+  pointerWithin,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -130,9 +130,18 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
   }
 
   return (
+    // collisionDetection: pointerWithin instead of project-kanban's
+    // closestCorners. closestCorners measures rect corners in document
+    // space, which mis-targets columns in our RTL layout — visual column
+    // order doesn't match DOM order (the visually-rightmost column is the
+    // FIRST in DOM under `dir="rtl"`), so the rect-corner geometry
+    // resolves to the wrong droppable. pointerWithin tests cursor-vs-rect
+    // bounds directly and is layout-direction-agnostic. This is the 3rd
+    // deviation from project-kanban (alongside opacity-0 source and
+    // dropAnimation={null}, both documented near the <DragOverlay> below).
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveLead(null)}
