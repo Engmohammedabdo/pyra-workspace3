@@ -13,23 +13,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useCRMKPIs, useCRMFunnel } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { GitBranch, Target, TrendingUp, Wallet, Repeat, ArrowRightCircle, Plus } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
+import { GitBranch, ArrowRightCircle, Plus } from 'lucide-react';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
 // Phase 8 Cluster 1 preview — these 3 mounts (and their imports) get
 // removed in Step 5 when dashboard-client.tsx replaces this stub entirely.
 import { DashboardGreeting } from '@/components/crm/dashboard/dashboard-greeting';
 import { DashboardAiInsight } from '@/components/crm/dashboard/dashboard-ai-insight';
 import { DashboardDataSources } from '@/components/crm/dashboard/dashboard-data-sources';
+// Phase 8 Cluster 2 preview — replaces the inline KPI grid + funnel <Card>
+// further down. Removed in Step 5 when dashboard-client.tsx replaces this stub.
+import { DashboardKpiCards } from '@/components/crm/dashboard/dashboard-kpi-cards';
+import { DashboardFunnel } from '@/components/crm/dashboard/dashboard-funnel';
 
 export function CrmDashboardStub() {
-  const { data: kpis, isLoading: kpisLoading } = useCRMKPIs('this_month');
-  const { data: funnel } = useCRMFunnel();
   const [addLeadOpen, setAddLeadOpen] = useState(false);
 
   return (
@@ -66,62 +65,11 @@ export function CrmDashboardStub() {
 
       <AddLeadModal open={addLeadOpen} onOpenChange={setAddLeadOpen} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          loading={kpisLoading}
-          icon={<Wallet className="size-5" />}
-          label="قيمة خط المبيعات"
-          value={kpis?.pipeline_value.total_aed ?? 0}
-          sub={`${kpis?.pipeline_value.count ?? 0} صفقة نشطة`}
-          tone="orange"
-        />
-        <KpiCard
-          loading={kpisLoading}
-          icon={<TrendingUp className="size-5" />}
-          label="فوز هذا الشهر"
-          value={kpis?.closed_won.total_aed ?? 0}
-          sub={`${kpis?.closed_won.count ?? 0} صفقة (cash basis)`}
-          tone="emerald"
-        />
-        <KpiCard
-          loading={kpisLoading}
-          icon={<Target className="size-5" />}
-          label="توقعات الإغلاق"
-          value={kpis?.forecast_close_value ?? 0}
-          sub="مبني على win_probability"
-          tone="indigo"
-        />
-        <KpiCard
-          loading={kpisLoading}
-          icon={<Repeat className="size-5" />}
-          label="MRR — الاحتفاظات النشطة"
-          value={kpis?.monthly_recurring_revenue ?? 0}
-          sub="معتمد على pyra_contracts"
-          tone="amber"
-        />
-      </div>
-
-      <Card className="p-5">
-        <h2 className="text-base font-semibold mb-3">توزيع الصفقات على المراحل</h2>
-        {!funnel ? (
-          <div className="space-y-2">
-            <Skeleton className="h-6 w-full" />
-            <Skeleton className="h-6 w-3/4" />
-            <Skeleton className="h-6 w-1/2" />
-          </div>
-        ) : (
-          <ul className="space-y-2">
-            {funnel.stages.map((s) => (
-              <li key={s.stage_id} className="flex items-center justify-between text-sm border-b border-border last:border-0 pb-2 last:pb-0">
-                <span className="font-medium">{s.label_ar}</span>
-                <span className="text-muted-foreground">
-                  {s.count} {s.count === 1 ? 'صفقة' : 'صفقات'} · {formatCurrency(s.total_value, 'AED')}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      {/* Phase 8 Cluster 2 preview — replaces the inline 4-card KPI grid +
+          funnel <Card>. The new components own their own loading/empty
+          states. Removed in Step 5 alongside the rest of this stub. */}
+      <DashboardKpiCards period="this_month" />
+      <DashboardFunnel />
 
       <Card className="p-5 bg-muted/30 border-dashed">
         <p className="text-sm text-muted-foreground leading-7">
@@ -138,36 +86,3 @@ export function CrmDashboardStub() {
   );
 }
 
-interface KpiCardProps {
-  loading?: boolean;
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  sub?: string;
-  tone: 'orange' | 'emerald' | 'indigo' | 'amber';
-}
-
-function KpiCard({ loading, icon, label, value, sub, tone }: KpiCardProps) {
-  const toneClasses: Record<KpiCardProps['tone'], string> = {
-    orange:  'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-    emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-    indigo:  'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
-    amber:   'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  };
-  return (
-    <Card className="p-4">
-      <div className="flex items-start justify-between">
-        <div className={`size-9 rounded-lg flex items-center justify-center ${toneClasses[tone]}`}>{icon}</div>
-      </div>
-      <div className="mt-3 text-xs text-muted-foreground">{label}</div>
-      {loading ? (
-        <Skeleton className="h-7 w-24 mt-1" />
-      ) : (
-        <div className="text-2xl font-bold tracking-tight tabular-nums mt-1">
-          {formatCurrency(value, 'AED')}
-        </div>
-      )}
-      {sub && <div className="text-xs text-muted-foreground mt-1">{sub}</div>}
-    </Card>
-  );
-}
