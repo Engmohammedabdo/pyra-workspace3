@@ -516,6 +516,93 @@ curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
 Coolify (Docker) auto-deploy on push to `main` · **pnpm** (NEVER npm)
 Production URL: `https://workspace.pyramedia.cloud`
 
+## CRM Module — Locked Decisions & PRD Deviations
+
+These are **intentional, documented deviations** from the CRM-PRD,
+locked during Phase 7 closure. **Do NOT re-litigate.** Future sessions
+encountering the original PRD wording should defer to the decisions
+recorded here. CRM phase tracking lives in `CRM-PROGRESS.md` (separate
+from the workspace-level `PROGRESS.md`).
+
+### 1. Mobile stage picker — deferred to CRM Phase 10 (was Q-UI-001 Phase 4/7)
+
+**Decision:** the mobile button-picker for stage moves on pipeline cards
+is scoped to **CRM Phase 10 (Mobile PWA Polish)**, NOT Phase 4 or Phase 7.
+
+**Rationale:**
+- The 8-test exit gate for CRM Phase 7 (PRD §05) doesn't include
+  mobile-specific tests
+- Sayed's primary work mode is desktop — no operational gap from deferring
+- CRM Phase 8 (Sales Dashboard) provides higher daily-management value
+- CRM Phase 10 is the natural home for all mobile-touch concerns
+
+**Phase 10 implementation hint** (when work begins):
+- Button in `<PipelineCard>` source wrapper, NOT inside `<PipelineCardView>`
+  (preserves Phase 7 Chunk 3 architecture below)
+- Per-card `useState` for sheet open/close (no prop drilling)
+- shadcn `Sheet` primitive at `components/ui/sheet.tsx`; reference patterns:
+  `components/portal/portal-mobile-nav.tsx`, `components/layout/mobile-nav.tsx`
+- Reuses `MoveStageConfirmModal`, closed_won client-side guard, and
+  `useMoveLeadStage` mutation — zero modifications to any of those
+
+### 2. My Work Inbox — `closed_won_pending` not surfaced (Option iii)
+
+**Decision:** PRD wording "My Work Inbox shows
+`lead_closed_won_pending_approval` for managers" is satisfied implicitly
+via the notification bell + `/dashboard/crm/approvals` dedicated surface.
+
+**Rationale:**
+- closed_won_pending notifications fire to managers via the bell
+  (verified in CRM Phase 7 Test 4)
+- `/dashboard/crm/approvals` is a dedicated, context-rich surface with
+  lead details + attachment preview + approve/reject buttons — strictly
+  better UX than a generic line item in My Work Inbox
+- Adding it to MyWorkInbox would be visual duplication: managers would
+  see the same workflow item in two places without UX benefit
+
+**Future sessions: do NOT "fix" this gap by wiring `closed_won_pending`
+into My Work Inbox.** That would re-introduce visual duplication.
+
+### 3. Pipeline kanban — three deviations from `project-kanban.tsx` (CRM Phase 7 Chunk 3)
+
+The CRM pipeline at `components/crm/pipeline/` mirrors the working
+production pattern from `components/projects/project-kanban.tsx` with
+**three deliberate deviations**:
+
+1. **Source uses `opacity-0 pointer-events-none` while dragging** (NOT
+   `opacity-30`). HubSpot-style UX — only the floating `<DragOverlay>`
+   ghost paints, no double-vision of the source.
+2. **`<DragOverlay dropAnimation={null}>`** — avoids the snap-back
+   animation jank when paired with our optimistic update flow that
+   immediately moves the source out of its old column on drop.
+3. **`collisionDetection={pointerWithin}`** (NOT `closestCorners`). The
+   default `closestCorners` measures rect corners in document space and
+   mis-targets columns under `dir="rtl"` because visual column order
+   doesn't match DOM order. `pointerWithin` tests cursor-vs-rect bounds
+   in viewport coordinates and is layout-direction-agnostic.
+
+Architecture invariants in the same module (also locked):
+
+- **Three-tier component split** in `components/crm/pipeline/pipeline-card.tsx`:
+  - `<PipelineCard>` source wrapper — plain `<div>` with `useDraggable` +
+    transform style; inner `<Link>` for navigation receives
+    `{...attributes} {...listeners}`
+  - `<PipelineCardView>` pure visual presentational component (internal,
+    not exported) — NO @dnd-kit hooks; reused by source AND overlay
+  - `<PipelineCardOverlay>` thin wrapper around `<PipelineCardView isDragging />`
+    rendered inside `<DragOverlay>` — NO @dnd-kit hooks
+- **`useDraggable` is on a plain `<div>` wrapper, NEVER on the `<Link>`
+  directly.** Putting it on the Link broke things during Phase 7 Chunk 3.
+- **Only one `useDraggable` call per `lead.id` at any time** (the source's).
+  Earlier patterns where the overlay also called `useDraggable` overwrote
+  the source's entry in @dnd-kit's `draggableNodes` Map → `activeNodeRect`
+  became null → `PositionedOverlay` returned null → no overlay paint.
+
+These are LOCKED. If you find yourself questioning any of them, **STOP
+and ask before changing.** The full debugging arc is in
+`docs/PHASE7-CHUNK4-HANDOFF.md` (which can be archived now that Phase 7
+is closed; this section preserves the conclusions).
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
