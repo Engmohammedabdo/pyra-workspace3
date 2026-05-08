@@ -103,10 +103,7 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
 
   function handleDragStart(event: DragStartEvent) {
     const id = String(event.active.id);
-    const lead = leadById.get(id) ?? null;
-    // [DIAGNOSTIC] Phase 7 Chunk 3.4 — DragOverlay invisible regression
-    console.log('[CRM-DRAG-START-EVENT]', { id, foundInMap: !!lead, leadName: lead?.name ?? null, mapSize: leadById.size });
-    setActiveLead(lead);
+    setActiveLead(leadById.get(id) ?? null);
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -122,10 +119,6 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
 
     onDropChangeStage(leadId, toStageId, lead.stage_id ?? null);
   }
-
-  // [DIAGNOSTIC] Phase 7 Chunk 3.4 — DragOverlay invisible regression.
-  // Fires every render so we can see whether activeLead state propagates after onDragStart.
-  console.log('[CRM-PIPELINE-RENDER]', { activeLeadId: activeLead?.id ?? null, activeLeadName: activeLead?.name ?? null });
 
   if (loading) return <BoardSkeleton />;
   if (!stages || stages.length === 0) {
@@ -219,17 +212,9 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
           bug Abdou diagnosed via DOM inspection. */}
       <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
         {activeLead ? (
-          <>
-            {/* [DIAGNOSTIC] Phase 7 Chunk 3.4 — DragOverlay invisible regression.
-                Fires only when DragOverlay actually evaluates its children prop. */}
-            {(() => {
-              console.log('[CRM-DRAG-OVERLAY-CHILDREN-RENDER]', { id: activeLead.id, name: activeLead.name });
-              return null;
-            })()}
-            <div data-pipeline-overlay="true" className="w-72 lg:w-80 max-w-[calc(100vw-2rem)] outline outline-4 outline-red-500">
-              <PipelineCard lead={activeLead} dragOverlay />
-            </div>
-          </>
+          <div data-pipeline-overlay="true" className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
+            <PipelineCard lead={activeLead} dragOverlay />
+          </div>
         ) : null}
       </DragOverlay>
     </DndContext>

@@ -59,14 +59,29 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
   const currency = lead.expected_value_currency || 'AED';
   const wa = whatsAppHref(lead.phone);
 
-  // Make the card draggable. Skip when rendering inside <DragOverlay> —
-  // that variant just paints the visual; @dnd-kit owns its position.
-  // Hooks-rule note: useDraggable must be called unconditionally per render,
-  // so we always call it but ignore the return values when dragOverlay=true.
+  // Make the card draggable. Hooks-rule note: useDraggable must be called
+  // unconditionally per render, so we always call it.
+  //
+  // CRITICAL: when rendering inside <DragOverlay>, register with a UNIQUE id
+  // (`${lead.id}__overlay`) so we don't overwrite the source card's entry in
+  // @dnd-kit's `draggableNodes` Map. The Map is keyed by id, NOT by the
+  // per-instance key. A duplicate registration with the same id and
+  // `node=null` (the overlay variant skips `setNodeRef`) wipes the source's
+  // real DOM ref → activeNodeRect becomes null → PositionedOverlay
+  // (@dnd-kit/core@6.3.1 source line 3650: `if (!rect) return null`)
+  // returns null → no overlay DOM element renders. The phantom overlay
+  // registration under `__overlay` is queried by nothing; cleanup on unmount
+  // only removes the phantom (line 3423 checks `node.key === key` per
+  // instance, so the source's entry is never accidentally deleted).
+  // Diagnosed Phase 7 Chunk 3.4 by reading @dnd-kit/core source on disk.
+  //
   // We deliberately do NOT apply draggable.transform to the source — the
   // DragOverlay paints the floating card; the source stays in place at
   // opacity 0 to avoid the "two cards floating" double-vision effect.
-  const draggable = useDraggable({ id: lead.id, data: { lead } });
+  const draggable = useDraggable({
+    id: dragOverlay ? `${lead.id}__overlay` : lead.id,
+    data: { lead },
+  });
 
   return (
     <Link
