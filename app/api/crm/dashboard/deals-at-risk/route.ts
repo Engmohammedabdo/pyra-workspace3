@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
     let q = supabase
       .from('pyra_sales_leads')
-      .select('id, name, phone, company, stage_id, expected_value, expected_value_currency, last_contact_at, assigned_to, priority')
+      .select('id, name, phone, company, stage_id, expected_value, expected_value_currency, deal_type, last_contact_at, assigned_to, priority')
       .in('stage_id', PIPELINE_ACTIVE_STAGES as readonly string[])
       .eq('is_converted', false);
     if (scope) q = q.eq(scope.column, scope.value);

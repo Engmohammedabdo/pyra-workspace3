@@ -32,6 +32,10 @@ export interface DealAtRisk {
   stage_id: string | null;
   expected_value: number;
   expected_value_currency: string;
+  /** Service category for the deal — used to build the WhatsApp reminder
+   *  template ("...بنتابع معاك عرض {service}..."). Falls back to
+   *  'خدماتنا' when null. */
+  deal_type: string | null;
   last_contact_at: string | null;
   assigned_to: string | null;
   priority: string | null;

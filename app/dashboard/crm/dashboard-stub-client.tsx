@@ -27,6 +27,11 @@ import { DashboardDataSources } from '@/components/crm/dashboard/dashboard-data-
 // further down. Removed in Step 5 when dashboard-client.tsx replaces this stub.
 import { DashboardKpiCards } from '@/components/crm/dashboard/dashboard-kpi-cards';
 import { DashboardFunnel } from '@/components/crm/dashboard/dashboard-funnel';
+// Phase 8 Cluster 3 preview — lists row mounted between funnel and the
+// Phase 4 ملاحظة note. Removed in Step 5.
+import { DashboardActionCards } from '@/components/crm/dashboard/dashboard-action-cards';
+import { DashboardDealsAtRisk } from '@/components/crm/dashboard/dashboard-deals-at-risk';
+import { DashboardActivityFeed } from '@/components/crm/dashboard/dashboard-activity-feed';
 
 export function CrmDashboardStub() {
   const [addLeadOpen, setAddLeadOpen] = useState(false);
@@ -70,6 +75,14 @@ export function CrmDashboardStub() {
           states. Removed in Step 5 alongside the rest of this stub. */}
       <DashboardKpiCards period="this_month" />
       <DashboardFunnel />
+
+      {/* Phase 8 Cluster 3 preview — action cards row + deals-at-risk +
+          activity feed (two-column on lg). Removed in Step 5. */}
+      <DashboardActionCards />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <DashboardDealsAtRisk />
+        <DashboardActivityFeed />
+      </div>
 
       <Card className="p-5 bg-muted/30 border-dashed">
         <p className="text-sm text-muted-foreground leading-7">
