@@ -1,32 +1,42 @@
 'use client';
 
 /**
- * Single lead card on the Kanban board.
+ * Single lead card on the Kanban board — three-tier architecture mirroring
+ * the working `components/projects/project-kanban.tsx` pattern (the proven
+ * production reference for @dnd-kit's useDraggable + DragOverlay flow).
  *
- * SPLIT ARCHITECTURE (Phase 7 Chunk 3.5):
- *   <PipelineCard>         — source variant rendered inside columns. Owns the
- *                            @dnd-kit `useDraggable` hook + a wrapping <Link>
- *                            for navigation. Quick-action buttons (Phone /
- *                            WhatsApp) live here and disappear via opacity-0
- *                            while a drag is active.
- *   <PipelineCardOverlay>  — visual ghost rendered inside <DragOverlay>.
- *                            NO @dnd-kit hooks, NO <Link>, plain <div>.
- *                            Pure JSX. This eliminates ALL chance of two
- *                            useDraggable calls registering against the same
- *                            lead.id in @dnd-kit's internal `draggableNodes`
- *                            Map at the same time. (The earlier
- *                            unique-id workaround did not survive in
- *                            practice — separating the components is the
- *                            durable fix.)
+ *   <PipelineCard>          source variant rendered in pipeline columns.
+ *                           Plain <div> with `useDraggable.setNodeRef` +
+ *                           transform style. Inner <Link> handles
+ *                           navigation and receives attributes + listeners
+ *                           so a click anywhere on the card area navigates
+ *                           after the activator decides it's a click vs
+ *                           a drag (≥ 8 px movement = drag).
  *
- * Click → navigates to /dashboard/crm/leads/[id] via PipelineCard's <Link>.
- * Pointer drag (≥ 8 px) → activates @dnd-kit drag tracked at the board
- * level. Sub-8px clicks pass through to the Link, so the navigation
- * behavior from Phase 4-6 is preserved.
+ *   <PipelineCardView>      pure visual presentational component — name,
+ *                           value, badges, source icon, etc. NO @dnd-kit
+ *                           hooks. Reused by PipelineCard (source) AND
+ *                           PipelineCardOverlay (overlay ghost). Quick-
+ *                           action buttons (Phone / WhatsApp) live here
+ *                           but are suppressed when `isDragging` so the
+ *                           overlay ghost is uncluttered.
  *
- * Quick-action buttons (WhatsApp/Phone) are visible on hover on desktop
- * and always visible on mobile — they stop event propagation so they
- * don't trigger card navigation OR start a drag.
+ *   <PipelineCardOverlay>   visual ghost rendered inside <DragOverlay>.
+ *                           Thin wrapper around <PipelineCardView isDragging />.
+ *                           NO @dnd-kit hooks. By construction CANNOT
+ *                           register a competing entry in @dnd-kit's
+ *                           internal `draggableNodes` Map (the previous
+ *                           single-component pattern allowed that, which
+ *                           overwrote the source's DOM ref → rect → null
+ *                           → PositionedOverlay returned null → no
+ *                           overlay paint).
+ *
+ * Two deliberate deviations from project-kanban (approved Phase 7 Chunk 3.6):
+ *   1. Source uses `opacity-0 pointer-events-none` instead of `opacity-30`
+ *      while dragging. HubSpot-style UX — only the overlay ghost paints,
+ *      no double-vision.
+ *   2. <DragOverlay> uses `dropAnimation={null}` (set in pipeline-board.tsx)
+ *      to avoid snap-back jank when paired with our optimistic drop update.
  */
 
 import Link from 'next/link';
@@ -63,23 +73,44 @@ function whatsAppHref(phone: string | null | undefined): string | null {
 }
 
 /**
- * Shared visual block — name, value, win-prob, source, dealType, lastContact.
- * Used by both <PipelineCard> (inside <Link>) and <PipelineCardOverlay>
- * (inside <div>) to guarantee the floating ghost matches the source pixel-
- * for-pixel.
- *
- * Quick-action buttons are NOT included here — they're an interactive affordance
- * specific to the source card and would feel out of place on the dragging
- * preview.
+ * Pure visual component — used both as the source's inner content
+ * (inside <PipelineCard>'s draggable wrapper) AND as the overlay ghost
+ * (inside <PipelineCardOverlay>). NO @dnd-kit hooks — that's what makes
+ * the dual-use safe: only ONE useDraggable call exists per lead.id at any
+ * time (the source's, registered by <PipelineCard>'s wrapper).
  */
-function CardContent({ lead }: { lead: Lead }) {
+function PipelineCardView({
+  lead,
+  compact = false,
+  isDragging = false,
+}: {
+  lead: Lead;
+  compact?: boolean;
+  /** True when this view is rendered inside <DragOverlay>. Adds shadow,
+   *  ring, and rotate flourish; suppresses the absolute-positioned quick-
+   *  action buttons (which are a source-only affordance). */
+  isDragging?: boolean;
+}) {
   const lastContact = daysAgoLabel(lead.last_contact_at);
   const winProb = lead.win_probability ?? 0;
   const value = Number(lead.expected_value) || 0;
   const currency = lead.expected_value_currency || 'AED';
+  const wa = whatsAppHref(lead.phone);
 
   return (
-    <>
+    <div
+      // Kept on the overlay variant only, for future debugging via
+      // document.querySelector('[data-pipeline-overlay="true"]').
+      data-pipeline-overlay={isDragging ? 'true' : undefined}
+      className={cn(
+        'group relative block rounded-xl border border-border bg-card transition-all',
+        // Source-only hover affordances.
+        !isDragging && 'hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm',
+        compact ? 'p-3' : 'p-3.5',
+        // Overlay flourish.
+        isDragging && 'shadow-2xl ring-2 ring-orange-300/40 dark:ring-orange-700/40 rotate-1 cursor-grabbing',
+      )}
+    >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold leading-5 truncate">{lead.name}</h3>
@@ -116,52 +147,10 @@ function CardContent({ lead }: { lead: Lead }) {
         </div>
         {lastContact && <span className="shrink-0">{lastContact}</span>}
       </div>
-    </>
-  );
-}
 
-/**
- * Source card — rendered in pipeline columns.
- *
- * Owns the only <useDraggable> registration for `lead.id`. The
- * <PipelineCardOverlay> rendered inside <DragOverlay> is a pure visual
- * <div> with no hooks, so this component is the sole writer to @dnd-kit's
- * internal `draggableNodes` Map for this lead. That guarantees
- * `activeNodeRect` measurements stay valid throughout a drag.
- */
-export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
-  const wa = whatsAppHref(lead.phone);
-  const draggable = useDraggable({ id: lead.id, data: { lead } });
-
-  return (
-    <Link
-      ref={draggable.setNodeRef}
-      {...draggable.attributes}
-      {...draggable.listeners}
-      href={`/dashboard/crm/leads/${lead.id}`}
-      className={cn(
-        'group block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
-        'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
-        // `position: relative` scopes the absolute-positioned quick-action
-        // buttons to this card.
-        'relative',
-        // Cursor + tactile hint that the card is grabbable on desktop.
-        // Mobile uses a "نقل المرحلة" button (Chunk 4) — drag is disabled
-        // there at the sensor level by useIsDesktop, so the cursor on small
-        // screens stays default.
-        'md:cursor-grab md:active:cursor-grabbing',
-        compact ? 'p-3' : 'p-3.5',
-        // Hide source while dragging — <PipelineCardOverlay> (rendered inside
-        // <DragOverlay>) paints the floating preview that follows the cursor.
-        // pointer-events-none is defensive against hover states leaking into
-        // the dragged card.
-        draggable.isDragging && 'opacity-0 pointer-events-none',
-      )}
-    >
-      <CardContent lead={lead} />
-
-      {/* Quick actions — appear on hover (desktop) / always (mobile) */}
-      {(lead.phone || wa) && (
+      {/* Quick actions — source-only. Suppressed in overlay variant so the
+          dragging ghost stays visually uncluttered. */}
+      {!isDragging && (lead.phone || wa) && (
         <div
           className={cn(
             'absolute end-2 bottom-2 flex items-center gap-1',
@@ -196,35 +185,63 @@ export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
           )}
         </div>
       )}
-    </Link>
+    </div>
+  );
+}
+
+/**
+ * Source card — rendered in pipeline columns.
+ *
+ * Mirrors `project-kanban.tsx`'s DraggableProjectCard: a plain <div> holds
+ * `useDraggable.setNodeRef` + the transform style. Inside it, a <Link>
+ * receives attributes + listeners so the entire card area is draggable.
+ * Sub-8px clicks on the card pass through to the Link's navigation; ≥8px
+ * pointer movement upgrades to a drag.
+ *
+ * DEVIATION from project-kanban: `opacity-0 pointer-events-none` while
+ * dragging instead of `opacity-30` — HubSpot-style UX where only the
+ * floating overlay ghost is visible during drag.
+ */
+export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: lead.id,
+    data: { lead },
+  });
+
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(isDragging && 'opacity-0 pointer-events-none')}
+    >
+      <Link
+        href={`/dashboard/crm/leads/${lead.id}`}
+        {...attributes}
+        {...listeners}
+        className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/40 md:cursor-grab md:active:cursor-grabbing"
+      >
+        <PipelineCardView lead={lead} compact={compact} />
+      </Link>
+    </div>
   );
 }
 
 /**
  * Visual ghost rendered inside <DragOverlay>.
  *
- * Pure JSX — NO @dnd-kit hooks, NO <Link>, plain <div> root. By construction,
- * this component CANNOT register a competing entry in @dnd-kit's
- * `draggableNodes` Map, which is what made the previous "duplicate
- * useDraggable with same lead.id" registration overwrite the source's
- * DOM ref → activeNodeRect become null → PositionedOverlay return null
- * (`@dnd-kit/core@6.3.1` line 3650: `if (!rect) return null;`).
+ * Thin wrapper around <PipelineCardView isDragging />. NO @dnd-kit hooks,
+ * NO <Link>, NO setNodeRef — this is what guarantees the source's
+ * useDraggable registration in @dnd-kit's draggableNodes Map is never
+ * overwritten with a null-node entry.
  *
- * The `data-pipeline-overlay="true"` attribute is kept on the root <div>
- * for future debugging via `document.querySelector`.
+ * @dnd-kit's <DragOverlay> sets width/height from the measured source rect
+ * via inline styles on its own internal wrapper (PositionedOverlay), so no
+ * explicit width is needed on this component.
  */
 export function PipelineCardOverlay({ lead }: { lead: Lead }) {
-  return (
-    <div
-      data-pipeline-overlay="true"
-      className={cn(
-        'block rounded-xl border border-border bg-card p-3.5',
-        'w-72 lg:w-80 max-w-[calc(100vw-2rem)]',
-        'shadow-2xl ring-2 ring-orange-300/40 dark:ring-orange-700/40',
-        'rotate-1 opacity-95 cursor-grabbing',
-      )}
-    >
-      <CardContent lead={lead} />
-    </div>
-  );
+  return <PipelineCardView lead={lead} isDragging />;
 }

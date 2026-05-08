@@ -22,7 +22,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
-  pointerWithin,
+  closestCorners,
   useSensor,
   useSensors,
   type DragStartEvent,
@@ -132,7 +132,7 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={closestCorners}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveLead(null)}
@@ -195,25 +195,21 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
       </div>
 
       {/* Floating preview of the dragged card. Only renders during a drag.
-          The source card stays at opacity 0 in its column (see <PipelineCard>'s
-          `draggable.isDragging && 'opacity-0 pointer-events-none'` guard) so
-          the slot is reserved but invisible — only the overlay paints visibly.
+          Mirrors `components/projects/project-kanban.tsx`'s DragOverlay
+          pattern — a bare visual component (PipelineCardOverlay → pure
+          PipelineCardView, NO @dnd-kit hooks). That guarantees exactly ONE
+          useDraggable registration per lead.id at any time (the source's,
+          owned by <PipelineCard>'s wrapping <div>), so @dnd-kit's
+          `draggableNodes` Map stays intact and `activeNodeRect` is
+          measurable → PositionedOverlay renders.
 
-          We render <PipelineCardOverlay> here — a pure visual <div> with NO
-          @dnd-kit hooks. Splitting overlay rendering into its own component
-          guarantees there is exactly ONE useDraggable registration per
-          lead.id (the source) at any time, which keeps @dnd-kit's
-          `draggableNodes` Map intact and `activeNodeRect` measurable.
-
-          `pointerEvents: 'none'` on the overlay container ensures it doesn't
-          intercept mouseover events from droppable columns underneath
-          (otherwise the drop highlight could be lost when the cursor "passes
-          through" the floating card).
-
-          `dropAnimation={null}` is intentional — the default snap-back
-          animation looks jarring with our optimistic update flow, which
-          immediately moves the source out of its old column on drop. */}
-      <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
+          Two deviations from project-kanban (Phase 7 Chunk 3.6):
+          1. Source uses opacity-0 (HubSpot-style — no double-vision) — see
+             <PipelineCard>'s isDragging guard.
+          2. `dropAnimation={null}` — the default snap-back animation looks
+             jarring paired with our optimistic update, which immediately
+             moves the source out of its old column on drop. */}
+      <DragOverlay dropAnimation={null}>
         {activeLead ? <PipelineCardOverlay lead={activeLead} /> : null}
       </DragOverlay>
     </DndContext>
