@@ -13,20 +13,38 @@ import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/stat
  * Scope: per user.
  *
  * Rule-based v1 (deferred ML to v2). Returns up to 3 insights, sorted by
- * severity (high > medium > low).
+ * severity (critical > high > medium > low).
  *
- * Rules:
- *   1. idle deals — count of in-pipeline leads with no activity in 7+ days.
- *      Severity: high if >= 5, medium if >= 3.
- *   2. pending approvals — only for users with leads.approve. Count of leads
- *      in stg_contract_signed within the approver's scope (admin sees all;
- *      manager sees direct reports' leads).
- *      Severity: medium when > 0.
- *   3. overdue follow-ups — count of own pending follow-ups with due_at < now.
- *      Severity: high if >= 5, medium otherwise.
+ * Severity scheme — see CLAUDE.md "CRM AI Insights — Severity Scheme":
+ *   critical → blocking attention required
+ *   high     → action needed soon
+ *   medium   → awareness
+ *   low      → positive trend (informational)
+ *
+ * Rules implemented (4 of 7 — see CRM-PROGRESS.md for the v1.1 backlog):
+ *   1. idle_warning      — in-pipeline leads with no activity in 7+ days.
+ *                          Severity: high when count >= 3.
+ *   2. approvals_pending — only for users with leads.approve. Leads in
+ *                          stg_contract_signed within the approver's scope
+ *                          (admin sees all; manager sees direct reports').
+ *                          Severity: critical when > 5, high when 1-5.
+ *   3. overdue_followups — own pending follow-ups with due_at < now.
+ *                          Severity: high when > 5 (strict), medium otherwise.
+ *   4. followups_today   — own pending follow-ups due today (not yet overdue).
+ *                          Severity: medium when count > 0.
+ *
+ * Deferred to v1.1 (require infrastructure not yet present):
+ *   - conversion_dropped   (needs prior-period KPI comparison)
+ *   - closed_won_streak    (needs streak definition)
+ *   - target_exceeded      (needs target tracking schema)
  */
 
-const SEVERITY_RANK: Record<'high' | 'medium' | 'low', number> = { high: 3, medium: 2, low: 1 };
+const SEVERITY_RANK: Record<'critical' | 'high' | 'medium' | 'low', number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
 
 export async function GET() {
   try {
@@ -41,8 +59,8 @@ export async function GET() {
     const now = new Date().toISOString();
 
     type Insight = {
-      type: 'idle_warning' | 'approvals_pending' | 'overdue_followups';
-      severity: 'high' | 'medium' | 'low';
+      type: 'idle_warning' | 'approvals_pending' | 'overdue_followups' | 'followups_today';
+      severity: 'critical' | 'high' | 'medium' | 'low';
       count: number;
       value?: number;
       message_ar: string;
@@ -70,10 +88,12 @@ export async function GET() {
       const idleLeads = candidateLeads.filter((l) => !haveRecent.has(l.id));
       const idleCount = idleLeads.length;
       const idleValue = idleLeads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
+      // Phase 8 spec (CLAUDE.md "CRM AI Insights — Severity Scheme"):
+      //   idle deals >= 3 → 'high' (single threshold; no medium tier)
       if (idleCount >= 3) {
         insights.push({
           type: 'idle_warning',
-          severity: idleCount >= 5 ? 'high' : 'medium',
+          severity: 'high',
           count: idleCount,
           value: idleValue,
           message_ar: `${idleCount} ${idleCount === 1 ? 'صفقة راكدة' : 'صفقات راكدة'} أكثر من ٧ أيام`,
@@ -98,12 +118,14 @@ export async function GET() {
         .eq('stage_id', PIPELINE_STAGE_IDS.CONTRACT_SIGNED);
       if (pendingScopedIds) pq = pq.in('assigned_to', pendingScopedIds);
       const { count: pendingCount } = await pq;
-      if ((pendingCount ?? 0) > 0) {
+      const pCount = pendingCount ?? 0;
+      if (pCount > 0) {
+        // Phase 8 spec: > 5 → 'critical', 1-5 → 'high'
         insights.push({
           type: 'approvals_pending',
-          severity: 'medium',
-          count: pendingCount ?? 0,
-          message_ar: `${pendingCount} ${pendingCount === 1 ? 'صفقة بانتظار اعتمادك' : 'صفقات بانتظار اعتمادك'}`,
+          severity: pCount > 5 ? 'critical' : 'high',
+          count: pCount,
+          message_ar: `${pCount} ${pCount === 1 ? 'صفقة بانتظار اعتمادك' : 'صفقات بانتظار اعتمادك'}`,
           link: '/dashboard/crm/approvals',
         });
       }
@@ -117,13 +139,42 @@ export async function GET() {
       .lt('due_at', now);
     if (role !== 'admin') fq = fq.eq('assigned_to', username);
     const { count: overdueCount } = await fq;
-    if ((overdueCount ?? 0) > 0) {
+    const oCount = overdueCount ?? 0;
+    if (oCount > 0) {
+      // Phase 8 spec: > 5 → 'high' (strict >), 1-5 → 'medium'
       insights.push({
         type: 'overdue_followups',
-        severity: (overdueCount ?? 0) >= 5 ? 'high' : 'medium',
-        count: overdueCount ?? 0,
-        message_ar: `${overdueCount} ${overdueCount === 1 ? 'متابعة متأخرة' : 'متابعات متأخرة'}`,
+        severity: oCount > 5 ? 'high' : 'medium',
+        count: oCount,
+        message_ar: `${oCount} ${oCount === 1 ? 'متابعة متأخرة' : 'متابعات متأخرة'}`,
         link: '/dashboard/crm/follow-ups?status=overdue',
+      });
+    }
+
+    // ── Rule 4 (Phase 8 NEW): follow-ups due TODAY ──
+    // Count of own pending follow-ups whose due_at falls on the current calendar day.
+    // Distinct from "overdue" — these are not yet past due, but warrant attention today.
+    // Always emits at severity 'medium' when count > 0.
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date();
+    dayEnd.setHours(23, 59, 59, 999);
+    let tq = supabase
+      .from('pyra_sales_follow_ups')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .gte('due_at', dayStart.toISOString())
+      .lte('due_at', dayEnd.toISOString());
+    if (role !== 'admin') tq = tq.eq('assigned_to', username);
+    const { count: todayCount } = await tq;
+    const tCount = todayCount ?? 0;
+    if (tCount > 0) {
+      insights.push({
+        type: 'followups_today',
+        severity: 'medium',
+        count: tCount,
+        message_ar: `${tCount} ${tCount === 1 ? 'متابعة اليوم' : 'متابعات اليوم'}`,
+        link: '/dashboard/crm/follow-ups?status=today',
       });
     }
 
