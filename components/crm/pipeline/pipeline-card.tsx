@@ -75,9 +75,18 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
       {...(dragOverlay ? {} : draggable.listeners)}
       href={`/dashboard/crm/leads/${lead.id}`}
       className={cn(
-        'group relative block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
+        'group block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
         'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
         compact ? 'p-3' : 'p-3.5',
+        // `position: relative` ONLY on the source card (it scopes the
+        // absolute-positioned quick-action buttons to the card). The
+        // overlay variant must NOT have `relative` — it overrides
+        // @dnd-kit's DragOverlay positioning context and pins the
+        // floating card to source flow instead of following the cursor.
+        // (Confirmed via Abdou's DOM inspection: rendered element had
+        // `position: relative; transform: none` instead of fixed +
+        // translate3d.)
+        !dragOverlay && 'relative',
         // Cursor + tactile hint that the card is grabbable on desktop.
         // Mobile uses a "نقل المرحلة" button (Chunk 4) — drag is disabled
         // there at the sensor level by useIsDesktop, so the cursor on small
@@ -87,8 +96,8 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
         // DragOverlay paints. pointer-events-none is defensive against
         // hover states leaking into the dragged card.
         !dragOverlay && draggable.isDragging && 'opacity-0 pointer-events-none',
-        // DragOverlay variant gets a visual lift via the wrapper, but we add
-        // a subtle rotation for character.
+        // DragOverlay variant gets a visual lift via the wrapper, plus a
+        // subtle rotation for character.
         dragOverlay && 'shadow-lg ring-2 ring-orange-300/40 dark:ring-orange-700/40 rotate-[1deg]',
       )}
     >

@@ -198,13 +198,21 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
           The source card in its column stays at opacity 0 (see
           PipelineCard's className guard: `!dragOverlay && draggable.isDragging
           && 'opacity-0 pointer-events-none'`) so the slot is reserved but
-          invisible — only the overlay paints visibly. */}
-      <DragOverlay dropAnimation={null}>
+          invisible — only the overlay paints visibly.
+
+          `pointerEvents: 'none'` on the overlay container ensures it
+          doesn't intercept mouseover events from droppable columns
+          underneath (otherwise the drop highlight could be lost when
+          the cursor "passes through" the floating card).
+
+          PipelineCard with dragOverlay={true} renders WITHOUT
+          `position: relative` so it doesn't override @dnd-kit's
+          `position: fixed` + transform on its parent — that override
+          was the root cause of the "card doesn't follow the cursor"
+          bug Abdou diagnosed via DOM inspection. */}
+      <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
         {activeLead ? (
           <div className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
-            {/* `dragOverlay` flag short-circuits the source-only opacity-0
-                guard in PipelineCard so this clone always renders fully
-                visible regardless of useDraggable's isDragging state. */}
             <PipelineCard lead={activeLead} dragOverlay />
           </div>
         ) : null}
