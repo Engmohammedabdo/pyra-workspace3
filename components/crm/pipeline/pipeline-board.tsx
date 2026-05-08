@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { PipelineColumn } from './pipeline-column';
-import { PipelineCard } from './pipeline-card';
+import { PipelineCard, PipelineCardOverlay } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
@@ -195,27 +195,26 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
       </div>
 
       {/* Floating preview of the dragged card. Only renders during a drag.
-          The source card in its column stays at opacity 0 (see
-          PipelineCard's className guard: `!dragOverlay && draggable.isDragging
-          && 'opacity-0 pointer-events-none'`) so the slot is reserved but
-          invisible — only the overlay paints visibly.
+          The source card stays at opacity 0 in its column (see <PipelineCard>'s
+          `draggable.isDragging && 'opacity-0 pointer-events-none'` guard) so
+          the slot is reserved but invisible — only the overlay paints visibly.
 
-          `pointerEvents: 'none'` on the overlay container ensures it
-          doesn't intercept mouseover events from droppable columns
-          underneath (otherwise the drop highlight could be lost when
-          the cursor "passes through" the floating card).
+          We render <PipelineCardOverlay> here — a pure visual <div> with NO
+          @dnd-kit hooks. Splitting overlay rendering into its own component
+          guarantees there is exactly ONE useDraggable registration per
+          lead.id (the source) at any time, which keeps @dnd-kit's
+          `draggableNodes` Map intact and `activeNodeRect` measurable.
 
-          PipelineCard with dragOverlay={true} renders WITHOUT
-          `position: relative` so it doesn't override @dnd-kit's
-          `position: fixed` + transform on its parent — that override
-          was the root cause of the "card doesn't follow the cursor"
-          bug Abdou diagnosed via DOM inspection. */}
+          `pointerEvents: 'none'` on the overlay container ensures it doesn't
+          intercept mouseover events from droppable columns underneath
+          (otherwise the drop highlight could be lost when the cursor "passes
+          through" the floating card).
+
+          `dropAnimation={null}` is intentional — the default snap-back
+          animation looks jarring with our optimistic update flow, which
+          immediately moves the source out of its old column on drop. */}
       <DragOverlay dropAnimation={null} style={{ pointerEvents: 'none' }}>
-        {activeLead ? (
-          <div data-pipeline-overlay="true" className="w-72 lg:w-80 max-w-[calc(100vw-2rem)]">
-            <PipelineCard lead={activeLead} dragOverlay />
-          </div>
-        ) : null}
+        {activeLead ? <PipelineCardOverlay lead={activeLead} /> : null}
       </DragOverlay>
     </DndContext>
   );

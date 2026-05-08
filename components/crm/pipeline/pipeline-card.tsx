@@ -3,18 +3,30 @@
 /**
  * Single lead card on the Kanban board.
  *
- * Click → navigates to /dashboard/crm/leads/[id] via the wrapping <Link>.
- * Pointer drag (≥ 8 px movement) → activates @dnd-kit drag tracked at
- * the board level. Sub-8px clicks pass through to the Link, so the
- * navigation behavior from Phase 4-6 is preserved.
+ * SPLIT ARCHITECTURE (Phase 7 Chunk 3.5):
+ *   <PipelineCard>         — source variant rendered inside columns. Owns the
+ *                            @dnd-kit `useDraggable` hook + a wrapping <Link>
+ *                            for navigation. Quick-action buttons (Phone /
+ *                            WhatsApp) live here and disappear via opacity-0
+ *                            while a drag is active.
+ *   <PipelineCardOverlay>  — visual ghost rendered inside <DragOverlay>.
+ *                            NO @dnd-kit hooks, NO <Link>, plain <div>.
+ *                            Pure JSX. This eliminates ALL chance of two
+ *                            useDraggable calls registering against the same
+ *                            lead.id in @dnd-kit's internal `draggableNodes`
+ *                            Map at the same time. (The earlier
+ *                            unique-id workaround did not survive in
+ *                            practice — separating the components is the
+ *                            durable fix.)
  *
- * The DragOverlay variant is rendered separately by pipeline-board (with
- * `dragOverlay` set true here so we can dial back the visual decoration:
- * shadow comes from DragOverlay's container, not the card itself).
+ * Click → navigates to /dashboard/crm/leads/[id] via PipelineCard's <Link>.
+ * Pointer drag (≥ 8 px) → activates @dnd-kit drag tracked at the board
+ * level. Sub-8px clicks pass through to the Link, so the navigation
+ * behavior from Phase 4-6 is preserved.
  *
- * Quick-action buttons (WhatsApp/Phone) are visible on hover on desktop and
- * always visible on mobile — they stop event propagation so they don't
- * trigger the card-level navigation OR start a drag.
+ * Quick-action buttons (WhatsApp/Phone) are visible on hover on desktop
+ * and always visible on mobile — they stop event propagation so they
+ * don't trigger card navigation OR start a drag.
  */
 
 import Link from 'next/link';
@@ -30,8 +42,6 @@ interface PipelineCardProps {
   lead: Lead;
   /** Compact mode for tighter mobile layouts */
   compact?: boolean;
-  /** When true, this card is rendered inside <DragOverlay> — skip useDraggable */
-  dragOverlay?: boolean;
 }
 
 function daysAgoLabel(iso: string | null | undefined): string | null {
@@ -52,70 +62,24 @@ function whatsAppHref(phone: string | null | undefined): string | null {
   return `https://wa.me/${digits}`;
 }
 
-export function PipelineCard({ lead, compact = false, dragOverlay = false }: PipelineCardProps) {
+/**
+ * Shared visual block — name, value, win-prob, source, dealType, lastContact.
+ * Used by both <PipelineCard> (inside <Link>) and <PipelineCardOverlay>
+ * (inside <div>) to guarantee the floating ghost matches the source pixel-
+ * for-pixel.
+ *
+ * Quick-action buttons are NOT included here — they're an interactive affordance
+ * specific to the source card and would feel out of place on the dragging
+ * preview.
+ */
+function CardContent({ lead }: { lead: Lead }) {
   const lastContact = daysAgoLabel(lead.last_contact_at);
   const winProb = lead.win_probability ?? 0;
   const value = Number(lead.expected_value) || 0;
   const currency = lead.expected_value_currency || 'AED';
-  const wa = whatsAppHref(lead.phone);
-
-  // Make the card draggable. Hooks-rule note: useDraggable must be called
-  // unconditionally per render, so we always call it.
-  //
-  // CRITICAL: when rendering inside <DragOverlay>, register with a UNIQUE id
-  // (`${lead.id}__overlay`) so we don't overwrite the source card's entry in
-  // @dnd-kit's `draggableNodes` Map. The Map is keyed by id, NOT by the
-  // per-instance key. A duplicate registration with the same id and
-  // `node=null` (the overlay variant skips `setNodeRef`) wipes the source's
-  // real DOM ref → activeNodeRect becomes null → PositionedOverlay
-  // (@dnd-kit/core@6.3.1 source line 3650: `if (!rect) return null`)
-  // returns null → no overlay DOM element renders. The phantom overlay
-  // registration under `__overlay` is queried by nothing; cleanup on unmount
-  // only removes the phantom (line 3423 checks `node.key === key` per
-  // instance, so the source's entry is never accidentally deleted).
-  // Diagnosed Phase 7 Chunk 3.4 by reading @dnd-kit/core source on disk.
-  //
-  // We deliberately do NOT apply draggable.transform to the source — the
-  // DragOverlay paints the floating card; the source stays in place at
-  // opacity 0 to avoid the "two cards floating" double-vision effect.
-  const draggable = useDraggable({
-    id: dragOverlay ? `${lead.id}__overlay` : lead.id,
-    data: { lead },
-  });
 
   return (
-    <Link
-      ref={dragOverlay ? undefined : draggable.setNodeRef}
-      {...(dragOverlay ? {} : draggable.attributes)}
-      {...(dragOverlay ? {} : draggable.listeners)}
-      href={`/dashboard/crm/leads/${lead.id}`}
-      className={cn(
-        'group block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
-        'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
-        compact ? 'p-3' : 'p-3.5',
-        // `position: relative` ONLY on the source card (it scopes the
-        // absolute-positioned quick-action buttons to the card). The
-        // overlay variant must NOT have `relative` — it overrides
-        // @dnd-kit's DragOverlay positioning context and pins the
-        // floating card to source flow instead of following the cursor.
-        // (Confirmed via Abdou's DOM inspection: rendered element had
-        // `position: relative; transform: none` instead of fixed +
-        // translate3d.)
-        !dragOverlay && 'relative',
-        // Cursor + tactile hint that the card is grabbable on desktop.
-        // Mobile uses a "نقل المرحلة" button (Chunk 4) — drag is disabled
-        // there at the sensor level by useIsDesktop, so the cursor on small
-        // screens stays default.
-        !dragOverlay && 'md:cursor-grab md:active:cursor-grabbing',
-        // Source card goes invisible while a drag is active — only the
-        // DragOverlay paints. pointer-events-none is defensive against
-        // hover states leaking into the dragged card.
-        !dragOverlay && draggable.isDragging && 'opacity-0 pointer-events-none',
-        // DragOverlay variant gets a visual lift via the wrapper, plus a
-        // subtle rotation for character.
-        dragOverlay && 'shadow-lg ring-2 ring-orange-300/40 dark:ring-orange-700/40 rotate-[1deg]',
-      )}
-    >
+    <>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold leading-5 truncate">{lead.name}</h3>
@@ -152,6 +116,49 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
         </div>
         {lastContact && <span className="shrink-0">{lastContact}</span>}
       </div>
+    </>
+  );
+}
+
+/**
+ * Source card — rendered in pipeline columns.
+ *
+ * Owns the only <useDraggable> registration for `lead.id`. The
+ * <PipelineCardOverlay> rendered inside <DragOverlay> is a pure visual
+ * <div> with no hooks, so this component is the sole writer to @dnd-kit's
+ * internal `draggableNodes` Map for this lead. That guarantees
+ * `activeNodeRect` measurements stay valid throughout a drag.
+ */
+export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
+  const wa = whatsAppHref(lead.phone);
+  const draggable = useDraggable({ id: lead.id, data: { lead } });
+
+  return (
+    <Link
+      ref={draggable.setNodeRef}
+      {...draggable.attributes}
+      {...draggable.listeners}
+      href={`/dashboard/crm/leads/${lead.id}`}
+      className={cn(
+        'group block rounded-xl border border-border bg-card hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
+        'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
+        // `position: relative` scopes the absolute-positioned quick-action
+        // buttons to this card.
+        'relative',
+        // Cursor + tactile hint that the card is grabbable on desktop.
+        // Mobile uses a "نقل المرحلة" button (Chunk 4) — drag is disabled
+        // there at the sensor level by useIsDesktop, so the cursor on small
+        // screens stays default.
+        'md:cursor-grab md:active:cursor-grabbing',
+        compact ? 'p-3' : 'p-3.5',
+        // Hide source while dragging — <PipelineCardOverlay> (rendered inside
+        // <DragOverlay>) paints the floating preview that follows the cursor.
+        // pointer-events-none is defensive against hover states leaking into
+        // the dragged card.
+        draggable.isDragging && 'opacity-0 pointer-events-none',
+      )}
+    >
+      <CardContent lead={lead} />
 
       {/* Quick actions — appear on hover (desktop) / always (mobile) */}
       {(lead.phone || wa) && (
@@ -190,5 +197,34 @@ export function PipelineCard({ lead, compact = false, dragOverlay = false }: Pip
         </div>
       )}
     </Link>
+  );
+}
+
+/**
+ * Visual ghost rendered inside <DragOverlay>.
+ *
+ * Pure JSX — NO @dnd-kit hooks, NO <Link>, plain <div> root. By construction,
+ * this component CANNOT register a competing entry in @dnd-kit's
+ * `draggableNodes` Map, which is what made the previous "duplicate
+ * useDraggable with same lead.id" registration overwrite the source's
+ * DOM ref → activeNodeRect become null → PositionedOverlay return null
+ * (`@dnd-kit/core@6.3.1` line 3650: `if (!rect) return null;`).
+ *
+ * The `data-pipeline-overlay="true"` attribute is kept on the root <div>
+ * for future debugging via `document.querySelector`.
+ */
+export function PipelineCardOverlay({ lead }: { lead: Lead }) {
+  return (
+    <div
+      data-pipeline-overlay="true"
+      className={cn(
+        'block rounded-xl border border-border bg-card p-3.5',
+        'w-72 lg:w-80 max-w-[calc(100vw-2rem)]',
+        'shadow-2xl ring-2 ring-orange-300/40 dark:ring-orange-700/40',
+        'rotate-1 opacity-95 cursor-grabbing',
+      )}
+    >
+      <CardContent lead={lead} />
+    </div>
   );
 }
