@@ -21,6 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { GitBranch, Target, TrendingUp, Wallet, Repeat, ArrowRightCircle, Plus } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
+// Phase 8 Cluster 1 preview — these 3 mounts (and their imports) get
+// removed in Step 5 when dashboard-client.tsx replaces this stub entirely.
+import { DashboardGreeting } from '@/components/crm/dashboard/dashboard-greeting';
+import { DashboardAiInsight } from '@/components/crm/dashboard/dashboard-ai-insight';
+import { DashboardDataSources } from '@/components/crm/dashboard/dashboard-data-sources';
 
 export function CrmDashboardStub() {
   const { data: kpis, isLoading: kpisLoading } = useCRMKPIs('this_month');
@@ -29,6 +34,10 @@ export function CrmDashboardStub() {
 
   return (
     <div className="space-y-6">
+      {/* Phase 8 Cluster 1 preview — top */}
+      <DashboardGreeting />
+      <DashboardAiInsight />
+
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -122,6 +131,9 @@ export function CrmDashboardStub() {
           ده مقصود (قرار Q-DB-002).
         </p>
       </Card>
+
+      {/* Phase 8 Cluster 1 preview — bottom */}
+      <DashboardDataSources />
     </div>
   );
 }
