@@ -40,6 +40,7 @@ import {
   type MoveStageConfirmPayload,
   type MoveStageConfirmTargetId,
 } from '@/components/crm/pipeline/move-stage-confirm-modal';
+import { ApiError } from '@/hooks/api-helpers';
 import {
   PIPELINE_STAGE_IDS,
   PIPELINE_STAGE_LABELS_AR,
@@ -133,12 +134,33 @@ export function PipelineClient() {
           toast.success(`تم نقل الـ Lead إلى "${toLabel}"`);
         }
       } catch (err: unknown) {
-        const message =
-          err instanceof Error && err.message ? err.message : 'فشل نقل المرحلة';
-        if (message.includes('422')) {
+        // Phase 3.4: dispatch on the response status so we can show the
+        // server's specific Arabic message on 422, a permission line on
+        // 403, and a stale-state line on 409/410. mutateAPI now throws
+        // ApiError with the parsed body — falling back to a generic
+        // string for unexpected shapes.
+        const apiErr = err instanceof ApiError ? err : null;
+        const status = apiErr?.status;
+        const serverMessage =
+          apiErr?.message && !apiErr.message.startsWith('API error:')
+            ? apiErr.message
+            : null;
+
+        if (status === 403) {
+          toast.error('ليس لديك صلاحية لنقل المراحل');
+        } else if (status === 409 || status === 410) {
+          // The hook's onSettled already invalidated ['crm','leads'] —
+          // the auto-refetch will reconcile the user's view.
+          toast.error('حدث تغيير في الـ Lead. الرجاء التحديث');
+        } else if (status === 422 && serverMessage) {
+          // Show the server's specific reason verbatim. This catches
+          // unexpected paths the modal didn't cover (e.g. same-from-as-to,
+          // missing reopen_reason).
+          toast.error(serverMessage);
+        } else if (status === 422) {
           toast.error(`لا يمكن نقل الـ Lead إلى "${toLabel}" مباشرة — راجع متطلبات المرحلة`);
         } else {
-          toast.error('فشل نقل المرحلة — حاول مرة أخرى');
+          toast.error(serverMessage ?? 'فشل نقل المرحلة — حاول مرة أخرى');
         }
       }
     },
@@ -146,12 +168,24 @@ export function PipelineClient() {
   );
 
   // Drop handler — fired by PipelineBoard after a cross-column drop.
-  // For stg_contract_signed (needs attachment) and stg_closed_lost (needs
-  // reason) we INTERCEPT and open the confirm modal — source card stays
-  // put, no optimistic update fires until the user confirms. For all
-  // other stages, the routine mutation runs immediately.
+  // Three branches:
+  //   1. stg_closed_won → BLOCKED client-side. No mutation, no flicker.
+  //                       Toast tells the user the right path.
+  //   2. stg_contract_signed / stg_closed_lost → INTERCEPT. Open the
+  //                       confirm modal, source stays put until confirm.
+  //   3. anything else  → routine mutation w/ optimistic update.
   const handleDropChangeStage = useCallback(
     (leadId: string, toStageId: string, fromStageId: string | null) => {
+      // (1) closed_won client-side guard — never round-trip to the server.
+      if (toStageId === PIPELINE_STAGE_IDS.CLOSED_WON) {
+        toast.error(
+          'لا يمكن النقل المباشر إلى "فوز بالصفقة" — اسحب إلى "تم توقيع العقد" وانتظر اعتماد المدير',
+          { duration: 6000 },
+        );
+        return;
+      }
+
+      // (2) stages that require extra data via the modal.
       const needsModal =
         toStageId === PIPELINE_STAGE_IDS.CONTRACT_SIGNED ||
         toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST;
@@ -170,6 +204,8 @@ export function PipelineClient() {
         });
         return;
       }
+
+      // (3) routine.
       void runMoveStage(leadId, toStageId, fromStageId);
     },
     [leads, runMoveStage],

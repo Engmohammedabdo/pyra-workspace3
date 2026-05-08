@@ -5,11 +5,54 @@
 // ============================================================
 
 /**
+ * Error subclass thrown by fetchAPI / mutateAPI on non-2xx responses.
+ * Carries the server's structured payload so call-sites can surface
+ * the specific Arabic error message from apiError() instead of a
+ * generic "API error: 422".
+ *
+ *   try {
+ *     await mutateAPI('/api/...', 'POST', body);
+ *   } catch (err) {
+ *     if (err instanceof ApiError && err.status === 403) ...
+ *     toast.error(err.message);   // server's specific reason
+ *   }
+ */
+export class ApiError extends Error {
+  status: number;
+  body: unknown;
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
+async function readErrorBody(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function pickServerMessage(body: unknown, status: number): string {
+  if (body && typeof body === 'object' && 'error' in body) {
+    const v = (body as { error?: unknown }).error;
+    if (typeof v === 'string' && v.trim().length > 0) return v;
+  }
+  return `API error: ${status}`;
+}
+
+/**
  * جلب البيانات من API endpoint
  */
 export async function fetchAPI<T>(url: string): Promise<T> {
   const res = await fetch(url);
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const body = await readErrorBody(res);
+    throw new ApiError(pickServerMessage(body, res.status), res.status, body);
+  }
   const json = await res.json();
   return (json.data ?? json) as T;
 }
@@ -27,7 +70,10 @@ export async function mutateAPI<T>(
     headers: { 'Content-Type': 'application/json' },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    const errBody = await readErrorBody(res);
+    throw new ApiError(pickServerMessage(errBody, res.status), res.status, errBody);
+  }
   const json = await res.json();
   return (json.data ?? json) as T;
 }
