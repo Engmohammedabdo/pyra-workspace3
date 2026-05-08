@@ -49,7 +49,10 @@ e263954 fix(crm): pipeline DragOverlay invisibility — unique id
 | 7 | Activity timeline shows complete chain: stage_change → closed_won_pending → closed_won_approved | ⚠️ **NOT VERIFIED** | Need to inspect a real lead's timeline after full E2E |
 | 8 | No `INSERT INTO pyra_notifications` outside `notify()` | ✅ **JUST VERIFIED** (pre-compact) | `Grep` returned zero matches across `*.ts/*.tsx` |
 
-**4 ✅ verified, 4 ⚠️ remaining (3 require E2E, 1 is now ✅).**
+**5 ✅ verified, 3 ⚠️ remaining (all require live E2E).**
+
+Plus 1 explicit decision logged: My Work Inbox surface — Option (iii)
+locked pre-compact (see Finding 2 below for rationale).
 
 Effective state: **3 E2E tests remain to close Phase 7** — Tests 3, 5, 7.
 
@@ -90,21 +93,29 @@ managers"** — this isn't satisfied. CRM closed-won pending approvals only
 surface in the approvals dashboard (`/dashboard/approvals`), not in the
 inbox card on `/dashboard`.
 
-**Decision needed from Abdou:**
-- (i) Wire CRM closed_won_pending into My Work Inbox before declaring
-  Phase 7 done (1 small change — likely union into the "Approvals" section
-  of `useMyWork`)
-- (ii) Treat as a known gap, document it, defer wiring to a small
-  follow-up commit, mark Phase 7 done now if Tests 3/5/7 pass
-- (iii) Re-read the PRD § Phase 7 to see if "managers see it via the
-  notification bell + approvals dashboard" is sufficient (the bell DOES
-  surface notifications, and `notify()` was called for closed_won_pending
-  per the move-stage route — so managers ARE notified, just not via the
-  inbox card specifically)
+**🔒 DECISION (locked by Abdou pre-compact): Option (iii) — PRD satisfied implicitly.**
 
-My read: this is item (iii) territory — the user is alerted via bell +
-sees the approval in the dedicated approvals dashboard. But strict PRD
-wording says "My Work Inbox", so flagging for Abdou.
+Abdou's rationale (verbatim):
+- closed_won_pending notifications fire to managers via bell (test 4
+  verified this earlier)
+- `/dashboard/crm/approvals` is a dedicated, context-rich surface with
+  lead details + attachment preview + approve/reject buttons — strictly
+  better UX than a generic line item in My Work Inbox
+- Adding it to MyWorkInbox would be visual duplication without UX
+  benefit; managers would see the same item in two places
+
+**This is an intentional, documented deviation from strict PRD wording.**
+The PRD test ("My Work Inbox shows lead_closed_won_pending_approval for
+managers") is satisfied via the notification bell + dedicated approvals
+dashboard — both already shipped and surface the workflow with full
+context.
+
+**Future sessions: do NOT "fix" this gap by wiring closed_won_pending
+into My Work Inbox.** That would re-introduce visual duplication. The
+decision is locked.
+
+Action item for Phase 7 closure: transcribe this decision into CLAUDE.md
+under "Phase 7 caveats" so it survives beyond this ephemeral handoff doc.
 
 ---
 
@@ -196,8 +207,12 @@ After Tests 3, 5, 7 pass:
       stage matrix; closed_won approval flow; pointerWithin RTL note)
 - [ ] Update `CLAUDE.md` with Phase 7 caveats (sales_agent finance.view
       limitation if any, stage matrix, terminal closed_won, etc.)
-- [ ] Resolve My Work Inbox `closed_won_pending` decision (item (i) /
-      (ii) / (iii) above)
+- [x] **(decided pre-compact)** My Work Inbox `closed_won_pending`:
+      Option (iii) selected — PRD satisfied implicitly via notification
+      bell + dedicated `/dashboard/crm/approvals` surface
+- [ ] Transcribe Option (iii) decision + rationale into CLAUDE.md
+      under "Phase 7 caveats" (so the decision survives beyond this
+      ephemeral handoff doc)
 - [ ] Mark Phase 7 complete in `/CRM-PRD/05-EXECUTION-PHASES.md` (or
       whatever PROGRESS tracker exists in the repo — check)
 - [ ] Single commit titled
@@ -236,9 +251,14 @@ Then proceed to Phase 8 (Sales Dashboard) per PRD.
    should be reproducible. Re-run if uncertain.
 4. **Send Abdou the plan + status**:
    - Test 8: ✅ verified by static grep (queue your reproduction)
-   - My Work Inbox gap: present options (i)/(ii)/(iii) for his decision
+   - My Work Inbox: ✅ **already decided pre-compact — Option (iii)**.
+     See "Finding 2" above. No re-litigation. Don't re-present options.
    - E2E test plan: present the step-by-step above; ask if he wants any
      modifications before we run live
+5. **Phase 8 prep:** after Phase 7 closure, re-read
+   `/CRM-PRD/05-EXECUTION-PHASES.md` § Phase 8 +
+   `/CRM-PRD/04-UI-PAGES-AND-COMPONENTS.md` (Sales Dashboard section).
+   Propose Phase 8 plan for Abdou's review BEFORE writing code.
 5. **Wait for Abdou's approval** before doing E2E (he wants to review
    before live testing).
 6. **After approval:** run E2E walk-through with Abdou on the call /
