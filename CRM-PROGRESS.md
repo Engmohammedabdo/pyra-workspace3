@@ -221,8 +221,38 @@ dec275b feat(crm): phase 8 hooks — caching alignment + CRMInsight type widenin
 
 ---
 
-## CRM Phase 9 — Active Customer Page (Contracts Tab) ⏳
-Pending. Customer-detail page at `/dashboard/crm/customers/[id]`.
+## CRM Phase 9 — Active Customer Page (Contracts Tab) 🟡 IN PROGRESS
+Customer-detail page at `/dashboard/crm/customers/[id]`. Phase 9 plan
+approved with decisions: β (separate route), δ (portal_active flag),
+ε (single dossier endpoint), η (pipeline → /customers redirect for
+converted leads), Q-A1/A4/A5 implementation choices.
+
+### Step A — Backend foundation ✅ COMPLETE (4/4 commits)
+
+| # | Commit | Scope |
+|---|---|---|
+| 1 | `5547eaf` | Migration 012 — `pyra_clients.portal_active` boolean flag (default true) + partial index |
+| 2 | `ec03097` | `POST /api/crm/leads/[id]/convert-to-customer` (admin only, idempotent) + `PATCH /api/crm/customers/[lead_id]/portal-access` toggle. New `'lead_converted_to_customer'` notification type. |
+| 2.1 | `a407515` | Hotfix: removed non-existent `lead.address` column reference (caught during dossier simulation) |
+| 3 | `b52b1a6` | `GET /api/crm/customers/[lead_id]/dossier` — 7-query aggregator returning customer + contracts + invoices + payments + milestones + KPIs + 4-factor health score. CLAUDE.md "## CRM Health Score (Phase 9)" section added. |
+| 4 | `0b9c088` | `lead_id` query-param filter on `GET /api/finance/contracts` + `lead_id` added to `CONTRACT_FIELDS` const |
+
+**Backend covered:**
+- Lead → customer conversion + portal access lifecycle
+- Single endpoint to power the Customer Page (avoids 1+N+N×M queries)
+- Health score formula locked + documented for v1.1 tuning
+- Q-A1 (password in body, no email infra) / Q-A4 (milestones 'invoiced'
+  counted as completed) / Q-A5 (health score returned for unconverted
+  leads) — all documented in CLAUDE.md
+
+### Steps B-G — pending
+
+- **Step B:** React Query hooks (`useCustomerDossier`, `useContractMilestones`; `usePayments` deferred — no standalone endpoint, dossier embeds payments)
+- **Steps C/D/E:** 3 component clusters (header+stats / contracts tab / secondary tabs)
+- **Step F:** page assembly + `/leads → /customers` redirect for converted leads
+- **Step G:** Phase 9 closure marker
+
+
 
 ## CRM Phase 10 — Mobile PWA Polish ⏳
 Pending. **Scope expanded** to include mobile stage picker (deferred
