@@ -611,6 +611,10 @@ interface ApiKey {
 
 const AVAILABLE_PERMISSIONS = [
   { value: '*', label: 'الكل' },
+  // Phase 11 cron permissions (2026-05) — keep in sync with the
+  // permission strings checked in app/api/cron/*/route.ts.
+  { value: 'cron.follow-up-reminders', label: 'cron.follow-up-reminders' },
+  { value: 'cron.lead-idle-check', label: 'cron.lead-idle-check' },
   { value: 'expenses:read', label: 'expenses:read' },
   { value: 'expenses:create', label: 'expenses:create' },
   { value: 'invoices:read', label: 'invoices:read' },
