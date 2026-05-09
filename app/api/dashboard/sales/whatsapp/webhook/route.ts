@@ -304,6 +304,41 @@ async function processWebhook(event: string, instanceName: string, data: Record<
           },
         });
 
+        // ── Lead timeline activity (Phase 11 Commit 4) ──────────────────
+        // When a WhatsApp message matches a lead (matchedLead is populated
+        // by the phone-→-lead lookup higher up in this handler), log a
+        // whatsapp_inbound / whatsapp_outbound row so the Lead Detail
+        // timeline reflects every conversation event end-to-end.
+        //
+        // Fire-and-forget. Note the `void <builder>.then(...)` pattern:
+        //   • `void` satisfies no-floating-promises and signals intent
+        //   • `.then(...)` triggers the Supabase lazy thenable — without
+        //     it the query is built but never executed (see CLAUDE.md
+        //     "Common Pitfall: Supabase lazy thenables").
+        // Insert errors are logged and intentionally do NOT block the
+        // webhook response; the message itself is already persisted.
+        if (matchedLead?.id) {
+          void supabase
+            .from('pyra_lead_activities')
+            .insert({
+              id: generateId('la'),
+              lead_id: matchedLead.id,
+              activity_type: direction === 'incoming' ? 'whatsapp_inbound' : 'whatsapp_outbound',
+              description: content?.slice(0, 200) ?? null,
+              metadata: {
+                message_id: msg.key.id ?? null,
+                message_type: messageType,
+                direction,
+                instance_name: instanceName ?? null,
+                sender_jid: senderJid,
+              },
+              created_by: null,
+            })
+            .then(({ error: e }) => {
+              if (e) console.error('[WA webhook activity] insert failed:', e.message);
+            });
+        }
+
         // Update lead's last_contact_at (individual chats only)
         if (!isGroup && matchedLead?.id && direction === 'incoming') {
           void supabase
