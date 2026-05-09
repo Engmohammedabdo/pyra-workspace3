@@ -32,6 +32,9 @@ import { DashboardFunnel } from '@/components/crm/dashboard/dashboard-funnel';
 import { DashboardActionCards } from '@/components/crm/dashboard/dashboard-action-cards';
 import { DashboardDealsAtRisk } from '@/components/crm/dashboard/dashboard-deals-at-risk';
 import { DashboardActivityFeed } from '@/components/crm/dashboard/dashboard-activity-feed';
+// Phase 8 Cluster 4 preview — manager-only team perf table. Self-gates
+// (renders null) when the user lacks crm_reports.team_view. Removed in Step 5.
+import { DashboardTeamPerformance } from '@/components/crm/dashboard/dashboard-team-performance';
 
 export function CrmDashboardStub() {
   const [addLeadOpen, setAddLeadOpen] = useState(false);
@@ -83,6 +86,11 @@ export function CrmDashboardStub() {
         <DashboardDealsAtRisk />
         <DashboardActivityFeed />
       </div>
+
+      {/* Phase 8 Cluster 4 preview — team performance table. Self-renders
+          null for users without crm_reports.team_view (e.g. sales agents),
+          so the slot disappears entirely for them. Removed in Step 5. */}
+      <DashboardTeamPerformance />
 
       <Card className="p-5 bg-muted/30 border-dashed">
         <p className="text-sm text-muted-foreground leading-7">

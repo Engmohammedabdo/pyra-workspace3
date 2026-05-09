@@ -118,11 +118,21 @@ export function useDealsAtRisk(days = 7) {
   });
 }
 
-export function useTeamPerformance() {
+/**
+ * Team performance per-agent breakdown. Server gates with
+ * `crm_reports.team_view` (manager + admin only); sales agents get 403.
+ *
+ * The optional `enabled` flag lets the consumer skip the request entirely
+ * when the user lacks the permission — saves a 403 roundtrip per session.
+ * `<DashboardTeamPerformance>` passes false when `useCurrentUser()` shows
+ * the user can't view team data.
+ */
+export function useTeamPerformance({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery<{ team: TeamPerfAgent[] }>({
     queryKey: ['crm', 'dashboard', 'team-performance'],
     queryFn: () => fetchAPI('/api/crm/dashboard/team-performance'),
     staleTime: 300_000, // 5 min — team rollups change slowly
+    enabled,
   });
 }
 
