@@ -252,6 +252,34 @@ converted leads), Q-A1/A4/A5 implementation choices.
 - **Step F:** page assembly + `/leads → /customers` redirect for converted leads
 - **Step G:** Phase 9 closure marker
 
+### v1.1 backlog (not in Phase 9 scope)
+
+These are intentional v1.1 deferrals — documented now so future sessions
+know they're known gaps, not oversights:
+
+- **`usePayments` hook + `/api/finance/payments` route** — needed if/when
+  a payment reconciliation page or standalone payments-list view is added.
+  Phase 9 components consume payments embedded in the dossier, so no
+  direct hook is needed for the customer page.
+- **Backfill legacy contract `lead_id`** — 3 production contracts
+  (`ctr_KTynoYtwhjkMYatq`, `ctr_bP3VR8hWEbkPhHuL`, `ctr_Yey3TzyyrSvg2Gh5`)
+  link only via `client_id = c_1771242560_inj1` (Etmam). Once a matching
+  closed_won lead exists in the system, set `pyra_contracts.lead_id` to
+  link them to the CRM customer view. v1 ships without these because
+  the workflow assumes new contracts are CRM-created (with `lead_id` set
+  at create time).
+- **Trend infrastructure for KPIs** (carried forward from Phase 8) —
+  `trend_pct` / `vs_target_pct` / `vs_prior_pct` still flat at 0; v1.1
+  adds prior-period comparison + target tracking schema.
+- **3 of 7 AI rules** (carried forward from Phase 8) —
+  `conversion_dropped`, `closed_won_streak`, `target_exceeded`.
+- **CRM team filter functional** (carried forward from Phase 8) — wire
+  `?as_user=` through 5 endpoints + the Sales Dashboard `agentFilter` state.
+- **Portal welcome email automation** (Phase 9 PRD §03 deviation) —
+  template + sender infrastructure to remove the "admin shares password
+  out-of-band" workflow. Currently convert-to-customer accepts a password
+  in the body and admin shares credentials manually.
+
 
 
 ## CRM Phase 10 — Mobile PWA Polish ⏳
