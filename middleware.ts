@@ -87,8 +87,13 @@ export async function middleware(request: NextRequest) {
   // if no valid cookie session exists.
 
   // ── CSRF protection for state-changing API requests ────────
-  // External API & Stripe webhooks come from external servers — exempt from CSRF
-  if (pathname.startsWith('/api/stripe/webhook') || pathname.startsWith('/api/external')) {
+  // External API, Stripe webhooks, and CRM cron endpoints come from
+  // external servers (n8n in the cron case) — exempt from CSRF.
+  if (
+    pathname.startsWith('/api/stripe/webhook') ||
+    pathname.startsWith('/api/external') ||
+    pathname.startsWith('/api/cron')
+  ) {
     return response;
   }
 
@@ -126,7 +131,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin API routes (except public, portal, and Stripe webhook)
+  // Protect admin API routes (except public, portal, Stripe webhook, and
+  // external/cron endpoints which authenticate via x-api-key not session).
   if (
     pathname.startsWith('/api') &&
     !pathname.startsWith('/api/health') &&
@@ -134,7 +140,8 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith('/api/portal') &&
     !pathname.startsWith('/api/shares/download') &&
     !pathname.startsWith('/api/stripe/webhook') &&
-    !pathname.startsWith('/api/external')
+    !pathname.startsWith('/api/external') &&
+    !pathname.startsWith('/api/cron')
   ) {
     if (!user) {
       return NextResponse.json(
