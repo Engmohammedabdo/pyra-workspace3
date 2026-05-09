@@ -55,6 +55,7 @@ interface LeadRow {
   last_contact_at: string | null;
   client_id: string | null;
   source: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -175,7 +176,7 @@ export async function GET(
           'id, name, email, phone, company, deal_type, ' +
           'stage_id, is_converted, converted_at, assigned_to, priority, ' +
           'expected_value, expected_value_currency, win_probability, ' +
-          'last_contact_at, client_id, source, created_at, updated_at',
+          'last_contact_at, client_id, source, notes, created_at, updated_at',
         )
         .eq('id', leadId)
         .maybeSingle(),

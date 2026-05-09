@@ -20,6 +20,7 @@
  *     (read-only text in Step C). Step E adds the actual toggle PATCH.
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +29,7 @@ import { Edit2, UserPlus, Shield, ShieldOff } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { hasPermission } from '@/lib/auth/rbac';
 import { cn } from '@/lib/utils/cn';
+import { CustomerConvertModal } from './customer-convert-modal';
 import type { DossierCustomer } from '@/hooks/useCustomerDossier';
 
 interface Props {
@@ -38,6 +40,7 @@ interface Props {
 export function CustomerHeader({ customer, isLoading = false }: Props) {
   const { data: user } = useCurrentUser();
   const canManageLead = !!user && hasPermission(user.rolePermissions, 'leads.manage');
+  const [convertOpen, setConvertOpen] = useState(false);
 
   if (isLoading || !customer) {
     return (
@@ -101,10 +104,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
             <Button
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white"
-              // Step E will wire this to a real <ConvertToCustomerModal> →
-              // POST /api/crm/leads/[id]/convert-to-customer (already
-              // shipped in Step A commit ec03097).
-              onClick={() => alert('سيتم تفعيل تحويل العميل في Step E')}
+              onClick={() => setConvertOpen(true)}
             >
               <UserPlus className="size-4 me-1.5" />
               تحويل لعميل
@@ -112,6 +112,18 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
           )}
         </div>
       </div>
+
+      {/* Convert-to-customer modal — opens when admin clicks the
+          "تحويل لعميل" button. The modal itself enforces the form-level
+          requirements; the server enforces stage_id + is_converted state
+          gates and will return 422 with an Arabic message if violated. */}
+      {showConvertButton && (
+        <CustomerConvertModal
+          customer={customer}
+          open={convertOpen}
+          onOpenChange={setConvertOpen}
+        />
+      )}
     </Card>
   );
 }

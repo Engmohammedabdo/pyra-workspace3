@@ -18,8 +18,8 @@
  * in the health score, new field on a contract), update both ends.
  */
 
-import { useQuery } from '@tanstack/react-query';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 
 // ── Sub-types ───────────────────────────────────────────────────────────────
 
@@ -44,6 +44,7 @@ export interface DossierCustomer {
   last_contact_at: string | null;
   client_id: string | null;
   source: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string | null;
   // Folded in from pyra_clients (null when not converted to portal client)
@@ -160,5 +161,87 @@ export function useCustomerDossier(leadId: string | undefined) {
     enabled: !!leadId,
     staleTime: 60_000,
     refetchOnWindowFocus: true,
+  });
+}
+
+// ── Mutations (Phase 9 Step E) ──────────────────────────────────────────────
+
+/**
+ * Toggle the linked pyra_clients row's `portal_active` flag.
+ *
+ * Wraps PATCH /api/crm/customers/[lead_id]/portal-access (Step A commit
+ * `ec03097`). Idempotent server-side — PATCH with the same value is a no-op.
+ *
+ * On success: invalidate the dossier query so the header's portal indicator
+ * + the overview-tab toggle re-render with the new state immediately.
+ *
+ * Permission gate: server enforces `leads.manage`. Sales agents calling
+ * this would 403 — but the toggle component hides itself for them via
+ * the same permission check, so the call shouldn't happen client-side
+ * unless someone hits the API directly.
+ */
+export interface PortalAccessResponse {
+  lead_id: string;
+  client_id: string;
+  portal_active: boolean;
+}
+
+export function useUpdatePortalAccess(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<PortalAccessResponse, Error, { enabled: boolean }>({
+    mutationFn: ({ enabled }) =>
+      mutateAPI(`/api/crm/customers/${leadId}/portal-access`, 'PATCH', { enabled }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', leadId, 'dossier'] });
+    },
+  });
+}
+
+/**
+ * Convert a closed_won + is_converted lead into a portal client.
+ *
+ * Wraps POST /api/crm/leads/[id]/convert-to-customer (Step A commit
+ * `ec03097` + hotfix `a407515`). Idempotent — if the lead already has a
+ * `client_id`, returns the existing client with `created: false` and no
+ * side effects.
+ *
+ * On success: invalidate the dossier query so the page reflects the new
+ * client_id + portal_active state. The header's "تحويل لعميل" button
+ * disappears (gated on `is_converted` AND admin); the portal toggle
+ * appears in the overview tab.
+ */
+export interface ConvertToCustomerInput {
+  email: string;
+  password?: string;
+  create_portal_access: boolean;
+  primary_contact_name?: string;
+}
+
+export interface ConvertToCustomerResponse {
+  client: {
+    id: string;
+    name: string;
+    email: string;
+    phone: string | null;
+    company: string;
+    portal_active: boolean;
+    auth_user_id: string | null;
+    created_at: string;
+  };
+  lead_id: string;
+  /** false on idempotent return — client was already linked */
+  created: boolean;
+}
+
+export function useConvertToCustomer(leadId: string) {
+  const qc = useQueryClient();
+  return useMutation<ConvertToCustomerResponse, Error, ConvertToCustomerInput>({
+    mutationFn: (body) =>
+      mutateAPI(`/api/crm/leads/${leadId}/convert-to-customer`, 'POST', body),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', leadId, 'dossier'] });
+      // Also invalidate the lead's own data — it now has a client_id.
+      qc.invalidateQueries({ queryKey: ['crm', 'leads', leadId] });
+    },
   });
 }

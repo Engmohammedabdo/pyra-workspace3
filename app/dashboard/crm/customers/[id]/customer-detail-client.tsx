@@ -27,6 +27,11 @@ import { CustomerHeader } from '@/components/crm/customer/customer-header';
 import { CustomerStatStrip } from '@/components/crm/customer/customer-stat-strip';
 import { CustomerTabs, useCustomerActiveTab } from '@/components/crm/customer/customer-tabs';
 import { CustomerContractsTab } from '@/components/crm/customer/customer-contracts-tab';
+import { CustomerOverviewTab } from '@/components/crm/customer/customer-overview-tab';
+import { CustomerProjectsTab } from '@/components/crm/customer/customer-projects-tab';
+import { CustomerInvoicesTab } from '@/components/crm/customer/customer-invoices-tab';
+import { CustomerActivityTab } from '@/components/crm/customer/customer-activity-tab';
+import { CustomerNotesTab } from '@/components/crm/customer/customer-notes-tab';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FolderClosed, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -79,7 +84,7 @@ export function CustomerDetailClient({ leadId }: Props) {
   );
 }
 
-// ── Tab content (Step D ships Contracts; rest pending) ──────────────────────
+// ── Tab content router ──────────────────────────────────────────────────────
 
 function TabContent({
   activeTab,
@@ -88,14 +93,15 @@ function TabContent({
   activeTab: string;
   dossier: CustomerDossier | undefined;
 }) {
-  // Contracts tab — Step D (the "killer tab")
-  if (activeTab === 'contracts' && dossier) {
+  // While the dossier loads, all tabs share a single skeleton spell —
+  // no per-tab skeleton required since each component returns immediately
+  // once its slice arrives. We pass null through and individual components
+  // own their own skeletons.
+  if (!dossier) {
     return (
-      <CustomerContractsTab
-        contracts={dossier.contracts}
-        kpis={dossier.kpis}
-        customer={dossier.customer}
-      />
+      <div className="py-16 text-center text-sm text-muted-foreground">
+        جاري تحميل بيانات العميل...
+      </div>
     );
   }
 
@@ -112,16 +118,28 @@ function TabContent({
     );
   }
 
-  // Remaining tabs — Cluster 3 (Step E) replaces overview/activity/notes.
-  // Projects + Invoices are deferred to v1 empty states with deep-links
-  // to existing pages (also Step E).
-  return (
-    <div className="py-16 text-center text-sm text-muted-foreground">
-      {activeTab === 'overview' && 'نظرة عامة ستظهر هنا في Step E'}
-      {activeTab === 'projects' && 'المشاريع — سيتم ربطها بصفحة المشاريع في Step E'}
-      {activeTab === 'invoices' && 'الفواتير — سيتم ربطها بصفحة الفواتير في Step E'}
-      {activeTab === 'activity' && 'سجل النشاط سيظهر هنا في Step E'}
-      {activeTab === 'notes' && 'الملاحظات ستظهر هنا في Step E'}
-    </div>
-  );
+  switch (activeTab) {
+    case 'overview':
+      return <CustomerOverviewTab customer={dossier.customer} />;
+    case 'contracts':
+      return (
+        <CustomerContractsTab
+          contracts={dossier.contracts}
+          kpis={dossier.kpis}
+          customer={dossier.customer}
+        />
+      );
+    case 'projects':
+      return <CustomerProjectsTab customer={dossier.customer} />;
+    case 'invoices':
+      return <CustomerInvoicesTab customer={dossier.customer} />;
+    case 'activity':
+      return <CustomerActivityTab leadId={dossier.customer.id} />;
+    case 'notes':
+      return <CustomerNotesTab customer={dossier.customer} />;
+    default:
+      // useCustomerActiveTab() already clamps to known IDs, but defensive
+      // fallback in case routing ever surfaces an unknown tab.
+      return <CustomerOverviewTab customer={dossier.customer} />;
+  }
 }
