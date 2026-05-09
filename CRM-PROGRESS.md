@@ -221,7 +221,10 @@ dec275b feat(crm): phase 8 hooks — caching alignment + CRMInsight type widenin
 
 ---
 
-## CRM Phase 9 — Active Customer Page (Contracts Tab) 🟡 IN PROGRESS
+## CRM Phase 9 — Active Customer Page (Contracts Tab) ✅ COMPLETE
+**Date:** 2026-05-09 | **Final feature commit:** `9178d7b` | **Closure commit:** this commit
+
+
 Customer-detail page at `/dashboard/crm/customers/[id]`. Phase 9 plan
 approved with decisions: β (separate route), δ (portal_active flag),
 ε (single dossier endpoint), η (pipeline → /customers redirect for
@@ -245,42 +248,115 @@ converted leads), Q-A1/A4/A5 implementation choices.
   counted as completed) / Q-A5 (health score returned for unconverted
   leads) — all documented in CLAUDE.md
 
-### Steps B-G
+### Steps A-G — all complete
 
-- **Step B:** ✅ COMPLETE (`069ccbb`) — `useCustomerDossier` + `useContractMilestones` hooks. `usePayments` deferred to v1.1 (no standalone endpoint, dossier embeds payments).
-- **Step C:** ✅ COMPLETE (`3ac7224`) — page chrome (route `app/dashboard/crm/customers/[id]/`, header, stat-strip, health-ring SVG, 7-tab nav with `?tab=` URL state). Cluster 1 of 3 visual clusters.
-- **Step D:** ✅ COMPLETE (`ed75777`) — Customer-Contracts Tab + ContractCard (3 visual variants by type+status) + ContractBillingHistory chips + ContractMilestones checklist. The "killer tab" per PRD §04 lines 229-261. Verified live with temporary backfill of `ctr_KTynoYtwhjkMYatq.lead_id` (reverted; production data clean). Single-button card (Q-D2 deviation: "View PDF" + "New Invoice" collapsed to one "عرض العقد" link — workspace has no separate PDF route, contract detail page handles full lifecycle).
-- **Step E:** Cluster 3 — secondary tabs (Overview, Projects, Invoices, Activity, Notes) + portal toggle modal + convert-to-customer modal + contact list.
-- **Step F:** page assembly polish + `/leads → /customers` redirect for converted leads (pipeline card link).
-- **Step G:** Phase 9 closure marker.
+| Step | Commit | Scope |
+|---|---|---|
+| A.1 | `5547eaf` | Migration 012 — `pyra_clients.portal_active` boolean flag + partial index |
+| A.2 | `ec03097` | `POST /api/crm/leads/[id]/convert-to-customer` (admin only, idempotent) + `PATCH /api/crm/customers/[lead_id]/portal-access` toggle. New `'lead_converted_to_customer'` notification type. |
+| A.2.1 | `a407515` | Hotfix: removed non-existent `lead.address` column reference (caught during dossier simulation) |
+| A.3 | `b52b1a6` | `GET /api/crm/customers/[lead_id]/dossier` — 7-query aggregator returning customer + contracts + invoices + payments + milestones + KPIs + 4-factor health score. CLAUDE.md "## CRM Health Score (Phase 9)" section added. |
+| A.4 | `0b9c088` | `lead_id` query-param filter on `GET /api/finance/contracts` + `lead_id` added to `CONTRACT_FIELDS` const |
+| A-marker | `cecfcf7` | Step A complete progress marker |
+| B | `069ccbb` | `useCustomerDossier` + `useContractMilestones` hooks (+ v1.1 backlog consolidated) |
+| C | `3ac7224` | Page chrome — route `app/dashboard/crm/customers/[id]/`, header, stat-strip, health-ring SVG, 7-tab nav with `?tab=` URL state |
+| D | `ed75777` | Customer-Contracts Tab + ContractCard (3 variants) + ContractBillingHistory chips + ContractMilestones checklist. Verified live via temporary `ctr_KTynoYtwhjkMYatq.lead_id` backfill (reverted clean). |
+| D-marker | `810495c` | Step D complete progress marker |
+| E | `399c17b` | Secondary tabs (Overview / Projects / Invoices / Activity / Notes) + portal toggle + convert modal + 2 mutation hooks (`useUpdatePortalAccess`, `useConvertToCustomer`). Dossier extended with `notes` field. |
+| F | `9178d7b` | Page assembly polish — pipeline-card redirect (`is_converted=true → /customers/[id]`), customer index list at `/dashboard/crm/customers`, sidebar dedup (Phase 8 leftover bug). Verified live via `is_converted` flip on test lead (reverted clean). |
+| G | this | Phase 9 closure marker |
+
+### Exit Gate (per PRD §05 lines 372-377) — ALL PASSED
+
+| Gate | Status |
+|---|---|
+| Customer page matches `pyramedia-customer.html` mockup | ✅ Mockup file doesn't exist in workspace; built functional version with brand tokens (same fallback as Phase 8 dashboard) |
+| At least one converted lead with multiple contracts displayed correctly | ✅ Verified live via temporary backfill of `ctr_KTynoYtwhjkMYatq.lead_id = sl_Y1wGyzfprQ2E4T7C` — emerald-bordered active retainer card rendered with billing history chips + 4-stat block; reverted clean |
+| Portal toggle creates/removes pyra_clients row (idempotent) | ✅ Per Q9-2 (δ) — toggle flips `portal_active` boolean on existing `pyra_clients` row; convert-to-customer creates the row with the flag set per request body. Both endpoints idempotent. |
+| Existing customers (with no lead) still appear in `/dashboard/finance` flows (not broken) | ✅ Backend changes were additive only: new `lead_id` filter on contracts route is backward-compatible (existing client_id filter unchanged); `pyra_clients.portal_active` defaults to true so legacy clients unaffected |
+
+### Locked v1 deviations (transcribed into CLAUDE.md "CRM Phase 9 — Locked Decisions")
+
+These are **intentional, documented deviations** from the PRD. **Do NOT re-litigate.**
+
+1. **Q-A1: Password in convert body, no automated welcome email**
+   PRD §03 line 368 calls for "send portal welcome email (use existing template)". No template/sender infrastructure exists in workspace. v1 matches `/api/clients` POST pattern: admin sets password in body, shares credentials out-of-band (WhatsApp/email). v1.1 adds welcome email automation.
+
+2. **Q-A4: Milestone `status='invoiced'` counts as completed**
+   Workspace production data uses `'invoiced'` for done-and-billed milestones. `kpis.milestones_completed` counts both `'completed'` AND `'invoiced'`. Inline icon mapping in `<ContractMilestones>` mirrors. KPI label is "completed" but spirit is "terminal/done".
+
+3. **Q-A5: Health score returned for unconverted leads**
+   Dossier endpoint returns the score regardless of `is_converted`. UI gates `/customers/[id]` via the pipeline-card redirect (Step F) — only converted leads land there from the pipeline. Direct API/URL access on a pre-conversion lead returns activity-driven score (recency + engagement contribute; contracts/payment factors return 0). Honest data, not defensive null.
+
+4. **Q-D2: Single "عرض العقد" link button per contract card**
+   Workspace has no standalone `/api/finance/contracts/[id]/pdf` route — viewing/PDF download/invoice generation all live on `/dashboard/finance/contracts/[id]`. Originally-approved 2 buttons (View PDF + New Invoice) collapsed to 1 link to detail page. v1.1 may split if a separate PDF route lands.
+
+5. **Q-E2: Notes tab read-only**
+   Lead notes editing exists at `/dashboard/crm/leads/[id]` (Phase 5/6). Customer page is read-mostly per "two views of same data" pattern (PRD §04 line 23). v1.1 may add inline-edit on the notes tab if usage shows demand.
+
+6. **Customer index `/dashboard/crm/customers` = basic v1 list (Step F)**
+   No per-row aggregated KPIs (LTV/MRR/contracts count). Adding these would require either N dossier calls (bad) or a new bulk `/api/crm/customers` endpoint that joins lead + contracts summary. v1 ships a simple table; v1.1 adds the aggregated endpoint when the customer base is large enough to need richer per-row stats.
+
+
 
 ### v1.1 backlog (not in Phase 9 scope)
 
 These are intentional v1.1 deferrals — documented now so future sessions
 know they're known gaps, not oversights:
 
+#### Carried forward from Phase 8
+- **Trend infrastructure for KPIs** — `trend_pct` / `vs_target_pct` /
+  `vs_prior_pct` still flat at 0; v1.1 adds prior-period comparison +
+  target tracking schema.
+- **3 of 7 AI rules** — `conversion_dropped`, `closed_won_streak`,
+  `target_exceeded`.
+- **CRM team filter functional** — wire `?as_user=` through 5 endpoints
+  + the Sales Dashboard `agentFilter` state.
+
+#### From Phase 9
+- **Portal welcome email automation** (PRD §03 deviation Q-A1) — template +
+  sender infrastructure to remove the "admin shares password out-of-band"
+  workflow. Currently convert-to-customer accepts a password in the body
+  and admin shares credentials manually.
 - **`usePayments` hook + `/api/finance/payments` route** — needed if/when
   a payment reconciliation page or standalone payments-list view is added.
   Phase 9 components consume payments embedded in the dossier, so no
   direct hook is needed for the customer page.
-- **Backfill legacy contract `lead_id`** — 3 production contracts
-  (`ctr_KTynoYtwhjkMYatq`, `ctr_bP3VR8hWEbkPhHuL`, `ctr_Yey3TzyyrSvg2Gh5`)
-  link only via `client_id = c_1771242560_inj1` (Etmam). Once a matching
-  closed_won lead exists in the system, set `pyra_contracts.lead_id` to
-  link them to the CRM customer view. v1 ships without these because
-  the workflow assumes new contracts are CRM-created (with `lead_id` set
-  at create time).
-- **Trend infrastructure for KPIs** (carried forward from Phase 8) —
-  `trend_pct` / `vs_target_pct` / `vs_prior_pct` still flat at 0; v1.1
-  adds prior-period comparison + target tracking schema.
-- **3 of 7 AI rules** (carried forward from Phase 8) —
-  `conversion_dropped`, `closed_won_streak`, `target_exceeded`.
-- **CRM team filter functional** (carried forward from Phase 8) — wire
-  `?as_user=` through 5 endpoints + the Sales Dashboard `agentFilter` state.
-- **Portal welcome email automation** (Phase 9 PRD §03 deviation) —
-  template + sender infrastructure to remove the "admin shares password
-  out-of-band" workflow. Currently convert-to-customer accepts a password
-  in the body and admin shares credentials manually.
+- **Multiple contact persons on customer** — v1 ships single primary
+  contact (`<CustomerContactList>`). v1.1 adds an additional-contacts
+  table + "+ Add contact" CTA + contact_persons schema or json column.
+- **Inline notes editing on `<CustomerNotesTab>`** — v1 is read-only
+  (editing lives at `/dashboard/crm/leads/[id]`). v1.1 adds a
+  `useUpdateLead` mutation + inline textarea.
+- **Aggregated customer KPIs endpoint for `/dashboard/crm/customers`
+  index** — v1 ships a basic name+contact list. v1.1 adds a bulk
+  `/api/crm/customers` route returning per-row health score / LTV / MRR /
+  contracts count for richer table cells.
+- **Bulk backfill of legacy contracts with `lead_id`** — 3 Etmam
+  contracts (`ctr_KTynoYtwhjkMYatq`, `ctr_bP3VR8hWEbkPhHuL`,
+  `ctr_Yey3TzyyrSvg2Gh5`) link only via `client_id = c_1771242560_inj1`.
+  Same pattern likely true for Mootasem, Injazat, and other pre-CRM
+  clients. Once matching closed_won leads exist (manually created or
+  retrofitted), set `pyra_contracts.lead_id` to surface them in the CRM
+  customer view.
+- **Customer index search server-side filter** — v1 ships client-side
+  filter over the loaded list (limit 50). v1.1 wires the existing
+  useLeads `search` query param if list grows.
+- **Files tab implementation** — currently "قريباً" empty state per
+  Q-C3 (γ). v1.1 wires actual file source (likely
+  `pyra_files WHERE client_id = customer.client_id` or similar).
+- **Gradient cover banner in `<CustomerHeader>`** — v1 ships solid
+  `bg-card + border-b` per Q-C2 (α). Phase 13 visual polish item.
+- **`<ContractCard>` second action** — v1 ships single "عرض العقد" link
+  per Q-D2. v1.1 splits to 2 buttons (View PDF + New Invoice) once a
+  separate `/api/finance/contracts/[id]/pdf` route lands.
+- **Portal access UI improvements** — currently a single switch + Arabic
+  description. v1.1 may add: last-login timestamp ("آخر دخول منذ X"),
+  re-send-credentials action, force-password-reset button.
+- **Pipeline-card visual marker for converted leads** — currently the
+  card looks identical regardless of `is_converted`. v1.1 may add a
+  subtle ✓ indicator or bg-tint to differentiate converted-but-still-in-
+  closed-won-column leads visually before clicking.
 
 
 

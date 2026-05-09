@@ -647,6 +647,122 @@ at-risk and team performance change slowly (cheap to be stale); recent
 activity is the live-feel hook; AI insights are derived from rules
 that re-evaluate every 2 min.
 
+## CRM Phase 9 — Locked Decisions
+
+These are **intentional, documented deviations** from the CRM-PRD,
+locked during Phase 9 closure. **Do NOT re-litigate.** Future sessions
+encountering the original PRD wording should defer to the decisions
+recorded here. Phase 9 closes the Active Customer Page at
+`/dashboard/crm/customers/[id]` plus the basic index list at
+`/dashboard/crm/customers`.
+
+### 1. Convert-to-customer: password in body, no automated welcome email (Q-A1)
+
+PRD §03 line 368 calls for "send portal welcome email (use existing
+template)". No template/sender infrastructure exists in the workspace
+today (only `WelcomeBanner` UI component + the `portal_welcome_message`
+settings string — neither is a mailer). v1 matches the existing
+`/api/clients` POST pattern: admin sets `password` in the request body
+and shares credentials with the client out-of-band (WhatsApp/email).
+
+**Future sessions: do NOT add automated email here without first
+shipping the email infrastructure** — there's no template, no sender,
+no domain config in v1. Adding a fire-and-forget `notify(...)` here
+would silently no-op and make future debugging harder.
+
+### 2. Milestone `status='invoiced'` counts as completed (Q-A4)
+
+Production milestones use `status='invoiced'` for done-and-billed
+state (verified against Etmam contracts: `cm_iIED1bYZMScoFXLt`,
+`cm_KjkMotloVwS8yB6Z`). The Phase 9 dossier endpoint counts both
+`'completed'` AND `'invoiced'` as terminal in `kpis.milestones_completed`.
+
+Inline icon mapping in `<ContractMilestones>` mirrors this — the emerald
+`CheckCircle2` icon shows for both statuses. The KPI label is
+"milestones_completed" but the spirit is "terminal/done milestones."
+
+### 3. Health score returned for unconverted leads (Q-A5)
+
+The `/api/crm/customers/[lead_id]/dossier` endpoint computes and returns
+a health score regardless of `lead.is_converted`. UI gates entry to
+`/customers/[id]` via the pipeline-card redirect (Step F): converted
+leads land there from the pipeline, unconverted leads go to
+`/leads/[id]`. Direct API/URL access on a pre-conversion lead returns
+an activity-driven score (recency + engagement contribute; contracts
+and payment factors return 0 — no contract data, no invoices).
+
+This is **honest data, not defensive null.** Defense-in-depth not
+needed; if a caller hits the endpoint manually, they get a score
+that reflects what we can measure.
+
+### 4. Single "عرض العقد" link button per contract card (Q-D2)
+
+The originally-approved 2 buttons (View PDF + New Invoice) collapsed
+to a single link. The workspace has no standalone
+`/api/finance/contracts/[id]/pdf` route — viewing, PDF download, AND
+invoice generation all live on the existing
+`/dashboard/finance/contracts/[id]` detail page. Splitting into 2
+buttons that go to the same destination would be confusing UX.
+
+v1.1 may split actions if a separate PDF-download route is added;
+the contract card's action area is structured to accept additional
+buttons without restructuring.
+
+### 5. Notes tab read-only (Q-E2)
+
+Inline notes editing already exists at `/dashboard/crm/leads/[id]`
+(Phase 5/6 lead detail). The customer page is read-mostly per PRD §04
+line 23 "two views of same data, different shells" — the lead detail
+remains the editable surface; the customer page is the relationship
+overview.
+
+`<CustomerNotesTab>` provides a "تعديل في صفحة الـ Lead" CTA that
+deep-links to the lead detail editor. v1.1 may add inline-edit on the
+customer page if usage shows demand.
+
+### 6. Customer index `/dashboard/crm/customers` = basic list (Step F)
+
+The index list at `/dashboard/crm/customers` is a simple table — name,
+contact, assigned_to, last contact relative date. **No per-row
+aggregated KPIs** (LTV, MRR, contracts count, health score).
+
+Adding richer per-row data would require either (a) N dossier calls
+per page render — bad — or (b) a new bulk `/api/crm/customers`
+endpoint that joins lead + contracts summary in one query. Phase 9
+ships the simpler version since the v1 customer base is small (likely
+<50). v1.1 adds the aggregated endpoint when the list grows.
+
+The list reuses the existing `useLeads` hook with
+`{ is_converted: 'true' }` — no new endpoint, no new schema.
+
+### Implementation invariants (locked, do not regress)
+
+- **Dossier endpoint is the single source for the customer page.** All
+  4 customer page tabs that consume real data (Overview, Contracts,
+  Activity, Notes) read from `useCustomerDossier(leadId)`. Adding new
+  tabs that need additional data: extend the dossier, don't introduce
+  a parallel endpoint.
+
+- **Pipeline-card redirect is bidirectional via `is_converted`.** The
+  same `<PipelineCard>` source-variant `<Link>` chooses
+  `/customers/[id]` or `/leads/[id]` based on the lead's
+  `is_converted` flag. Both routes remain accessible by direct URL.
+  Don't introduce a third routing layer.
+
+- **Portal toggle never creates/destroys the `pyra_clients` row.** It
+  only flips `portal_active`. Conversion creates the row;
+  un-converting later would require a dedicated rollback endpoint
+  (not built — admin manually deletes via `/dashboard/clients` if
+  truly needed).
+
+- **`canAccessLead()` enforces sales-agent scope server-side** on the
+  dossier endpoint. The customer page's "404 → غير موجود" empty state
+  surfaces this gracefully without leaking lead existence.
+
+The full debugging arc + sub-step commits are tracked in
+`CRM-PROGRESS.md` (which can be the canonical Phase 9 archive once
+later phases land).
+
 ## CRM Health Score (Phase 9)
 
 The Active Customer Page (`/dashboard/crm/customers/[id]`) shows a 0-100
