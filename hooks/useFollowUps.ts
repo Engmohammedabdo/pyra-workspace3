@@ -10,6 +10,18 @@ export interface FollowUp {
   lead_id: string | null;
   assigned_to: string | null;
   due_at: string;
+  /** When the WhatsApp reminder fires (Phase 11). Defaulted to
+   *  `due_at - 30 minutes` by the API when the body omits it. The
+   *  cron endpoint at /api/cron/follow-up-reminders processes rows
+   *  where `reminder_at <= NOW()` AND `whatsapp_reminder_sent = false`
+   *  AND `send_whatsapp_reminder = true` AND `status = 'pending'`. */
+  reminder_at: string | null;
+  /** Idempotency flag set by the cron after a successful Evolution
+   *  send. Prevents re-fire on subsequent 5-minute ticks. */
+  whatsapp_reminder_sent: boolean;
+  /** User-facing toggle (Phase 11). Default true. When false, the
+   *  cron skips this row entirely. */
+  send_whatsapp_reminder: boolean;
   title: string | null;
   notes: string | null;
   status: 'pending' | 'completed' | 'overdue' | 'cancelled';

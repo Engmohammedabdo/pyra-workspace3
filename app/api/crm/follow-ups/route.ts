@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
 
     let q = supabase
       .from('pyra_sales_follow_ups')
-      .select('id, lead_id, assigned_to, due_at, title, notes, status, completed_at, created_by, created_at, quote_id', { count: 'exact' })
+      .select('id, lead_id, assigned_to, due_at, reminder_at, whatsapp_reminder_sent, send_whatsapp_reminder, title, notes, status, completed_at, created_by, created_at, quote_id', { count: 'exact' })
       .order('due_at', { ascending: true })
       .limit(limit);
 
@@ -102,10 +102,10 @@ export async function GET(request: NextRequest) {
 // Body:
 //   lead_id (required) · title (required) · due_at (required ISO)
 //   notes? · assigned_to? (default = caller)
-//   reminder_at? / send_whatsapp_reminder? — accepted but not persisted in
-//   v1 because Phase-0 baseline confirmed the live `pyra_sales_follow_ups`
-//   table is missing reminder_at + whatsapp_reminder_sent (per Q-DB-001
-//   answer). Phase 11 cron work adds those columns + persistence.
+//   reminder_at? — when WhatsApp reminder fires. Default: due_at - 30min
+//                  per PRD §03 line 434. Validated as ISO; 422 if invalid.
+//   send_whatsapp_reminder? — user-facing toggle. Default true per line 437.
+//   (whatsapp_reminder_sent defaults to false at column level.)
 //
 // Side effects:
 //   - INSERT pyra_lead_activities type=follow_up_created (so it appears
@@ -139,6 +139,34 @@ export async function POST(request: NextRequest) {
       auth.pyraUser.username;
     const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null;
 
+    // Phase 11 (migration 013 + commit 2): reminder_at + send_whatsapp_reminder
+    // are persisted now. The cron endpoint at /api/cron/follow-up-reminders
+    // (commit 3) reads these to decide which follow-ups to send WhatsApp
+    // reminders for on its 5-minute tick.
+    //
+    //   reminder_at default      = due_at - 30 minutes (PRD §03 line 434)
+    //   send_whatsapp_reminder   = true                (PRD §03 line 437)
+    //   whatsapp_reminder_sent   = false (column-level default; cron flips
+    //                                     it true after a successful send)
+    let reminderAt: string;
+    if (typeof body.reminder_at === 'string') {
+      const parsed = new Date(body.reminder_at);
+      if (isNaN(parsed.getTime())) {
+        return apiValidationError('reminder_at غير صالح — يجب أن يكون تاريخ ISO');
+      }
+      reminderAt = parsed.toISOString();
+    } else {
+      const due = new Date(dueAt);
+      if (isNaN(due.getTime())) {
+        return apiValidationError('due_at غير صالح — يجب أن يكون تاريخ ISO');
+      }
+      reminderAt = new Date(due.getTime() - 30 * 60 * 1000).toISOString();
+    }
+    const sendWhatsappReminder =
+      typeof body.send_whatsapp_reminder === 'boolean'
+        ? body.send_whatsapp_reminder
+        : true;
+
     const insertId = generateId('fu');
     const { data: followUp, error } = await supabase
       .from('pyra_sales_follow_ups')
@@ -147,6 +175,8 @@ export async function POST(request: NextRequest) {
         lead_id: leadId,
         assigned_to: assignedTo,
         due_at: dueAt,
+        reminder_at: reminderAt,
+        send_whatsapp_reminder: sendWhatsappReminder,
         title,
         notes,
         status: 'pending',
