@@ -49,6 +49,11 @@ export type NotificationType =
   // Phase 7: admin reopen of a closed_won lead. Fires only via the
   // leads.manage override path in /api/crm/leads/[id]/move-stage.
   | 'lead_reopened'
+  // Phase 9: admin manually converts a closed_won lead into a portal
+  // client (creates pyra_clients row + optional portal access). Fires
+  // to the lead's assigned_to (the sales agent who originally won the
+  // deal) so they get the closure-of-loop signal.
+  | 'lead_converted_to_customer'
   // Approvals (manager-facing)
   | 'leave_request_pending'
   | 'expense_pending'
