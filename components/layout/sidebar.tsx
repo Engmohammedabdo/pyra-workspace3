@@ -158,7 +158,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/crm/follow-ups',            label: 'المتابعات',      labelEn: 'Follow-ups',          icon: Clock,         permission: 'follow_ups.view',             badgeKey: 'follow_ups_pending' },
       { href: '/dashboard/crm/approvals',             label: 'اعتمادات تنتظرك', labelEn: 'Closed-Won Approvals', icon: ShieldCheck,   permission: 'leads.approve',               badgeKey: 'crm_pending_approvals' },
       { href: '/dashboard/sales/approvals',           label: 'موافقات العروض', labelEn: 'Quote Approvals',     icon: CheckCircle,   permission: 'quote_approvals.view',        badgeKey: 'pending_approvals' },
-      { href: '/dashboard/crm',                       label: 'التقارير',       labelEn: 'CRM Reports',         icon: BarChart3,     permission: 'crm_reports.view' },
+      { href: '/dashboard/crm',                       label: 'لوحة المبيعات',  labelEn: 'Sales Dashboard',     icon: BarChart3,     permission: 'crm_reports.view' },
       { href: '/dashboard/sales/settings',            label: 'الإعدادات',      labelEn: 'Sales Settings',      icon: Settings2,     permission: 'sales_pipeline.manage' },
     ],
   },
