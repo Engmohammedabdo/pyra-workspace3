@@ -647,6 +647,58 @@ at-risk and team performance change slowly (cheap to be stale); recent
 activity is the live-feel hook; AI insights are derived from rules
 that re-evaluate every 2 min.
 
+## CRM Health Score (Phase 9)
+
+The Active Customer Page (`/dashboard/crm/customers/[id]`) shows a 0-100
+**Health Score** ring computed by
+`/api/crm/customers/[lead_id]/dossier`. Locked formula (Phase 9 Q9-3):
+
+| Factor | Weight | Computation |
+|---|---|---|
+| **Recency** | 30% | Days since most recent `pyra_lead_activities.created_at` (falls back to `lead.last_contact_at` if no activity rows). `<7d` → 30, `7-30d` → 20, `30-90d` → 10, `>90d` → 0. |
+| **Payment** | 30% | % of last-180d invoices paid on or before `due_date` (compares `MAX(pyra_payments.payment_date)` per invoice). `>90%` → 30, `70-90%` → 20, `50-70%` → 10, `<50%` → 0. |
+| **Active contracts** | 20% | Has retainer contract with `status='active'` OR project contract with `status IN ('in_progress','active')` → 20. Only `completed` contracts → 10. None → 0. |
+| **Engagement** | 20% | Count of `pyra_lead_activities` rows in last 30 days. `>5` → 20, `1-5` → 10, `0` → 0. |
+
+**Total = sum, max 100. Color thresholds:**
+- 75-100 → emerald (excellent)
+- 50-74 → amber (steady)
+- 25-49 → orange (needs attention)
+- 0-24 → red (at risk)
+
+The dossier endpoint returns the score plus a `breakdown` object (per-
+factor contribution) and a `factors` object (raw values like
+`days_since_last_activity` for the UI's hover tooltip).
+
+**Implementation notes** (Phase 9 locked decisions):
+- The contract-`type` derivation prefers the `pyra_contracts.contract_type`
+  column (values seen in production: `'retainer'`, `'milestone'`,
+  `'fixed'`) and only falls back to a heuristic for null rows (defensive
+  default).
+- **Milestone "completed" semantic (Q-A4):** the per-contract
+  `kpis.milestones_completed` count treats both `status='completed'` AND
+  `status='invoiced'` as terminal/done. Production data uses `'invoiced'`
+  for done-and-billed milestones (verified against Etmam contracts). The
+  KPI label is "milestones_completed" but the spirit is "terminal."
+- **Unconverted leads (Q-A5):** the dossier endpoint returns a health
+  score regardless of `lead.is_converted`. UI gates `/customers/[id]` by
+  `is_converted=true`; if a caller hits the endpoint via direct API or URL
+  on a pre-conversion lead, the activity-driven score is honest data
+  (recency + engagement contribute, contracts/payment factors return 0).
+  Defense-in-depth not needed; the score is informative, not misleading.
+
+**v1.1 tuning notes** (when refining the formula):
+- Weights are tunable inline in `app/api/crm/customers/[lead_id]/dossier/route.ts`
+  (search for `recencyScore`, `paymentScore`, `activeContractsScore`,
+  `engagementScore`).
+- Adding a new factor: bump existing weights down to maintain max-100,
+  define the new threshold scheme, surface in `breakdown` + `factors` so
+  the UI's tooltip stays informative.
+- **Tune weights based on observed churn correlation** once we have 6+
+  months of converted-customer data. Current weights are heuristic; the
+  retrospective question is "which factor most predicted contract
+  cancellation / churn?"
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
