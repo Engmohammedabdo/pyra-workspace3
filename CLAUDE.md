@@ -815,6 +815,134 @@ factor contribution) and a `factors` object (raw values like
   retrospective question is "which factor most predicted contract
   cancellation / churn?"
 
+## CRM Phase 11 — Locked Decisions
+
+These are **intentional, documented deviations** from the CRM-PRD,
+locked during Phase 11 closure. **Do NOT re-litigate.** Future
+sessions encountering the original PRD wording should defer to the
+decisions recorded here. Phase 11 closes the cron-jobs + WhatsApp
+integration stack: workspace-owned cron logic at
+`/api/cron/follow-up-reminders` and `/api/cron/lead-idle-check`,
+plus additive Lead-Detail-timeline activity logging in the
+WhatsApp webhook.
+
+### 1. Reminder destination = agent's WhatsApp number, NOT the lead's (Q-C3-1 a)
+
+The follow-up-reminders cron sends WhatsApp to the **AGENT's**
+number (via their connected `pyra_whatsapp_instances` row). The
+lead's name + phone appear in the message body for context.
+
+**Rationale:** this is a "do this thing" reminder for the
+salesperson, not customer outreach. Sending to the lead would be
+off-pattern (we have separate marketing/comms flows for that) and
+risks unsolicited contact.
+
+### 2. Idle check skips unassigned leads (Q-C3-2 c)
+
+The lead-idle-check cron filters `assigned_to IS NOT NULL`.
+Unassigned mid-pipeline leads are NOT included in idle warnings.
+
+**Rationale:** the cron is a per-agent reminder ("X of YOUR deals
+are stale"). Unassigned leads are an admin-triage problem, not a
+stale-deal problem. Admin can find them via the leads list with
+the "unassigned" filter; no notification needed.
+
+### 3. Sequential await loop, no row cap (Q-C3-3 e)
+
+`/api/cron/follow-up-reminders` processes due rows one at a time
+via sequential `await`. No cap — the natural rate-limiting comes
+from Evolution's per-instance throughput.
+
+**Rationale:** v1 volume is low (<10 reminders/tick expected).
+Adding batching now would be premature. **v1.1 may add
+`Promise.all` batching with a concurrency cap if production
+volume exceeds ~50 reminders / 5-min tick** — see v1.1 backlog.
+
+### 4. Per-agent: single most-recently-connected instance (Q-11-1)
+
+When an agent has multiple `pyra_whatsapp_instances` rows, the
+cron picks ONE — `status='connected'` ordered by
+`last_connected_at DESC NULLS LAST`, `LIMIT 1`.
+
+**Rationale:** multi-instance per agent is rare; if it ever
+becomes common, an explicit "primary instance" flag on the
+user/agent record is cleaner than picking-by-recency. Until
+then, recency is a sane proxy.
+
+### 5. Per-lead 7-day idle_warning dedup (Q-11-2)
+
+Before inserting an `idle_warning` row, the cron checks for any
+prior `idle_warning` activity on the same `lead_id` within the
+past 7 days. If found, skip the insert (and skip the agent
+notification grouping for that lead).
+
+**Rationale:** the cron runs daily but a lead can stay idle for
+weeks. Without dedup, the timeline would fill with daily
+duplicate warnings. The 7-day window matches the idle threshold
+itself — one warning per idle period, not one per day.
+
+### 6. Per-agent daily Dubai-grouped notification (Q-11-3)
+
+Idle-check notifications are GROUPED per agent: one notif/day
+with `{count, total_expected_value}` summary. Re-running the
+cron the same Dubai-day is a no-op for already-notified agents.
+
+**Rationale:** N notifications/agent/day = noise. One grouped
+notif with the count + total value gives the agent a daily
+action item without inbox spam. "Today" boundary uses
+Asia/Dubai midnight (UTC+4, no DST) so the daily idempotency
+works regardless of DB-server timezone.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **Architecture: Option β.** Workspace owns the cron logic; n8n
+  workflow **PyraCRM_Cron** (separate from `PyraWhatsapp_Agent` at
+  workflow ID `XswCOuU2T3gaExUk`) hosts ONLY Schedule Triggers +
+  HTTP Request nodes. Mixing schedule triggers into
+  `PyraWhatsapp_Agent` was rejected — it conflates AI auto-reply
+  scope with cron scope.
+
+- **Idempotency trade-off: flip `whatsapp_reminder_sent=true`
+  regardless of Evolution send outcome.** Documented at the top
+  of `app/api/cron/follow-up-reminders/route.ts`. Manual recovery
+  via `pg/query` if a real outage is confirmed. Alternative
+  (don't flip on failure) would risk message storms during
+  Evolution flapping — much worse outcome.
+
+- **Timezone math: JS-side, not Postgres.** Asia/Dubai = UTC+4
+  (no DST). `dubaiTodayUtcIso` is computed inline in
+  `app/api/cron/lead-idle-check/route.ts` (search for
+  `dubaiOffsetMs`) — kept entirely in JS to avoid a
+  timezone-conversion roundtrip on every tick.
+
+- **Webhook activity logging is additive.** No existing webhook
+  behaviour modified — message insert, `last_contact_at` update,
+  business-hours auto-reply, profile-photo fetch, CSAT detection,
+  and notifications all untouched. The activity insert is gated
+  on `matchedLead?.id` and uses the `void <builder>.then(...)`
+  lazy-thenable pattern.
+
+### Phase 11 v1.1 backlog
+
+- [ ] **Webhook notifications use direct INSERT** (lines 352, 364
+  of `app/api/dashboard/sales/whatsapp/webhook/route.ts`) — pre-
+  existing violation of "central `notify()` helper" rule. Phase 7
+  grep test missed because JS syntax differs from raw SQL pattern.
+  Migrate to `notify()`.
+- [ ] **`Promise.all` batching with concurrency cap** for
+  follow-up-reminders cron (replace sequential `await` loop) —
+  only if production volume exceeds ~50 reminders / 5-min tick.
+- [ ] **24h-window reminder UI flag** in the follow-up create
+  form — let the agent set a custom `reminder_at` instead of
+  always defaulting to `due_at - 30min`.
+- [ ] **Agent-instance-down notification** — when cron finds 0
+  connected instances for an assigned agent, surface a one-time
+  admin alert (currently silent skip).
+- [ ] **Retry mechanism for failed Evolution sends** — currently
+  flagged as sent regardless of outcome (idempotency trade-off).
+  v1.1 could add a small retry queue with max-attempts before
+  flipping the flag.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

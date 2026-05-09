@@ -8,6 +8,15 @@ Tracks CRM rebuild phases per `/CRM-PRD/05-EXECUTION-PHASES.md`.
 > Notifications, Phase 8 = Advanced File Features, etc.) and is
 > unrelated. **CRM Phase 7 ≠ Workspace Phase 7.** Don't confuse the two.
 
+> **Execution order note (post-Phase-11):** PRD numbering is kept
+> below for traceability, but the actual remaining execution order
+> is now: **11 → 11.5 → 10 → 12 → 13.** Phase 11.5 (Lead-Client
+> Linking UI) was inserted after Phase 11 closure to address a gap
+> revealed by the manual SQL fix done during Phase 11. Phase 10
+> (Mobile PWA Polish) was already deferred from Phase 7 per
+> Q-UI-001; it now lands after 11.5. Phase 13 (Visual Polish) is
+> the visual-only finishing pass.
+
 ---
 
 ## CRM Phase 0 — Pre-flight & PRD lock-in ✅
@@ -360,12 +369,149 @@ know they're known gaps, not oversights:
 
 
 
-## CRM Phase 10 — Mobile PWA Polish ⏳
-Pending. **Scope expanded** to include mobile stage picker (deferred
-from Phase 7 per Q-UI-001 deviation).
+## CRM Phase 11 — Cron Jobs + WhatsApp Integration ✅ (5/5)
 
-## CRM Phase 11 — Cron Jobs + WhatsApp Integration ⏳
-Pending.
+**Status:** Complete. All 5 sub-steps green; routability verified
+post-hotfix. Live exit-gate tests deferred to post-deploy ops
+(n8n PyraCRM_Cron workflow + API key minting — checklist below).
+
+### Sub-step commits
+
+| # | Sub-step | Commit | What landed |
+|---|---|---|---|
+| 1 | Migration 013 | `a388d16` | `reminder_at`, `whatsapp_reminder_sent`, `send_whatsapp_reminder` cols + partial index `idx_follow_ups_pending_reminders` on `pyra_sales_follow_ups` |
+| 2 | Follow-ups POST persists | `9dd8e5b` | POST defaults `reminder_at = due_at - 30min`, `send_whatsapp_reminder = true`; GET returns 3 new cols; `FollowUp` interface widened in `hooks/useFollowUps.ts` |
+| 3 | Cron endpoints | `13a0e26` | `/api/cron/follow-up-reminders` (5-min tick, agent-WA destination per Q-C3-1 a) + `/api/cron/lead-idle-check` (daily Dubai 09:00, 7-day dedup per Q-11-2, daily-grouped notif per Q-11-3) |
+| — | Hotfix middleware | `4fcd2a5` | Whitelist `/api/cron` in CSRF + session-required exemptions (route was returning workspace's `Unauthorized` instead of route handler's Arabic 401) |
+| 4 | Webhook activity logging | `cc15917` | Additive ~35 LOC after `pyra_whatsapp_messages.insert`: `pyra_lead_activities` row per matched-lead WA message (`whatsapp_inbound`/`whatsapp_outbound`) |
+| 5 | Phase 11 closure | (this commit) | CRM-PROGRESS.md + CLAUDE.md docs + v1.1 backlog + Phase 11.5 spec + post-deploy ops checklist |
+
+### Manual data fix (out-of-band, during Phase 11)
+
+Lead `sl_tFTPtCSnL6WGCkEj` linked to client `cl_fNmkTFThd3rSvM-p`
++ name corrected from "Dr. Ahmed Mohamed" → "Dr. Ahmed Mamoun".
+Audit row `la_5a8173108128e943` (`activity_type='field_updated'`,
+`metadata.source='manual_link_pre_phase_11_5'`,
+`created_by='elharm'`). Lead stayed mid-pipeline
+(`stg_discovery_call`, `is_converted=false`).
+
+This fix surfaced the gap that **Phase 11.5 (Lead-Client Linking
+UI)** addresses — see below.
+
+### Exit gate (5 tests)
+
+1. ✅ `curl /api/cron/follow-up-reminders` with bogus `x-api-key`
+   → `401 {"error":"مفتاح API غير صالح أو مفقود"}` (verified
+   post-hotfix; was returning workspace's `Unauthorized` before
+   `4fcd2a5`)
+2. ✅ `curl /api/cron/lead-idle-check` with bogus `x-api-key`
+   → same Arabic 401 (verified post-hotfix)
+3. ⏳ Insert test follow-up with `reminder_at = NOW()`; curl with
+   valid key → row processed, `whatsapp_reminder_sent = true`,
+   agent in-app notif arrives (deferred to post-deploy ops)
+4. ⏳ Insert idle test lead (`last_contact_at = NOW() - 8d`); curl
+   with valid key → `idle_warning` activity inserted, agent
+   grouped notif arrives (deferred to post-deploy ops)
+5. ⏳ Send WA message to a matched lead → `pyra_lead_activities`
+   row appears with `activity_type = 'whatsapp_inbound'`
+   (deferred to post-deploy ops; ready for live test now)
+
+### Locked decisions (see CLAUDE.md)
+
+6 decisions + 4 implementation invariants + 5-item v1.1 backlog
+locked in `CLAUDE.md` → "## CRM Phase 11 — Locked Decisions".
+
+### Post-deploy ops checklist (Abdou)
+
+After Commit 5 lands, the following are required to bring the
+crons live:
+
+1. **Mint API key** in `pyra_api_keys` with permissions
+   `['cron.follow-up-reminders', 'cron.lead-idle-check']`.
+   - Default method: admin UI at `/dashboard/api-keys` (if
+     functional)
+   - Fallback: `pg/query` direct INSERT
+   - Send the key securely (or hold it; n8n is the only
+     consumer)
+2. **Create new n8n workflow** named `PyraCRM_Cron` (separate
+   from `PyraWhatsapp_Agent` / workflow ID `XswCOuU2T3gaExUk`).
+3. **Schedule Trigger every 5 min** → HTTP Request POST
+   `https://workspace.pyramedia.cloud/api/cron/follow-up-reminders`
+   with header `x-api-key: <key>`.
+4. **Schedule Trigger daily 09:00 Asia/Dubai** → HTTP Request
+   POST
+   `https://workspace.pyramedia.cloud/api/cron/lead-idle-check`
+   with same header.
+5. **Activate** the workflow.
+6. **Manual first-tick verification:** check both endpoints
+   return `200` with the expected JSON shape
+   (`{processed, sent, ...}` for follow-up-reminders,
+   `{leads_checked, leads_idle, ...}` for lead-idle-check).
+
+---
+
+## CRM Phase 11.5 — Lead-Client Linking UI ⏳ NEW
+
+**Why it exists:** the manual SQL fix done during Phase 11 (linking
+lead `sl_tFTPtCSnL6WGCkEj` to client `cl_fNmkTFThd3rSvM-p`)
+revealed there's no admin UI for the "this lead is actually our
+existing client X" workflow. Convert-to-customer creates a NEW
+client; this is for matching to an EXISTING one.
+
+**Position in execution order:** between Phase 11 and Phase 10
+(see "Execution order note" at the top of this file).
+
+### Scope (~45-60 min)
+
+1. Lead detail page → new "ربط بعميل موجود" button in lead header
+   (next to Convert-to-Customer)
+2. Modal with client search picker (reuse `useClients` hook +
+   `Combobox` primitive)
+3. POST `/api/crm/leads/[id]/link-client` body
+   `{ client_id: string }`
+   - Permission: `leads.update` + `canAccessLead()`
+   - Validates client exists and `lead.client_id IS NULL` (use
+     a separate POST `/unlink-client` for re-link — out of
+     scope, v1.1)
+   - UPDATE lead SET `client_id`, `updated_at`; INSERT
+     `pyra_lead_activities` `type='field_updated'` with
+     `metadata.source='manual_link_via_ui'`
+   - Does **NOT** flip `is_converted` (lead stays mid-pipeline;
+     convert is a separate flow)
+4. Lead header shows "🔗 مرتبط بـ [client_name]" badge when
+   linked, click → `/dashboard/clients/[id]`
+5. Activity timeline shows the link event (uses existing
+   `field_updated` label)
+
+### Out of scope (deferred to v1.1)
+
+- Unlinking — admin can SQL-manual if needed; UI deferred
+- Bulk link from leads list
+- Auto-suggest based on phone match
+
+### Test plan
+
+1. Open un-linked lead → click "ربط بعميل" → search → pick →
+   modal closes → header shows badge → activity timeline gets
+   row
+2. Try same flow on already-linked lead → button hidden (or
+   shows "تغيير" — TBD with user during execution)
+3. Permission test: non-admin without `leads.update` → button
+   hidden
+4. SQL audit: `client_id` set, `is_converted` unchanged
+
+---
+
+## CRM Phase 10 — Mobile PWA Polish ⏳
+Pending. **Scope expanded** to include mobile stage picker
+(deferred from Phase 7 per Q-UI-001 deviation). **Position in
+execution order:** after Phase 11.5.
 
 ## CRM Phase 12 — Old Sales Module Sunset ⏳
-Pending.
+Pending. **Scope possibly expanded** based on Phase 10/11.5
+outcomes.
+
+## CRM Phase 13 — Visual Polish ⏳ NEW
+Pending. Visual-only finishing pass — typography, spacing,
+motion, empty states, loading shimmers across all CRM surfaces.
+Deferred intentionally so it sits on top of stable functionality.
