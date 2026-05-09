@@ -67,7 +67,7 @@ export const SUBSCRIPTION_FIELDS = `
 `;
 
 export const CONTRACT_FIELDS = `
-  id, client_id, project_id, title, description,
+  id, client_id, project_id, lead_id, title, description,
   contract_type, total_value, currency, vat_rate,
   billing_structure, start_date, end_date, status,
   amount_billed, amount_collected, notes,

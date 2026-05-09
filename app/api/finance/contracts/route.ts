@@ -22,12 +22,18 @@ export async function GET(req: NextRequest) {
     const status = url.get('status') || '';
     const search = url.get('search') || '';
     const client_id = url.get('client_id') || '';
+    // Phase 9: filter contracts by lead_id (Customer-Contracts Tab calls
+    // GET /api/finance/contracts?lead_id=<id> to pull all contracts under
+    // one converted lead). Backward compatible — existing client_id +
+    // status + search filters unchanged.
+    const lead_id = url.get('lead_id') || '';
     let query = supabase
       .from('pyra_contracts')
       .select(CONTRACT_FIELDS, { count: 'exact' });
 
     if (status) query = query.eq('status', status);
     if (client_id) query = query.eq('client_id', client_id);
+    if (lead_id) query = query.eq('lead_id', lead_id);
     if (search) { const ss = `%${escapeLike(search)}%`; query = query.or(`title.ilike.${escapePostgrestValue(ss)},description.ilike.${escapePostgrestValue(ss)}`); }
 
     // Scope filtering for non-admins
