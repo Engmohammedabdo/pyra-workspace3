@@ -70,7 +70,7 @@ export async function POST(
     // ── State: load the lead ──
     const { data: lead, error: leadError } = await supabase
       .from('pyra_sales_leads')
-      .select('id, name, email, phone, company, address, stage_id, is_converted, client_id, assigned_to, deal_type')
+      .select('id, name, email, phone, company, stage_id, is_converted, client_id, assigned_to, deal_type')
       .eq('id', leadId)
       .maybeSingle();
 
@@ -165,7 +165,10 @@ export async function POST(
         email,
         phone: lead.phone || null,
         company: lead.company,
-        address: lead.address || null,
+        // Lead has no `address` column — leave as null. Future v1.1 may
+        // accept address in convert-to-customer body or sync from a
+        // first invoice's billing address.
+        address: null,
         source: 'crm_conversion',
         role: 'client',
         is_active: true,
