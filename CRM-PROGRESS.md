@@ -245,12 +245,14 @@ converted leads), Q-A1/A4/A5 implementation choices.
   counted as completed) / Q-A5 (health score returned for unconverted
   leads) — all documented in CLAUDE.md
 
-### Steps B-G — pending
+### Steps B-G
 
-- **Step B:** React Query hooks (`useCustomerDossier`, `useContractMilestones`; `usePayments` deferred — no standalone endpoint, dossier embeds payments)
-- **Steps C/D/E:** 3 component clusters (header+stats / contracts tab / secondary tabs)
-- **Step F:** page assembly + `/leads → /customers` redirect for converted leads
-- **Step G:** Phase 9 closure marker
+- **Step B:** ✅ COMPLETE (`069ccbb`) — `useCustomerDossier` + `useContractMilestones` hooks. `usePayments` deferred to v1.1 (no standalone endpoint, dossier embeds payments).
+- **Step C:** ✅ COMPLETE (`3ac7224`) — page chrome (route `app/dashboard/crm/customers/[id]/`, header, stat-strip, health-ring SVG, 7-tab nav with `?tab=` URL state). Cluster 1 of 3 visual clusters.
+- **Step D:** ✅ COMPLETE (`ed75777`) — Customer-Contracts Tab + ContractCard (3 visual variants by type+status) + ContractBillingHistory chips + ContractMilestones checklist. The "killer tab" per PRD §04 lines 229-261. Verified live with temporary backfill of `ctr_KTynoYtwhjkMYatq.lead_id` (reverted; production data clean). Single-button card (Q-D2 deviation: "View PDF" + "New Invoice" collapsed to one "عرض العقد" link — workspace has no separate PDF route, contract detail page handles full lifecycle).
+- **Step E:** Cluster 3 — secondary tabs (Overview, Projects, Invoices, Activity, Notes) + portal toggle modal + convert-to-customer modal + contact list.
+- **Step F:** page assembly polish + `/leads → /customers` redirect for converted leads (pipeline card link).
+- **Step G:** Phase 9 closure marker.
 
 ### v1.1 backlog (not in Phase 9 scope)
 
