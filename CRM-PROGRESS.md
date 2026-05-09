@@ -448,6 +448,23 @@ crons live:
    (`{processed, sent, ...}` for follow-up-reminders,
    `{leads_checked, leads_idle, ...}` for lead-idle-check).
 
+### v1.1 backlog (discovered during ops setup)
+
+In addition to the 5 items in CLAUDE.md "## CRM Phase 11 — Locked
+Decisions" → "Phase 11 v1.1 backlog":
+
+- [ ] **`AVAILABLE_PERMISSIONS` in `app/dashboard/settings/settings-client.tsx`
+  is manually maintained.** Should be auto-derived from a central
+  permissions registry to prevent drift between code permission
+  strings (used by `getExternalAuth()` + route-handler `.includes()`
+  checks) and UI checkboxes shown to admins minting API keys.
+  Phase 11 ops setup added the 2 cron permissions inline (commit
+  `6cd17d2`), but the underlying pattern issue persists for
+  every future permission addition. Symptom: cron permissions
+  existed in production code from `13a0e26` (4 days before ops
+  setup) but weren't surfacable in the UI without `*` wildcard
+  workaround until `6cd17d2`.
+
 ---
 
 ## CRM Phase 11.5 — Lead-Client Linking UI ⏳ NEW
