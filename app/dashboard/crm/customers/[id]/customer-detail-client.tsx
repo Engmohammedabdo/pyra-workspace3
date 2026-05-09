@@ -26,9 +26,11 @@ import { ApiError } from '@/hooks/api-helpers';
 import { CustomerHeader } from '@/components/crm/customer/customer-header';
 import { CustomerStatStrip } from '@/components/crm/customer/customer-stat-strip';
 import { CustomerTabs, useCustomerActiveTab } from '@/components/crm/customer/customer-tabs';
+import { CustomerContractsTab } from '@/components/crm/customer/customer-contracts-tab';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FolderClosed, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { CustomerDossier } from '@/hooks/useCustomerDossier';
 
 interface Props {
   leadId: string;
@@ -70,15 +72,33 @@ export function CustomerDetailClient({ leadId }: Props) {
 
       <CustomerTabs />
 
-      {/* Tab content area — Step C uses placeholders. Steps D/E fill in. */}
-      <TabContent activeTab={activeTab} />
+      {/* Tab content area — Step D ships the Contracts tab; other tabs
+          remain placeholders until Step E fills them in. */}
+      <TabContent activeTab={activeTab} dossier={dossier} />
     </div>
   );
 }
 
-// ── Tab content (Step C placeholder) ────────────────────────────────────────
+// ── Tab content (Step D ships Contracts; rest pending) ──────────────────────
 
-function TabContent({ activeTab }: { activeTab: string }) {
+function TabContent({
+  activeTab,
+  dossier,
+}: {
+  activeTab: string;
+  dossier: CustomerDossier | undefined;
+}) {
+  // Contracts tab — Step D (the "killer tab")
+  if (activeTab === 'contracts' && dossier) {
+    return (
+      <CustomerContractsTab
+        contracts={dossier.contracts}
+        kpis={dossier.kpis}
+        customer={dossier.customer}
+      />
+    );
+  }
+
   // Files tab — Q-C3 (γ): "قريباً" empty state, preserves nav structure.
   if (activeTab === 'files') {
     return (
@@ -92,13 +112,11 @@ function TabContent({ activeTab }: { activeTab: string }) {
     );
   }
 
-  // All other tabs — Step C placeholder. Cluster 2 (Step D) replaces the
-  // contracts case; Cluster 3 (Step E) replaces overview/activity/notes.
-  // Projects + Invoices are deferred to v1 empty states with deep-links to
-  // existing pages (filled in Step E).
+  // Remaining tabs — Cluster 3 (Step E) replaces overview/activity/notes.
+  // Projects + Invoices are deferred to v1 empty states with deep-links
+  // to existing pages (also Step E).
   return (
     <div className="py-16 text-center text-sm text-muted-foreground">
-      {activeTab === 'contracts' && 'تبويب العقود سيظهر هنا في Step D'}
       {activeTab === 'overview' && 'نظرة عامة ستظهر هنا في Step E'}
       {activeTab === 'projects' && 'المشاريع — سيتم ربطها بصفحة المشاريع في Step E'}
       {activeTab === 'invoices' && 'الفواتير — سيتم ربطها بصفحة الفواتير في Step E'}
