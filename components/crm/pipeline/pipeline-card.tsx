@@ -212,6 +212,15 @@ export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
 
+  // Phase 9 redirect: converted leads → the Active Customer Page
+  // (/customers/[id], the relationship view); non-converted leads → the
+  // Lead Detail page (/leads/[id], the editable lead view). Both are
+  // valid entry points for the same lead record — PRD §04 line 23
+  // "two views of same data, different shells".
+  const detailHref = lead.is_converted
+    ? `/dashboard/crm/customers/${lead.id}`
+    : `/dashboard/crm/leads/${lead.id}`;
+
   return (
     <div
       ref={setNodeRef}
@@ -219,7 +228,7 @@ export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
       className={cn(isDragging && 'opacity-0 pointer-events-none')}
     >
       <Link
-        href={`/dashboard/crm/leads/${lead.id}`}
+        href={detailHref}
         {...attributes}
         {...listeners}
         className="block rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/40 md:cursor-grab md:active:cursor-grabbing"
