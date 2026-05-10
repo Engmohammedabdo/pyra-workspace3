@@ -943,6 +943,170 @@ works regardless of DB-server timezone.
   v1.1 could add a small retry queue with max-attempts before
   flipping the flag.
 
+## CRM Phase 11 Refinement — Locked Decisions
+
+These are **intentional, documented deviations** from the
+pre-Refinement Phase 11 design, locked during Phase 11 Refinement
+closure. **Do NOT re-litigate.** Future sessions encountering the
+original "agent owns a connected instance" assumption should defer
+to the decisions recorded here. Phase 11 Refinement adds a
+dedicated routing layer (`pyra_agent_whatsapp_settings`) so a
+single shared Evolution instance can serve multiple agents, each
+routed to their own WhatsApp number — resolves the silent-skip bug
+where pre-Refinement Phase 11's cron required each agent to OWN a
+connected instance row.
+
+### 1. Dedicated table over `pyra_settings` KV reuse (Schema A1)
+
+A new `pyra_agent_whatsapp_settings` table was added in migration
+014 instead of encoding the routing config as JSON blobs in the
+existing `pyra_settings` flat KV table. The KV path would have
+required JSON-encoding every record into a `text` column — losing
+per-agent indexing, FK enforcement, and clean SELECT/UPDATE
+patterns. Dedicated table wins on relational integrity + index
+efficiency.
+
+### 2. One config per agent — UNIQUE constraint (Q-R-1)
+
+`agent_username` carries a UNIQUE constraint at the DB level. One
+agent has at most one routing row at any time. Multi-row would
+require tie-breaker logic in the cron ("which is the active
+one?") — a UX foot-gun. The PATCH endpoint forbids renaming
+`agent_username` (returns 422 with helpful Arabic message) to
+preserve identity invariants; to "move" an agent's routing across
+instances or numbers, admin updates the existing row OR deletes +
+recreates.
+
+### 3. Soft validation at write time; hard validation at cron fire time (Q-R-2)
+
+The API accepts ANY non-empty string for `sender_instance_name`
+at INSERT/UPDATE. The UI's instance picker is `Input + datalist`
+(free-text + HTML5 suggestions) — admin can type an instance name
+that doesn't yet exist in `pyra_whatsapp_instances`. The cron at
+fire time hard-validates: the configured instance must exist AND
+have `status='connected'`, otherwise skip + in-app fallback.
+
+**Rationale:** "preparing the row before the Evolution instance is
+up" is a real workflow. Hard validation at write time would force
+admin to create the Evolution instance first, then the routing
+row second — backward and brittle. The cron's hard validation
+provides defence-in-depth without blocking config prep.
+
+### 4. `is_active` defaults FALSE (Q-R-3)
+
+The DB column default is `false`; the form's initial state matches
+(`useState(false)`). Admin must explicitly opt-in to activation by
+toggling the Switch ON before saving (or after). The Reviewer
+agent caught the original Implementer's `useState(true)` violation
+of this rule before push — orchestra mode value demonstrated.
+
+**Rationale:** "safe by default" — a new row doesn't immediately
+start routing real reminders. Admin can prepare a row for an
+agent who's about to be onboarded without triggering the cron
+prematurely.
+
+### 5. Relaxed phone validation, v1 (Q-R-4)
+
+`recipient_phone` accepts any non-empty trimmed string at API +
+UI level. No E.164 regex, no country-code enforcement.
+
+**Rationale:** Pyramedia is UAE-primary; the v1 surface is
+admin-only — admin can self-correct typos during manual routing
+setup. The displayed value in the row list is the digits-only
+stored value (NO leading `+`) to prevent copy-paste-into-Edit
+corruption (Reviewer caught this). v1.1 backlog includes the
+regex upgrade.
+
+### 6. Empty-state guidance, no proactive warning banner (Q-R-5)
+
+When the settings table is empty, the UI shows an EmptyState that
+prompts admin to add the first row. When an agent has follow-ups
+but no active routing row, v1 does NOT surface a proactive
+warning banner — the cron's per-row `console.warn` is the only
+signal. v1.1 backlog includes the warning banner.
+
+**Rationale:** v1 is admin-only and the population is small (~2
+sales agents). Adding a proactive warning before there's
+meaningful data to warn against is over-engineering.
+
+### 7. `settings.{view,manage}` permission gates (Q-R-7)
+
+GET uses `settings.view` (read-only inspection allowed for any
+admin role). POST/PATCH/DELETE use `settings.manage` (write
+operations admin-only). Reuses the existing `settings.*`
+permission scope rather than adding a new
+`agent_whatsapp_settings.manage`.
+
+**Rationale:** sales_agents shouldn't self-configure their own
+routing — that would let them silently route their boss's
+reminders elsewhere. Admin-only is the right scope.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **Two-step cron lookup is the contract.** Step 1: settings table
+  → `(sender_instance_name, recipient_phone)` filtered by
+  `is_active=true`. Step 2: `pyra_whatsapp_instances` →
+  `status='connected'` check filtered by the configured
+  `instance_name`. Both must succeed for a WA send. Any future
+  cron-routing change goes through this two-step shape.
+
+- **The settings layer is canonical for routing;
+  `pyra_whatsapp_instances` is canonical for Evolution-API
+  wiring.** Don't conflate. Don't add agent-routing fields to
+  `pyra_whatsapp_instances` (would re-introduce the silent-skip
+  bug). Don't add Evolution-lifecycle fields to
+  `pyra_agent_whatsapp_settings` (would dilute its single
+  responsibility).
+
+- **Trust boundary: `row.assigned_to` +
+  `setting.sender_instance_name` are workspace-controlled values,
+  not user input.** The cron takes both from prior parameterized
+  SELECTs. UI POST/PATCH takes admin-input strings but
+  `requireApiPermission('settings.manage')` gates the write. No
+  raw SQL concat anywhere; all Supabase calls use parameterized
+  `.eq()`.
+
+- **Graceful degradation: every skip path falls through to the
+  in-app `notify()` + `whatsapp_reminder_sent=true` flip.** No
+  early returns / continues inside the per-row try block. The
+  outer try/catch protects loop continuity on per-row throws.
+
+- **Idempotency: `whatsapp_reminder_sent = true` flips on EVERY
+  path** — success, no setting, instance offline, no phone, AND
+  Evolution send failure. Documented at file top of
+  `app/api/cron/follow-up-reminders/route.ts`. The trade-off
+  ("flag set even though delivery failed") is intentional — the
+  alternative ("don't flip on failure") risks message storms
+  during Evolution flapping.
+
+- **File split for new section components.** New settings
+  sub-sections live in
+  `components/settings/<feature>/{section,list,dialog}.tsx` —
+  set during Commit 3 to start paying down the 1000+ LOC
+  `settings-client.tsx` debt. v1.1 backlog includes extracting
+  the existing inline subsections.
+
+### Phase 11 Refinement v1.1 backlog
+
+- [ ] `usePermission` loading-state flicker — admin sees write
+  actions briefly hidden on settings page load. Requires
+  distinguishing 'loading' from 'no permission' in hook return
+  shape; touches all settings sections.
+- [ ] Extract existing `settings-client.tsx` inline subsections
+  (`ApiKeysSection`, `ModuleSettingsTab`) to
+  `components/settings/<feature>/` directories matching the new
+  pattern.
+- [ ] Combobox-with-status-badge for instance dropdown — replace
+  HTML5 datalist (plain-text only) with Popover + Command
+  Combobox that renders status badges inline.
+- [ ] E.164 regex validation for `recipient_phone` — fast feedback
+  on bad input.
+- [ ] Warning banner: "agent has follow-ups but no active
+  setting" — surface at top of Settings tab and/or My Work Inbox.
+- [ ] Sayed personal WhatsApp number setup — operational task to
+  enable end-to-end live verification of follow-up reminder WA
+  delivery.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

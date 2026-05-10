@@ -467,6 +467,83 @@ Decisions" → "Phase 11 v1.1 backlog":
 
 ---
 
+## CRM Phase 11 Refinement — Agent WhatsApp Settings Layer ✅ (6/6)
+
+**Status:** Complete. Decouples "which Evolution instance sends" from
+"which agent receives" so a single shared instance can serve multiple
+agents, each routed to their own WhatsApp number. Resolves the silent-
+skip bug where Phase 11's cron required each agent to OWN a connected
+`pyra_whatsapp_instances` row (in production only `elharm`/admin owned
+`pyraai`; sayed's reminders never reached WhatsApp under the old model).
+
+### Origin
+
+Surfaced during Phase 11 ops setup (n8n PyraCRM_Cron + first-tick
+verification). The architectural decision — separate
+`pyra_agent_whatsapp_settings` table + Settings UI + cron logic update,
+preserving `pyra_whatsapp_instances` as the Evolution-API wiring layer
+untouched — was locked before any code was written.
+
+### Sub-step commits
+
+| # | Sub-step | Commit | What landed |
+|---|---|---|---|
+| 1 | Migration 014 | `4a4b03f` | `pyra_agent_whatsapp_settings` table — `agent_username UNIQUE FK→pyra_users ON DELETE CASCADE`, partial index on `is_active=true`, BEFORE UPDATE trigger for `updated_at` |
+| 2 | API routes + hook | `851b70e` | GET (list, enriched) + POST + PATCH `[id]` + DELETE `[id]`; hook `useAgentWhatsAppSettings` (4 functions); routability probes confirmed 401 gates fire |
+| 3 | Settings UI tab | `fe82a8a` | "إعدادات WhatsApp للفريق" tab + section component split into `section.tsx` + `list.tsx` + `dialog.tsx` (file-split debt paydown). Built via orchestra (Implementer A + B parallel + Reviewer flagged 4 issues, all fixed pre-push) |
+| 4 | Cron logic update | `1ca221d` | Two-step lookup: settings (active=true) → instance (status=connected). Counter rename: `skipped_no_instance` → `skipped_no_setting` + new `skipped_instance_offline`. All graceful-degradation paths preserved. Built via orchestra (Implementer + Reviewer FIRST CLEAN PASS, zero findings) |
+| 5 | Test feedback fixes | (skipped) | Reviewer in Commit 4 found zero actionable issues; no targeted fixes needed. Any organic issues that surface during real usage become v1.1 backlog items |
+| 6 | Closure | (this commit) | CRM-PROGRESS.md + CLAUDE.md docs + 6-item v1.1 backlog |
+
+### Multi-agent orchestra adoption
+
+This was the first phase to use the new orchestra operating mode end-to-end:
+
+- **Commit 3 orchestra:** 2 Implementers parallel (`list.tsx` + `dialog.tsx`) → Reviewer (`feature-dev:code-reviewer`, independent context) flagged **4 issues**:
+  1. `isActive` form default = `true` violated Q-R-3 (Critical)
+  2. `+{recipient_phone}` display caused copy-paste-into-Edit corruption risk (High)
+  3. `as unknown as FetchedUser[]` cast unnecessary (High)
+  4. `addOpen` / `editTarget` not mutually exclusive — race risk on rapid double-click (High)
+  
+  All 4 addressed in Lead synthesis before push. Reviewer also flagged 2 medium-priority items: one verified-false-positive (server message IS surfaced via `mutateAPI`'s `pickServerMessage`), one v1.1-deferred (`usePermission` loading flicker).
+
+- **Commit 4 orchestra:** Single Implementer + Reviewer → **first clean pass, zero findings** across all 5 focus areas (graceful degradation, counter rename consistency, Q-11-1 preservation, parameter binding safety, idempotency semantics). Reviewer self-corrected a flagged-then-withdrawn issue on the lead-not-found branch — transparent reasoning, not rubber-stamping.
+
+The 4-vs-0 ratio across the two orchestra rounds confirms calibration: Reviewer surfaces real issues when they exist (Commit 3) and doesn't manufacture noise when they don't (Commit 4).
+
+### Locked decisions (see CLAUDE.md)
+
+7 Q-R answers + 5 implementation invariants are locked in `CLAUDE.md` →
+"## CRM Phase 11 Refinement — Locked Decisions".
+
+### v1.1 backlog (6 items)
+
+- [ ] **`usePermission` loading-state flicker** — admin sees write
+  actions briefly hidden on every settings page load. Requires
+  distinguishing 'loading' from 'definitively no permission' in the
+  hook return shape. Touches all settings sections.
+- [ ] **Settings-client.tsx subsection extraction** — apply the
+  `components/settings/agent-whatsapp-settings/` directory pattern
+  to the existing inline `ApiKeysSection` + `ModuleSettingsTab` so
+  the file shrinks toward CLAUDE.md's "<300 LOC" target.
+- [ ] **Combobox-with-status-badge for instance dropdown** — replace
+  the HTML5 datalist (plain-text suggestions only) with a Popover +
+  Command Combobox that renders inline status badges
+  ("pyraai 🟢 connected").
+- [ ] **E.164 regex validation for `recipient_phone`** — deferred
+  from Q-R-4. Pyramedia is UAE-primary (`+971xxxxxxxxx`); regex
+  `/^\d{10,15}$/` covers it.
+- [ ] **Warning banner: "agent has follow-ups but no active
+  setting"** — deferred from Q-R-5. Surface at the top of the
+  Settings tab and/or My Work Inbox to prevent silent-skip surprises.
+- [ ] **Sayed personal WhatsApp number setup** — operational task,
+  not code. Once Sayed's WA number is captured, admin populates the
+  routing row via the new UI and Phase 11's exit-gate test 3
+  (follow-up reminder fires WA to agent) becomes end-to-end
+  verifiable.
+
+---
+
 ## CRM Phase 11.5 — Lead-Client Linking UI ⏳ NEW
 
 **Why it exists:** the manual SQL fix done during Phase 11 (linking
