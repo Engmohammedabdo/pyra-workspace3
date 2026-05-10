@@ -16,14 +16,25 @@ import { notify } from '@/lib/notifications/notify';
 //   - SELECT pending follow-ups where reminder_at <= NOW() AND
 //     whatsapp_reminder_sent = false AND send_whatsapp_reminder = true
 //     (uses the partial index added in migration 013)
-//   - For each row: send a WhatsApp REMINDER TO THE AGENT (Q-C3-1 a) via
-//     their connected instance, then flip whatsapp_reminder_sent = true,
-//     then in-app notify the agent
+//   - For each row: resolve the agent's WhatsApp routing config
+//     (Phase 11 Refinement — migration 014, pyra_agent_whatsapp_settings),
+//     send a WhatsApp REMINDER TO THE AGENT (Q-C3-1 a) via the
+//     configured shared sender instance, then flip
+//     whatsapp_reminder_sent = true, then in-app notify the agent
 //
 // Reminder destination (Q-C3-1 a): the message goes to the AGENT's
 // WhatsApp number, not the lead's. This is a "do this thing" reminder
 // for the salesperson, not customer outreach. The lead's name + phone
 // appear in the message body for context.
+//
+// Routing model (Phase 11 Refinement — migration 014):
+//   "Which Evolution instance sends" is decoupled from "which agent
+//   receives". Admin maintains per-agent rows in
+//   pyra_agent_whatsapp_settings; one shared instance (e.g. 'pyraai')
+//   can serve multiple agents, each routed to their own recipient
+//   phone. Pre-Phase-11 the cron required each agent to OWN a
+//   connected pyra_whatsapp_instances row, which silently skipped all
+//   reminders for agents who didn't own one (only the admin did).
 //
 // Sequential await loop (Q-C3-3 e — no row cap; sequential serves as
 // natural rate-limiting). v1.1 may add Promise.all batching with a
@@ -59,10 +70,13 @@ interface LeadRow {
 
 interface InstanceRow {
   instance_name: string;
-  agent_username: string;
-  phone_number: string | null;
   status: string | null;
   last_connected_at: string | null;
+}
+
+interface AgentWaSettingRow {
+  sender_instance_name: string;
+  recipient_phone: string;
 }
 
 interface ProcessError {
@@ -155,7 +169,8 @@ export async function POST(request: NextRequest) {
     );
 
     let sent = 0;
-    let skippedNoInstance = 0;
+    let skippedNoSetting = 0;
+    let skippedInstanceOffline = 0;
     let skippedNoPhone = 0;
     const errors: ProcessError[] = [];
 
@@ -176,21 +191,50 @@ export async function POST(request: NextRequest) {
           // dangle the link, but at least surfaces the issue.
         }
 
-        // Agent's connected WA instance lookup (Q-11-1)
-        const { data: instData } = await supabase
-          .from('pyra_whatsapp_instances')
-          .select('instance_name, agent_username, phone_number, status, last_connected_at')
+        // Agent's WhatsApp routing config (Phase 11 Refinement —
+        // migration 014). Decouples "which Evolution instance sends" from
+        // "which agent receives". Admin maintains per-agent rows in
+        // pyra_agent_whatsapp_settings; one shared instance can serve
+        // multiple agents, each routed to their own recipient phone.
+        //
+        // Two-step lookup:
+        //   1. Agent's active routing row (settings table)
+        //   2. Hard-validate the configured sender instance is currently
+        //      connected (pyra_whatsapp_instances)
+        // Either step missing → graceful skip + in-app notify still fires.
+        //
+        // Trust boundary: row.assigned_to comes from the prior workspace-
+        // controlled SELECT (pyra_sales_follow_ups.assigned_to is set by
+        // staff during follow-up creation, never end-user input). Both
+        // lookups use Supabase parameterized .eq() — no raw SQL concat.
+
+        // Step 1 — agent's active routing config.
+        const { data: settingData } = await supabase
+          .from('pyra_agent_whatsapp_settings')
+          .select('sender_instance_name, recipient_phone')
           .eq('agent_username', row.assigned_to)
-          .eq('status', 'connected')
-          .order('last_connected_at', { ascending: false, nullsFirst: false })
-          .limit(1)
+          .eq('is_active', true)
           .maybeSingle();
-        const instance = instData as InstanceRow | null;
+        const setting = settingData as AgentWaSettingRow | null;
 
-        const agentNumber = normalizePhone(instance?.phone_number ?? null);
+        // Step 2 — hard-validate the configured sender instance is
+        // currently connected. Soft-validation at config write time is
+        // not enough; instance status flaps independently of the row.
+        let instance: InstanceRow | null = null;
+        if (setting?.sender_instance_name) {
+          const { data: instData } = await supabase
+            .from('pyra_whatsapp_instances')
+            .select('instance_name, status, last_connected_at')
+            .eq('instance_name', setting.sender_instance_name)
+            .eq('status', 'connected')
+            .maybeSingle();
+          instance = instData as InstanceRow | null;
+        }
 
-        // ── Send WhatsApp to agent's number via their instance ──
-        if (instance && agentNumber) {
+        const agentNumber = normalizePhone(setting?.recipient_phone ?? null);
+
+        // ── Send WhatsApp to agent's number via configured sender instance ──
+        if (setting && instance && agentNumber) {
           const messageText = buildReminderMessage({
             leadName: lead?.name ?? '—',
             leadPhone: normalizePhone(lead?.phone ?? null),
@@ -214,16 +258,31 @@ export async function POST(request: NextRequest) {
             // Per the idempotency trade-off documented at file top: STILL
             // flip whatsapp_reminder_sent=true below to avoid storm risk.
           }
-        } else if (!instance) {
-          skippedNoInstance++;
+        } else if (!setting) {
+          // No active routing row for this agent. Admin hasn't set one
+          // up (or has flipped is_active=false). In-app notify still
+          // fires below.
+          skippedNoSetting++;
           console.warn(
-            `[cron/follow-up-reminders] follow-up ${row.id} skipped — no connected WA instance for agent ${row.assigned_to}, falling back to in-app only`,
+            `[cron/follow-up-reminders] follow-up ${row.id} skipped — no active pyra_agent_whatsapp_settings row for agent ${row.assigned_to}, falling back to in-app only`,
+          );
+        } else if (!instance) {
+          // Setting exists but the configured sender instance is not
+          // currently status='connected' (or the named instance row is
+          // missing entirely). Evolution flapping or admin renamed the
+          // instance without updating the setting.
+          skippedInstanceOffline++;
+          console.warn(
+            `[cron/follow-up-reminders] follow-up ${row.id} skipped — configured sender instance ${setting.sender_instance_name} is offline or missing for agent ${row.assigned_to}, falling back to in-app only`,
           );
         } else {
-          // instance exists but no usable phone_number on it
+          // Setting exists, instance connected, but recipient_phone
+          // normalized to null (empty / invalid). Defence-in-depth —
+          // recipient_phone is NOT NULL in the DB so this branch is
+          // theoretically unreachable, but kept to surface bad data.
           skippedNoPhone++;
           console.warn(
-            `[cron/follow-up-reminders] follow-up ${row.id} skipped — instance ${instance.instance_name} has no phone_number, falling back to in-app only`,
+            `[cron/follow-up-reminders] follow-up ${row.id} skipped — recipient_phone empty after normalize for agent ${row.assigned_to}, falling back to in-app only`,
           );
         }
 
@@ -259,7 +318,8 @@ export async function POST(request: NextRequest) {
     return apiSuccess({
       processed: rows.length,
       sent,
-      skipped_no_instance: skippedNoInstance,
+      skipped_no_setting: skippedNoSetting,
+      skipped_instance_offline: skippedInstanceOffline,
       skipped_no_phone: skippedNoPhone,
       errors,
     });
