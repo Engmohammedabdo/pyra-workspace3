@@ -21,10 +21,12 @@ import {
   ChevronLeft, Sparkles, ExternalLink, CalendarDays, Award, TrendingUp,
   CreditCard, Eye, EyeOff, Bell, ArrowDownCircle, Percent, Mail, Lock,
   Search, Info, Lightbulb, ChevronDown, ChevronUp, AlertCircle, Kanban,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
 import Link from 'next/link';
+import AgentWhatsAppSettingsSection from '@/components/settings/agent-whatsapp-settings/section';
 
 interface SettingsMap {
   [key: string]: string;
@@ -175,6 +177,7 @@ const SUB_SETTINGS = [
 const TABS = [
   { key: 'general', label: 'عام', icon: Settings },
   { key: 'api-keys', label: 'مفاتيح API', icon: Key },
+  { key: 'agent-whatsapp', label: 'إعدادات WhatsApp للفريق', icon: MessageCircle },
   { key: 'modules', label: 'إعدادات الأنظمة', icon: Sparkles },
 ];
 
@@ -1051,6 +1054,8 @@ export default function SettingsClient() {
       )}
 
       {activeTab === 'api-keys' && <ApiKeysSection />}
+
+      {activeTab === 'agent-whatsapp' && <AgentWhatsAppSettingsSection />}
 
       {activeTab === 'modules' && <ModuleSettingsTab />}
 
