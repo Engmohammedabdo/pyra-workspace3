@@ -1107,6 +1107,136 @@ reminders elsewhere. Admin-only is the right scope.
   enable end-to-end live verification of follow-up reminder WA
   delivery.
 
+## CRM Phase 11.5 — Locked Decisions
+
+These are **intentional, documented deviations** from the
+pre-Phase 11.5 design, locked during Phase 11.5 closure. **Do NOT
+re-litigate.** Phase 11.5 adds the "ربط بعميل موجود" admin UI for
+linking a `pyra_sales_leads` row to an existing `pyra_clients` row
+(the workflow previously handled by SQL manual intervention — the
+Dr. Ahmed Mamoun precedent at activity `la_5a8173108128e943`).
+
+### 1. Hide button when already linked — no "تغيير الربط" UX in v1 (Q1)
+
+When `lead.client_id !== null`, the "ربط بعميل موجود" button is
+hidden entirely. There is no in-UI re-link / unlink flow. Admin
+SQL-manual remains the escape hatch for the rare correction case.
+
+**Rationale:** simplicity + safety. Re-linking is rare; the cost
+of UI complexity (a "تغيير" button + an unlink confirmation
+dialog) outweighs the benefit for a 2-user team. v1.1 backlog
+includes the unlink mechanism if usage demands it.
+
+### 2. GET response extended with `client_name` (one round trip) (Q2)
+
+`GET /api/crm/leads/[id]` now performs a secondary fetch on
+`pyra_clients` when `lead.client_id` is set, and returns
+`lead.client_name` in the response. The UI renders the
+"مرتبط بـ {client_name}" badge from this single response — no
+second `useClient()` hook call, no badge-loading flicker.
+
+**Rationale:** one round trip beats two. Cost: ~5 LOC of
+conditional SELECT in the route handler; skipped entirely when
+`client_id` is null.
+
+### 3. Permission = `leads.update` + `canAccessLead()` (Q3)
+
+The endpoint uses the two-step gate matching the PATCH lead route,
+NOT the heavier `leads.manage` that convert-to-customer uses.
+
+**Rationale:** linking is a lighter operation than conversion
+(no new `pyra_clients` row created). Sales agents should be able
+to link their own leads to existing customers as part of their
+day-to-day pipeline workflow. `canAccessLead()` already scopes
+agents to their own leads.
+
+### 4. Activity log shape preserves spec consistency (Q4)
+
+The `pyra_lead_activities` insert uses:
+
+- `activity_type = 'field_updated'` (reuse, no new constant —
+  the existing timeline renderer at `activity-item.tsx:93-95`
+  auto-produces the Arabic title from `metadata.field`)
+- `metadata.field = 'client_id'`
+- `metadata.source = 'manual_link_via_ui'` (distinguishes UI
+  events from the manual fix's `manual_link_pre_phase_11_5`)
+- `metadata.client_id` + `metadata.lead_stage_at_link`
+
+**Rationale:** reuse over invention. The existing timeline
+machinery handles `field_updated` activities; introducing a new
+type would require new label entries, new variant config, and
+new audit query patterns for negligible benefit.
+
+### 5. No name correction in v1 modal (Q5)
+
+The modal is single-purpose: client search + select + confirm.
+Name correction is NOT bundled in. Admin uses the existing lead
+edit (PATCH) flow if a name differs at link time.
+
+**Rationale:** keeps Phase 11.5 surgical (~1 hour total scope).
+Bundling name correction would add modal complexity + decision
+points that the v1 user (admin) doesn't need.
+
+### Architectural principle: action_type vs metadata.source
+
+**LOCKED Phase 11.5.** When writing to `pyra_activity_log` via
+`logActivity()`:
+
+- `action_type` parameter — ALWAYS use the
+  `` `${ENTITY_TYPES.X}_${ACTIVITY_ACTIONS.Y}` `` pattern, where
+  both halves come from the constants exported in
+  `lib/api/activity.ts`. Examples: `'lead_update'`,
+  `'invoice_create'`, `'expense_approve'`.
+- Specificity — when an action category has multiple "flavours"
+  (e.g. PATCH-lead vs link-client are both `lead_update`), the
+  specific flavour goes in `metadata.source` (free-form string).
+  Example: `metadata.source = 'manual_link_via_ui'`.
+- Reasoning — `action_type` is "what category of action";
+  `metadata.source` is "what flavour".
+
+**Why this pattern:**
+
+1. **Type safety.** Constants are TypeScript-checked; hardcoded
+   strings like `'lead_linked_to_client'` are typo-vulnerable.
+2. **Analytics simplicity.** Queries like "all lead updates in
+   period N" stay simple with a generic `action_type`. Drift to
+   specific strings makes audit dashboards painful.
+3. **Pattern consistency.** Once a codebase has constants in
+   place, bypassing them for "self-documenting strings" is a
+   slippery slope — every new flavour could justify its own
+   specific string, gradually eroding the constant system.
+4. **Specificity isn't lost.** `metadata.source` carries the
+   exact flavour, and `details` carries the full context. The
+   audit-log reader sees both `action_type` (for filtering) and
+   the metadata (for understanding the specific event).
+
+This principle was discovered during Phase 11.5 orchestra review:
+Implementer A initially used a specific `'lead_linked_to_client'`
+string; Reviewer flagged the pattern violation; Lead Architect
+initially rejected the flag (favoring audit specificity); user
+override revealed the architectural insight that constants +
+metadata.source give us both properties (consistency AND
+specificity) without trade-off.
+
+**Applies to:** all future `logActivity()` calls. Existing
+violations (e.g. any pre-Phase-11.5 code that used specific
+strings) are v1.1 backlog cleanup, not blocking.
+
+### Phase 11.5 v1.1 backlog
+
+- [ ] **Unlink mechanism** — admin UI to detach a lead from its
+  current client. Deferred per Q1; admin SQL-manual is the
+  escape hatch until usage demands it.
+- [ ] **Bulk link from leads list** — multi-select leads + assign
+  to a single client. Deferred (low volume in v1).
+- [ ] **Auto-suggest based on phone match** — when opening the
+  modal, pre-select likely matches based on `lead.phone` vs
+  `pyra_clients.phone` similarity. Quality-of-life improvement.
+- [ ] **Audit-log action_type cleanup** — sweep existing
+  `logActivity()` call sites for hardcoded strings that don't
+  follow the `${ENTITY_TYPES}_${ACTIVITY_ACTIONS}` pattern.
+  Migrate to constants + metadata.source.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

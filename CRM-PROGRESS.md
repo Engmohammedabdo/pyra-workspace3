@@ -544,13 +544,38 @@ The 4-vs-0 ratio across the two orchestra rounds confirms calibration: Reviewer 
 
 ---
 
-## CRM Phase 11.5 — Lead-Client Linking UI ⏳ NEW
+## CRM Phase 11.5 — Lead-Client Linking UI ✅ DONE
 
-**Why it exists:** the manual SQL fix done during Phase 11 (linking
-lead `sl_tFTPtCSnL6WGCkEj` to client `cl_fNmkTFThd3rSvM-p`)
-revealed there's no admin UI for the "this lead is actually our
-existing client X" workflow. Convert-to-customer creates a NEW
-client; this is for matching to an EXISTING one.
+**Status:** Complete. UI exposes the "ربط بعميل موجود" workflow that
+previously required SQL manual intervention. Replaces the manual
+Dr. Ahmed Mamoun precedent (activity row `la_5a8173108128e943`).
+
+### Sub-step commits
+
+| # | Sub-step | Commit | What landed |
+|---|---|---|---|
+| 1 | API + UI + integration | `fb7da8a` | 6 files: new POST endpoint (`leads.update` + `canAccessLead()`); new modal component (Dialog + Command + debounced search via `useDebounce`); GET response extended with `client_name`; new `useLinkClient` hook; lead header gets linked-client badge (sky-500 palette, clickable to `/dashboard/clients/[id]`) + admin actions row with "ربط بعميل موجود" button; lead-detail-client wires modal state + handler (conditional mount). |
+| 2 | Closure | (this commit) | CRM-PROGRESS.md + CLAUDE.md docs + locked architectural principle (action_type + metadata.source separation) |
+
+### Multi-agent orchestra results
+
+- **Investigator** (`feature-dev:code-explorer`): 5-task report verified spec consistency with the Dr. Ahmed Mamoun manual fix; identified the picker UI pattern (Dialog + Command + CommandInput with `useClients({ search })`); surfaced 5 open questions for Lead Architect (all resolved before Phase 3).
+- **Implementer A** (`general-purpose`): API endpoint (`app/api/crm/leads/[id]/link-client/route.ts`).
+- **Implementer B** (`general-purpose`, parallel with A): modal component (`components/crm/lead-detail/link-client-modal.tsx`).
+- **Reviewer** (`feature-dev:code-reviewer`, independent context): **3 findings, all 3 applied:**
+  1. `logActivity` action_type pattern consistency — initially rejected by Lead Architect (favoured audit specificity), **reverted to APPLY per user override** for pattern consistency. Action_type now uses `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`; specificity lives in `metadata.source = 'manual_link_via_ui'`.
+  2. Conditional modal mount in `lead-detail-client.tsx` (`{linkClientOpen && <LinkClientModal ... />}`) — prevents `useClients` query firing on every lead detail page load when the modal is closed.
+  3. Drop `aria-selected={isSelected}` on `CommandItem` — cmdk uses `data-[selected]` for its keyboard-cursor semantic; conflating with our chosen-row state confuses screen readers. Visual cue via border + Check icon suffices.
+
+The Reviewer's first-finding override was the most valuable: it surfaced an architectural pattern decision (action_type uses constants; metadata.source carries specificity) that's now locked in `CLAUDE.md` → "## CRM Phase 11.5 — Locked Decisions" for future activity-log writes.
+
+### Why it exists (original justification)
+
+The manual SQL fix done during Phase 11 (linking lead
+`sl_tFTPtCSnL6WGCkEj` to client `cl_fNmkTFThd3rSvM-p`) revealed
+there's no admin UI for the "this lead is actually our existing
+client X" workflow. Convert-to-customer creates a NEW client; this
+is for matching to an EXISTING one.
 
 **Position in execution order:** between Phase 11 and Phase 10
 (see "Execution order note" at the top of this file).
