@@ -49,6 +49,19 @@ export async function GET(
     }
     if (!lead) return apiNotFound('Lead غير موجود');
 
+    // Phase 11.5: when the lead is linked to a client, fetch the client's
+    // name so the UI can render the "مرتبط بـ {client_name}" badge without
+    // a second round trip. Skipped entirely when client_id is null.
+    let clientName: string | null = null;
+    if (lead.client_id) {
+      const { data: client } = await supabase
+        .from('pyra_clients')
+        .select('name')
+        .eq('id', lead.client_id)
+        .maybeSingle();
+      clientName = client?.name ?? null;
+    }
+
     // Fan out the dependent reads in parallel.
     const [contractsRes, activityRes, followUpsRes] = await Promise.all([
       supabase
@@ -91,7 +104,7 @@ export async function GET(
     }
 
     return apiSuccess({
-      lead,
+      lead: { ...lead, client_name: clientName },
       contracts,
       invoices,
       payments_summary: {

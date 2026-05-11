@@ -20,6 +20,7 @@ import { LeadStagePill } from '@/components/crm/lead/lead-stage-pill';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
+  Link2, UserCheck,
 } from 'lucide-react';
 import {
   PIPELINE_STAGE_LABELS_AR,
@@ -32,12 +33,18 @@ import type { PipelineStage } from '@/hooks/usePipelineStages';
 
 interface LeadHeaderProps {
   lead: PyraSalesLead;
+  /** Joined from GET /api/crm/leads/[id] when lead.client_id is set (Phase 11.5). */
+  client_name?: string | null;
   /** Stage rows so we can pull the correct color for the pill. */
   stages?: PipelineStage[];
   /** Switch to the Activity tab and focus the note composer. */
   onAddNote?: () => void;
   /** Open the Schedule Follow-up modal. */
   onScheduleFollowUp?: () => void;
+  /** Open the Link-Client modal (Phase 11.5). Admin actions row hidden when undefined. */
+  onLinkClient?: () => void;
+  /** Whether current user has leads.update permission. Required for the Link button visibility. */
+  canLinkClient?: boolean;
 }
 
 function initials(name: string): string {
@@ -53,7 +60,15 @@ function whatsAppHref(phone: string | null | undefined, name: string | null | un
   return `https://wa.me/${digits}?text=${encodeURIComponent(greeting)}`;
 }
 
-export function LeadHeader({ lead, stages, onAddNote, onScheduleFollowUp }: LeadHeaderProps) {
+export function LeadHeader({
+  lead,
+  client_name,
+  stages,
+  onAddNote,
+  onScheduleFollowUp,
+  onLinkClient,
+  canLinkClient,
+}: LeadHeaderProps) {
   const stage = stages?.find((s) => s.id === lead.stage_id);
   const stageLabel = stage?.name_ar
     ?? (lead.stage_id ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId] : null);
@@ -115,6 +130,26 @@ export function LeadHeader({ lead, stages, onAddNote, onScheduleFollowUp }: Lead
                     احتمال الفوز · {lead.win_probability}%
                   </Badge>
                 )}
+                {/* Phase 11.5 — linked-client badge. Clickable Link to the client page. */}
+                {lead.client_id && client_name && (
+                  <Link
+                    href={`/dashboard/clients/${lead.client_id}`}
+                    className="inline-flex"
+                    aria-label={`عرض حساب العميل ${client_name}`}
+                  >
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-200 dark:border-sky-800/40',
+                        'max-md:bg-sky-500/20 max-md:text-sky-200 max-md:border-sky-400/30',
+                        'hover:bg-sky-500/20 dark:hover:bg-sky-500/20 transition-colors',
+                      )}
+                    >
+                      <Link2 className="size-3 me-1" />
+                      مرتبط بـ {client_name}
+                    </Badge>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -161,6 +196,23 @@ export function LeadHeader({ lead, stages, onAddNote, onScheduleFollowUp }: Lead
               <CalendarPlus className="size-4 me-1.5" /> متابعة
             </Button>
           </div>
+
+          {/* Phase 11.5 — admin actions row. Visible only when:
+              (a) the lead is not yet linked to a client (Q1 — no re-link UI in v1),
+              (b) the current user has leads.update permission,
+              (c) the parent provides the onLinkClient callback (defensive). */}
+          {!lead.client_id && canLinkClient && onLinkClient && (
+            <div className="mt-4 pt-4 border-t border-border/50 max-md:border-white/10">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onLinkClient}
+                className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+              >
+                <UserCheck className="size-4 me-1.5" /> ربط بعميل موجود
+              </Button>
+            </div>
+          )}
         </div>
       </div>
     </div>

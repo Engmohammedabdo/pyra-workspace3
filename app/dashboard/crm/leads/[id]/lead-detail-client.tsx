@@ -19,12 +19,14 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, LayoutDashboard, Activity, FileSignature, FolderOpen, StickyNote } from 'lucide-react';
-import { useLead } from '@/hooks/useLeads';
+import { useLead, useLinkClient } from '@/hooks/useLeads';
+import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeadActivities } from '@/hooks/useLeadActivities';
 import { LeadHeader } from '@/components/crm/lead-detail/lead-header';
@@ -36,6 +38,7 @@ import { LeadFilesTab } from '@/components/crm/lead-detail/lead-files-tab';
 import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
 import { LeadSidebar } from '@/components/crm/lead-detail/lead-sidebar';
 import { FollowUpModal } from '@/components/crm/follow-up-modal/follow-up-modal';
+import LinkClientModal from '@/components/crm/lead-detail/link-client-modal';
 
 const VALID_TABS = ['overview', 'activity', 'deals', 'files', 'notes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -56,6 +59,19 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     ? (tabParam as TabKey)
     : 'overview';
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [linkClientOpen, setLinkClientOpen] = useState(false);
+  const canLinkClient = usePermission('leads.update');
+  const linkClientMutation = useLinkClient();
+
+  const handleLinkClient = async (clientId: string) => {
+    try {
+      await linkClientMutation.mutateAsync({ leadId, clientId });
+      toast.success('تم الربط بنجاح');
+      setLinkClientOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل الربط');
+    }
+  };
 
   const { data, isLoading, error } = useLead(leadId);
   const { data: stages } = usePipelineStages();
@@ -113,11 +129,27 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     <div className="space-y-4">
       <LeadHeader
         lead={lead}
+        client_name={data.lead.client_name ?? null}
         stages={stages}
         onAddNote={() => switchTab('activity')}
         onScheduleFollowUp={() => setFollowUpOpen(true)}
+        onLinkClient={() => setLinkClientOpen(true)}
+        canLinkClient={canLinkClient}
       />
       <FollowUpModal open={followUpOpen} onOpenChange={setFollowUpOpen} leadId={lead.id} />
+      {/* Phase 11.5 — conditional mount: the modal owns a useClients query that
+          should NOT fire on every lead detail page load (Reviewer finding 2).
+          Trade-off: loses Dialog exit animation (modal unmounts on close); the
+          net win is meaningful network savings on every lead detail visit. */}
+      {linkClientOpen && (
+        <LinkClientModal
+          leadId={leadId}
+          open={linkClientOpen}
+          onClose={() => setLinkClientOpen(false)}
+          onConfirm={handleLinkClient}
+          confirming={linkClientMutation.isPending}
+        />
+      )}
       <LeadStatStrip lead={lead} lastActivityAt={latestActivityAt} />
 
       <Tabs value={activeTab} onValueChange={(v) => switchTab(v as TabKey)} className="space-y-4">

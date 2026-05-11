@@ -18,7 +18,7 @@ export interface LeadsListResponse {
 }
 
 export interface LeadDetail {
-  lead: PyraSalesLead;
+  lead: PyraSalesLead & { client_name?: string | null };
   contracts: Array<{
     id: string;
     title: string | null;
@@ -209,6 +209,33 @@ export function useArchiveLead() {
     onSuccess: (_res, id) => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', id] });
+    },
+  });
+}
+
+// ── Phase 11.5: Link a lead to an existing pyra_clients row ──
+// POST /api/crm/leads/[id]/link-client → see route for full contract.
+// Does NOT flip is_converted (that's the separate convert-to-customer flow).
+
+export interface LinkClientInput {
+  leadId: string;
+  clientId: string;
+}
+
+export interface LinkClientResponse {
+  lead_id: string;
+  client_id: string;
+  client_name: string;
+}
+
+export function useLinkClient() {
+  const qc = useQueryClient();
+  return useMutation<LinkClientResponse, Error, LinkClientInput>({
+    mutationFn: ({ leadId, clientId }) =>
+      mutateAPI(`/api/crm/leads/${leadId}/link-client`, 'POST', { client_id: clientId }),
+    onSuccess: (_res, vars) => {
+      qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.leadId] });
+      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
     },
   });
 }
