@@ -161,7 +161,12 @@ export const PERMISSIONS = {
   CONTENT_PIPELINE_VIEW: 'content_pipeline.view',
   CONTENT_PIPELINE_MANAGE: 'content_pipeline.manage',
 
-  // Sales & Call Center (legacy /dashboard/sales/* — preserved until Phase 12 sunset)
+  // Sales & Call Center — legacy /dashboard/sales/* PROTECTED routes (post-
+  // Phase 12 sunset). These permissions still gate the 5 routes that
+  // intentionally survived the sunset: chat, whatsapp-analytics,
+  // whatsapp-campaigns, approvals (quote workflow), settings. Renaming
+  // to a generic `sales.*` namespace is v1.1 backlog (touches many call
+  // sites).
   SALES_VIEW: 'sales.view',
   SALES_MANAGE: 'sales.manage',
   SALES_LEADS_VIEW: 'sales_leads.view',
@@ -177,7 +182,9 @@ export const PERMISSIONS = {
 
   // ── CRM rebuild (CRM-PRD/03-API-AND-PERMISSIONS.md § New RBAC Permissions) ──
   // The new /dashboard/crm/* surface uses this namespace. Legacy sales_leads.*
-  // kept above so /dashboard/sales/* keeps working until Phase 12 sunset.
+  // kept above for the PROTECTED /dashboard/sales/* routes that survived
+  // Phase 12 sunset (chat, whatsapp-analytics, whatsapp-campaigns, approvals,
+  // settings). Permission renaming + call-site migration are v1.1 backlog.
   LEADS_VIEW:        'leads.view',         // see own leads (sales_agent), all leads (admin)
   LEADS_CREATE:      'leads.create',
   LEADS_UPDATE:      'leads.update',       // edit own lead fields (excluding closed_won transition)
@@ -685,7 +692,9 @@ const ROLE_EXTRAS: Record<string, string[]> = {
   employee: [],  // Employee = BASE_EMPLOYEE only (no extras)
 
   sales_agent: [
-    // Legacy Sales (until Phase 12 sunset of /dashboard/sales/*)
+    // Legacy Sales — gates the PROTECTED /dashboard/sales/* routes that
+    // survived Phase 12 sunset (chat, whatsapp-analytics, whatsapp-campaigns,
+    // approvals, settings). v1.1 backlog: rename to a generic namespace.
     'sales.view',
     'sales_leads.view',
     'sales_leads.create',

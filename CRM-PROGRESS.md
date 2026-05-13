@@ -710,9 +710,87 @@ and Apple-icon links 404 gracefully — browsers fall back to SVGs
   sidebar Sheet were chosen via reasoning, not visual test on a
   real device. If either feels wrong, one-line swap.
 
-## CRM Phase 12 — Old Sales Module Sunset ⏳
-Pending. **Scope possibly expanded** based on Phase 10/11.5
-outcomes.
+## CRM Phase 12 — Old Sales Module Sunset ✅ (3/3)
+
+**Status:** Complete. The legacy `/dashboard/sales/*` surface is now
+either REDIRECTed (5 routes) or PROTECTED (5 routes). All internal
+references migrated to the new CRM paths; 17 dead page/component
+files deleted (-1586 LOC); rbac.ts comment markers updated. The CRM
+is now the canonical module.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `78063b7` | Cross-reference cleanup — 25 files modified, +52/-64 LOC. Internal references migrated from `/dashboard/sales/*` REDIRECT routes → `/dashboard/crm/*` equivalents. **CRITICAL email URL fix** at `lib/email/notify.ts:368` (email links bypass middleware). 4 Implementer deviations accepted (semantic upgrades + module-guide collision resolution). Orchestra HIGH (Investigator → Implementer → Reviewer; OVERALL PASS, 1 pre-existing flag for v1.1). |
+| 2 | `272619d` | Page file deletion — 17 files deleted, -1586 LOC. 5 REDIRECT-route page.tsx + 12 sales-only supporting components (5 components/sales/lead-* + 4 sales-overview + 3 leads-list). Middleware redirects survived deletion (3 post-deploy probes PASS). Orchestra LIGHT (Lead solo + Reviewer; OVERALL PASS). |
+| 3 | (this commit) | rbac.ts comment cleanup + closure docs. Legacy `sales.*` permissions retained per Q5 — only the stale "preserved until Phase 12 sunset" comment markers updated to reflect post-sunset PROTECTED-route gating. |
+
+### Classification — final state
+
+| Route | Class | Status |
+|---|---|---|
+| `/dashboard/sales` (root) | REDIRECT | ✅ 307 → `/dashboard/crm` (page file deleted) |
+| `/dashboard/sales/leads` | REDIRECT | ✅ 307 → `/dashboard/crm/pipeline` |
+| `/dashboard/sales/leads/[id]` | REDIRECT | ✅ 307 → `/dashboard/crm/leads/[id]` |
+| `/dashboard/sales/follow-ups` | REDIRECT | ✅ 307 → `/dashboard/crm/follow-ups` |
+| `/dashboard/sales/reports` | REDIRECT | ✅ 307 → `/dashboard/crm` |
+| `/dashboard/sales/chat` | KEEP | ✅ preserved — WhatsApp shared inbox (no CRM equivalent) |
+| `/dashboard/sales/whatsapp-analytics` | KEEP | ✅ preserved — CSAT + SLA analytics |
+| `/dashboard/sales/whatsapp-campaigns` | KEEP | ✅ preserved — bulk WA campaign manager |
+| `/dashboard/sales/approvals` | KEEP | ✅ preserved — `pyra_quote_approvals` workflow (categorically distinct from `/dashboard/crm/approvals`) |
+| `/dashboard/sales/settings` | KEEP → FOLD v1.1 | ✅ preserved this phase; FOLD design decision deferred to v1.1 |
+
+### Routability verification — 3/3 probes PASS post-deploy
+
+```
+GET /dashboard/sales/leads          → 307 Location: /dashboard/crm/pipeline       ✅
+GET /dashboard/sales/leads/sl_test  → 307 Location: /dashboard/crm/leads/sl_test  ✅
+GET /dashboard/sales/follow-ups     → 307 Location: /dashboard/crm/follow-ups     ✅
+```
+
+Middleware behaviour fully intact after page deletion — the only operational risk for this phase, and it survived cleanly.
+
+### Critical safeguard: email URL fix (Commit 1)
+
+`lib/email/notify.ts:368` previously built lead-assignment email URLs
+as `/dashboard/sales/leads/<id>`. **Email URLs do NOT pass through
+Next.js middleware** (mail clients follow URLs directly to the
+origin). Without Commit 1's update, every lead-assignment email sent
+after Commit 2's page deletion would have landed users on a 404. This
+was the single most-load-bearing line of the entire phase.
+
+### Orchestra retrospective
+
+| Commit | Mode | Reviewer findings | Outcome |
+|---|---|---|---|
+| 1 | HIGH | OVERALL PASS (6/6 focus areas); 1 pre-existing flag for v1.1 (approvals/route.ts:20 GET-handler logActivity) | Implementer caught 7 files beyond Investigator's flagged set; 4 deviations accepted (all semantic upgrades or collision resolution) |
+| 2 | LIGHT | OVERALL PASS (4/4 focus areas) | Independent Grep confirmed zero orphan imports + zero stragglers |
+| 3 | DOCS only | — | This commit |
+
+### v1.1 backlog (consolidated)
+
+**Carry-forward from prior phases:**
+- usePermission loading-state flicker
+- Settings-client.tsx subsection extraction
+- Combobox-with-status-badge for instance dropdown
+- E.164 regex validation for recipient_phone
+- Warning banner: "agent has follow-ups but no active setting"
+- Sayed personal WhatsApp number setup (operational, awaiting Abdou)
+- next-pwa plugin migration
+- Push notifications via SW
+- Dashboard widget per-component mobile audit
+- Code-split heavy charts via `dynamic()`
+- Per-chip × removal on FilterBar chip strip
+- Vertical compactness on 375px FilterBar
+- PWA icon PNG upload (operational, awaiting Abdou)
+- Real-device RTL verification for Phase 10 Commit 2 (`side="right"` + ChevronLeft)
+
+**NEW from Phase 12:**
+- **Audit-log hygiene sweep** — remove `logActivity()` calls from GET handlers (trigger example: `approvals/route.ts:20`). Holistic audit across all API routes.
+- **`/dashboard/sales/approvals` rename** — disambiguate from `/dashboard/crm/approvals` (quote workflow vs lead-pipeline approval). Q1 deferred.
+- **`/dashboard/sales/settings` FOLD decision** (Path B from Phase 12 Q2) — move `SalesSettingsContent` into `/dashboard/crm/settings` (new route) OR fold into `/dashboard/settings` existing tabs. Design-heavy, benefits from user input.
+- **`sales.*` permission renaming in rbac.ts** — Q5 deferred. Renaming touches many call sites; better as a holistic refactor.
 
 ## CRM Phase 13 — Visual Polish ⏳ NEW
 Pending. Visual-only finishing pass — typography, spacing,

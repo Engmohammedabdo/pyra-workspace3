@@ -1369,6 +1369,107 @@ items)" for the actionable list. Highlights:
 - Vertical compactness on 375px admin filter bar
 - Visual verification on real device for Commit 2 RTL choices
 
+## CRM Phase 12 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 12 closure (Old Sales Module Sunset). **Do NOT re-litigate.**
+Future sessions encountering legacy `/dashboard/sales/*` references
+should defer to the decisions recorded here.
+
+### 1. Five routes REDIRECTed (page files deleted, middleware 307)
+
+The 5 `/dashboard/sales/*` routes that had direct CRM equivalents
+were sunset in Phase 12:
+- `/dashboard/sales` (bare root) → `/dashboard/crm`
+- `/dashboard/sales/leads` → `/dashboard/crm/pipeline`
+- `/dashboard/sales/leads/[id]` → `/dashboard/crm/leads/[id]`
+- `/dashboard/sales/follow-ups` → `/dashboard/crm/follow-ups`
+- `/dashboard/sales/reports` → `/dashboard/crm`
+
+Their page.tsx files were deleted in Commit 2 (`272619d`). The
+middleware `CRM_REDIRECTS` table (lines 15-23 of `middleware.ts`)
+fires 307 redirects BEFORE Next.js attempts page rendering — so old
+bookmarks, deep links, and historical notification target_paths all
+work transparently.
+
+**Rationale:** complete sunset. The CRM module is feature-complete
+and serves as the canonical destination for these surfaces.
+
+### 2. Five routes PROTECTED (intentionally preserved)
+
+The 5 `/dashboard/sales/*` routes WITHOUT a CRM equivalent stay:
+- `/dashboard/sales/chat` — WhatsApp shared inbox (real-time
+  messaging, conversation routing, CSAT, SLA — orthogonal to CRM
+  lead management)
+- `/dashboard/sales/whatsapp-analytics` — CSAT + SLA dashboards
+- `/dashboard/sales/whatsapp-campaigns` — bulk WA campaign manager
+- `/dashboard/sales/approvals` — `pyra_quote_approvals` workflow
+  (CATEGORICALLY DIFFERENT from `/dashboard/crm/approvals` which is
+  the lead closed-won pipeline approval workflow)
+- `/dashboard/sales/settings` — pipeline stage management,
+  WhatsApp instance wiring, canned responses, SLA policies. FOLD
+  to `/dashboard/crm/settings` is v1.1 backlog (design-heavy).
+
+**Rationale:** these surfaces are genuinely distinct from
+CRM-specific routes. Deleting them would lose user-facing
+functionality with no migration path.
+
+### 3. Email URL bypass-middleware risk
+
+`lib/email/notify.ts:368` builds external email links that mail
+clients follow directly to the origin — **middleware is NOT
+involved**. Phase 12 Commit 1 updated this URL from
+`/dashboard/sales/leads/<id>` to `/dashboard/crm/leads/<id>`. Any
+future code that builds external (email / SMS / WhatsApp) URLs must
+hit the new CRM paths directly — NOT rely on middleware redirects.
+
+**Invariant:** when building URLs for delivery outside the app
+(emails, SMS, WhatsApp message bodies, PDF download links, etc.),
+always use the canonical CRM path. Middleware-redirect-as-cleanup is
+only safe for in-app navigation.
+
+### 4. `sales.*` permissions intentionally preserved
+
+`lib/auth/rbac.ts` still declares the legacy `sales.*`,
+`sales_leads.*`, `sales_whatsapp.*`, `quote_approvals.*` permissions.
+These gate the 5 PROTECTED routes' RBAC. Per Q5 (Phase 12 plan), the
+permission RENAMING was deferred to v1.1 — too many call sites
+touched for a phase that's about sunset, not refactor.
+
+**Rationale:** scope discipline. Phase 12 = sunset only. Renaming
+permissions touches dozens of API routes + components + the
+`buildUserPermissions` helper.
+
+### 5. Module-guide collision-resolution pattern
+
+`lib/config/module-guide.ts` and `app/dashboard/guide/page.tsx`
+SECTIONS array had multiple entries that, after applying the strict
+REDIRECT mapping, would have collided on the same target. Example:
+`/dashboard/sales/reports` and `/dashboard/sales` (bare root) both
+map to `/dashboard/crm`. The Implementer deduplicated by:
+1. Keeping the more-specific entry (or the better description)
+2. Merging keywords/tips from the dropped entry into the survivor
+
+**Invariant:** future redirect-sunset work that collapses N URLs to
+1 destination should dedup the module-guide registry the same way.
+
+### 6. Audit-log target_path semantic upgrades
+
+When updating `logActivity()` target_path values from `/dashboard/
+sales/<bare>` to a REDIRECT mapping, the Implementer was permitted
+to choose a MORE-SPECIFIC destination when one was contextually
+correct. Examples (both accepted by Reviewer):
+- `approvals/route.ts:20` → `/dashboard/sales/approvals` (the
+  PROTECTED page the audit entry actually relates to)
+- `follow-ups/route.ts:99` → `/dashboard/crm/follow-ups` (specific
+  destination > generic dashboard root)
+
+**Invariant:** audit-log destinations should point at the canonical
+page for the action, not the generic dashboard root. When a
+PROTECTED page is the canonical destination, point at it directly
+(audit logs aren't subject to middleware redirects anyway — they're
+internal click-throughs).
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
