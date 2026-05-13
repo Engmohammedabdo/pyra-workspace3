@@ -1,5 +1,10 @@
 # CRM Module — Build Progress
 
+> **🎉 CRM BUILD COMPLETE — 13/13 phases shipped.**
+> Phases 0–9 + 10 + 11 + 11 Refinement + 11.5 + 12 + 13 all closed.
+> Next: v1.1 maintenance scope (operational + code follow-ups
+> documented at the bottom of this file).
+
 Tracks CRM rebuild phases per `/CRM-PRD/05-EXECUTION-PHASES.md`.
 
 > **Phase numbering note:** This is the **CRM-specific** phase tracker.
@@ -792,7 +797,116 @@ was the single most-load-bearing line of the entire phase.
 - **`/dashboard/sales/settings` FOLD decision** (Path B from Phase 12 Q2) — move `SalesSettingsContent` into `/dashboard/crm/settings` (new route) OR fold into `/dashboard/settings` existing tabs. Design-heavy, benefits from user input.
 - **`sales.*` permission renaming in rbac.ts** — Q5 deferred. Renaming touches many call sites; better as a holistic refactor.
 
-## CRM Phase 13 — Visual Polish ⏳ NEW
-Pending. Visual-only finishing pass — typography, spacing,
-motion, empty states, loading shimmers across all CRM surfaces.
-Deferred intentionally so it sits on top of stable functionality.
+## CRM Phase 13 — Visual Polish ✅ (3/3)
+
+**Status:** Complete. Final phase of the CRM rebuild. Visual polish
+pass on the now-stable CRM surfaces. **Phase 9 Q-C2 (gradient cover
+banner deferral) closed in Commit 2.** All P0 + P1 findings shipped;
+P2 deferred to v1.1.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `d73f9b5` | **P0 empty states (3 swaps).** `lead-notes-tab.tsx` + `lead-overview-tab.tsx` (contracts section) + `lead-deals-tab.tsx` (invoices section): inline `<p>` empty stubs replaced with `<EmptyState>` from `@/components/ui/empty-state`. Full-tab notes case uses default `py-16`; subsection cases use `className="py-8"` for visual hierarchy. Inline typo fix: `سينظهر` → `سيظهر`. Reviewer OVERALL PASS. |
+| 2 | `555213c` | **P1 polish bundle (4 fixes).** Sidebar Tags card stripped of "Phase 6" developer language (Q-001a Path B inline compact stub — EmptyState component swap rejected by Reviewer due to visual size mismatch in compact sidebar context). Customer header light warm gradient overlay (Q-002c — closes Phase 9 Q-C2 deferral). Yellow badge dark-mode border pair. Follow-up row hover state (Q-003a). Reviewer CONDITIONAL PASS → Path B applied per established Reviewer-override pattern (Phase 11.5 + Phase 12 precedent). |
+| 3 | (this commit) | Closure docs — CLAUDE.md "## CRM Phase 13 — Locked Decisions" + CRM-PROGRESS.md ✅ section + consolidated v1.1 backlog. **Marks CRM rebuild complete.** |
+
+### Phase 13 audit summary
+
+Investigator NORMAL SCOPE verdict — credibly close in 3 commits.
+
+| Tier | Items | Status |
+|---|---|---|
+| P0 (visible inconsistency) | 3 (all Lead Detail empty states) | ✅ shipped Commit 1 |
+| P1 (perceived quality) | 6 (sidebar Tags + customer gradient + dark-mode pair + follow-up hover + Phase 9 Q-C2 deferral) | ✅ shipped Commit 2 |
+| P2 (subtle refinements) | 6 (typography micro, spacing micro, brand color drift, etc.) | ⏳ deferred to v1.1 |
+
+### Orchestra retrospective (full Phase 13)
+
+| Commit | Mode | Reviewer outcome |
+|---|---|---|
+| 1 | LIGHT | OVERALL PASS — 4/4 focus points clean |
+| 2 | LIGHT | CONDITIONAL PASS — 3/4 clean, 1 flagged (EmptyState size mismatch) → Path B applied |
+| 3 | DOCS | — |
+
+The 1 Reviewer flag in Commit 2 followed the established orchestra-deviation pattern (Phase 11.5 action_type + Phase 12 audit-log semantic upgrades): Reviewer surfaces visual/semantic quality concern, Lead Architect synthesizes correction, user adjudicates with documented rationale.
+
+### Q-UI-001 timeline closed
+
+- **Phase 7:** deferred to Phase 10
+- **Phase 10:** mobile stage picker (Q-UI-001) shipped as functional Sheet
+- **Phase 13:** no residual visual polish needed (Phase 10 Commit 1 was clean from a visual standpoint)
+
+### Phase 9 Q-C2 deferral closed
+
+Customer Header gradient cover banner was deferred to Phase 13 visual polish (Phase 9 closure section). Phase 13 Commit 2 shipped the gradient with Q-002c approval: light warm overlay (`from-orange-500/5 via-amber-500/[0.03] to-transparent`) — subtle, doesn't compete with KPI cards + health ring.
+
+---
+
+## 🎉 CRM BUILD COMPLETE — phase index
+
+13 phases, 13/13 complete. Execution order ran:
+**0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 11 → 11 Refinement → 11.5 → 10 → 12 → 13**
+
+(PRD numbering preserved for traceability; actual execution reordered
+Phase 10 after 11.5 per Phase 11 closure decision, and inserted
+Phase 11 Refinement + Phase 11.5 as gap-fill phases revealed during
+ops setup.)
+
+### Architectural decisions locked (Phases 7-13)
+
+Single-source-of-truth principles documented in `CLAUDE.md`:
+- **Phase 7:** Kanban architecture invariants (3-tier component split, opacity-0 source, pointerWithin collision, single useDraggable per lead.id, dropAnimation={null})
+- **Phase 8:** AI Insights severity scheme + CRM caching conventions
+- **Phase 9:** Health Score formula (recency 30 + payment 30 + active contracts 20 + engagement 20)
+- **Phase 11:** Cron architecture (Option β — separate n8n PyraCRM_Cron workflow; idempotency trade-off; daily-Dubai-grouped notifications)
+- **Phase 11 Refinement:** Settings layer as canonical routing source; two-step cron lookup with hard validation at fire time
+- **Phase 11.5:** action_type + metadata.source separation pattern (constants in lib/api/activity.ts; specificity in metadata)
+- **Phase 10:** Mobile Sheet primitive standard; per-card useState (no prop drilling); ACCENT_DOT in lib/constants/pipeline-colors.ts; touch target h-11 (44px)
+- **Phase 12:** Email URL bypass-middleware invariant; module-guide collision-resolution pattern; audit-log target_path semantic upgrades
+- **Phase 13:** EmptyState scope (full-page only — sidebar contexts use inline compact stubs); user-facing language ("قريباً" / "قريباً في v1.1" — never "Phase X" / "TODO"); gradient subtlety standard; non-link card hover (hover:bg-muted/30 transition-colors)
+
+---
+
+## v1.1 Consolidated Backlog
+
+Single ordered list of all v1.1 items carried forward from Phases 7-13. Operational items (await Abdou) listed first.
+
+### Operational (await Abdou)
+
+- [ ] **PWA icon PNG upload** (Phase 10) — `public/icons/icon-192.png`, `icon-512.png`, `icon-512-maskable.png`, `apple-touch-icon.png`. Bumps Lighthouse PWA score from ~55 → ~90+.
+- [ ] **Sayed Evolution instance setup** (Phase 11) — capture Sayed's WhatsApp number, admin populates routing row via the new Phase 11 Refinement Settings UI. Enables end-to-end live verification of Phase 11 exit-gate test 3.
+- [ ] **Real-device RTL verification** for Phase 10 Commit 2 (`side="right"` + ChevronLeft on lead detail sidebar Sheet). One-line swap if either feels wrong.
+
+### Code (future maintenance)
+
+- [ ] **usePermission loading-state flicker** — admin sees write actions briefly hidden on every settings page load (Phase 11 Refinement)
+- [ ] **Settings-client.tsx subsection extraction** — apply `components/settings/agent-whatsapp-settings/` pattern to existing `ApiKeysSection` + `ModuleSettingsTab` (Phase 11 Refinement)
+- [ ] **Combobox-with-status-badge for instance dropdown** — replace HTML5 datalist with Popover + Command Combobox to show inline status badges (Phase 11 Refinement)
+- [ ] **E.164 regex validation for `recipient_phone`** — Phase 11 Refinement Q-R-4 deferred
+- [ ] **Warning banner: "agent has follow-ups but no active setting"** — Phase 11 Refinement Q-R-5 deferred
+- [ ] **next-pwa plugin migration** — replace hand-written sw.js with workbox sophistication (Phase 10)
+- [ ] **Push notifications via SW** — requires backend VAPID keys (Phase 10)
+- [ ] **Dashboard widget per-component mobile audit** — Phase 10 Investigator flagged P2 (heavy widgets pull Recharts statically)
+- [ ] **Code-split heavy charts via `dynamic()`** — Recharts adds ~70-80kB to any page importing statically (Phase 10)
+- [ ] **Per-chip × removal on FilterBar chip strip** — Phase 10 Commit 4 deferred
+- [ ] **Vertical compactness on 375px FilterBar** — admin mode produces 3 wrapping rows above kanban (Phase 10 P2)
+- [ ] **Tags feature implementation** — Phase 13 Q-001a placeholder; the Tags slot in lead-sidebar currently shows "قريباً في v1.1"
+- [ ] **EmptyState `size="compact"` variant** — Phase 13 Commit 2 flag — would have made strict Q-001a EmptyState swap viable for sidebar contexts
+- [ ] **Phase 13 P2 polish** — typography refinements, spacing micro-adjustments, brand color drift cleanup (orange-* variants), empty-state lottie animations exploration, loading-skeleton refinements per surface
+- [ ] **Phase 8 trend indicators backend wiring** — `TrendBadge` exists in `dashboard-kpi-cards.tsx`; backend always returns `trendPct=0`. Wire delta calculation.
+- [ ] **GET-handler logActivity audit sweep** — remove `logActivity()` calls from read endpoints (trigger example: `app/api/dashboard/sales/approvals/route.ts:20`)
+- [ ] **`/dashboard/sales/approvals` rename** — disambiguate from `/dashboard/crm/approvals` (quote workflow vs lead-pipeline approval; same Arabic label in sidebar). Phase 12 Q1 deferred.
+- [ ] **`/dashboard/sales/settings` FOLD decision** — Path B from Phase 12 Q2: move SalesSettingsContent into `/dashboard/crm/settings` (new route) OR fold into `/dashboard/settings` existing tabs. Design-heavy, benefits from user input.
+- [ ] **`sales.*` permission renaming in rbac.ts** — Phase 12 Q5 deferred. Touches many call sites; better as holistic refactor.
+- [ ] **Webhook notifications use direct INSERT** (lines 352, 364 of `app/api/dashboard/sales/whatsapp/webhook/route.ts`) — pre-Phase-11 violation of "central `notify()` helper" rule. Migrate to `notify()`.
+- [ ] **Promise.all batching with concurrency cap** for follow-up-reminders cron (Phase 11) — only if production volume exceeds ~50 reminders / 5-min tick
+- [ ] **24h-window reminder UI flag** in follow-up create form (Phase 11) — let agent set custom `reminder_at` instead of default `due_at - 30min`
+- [ ] **Agent-instance-down notification** (Phase 11) — when cron finds 0 connected instances, surface one-time admin alert
+- [ ] **Retry mechanism for failed Evolution sends** (Phase 11) — currently flagged as sent regardless of outcome; v1.1 could add retry queue
+- [ ] **`AVAILABLE_PERMISSIONS` auto-derive** from a central permissions registry in `settings-client.tsx` (Phase 11) — currently manually maintained; drifted between code and UI for 4 days before being noticed
+- [ ] **Unlink mechanism for Lead↔Client** (Phase 11.5) — admin UI to detach. v1 only supports linking; unlink is SQL-manual
+- [ ] **Bulk link from leads list** (Phase 11.5) — multi-select leads + assign to single client
+- [ ] **Auto-suggest based on phone match** (Phase 11.5) — when opening Link-Client modal, pre-select likely matches based on `lead.phone` vs `pyra_clients.phone` similarity
+- [ ] **Audit-log action_type pattern sweep** (Phase 11.5) — migrate any pre-Phase-11.5 `logActivity()` call sites that used hardcoded strings to the `${ENTITY_TYPES}_${ACTIVITY_ACTIONS}` + `metadata.source` pattern

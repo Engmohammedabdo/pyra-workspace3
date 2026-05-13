@@ -1470,6 +1470,99 @@ PROTECTED page is the canonical destination, point at it directly
 (audit logs aren't subject to middleware redirects anyway — they're
 internal click-throughs).
 
+## CRM Phase 13 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 13 closure (Visual Polish — the final CRM phase). **Do NOT
+re-litigate.** Future visual work should defer to the decisions
+recorded here.
+
+### 1. EmptyState scope: full-page contexts only
+
+`<EmptyState>` from `@/components/ui/empty-state` is calibrated for
+**full-page** or **full-tab** empty states. It renders an 80px icon
+ring with blur backdrop + `text-lg font-semibold` title + `py-16`
+default padding — a deliberately substantial visual unit.
+
+**Compact contexts (sidebar slots, narrow card stacks) use an
+inline stub** instead — the pattern matching the surrounding cards.
+For sidebar slots specifically, the canonical inline-stub shape is:
+
+```tsx
+<Card className="p-4 space-y-2">
+  <div className="flex items-center justify-between">
+    <h3 className="text-sm font-semibold">{title}</h3>
+    <Icon className="size-4 text-muted-foreground" aria-hidden />
+  </div>
+  <p className="text-xs text-muted-foreground">{copy}</p>
+</Card>
+```
+
+**Rationale:** EmptyState's full-page visual hierarchy dominates a
+compact sidebar; forcing it produces visual mismatch. A
+`size="compact"` variant of EmptyState is v1.1 backlog — until then,
+sidebar contexts inline.
+
+This decision was surfaced by the Reviewer agent in Phase 13 Commit
+2 (CONDITIONAL PASS finding); applied per the orchestra-deviation
+pattern established in Phase 11.5 + Phase 12.
+
+### 2. User-facing language: no developer-internal references
+
+**NEVER** ship production UI with "Phase X" / "قيد البناء" / "TODO" /
+"Coming in v2" / "in progress" / similar developer-internal text.
+
+**DO use:** "قريباً" (coming soon) or "قريباً في v1.1" (coming in
+v1.1) when honest about a feature being deferred.
+
+**Rationale:** Phase numbers + developer language leak internal
+process to users. The Tags sidebar card showed "إدارة العلامات —
+قيد البناء (Phase 6)" through Phases 6-12 — a developer-facing
+placeholder that survived 6 phases without anyone catching it.
+Phase 13 Q-001a removed it.
+
+### 3. Gradient subtlety standard
+
+**Customer/feature card overlays** use low-opacity warm gradient:
+`bg-gradient-to-br from-orange-500/5 via-amber-500/[0.03] to-transparent`.
+Implemented as an absolute `pointer-events-none aria-hidden` layer
+inside a `relative overflow-hidden` parent, with content positioned
+via `relative` to sit above.
+
+**Bold gradients** (e.g., the lead-header's mobile
+`from-zinc-900 to-zinc-800` hero) are reserved for **hero/avatar
+contexts** where visual prominence is desired.
+
+**Rationale:** Phase 9 Q-C2 deferred the customer-header gradient
+to Phase 13; the chosen palette is brand-aware without competing
+with KPI cards + health-ring rendered below. Subtlety at 5%/3%
+opacity blends in both light and dark modes.
+
+### 4. Non-link card hover: bg-based, not border-based
+
+**Non-link interactive cards** (rows with buttons inside, not
+wrapped in a `<Link>` or `<a>`) use:
+
+```tsx
+className="... hover:bg-muted/30 transition-colors"
+```
+
+**Link cards** (entire card area is navigable, wrapped in `<Link>`)
+use:
+
+```tsx
+className="... hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all"
+```
+
+**Rationale:** the bg-based pattern matches workspace conventions
+(`StatementTable`, `version-history`, `data-table` rows). The
+border-based pattern matches pipeline-card / action-card. Both are
+correct in their respective contexts; mixing them creates
+inconsistency.
+
+Verified by Reviewer in Phase 13 Commit 2 (Q-003a follow-up row
+hover).
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
