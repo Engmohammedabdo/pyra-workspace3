@@ -106,13 +106,12 @@ Pyra Workspace هو نظام **ERP + CRM** متكامل مبني على Next.js 
 
 | الشاشة | المسار | المميزات | الجداول |
 |--------|--------|----------|---------|
-| **نظرة عامة** | `/dashboard/sales` | إحصائيات المبيعات • مراحل Pipeline • رسوم بيانية • أداء الفريق | `pyra_sales_leads`, `pyra_sales_pipeline_stages` |
-| **العملاء المحتملين** | `/dashboard/sales/leads` | CRUD • مصادر (واتساب/موقع/إحالة/إعلان) • نقاط تقييم • أولوية • تحويل لعميل | `pyra_sales_leads`, `pyra_lead_activities` |
-| **محادثات واتساب** | `/dashboard/sales/chat` | WhatsApp Web replacement • رسائل واردة/صادرة (نص/صوت/صور/فيديو/مستندات) • agent scoping • conversation assignments • contact sidebar (lead + quotes) • quick actions bar (إرسال عرض/فاتورة، إنشاء lead، ملاحظات، متابعة) • voice recording • drag-drop files • clipboard paste | `pyra_whatsapp_messages`, `pyra_whatsapp_instances`, `pyra_whatsapp_conversations`, `pyra_whatsapp_assignments` |
-| **موافقات العروض** | `/dashboard/sales/approvals` | سير عمل اعتماد عروض الأسعار • موافقة/رفض • تعليقات | `pyra_quote_approvals`, `pyra_quotes` |
-| **المتابعات** | `/dashboard/sales/follow-ups` | تذكيرات متابعة • حالة (بانتظار/مكتمل/ملغى) • ربط بعميل محتمل | `pyra_sales_follow_ups` |
-| **تقارير المبيعات** | `/dashboard/sales/reports` | معدل التحويل • أداء المندوبين • مصادر العملاء • تحليلات | `pyra_sales_leads`, `pyra_lead_activities` |
-| **إعدادات المبيعات** | `/dashboard/sales/settings` | مراحل Pipeline • تسميات • إعدادات واتساب | `pyra_sales_pipeline_stages`, `pyra_sales_labels` |
+| **نظرة عامة** | `/dashboard/crm` | إحصائيات المبيعات • مراحل Pipeline • رسوم بيانية • أداء الفريق • تقارير ومعدلات تحويل (Phase 12: مسار `/dashboard/sales` يُعاد توجيهه هنا) | `pyra_sales_leads`, `pyra_sales_pipeline_stages` |
+| **العملاء المحتملين** | `/dashboard/crm/pipeline` | CRUD • مصادر (واتساب/موقع/إحالة/إعلان) • نقاط تقييم • أولوية • تحويل لعميل (Phase 12: مسار `/dashboard/sales/leads` يُعاد توجيهه هنا) | `pyra_sales_leads`, `pyra_lead_activities` |
+| **محادثات واتساب** | `/dashboard/sales/chat` | WhatsApp Web replacement • رسائل واردة/صادرة (نص/صوت/صور/فيديو/مستندات) • agent scoping • conversation assignments • contact sidebar (lead + quotes) • quick actions bar (إرسال عرض/فاتورة، إنشاء lead، ملاحظات، متابعة) • voice recording • drag-drop files • clipboard paste (محفوظ كما هو في Phase 12 — لا إعادة توجيه) | `pyra_whatsapp_messages`, `pyra_whatsapp_instances`, `pyra_whatsapp_conversations`, `pyra_whatsapp_assignments` |
+| **موافقات العروض** | `/dashboard/sales/approvals` | سير عمل اعتماد عروض الأسعار • موافقة/رفض • تعليقات (محفوظ كما هو في Phase 12) | `pyra_quote_approvals`, `pyra_quotes` |
+| **المتابعات** | `/dashboard/crm/follow-ups` | تذكيرات متابعة • حالة (بانتظار/مكتمل/ملغى) • ربط بعميل محتمل (Phase 12: مسار `/dashboard/sales/follow-ups` يُعاد توجيهه هنا) | `pyra_sales_follow_ups` |
+| **إعدادات المبيعات** | `/dashboard/sales/settings` | مراحل Pipeline • تسميات • إعدادات واتساب (محفوظ كما هو في Phase 12) | `pyra_sales_pipeline_stages`, `pyra_sales_labels` |
 
 #### ← روابط التكامل:
 - **عميل محتمل → عميل**: تحويل تلقائي (ينشئ `pyra_clients` ويربط `client_id`)

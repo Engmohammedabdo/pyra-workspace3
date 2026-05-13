@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     if (error) return apiServerError(error.message);
   
-    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'sales_label_created', '/dashboard/sales/leads', { name: body.name });
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'sales_label_created', '/dashboard/crm/pipeline', { name: body.name });
 
   return apiSuccess(data, undefined, 201);
 

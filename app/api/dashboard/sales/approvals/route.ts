@@ -17,7 +17,7 @@ export async function GET() {
       .order('requested_at', { ascending: false });
 
     if (error) return apiServerError(error.message);
-    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'sale_approval_created', '/dashboard/sales', {});
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'sale_approval_created', '/dashboard/sales/approvals', {});
 
     return apiSuccess(data);
 

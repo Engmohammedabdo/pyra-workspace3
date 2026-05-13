@@ -14,7 +14,7 @@ import { isSuperAdmin } from '@/lib/auth/rbac';
  *   - Agent (by conversation_id / remote_jid): must own the conversation
  *     (pyra_whatsapp_conversations.assigned_to)
  *   - Agent (by lead_id): must own the LEAD
- *     (pyra_sales_leads.assigned_to). Used by /dashboard/sales/leads/[id]
+ *     (pyra_sales_leads.assigned_to). Used by /dashboard/crm/leads/[id]
  *     "Messages" tab — only shows messages tied to this specific lead, not
  *     a global feed.
  *

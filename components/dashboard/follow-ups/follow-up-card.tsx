@@ -47,7 +47,7 @@ export function FollowUpCard({ followUp, onComplete, onCancel, onEdit, isOverdue
             </div>
             {followUp.notes && <p className="text-xs text-muted-foreground/70 mt-1.5 truncate">{followUp.notes}</p>}
             <div className="flex items-center gap-3 mt-1.5">
-              <Link href={`/dashboard/sales/leads/${followUp.lead_id}`} className="text-[11px] text-orange-500 hover:text-orange-600 hover:underline font-medium">عرض العميل المحتمل ←</Link>
+              <Link href={`/dashboard/crm/leads/${followUp.lead_id}`} className="text-[11px] text-orange-500 hover:text-orange-600 hover:underline font-medium">عرض العميل المحتمل ←</Link>
               {followUp.quote_id && <Link href={`/dashboard/quotes?id=${followUp.quote_id}`} className="text-[11px] text-violet-500 hover:text-violet-600 hover:underline font-medium">عرض السعر ←</Link>}
             </div>
           </div>

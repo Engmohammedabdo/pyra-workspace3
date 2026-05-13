@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       action_type: 'lead_created',
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
-      target_path: `/dashboard/sales/leads/${leadId}`,
+      target_path: `/dashboard/crm/leads/${leadId}`,
       details: { lead_name: name, source: source || 'manual' },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
@@ -233,7 +233,7 @@ export async function POST(request: NextRequest) {
         message: `تم تعيين العميل المحتمل "${name}" لك`,
         source_username: auth.pyraUser.username,
         source_display_name: auth.pyraUser.display_name,
-        target_path: `/dashboard/sales/leads/${leadId}`,
+        target_path: `/dashboard/crm/leads/${leadId}`,
         is_read: false,
       });
 

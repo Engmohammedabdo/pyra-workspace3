@@ -58,7 +58,7 @@ export function LeadCard({ lead }: LeadCardProps) {
   const priority = PRIORITY_CONFIG[lead.priority] || PRIORITY_CONFIG.medium;
 
   return (
-    <Link href={`/dashboard/sales/leads/${lead.id}`}>
+    <Link href={`/dashboard/crm/leads/${lead.id}`}>
       <div className="group relative bg-card border border-border/60 rounded-xl p-3.5 hover:shadow-lg hover:shadow-orange-500/5 dark:hover:shadow-orange-500/10 transition-all duration-200 cursor-pointer hover:border-orange-200 dark:hover:border-orange-800/50 space-y-2.5">
         {/* Drag handle indicator */}
         <div className="absolute top-3 start-1.5 opacity-0 group-hover:opacity-40 transition-opacity">

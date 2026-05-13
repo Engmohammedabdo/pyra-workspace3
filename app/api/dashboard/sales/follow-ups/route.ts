@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
       .eq('id', lead_id);
 
   
-    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'follow_up_created', '/dashboard/sales', {});
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'follow_up_created', '/dashboard/crm/follow-ups', {});
 
   return apiSuccess(data, undefined, 201);
 

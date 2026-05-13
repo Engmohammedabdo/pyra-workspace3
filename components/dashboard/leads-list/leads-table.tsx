@@ -48,7 +48,7 @@ export function LeadsTable({
             {leads.map(lead => (
               <tr key={lead.id} className={cn('border-b hover:bg-muted/30 transition-colors', selectedIds.has(lead.id) && 'bg-orange-50')}>
                 <td className="p-3"><Checkbox checked={selectedIds.has(lead.id)} onCheckedChange={() => toggleSelect(lead.id)} /></td>
-                <td className="p-3 font-medium hover:text-orange-600"><Link href={`/dashboard/sales/leads/${lead.id}`}>{lead.name}</Link></td>
+                <td className="p-3 font-medium hover:text-orange-600"><Link href={`/dashboard/crm/leads/${lead.id}`}>{lead.name}</Link></td>
                 <td className="p-3 text-[11px] tabular-nums font-bold flex items-center gap-1"><Star className="h-3 w-3" />{lead.score || 0}</td>
                 <td className="p-3 text-muted-foreground" dir="ltr">{lead.phone || '—'}</td>
                 <td className="p-3">{stageMap.get(lead.stage_id)?.name_ar || '—'}</td>

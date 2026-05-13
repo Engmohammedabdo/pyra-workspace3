@@ -60,7 +60,7 @@ export async function PUT(
       created_by: auth.pyraUser.username,
     });
 
-    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'lead_labels_updated', `/dashboard/sales/leads/${id}`, { lead_id: id });
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'lead_labels_updated', `/dashboard/crm/leads/${id}`, { lead_id: id });
 
     return apiSuccess({ lead_id: id, label_ids });
 

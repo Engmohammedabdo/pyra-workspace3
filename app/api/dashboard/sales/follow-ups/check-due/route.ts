@@ -62,7 +62,7 @@ export async function POST(_request: NextRequest) {
 
     const notifications = [];
     for (const fu of dueFollowUps) {
-      const targetPath = `/dashboard/sales/follow-ups?highlight=${fu.id}`;
+      const targetPath = `/dashboard/crm/follow-ups?highlight=${fu.id}`;
       if (notifiedPaths.has(targetPath)) continue;
       if (!fu.assigned_to) continue;
 

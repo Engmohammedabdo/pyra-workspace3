@@ -70,7 +70,7 @@ export async function POST(
       .eq('id', id);
 
   
-    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'lead_activity_added', `/dashboard/sales/leads/${id}`, { lead_id: id });
+    logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'lead_activity_added', `/dashboard/crm/leads/${id}`, { lead_id: id });
 
   return apiSuccess(data, undefined, 201);
 

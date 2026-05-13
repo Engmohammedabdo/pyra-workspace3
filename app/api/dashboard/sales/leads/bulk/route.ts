@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
       action_type: `leads_bulk_${action}`,
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/sales/leads',
+      target_path: '/dashboard/crm/pipeline',
       details: { action, count: lead_ids.length, lead_ids },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });

@@ -523,7 +523,7 @@ export function ContactPanel({
 
                 {/* View Lead Button */}
                 <Button variant="outline" size="sm" asChild className="w-full rounded-lg text-xs">
-                  <Link href={`/dashboard/sales/leads/${lead.id}`}>
+                  <Link href={`/dashboard/crm/leads/${lead.id}`}>
                     <ExternalLink className="h-3 w-3 me-1.5" />
                     فتح ملف العميل المحتمل
                   </Link>

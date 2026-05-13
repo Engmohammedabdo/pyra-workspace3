@@ -186,10 +186,11 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
       {/* Phase 10 Commit 4: active-filter chip strip — mobile only.
           Provides instant visibility into which filters are active without
           forcing the user to scan each Select trigger's current value.
-          Matches the workspace's cleanest filter feedback pattern (from
-          app/dashboard/sales/follow-ups/follow-ups-client.tsx). Read-only;
-          users adjust filters via the Selects above or clear all via
-          "مسح". Per-chip × removal deferred to v1.1. */}
+          Matches the workspace's cleanest filter feedback pattern (originally
+          from the legacy follow-ups client, since migrated to
+          app/dashboard/crm/follow-ups/). Read-only; users adjust filters
+          via the Selects above or clear all via "مسح". Per-chip × removal
+          deferred to v1.1. */}
       {activeCount > 0 && (
         <div className="md:hidden mt-2 flex flex-wrap gap-1.5">
           {initialSearch && (

@@ -42,7 +42,7 @@ export function PipelineFunnel({ stages, totalPipelineLeads }: Props) {
             </div>
             خط المبيعات
           </CardTitle>
-          <Link href="/dashboard/sales/leads" className="text-xs text-muted-foreground hover:text-orange-500 transition-colors flex items-center gap-1">عرض الكل <ChevronLeft className="h-3 w-3" /></Link>
+          <Link href="/dashboard/crm/pipeline" className="text-xs text-muted-foreground hover:text-orange-500 transition-colors flex items-center gap-1">عرض الكل <ChevronLeft className="h-3 w-3" /></Link>
         </div>
       </CardHeader>
       <CardContent className="pt-4">

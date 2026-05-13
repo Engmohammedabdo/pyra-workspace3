@@ -365,7 +365,7 @@ export function notifyLeadAssigned(data: {
             agentName: user.display_name || data.agentUsername,
             leadName: data.leadName,
             assignedBy: data.assignedBy,
-            leadUrl: `${APP_URL}/dashboard/sales/leads/${data.leadId}`,
+            leadUrl: `${APP_URL}/dashboard/crm/leads/${data.leadId}`,
           }),
         });
       }

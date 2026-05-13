@@ -73,7 +73,7 @@ export async function POST(
       action_type: 'lead_transferred',
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
-      target_path: `/dashboard/sales/leads/${id}`,
+      target_path: `/dashboard/crm/leads/${id}`,
       details: { lead_name: lead.name, from: fromAgent, to: to_agent },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
@@ -87,7 +87,7 @@ export async function POST(
       message: `تم تحويل العميل المحتمل "${lead.name}" إليك${reason ? ` — ${reason}` : ''}`,
       source_username: auth.pyraUser.username,
       source_display_name: auth.pyraUser.display_name,
-      target_path: `/dashboard/sales/leads/${id}`,
+      target_path: `/dashboard/crm/leads/${id}`,
       is_read: false,
     });
 

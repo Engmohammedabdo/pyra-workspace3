@@ -311,7 +311,7 @@ export function MyWorkInbox() {
             icon={Users}
             title="عملائي"
             count={data.counts.leads_action}
-            href="/dashboard/sales/leads"
+            href="/dashboard/crm/pipeline"
             gradient="from-indigo-500 to-blue-600"
           />
           <div className="p-3 space-y-2">
@@ -320,7 +320,7 @@ export function MyWorkInbox() {
                 key={l.id}
                 icon={Users}
                 iconClass="bg-gradient-to-br from-indigo-500 to-blue-600"
-                href={`/dashboard/sales/leads/${l.id}`}
+                href={`/dashboard/crm/leads/${l.id}`}
                 title={l.name}
                 subtitle={l.phone || ''}
                 meta={
@@ -341,7 +341,7 @@ export function MyWorkInbox() {
             icon={Phone}
             title="متابعات اليوم"
             count={data.counts.follow_ups_due}
-            href="/dashboard/sales/follow-ups"
+            href="/dashboard/crm/follow-ups"
             gradient="from-pink-500 to-rose-600"
             urgent
           />
@@ -353,8 +353,8 @@ export function MyWorkInbox() {
                 iconClass="bg-gradient-to-br from-pink-500 to-rose-600"
                 href={
                   f.lead_id
-                    ? `/dashboard/sales/leads?lead=${f.lead_id}`
-                    : '/dashboard/sales/follow-ups'
+                    ? `/dashboard/crm/leads/${f.lead_id}`
+                    : '/dashboard/crm/follow-ups'
                 }
                 title={f.title}
                 subtitle={f.lead_name || ''}

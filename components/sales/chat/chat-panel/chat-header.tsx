@@ -300,7 +300,7 @@ export function ChatHeader({
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild className="gap-2 text-xs">
-                    <Link href={`/dashboard/sales/leads/${leadId}`}>
+                    <Link href={`/dashboard/crm/leads/${leadId}`}>
                       <User className="h-4 w-4" />
                       عرض العميل
                     </Link>

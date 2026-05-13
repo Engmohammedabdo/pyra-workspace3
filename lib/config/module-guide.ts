@@ -773,8 +773,8 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
   },
 
   /* ═══════════════ المبيعات ═══════════════ */
-  '/dashboard/sales': {
-    href: '/dashboard/sales',
+  '/dashboard/crm': {
+    href: '/dashboard/crm',
     description: 'نظرة عامة على أداء المبيعات',
     descriptionEn: 'Sales performance overview dashboard',
     goal: 'عرض إحصائيات المبيعات: إجمالي العملاء المحتملين، الجدد، المحوّلين، المتابعات المعلقة، وتوزيع خط المبيعات.',
@@ -782,11 +782,12 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'البطاقات العلوية تعرض ملخص سريع لحالة المبيعات',
       'خط المبيعات يوضح توزيع العملاء على المراحل',
       'آخر العملاء المحتملين تعرض أحدث الإضافات',
+      'استخدم التقارير لتحديد أفضل مصادر العملاء',
     ],
-    keywords: ['sales', 'مبيعات', 'leads', 'عملاء محتملين', 'pipeline'],
+    keywords: ['sales', 'مبيعات', 'leads', 'عملاء محتملين', 'pipeline', 'crm', 'reports', 'تقارير', 'إحصائيات', 'أداء', 'analytics'],
   },
-  '/dashboard/sales/leads': {
-    href: '/dashboard/sales/leads',
+  '/dashboard/crm/pipeline': {
+    href: '/dashboard/crm/pipeline',
     description: 'إدارة العملاء المحتملين',
     descriptionEn: 'Manage sales leads with Kanban and table views',
     goal: 'عرض وإدارة جميع العملاء المحتملين. يمكنك التبديل بين عرض Kanban وعرض الجدول، مع إمكانية السحب والإفلات بين المراحل.',
@@ -822,8 +823,8 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['approvals', 'موافقات', 'عروض أسعار', 'quotes', 'مراجعة'],
   },
-  '/dashboard/sales/follow-ups': {
-    href: '/dashboard/sales/follow-ups',
+  '/dashboard/crm/follow-ups': {
+    href: '/dashboard/crm/follow-ups',
     description: 'تذكيرات المتابعة',
     descriptionEn: 'Follow-up reminders and task tracking',
     goal: 'تتبع جميع تذكيرات المتابعة مع العملاء المحتملين. تعرض المتأخرة والقادمة والمكتملة.',
@@ -845,18 +846,6 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
       'SLA يعرض نسبة الالتزام بوقت الرد الأول ووقت الحل',
     ],
     keywords: ['whatsapp', 'analytics', 'تحليلات', 'واتساب', 'CSAT', 'SLA', 'رضا العملاء'],
-  },
-  '/dashboard/sales/reports': {
-    href: '/dashboard/sales/reports',
-    description: 'تقارير وإحصائيات المبيعات',
-    descriptionEn: 'Sales analytics and performance reports',
-    goal: 'تحليل أداء فريق المبيعات: توزيع المصادر، نسب التحويل، أداء كل موظف.',
-    tips: [
-      'نسبة التحويل = عدد المحوّلين / إجمالي العملاء المحتملين',
-      'جدول أداء الموظفين يعرض أداء كل موظف مبيعات',
-      'استخدم التقارير لتحديد أفضل مصادر العملاء',
-    ],
-    keywords: ['reports', 'تقارير', 'إحصائيات', 'أداء', 'analytics'],
   },
   '/dashboard/sales/settings': {
     href: '/dashboard/sales/settings',
