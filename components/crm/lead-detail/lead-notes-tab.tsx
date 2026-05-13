@@ -13,7 +13,8 @@ import { ActivityItem } from '@/components/crm/activity/activity-item';
 import { ActivityComposer } from '@/components/crm/activity/activity-composer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Loader2, StickyNote } from 'lucide-react';
 
 export function LeadNotesTab({ leadId }: { leadId: string }) {
   const q = useLeadActivities(leadId, { type: 'note' });
@@ -29,9 +30,11 @@ export function LeadNotesTab({ leadId }: { leadId: string }) {
           <Skeleton className="h-12 w-full" />
         </div>
       ) : notes.length === 0 ? (
-        <p className="text-xs text-muted-foreground py-6 text-center leading-5">
-          لا توجد ملاحظات بعد. اكتب أول واحدة فوق ↑
-        </p>
+        <EmptyState
+          icon={StickyNote}
+          title="لا توجد ملاحظات بعد"
+          description="اكتب أول ملاحظة في المُحرّر بالأعلى لتظهر هنا"
+        />
       ) : (
         <>
           <ul className="space-y-1 -m-1">

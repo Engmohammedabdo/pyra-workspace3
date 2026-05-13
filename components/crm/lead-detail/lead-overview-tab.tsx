@@ -51,9 +51,12 @@ export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
           )}
         </div>
         {contracts.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-6 text-center leading-5">
-            لا يوجد عقد مرتبط بهذا الـ Lead.<br />سينظهر هنا أول ما يتم إنشاء عقد ويتم ربطه بالـ Lead.
-          </p>
+          <EmptyState
+            icon={FileSignature}
+            title="لا توجد عقود بعد"
+            description="سيظهر هنا أول عقد يتم ربطه بهذا الـ Lead"
+            className="py-8"
+          />
         ) : (
           <ul className="space-y-2">
             {contracts.slice(0, 3).map((c) => (

@@ -109,9 +109,12 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
         </div>
 
         {invoices.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-6 text-center">
-            لا توجد فواتير على عقود هذا الـ Lead.
-          </p>
+          <EmptyState
+            icon={Receipt}
+            title="لا توجد فواتير بعد"
+            description="الفواتير المرتبطة بعقود هذا الـ Lead ستظهر هنا"
+            className="py-8"
+          />
         ) : (
           <ul className="divide-y divide-border">
             {invoices.map((inv) => (
