@@ -63,14 +63,23 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
   const showPortalIndicator = canManageLead && !!customer.client_id;
 
   return (
-    <Card className="p-5 border-b border-border">
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+    // Phase 13 Q-002c — light warm gradient overlay. Closes the Phase 9
+    // Q-C2 deferral. Subtle orange→amber→transparent gradient (low
+    // opacity to avoid competing with KPI cards + health ring below).
+    // Absolute layer keeps the Card's bg-card semantic + dark-mode
+    // adaptation intact while overlaying the brand-warm wash on top.
+    <Card className="p-5 border-b border-border relative overflow-hidden">
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-orange-500/5 via-amber-500/[0.03] to-transparent pointer-events-none"
+        aria-hidden
+      />
+      <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         {/* Left: name + meta */}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
             {customer.is_converted && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/20">
+              <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/20 dark:border-yellow-500/30">
                 ✓ فائز ومُعتمد
               </span>
             )}

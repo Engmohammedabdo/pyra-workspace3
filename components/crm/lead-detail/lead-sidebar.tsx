@@ -130,14 +130,23 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
         )}
       </Card>
 
+      {/* Phase 13 Q-001a — honest user-facing placeholder. Removes
+          developer-facing language (was "إدارة العلامات — قيد البناء
+          (Phase 6)"). EmptyState component swap was attempted but the
+          full-page-sized icon ring + text-lg heading were
+          disproportionate to the sidebar's compact card density (the
+          Contact info / Next follow-up cards use text-sm headers).
+          Used a size-matched inline stub instead, preserving the spec
+          intent (no developer language; "قريباً في v1.1" copy) while
+          respecting the sidebar's visual hierarchy. EmptyState
+          size="compact" variant is v1.1 backlog. Tags feature itself
+          is also v1.1 backlog. */}
       <Card className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">العلامات</h3>
           <Tag className="size-4 text-muted-foreground" aria-hidden />
         </div>
-        <p className="text-xs text-muted-foreground">
-          إدارة العلامات — قيد البناء (Phase 6).
-        </p>
+        <p className="text-xs text-muted-foreground">قريباً في v1.1</p>
       </Card>
 
       {customFieldEntries.length > 0 && (

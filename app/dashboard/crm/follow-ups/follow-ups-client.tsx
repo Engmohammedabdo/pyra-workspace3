@@ -160,7 +160,11 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
 
   return (
     <li>
-      <Card className="p-4">
+      {/* Phase 13 Q-003a — subtle hover state for visual consistency
+          with other interactive card surfaces (pipeline cards, action
+          cards, customer list rows). Card isn't a link, but the row is
+          a discrete unit with interactive buttons inside. */}
+      <Card className="p-4 hover:bg-muted/30 transition-colors">
         <div className="flex flex-col md:flex-row md:items-start md:gap-4">
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
