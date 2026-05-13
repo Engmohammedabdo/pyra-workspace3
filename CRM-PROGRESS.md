@@ -621,10 +621,94 @@ is for matching to an EXISTING one.
 
 ---
 
-## CRM Phase 10 — Mobile PWA Polish ⏳
-Pending. **Scope expanded** to include mobile stage picker
-(deferred from Phase 7 per Q-UI-001 deviation). **Position in
-execution order:** after Phase 11.5.
+## CRM Phase 10 — Mobile PWA Polish ✅ (5/5)
+
+**Status:** Complete. The CRM is now mobile-functional end-to-end:
+the kanban can move leads via a Sheet picker, lead detail's sidebar
+is reachable through a slide-out Sheet, PWA support is iOS-ready
+(pending icon asset upload), and the FilterBar meets WCAG 2.5.5
+touch compliance. **Q-UI-001 — deferred from Phase 7 — is finally
+resolved.**
+
+### Sub-step commits
+
+| # | Sub-step | Commit | What landed |
+|---|---|---|---|
+| 1 | Mobile stage picker (Q-UI-001) | `48c2ef4` | New `MobileStageSheet` + `useMoveLeadStageWithToasts` hook extracted from pipeline-client. Bottom Sheet on mobile cards; ACCENT_DOT relocated to `lib/constants/pipeline-colors.ts`. Phase 7 Chunk 3 invariants preserved. |
+| 2 | Lead detail mobile sidebar Sheet | `fb0cc5e` | Slide-out Sheet for `<LeadSidebar>` at max-md (visible via "معلومات إضافية" button above tabs); desktop renders inline unchanged. `side="right"` anchors at visual LEFT in RTL — matches desktop sidebar position. |
+| 3 | PWA polish | `414c990` | New `/offline` Server-Component page (static prerender ○); manifest PNG icon entries (192/512/512-maskable) + SVG fallback retained; Apple `appleWebApp` metadata + Next.js 15 `viewport` export with `viewportFit:cover`; sw.js explicit `STATIC_CACHE` lookup for the offline fallback path. |
+| 4 | Pipeline FilterBar mobile polish | `1389d1c` | Touch targets bumped to `h-11` (44px) on all interactive trigger elements; mobile-only active-filter chip strip (read-only, matches the follow-ups pattern). |
+| 5 | Closure | (this commit) | CRM-PROGRESS.md + CLAUDE.md docs + 8-item v1.1 backlog. |
+
+### Orchestra retrospective
+
+| # | Mode | Reviewer findings | Outcome |
+|---|---|---|---|
+| 1 | HIGH (2× parallel Implementers + Reviewer) | 2 → APPLIED + 1 Lead refinement | ACCENT_DOT initially exported from board file; further relocated to `lib/constants/pipeline-colors.ts` per user's pattern-consistency override (matches Phase 11.5 action_type principle) |
+| 2 | LIGHT (Lead solo + Reviewer) | 2 → REJECTED with documented rationale | RTL conventions + Commit 1 precedent. Path A: push as-is, organic verification post-deploy |
+| 3 | LIGHT | 2 → APPLIED | sw.js explicit STATIC_CACHE lookup made load-bearing by new `/offline`; viewport-fit:cover required for black-translucent status bar |
+| 4 | LIGHT | 0 — **FIRST CLEAN PASS** across all 5 focus points | Pushed as-is |
+
+The **2-2-2-0** ratio across 4 rounds shows the orchestra is
+calibrated correctly: Reviewer catches real issues when they exist
+(Commits 1 + 3), accepts architectural reasoning when documented
+(Commit 2 — overridden with pattern precedent), and doesn't
+manufacture noise when work is clean (Commit 4).
+
+### PWA Lighthouse score
+
+Expected improvement once Abdou uploads the 4 PNG icon assets to
+`public/icons/`:
+- **Before Phase 10:** ~55/100 (per Investigator estimate)
+- **After Phase 10 + icon upload:** ~90-95/100 (PNG icons + Apple
+  meta tags + working `/offline` fallback)
+
+**Pending operational (out of code scope):** upload
+`icon-192.png`, `icon-512.png`, `icon-512-maskable.png`,
+`apple-touch-icon.png` to `public/icons/`. Until then, the manifest
+and Apple-icon links 404 gracefully — browsers fall back to SVGs
+(manifest) or the favicon (apple-touch).
+
+### Locked decisions
+
+7 architectural patterns locked in `CLAUDE.md` →
+"## CRM Phase 10 — Locked Decisions":
+
+1. Mobile stage picker uses bottom Sheet (not Combobox/Select)
+2. Per-card `useState` for sheet open (no prop drilling)
+3. `useMoveLeadStageWithToasts` hook extraction (single source of truth)
+4. Mobile sidebar `side="right"` anchors at visual LEFT in RTL (matches desktop)
+5. `ACCENT_DOT` in `lib/constants/pipeline-colors.ts` (visual constants in `lib/constants/`)
+6. PWA: explicit `STATIC_CACHE` lookup for `/offline` fallback
+7. Touch target minimum: `h-11` (44px) on mobile (WCAG 2.5.5 + Apple HIG)
+
+### v1.1 backlog (8 items)
+
+- [ ] **PWA icon PNG upload** — operational, awaiting Abdou. Files:
+  `icon-192.png`, `icon-512.png`, `icon-512-maskable.png`,
+  `apple-touch-icon.png` in `public/icons/`.
+- [ ] **next-pwa plugin migration** — current hand-written `sw.js`
+  works but refactor to next-pwa would gain workbox sophistication
+  + automatic precache asset detection.
+- [ ] **Push notifications via SW** — requires backend VAPID keys +
+  a permission-flow UX.
+- [ ] **Dashboard widget per-component mobile audit** — Phase 10
+  Investigator flagged dashboard as P2 (heavy widgets pull Recharts
+  statically; mobile responsiveness depends on each widget's
+  internals).
+- [ ] **Code-split heavy charts via `dynamic()`** — Recharts adds
+  ~70-80kB to any page that imports it statically.
+- [ ] **Per-chip × removal on FilterBar chip strip** — current strip
+  is read-only; per-chip remove requires mapping each chip back to
+  its URL param key.
+- [ ] **Vertical compactness on 375px admin filter bar** — admin
+  mode at 375px viewport produces 3 wrapping rows above the kanban.
+  Fix requires layout rethink (compact mobile grid OR Sheet
+  collapse).
+- [ ] **Visual verification on real device for Commit 2 RTL
+  choices** — `side="right"` + ChevronLeft on the lead detail
+  sidebar Sheet were chosen via reasoning, not visual test on a
+  real device. If either feels wrong, one-line swap.
 
 ## CRM Phase 12 — Old Sales Module Sunset ⏳
 Pending. **Scope possibly expanded** based on Phase 10/11.5

@@ -1237,6 +1237,138 @@ strings) are v1.1 backlog cleanup, not blocking.
   follow the `${ENTITY_TYPES}_${ACTIVITY_ACTIONS}` pattern.
   Migrate to constants + metadata.source.
 
+## CRM Phase 10 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 10 closure (Mobile PWA Polish). **Do NOT re-litigate.** Future
+sessions adding mobile surfaces or PWA features should defer to the
+decisions recorded here.
+
+### 1. Mobile stage picker uses bottom Sheet (Q-UI-001)
+
+The deferred Phase 7 Chunk 4 "نقل المرحلة" button now opens a
+shadcn Sheet primitive (`side="bottom"`) rather than a Combobox,
+Select, or inline expand. Reuses `MoveStageConfirmModal`, the
+closed_won guard, and `useMoveLeadStage` mutation — zero
+modifications to any of those.
+
+**Rationale:** Sheet primitive already in the codebase; bottom-slide
+is the native mobile pattern; the closed_won + contract_signed +
+closed_lost gating in `pipeline-client.tsx`'s `handleDropChangeStage`
+applies to both desktop drag AND mobile sheet via the shared callback
+chain.
+
+### 2. Per-card useState for sheet open (no prop drilling)
+
+`<PipelineCard>` owns its own `[sheetOpen, setSheetOpen] =
+useState(false)`. The state is NOT lifted to a parent
+(`PipelineBoard` or `pipeline-client`) and prop-drilled down. Each
+card manages its own sheet instance.
+
+**Rationale:** locked Phase 7 Chunk 3 architecture. Lifting would
+require either an active-card-id state or a `Map<leadId, boolean>`;
+both add complexity without UX benefit.
+
+### 3. `useMoveLeadStageWithToasts` hook extraction
+
+The toast-wrapped wrapper around `useMoveLeadStage` was extracted
+from `pipeline-client.tsx` (~88 LOC) into a named hook in
+`hooks/useLeads.ts`. Both desktop drag-drop AND the mobile stage
+sheet consume the same hook — single source of truth for the 5
+success variants + 4 error variants (403, 409/410, 422+message,
+422 generic, fallback).
+
+**Rationale:** the pattern locked Phase 11.5 (no prop drilling +
+single source of truth for shared logic). Each consumer calls the
+hook via the existing callback chain — no shared mutation state
+across components.
+
+### 4. Mobile sidebar uses Sheet with `side="right"`
+
+`<LeadSidebar>` on max-md is wrapped in a Sheet with `side="right"`.
+In `dir="rtl"`, `side="right"` maps to `inset-y-0 end-0` which
+anchors the sheet at the VISUAL LEFT side of the viewport —
+matching the existing desktop sidebar position (CSS Grid under
+`dir="rtl"` flips column visual order, putting
+`grid-cols-[1fr_22rem]`'s column 2 / LeadSidebar at visual LEFT).
+
+**Rationale:** consistency between desktop and mobile sidebar
+position. `ChevronLeft` on the trigger button = visual forward
+arrow in RTL (text flows right-to-left, so "expand forward"
+semantic = pointing visually leftward).
+
+### 5. `ACCENT_DOT` in `lib/constants/pipeline-colors.ts`
+
+Visual constants (e.g., the stage-accent color palette) live in
+`lib/constants/pipeline-colors.ts`, NOT inline in UI components. UI
+imports from constants — never the other way around.
+
+**Rationale:** matches the Phase 11.5 action_type architectural
+principle (constants belong in `lib/constants/`, not parked in UI
+components for "smaller blast radius"). Layering correctness:
+avoids the silent-drift anti-pattern of "copy inline with sync
+comment".
+
+### 6. PWA: explicit `STATIC_CACHE` lookup for `/offline` fallback
+
+The service worker's offline-fallback path uses
+`caches.open(STATIC_CACHE).then(c => c.match('/offline'))` rather
+than the unqualified `caches.match('/offline')`. The unqualified
+call scans all caches in implementation-defined order — could
+serve a stale empty entry from `CACHE_NAME` before reaching
+`STATIC_CACHE`.
+
+**Rationale:** defensive coding for a load-bearing fallback path.
+Pre-existing bug made load-bearing by Phase 10 Commit 3 (the new
+`/offline` page is the precached fallback target).
+
+### 7. Touch target minimum: `h-11` (44px) on mobile
+
+All interactive trigger elements (buttons, select triggers,
+inputs) on mobile-visible surfaces use `h-11` (44px). shadcn's
+defaults are `h-10` (40px) for Input/SelectTrigger and `h-9`
+(36px) for `Button size="sm"`.
+
+**Rationale:** WCAG 2.5.5 Level AAA + Apple HIG minimum tap target
+size. Bumping from `h-10` to `h-11` is +4px (one Tailwind unit) —
+visual delta is negligible on desktop, gain is material on touch.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **Phase 7 Chunk 3 architecture invariants** (drag-overlay 3-tier
+  split, `opacity-0 pointer-events-none` source, `pointerWithin`
+  collision detection, single `useDraggable` per `lead.id`) are
+  preserved verbatim through Phase 10 Commit 1. Mobile stage
+  picker added zero new `useDraggable` calls.
+
+- **`md:hidden` / `hidden md:block` gating pattern** for
+  desktop-vs-mobile splits is the only acceptable approach. Don't
+  conditionally render based on a `useIsDesktop()` hook in places
+  where Tailwind's responsive classes suffice — saves a hydration
+  flicker.
+
+- **Sheet primitive (`components/ui/sheet.tsx`) is the workspace
+  standard for any slide-out / bottom-sheet UX on mobile.** Don't
+  hand-roll. The primitive provides Portal, focus trap, ESC,
+  backdrop, animations, and ARIA out of the box.
+
+- **`/offline` is a Server Component (no `'use client'`, no
+  hooks).** The whole point of the SW fallback is that JS may not
+  be available — the page must render from static HTML.
+
+### Phase 10 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "## CRM Phase 10" → "### v1.1 backlog (8
+items)" for the actionable list. Highlights:
+- PWA icon PNG upload (operational, awaiting Abdou)
+- next-pwa plugin migration
+- Push notifications via SW
+- Dashboard widget per-component mobile audit
+- Code-split heavy charts via `dynamic()`
+- Per-chip × removal on FilterBar chip strip
+- Vertical compactness on 375px admin filter bar
+- Visual verification on real device for Commit 2 RTL choices
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
