@@ -24,7 +24,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, LayoutDashboard, Activity, FileSignature, FolderOpen, StickyNote } from 'lucide-react';
+import {
+  ArrowLeft, LayoutDashboard, Activity, FileSignature, FolderOpen, StickyNote,
+  Info, ChevronLeft,
+} from 'lucide-react';
 import { useLead, useLinkClient } from '@/hooks/useLeads';
 import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
@@ -39,6 +42,9 @@ import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
 import { LeadSidebar } from '@/components/crm/lead-detail/lead-sidebar';
 import { FollowUpModal } from '@/components/crm/follow-up-modal/follow-up-modal';
 import LinkClientModal from '@/components/crm/lead-detail/link-client-modal';
+import {
+  Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
+} from '@/components/ui/sheet';
 
 const VALID_TABS = ['overview', 'activity', 'deals', 'files', 'notes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
@@ -60,6 +66,9 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
     : 'overview';
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [linkClientOpen, setLinkClientOpen] = useState(false);
+  // Phase 10 Commit 2 — sidebar Sheet for mobile (max-md). Desktop (md+)
+  // continues to render <LeadSidebar> inline in the 2-col grid.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const canLinkClient = usePermission('leads.update');
   const linkClientMutation = useLinkClient();
 
@@ -171,6 +180,22 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_22rem] gap-4 items-start">
           <div className="min-w-0">
+            {/* Phase 10 Commit 2 — mobile-only sidebar trigger. Visible only at
+                max-md; desktop renders the sidebar inline below. */}
+            <div className="md:hidden mb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSidebarOpen(true)}
+                className="w-full justify-start"
+                aria-label="عرض المعلومات الإضافية للـ Lead"
+              >
+                <Info className="size-4 me-2" />
+                <span>معلومات إضافية</span>
+                <ChevronLeft className="size-4 ms-auto" aria-hidden />
+              </Button>
+            </div>
+
             <TabsContent value="overview" className="m-0">
               <LeadOverviewTab data={data} onSwitchTab={switchTab} />
             </TabsContent>
@@ -189,9 +214,34 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
               <Card className="p-4"><LeadNotesTab leadId={lead.id} /></Card>
             </TabsContent>
           </div>
-          <LeadSidebar lead={lead} />
+          {/* Phase 10 Commit 2 — hide inline sidebar on mobile (max-md);
+              replaced by the Sheet below. Desktop (md+) renders this in the
+              second grid column. */}
+          <div className="hidden md:block">
+            <LeadSidebar lead={lead} />
+          </div>
         </div>
       </Tabs>
+
+      {/* Phase 10 Commit 2 — mobile sidebar Sheet. Slides from the inline-end
+          (visual right in RTL is the natural "sidebar opens" direction).
+          Rendered once at the page root, controlled by sidebarOpen state.
+          Mounts unconditionally; Sheet's data-state="closed" keeps the DOM
+          near-empty when not open. */}
+      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+        <SheetContent
+          side="right"
+          className="w-[90vw] sm:max-w-md overflow-y-auto p-4"
+        >
+          <SheetHeader className="pb-4">
+            <SheetTitle>معلومات إضافية</SheetTitle>
+            <SheetDescription className="sr-only">
+              تفاصيل الـ Lead الإضافية: جهة الاتصال، الـ Follow-up التالي، الحقول المخصصة.
+            </SheetDescription>
+          </SheetHeader>
+          <LeadSidebar lead={lead} />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
