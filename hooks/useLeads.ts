@@ -1,7 +1,14 @@
 'use client';
 
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
+import { toast } from 'sonner';
+import { fetchAPI, mutateAPI, buildQueryString, ApiError } from './api-helpers';
+import {
+  PIPELINE_STAGE_IDS,
+  PIPELINE_STAGE_LABELS_AR,
+  type PipelineStageId,
+} from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
 
 // ── Types returned by API endpoints ──
@@ -200,6 +207,85 @@ export function useMoveLeadStage() {
       qc.invalidateQueries({ queryKey: ['sidebar-badges'] });
     },
   });
+}
+
+export interface RunMoveStageExtras {
+  attachment?: { type: 'contract' | 'invoice'; id: string };
+  lost_reason?: string;
+}
+
+/**
+ * Toast-wrapped variant of useMoveLeadStage. Both desktop drag-drop
+ * (pipeline-client.tsx → handleDropChangeStage → runMoveStage) and the
+ * mobile stage picker (PipelineCard's MobileStageSheet → onChangeStage
+ * → handleDropChangeStage → runMoveStage) use this same hook.
+ *
+ * - moveStage: the underlying useMoveLeadStage mutation (exposes .isPending
+ *   for the MoveStageConfirmModal's submitting prop).
+ * - runMoveStage: the toast-wrapped wrapper. Handles 5 success variants
+ *   (closed_lost + reason, pending_approval, from→to, to-only, generic)
+ *   and 4 error variants (403 perm, 409/410 stale, 422 server message,
+ *   422 generic, fallback). Mutation owns optimistic update + rollback.
+ *
+ * Extracted from pipeline-client.tsx during Phase 10 Commit 1 (Q-UI-001).
+ */
+export function useMoveLeadStageWithToasts() {
+  const moveStage = useMoveLeadStage();
+
+  const runMoveStage = useCallback(
+    async (
+      leadId: string,
+      toStageId: string,
+      fromStageId: string | null,
+      extras?: RunMoveStageExtras,
+    ): Promise<void> => {
+      const fromLabel = fromStageId
+        ? PIPELINE_STAGE_LABELS_AR[fromStageId as PipelineStageId] ?? fromStageId
+        : null;
+      const toLabel = PIPELINE_STAGE_LABELS_AR[toStageId as PipelineStageId] ?? toStageId;
+
+      try {
+        const res = await moveStage.mutateAsync({
+          id: leadId,
+          to_stage_id: toStageId,
+          ...(extras?.attachment ? { attachment: extras.attachment } : {}),
+          ...(extras?.lost_reason ? { lost_reason: extras.lost_reason } : {}),
+        });
+        const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
+        if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
+          toast.success(`تم نقل الصفقة إلى "${toLabel}" — تم تسجيل السبب`);
+        } else if (movedToContractSigned) {
+          toast.success(`تم نقل الـ Lead إلى "${toLabel}" — في انتظار اعتماد المدير`);
+        } else if (fromLabel) {
+          toast.success(`تم نقل الـ Lead من "${fromLabel}" إلى "${toLabel}"`);
+        } else {
+          toast.success(`تم نقل الـ Lead إلى "${toLabel}"`);
+        }
+      } catch (err: unknown) {
+        const apiErr = err instanceof ApiError ? err : null;
+        const status = apiErr?.status;
+        const serverMessage =
+          apiErr?.message && !apiErr.message.startsWith('API error:')
+            ? apiErr.message
+            : null;
+
+        if (status === 403) {
+          toast.error('ليس لديك صلاحية لنقل المراحل');
+        } else if (status === 409 || status === 410) {
+          toast.error('حدث تغيير في الـ Lead. الرجاء التحديث');
+        } else if (status === 422 && serverMessage) {
+          toast.error(serverMessage);
+        } else if (status === 422) {
+          toast.error(`لا يمكن نقل الـ Lead إلى "${toLabel}" مباشرة — راجع متطلبات المرحلة`);
+        } else {
+          toast.error(serverMessage ?? 'فشل نقل المرحلة — حاول مرة أخرى');
+        }
+      }
+    },
+    [moveStage],
+  );
+
+  return { moveStage, runMoveStage };
 }
 
 export function useArchiveLead() {

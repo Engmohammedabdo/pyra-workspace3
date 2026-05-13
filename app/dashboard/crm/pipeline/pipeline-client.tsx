@@ -4,15 +4,23 @@
  * Pipeline page client.
  *
  * Data flows:
- *   useCurrentUser    → know if admin (filter-bar owner dropdown visibility)
- *   usePipelineStages → stage columns
- *   useLeads(filters) → cards within columns
- *   useMoveLeadStage  → drag-drop mutation (Phase 7 Chunk 3.1)
+ *   useCurrentUser              → know if admin (filter-bar owner dropdown visibility)
+ *   usePipelineStages           → stage columns
+ *   useLeads(filters)           → cards within columns
+ *   useMoveLeadStageWithToasts  → toast-wrapped move-stage mutation
+ *                                 (Phase 10 Commit 1 extracted the
+ *                                 toast-handling wrapper to a custom hook
+ *                                 so desktop drag AND the mobile stage
+ *                                 sheet share the same code path —
+ *                                 Q-UI-001 resolution)
  *
  * Drag-drop is owned by <PipelineBoard>; this client wires the resulting
- * onDropChangeStage callback. Optimistic update lives inside
- * useMoveLeadStage. Toasts on error are fired here because we have the
- * from→to label context.
+ * onDropChangeStage callback. Mobile stage taps from <MobileStageSheet>
+ * arrive via the same callback path (PipelineBoard passes it down to
+ * PipelineCard as onChangeStage, so both surfaces hit
+ * handleDropChangeStage with the same arguments). Optimistic update
+ * lives inside useMoveLeadStage (the underlying mutation). Toast handling
+ * lives in useMoveLeadStageWithToasts.
  *
  * Phase 3.2 added: drops onto stg_contract_signed open the
  * <MoveStageConfirmModal> picker BEFORE firing the mutation, so the user
@@ -31,7 +39,7 @@ import { Button } from '@/components/ui/button';
 import { GitBranch, Plus, Info } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
-import { useLeads, useMoveLeadStage } from '@/hooks/useLeads';
+import { useLeads, useMoveLeadStageWithToasts } from '@/hooks/useLeads';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
@@ -40,19 +48,18 @@ import {
   type MoveStageConfirmPayload,
   type MoveStageConfirmTargetId,
 } from '@/components/crm/pipeline/move-stage-confirm-modal';
-import { ApiError } from '@/hooks/api-helpers';
-import {
-  PIPELINE_STAGE_IDS,
-  PIPELINE_STAGE_LABELS_AR,
-  type PipelineStageId,
-} from '@/lib/constants/statuses';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
 
 export function PipelineClient() {
   const sp = useSearchParams();
   const { data: me } = useCurrentUser();
   const [addLeadOpen, setAddLeadOpen] = useState(false);
-  const moveStage = useMoveLeadStage();
+  // Phase 10 Commit 1 (Q-UI-001): the toast-wrapped wrapper is now a custom
+  // hook reused by both desktop drag (handleDropChangeStage below) and the
+  // mobile MobileStageSheet (via PipelineBoard → PipelineCard onChangeStage
+  // prop, which ultimately calls handleDropChangeStage with the same args).
+  const { moveStage, runMoveStage } = useMoveLeadStageWithToasts();
 
   // Shared "needs-extra-data" modal state. Set when a card is dropped on
   // stg_contract_signed (needs attachment) or stg_closed_lost (needs
@@ -97,77 +104,9 @@ export function PipelineClient() {
     return Array.from(new Set(leads.map((l) => l.assigned_to).filter((x): x is string => !!x))).sort();
   }, [isAdmin, leads]);
 
-  // Shared mutation runner — used both by the routine drop path and by
-  // the modal's confirm path. Surfaces a contextual success toast and
-  // catches the rollback path with a clear error message. The hook owns
-  // the optimistic update + rollback.
-  const runMoveStage = useCallback(
-    async (
-      leadId: string,
-      toStageId: string,
-      fromStageId: string | null,
-      extras?: {
-        attachment?: { type: 'contract' | 'invoice'; id: string };
-        lost_reason?: string;
-      },
-    ) => {
-      const fromLabel = fromStageId
-        ? PIPELINE_STAGE_LABELS_AR[fromStageId as PipelineStageId] ?? fromStageId
-        : null;
-      const toLabel = PIPELINE_STAGE_LABELS_AR[toStageId as PipelineStageId] ?? toStageId;
-
-      try {
-        const res = await moveStage.mutateAsync({
-          id: leadId,
-          to_stage_id: toStageId,
-          ...(extras?.attachment ? { attachment: extras.attachment } : {}),
-          ...(extras?.lost_reason ? { lost_reason: extras.lost_reason } : {}),
-        });
-        const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
-        if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
-          toast.success(`تم نقل الصفقة إلى "${toLabel}" — تم تسجيل السبب`);
-        } else if (movedToContractSigned) {
-          toast.success(`تم نقل الـ Lead إلى "${toLabel}" — في انتظار اعتماد المدير`);
-        } else if (fromLabel) {
-          toast.success(`تم نقل الـ Lead من "${fromLabel}" إلى "${toLabel}"`);
-        } else {
-          toast.success(`تم نقل الـ Lead إلى "${toLabel}"`);
-        }
-      } catch (err: unknown) {
-        // Phase 3.4: dispatch on the response status so we can show the
-        // server's specific Arabic message on 422, a permission line on
-        // 403, and a stale-state line on 409/410. mutateAPI now throws
-        // ApiError with the parsed body — falling back to a generic
-        // string for unexpected shapes.
-        const apiErr = err instanceof ApiError ? err : null;
-        const status = apiErr?.status;
-        const serverMessage =
-          apiErr?.message && !apiErr.message.startsWith('API error:')
-            ? apiErr.message
-            : null;
-
-        if (status === 403) {
-          toast.error('ليس لديك صلاحية لنقل المراحل');
-        } else if (status === 409 || status === 410) {
-          // The hook's onSettled already invalidated ['crm','leads'] —
-          // the auto-refetch will reconcile the user's view.
-          toast.error('حدث تغيير في الـ Lead. الرجاء التحديث');
-        } else if (status === 422 && serverMessage) {
-          // Show the server's specific reason verbatim. This catches
-          // unexpected paths the modal didn't cover (e.g. same-from-as-to,
-          // missing reopen_reason).
-          toast.error(serverMessage);
-        } else if (status === 422) {
-          toast.error(`لا يمكن نقل الـ Lead إلى "${toLabel}" مباشرة — راجع متطلبات المرحلة`);
-        } else {
-          toast.error(serverMessage ?? 'فشل نقل المرحلة — حاول مرة أخرى');
-        }
-      }
-    },
-    [moveStage],
-  );
-
-  // Drop handler — fired by PipelineBoard after a cross-column drop.
+  // Drop handler — fired by PipelineBoard after a cross-column drop (desktop
+  // drag) AND from the mobile MobileStageSheet via the same onChangeStage
+  // callback path. Three branches:
   // Three branches:
   //   1. stg_closed_won → BLOCKED client-side. No mutation, no flicker.
   //                       Toast tells the user the right path.

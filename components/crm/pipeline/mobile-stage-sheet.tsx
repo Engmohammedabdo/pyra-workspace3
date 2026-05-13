@@ -1,0 +1,93 @@
+'use client';
+
+import { ChevronLeft } from 'lucide-react';
+import { cn } from '@/lib/utils/cn';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import { ACCENT_DOT } from '@/lib/constants/pipeline-colors';
+import type { Lead } from '@/hooks/useLeads';
+import type { PipelineStage } from '@/hooks/usePipelineStages';
+
+export interface MobileStageSheetProps {
+  /** Sheet visibility — controlled by parent (per-card useState in PipelineCard). */
+  open: boolean;
+  /** Called when the sheet should close (ESC, backdrop, X button, AND after user selects a stage). */
+  onOpenChange: (open: boolean) => void;
+  /** The lead being moved. Used for the sheet title context + filtering out the current stage. */
+  lead: Lead;
+  /** All pipeline stages. The current stage (lead.stage_id) is filtered out client-side. */
+  stages: PipelineStage[];
+  /** Called when user picks a target stage. Sheet auto-closes via onOpenChange(false) AFTER this callback fires. */
+  onSelectStage: (toStageId: string) => void;
+}
+
+export default function MobileStageSheet({
+  open,
+  onOpenChange,
+  lead,
+  stages,
+  onSelectStage,
+}: MobileStageSheetProps) {
+  const otherStages = stages.filter((s) => s.id !== lead.stage_id);
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      {/* Override the default `p-6` from sheetVariants with `p-0` so the body
+          controls its own padding. Bottom sheet rounds only the TOP corners. */}
+      <SheetContent
+        side="bottom"
+        className="h-auto max-h-[80vh] rounded-t-2xl p-0"
+      >
+        <SheetHeader className="px-6 pt-6 pb-3">
+          <SheetTitle>نقل المرحلة</SheetTitle>
+          <SheetDescription>
+            لا يصل العميل إشعارًا — هذه عملية داخلية. سيتم نقل &quot;{lead.name}&quot; إلى مرحلة جديدة.
+          </SheetDescription>
+        </SheetHeader>
+
+        {otherStages.length === 0 ? (
+          <div className="px-6 pb-6 pt-2 text-center text-sm text-muted-foreground">
+            لا توجد مراحل أخرى متاحة
+          </div>
+        ) : (
+          <div className="px-2 pb-4 max-h-[55vh] overflow-y-auto">
+            {otherStages.map((stage) => (
+              <button
+                key={stage.id}
+                type="button"
+                onClick={() => {
+                  onSelectStage(stage.id);
+                  onOpenChange(false);
+                }}
+                aria-label={`نقل إلى ${stage.name_ar}`}
+                className="w-full px-4 py-3 rounded-lg hover:bg-muted/60 transition-colors flex items-center gap-3"
+              >
+                <span
+                  className={cn(
+                    'size-2.5 rounded-full shrink-0',
+                    ACCENT_DOT[stage.color] ?? 'bg-current',
+                  )}
+                  aria-hidden
+                />
+                <span className="flex-1 text-start font-medium text-sm">
+                  {stage.name_ar}
+                </span>
+                {/* ChevronLeft = visual "forward" arrow in RTL (points toward
+                    the row's end, since text flows right-to-left). */}
+                <ChevronLeft
+                  className="size-4 text-muted-foreground shrink-0"
+                  aria-hidden
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}

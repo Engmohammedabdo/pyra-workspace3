@@ -40,18 +40,35 @@
  */
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils/cn';
-import { Phone, MessageCircle } from 'lucide-react';
+import { Phone, MessageCircle, ArrowRightLeft } from 'lucide-react';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import { LeadSourceIcon } from '@/components/crm/lead/lead-source-icon';
 import { formatCurrency } from '@/lib/utils/format';
 import type { Lead } from '@/hooks/useLeads';
+import type { PipelineStage } from '@/hooks/usePipelineStages';
+import MobileStageSheet from './mobile-stage-sheet';
 
 interface PipelineCardProps {
   lead: Lead;
   /** Compact mode for tighter mobile layouts */
   compact?: boolean;
+  /**
+   * Pipeline stages — passed down so the MobileStageSheet can list them.
+   * Optional: when omitted (e.g. desktop column rendering), the mobile
+   * "نقل المرحلة" button is hidden. Phase 10 Commit 1 (Q-UI-001).
+   */
+  stages?: PipelineStage[];
+  /**
+   * Mobile stage-change callback — invoked from MobileStageSheet on tap.
+   * Same signature as PipelineBoard's onDropChangeStage so both desktop
+   * drag AND mobile tap share the parent's single gating implementation
+   * (closed_won guard + contract_signed/closed_lost modal intercept +
+   * routine path). Optional: when omitted, the mobile button is hidden.
+   */
+  onChangeStage?: (leadId: string, toStageId: string, fromStageId: string | null) => void;
 }
 
 function daysAgoLabel(iso: string | null | undefined): string | null {
@@ -202,11 +219,16 @@ function PipelineCardView({
  * dragging instead of `opacity-30` — HubSpot-style UX where only the
  * floating overlay ghost is visible during drag.
  */
-export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
+export function PipelineCard({ lead, compact = false, stages, onChangeStage }: PipelineCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
   });
+
+  // Phase 10 Commit 1 (Q-UI-001): mobile-only stage-picker sheet open/close.
+  // Per-card local state per Phase 7 locked "no prop drilling" decision —
+  // stays inside this PipelineCard instance, not lifted to a parent.
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -220,6 +242,12 @@ export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
   const detailHref = lead.is_converted
     ? `/dashboard/crm/customers/${lead.id}`
     : `/dashboard/crm/leads/${lead.id}`;
+
+  // Show the mobile button only when the parent supplied BOTH stages and
+  // the onChangeStage callback (defensive — desktop column rendering omits
+  // both, so the button doesn't mount there). The md:hidden gate ensures
+  // even when supplied, the button only paints on mobile.
+  const showMobileStageButton = !!stages && !!onChangeStage;
 
   return (
     <div
@@ -235,6 +263,48 @@ export function PipelineCard({ lead, compact = false }: PipelineCardProps) {
       >
         <PipelineCardView lead={lead} compact={compact} />
       </Link>
+
+      {/* Mobile-only "نقل المرحلة" button. Per Phase 7 Chunk 3 architecture:
+          MUST live in <PipelineCard> source wrapper, NOT inside
+          PipelineCardView (which is also rendered as the drag-overlay ghost
+          via PipelineCardOverlay — placing the button there would duplicate
+          it in the floating drag preview). The md:hidden gate keeps desktop
+          unchanged (desktop uses drag-drop). */}
+      {showMobileStageButton && (
+        <button
+          type="button"
+          onClick={(e) => {
+            // Prevent the Link's navigation from also firing. Without these
+            // guards, tapping the button would route to lead detail because
+            // the Link's listeners are mounted on the parent.
+            e.preventDefault();
+            e.stopPropagation();
+            setSheetOpen(true);
+          }}
+          className="md:hidden mt-1 w-full rounded-lg border border-border bg-muted/30 hover:bg-muted/60 px-3 py-2 text-xs font-medium text-foreground transition-colors flex items-center justify-center gap-1.5"
+          aria-label={`نقل ${lead.name} إلى مرحلة أخرى`}
+        >
+          <ArrowRightLeft className="size-3.5" />
+          نقل المرحلة
+        </button>
+      )}
+
+      {/* Sheet portal — rendered into document.body via Radix Portal, so its
+          overlay covers the full viewport regardless of this wrapper's
+          stacking context. Mounted unconditionally on mobile contexts (when
+          showMobileStageButton is true) so opening is instant on first tap;
+          Sheet's data-state attribute keeps the DOM nearly free when closed. */}
+      {showMobileStageButton && stages && onChangeStage && (
+        <MobileStageSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          lead={lead}
+          stages={stages}
+          onSelectStage={(toStageId) =>
+            onChangeStage(lead.id, toStageId, lead.stage_id ?? null)
+          }
+        />
+      )}
     </div>
   );
 }

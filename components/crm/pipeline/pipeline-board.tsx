@@ -10,7 +10,8 @@
  * Mobile (<md): sticky stage tabs + single vertical card stack. Drag is
  *               OFF — the sensor's activation distance is set to a value
  *               that's effectively unreachable. Mobile drag-trigger is
- *               replaced by a per-card "نقل المرحلة" button (Phase 7 Chunk 4).
+ *               replaced by a per-card "نقل المرحلة" button that opens
+ *               <MobileStageSheet> (Phase 10 Commit 1 / Q-UI-001).
  *
  * The board does NOT own the mutation. It surfaces drop events via
  * onDropChangeStage(leadId, toStageId, fromStageId); the parent
@@ -34,6 +35,7 @@ import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { PipelineColumn } from './pipeline-column';
 import { PipelineCard, PipelineCardOverlay } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
+import { ACCENT_DOT } from '@/lib/constants/pipeline-colors';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
 
@@ -48,16 +50,6 @@ interface PipelineBoardProps {
    */
   onDropChangeStage?: (leadId: string, toStageId: string, fromStageId: string | null) => void;
 }
-
-const ACCENT_DOT: Record<string, string> = {
-  sky:     'bg-sky-500',
-  indigo:  'bg-indigo-500',
-  amber:   'bg-amber-500',
-  orange:  'bg-orange-500',
-  emerald: 'bg-emerald-500',
-  gold:    'bg-yellow-500',
-  stone:   'bg-stone-400',
-};
 
 // Effectively-disabled sensor on mobile.
 const MOBILE_DRAG_DISTANCE = Number.MAX_SAFE_INTEGER;
@@ -158,8 +150,11 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
       </div>
 
       {/* Mobile — stage tabs + single column. Drag is sensor-disabled here,
-          so cards behave as plain Links. The "نقل المرحلة" button comes in
-          Phase 7 Chunk 4. */}
+          so cards behave as plain Links plus a per-card "نقل المرحلة"
+          button that opens <MobileStageSheet> (Phase 10 Commit 1).
+          The PipelineCard receives `stages` + `onChangeStage` only in the
+          mobile branch; the desktop column rendering omits them so the
+          button doesn't mount there. */}
       <div className="md:hidden">
         <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" dir="rtl">
@@ -197,7 +192,12 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
             />
           ) : (
             (grouped.get(effectiveActiveId ?? '') ?? []).map((lead) => (
-              <PipelineCard key={lead.id} lead={lead} />
+              <PipelineCard
+                key={lead.id}
+                lead={lead}
+                stages={stages}
+                onChangeStage={onDropChangeStage}
+              />
             ))
           )}
         </div>
