@@ -68,7 +68,16 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => {
           return caches.match(request).then((cached) => {
-            return cached || caches.match('/offline');
+            if (cached) return cached;
+            // Explicit STATIC_CACHE lookup — /offline is precached there
+            // (see PRECACHE_URLS + install handler). The unqualified
+            // caches.match() above can resolve from either CACHE_NAME or
+            // STATIC_CACHE in implementation-defined order, which could
+            // serve a stale empty entry from CACHE_NAME before reaching
+            // the precached /offline page. Phase 10 Commit 3.
+            return caches.open(STATIC_CACHE).then((cache) =>
+              cache.match('/offline'),
+            );
           });
         })
     );
