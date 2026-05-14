@@ -131,8 +131,17 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect admin API routes (except public, portal, Stripe webhook, and
-  // external/cron endpoints which authenticate via x-api-key not session).
+  // Protect admin API routes (except public, portal, Stripe webhook,
+  // external/cron, and observability endpoints which authenticate via
+  // their own auth gates — x-api-key, Stripe signature, portal cookie,
+  // OR dashboard-session-OR-portal-cookie respectively).
+  //
+  // /api/observability/* is exempt because the beacon at
+  // /api/observability/log-client-error accepts EITHER a dashboard
+  // (Supabase Auth) session OR a portal (cookie) session. Without this
+  // bypass, portal-client error boundaries would 401 before their route
+  // handler could consult getPortalSession(). The route's own auth
+  // gate is the canonical check.
   if (
     pathname.startsWith('/api') &&
     !pathname.startsWith('/api/health') &&
@@ -141,7 +150,8 @@ export async function middleware(request: NextRequest) {
     !pathname.startsWith('/api/shares/download') &&
     !pathname.startsWith('/api/stripe/webhook') &&
     !pathname.startsWith('/api/external') &&
-    !pathname.startsWith('/api/cron')
+    !pathname.startsWith('/api/cron') &&
+    !pathname.startsWith('/api/observability')
   ) {
     if (!user) {
       return NextResponse.json(
