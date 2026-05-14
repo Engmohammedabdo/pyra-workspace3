@@ -4,6 +4,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { evolutionClient } from '@/lib/evolution/client';
 import { notify } from '@/lib/notifications/notify';
+import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/follow-up-reminders
@@ -324,6 +325,15 @@ export async function POST(request: NextRequest) {
       errors,
     });
   } catch (err) {
+    // Phase 14.1 Commit 2 — top-level cron failure. Per-row failures inside
+    // the loop stay on console.error (Phase 11 invariant; transient row
+    // failures don't deserve a permanent row). Top-level catches DO log —
+    // they represent full-job failure with no retry path.
+    logError({
+      error: err,
+      request,
+      metadata: { source: 'cron', job: 'follow-up-reminders' },
+    });
     console.error('POST /api/cron/follow-up-reminders threw:', err);
     return apiServerError();
   }

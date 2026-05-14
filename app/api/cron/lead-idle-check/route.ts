@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notify } from '@/lib/notifications/notify';
 import { PIPELINE_FINAL_STAGES } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/lead-idle-check
@@ -82,6 +83,14 @@ export async function POST(request: NextRequest) {
       .not('assigned_to', 'is', null);
 
     if (leadErr) {
+      // Phase 14.1 Commit 2 — top-of-cron lead-SELECT failure means the
+      // entire idle-check tick produces no warnings. Log with full context
+      // for triage.
+      logError({
+        error: leadErr,
+        request,
+        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'leads_select' },
+      });
       console.error('[cron/lead-idle-check] leads SELECT failed:', leadErr.message);
       return apiServerError();
     }
@@ -269,6 +278,13 @@ export async function POST(request: NextRequest) {
       agents_already_notified_today: agentsAlreadyNotifiedToday,
     });
   } catch (err) {
+    // Phase 14.1 Commit 2 — top-level cron failure. Per-row failures inside
+    // the loop stay on console.error (transient row issues; not table-worthy).
+    logError({
+      error: err,
+      request,
+      metadata: { source: 'cron', job: 'lead-idle-check' },
+    });
     console.error('POST /api/cron/lead-idle-check threw:', err);
     return apiServerError();
   }

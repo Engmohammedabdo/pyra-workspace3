@@ -481,6 +481,7 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 - API auth → `requireApiPermission()` or `requireApiAuth()` from `@/lib/api/auth`
 - API response → `apiSuccess()`/`apiError()` from `@/lib/api/response`
 - Activity logging → `logActivity()` from `@/lib/api/activity` (fire-and-forget, never blocks response)
+- Error observability → `logError({ error, request, user?, metadata? })` from `@/lib/observability/log-error` in catch blocks of long-lived routes (cron, webhooks, state-change). Server-side only — Client Component error boundaries POST to `/api/observability/log-client-error` instead. `apiServerError(message?, err?, request?)` auto-logs when `err` is passed (Phase 14.1). PII-redacted (email/phone/headers) before insert into `pyra_error_logs`.
 - No transactions → backup-rollback pattern (see `docs/ARCHITECTURE.md`)
 - Code: English · UI: Arabic · `'use client'` for interactive components
 - `cn()` from `@/lib/utils/cn` · `formatDate()`/`formatCurrency()` from `@/lib/utils/format`

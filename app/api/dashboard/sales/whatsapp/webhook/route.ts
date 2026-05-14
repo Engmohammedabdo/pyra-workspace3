@@ -6,6 +6,7 @@ import { CONVERSATION_STATUS, CONVERSATION_PRIORITY } from '@/lib/constants/stat
 import { applySlaPolicy } from '@/lib/whatsapp/sla';
 import { typingMap, cleanupTypingMap } from '@/lib/whatsapp/typing-map';
 import type { EvoGroup } from '@/lib/evolution/types';
+import { logError } from '@/lib/observability/log-error';
 
 /** Fetch group metadata from Evolution API (fire-and-forget safe) */
 async function fetchGroupMetadata(instanceName: string, groupJid: string): Promise<EvoGroup | null> {
@@ -65,10 +66,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ status: 'ok' });
   }
 
-  // Process asynchronously
-  processWebhook(event, instance || '', data).catch(err =>
-    console.error('[WA Webhook] Processing error:', err)
-  );
+  // Process asynchronously. Failures here are critical (Evolution won't
+  // retry on our 200) — Phase 14.1 Commit 2 funnels them into
+  // pyra_error_logs for triage.
+  processWebhook(event, instance || '', data).catch((err) => {
+    logError({
+      error: err,
+      request,
+      metadata: { source: 'webhook', provider: 'evolution', event, instance: instance || null },
+    });
+    console.error('[WA Webhook] Processing error:', err);
+  });
 
   return NextResponse.json({ status: 'ok' });
 }

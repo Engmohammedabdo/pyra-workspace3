@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiError,
@@ -12,6 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { notify } from '@/lib/notifications/notify';
 import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/crm/leads/[id]/convert-to-customer
@@ -59,12 +60,19 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Phase 14.1 Commit 2 — hoisted for catch-block logError. `leadId` is
+  // populated after params resolves; null until then. `authForLogging`
+  // captures the admin who initiated the conversion.
+  let authForLogging: ApiAuthResult | null = null;
+  let leadIdForLogging: string | null = null;
   try {
     // Permission gate — admin override only.
     const auth = await requireApiPermission('leads.manage');
     if (isApiError(auth)) return auth;
+    authForLogging = auth;
 
     const { id: leadId } = await params;
+    leadIdForLogging = leadId;
     const supabase = createServiceRoleClient();
 
     // ── State: load the lead ──
@@ -75,6 +83,12 @@ export async function POST(
       .maybeSingle();
 
     if (leadError) {
+      logError({
+        error: leadError,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { lead_id: leadId, action: 'convert-to-customer', stage: 'lead_lookup' },
+      });
       console.error('convert-to-customer: lead lookup error:', leadError);
       return apiServerError();
     }
@@ -261,6 +275,16 @@ export async function POST(
       created: true,
     });
   } catch (err) {
+    // Phase 14.1 Commit 2 — state-change failure with multi-row writes is
+    // hard to recover. Capture full context for triage.
+    logError({
+      error: err,
+      request,
+      user: authForLogging
+        ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+        : undefined,
+      metadata: { lead_id: leadIdForLogging, action: 'convert-to-customer' },
+    });
     console.error('POST /api/crm/leads/[id]/convert-to-customer threw:', err);
     return apiServerError();
   }

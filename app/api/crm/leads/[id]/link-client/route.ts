@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiForbidden,
@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { canAccessLead } from '@/lib/auth/lead-scope';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/crm/leads/[id]/link-client
@@ -49,6 +50,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Phase 14.1 Commit 2 — hoisted for catch-block logError context.
+  let authForLogging: ApiAuthResult | null = null;
+  let leadIdForLogging: string | null = null;
   try {
     // ── Trust boundary ──
     // `id` (route param) flows from the URL — user-controlled, but gated by
@@ -59,8 +63,10 @@ export async function POST(
 
     const auth = await requireApiPermission('leads.update');
     if (isApiError(auth)) return auth;
+    authForLogging = auth;
 
     const { id: leadId } = await params;
+    leadIdForLogging = leadId;
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(
@@ -172,6 +178,15 @@ export async function POST(
       200,
     );
   } catch (err) {
+    // Phase 14.1 Commit 2 — state-change failure on FK field, hard to recover.
+    logError({
+      error: err,
+      request,
+      user: authForLogging
+        ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+        : undefined,
+      metadata: { lead_id: leadIdForLogging, action: 'link-client' },
+    });
     console.error('POST /api/crm/leads/[id]/link-client threw:', err);
     return apiServerError();
   }

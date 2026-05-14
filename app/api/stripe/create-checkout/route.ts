@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient } from '@/lib/stripe';
+import { logError } from '@/lib/observability/log-error';
 
 // Simple retry helper for Stripe API failures
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
@@ -35,9 +36,14 @@ function checkRate(key: string, maxPerMinute = 5): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Hoisted so the catch block at the end can include user context in the
+  // logError call. Stays null if requireApiPermission itself threw before
+  // assignment (rare — only if Supabase connection blows up at auth time).
+  let authForLogging: ApiAuthResult | null = null;
   try {
     const auth = await requireApiPermission('finance.manage');
     if (isApiError(auth)) return auth;
+    authForLogging = auth;
 
     const body = await req.json();
     const { invoice_id } = body;
@@ -147,6 +153,16 @@ export async function POST(req: NextRequest) {
 
     return apiSuccess({ checkout_url: session.url, session_id: session.id });
   } catch (error) {
+    // Phase 14.1 Commit 2 — payment session creation failure = lost sale.
+    // Log with user context for triage.
+    logError({
+      error,
+      request: req,
+      user: authForLogging
+        ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+        : undefined,
+      metadata: { source: 'stripe', action: 'create-checkout' },
+    });
     console.error('[Stripe Create Checkout] Error:', error);
     return apiServerError();
   }

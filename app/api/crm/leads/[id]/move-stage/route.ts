@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
+import { logError } from '@/lib/observability/log-error';
 import {
   apiSuccess,
   apiNotFound,
@@ -78,11 +79,16 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  // Phase 14.1 Commit 2 — hoisted for catch-block logError context.
+  let authForLogging: ApiAuthResult | null = null;
+  let leadIdForLogging: string | null = null;
   try {
     const auth = await requireApiPermission('leads.move_stage');
     if (isApiError(auth)) return auth;
+    authForLogging = auth;
 
     const { id } = await params;
+    leadIdForLogging = id;
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
@@ -110,6 +116,12 @@ export async function POST(
       .eq('id', id)
       .maybeSingle();
     if (fetchErr) {
+      logError({
+        error: fetchErr,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { lead_id: id, action: 'move-stage', stage: 'lead_fetch' },
+      });
       console.error('move-stage fetch error:', fetchErr.message);
       return apiServerError();
     }
@@ -190,6 +202,12 @@ export async function POST(
       .select('*')
       .single();
     if (updErr || !lead) {
+      logError({
+        error: updErr ?? new Error('move-stage update returned no row'),
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { lead_id: id, action: 'move-stage', stage: 'stage_update' },
+      });
       console.error('move-stage update error:', updErr?.message);
       return apiServerError(`فشل نقل المرحلة${updErr?.message ? ': ' + updErr.message : ''}`);
     }
@@ -296,6 +314,17 @@ export async function POST(
       pending_approval: isContractSigned,
     });
   } catch (err) {
+    // Phase 14.1 Commit 2 — pipeline-stage move failure. Both the kanban
+    // drag-drop AND mobile stage sheet route through here; silent failures
+    // surface as stuck cards or stale optimistic UI.
+    logError({
+      error: err,
+      request,
+      user: authForLogging
+        ? { id: authForLogging.pyraUser.username, role: authForLogging.pyraUser.role }
+        : undefined,
+      metadata: { lead_id: leadIdForLogging, action: 'move-stage' },
+    });
     console.error('POST /api/crm/leads/[id]/move-stage threw:', err);
     return apiServerError();
   }

@@ -13,6 +13,22 @@ export default function PortalError({
 }) {
   useEffect(() => {
     console.error('[Portal Error]', error);
+    // Phase 14.1 Commit 2 — fire-and-forget beacon to the server-side
+    // observability funnel. Client Components can't call logError() directly
+    // (service-role client is server-only), so we POST through a tiny
+    // authenticated route. `.catch(() => {})` mirrors logError's "never
+    // throws" contract on the client side — a beacon failure must never
+    // disturb the error UI.
+    void fetch('/api/observability/log-client-error', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: error.message,
+        stack: error.stack,
+        location: 'portal_error_boundary',
+        digest: error.digest,
+      }),
+    }).catch(() => {});
   }, [error]);
 
   return (

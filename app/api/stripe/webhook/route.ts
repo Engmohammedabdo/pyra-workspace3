@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe';
+import { logError } from '@/lib/observability/log-error';
 import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
@@ -656,9 +657,24 @@ export async function POST(req: NextRequest) {
     // Differentiate signature errors from processing errors
     const message = error instanceof Error ? error.message : String(error);
     if (message.includes('signature') || message.includes('Webhook')) {
+      // Phase 14.1 Commit 2 — signature failure is suspicious (probe or
+      // misconfigured client) but not a system error. Log as warning, not error.
+      logError({
+        severity: 'warning',
+        error,
+        request: req,
+        metadata: { source: 'webhook', provider: 'stripe', reason: 'signature_verification' },
+      });
       console.error('[Stripe Webhook] Signature verification failed:', message);
       return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 401 });
     }
+    // Phase 14.1 Commit 2 — processing failure is financial-critical. Stripe
+    // WILL retry, but silent failures mean we lose revenue tracking.
+    logError({
+      error,
+      request: req,
+      metadata: { source: 'webhook', provider: 'stripe', reason: 'processing' },
+    });
     console.error('[Stripe Webhook] Processing error:', message);
     return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
   }
