@@ -25,7 +25,7 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, LayoutDashboard, Activity, FileSignature, FolderOpen, StickyNote,
+  ArrowLeft, LayoutDashboard, Activity, FileSignature, Paperclip, StickyNote,
   Info, ChevronLeft,
 } from 'lucide-react';
 import { useLead, useLinkClient } from '@/hooks/useLeads';
@@ -37,7 +37,7 @@ import { LeadStatStrip } from '@/components/crm/lead-detail/lead-stat-strip';
 import { LeadOverviewTab } from '@/components/crm/lead-detail/lead-overview-tab';
 import { LeadActivityTab } from '@/components/crm/lead-detail/lead-activity-tab';
 import { LeadDealsTab } from '@/components/crm/lead-detail/lead-deals-tab';
-import { LeadFilesTab } from '@/components/crm/lead-detail/lead-files-tab';
+import { LeadAttachmentsTab } from '@/components/crm/lead-detail/lead-attachments-tab';
 import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
 import { LeadSidebar } from '@/components/crm/lead-detail/lead-sidebar';
 import { FollowUpModal } from '@/components/crm/follow-up-modal/follow-up-modal';
@@ -53,7 +53,11 @@ const TAB_DEFS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ 
   { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
   { key: 'activity', label: 'النشاط',     icon: Activity },
   { key: 'deals',    label: 'الصفقات',    icon: FileSignature },
-  { key: 'files',    label: 'الملفات',     icon: FolderOpen },
+  // Phase 15.2 Commit 1 — repurposed: this was the "files" placeholder
+  // promised in v1.1, now the canonical attachments surface. The tab KEY
+  // stays `files` for URL/router stability (old `?tab=files` bookmarks
+  // still land here). Label + icon updated to match the new semantics.
+  { key: 'files',    label: 'مرفقات',      icon: Paperclip },
   { key: 'notes',    label: 'الملاحظات',  icon: StickyNote },
 ];
 
@@ -208,7 +212,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
               <LeadDealsTab data={data} />
             </TabsContent>
             <TabsContent value="files" className="m-0">
-              <Card className="p-4"><LeadFilesTab /></Card>
+              <Card className="p-4"><LeadAttachmentsTab leadId={lead.id} /></Card>
             </TabsContent>
             <TabsContent value="notes" className="m-0">
               <Card className="p-4"><LeadNotesTab leadId={lead.id} /></Card>

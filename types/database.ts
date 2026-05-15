@@ -1479,6 +1479,38 @@ export interface PyraSalesFollowUp {
   assigned_display_name?: string;
 }
 
+/**
+ * Per-lead attachment (Phase 15.2 — image in Commit 1, voice_note in Commit 2).
+ *
+ * Backing table: pyra_lead_attachments (migration 016).
+ * Storage paths: lead-attachments/{lead_id}/{ts}-{nanoid}.{ext} inside the
+ * public pyraai-workspace bucket. The `public_url` field is computed at
+ * read time via Supabase Storage `getPublicUrl()` — not stored.
+ *
+ * Hard caps enforced at the API layer:
+ *   - 5MB per file (after client Canvas resize)
+ *   - 10 image attachments per lead (server SELECT COUNT pre-check)
+ *
+ * EXIF metadata is stripped at upload time via client-side Canvas
+ * re-encode (drawImage → toBlob('image/jpeg', 0.82)).
+ */
+export interface PyraLeadAttachment {
+  id: string;
+  lead_id: string;
+  file_type: 'image' | 'voice_note';
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  /** Voice notes only — null for images */
+  duration_seconds: number | null;
+  /** pyra_users.username — server-set, never from request body */
+  uploaded_by: string;
+  uploaded_at: string;
+  metadata: Record<string, unknown>;
+  /** Computed at read time via Storage getPublicUrl() — not a DB column */
+  public_url?: string;
+}
+
 export interface PyraWhatsAppTemplate {
   id: string;
   title: string;
