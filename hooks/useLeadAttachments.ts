@@ -48,22 +48,42 @@ export interface UploadResult {
 }
 
 /**
- * Upload one image to a lead's attachments.
+ * Upload payload — supports both images (Commit 1) and voice notes
+ * (Commit 2). For voice notes, durationSeconds is required (server
+ * rejects with 422 if missing).
+ */
+export interface UploadInput {
+  file: File;
+  fileType?: 'image' | 'voice_note';
+  durationSeconds?: number;
+}
+
+/**
+ * Upload one image or voice note to a lead's attachments.
  *
- * Caller resizes the image client-side (lib/utils/image-resize) BEFORE
- * passing the File here. This hook is a thin wrapper around fetch() with
- * cache invalidation — it does NOT do its own resize.
+ * Caller responsibility:
+ *   - Images: client-side resize via lib/utils/image-resize BEFORE invoking
+ *     this hook (EXIF strip + downscale + JPEG re-encode).
+ *   - Voice notes: client-side recording via hooks/useVoiceRecorder; pass
+ *     the resulting Blob (wrapped as File) plus durationSeconds.
  *
  * Note: we use raw fetch() here (not mutateAPI) because FormData uploads
- * need to set their own Content-Type with boundary. mutateAPI assumes
- * JSON.
+ * need browser-set Content-Type with multipart boundary. mutateAPI hardcodes
+ * application/json which would corrupt the upload.
  */
 export function useUploadAttachment(leadId: string) {
   const qc = useQueryClient();
-  return useMutation<UploadResult, Error, File>({
-    mutationFn: async (file: File) => {
+  return useMutation<UploadResult, Error, UploadInput>({
+    mutationFn: async ({ file, fileType = 'image', durationSeconds }) => {
       const form = new FormData();
       form.append('file', file);
+      // file_type defaults to 'image' server-side too (Commit 1 backwards
+      // compat), but we send it explicitly when uploading voice notes so
+      // the server's duration validation kicks in.
+      if (fileType !== 'image') form.append('file_type', fileType);
+      if (typeof durationSeconds === 'number' && durationSeconds > 0) {
+        form.append('duration_seconds', String(Math.floor(durationSeconds)));
+      }
       const res = await fetch(`/api/crm/leads/${leadId}/attachments`, {
         method: 'POST',
         body: form,

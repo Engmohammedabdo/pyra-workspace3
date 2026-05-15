@@ -48,27 +48,52 @@ import type { PyraLeadAttachment } from '@/types/database';
 // ────────────────────────────────────────────────────────────────────────────
 
 const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB (parity for both file types)
 const MAX_PER_LEAD = 10;
-const ALLOWED_MIME = new Set([
+/** Phase 15.2 Commit 2 — hard cap on voice-note duration. Mirrors the
+ *  client-side useVoiceRecorder MAX_DURATION_SEC. */
+const MAX_VOICE_DURATION_SEC = 300; // 5 minutes
+
+const ALLOWED_IMAGE_MIME = new Set([
   'image/jpeg',
   'image/png',
   'image/webp',
   'image/heic',
   'image/heif',
 ]);
-const ALLOWED_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
+const ALLOWED_IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif']);
+
+/** Phase 15.2 Commit 2 — voice note MIME allowlist. webm preferred
+ *  (Chrome/Firefox/Android); mp4 fallback (Safari/iOS); ogg + mpeg
+ *  for breadth. NO arbitrary audio/* — explicit list only. */
+const ALLOWED_AUDIO_MIME = new Set([
+  'audio/webm',
+  'audio/mp4',
+  'audio/ogg',
+  'audio/mpeg',
+]);
+const ALLOWED_AUDIO_EXT = new Set(['.webm', '.m4a', '.mp4', '.ogg', '.mp3']);
 
 // Map MIME → canonical file extension. Client Canvas resize re-encodes to
-// image/jpeg → .jpg. Other types only appear when client skipped resize
-// (defensive — accept but normalize the extension to match the MIME).
+// image/jpeg → .jpg. Voice recorder picks webm or mp4 based on browser
+// support (Safari falls back to mp4). Other types only appear when client
+// skipped resize (defensive — accept but normalize the extension to match
+// the MIME).
 const MIME_TO_EXT: Record<string, string> = {
+  // image
   'image/jpeg': '.jpg',
   'image/png': '.png',
   'image/webp': '.webp',
   'image/heic': '.heic',
   'image/heif': '.heif',
+  // voice
+  'audio/webm': '.webm',
+  'audio/mp4': '.m4a',
+  'audio/ogg': '.ogg',
+  'audio/mpeg': '.mp3',
 };
+
+type FileTypeKind = 'image' | 'voice_note';
 
 // ──────────────────────────────────────────────────────────────────────────
 // GET — list attachments for a lead
@@ -179,7 +204,17 @@ export async function POST(
       return apiValidationError('الملف مطلوب');
     }
 
-    // Layer 5 — size (defensive — client resizes to ≤5MB; server enforces)
+    // Phase 15.2 Commit 2 — file_type form field branches the validation
+    // path. Defaults to 'image' for backwards-compat (Commit 1 clients
+    // didn't send this field). 'voice_note' enables audio MIME + duration
+    // validation; anything else is rejected.
+    const rawFileType = form.get('file_type');
+    const fileType: FileTypeKind =
+      typeof rawFileType === 'string' && rawFileType === 'voice_note'
+        ? 'voice_note'
+        : 'image';
+
+    // Layer 5 — size (defensive — client resizes/caps; server enforces)
     if (file.size <= 0) return apiValidationError('الملف فارغ');
     if (file.size > MAX_FILE_SIZE) {
       return apiError(
@@ -188,31 +223,71 @@ export async function POST(
       );
     }
 
-    // Layer 6 — MIME allowlist (SVG explicitly NOT in the set → XSS prevention)
-    if (!ALLOWED_MIME.has(file.type)) {
+    // Layer 6 — MIME allowlist (per file_type).
+    // Images: SVG explicitly REJECTED (XSS via embedded <script>).
+    // Voice: explicit allowlist (audio/webm preferred, audio/mp4 Safari
+    // fallback, audio/ogg + audio/mpeg for breadth). NO arbitrary audio/*.
+    const allowedMimeForType =
+      fileType === 'image' ? ALLOWED_IMAGE_MIME : ALLOWED_AUDIO_MIME;
+    if (!allowedMimeForType.has(file.type)) {
+      const list =
+        fileType === 'image'
+          ? 'JPG, PNG, WebP, HEIC'
+          : 'WebM, M4A/MP4 audio, OGG, MP3';
       return apiError(
-        `نوع الملف "${file.type}" غير مدعوم. الأنواع المسموح بها: JPG, PNG, WebP, HEIC`,
+        `نوع الملف "${file.type}" غير مدعوم. الأنواع المسموح بها: ${list}`,
         415,
       );
     }
 
-    // Layer 7 — Extension allowlist (defense in depth + drives the stored ext)
+    // Layer 7 — Extension allowlist (defense in depth)
+    const allowedExtForType =
+      fileType === 'image' ? ALLOWED_IMAGE_EXT : ALLOWED_AUDIO_EXT;
     const originalName = file.name || 'upload';
     const lastDot = originalName.lastIndexOf('.');
     const rawExt = lastDot > 0 ? originalName.slice(lastDot).toLowerCase() : '';
-    if (!ALLOWED_EXT.has(rawExt)) {
+    if (!allowedExtForType.has(rawExt)) {
+      const list =
+        fileType === 'image'
+          ? '.jpg, .jpeg, .png, .webp, .heic, .heif'
+          : '.webm, .m4a, .mp4, .ogg, .mp3';
       return apiError(
-        `امتداد الملف "${rawExt || '(لا يوجد)'}" غير مدعوم. الامتدادات المسموح بها: .jpg, .jpeg, .png, .webp, .heic, .heif`,
+        `امتداد الملف "${rawExt || '(لا يوجد)'}" غير مدعوم. الامتدادات المسموح بها: ${list}`,
         415,
       );
     }
 
-    // Layer 8 — per-lead count cap (Q-B-005)
+    // Layer 7b — voice-note duration cap (Phase 15.2 Commit 2).
+    // Client useVoiceRecorder auto-stops at 5 min and sends
+    // duration_seconds in the FormData. Server validates the value
+    // matches expectations (defensive — malicious client could skip
+    // the auto-stop and send a 30-minute recording).
+    let durationSeconds: number | null = null;
+    if (fileType === 'voice_note') {
+      const rawDuration = form.get('duration_seconds');
+      const parsed =
+        typeof rawDuration === 'string' ? parseInt(rawDuration, 10) : NaN;
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        return apiValidationError(
+          'duration_seconds مطلوب للملاحظات الصوتية (رقم بالثواني)',
+        );
+      }
+      if (parsed > MAX_VOICE_DURATION_SEC) {
+        return apiError(
+          `الحد الأقصى لمدة التسجيل ${MAX_VOICE_DURATION_SEC / 60} دقائق. المدة المرسلة: ${parsed} ثانية`,
+          422,
+        );
+      }
+      durationSeconds = parsed;
+    }
+
+    // Layer 8 — per-lead count cap (Q-B-005). Cap covers BOTH file types
+    // combined — total attachments per lead ≤ 10 (Q1(a) lock: mixed grid,
+    // shared cap). Voice notes count against the same budget as images.
     const { count: existingCount, error: countError } = await supabase
       .from('pyra_lead_attachments')
       .select('id', { count: 'exact', head: true })
-      .eq('lead_id', leadId)
-      .eq('file_type', 'image');
+      .eq('lead_id', leadId);
 
     if (countError) {
       logError({
@@ -227,7 +302,7 @@ export async function POST(
 
     if ((existingCount ?? 0) >= MAX_PER_LEAD) {
       return apiError(
-        `تم بلوغ الحد الأقصى للمرفقات (${MAX_PER_LEAD} صور لكل Lead). احذف صور قديمة قبل إضافة جديدة.`,
+        `تم بلوغ الحد الأقصى للمرفقات (${MAX_PER_LEAD} مرفقات لكل Lead). احذف مرفقات قديمة قبل إضافة جديدة.`,
         422,
       );
     }
@@ -253,7 +328,10 @@ export async function POST(
       });
       return apiServerError('خطأ داخلي في تحديد نوع الملف');
     }
-    const storagePath = `lead-attachments/${leadId}/${Date.now()}-${generateId('img').slice(4)}${canonicalExt}`;
+    // ID prefix matches the file_type for at-a-glance debugging of bucket
+    // listings. Both prefixes resolve to the same generateId() length.
+    const idPrefix = fileType === 'image' ? 'img' : 'voc';
+    const storagePath = `lead-attachments/${leadId}/${Date.now()}-${generateId(idPrefix).slice(4)}${canonicalExt}`;
 
     // Layer 10 — upload to Supabase Storage
     const buffer = Buffer.from(await file.arrayBuffer());
@@ -269,10 +347,11 @@ export async function POST(
         error: uploadError,
         request,
         user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-        metadata: { lead_id: leadId, action: 'upload-attachment', stage: 'storage_upload' },
+        metadata: { lead_id: leadId, action: 'upload-attachment', stage: 'storage_upload', file_type: fileType },
       });
       console.error('storage upload error:', uploadError.message);
-      return apiServerError(`فشل رفع الصورة: ${uploadError.message}`);
+      const label = fileType === 'voice_note' ? 'الملاحظة الصوتية' : 'الصورة';
+      return apiServerError(`فشل رفع ${label}: ${uploadError.message}`);
     }
 
     // Layer 11 — DB row
@@ -282,11 +361,11 @@ export async function POST(
       .insert({
         id: attachmentId,
         lead_id: leadId,
-        file_type: 'image',
+        file_type: fileType,
         storage_path: storagePath,
         mime_type: file.type,
         size_bytes: file.size,
-        duration_seconds: null,
+        duration_seconds: durationSeconds,
         uploaded_by: auth.pyraUser.username,
       })
       .select(
@@ -320,12 +399,16 @@ export async function POST(
         id: generateId('la'),
         lead_id: leadId,
         activity_type: 'attachment_added',
-        description: 'تم إضافة مرفق جديد',
+        description:
+          fileType === 'voice_note'
+            ? 'تم إضافة ملاحظة صوتية جديدة'
+            : 'تم إضافة مرفق جديد',
         metadata: {
           attachment_id: attachmentId,
-          file_type: 'image',
+          file_type: fileType,
           size_bytes: file.size,
           mime_type: file.type,
+          ...(durationSeconds !== null ? { duration_seconds: durationSeconds } : {}),
         },
         created_by: auth.pyraUser.username,
       })
@@ -343,8 +426,9 @@ export async function POST(
         lead_id: leadId,
         source: 'attachment_added',
         attachment_id: attachmentId,
-        file_type: 'image',
+        file_type: fileType,
         size_bytes: file.size,
+        ...(durationSeconds !== null ? { duration_seconds: durationSeconds } : {}),
       },
       request.headers.get('x-forwarded-for') ?? undefined,
     );

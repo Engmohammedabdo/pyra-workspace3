@@ -43,10 +43,14 @@ import {
   Camera,
   ImagePlus,
   ImageIcon,
+  Mic,
+  Square,
+  X,
   Loader2,
   Trash2,
   Download,
   AlertCircle,
+  Volume2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
@@ -56,6 +60,7 @@ import {
   useUploadAttachment,
   useDeleteAttachment,
 } from '@/hooks/useLeadAttachments';
+import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { resizeImageForUpload, blobToFile } from '@/lib/utils/image-resize';
 import type { PyraLeadAttachment } from '@/types/database';
 
@@ -77,6 +82,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
 
   const uploadMutation = useUploadAttachment(leadId);
   const deleteMutation = useDeleteAttachment(leadId);
+  const recorder = useVoiceRecorder();
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -89,7 +95,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
     const toUpload = fileArr.slice(0, remaining);
     if (toUpload.length < fileArr.length) {
       toast.warning(
-        `تم تجاهل ${fileArr.length - toUpload.length} ملف — الحد الأقصى ${MAX_PER_LEAD} صور لكل Lead`,
+        `تم تجاهل ${fileArr.length - toUpload.length} ملف — الحد الأقصى ${MAX_PER_LEAD} مرفقات لكل Lead`,
       );
     }
 
@@ -103,8 +109,8 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         const resized = await resizeImageForUpload(file);
         const resizedFile = blobToFile(resized.blob, file.name);
 
-        // 2. Upload
-        await uploadMutation.mutateAsync(resizedFile);
+        // 2. Upload (file_type defaults to 'image')
+        await uploadMutation.mutateAsync({ file: resizedFile });
       } catch (err) {
         console.error('upload failed for', file.name, err);
         const msg =
@@ -116,6 +122,55 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         setUploadingCount((c) => Math.max(0, c - 1));
       }
     }
+  }
+
+  // ── Voice recording handlers ────────────────────────────
+  // Q1(a) lock: voice notes share the same LeadAttachmentsTab + same
+  // 10-item cap as images. Q2 lock: 5-min hard cap enforced by the hook
+  // (auto-stop at 5:00 + 4:30 warning toast).
+
+  async function handleStartRecording() {
+    if (atCap) {
+      toast.error(`تم بلوغ الحد الأقصى للمرفقات (${MAX_PER_LEAD})`);
+      return;
+    }
+    await recorder.start();
+  }
+
+  async function handleStopAndUpload() {
+    const result = await recorder.stop();
+    if (!result) return;
+
+    // Wrap the Blob as a File for FormData. The filename is cosmetic —
+    // the server generates the storage path entirely. We include the
+    // timestamp + extension so it shows up sensibly in the upload error
+    // path if anything goes wrong.
+    const file = new File(
+      [result.blob],
+      `voice-${Date.now()}.${result.ext}`,
+      { type: result.mimeType },
+    );
+
+    setUploadingCount((c) => c + 1);
+    try {
+      await uploadMutation.mutateAsync({
+        file,
+        fileType: 'voice_note',
+        durationSeconds: result.durationSeconds,
+      });
+      toast.success('تم رفع الملاحظة الصوتية');
+    } catch (err) {
+      console.error('voice upload failed', err);
+      const msg =
+        err instanceof Error && err.message ? err.message : 'فشل رفع الملاحظة الصوتية';
+      toast.error(msg);
+    } finally {
+      setUploadingCount((c) => Math.max(0, c - 1));
+    }
+  }
+
+  function handleCancelRecording() {
+    recorder.cancel();
   }
 
   async function handleDelete(att: PyraLeadAttachment) {
@@ -137,40 +192,66 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
   return (
     <div className="space-y-4">
       {/* ── Action bar ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex gap-2 flex-1">
-          <Button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            disabled={atCap || uploadingCount > 0}
-            className="h-11 flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
-          >
-            <Camera className="size-4" />
-            كاميرا
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => galleryInputRef.current?.click()}
-            disabled={atCap || uploadingCount > 0}
-            className="h-11 flex-1 gap-2"
-          >
-            <ImagePlus className="size-4" />
-            معرض الصور
-          </Button>
-        </div>
-        <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-muted-foreground">
-          <span className="tabular-nums">
-            {attachments.length} / {MAX_PER_LEAD} صور
-          </span>
-          {uploadingCount > 0 && (
-            <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
-              <Loader2 className="size-3.5 animate-spin" />
-              جاري رفع {uploadingCount}…
+      {/* When NOT recording: 3 buttons (camera / gallery / voice). When
+          recording: the action bar swaps to a recording-in-progress panel
+          with live duration + stop/cancel — keeps the visual hierarchy
+          clear and prevents accidental multi-file selection during a
+          voice take. */}
+      {recorder.isRecording ? (
+        <RecordingPanel
+          duration={recorder.durationSeconds}
+          maxDuration={recorder.maxDurationSeconds}
+          formatDuration={recorder.formatDuration}
+          onStop={() => void handleStopAndUpload()}
+          onCancel={handleCancelRecording}
+        />
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex gap-2 flex-1">
+            <Button
+              type="button"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={atCap || uploadingCount > 0}
+              className="h-11 flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <Camera className="size-4" />
+              كاميرا
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => galleryInputRef.current?.click()}
+              disabled={atCap || uploadingCount > 0}
+              className="h-11 flex-1 gap-2"
+            >
+              <ImagePlus className="size-4" />
+              معرض الصور
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleStartRecording()}
+              disabled={atCap || uploadingCount > 0}
+              className="h-11 flex-1 gap-2"
+              aria-label="تسجيل ملاحظة صوتية"
+            >
+              <Mic className="size-4" />
+              صوت
+            </Button>
+          </div>
+          <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-muted-foreground">
+            <span className="tabular-nums">
+              {attachments.length} / {MAX_PER_LEAD} مرفقات
             </span>
-          )}
+            {uploadingCount > 0 && (
+              <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
+                <Loader2 className="size-3.5 animate-spin" />
+                جاري رفع {uploadingCount}…
+              </span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Camera input — `capture=environment` triggers rear camera on mobile.
           accept=image/* widens to all image types the browser knows. */}
@@ -204,11 +285,11 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
       />
 
       {/* Cap warning banner */}
-      {atCap && (
+      {atCap && !recorder.isRecording && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
           <AlertCircle className="size-4 shrink-0 mt-0.5" />
           <p>
-            تم بلوغ الحد الأقصى للمرفقات ({MAX_PER_LEAD} صور). احذف صور قديمة
+            تم بلوغ الحد الأقصى للمرفقات ({MAX_PER_LEAD}). احذف مرفقات قديمة
             لإضافة جديدة.
           </p>
         </div>
@@ -226,44 +307,13 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         <EmptyState
           icon={ImageIcon}
           title="لا توجد مرفقات بعد"
-          description="استخدم زر الكاميرا لالتقاط صورة، أو زر معرض الصور لاختيار صور موجودة. الـ EXIF (موقع GPS وبيانات الكاميرا) بيتم حذفها تلقائياً قبل الرفع."
+          description="استخدم زر الكاميرا أو معرض الصور لإضافة صور، أو زر الصوت لتسجيل ملاحظة صوتية. الـ EXIF (موقع GPS وبيانات الكاميرا) بيتم حذفها تلقائياً قبل الرفع."
         />
       ) : (
         <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {attachments.map((att) => (
             <li key={att.id}>
-              <button
-                type="button"
-                onClick={() => setSelected(att)}
-                className={cn(
-                  'group relative block aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted/30',
-                  'hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500',
-                )}
-                aria-label={`صورة مرفقة — ${formatRelativeDate(att.uploaded_at)}`}
-              >
-                {att.public_url ? (
-                  // Use plain <img>; Supabase URLs don't benefit from
-                  // next/image optimization for the static-bucket case.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={att.public_url}
-                    alt=""
-                    loading="lazy"
-                    className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                    <ImageIcon className="size-6" />
-                  </div>
-                )}
-                {/* Hover/focus overlay with relative time */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
-                  <span className="text-[10px] text-white tabular-nums">
-                    {formatRelativeDate(att.uploaded_at)}
-                  </span>
-                </div>
-              </button>
+              <AttachmentCell attachment={att} onSelect={() => setSelected(att)} />
             </li>
           ))}
         </ul>
@@ -287,6 +337,143 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
   );
 }
 
+// ── Grid cell ────────────────────────────────────────────
+
+function AttachmentCell({
+  attachment,
+  onSelect,
+}: {
+  attachment: PyraLeadAttachment;
+  onSelect: () => void;
+}) {
+  const isVoice = attachment.file_type === 'voice_note';
+  const durationLabel = formatVoiceDuration(attachment.duration_seconds);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        'group relative block aspect-square w-full overflow-hidden rounded-lg border border-border bg-muted/30',
+        'hover:border-orange-300 dark:hover:border-orange-700/60 hover:shadow-sm transition-all',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500',
+      )}
+      aria-label={
+        isVoice
+          ? `ملاحظة صوتية ${durationLabel ?? ''} — ${formatRelativeDate(attachment.uploaded_at)}`
+          : `صورة مرفقة — ${formatRelativeDate(attachment.uploaded_at)}`
+      }
+    >
+      {isVoice ? (
+        // Voice cell: gradient + speaker icon + duration badge. No
+        // thumbnail to generate, no audio decode on the list view —
+        // playback only happens in the detail Sheet.
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-orange-500/15 via-amber-500/10 to-transparent">
+          <div className="flex size-12 items-center justify-center rounded-full bg-orange-500/20 text-orange-600 dark:text-orange-400">
+            <Volume2 className="size-6" />
+          </div>
+          {durationLabel && (
+            <span className="rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium tabular-nums">
+              {durationLabel}
+            </span>
+          )}
+        </div>
+      ) : attachment.public_url ? (
+        // Use plain <img>; Supabase URLs don't benefit from next/image
+        // optimization for the static-bucket case.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={attachment.public_url}
+          alt=""
+          loading="lazy"
+          className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
+        />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+          <ImageIcon className="size-6" />
+        </div>
+      )}
+      {/* Hover/focus overlay with relative time */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
+        <span className="text-[10px] text-white tabular-nums">
+          {formatRelativeDate(attachment.uploaded_at)}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+// ── Recording panel (replaces action bar while recording) ─
+
+function RecordingPanel({
+  duration,
+  maxDuration,
+  formatDuration,
+  onStop,
+  onCancel,
+}: {
+  duration: number;
+  maxDuration: number;
+  formatDuration: (s: number) => string;
+  onStop: () => void;
+  onCancel: () => void;
+}) {
+  const progress = Math.min(100, (duration / maxDuration) * 100);
+  return (
+    <div className="rounded-lg border border-red-200 dark:border-red-800/40 bg-red-500/5 p-3 space-y-2">
+      <div className="flex items-center gap-3">
+        {/* Pulsing dot — visual recording indicator */}
+        <span
+          aria-hidden
+          className="relative flex size-3 shrink-0 items-center justify-center"
+        >
+          <span className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-75" />
+          <span className="relative size-3 rounded-full bg-red-500" />
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">
+            جاري التسجيل…
+          </p>
+          <p className="text-xs text-muted-foreground tabular-nums">
+            {formatDuration(duration)} / {formatDuration(maxDuration)}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onCancel}
+            className="h-11 gap-1.5"
+            aria-label="إلغاء التسجيل"
+          >
+            <X className="size-4" />
+            إلغاء
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            onClick={onStop}
+            className="h-11 gap-1.5 bg-red-500 hover:bg-red-600 text-white"
+            aria-label="إنهاء ورفع التسجيل"
+          >
+            <Square className="size-4 fill-current" />
+            إيقاف
+          </Button>
+        </div>
+      </div>
+      {/* Progress bar — fills from 0% to 100% as recording approaches cap */}
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full bg-red-500 transition-all"
+          style={{ width: `${progress}%` }}
+          aria-hidden
+        />
+      </div>
+    </div>
+  );
+}
+
 // ── Detail panel ─────────────────────────────────────────
 
 function AttachmentDetailPanel({
@@ -303,31 +490,66 @@ function AttachmentDetailPanel({
   deleting: boolean;
 }) {
   const canDelete = isAdmin || attachment.uploaded_by === currentUsername;
+  const isVoice = attachment.file_type === 'voice_note';
   const sizeKb = (attachment.size_bytes / 1024).toFixed(1);
   const sizeMb = (attachment.size_bytes / 1024 / 1024).toFixed(2);
   const sizeLabel =
     attachment.size_bytes >= 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+  const durationLabel = formatVoiceDuration(attachment.duration_seconds);
 
   return (
     <>
       <SheetHeader className="space-y-2 text-start">
         <SheetTitle className="flex items-center gap-2 text-lg">
-          <ImageIcon className="size-5 text-orange-500" />
-          صورة مرفقة
+          {isVoice ? (
+            <Volume2 className="size-5 text-orange-500" />
+          ) : (
+            <ImageIcon className="size-5 text-orange-500" />
+          )}
+          {isVoice ? 'ملاحظة صوتية' : 'صورة مرفقة'}
         </SheetTitle>
         <SheetDescription className="text-xs">
           {formatDate(attachment.uploaded_at, 'eeee dd-MM-yyyy HH:mm')}
         </SheetDescription>
       </SheetHeader>
 
+      {/* Preview area: <img> for images, native <audio controls> for voice */}
       {attachment.public_url && (
         <div className="mt-4 overflow-hidden rounded-lg border border-border bg-muted/30">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={attachment.public_url}
-            alt="مرفق"
-            className="w-full h-auto max-h-[60vh] object-contain bg-black/5"
-          />
+          {isVoice ? (
+            <div className="p-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex size-12 items-center justify-center rounded-full bg-orange-500/15 text-orange-600 dark:text-orange-400 shrink-0">
+                  <Volume2 className="size-6" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">ملاحظة صوتية</p>
+                  {durationLabel && (
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      المدة: {durationLabel}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {/* Q5(a) lock: native <audio controls> — zero JS, browser
+                  handles play/pause/seek. v1.1 may upgrade to waveform. */}
+              <audio
+                src={attachment.public_url}
+                controls
+                preload="metadata"
+                className="w-full"
+              >
+                المتصفح لا يدعم تشغيل الصوت.
+              </audio>
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={attachment.public_url}
+              alt="مرفق"
+              className="w-full h-auto max-h-[60vh] object-contain bg-black/5"
+            />
+          )}
         </div>
       )}
 
@@ -340,6 +562,12 @@ function AttachmentDetailPanel({
           <dt className="text-muted-foreground w-24 shrink-0">الحجم</dt>
           <dd className="font-medium tabular-nums">{sizeLabel}</dd>
         </div>
+        {isVoice && durationLabel && (
+          <div className="flex items-start gap-2">
+            <dt className="text-muted-foreground w-24 shrink-0">المدة</dt>
+            <dd className="font-medium tabular-nums">{durationLabel}</dd>
+          </div>
+        )}
         <div className="flex items-start gap-2">
           <dt className="text-muted-foreground w-24 shrink-0">النوع</dt>
           <dd className="font-mono text-[11px]">{attachment.mime_type}</dd>
@@ -351,7 +579,7 @@ function AttachmentDetailPanel({
           <Button asChild variant="outline" className="h-11 gap-2 w-full">
             <a href={attachment.public_url} target="_blank" rel="noopener noreferrer">
               <Download className="size-4" />
-              فتح الصورة الأصلية
+              {isVoice ? 'فتح الصوت الأصلي' : 'فتح الصورة الأصلية'}
             </a>
           </Button>
         )}
@@ -364,10 +592,21 @@ function AttachmentDetailPanel({
             className="h-11 gap-2 w-full text-red-600 dark:text-red-400 hover:bg-red-500/10 border-red-200 dark:border-red-800/40"
           >
             {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            حذف الصورة
+            {isVoice ? 'حذف الملاحظة الصوتية' : 'حذف الصورة'}
           </Button>
         )}
       </div>
     </>
   );
+}
+
+/**
+ * Format voice-note duration as MM:SS. Returns null when input is null
+ * (defensive — old image rows have duration_seconds=null).
+ */
+function formatVoiceDuration(seconds: number | null): string | null {
+  if (seconds == null || seconds <= 0) return null;
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
 }
