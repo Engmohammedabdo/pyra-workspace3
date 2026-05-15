@@ -1898,6 +1898,184 @@ waveform player, shared duration constant, shadcn AlertDialog for
 delete, HEIC server-side fallback, per-file size warning during
 recording.
 
+## Phase 14.2 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 14.2 closure (DB Migrations Strategy). **Do NOT re-litigate.**
+Phase 14.2 is post-CRM-rebuild infrastructure work — establishes the
+canonical version-tracking table + drift detection + pre-migration
+backup workflow that all future migrations rely on.
+
+### 1. Forward-only migrations (no auto-down)
+
+The Pyra migration system does NOT run down-scripts automatically.
+Reverting requires either (a) a new forward migration that reverses
+the effect OR (b) restoring from a `pnpm db:backup pre-NNN` snapshot.
+Industry trend (Rails 7+, Prisma) is the same — auto-down is too
+dangerous when data is involved.
+
+The `-- DOWN` block in `supabase/migrations/_template.sql` is
+informational only. Inline rollback hints are double-commented (`-- --`)
+so they cannot be accidentally executed by copy-paste into pg/query.
+
+### 2. `pyra_schema_migrations` as canonical version tracker
+
+Single source of truth: `(version, applied_at, applied_by, checksum,
+notes)`. Migration 017 establishes the table + backfills rows for
+001-016 retroactively with `applied_by='bootstrap'`.
+
+**Append-mostly schema** — no `updated_at`, no trigger. The only
+mutation path is `pnpm db:record --force` (explicit re-record after a
+legitimate file change). Preserves audit integrity.
+
+**Checksum is LF-normalized SHA-256** — `content.replace(/\r\n/g, '\n')`
+before hashing. Both `db-record-migration.ts` and `db-check-drift.ts`
+use identical normalization. Windows CRLF and Linux LF produce the same
+hash; drift detection has no false positives from line-ending changes.
+
+### 3. Apply-then-verify-then-record workflow
+
+**`pyra_schema_migrations` is a historical record, not a confirmation
+of success.** Recording a row without verifying creates fake success
+entries that drift detection trusts.
+
+Mandatory sequence (per `docs/MIGRATIONS.md` §6 + §7):
+1. Apply the migration via `curl /pg/query`
+2. **Manually verify** the changed schema (query columns, indexes,
+   CHECK constraints, backfill row counts)
+3. ONLY THEN run `pnpm db:record <version> --by=<u> --notes="…"`
+
+Skipping step 2 is a docs violation, not a tooling block — but the
+runbook calls it out explicitly. v1.1 may add a `--require-verify`
+flag that prompts the dev before recording.
+
+### 4. Backup-before-migrate workflow
+
+`pnpm db:backup pre-NNN` before every Risk tier 2 migration (touches
+existing data). Recommended for tier 1 too — cost is trivial (32 MB DB
+→ ~5 MB compressed snapshot).
+
+Backups land in `backups/` (gitignored). Restore via `gunzip -c
+backups/{file}.sql.gz | psql "$SUPABASE_DB_URL"`. Offsite storage is
+deferred to v1.1 (S3 via Coolify's object-storage integration); v1 is
+local-only by design — Abdou's call when offsite becomes worth the
+maintenance.
+
+`pg_dump --schema=public --no-owner --no-acl --exclude-table-data=
+pyra_error_logs --exclude-table-data=pyra_activity_log | gzip`. Audit
+tables retain schema but drop row data (regenerable, would bloat the
+dump on long-lived prod).
+
+### 5. Three pnpm tooling commands
+
+```bash
+pnpm db:backup [<label>]                                    # pre-migration snapshot
+pnpm db:record <version> [--by=<u>] [--notes="…"] [--force] # record after manual verify
+pnpm db:check-drift                                          # 3-category triage
+```
+
+Scripts invoked via `npx tsx` (TypeScript) and `bash` (Bash) — `tsx`
+isn't a project devDep, `bash` is invoked explicitly because PNPM on
+Windows routes through cmd.exe which can't execute `.sh` files directly.
+
+### 6. Service-role key from `.env.local` ONLY
+
+Both `db-record-migration.ts` and `db-check-drift.ts` read
+`SUPABASE_SERVICE_ROLE_KEY` exclusively via `readFileSync('.env.local',
+'utf8')` + regex extract. **Reading from `process.env` or CLI args is
+explicitly forbidden** — shell history exposure risk.
+
+`db-backup.sh` follows the same pattern for `SUPABASE_DB_URL` (Bash
+quote-stripping via `sed -e 's/^["\x27]\(.*\)["\x27]$/\1/'`).
+
+**Intentional asymmetry:** `db-record-migration.ts` accepts
+`ABDOU_USERNAME` env fallback for the `--by` field. Documented inline
+— a username is non-sensitive; standard shell-env pattern (like `$USER`
+or `$LOGNAME`) is fine here. The service-role key is the only secret
+treated as file-only.
+
+### 7. Label sanitization (`db-backup.sh`)
+
+Regex `^[a-zA-Z0-9._-]+$` + extra `..` check (belt-and-braces against
+path traversal). Anchored full-string match, hyphen at end of character
+class (literal, not range). Rejects spaces, `$`, `` ` ``, `;`, `|`,
+`&`, `/`, parens, quotes, etc. — any shell metacharacter or filesystem
+traversal.
+
+The label appears in exactly 2 places after validation: the `..` check
+(read-only comparison) and the filename construction
+`backups/${TS}_${LABEL}.sql.gz`. Never interpolated into a command
+string. No shell-injection surface.
+
+### 8. `001_employee_system_bootstrap.sql` for fresh-DB setup
+
+Pre-existing `scripts/migration-employee-system.sql` was renamed via
+`git mv` (preserves 85% similarity in history) + had a bootstrap
+header prepended. Fills the 001 number gap that existed since project
+inception. Production DB has it applied via pre-Pyra deployment;
+`applied_by='bootstrap'` records it retroactively.
+
+**Fresh DB setup order:** 001 → 002 → … → highest existing migration,
+each via `curl /pg/query`. Then loop-record via `for migration in
+supabase/migrations/0*.sql; do pnpm db:record ...`. v1.1 may add a
+`pnpm db:bootstrap` wrapper.
+
+### 9. Staging environment deferred to v1.1
+
+**Triggers** (documented in `docs/MIGRATIONS.md` §1):
+- A destructive migration enters scope (DROP COLUMN with live data
+  dependency, irreversible column-type change)
+- A second developer joins the codebase
+
+Until then: 32 MB DB + 1-dev workflow + high idempotency hygiene
+makes staging cost > value. The backup script provides the rollback
+insurance that staging would have provided.
+
+### 10. Concurrent migration assumption
+
+v1 trusts the single-developer workflow. No `pg_advisory_lock` on
+`pnpm db:record`. Two devs applying simultaneously = race condition.
+
+v1.1 adds the advisory lock when a second developer joins. Documented
+in `docs/MIGRATIONS.md` §12 with the upgrade snippet.
+
+### 11. Order enforcement is advisory
+
+`pyra_schema_migrations` does NOT reject out-of-order INSERTs.
+Numbers are advisory; the system trusts the developer to apply in
+order. **Why not enforce?** A `BEFORE INSERT` trigger that checks
+`version - 1 exists` would block retroactive recording (the Phase 14.2
+backfill of 001-016 would fail) and break the bootstrap flow.
+
+v1.1 adds an order-gap warning to `pnpm db:check-drift`: if version
+020 exists but 019 doesn't, the script prints a warning (but doesn't
+fail). Documented in `docs/MIGRATIONS.md` §13.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **LF-normalization is byte-for-byte identical** between
+  `db-record-migration.ts` (line 129) and `db-check-drift.ts` (line 64).
+  Both use `raw.replace(/\r\n/g, '\n')` before `createHash('sha256')`.
+  Drift between the two breaks all drift detection.
+- **The service-role key is never logged.** No `console.log` of the
+  key in any error path of any script.
+- **Migration 017 does NOT self-record.** The `pnpm db:record
+  017_pyra_schema_migrations` step happens manually post-apply — keeps
+  migration SQL focused on schema and exercises the canonical tooling.
+- **The 001 bootstrap is INTENTIONALLY different content from the
+  original `scripts/migration-employee-system.sql`** — the rename
+  added a 22-line header banner. The 85% similarity score from `git
+  mv` reflects this. The new SHA-256 (`3fd2864d…`) is the canonical
+  baseline; the pre-rename checksum is NOT in `pyra_schema_migrations`.
+
+### Phase 14.2 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "Phase 14.2 v1.1 items" — staging environment,
+`pnpm db:apply` wrapper, `pnpm db:bootstrap` for fresh DB, advisory
+lock for concurrent migration safety, order-gap warnings in
+`db-check-drift`, offsite backup to S3, pg_dump availability pre-flight
+check, optional pre-commit drift hook.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

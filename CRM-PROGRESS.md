@@ -928,6 +928,56 @@ Workspace-side TODOs gated behind this confirmation:
 
 ---
 
+## Phase 14.2 — DB Migrations Strategy ✅ (3/3)
+
+**Status:** Complete. Post-rebuild infrastructure work that closes the
+"how do we know the DB is at the right version + how do we rollback if
+a migration breaks something" gap surfaced when the rebuild reached
+17 numbered migrations. Forward-only philosophy, LF-normalized SHA-256
+drift detection, append-mostly schema-version table, pre-migration
+backup script. Self-hosted Supabase (32 MB DB, PG 15.8) makes pg_dump
+restore-as-rollback cheap and fast.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `34294b2` | **Template + runbook + .gitignore.** `supabase/migrations/_template.sql` (84 LOC) locks the header conventions all 15 existing migrations already follow (Phase + Author + Date + Reversible + Touches-data + Risk-tier). `docs/MIGRATIONS.md` (393 LOC, 15 sections) — full operational runbook: writing, pre-flight, applying (Bash + PowerShell env-setup snippets), Common Migration Patterns (5.5 — NOT NULL on populated table, CHECK with NOT VALID + VALIDATE, FK with NOT VALID + VALIDATE, safe DROP COLUMN), manual verification (mandatory before record), drift detection (LF-normalized rationale documented), fresh-DB bootstrap, backup procedure, rollback strategy, concurrent protection (v1 trusts single dev), order enforcement (advisory), Windows + Git Bash requirements, troubleshooting. `.gitignore` patch adds `backups/`. Reviewer LIGHT PASSED 3/4 + 2 findings applied (Bash export quote-stripping; `rg --type ts` covers both `.ts` + `.tsx`). |
+| 2 | `56d7f61` | **Schema version tracking + history scripts.** Renamed `scripts/migration-employee-system.sql` → `supabase/migrations/001_employee_system_bootstrap.sql` via `git mv` (preserves history, fills the 001 number gap, adds bootstrap header). Migration 017 — `pyra_schema_migrations` (version PK + applied_at + applied_by + checksum + notes) + index + COMMENT directives + backfill of 16 historical rows (001-016) with LF-normalized SHA-256 checksums embedded as literal hex strings, `ON CONFLICT (version) DO NOTHING` for idempotency. `scripts/db-record-migration.ts` (`pnpm db:record <version> [--by] [--notes] [--force]`) reads SUPABASE_SERVICE_ROLE_KEY from `.env.local` ONLY (never CLI / process env — shell history exposure risk). `scripts/db-check-drift.ts` (`pnpm db:check-drift`) compares stored checksums vs current files, reports DRIFT / MISSING / ORPHAN with distinct emoji + remediation hints. Both scripts use identical LF-normalization (`replace(/\r\n/g, '\n')`). Applied to production: 17 rows in `pyra_schema_migrations`, drift check reports "✅ All migrations clean (17 tracked, no drift)". Reviewer MEDIUM PASSED 4/4 + 1 clarifying comment on `ABDOU_USERNAME` env fallback (intentional asymmetry — username is non-sensitive). |
+| 3 | `9e24b7f` | **Pre-migration backup script.** `scripts/db-backup.sh` (~110 LOC, mode 100755) — `pnpm db:backup [<label>]`. Label regex `^[a-zA-Z0-9._-]+$` + extra `..` check (defense in depth). Validates pg_dump on PATH with 3-OS install instructions (macOS brew, Linux apt, Windows postgresql.org installer). Reads SUPABASE_DB_URL from `.env.local` with quote-stripping. `pg_dump --no-owner --no-acl --schema=public --exclude-table-data='pyra_error_logs' --exclude-table-data='pyra_activity_log' \| gzip > backups/{TS}_{LABEL}.sql.gz`. Audit-table data excluded (schema retained, data regenerable). package.json invokes `bash scripts/db-backup.sh` (explicit bash, not `./scripts/...`) so PNPM-on-Windows routes through bash correctly. Reviewer LIGHT PASSED 2/2 (portability + shell injection). Six inline injection-attempt tests all rejected before pg_dump invocation. |
+| 4 | (this commit) | Closure docs — CLAUDE.md "## Phase 14.2 — Locked Decisions" + this CRM-PROGRESS.md ✅ section + v1.1 backlog additions. |
+
+### What's in production now
+
+```
+pnpm db:check-drift
+> Tracked in pyra_schema_migrations: 17
+> Found on disk:                     17
+> ✅ All migrations clean (17 tracked, no drift)
+```
+
+### Tooling commands available
+
+```bash
+pnpm db:backup [<label>]                                    # pre-migration pg_dump snapshot
+pnpm db:record <version> [--by=<u>] [--notes="…"] [--force] # record after manual verify
+pnpm db:check-drift                                          # 3-category triage
+```
+
+### Architectural invariants locked
+
+- **Forward-only migrations.** No automated down-scripts. Rollback via new migration OR `pg_dump` restore.
+- **`pyra_schema_migrations` is the canonical version tracker.** Drift detection compares LF-normalized SHA-256 (handles Windows CRLF without false positives).
+- **Append-mostly schema.** No `updated_at`, no trigger on `pyra_schema_migrations`. The only mutation path is explicit `--force` re-record.
+- **Backup-before-migrate workflow.** `pnpm db:backup pre-NNN` for every Risk tier 2 migration; recommended for tier 1 too (cost is trivial).
+- **Apply-then-verify-then-record.** `pyra_schema_migrations` is a historical record, not a confirmation of success. Manual verification of the changed schema must happen BEFORE `pnpm db:record`.
+- **001 bootstrap migration** for fresh DB setup. Production DB has it applied via pre-Pyra deployment; `applied_by='bootstrap'` row records it retroactively.
+- **Staging deferred to v1.1.** Triggered by: destructive migration OR multi-developer workflow. 32 MB DB + 1-dev + high idempotency hygiene makes staging cost > value today.
+- **Single-developer assumption.** No advisory locks on `pnpm db:record`. v1.1 adds `pg_advisory_lock` when a second developer joins.
+- **Order enforcement is advisory.** `pyra_schema_migrations` doesn't reject out-of-order INSERTs. v1.1 adds gap-detection warnings to `db-check-drift`.
+
+---
+
 ## 🎉 CRM BUILD COMPLETE — phase index
 
 13 phases, 13/13 complete. Execution order ran:
@@ -952,6 +1002,7 @@ Single-source-of-truth principles documented in `CLAUDE.md`:
 - **Phase 13:** EmptyState scope (full-page only — sidebar contexts use inline compact stubs); user-facing language ("قريباً" / "قريباً في v1.1" — never "Phase X" / "TODO"); gradient subtlety standard; non-link card hover (hover:bg-muted/30 transition-colors)
 - **Phase 14.1:** Self-contained observability layer (pyra_error_logs + logError + admin viewer); 5-layer PII redaction pattern; beacon endpoint for Client Component error boundaries; service-role-client-is-server-only + middleware exemption for portal cookie sessions; append-mostly DB shape
 - **Phase 15.2:** Lead attachment pattern (Canvas resize + server-generated paths + public bucket + obscure path security model + MIME_TO_EXT hard-error fallback); MediaRecorder hook abstraction (5-min cap + auto-stop + iOS-safe stream cleanup + Safari audio/mp4 fallback); mixed-type attachment grid pattern (images + voice notes share surface + shared 10-item cap); native `<audio controls>` playback
+- **Phase 14.2:** Forward-only migrations (no auto-down); pyra_schema_migrations as canonical version tracker; LF-normalized SHA-256 for drift detection (Windows CRLF-safe); apply-then-verify-then-record workflow (manual verification prevents fake success rows); backup-before-migrate via `pnpm db:backup`; 001 bootstrap migration for fresh-DB setup; staging deferred to v1.1 (trigger: destructive migration OR multi-dev); single-developer assumption documented for concurrent-apply race window
 
 ---
 
@@ -1017,3 +1068,14 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 - [ ] **shadcn `AlertDialog` for delete confirmations** — Commit 1 + Commit 2 use `window.confirm()` for attachment delete. CLAUDE.md mandates "toast from sonner; NEVER alert()" — confirm() is a different surface but the spirit of the rule favors consistent shadcn dialogs.
 - [ ] **HEIC server-side decode for thumbnail generation** — currently HEIC is transparently converted to JPEG by client Canvas. If desktop browsers (non-iOS) can't decode HEIC for createImageBitmap, upload fails on those browsers. v1.1: add `sharp` + `libheif` server-side fallback path.
 - [ ] **Per-file size warning during recording** — v1 only warns on duration (5-min cap). A 3-min stereo audio recording can hit the 5MB file-size cap before the duration cap. v1.1: monitor blob size during recording, warn at 4MB, auto-stop at 5MB.
+
+### Phase 14.2 v1.1 items
+
+- [ ] **Staging environment provisioning** — Coolify second Supabase stack at $0 (free tier, separate from prod). Triggered by: a destructive migration entering scope OR a second developer joining the codebase. Documented in `docs/MIGRATIONS.md` as the gate.
+- [ ] **`pnpm db:apply` wrapper** — single command that runs `db:backup pre-NNN` + the curl `/pg/query` apply + `db:record NNN`. Removes the manual ordering risk (forget to backup → migration fails → no rollback). v1 explicit-step workflow is intentional (manual verification step between apply and record); the wrapper would still pause for verification.
+- [ ] **`pnpm db:bootstrap` script for fresh DB setup** — applies 001 → highest existing migration in order, then runs `db:record` for each. Removes the manual loop from `docs/MIGRATIONS.md` §9.
+- [ ] **Advisory lock via `pg_advisory_lock`** for concurrent migration safety — triggered when a second developer joins. Until then, the single-dev workflow eliminates the race.
+- [ ] **Order-gap warnings in `db-check-drift`** — flag when version 020 exists in `pyra_schema_migrations` but 019 doesn't (without failing the check — warning only). Document as v1.1 in `docs/MIGRATIONS.md` §13.
+- [ ] **Offsite backup to S3** via Coolify's object-storage integration. Currently `backups/` is local-only + gitignored. Offsite is Abdou's call; the backup script itself is unchanged — only the post-dump upload step is added.
+- [ ] **pg_dump availability check** at `pnpm dev` startup or first-migration time — currently the dev hits the error only when they try `pnpm db:backup`. A pre-flight check at install time would surface the missing-tool sooner.
+- [ ] **Pre-commit hook** that runs `pnpm db:check-drift` against the working tree — catches drift before pushing rather than after. Optional opt-in via husky.
