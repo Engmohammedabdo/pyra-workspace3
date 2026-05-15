@@ -1564,6 +1564,340 @@ inconsistency.
 Verified by Reviewer in Phase 13 Commit 2 (Q-003a follow-up row
 hover).
 
+## Phase 14.1 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 14.1 closure (Observability). **Do NOT re-litigate.** Phase 14.1
+is post-CRM-rebuild infrastructure work — self-contained error log
+layer replaces external Sentry (no DSN, no third-party service, no
+egress). All server-side errors funnel through `logError()` into
+`pyra_error_logs`; admin viewer at `/dashboard/admin/error-logs`
+provides triage + resolve workflow.
+
+### 1. Self-contained observability (no Sentry)
+
+User-revised mid-session decision: skip Sentry entirely, build the
+observability layer in-house using Supabase as the backing store.
+**Rationale:** external service dependency + DSN management is
+complexity Abdou doesn't want. The workspace already has Supabase;
+reuse it.
+
+The trade-off accepted: no third-party error aggregation /
+deduplication / alert routing in v1. Admin viewer is the only triage
+surface. v1.1 may add severity grouping + dedup if volume grows.
+
+### 2. `logError()` contract — fire-and-forget, never throws
+
+`lib/observability/log-error.ts` exports `logError({ severity?, error,
+request?, user?, metadata? }): void`. The function:
+
+- Returns `void` synchronously (not a Promise) so callers can use it
+  inside cron loops without await
+- IIFE-detaches the actual Supabase write — outer try/catch is the
+  absolute backstop
+- Mirrors to `console.error/warn/info` so Coolify logs always show
+  errors even when the DB write fails
+- 5-layer PII redaction applied BEFORE insert (see Phase 14.1
+  decision 4 below)
+- Never recursively calls itself — insert failures use raw
+  `console.error` (avoid infinite-loop risk if the logger itself is
+  the broken path)
+
+**Cron-safe invariant:** cron per-row try blocks rely on `logError`
+never propagating errors. Documented at file top of the cron routes.
+
+### 3. `apiServerError(message?, err?, request?)` backwards-compat
+
+The 722 existing callers (audit count at Phase 14.1 Commit 2 time)
+pass 0 or 1 argument. The new optional `err` + `request` params let
+callers opt into observability without touching the rest of the
+codebase:
+
+```ts
+// Pre-Phase-14.1 (still works unchanged):
+catch (err) {
+  console.error(...);
+  return apiServerError();
+}
+
+// Phase 14.1 high-risk routes (8 callers explicitly upgraded):
+catch (err) {
+  logError({ error: err, request, user: { id, role }, metadata: {...} });
+  console.error(...);
+  return apiServerError();
+}
+
+// Other routes can opt in incrementally:
+catch (err) {
+  return apiServerError('custom message', err, request);
+}
+```
+
+**Why not `user` in `apiServerError`?** Adding a 4th param would
+require every catch to pass auth context — 722 site touches. Routes
+that need user context call `logError` explicitly (where `auth` is
+already in scope).
+
+### 4. Five-layer PII redaction
+
+Applied in order at insert time inside `logError`:
+
+1. **Noise drops** — message matches `/^Unauthorized$/i`, `/^CSRF
+   token mismatch$/i`, or `/^Forbidden$/i` → row NOT inserted at all
+   (security noise, not real errors)
+2. **Email regex** — `/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g`
+   → `[EMAIL]`
+3. **Phone regex** — `/(?<![a-zA-Z0-9])\+?\d{7,15}(?![a-zA-Z0-9])/g`
+   → `[PHONE]` (lookbehind/ahead prevents catching IDs/tokens that
+   happen to contain long digit runs)
+4. **Sensitive key fragments** — metadata keys containing `phone`,
+   `email`, `password`, `token`, `secret`, `apikey`, `api_key` →
+   entire VALUE replaced with `[REDACTED]`
+5. **Sensitive header allowlist** — headers named `authorization`,
+   `x-api-key`, `apikey`, `stripe-signature`, `cookie` → value
+   replaced with `[REDACTED]` before going into
+   `metadata.request_headers`
+
+**Admin viewer does NOT de-redact.** Rows render AS-STORED — no
+"expand original" feature, no fetch to a "raw" endpoint, no
+client-side state that reverts the redacted strings.
+
+### 5. Beacon endpoint for Client Component error boundaries
+
+Both `app/dashboard/error.tsx` and `app/portal/(main)/error.tsx`
+are Client Components (`'use client'`). They CANNOT call `logError()`
+directly because `createServiceRoleClient()` reads
+`SUPABASE_SERVICE_ROLE_KEY` which is server-only.
+
+**Solution:** POST `/api/observability/log-client-error`. The route
+auth-gates the request (dashboard Supabase Auth session OR portal
+cookie session → either accepted; anonymous → 401), then funnels
+the payload through `logError()` server-side. PII redaction +
+5-layer pipeline inherited verbatim.
+
+**Middleware exemption required:** the middleware Supabase-Auth
+block (line 136 of `middleware.ts`) needed `!pathname.startsWith
+('/api/observability')` so portal cookie sessions reach the beacon's
+own auth gate. The route's own auth check is the canonical gate;
+CSRF protection still covers all POST/PATCH/PUT/DELETE.
+
+### 6. Append-mostly DB shape (no trigger, no `updated_at`)
+
+`pyra_error_logs` has NO `updated_at` column and NO trigger. The
+only update path is admin marking a row resolved (writes
+`resolved`, `resolved_at`, `resolved_by`, `resolved_notes`
+explicitly). Append-mostly design — preserves audit integrity, no
+hidden mutation paths.
+
+### 7. RBAC permission naming: `error_logs.{view,manage}`
+
+NOT `admin.error_logs.{view,manage}` (which the user's spec
+literally said). Q2(a) lock at Phase 14.1 Commit 3 closure:
+permissions follow the codebase convention (`module.action`),
+matching `sessions.view`, `activity.view`, `reports.view`. Admin-only
+semantic is enforced by role assignment, not by name prefix.
+
+### 8. Sheet detail view (Phase 10 pattern reused)
+
+The admin viewer's row-detail panel uses `<SheetContent side="right">`
+— visual LEFT in RTL (matching Phase 10 lead-sidebar mobile pattern +
+Phase 14.1 admin observability). The Sheet primitive at
+`components/ui/sheet.tsx` is the workspace standard for all
+slide-out / bottom-sheet UX.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **`logError` is server-only.** Client Component error boundaries
+  POST through `/api/observability/log-client-error` — they CANNOT
+  import `logError` directly.
+- **`apiServerError` signature must remain backwards-compatible.**
+  Adding required params (or changing param order) breaks 722
+  callers in one stroke.
+- **Defense in depth: 4 gates before any anonymous row reaches
+  `pyra_error_logs`.** CSRF (middleware) → Supabase Auth
+  (middleware) → route-level `requireApiPermission` → DB CHECK
+  constraints. Verified post-deploy with 0 anonymous rows after
+  multiple probe rounds.
+- **`error_logs.manage` is required for PATCH** — `error_logs.view`
+  is NOT sufficient. Different permission strings, separately
+  checked.
+- **Detail panel renders metadata verbatim** — no de-redaction path,
+  no "expand original" button.
+- **The Sheet `side="right"` is canonical RTL pattern.** Don't swap
+  to `side="left"` — that breaks the visual layout in dir=rtl.
+
+### Phase 14.1 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "Phase 14.1 v1.1 items" — TTL prune cron,
+severity grouping/dedup, `apiServerError` user-context plumbing,
+broader `mutateAPI` audit, magic-byte file validation.
+
+## Phase 15.2 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 15.2 closure (Mobile Experience Completion). **Do NOT
+re-litigate.** Phase 15.2 covers Commit 1 (lead image attachments)
+and Commit 2 (lead voice notes); Commit 3 (Push notifications) is
+deferred to v1.1 pending the Q-B-004 iOS 16.4+ prerequisite check.
+
+### 1. Lead attachments use existing `pyraai-workspace` bucket
+
+NOT a new private bucket with signed URLs. Path:
+`lead-attachments/{lead_id}/{ts}-{nanoid}.{ext}`. Public bucket +
+obscure path is the v1 security model — matches existing workspace
+pattern for invoices, contracts, WhatsApp media. v1.1 backlog: RLS
+policies + signed URLs if security model evolves.
+
+### 2. Client-side Canvas resize, not server-side `sharp`
+
+`lib/utils/image-resize.ts`:
+- `createImageBitmap(file)` → decodes any browser-supported format
+  (including HEIC on iOS 13+)
+- `drawImage` to `OffscreenCanvas` (with `HTMLCanvasElement`
+  fallback)
+- `toBlob('image/jpeg', 0.82)` → max 1920×1920 (downscale only —
+  smaller images still re-encode to strip EXIF)
+
+**EXIF stripped as side effect of Canvas re-encode** — Canvas does
+NOT preserve image metadata. Zero new npm dependencies, smaller
+upload bandwidth, runs on Sayed's iPhone where the resize matters
+most. v1.1 may add server-side `sharp` for thumbnail generation if
+needed.
+
+### 3. Hard caps: 5MB per file + 10 per lead (combined)
+
+Per-file: 5 MB after client resize (server enforces ceiling
+defensively — malicious client could skip resize). Per-lead: 10
+attachments TOTAL — images + voice notes share the same budget
+(Q1(a) lock: mixed grid). Concurrent-upload race window
+acknowledged: max overflow = (concurrent uploads - 1), accepted
+for v1.
+
+### 4. Voice notes share `LeadAttachmentsTab` (mixed grid)
+
+Q1(a) lock: NOT a separate "voice notes" tab; NOT a sub-tab. Single
+surface. Voice cells render with `Volume2` icon + duration badge.
+Image cells unchanged. Clicking either opens the same Sheet detail
+panel — branches on `file_type` for preview shape (`<img>` vs
+`<audio controls>`).
+
+**Tab key remained `files` for URL stability** — old `?tab=files`
+bookmarks still land here. Label changed `الملفات` → `مرفقات`; icon
+changed `FolderOpen` → `Paperclip`.
+
+### 5. `useVoiceRecorder` is NEW, not extracted from `chat-input.tsx`
+
+Q4(a) lock at Phase 15.2 Commit 2: pre-existing
+`components/sales/chat/chat-input.tsx` voice recorder (the
+WhatsApp shared inbox surface) remains UNTOUCHED. The new
+`hooks/useVoiceRecorder.ts` is a parallel implementation with:
+
+- 5-minute HARD CAP + auto-stop + 4:30 warning toast (chat-input
+  has no cap)
+- Returns a generic `{ blob, durationSeconds, mimeType, ext }` shape
+  for any consumer (chat-input was tightly coupled to its own
+  `processFile()`)
+- Same MediaRecorder pattern: prefer `audio/webm`, fall back to
+  `audio/mp4` on Safari/iOS
+- MediaStream cleanup on unmount (no leaked iOS mic indicator)
+
+v1.1 may consolidate if both surfaces converge on identical
+requirements.
+
+### 6. Native `<audio controls>` playback
+
+Q5(a) lock: NO custom waveform player in v1. The detail Sheet's
+audio preview uses the browser's native `<audio controls
+preload="metadata">`. Zero JS, browser handles play/pause/seek.
+v1.1 may add a WhatsApp-style waveform player.
+
+### 7. Storage path is 100% server-controlled
+
+No part of `file.name` ever flows into the storage path.
+Extension comes from validated MIME via `MIME_TO_EXT` map, with
+**hard-error on miss** (Reviewer-flagged defense at Commit 1
+closure):
+
+```ts
+const canonicalExt = MIME_TO_EXT[file.type];
+if (!canonicalExt) {
+  logError({ error: new Error(`MIME_TO_EXT missing entry for ${file.type}`), ... });
+  return apiServerError('خطأ داخلي في تحديد نوع الملف');
+}
+const storagePath = `lead-attachments/${leadId}/${Date.now()}-${generateId('img').slice(4)}${canonicalExt}`;
+```
+
+If a future MIME is added to `ALLOWED_*_MIME` without updating
+`MIME_TO_EXT`, the upload aborts cleanly rather than silently
+leaking user-supplied extension into the storage path. Defends the
+"storage path is 100% server-controlled" invariant against future
+maintenance drift.
+
+### 8. SVG explicitly REJECTED
+
+`ALLOWED_IMAGE_MIME` does NOT include `image/svg+xml`. SVGs can
+carry `<script>` elements (XSS vector). Extension allowlist also
+excludes `.svg`.
+
+### 9. Delete permission: admin OR uploader (small-team safety)
+
+Q-E6 lock: NOT uploader-only. Admin can also delete (admin override
+for moderating colleague uploads). Sales agents CANNOT delete each
+other's uploads on the same lead. Cross-lead deletion blocked via
+double-eq guard (`.eq('id', attachmentId).eq('lead_id', leadId)`).
+
+### 10. Activity dual-write (Phase 11.5 pattern preserved)
+
+Each upload + delete writes BOTH:
+- `pyra_lead_activities` row with `activity_type='attachment_added'`
+  or `'attachment_removed'` (free-form lead timeline)
+- `pyra_activity_log` row via `logActivity()` with `action_type =
+  ${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}` and
+  `metadata.source = 'attachment_added'` or `'attachment_removed'`
+  (stable category + specific flavour per Phase 11.5 lock)
+
+### Implementation invariants (locked, do NOT regress)
+
+- **`canAccessLead` enforcement is identical** between image and
+  voice upload paths — no divergence.
+- **Both client and server enforce the 5-min voice cap.** Client
+  auto-stops at 300s with 4:30 warning. Server rejects 422 if
+  `duration_seconds > 300`.
+- **`useUploadAttachment` accepts `UploadInput`**, not raw `File`.
+  Caller passes `{ file, fileType?, durationSeconds? }`. Backwards
+  compat: `fileType` defaults to `'image'`.
+- **`useDeleteAttachment` uses `mutateAPI`**, NOT raw `fetch()` —
+  per CLAUDE.md mandate. The FormData exemption applies only to
+  `useUploadAttachment` (multipart needs browser-set Content-Type
+  boundary).
+- **No HEIC server-side decode in v1.** Client Canvas reads HEIC on
+  iOS, re-encodes to JPEG. Desktop browsers that can't decode HEIC
+  will fail the upload — accepted for v1 (target user is Sayed on
+  iPhone).
+
+### Q-B-004 iOS prerequisite for Push (v1.1 unblocker)
+
+Phase 15.2 Commit 3 (Push notifications) is gated on **iOS 16.4+**
+on Sayed's Safari (Apple's web push support shipped March 2023).
+Workspace-side TODOs blocked behind that:
+- VAPID key generation + storage
+- `web-push` npm package
+- Service worker `push` event listener in `public/sw.js`
+- Permission UI ("Enable notifications" toggle)
+- Push-subscription storage per user
+
+See `CRM-PROGRESS.md` "Phase 15.2" section for full unblocker
+procedure.
+
+### Phase 15.2 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "Phase 15.2 v1.1 items" — Push notifications
+(Commit 3), bucket RLS + signed URLs, server-side thumbnails,
+orphan storage sweep cron, chat-input.tsx consolidation, custom
+waveform player, shared duration constant, shadcn AlertDialog for
+delete, HEIC server-side fallback, per-file size warning during
+recording.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

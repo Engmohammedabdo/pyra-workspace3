@@ -844,6 +844,90 @@ Customer Header gradient cover banner was deferred to Phase 13 visual polish (Ph
 
 ---
 
+## Phase 14.1 — Observability ✅ (3/3)
+
+**Status:** Complete. Post-CRM-rebuild infrastructure work. Self-contained error log layer replaces external Sentry — no DSN, no third-party service, no egress. All server-side errors funnel through `logError()` into `pyra_error_logs`; admin viewer at `/dashboard/admin/error-logs` provides triage + resolve workflow.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `2b0924e` | **Schema + logger.** Migration 015 — `pyra_error_logs` (16 cols, 3 indexes, 2 CHECK constraints, COMMENTs, NO trigger — append-mostly). `lib/observability/log-error.ts` — fire-and-forget IIFE, 5-layer PII redaction (noise drops → email regex → phone regex → sensitive key fragments → sensitive header allowlist), cron-safe (never propagates), recursive-safe (insert failures use raw `console.error`, no recursion). Reviewer PASSED 4/4. |
+| 2 | `9a45a12` + `26a490c` | **Server capture + client beacon + middleware hotfix.** `apiServerError(message?, err?, request?)` backwards-compat extension (all 722 existing callers unaffected). Beacon route `/api/observability/log-client-error` accepts both dashboard Supabase Auth AND portal cookie sessions. Both error boundaries (`app/dashboard/error.tsx`, `app/portal/(main)/error.tsx`) fire-and-forget POST through the beacon. 8 high-risk catch blocks explicitly instrumented: 2 crons (follow-up-reminders + lead-idle-check) + 2 webhooks (Evolution + Stripe) + 3 CRM state-change routes (convert-to-customer + link-client + move-stage) + 1 Stripe checkout. Post-deploy surfaced + immediately fixed: middleware Supabase-Auth block needed `/api/observability/*` exemption so portal cookie auth reaches the beacon. Reviewer LIGHT PASSED 4/4. |
+| 3 | `e7d9de0` | **Admin viewer.** `/dashboard/admin/error-logs` — filter chips (severity / environment / resolved / 7d/30d/all / user) + paginated list (50/page) + Sheet detail panel with stack trace + PII-redacted metadata pretty-print + resolve form. Two new RBAC permissions (`error_logs.view` + `error_logs.manage` — admin-only by role assignment, NOT by name prefix). Sidebar nav under "الأمان والمراقبة" group with `permission: 'error_logs.view'`. Module guide entry. Reviewer HIGH PASSED 4/4 strict checks; two flagged observations adjudicated as non-issues (chevron pattern matches Phase 10 RTL lock; double-resolve UX already protected by `isPending` + conditional unmount). |
+
+### Defense-in-depth verified post-deploy
+
+| Layer | Gate | Verified |
+|---|---|---|
+| 1 | CSRF (middleware) — POST/PATCH/PUT/DELETE without matching Origin → 403 | ✅ |
+| 2 | Supabase Auth (middleware) — anonymous to `/api/admin/*` → 401 | ✅ |
+| 3 | Route-level `requireApiPermission` — `error_logs.view` (GET) / `error_logs.manage` (PATCH) | ✅ |
+| 4 | DB CHECK constraints — severity enum + environment enum | ✅ |
+| **Table state** | 0 anonymous rows from probes | ✅ |
+
+### PII guarantee end-to-end (smoke-tested in Commit 2)
+
+- Email regex → `[EMAIL]`
+- Phone regex (with lookbehind/ahead) → `[PHONE]`
+- Sensitive metadata keys (`phone`/`email`/`password`/`token`/`secret`/`apikey`) → `[REDACTED]`
+- Sensitive headers (`authorization`/`x-api-key`/`stripe-signature`/`cookie`) → `[REDACTED]`
+- Substring matches in non-sensitive keys also caught by regex
+- Admin viewer renders verbatim — NO de-redaction path
+
+### Architectural invariants locked
+
+- **Append-mostly DB shape** — no `updated_at` column, no trigger. The only mutation path is admin marking a row resolved (writes `resolved_*` columns explicitly).
+- **Service-role client is server-only** — Client Component error boundaries CANNOT call `logError()` directly. They POST through the beacon. Middleware exemption is required for `/api/observability/*` to let portal cookie sessions reach the beacon's own auth gate.
+- **`apiServerError(message?, err?, request?)` is backwards-compat** — 722 existing callers untouched. When `err` is passed, logError fires; when not, behavior is identical to v0.
+- **Cron-safe contract** — `logError()` never throws, never propagates. Cron per-row try blocks are still self-contained; top-level cron catches wire `logError`.
+- **`error_logs.{view,manage}` permission naming** — drops the `admin.` prefix per codebase convention (matches `sessions.view`, `activity.view`).
+- **Sheet detail panel** uses `side="right"` — visual LEFT in RTL, matching Phase 10 + Phase 14.1 Sheet convention.
+
+---
+
+## Phase 15.2 — Mobile Experience Completion ✅ (2/3 — Commit 3 deferred)
+
+**Status:** Camera + image attachments (Commit 1) AND voice notes (Commit 2) shipped. **Commit 3 (Push notifications) deferred to v1.1** pending the Q-B-004 iOS prerequisite check on Sayed's device (iOS 16.4+ required for web push on Safari).
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `796029d` | **Lead image attachments.** Migration 016 — `pyra_lead_attachments` (lead_id FK + CASCADE, `file_type` CHECK enum, `size_bytes` CHECK > 0, 2 indexes). POST `/api/crm/leads/[id]/attachments` — 14-layer validation cascade (rate-limit → permission → scope → multipart body → size ≤ 5MB → MIME allowlist {jpg/png/webp/heic/heif; SVG REJECTED for XSS} → extension allowlist → per-lead cap ≤ 10 → server-generated storage path → upload → DB insert with orphan-cleanup on failure → public URL → activity dual-write). DELETE — admin OR uploader gate; cross-lead deletion blocked. GET — list with public URLs. `lib/utils/image-resize.ts` — Canvas 1920×1920 / JPEG 0.82, EXIF stripped as side effect, HEIC transparently converted on iOS. `LeadAttachmentsTab` (replaces v1.1-promised `LeadFilesTab` placeholder) — Camera + Gallery buttons, grid view, Sheet detail. Reviewer HIGH PASSED 5/7 outright; 2 ship-blockers found + applied (MIME_TO_EXT hard-error fallback to defend "storage path is 100% server-controlled" invariant against future map drift; useDeleteAttachment migrated from raw fetch to mutateAPI per CLAUDE.md rule). |
+| 2 | `e3cf2ce` | **Lead voice notes (mixed grid).** `hooks/useVoiceRecorder.ts` (NEW) — MediaRecorder wrapper with 5-min hard cap + auto-stop + 4:30 warning toast + Safari/iOS audio/mp4 fallback + MediaStream cleanup on unmount (no leaked iOS mic indicator). POST endpoint extended with `file_type` form field (defaults `'image'` for backwards compat) + audio MIME allowlist {webm/mp4/ogg/mpeg} + duration_seconds validation (≤ 300s). `useUploadAttachment` signature widened to `UploadInput = { file, fileType?, durationSeconds? }`. `LeadAttachmentsTab` extended — third "صوت" button, RecordingPanel (pulsing red indicator + live MM:SS / 05:00 + progress bar + stop/cancel), mixed grid (voice cells render Volume2 icon + duration badge), native `<audio controls>` playback in detail Sheet. `components/sales/chat/chat-input.tsx` UNTOUCHED (Q4(a) lock — pre-existing WhatsApp chat voice recorder remains as-is; v1.1 may consolidate). Reviewer LIGHT PASSED 6/6 focus areas; 2 low-priority v1.1 backlog items filed. |
+| 3 | — | **Push notifications — DEFERRED to v1.1** (Q-B-004 iOS prerequisite). Web Push on iOS Safari requires iOS 16.4+; if Sayed's device runs older iOS, Push is gated until OS upgrade. Workspace-side infrastructure (VAPID keys + service-worker push handler + permission UI) blocked behind that confirmation. |
+
+### Q-B-004 iOS prerequisite for Push (v1.1 unblocker)
+
+Push notifications via Service Worker require **iOS 16.4 or higher** on Safari (Apple's web push support shipped March 2023). The Phase 15.2 Commit 3 work is blocked on confirming Sayed's device is on a compatible iOS version. If Sayed needs to upgrade OS, the path is:
+
+1. Verify iOS version: Settings → General → About → Software Version
+2. If < 16.4: update via Settings → General → Software Update (typically requires device on Wi-Fi + charging)
+3. Confirm Phase 15.2 Commit 3 readiness in v1.1 scoping session
+
+Workspace-side TODOs gated behind this confirmation:
+- VAPID key generation + storage (`VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` env vars)
+- `web-push` npm package installation
+- Service worker `push` event listener in `public/sw.js`
+- Permission UI ("Enable notifications" toggle in profile/settings)
+- DB column for storing push subscriptions per user (or reuse `pyra_notifications` infrastructure)
+
+### Architectural invariants locked
+
+- **Public bucket + obscure path** is the v1 security model (matches existing workspace pattern for invoices, contracts, WhatsApp media). v1.1 backlog: bucket RLS policies + signed URLs if security model evolves.
+- **Client Canvas resize** strips EXIF as a side effect — zero new server-side dependencies (no `sharp` install). 1920×1920 max, JPEG 0.82.
+- **5 MB per file + 10 per lead** are HARD caps. The 10-item cap covers BOTH file types combined (mixed grid, shared budget — Q1(a) lock).
+- **SVG explicitly REJECTED** via MIME allowlist (XSS via embedded `<script>`).
+- **Storage path is 100% server-controlled.** No part of `file.name` ever appears in the storage path; extension comes from validated MIME via `MIME_TO_EXT` map with hard-error on miss (Reviewer-flagged defense in Commit 1 against future map drift).
+- **Voice notes share the same surface** as images (`LeadAttachmentsTab`, same cap, same Sheet detail pattern). Q1(a) decision was a mixed grid — voice cells render with audio-icon thumbnail + duration badge.
+- **5-min voice cap is enforced BOTH client AND server** — `MAX_DURATION_SEC` (client) auto-stops at 300s with 4:30 warning toast; `MAX_VOICE_DURATION_SEC` (server) rejects with 422 if `duration_seconds > 300`. v1.1 backlog: extract to shared constant to eliminate drift risk.
+- **`useVoiceRecorder` hook is NEW**, NOT extracted from `chat-input.tsx`. Q4(a) lock — chat-input.tsx remains untouched; v1.1 may consolidate.
+- **Native `<audio controls>` playback** — Q5(a) lock; zero JS, browser handles play/pause/seek. v1.1: custom waveform player.
+- **`canAccessLead` enforcement** identical between image + voice upload paths — no divergence.
+
+---
+
 ## 🎉 CRM BUILD COMPLETE — phase index
 
 13 phases, 13/13 complete. Execution order ran:
@@ -854,7 +938,7 @@ Phase 10 after 11.5 per Phase 11 closure decision, and inserted
 Phase 11 Refinement + Phase 11.5 as gap-fill phases revealed during
 ops setup.)
 
-### Architectural decisions locked (Phases 7-13)
+### Architectural decisions locked (Phases 7-15.2)
 
 Single-source-of-truth principles documented in `CLAUDE.md`:
 - **Phase 7:** Kanban architecture invariants (3-tier component split, opacity-0 source, pointerWithin collision, single useDraggable per lead.id, dropAnimation={null})
@@ -866,6 +950,8 @@ Single-source-of-truth principles documented in `CLAUDE.md`:
 - **Phase 10:** Mobile Sheet primitive standard; per-card useState (no prop drilling); ACCENT_DOT in lib/constants/pipeline-colors.ts; touch target h-11 (44px)
 - **Phase 12:** Email URL bypass-middleware invariant; module-guide collision-resolution pattern; audit-log target_path semantic upgrades
 - **Phase 13:** EmptyState scope (full-page only — sidebar contexts use inline compact stubs); user-facing language ("قريباً" / "قريباً في v1.1" — never "Phase X" / "TODO"); gradient subtlety standard; non-link card hover (hover:bg-muted/30 transition-colors)
+- **Phase 14.1:** Self-contained observability layer (pyra_error_logs + logError + admin viewer); 5-layer PII redaction pattern; beacon endpoint for Client Component error boundaries; service-role-client-is-server-only + middleware exemption for portal cookie sessions; append-mostly DB shape
+- **Phase 15.2:** Lead attachment pattern (Canvas resize + server-generated paths + public bucket + obscure path security model + MIME_TO_EXT hard-error fallback); MediaRecorder hook abstraction (5-min cap + auto-stop + iOS-safe stream cleanup + Safari audio/mp4 fallback); mixed-type attachment grid pattern (images + voice notes share surface + shared 10-item cap); native `<audio controls>` playback
 
 ---
 
@@ -910,3 +996,24 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 - [ ] **Bulk link from leads list** (Phase 11.5) — multi-select leads + assign to single client
 - [ ] **Auto-suggest based on phone match** (Phase 11.5) — when opening Link-Client modal, pre-select likely matches based on `lead.phone` vs `pyra_clients.phone` similarity
 - [ ] **Audit-log action_type pattern sweep** (Phase 11.5) — migrate any pre-Phase-11.5 `logActivity()` call sites that used hardcoded strings to the `${ENTITY_TYPES}_${ACTIVITY_ACTIONS}` + `metadata.source` pattern
+
+### Phase 14.1 v1.1 items
+
+- [ ] **TTL / prune cron for `pyra_error_logs`** — table is unbounded growth in v1 (acceptable: ~14k rows/year typical for low-traffic CRM). Add nightly cron that prunes `resolved=true` rows older than 90 days + `severity='info'` rows older than 30 days.
+- [ ] **Severity grouping / dedup** — repeat identical errors create N rows; v1.1 could group by `(message, error_type, stack_trace)` and increment a `count` column.
+- [ ] **`apiServerError` user-context plumbing** — currently 722 callers don't pass auth context. The 8 high-risk routes pass it explicitly via `logError`. v1.1 could add an optional `user` param to `apiServerError` to opportunistically include user context across more sites — but only if/when it stops being a 30-site touch (more than 30 hand-edits is too brittle).
+- [ ] **`useDeleteAttachment`-style audit on other React Query mutations** — sweep `hooks/use*.ts` for raw `fetch()` calls in `useMutation` that should be `mutateAPI`. The Phase 14.1 Reviewer found one such (DELETE-attachment) but a broader codebase audit may find more.
+- [ ] **Magic-byte file validation for attachments + uploads** — currently we trust `file.type` (browser-supplied MIME) + extension. v1.1 could read first ~16 bytes and verify against a magic-bytes table (PNG starts with `\x89PNG\r\n\x1a\n`, JPEG with `\xff\xd8\xff`, etc.). Adds robustness against MIME spoofing.
+
+### Phase 15.2 v1.1 items
+
+- [ ] **Push notifications via Service Worker (Commit 3)** — requires Sayed's device on iOS 16.4+ (Apple's web push support shipped March 2023). Workspace TODOs gated behind that: VAPID keys, `web-push` package, sw.js `push` event listener, permission UI, push-subscription storage.
+- [ ] **Bucket RLS policies + signed URLs** — currently `pyraai-workspace` is public + obscure-path security model (matches existing workspace pattern for invoices/contracts). v1.1 could add RLS policies to `storage.objects` + switch to `createSignedUrl()` for lead attachments specifically.
+- [ ] **Server-side thumbnail generation** — v1 uses the same 1920×1920 image for both grid + detail. Acceptable: ~150-300KB typical × 10 = max 3MB/lead. v1.1 could add `sharp` server-side resize for grid-sized thumbnails (e.g., 400×400) to reduce bandwidth.
+- [ ] **Orphan storage sweep cron** — DB CASCADE clears `pyra_lead_attachments` rows when a lead is deleted, but storage objects in the bucket stay. v1.1: nightly cron compares `pyra_lead_attachments` rows vs storage `list()` results and removes orphans.
+- [ ] **`chat-input.tsx` + `useVoiceRecorder` consolidation** — Phase 15.2 Q4(a) lock left `components/sales/chat/chat-input.tsx`'s pre-existing voice recorder untouched. If both surfaces converge on identical requirements (duration cap, MIME negotiation, etc.), v1.1 can migrate `chat-input.tsx` to consume `useVoiceRecorder`.
+- [ ] **Custom waveform audio player** — v1 uses native `<audio controls>` (Q5(a) lock). v1.1 may add a WhatsApp-style waveform player (~200 LOC + new library).
+- [ ] **Shared `MAX_VOICE_DURATION_SEC` constant** — currently declared independently in `hooks/useVoiceRecorder.ts` (client = 300) and `app/api/crm/leads/[id]/attachments/route.ts` (server = 300). v1.1: extract to `lib/constants/crm.ts` to eliminate drift risk.
+- [ ] **shadcn `AlertDialog` for delete confirmations** — Commit 1 + Commit 2 use `window.confirm()` for attachment delete. CLAUDE.md mandates "toast from sonner; NEVER alert()" — confirm() is a different surface but the spirit of the rule favors consistent shadcn dialogs.
+- [ ] **HEIC server-side decode for thumbnail generation** — currently HEIC is transparently converted to JPEG by client Canvas. If desktop browsers (non-iOS) can't decode HEIC for createImageBitmap, upload fails on those browsers. v1.1: add `sharp` + `libheif` server-side fallback path.
+- [ ] **Per-file size warning during recording** — v1 only warns on duration (5-min cap). A 3-min stereo audio recording can hit the 5MB file-size cap before the duration cap. v1.1: monitor blob size during recording, warn at 4MB, auto-stop at 5MB.
