@@ -13,6 +13,7 @@
     "check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "db:backup": "bash scripts/db-backup.sh",
     "db:record": "npx tsx scripts/db-record-migration.ts",
     "db:check-drift": "npx tsx scripts/db-check-drift.ts"
   },
