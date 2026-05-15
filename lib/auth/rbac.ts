@@ -88,6 +88,10 @@ export const PERMISSIONS = {
   SESSIONS_VIEW: 'sessions.view',
   SESSIONS_MANAGE: 'sessions.manage',
 
+  // Error Logs (Phase 14.1 — admin observability viewer)
+  ERROR_LOGS_VIEW: 'error_logs.view',
+  ERROR_LOGS_MANAGE: 'error_logs.manage',
+
   // Reviews
   REVIEWS_VIEW: 'reviews.view',
   REVIEWS_MANAGE: 'reviews.manage',
@@ -386,6 +390,15 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     permissions: [
       { key: 'sessions.view', label: 'View Sessions', labelAr: 'عرض الجلسات' },
       { key: 'sessions.manage', label: 'Manage Sessions', labelAr: 'إدارة الجلسات' },
+    ],
+  },
+  {
+    key: 'error_logs',
+    label: 'Error Logs',
+    labelAr: 'سجل الأخطاء',
+    permissions: [
+      { key: 'error_logs.view', label: 'View Error Logs', labelAr: 'عرض سجل الأخطاء' },
+      { key: 'error_logs.manage', label: 'Resolve Error Logs', labelAr: 'تحديد الأخطاء كمحلولة' },
     ],
   },
   {

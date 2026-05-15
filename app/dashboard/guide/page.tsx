@@ -134,6 +134,7 @@ const SECTIONS = [
       '/dashboard/activity',
       '/dashboard/login-history',
       '/dashboard/sessions',
+      '/dashboard/admin/error-logs',
     ],
   },
 ];

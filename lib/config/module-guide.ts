@@ -758,6 +758,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['sessions', 'جلسات', 'أمان', 'أجهزة'],
   },
+  '/dashboard/admin/error-logs': {
+    href: '/dashboard/admin/error-logs',
+    description: 'سجل الأخطاء التقنية للنظام',
+    descriptionEn: 'System error log viewer',
+    goal: 'استعرض الأخطاء التي يلتقطها مُجمِّع الـ observability من APIs، crons، webhooks، وحدود الأخطاء الـ client-side. ابدأ بفلتر "غير محلولة" للتركيز على ما يحتاج تدخّل.',
+    tips: [
+      'فلتر "غير محلولة" نشط افتراضياً — يخفي ما تم التعامل معه سابقاً',
+      'انقر على أي صف لرؤية الـ stack trace كاملاً + الـ metadata',
+      'علّم الخطأ كمحلول بعد إصلاحه — تظهر بياناتك في سجل العمليات',
+      'الـ PII (إيميل، تليفون، توكنات) مُعقّمة قبل التخزين — تظهر كـ [EMAIL] / [PHONE] / [REDACTED]',
+      'فلتر "إنتاج" يخفي الضوضاء القادمة من بيئة التطوير المحلية',
+    ],
+    keywords: ['errors', 'logs', 'observability', 'debugging', 'monitoring', 'أخطاء', 'سجل', 'مراقبة', 'تصحيح'],
+  },
   '/dashboard/settings': {
     href: '/dashboard/settings',
     description: 'إعدادات النظام العامة والتخصيصات',

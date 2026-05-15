@@ -74,6 +74,7 @@ import {
   Truck,
   ShoppingCart,
   ClipboardCheck,
+  Bug,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -229,6 +230,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity, permission: 'activity.view' },
       { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, permission: 'sessions.view' },
       { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, permission: 'sessions.view' },
+      { href: '/dashboard/admin/error-logs', label: 'سجل الأخطاء', labelEn: 'Error Logs', icon: Bug, permission: 'error_logs.view' },
     ],
   },
 ];
