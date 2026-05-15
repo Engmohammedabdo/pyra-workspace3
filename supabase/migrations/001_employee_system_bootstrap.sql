@@ -1,3 +1,27 @@
+-- ────────────────────────────────────────────────────────────────────────────
+-- 001_employee_system_bootstrap.sql
+--
+-- BOOTSTRAP MIGRATION — runs on fresh DB only.
+-- Production DB at pyraworkspacedb.pyramedia.cloud already has this applied
+-- during initial deployment. Recorded retroactively in pyra_schema_migrations
+-- via Phase 14.2 backfill (applied_by='bootstrap').
+--
+-- For fresh DB setup (staging, dev, new prod): run this FIRST, then 002+ in
+-- order.
+--
+-- Phase:        bootstrap
+-- Author:       abdou
+-- Date:         2026-03-04
+-- Reversible:   NO (forward-only — bootstrap of the Employee System schema)
+-- Touches data: NO (pure DDL — no INSERT/UPDATE of business rows)
+-- Risk tier:    1 (deterministic; idempotent via IF NOT EXISTS guards)
+--
+-- Renamed from scripts/migration-employee-system.sql during Phase 14.2
+-- Commit 2. File CONTENT below this header is preserved verbatim from the
+-- original — only the rename + this header banner are new.
+-- ────────────────────────────────────────────────────────────────────────────
+
+
 -- ============================================================
 -- MIGRATION: Employee System v1.0
 -- Pyra Workspace 3.0
