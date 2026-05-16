@@ -39,7 +39,9 @@ import type {
 //   assigned_to: username (default: caller; admin can pass any)
 //   lead_id: filter to single lead
 //
-// Permission: dashboard.view (every internal user)
+// Permission: calendar.view (Phase 15.1 Commit 5 — added to BASE_EMPLOYEE
+// so every internal user has it; admin can pass any assigned_to filter,
+// non-admins are silently coerced to self by the scope gate below)
 // Scope:
 //   - admin:       see all events in window
 //   - sales_agent: see only events assigned to self (or on leads they own)
@@ -72,7 +74,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export async function GET(request: NextRequest) {
   let authForLogging: ApiAuthResult | null = null;
   try {
-    const auth = await requireApiPermission('dashboard.view');
+    const auth = await requireApiPermission('calendar.view');
     if (isApiError(auth)) return auth;
     authForLogging = auth;
 

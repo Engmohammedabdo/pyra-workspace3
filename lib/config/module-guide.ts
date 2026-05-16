@@ -813,6 +813,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['leads', 'عملاء محتملين', 'kanban', 'pipeline', 'مبيعات'],
   },
+  '/dashboard/calendar': {
+    href: '/dashboard/calendar',
+    description: 'تقويم موحَّد لكل أعمالك',
+    descriptionEn: 'Unified calendar over tasks, follow-ups, and meetings',
+    goal: 'كل المهام والمتابعات والاجتماعات في عرض واحد. اختر بين عرض شهر، أسبوع، يوم، أو جدول الأعمال. التقويم للقراءة فقط — اضغط على أي حدث للذهاب لمصدره وتعديله.',
+    tips: [
+      'الافتراضي على الموبايل هو "جدول الأعمال" (أوضح على الشاشات الضيقة)',
+      'اضغط على رقم اليوم في عرض الشهر للقفز لعرض اليوم',
+      'استخدم الفلاتر (مهام/متابعات/اجتماعات) لإخفاء الأنواع غير المهمة',
+      'التقويم للقراءة فقط — التعديل في صفحات الـ Lead',
+      'الـ URL يحفظ العرض والتاريخ والفلاتر (للمشاركة وزر الرجوع)',
+    ],
+    keywords: ['calendar', 'تقويم', 'مواعيد', 'agenda', 'جدول', 'مهام', 'متابعات'],
+  },
   '/dashboard/crm/leads/[id]?tab=tasks': {
     href: '/dashboard/crm/pipeline',
     description: 'مهام الـ Lead',

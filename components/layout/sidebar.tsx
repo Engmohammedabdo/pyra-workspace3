@@ -58,6 +58,7 @@ import {
   Megaphone,
   Contact,
   CalendarOff,
+  CalendarClock,
   Timer,
   Banknote,
   Network,
@@ -116,6 +117,10 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view', badgeKey: 'notifications' },
       { href: '/dashboard/profile', label: 'ملفي الشخصي', labelEn: 'My Profile', icon: UserCircle },
       { href: '/dashboard/my-tasks', label: 'مهامي', labelEn: 'My Tasks', icon: CheckSquare },
+      // Phase 15.1 Commit 5 — calendar lands in الرئيسية group so it's
+      // discoverable next to my-tasks (both surfaces show "my work"
+      // across the system).
+      { href: '/dashboard/calendar', label: 'التقويم', labelEn: 'Calendar', icon: CalendarClock, permission: 'calendar.view' },
     ],
   },
   {

@@ -12,6 +12,8 @@
  * with an empty state for now so the Phase 6 wire-up is mechanical.
  */
 
+import { useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
@@ -29,6 +31,7 @@ interface LeadSidebarProps {
 
 export function LeadSidebar({ lead }: LeadSidebarProps) {
   const qc = useQueryClient();
+  const sp = useSearchParams();
   const { data: followUpsRes } = useFollowUps({
     lead_id: lead.id,
     status: 'pending',
@@ -36,6 +39,41 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
   });
   const nextFollowUp = followUpsRes?.follow_ups?.[0];
   const complete = useCompleteFollowUp();
+
+  // Phase 15.1 Commit 5 — follow-up highlight handler (LOCK 1). Triggered
+  // by `?followup={fu_id}` deep-links from the calendar event pill. The
+  // sidebar only renders the NEXT pending follow-up (limit:1), so the
+  // handler is a graceful no-op when the targeted follow-up isn't the
+  // currently-shown one — the user still lands on the lead detail page,
+  // which is the better-than-nothing fallback.
+  //
+  // Mirrors the Commit 1 activity-highlight pattern: data-attribute on the
+  // target element + querySelector(CSS.escape) + scrollIntoView + ring-flash
+  // + cleanup function clearing the timeout and removing the classes.
+  const highlightFollowUp = sp.get('followup');
+  useEffect(() => {
+    if (!highlightFollowUp || !nextFollowUp) return;
+    if (nextFollowUp.id !== highlightFollowUp) return; // not the rendered one
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let targetEl: HTMLElement | null = null;
+    const FLASH_CLASSES = ['ring-2', 'ring-orange-400', 'ring-offset-2', 'rounded-lg'];
+    const raf = requestAnimationFrame(() => {
+      targetEl = document.querySelector<HTMLElement>(
+        `[data-followup-id="${CSS.escape(highlightFollowUp)}"]`,
+      );
+      if (!targetEl) return;
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetEl.classList.add(...FLASH_CLASSES);
+      timer = setTimeout(() => {
+        targetEl?.classList.remove(...FLASH_CLASSES);
+      }, 2000);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer !== null) clearTimeout(timer);
+      targetEl?.classList.remove(...FLASH_CLASSES);
+    };
+  }, [highlightFollowUp, nextFollowUp]);
 
   const customFieldEntries = Object.entries(lead.custom_fields ?? {}).filter(
     ([, v]) => v !== null && v !== undefined && v !== '',
@@ -98,7 +136,10 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
         </ul>
       </Card>
 
-      <Card className="p-4 space-y-2">
+      <Card
+        className="p-4 space-y-2"
+        data-followup-id={nextFollowUp?.id}
+      >
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold">المتابعة القادمة</h3>
           <CalendarClock className="size-4 text-muted-foreground" aria-hidden />

@@ -41,6 +41,28 @@ export function formatNumber(num: number): string {
 }
 
 /**
+ * Compute the YYYY-MM-DD calendar-day key in Asia/Dubai (UTC+4, no DST).
+ *
+ * Phase 15.1 Commit 5 Reviewer HIGH fix — `new Date().toISOString().slice(0,10)`
+ * returns the UTC day, which differs from the Dubai day for the last 4 hours
+ * of every Dubai day (Dubai 20:00 = UTC 16:00 same day; Dubai 23:30 = UTC
+ * 19:30 same day; Dubai 02:00 = UTC 22:00 PREVIOUS day). Use this helper
+ * for any "today in Dubai" comparison against API-emitted Dubai-offset
+ * ISO strings (which slice cleanly to Dubai-day via `.slice(0, 10)`).
+ *
+ * Optionally accepts a Date argument for testing; defaults to `now`.
+ */
+export function dubaiDayKey(d: Date = new Date()): string {
+  const utcMs = d.getTime();
+  const dubaiMs = utcMs + 4 * 60 * 60 * 1000;
+  const dubai = new Date(dubaiMs);
+  const yyyy = dubai.getUTCFullYear();
+  const mm = String(dubai.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dubai.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
  * Phase 15.1 Commit 3 — friendly due-date label + badge tone for lead tasks.
  *
  * Returns `{ label, tone }` where `tone` is a CSS-class-fragment chosen so

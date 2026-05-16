@@ -10,6 +10,9 @@ export const PERMISSIONS = {
   // Dashboard
   DASHBOARD_VIEW: 'dashboard.view',
 
+  // Calendar (Phase 15.1 Commit 5) — unified view over tasks/follow-ups/meetings
+  CALENDAR_VIEW: 'calendar.view',
+
   // Files
   FILES_VIEW: 'files.view',
   FILES_UPLOAD: 'files.upload',
@@ -227,6 +230,14 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     labelAr: 'لوحة التحكم',
     permissions: [
       { key: 'dashboard.view', label: 'View Dashboard', labelAr: 'عرض لوحة التحكم' },
+    ],
+  },
+  {
+    key: 'calendar',
+    label: 'Calendar',
+    labelAr: 'التقويم',
+    permissions: [
+      { key: 'calendar.view', label: 'View Calendar', labelAr: 'عرض التقويم' },
     ],
   },
   {
@@ -685,6 +696,7 @@ export function isSuperAdmin(userPermissions: string[]): boolean {
  */
 const BASE_EMPLOYEE: string[] = [
   'dashboard.view',
+  'calendar.view',  // Phase 15.1 Commit 5 — every internal user sees their own events
   'notifications.view',
   // HR Self-Service — every employee needs these (read-only or own-record)
   'directory.view',
