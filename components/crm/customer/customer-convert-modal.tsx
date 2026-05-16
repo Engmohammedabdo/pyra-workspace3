@@ -39,6 +39,7 @@ import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
 import { useConvertToCustomer } from '@/hooks/useCustomerDossier';
 import type { DossierCustomer } from '@/hooks/useCustomerDossier';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 interface Props {
   customer: DossierCustomer;
@@ -46,7 +47,13 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-const PASSWORD_MIN_LENGTH = 6;
+// Phase 14.3 P1 fix #3 — replaced local shadow constant (=6) with
+// the canonical workspace-wide constant. Reviewer caught this site
+// in the post-implementation sweep: it was outside the audit's
+// listed 7 surfaces but represented the same inconsistency the audit
+// flagged. The CRM convert-to-customer flow was accepting 6-char
+// passwords while every other portal-account-creation path now
+// requires 8.
 
 export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
   const mutation = useConvertToCustomer(customer.id);
@@ -162,7 +169,7 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
           {createPortalAccess && (
             <div className="space-y-1.5">
               <Label htmlFor="convert-password">
-                كلمة المرور * <span className="text-muted-foreground">(٦ أحرف على الأقل)</span>
+                كلمة المرور * <span className="text-muted-foreground">{`(${PASSWORD_MIN_LENGTH} أحرف على الأقل)`}</span>
               </Label>
               <Input
                 id="convert-password"

@@ -8,6 +8,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { escapeLike, escapePostgrestValue, sanitizeFileName } from '@/lib/utils/path';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
 import { CLIENT_STATUS } from '@/lib/constants/statuses';
@@ -209,8 +210,8 @@ export async function POST(request: NextRequest) {
 
     // Password is only required when creating portal access
     const wantsPortal = create_portal === true || (password && password.length > 0);
-    if (wantsPortal && (!password || password.length < 6)) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل) لإنشاء حساب البورتال');
+    if (wantsPortal && (!password || password.length < PASSWORD_MIN_LENGTH)) {
+      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل) لإنشاء حساب البورتال`);
     }
 
     const supabase = createServiceRoleClient();

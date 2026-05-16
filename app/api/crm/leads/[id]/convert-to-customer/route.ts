@@ -12,6 +12,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { notify } from '@/lib/notifications/notify';
 import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -54,7 +55,11 @@ interface ConvertBody {
   primary_contact_name?: string;
 }
 
-const PORTAL_PASSWORD_MIN_LENGTH = 6;
+// Phase 14.3 P1 fix #3 — removed local shadow constant (=6) in favor
+// of the canonical PASSWORD_MIN_LENGTH (currently 8). Reviewer
+// caught this site outside the audit's listed 7 surfaces. The CRM
+// convert-to-customer flow was accepting 6-char passwords while
+// every other portal-account-creation path now requires 8.
 
 export async function POST(
   request: NextRequest,
@@ -130,9 +135,9 @@ export async function POST(
 
     const createPortalAccess = body.create_portal_access === true;
     const password = body.password?.trim() || '';
-    if (createPortalAccess && password.length < PORTAL_PASSWORD_MIN_LENGTH) {
+    if (createPortalAccess && password.length < PASSWORD_MIN_LENGTH) {
       return apiValidationError(
-        `كلمة المرور مطلوبة (${PORTAL_PASSWORD_MIN_LENGTH} أحرف على الأقل) لإنشاء حساب البورتال`,
+        `كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل) لإنشاء حساب البورتال`,
       );
     }
 

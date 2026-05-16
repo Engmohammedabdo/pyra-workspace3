@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -367,8 +368,8 @@ function PasswordChangeForm() {
       toast.error('كلمتا المرور غير متطابقتين');
       return;
     }
-    if (newPw.length < 8) {
-      toast.error('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+    if (newPw.length < PASSWORD_MIN_LENGTH) {
+      toast.error(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
       return;
     }
     passwordMutation.mutate({ current_password: currentPw, new_password: newPw });
@@ -382,7 +383,7 @@ function PasswordChangeForm() {
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">كلمة المرور الجديدة</label>
-        <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={8} dir="ltr" />
+        <Input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} required minLength={PASSWORD_MIN_LENGTH} dir="ltr" />
       </div>
       <div className="space-y-2">
         <label className="text-sm font-medium">تأكيد كلمة المرور</label>

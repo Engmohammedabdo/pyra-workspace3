@@ -9,6 +9,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { userPasswordChangeLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
 type RouteParams = { params: Promise<{ username: string }> };
@@ -36,8 +37,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { password, current_password } = body;
 
     // Validate password
-    if (!password || typeof password !== 'string' || password.length < 12) {
-      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
+    if (!password || typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
     }
 
     const supabase = await createServerSupabaseClient();

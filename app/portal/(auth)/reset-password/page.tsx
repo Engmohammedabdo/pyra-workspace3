@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,8 +47,8 @@ function ResetPasswordForm() {
       return;
     }
 
-    if (password.length < 12) {
-      setError('كلمة المرور يجب أن تكون 12 حرف على الأقل');
+    if (password.length < PASSWORD_MIN_LENGTH) {
+      setError(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
       return;
     }
 
@@ -121,7 +122,7 @@ function ResetPasswordForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={12}
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
             dir="ltr"
             className="text-start pe-10"
@@ -152,7 +153,7 @@ function ResetPasswordForm() {
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             required
-            minLength={12}
+            minLength={PASSWORD_MIN_LENGTH}
             autoComplete="new-password"
             dir="ltr"
             className="text-start pe-10"
@@ -173,7 +174,7 @@ function ResetPasswordForm() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        يجب أن تتكون كلمة المرور من 12 حرف على الأقل
+        {`يجب أن تتكون كلمة المرور من ${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
       </p>
 
       {/* Error message */}

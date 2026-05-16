@@ -7,6 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { hashPassword } from '@/lib/utils/password';
 
@@ -82,8 +83,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('اسم المستخدم مطلوب (3 أحرف على الأقل)');
     }
 
-    if (!password || typeof password !== 'string' || password.length < 12) {
-      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
+    if (!password || typeof password !== 'string' || password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
     }
 
     if (!role || !['admin', 'employee', 'sales_agent'].includes(role)) {

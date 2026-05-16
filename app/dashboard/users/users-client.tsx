@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { useUsers } from '@/hooks/useUsers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -415,7 +416,7 @@ export default function UsersClient() {
                   type="password"
                   value={formData.password}
                   onChange={e => setFormData(p => ({ ...p, password: e.target.value }))}
-                  placeholder="12 حرف على الأقل"
+                  placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
                   dir="ltr"
                 />
               </div>
@@ -760,14 +761,14 @@ export default function UsersClient() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>تغيير كلمة المرور — @{selectedUser?.username}</DialogTitle>
-            <DialogDescription>اختر كلمة مرور قوية (12 حرف على الأقل)</DialogDescription>
+            <DialogDescription>{`اختر كلمة مرور قوية (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`}</DialogDescription>
           </DialogHeader>
           <form onSubmit={e => { e.preventDefault(); handlePasswordChange(); }} className="space-y-4 py-4">
             {/* Hidden username field for autofill accessibility */}
             <input type="text" name="username" autoComplete="username" defaultValue={selectedUser?.username || ''} className="sr-only" readOnly tabIndex={-1} />
             <div className="space-y-2">
               <FormLabel required htmlFor="new-password">كلمة المرور الجديدة</FormLabel>
-              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="12 حرف على الأقل" dir="ltr" />
+              <Input id="new-password" name="new-password" type="password" autoComplete="new-password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`} dir="ltr" />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowPasswordDialog(false)}>إلغاء</Button>

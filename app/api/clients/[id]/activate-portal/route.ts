@@ -8,6 +8,7 @@ import {
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 /**
  * POST /api/clients/[id]/activate-portal
@@ -27,8 +28,8 @@ export async function POST(
     const { id } = await params;
     const { password } = await request.json();
 
-    if (!password || password.length < 6) {
-      return apiValidationError('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!password || password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
     }
 
     const supabase = createServiceRoleClient();

@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
 import { userPasswordChangeLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 // =============================================================
 // POST /api/profile/password — Change current user's password
@@ -26,8 +27,8 @@ export async function POST(request: NextRequest) {
     if (!current_password) {
       return apiValidationError('كلمة المرور الحالية مطلوبة');
     }
-    if (!new_password || new_password.length < 8) {
-      return apiValidationError('كلمة المرور يجب أن تكون 8 أحرف على الأقل');
+    if (!new_password || new_password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
     }
     if (new_password.length > 128) {
       return apiValidationError('كلمة المرور طويلة جداً (الحد الأقصى 128 حرف)');

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -458,8 +459,8 @@ export function ClientDetailClient() {
   // ── Activate portal ─────────────────────────────────
   const handleActivatePortal = async () => {
     if (!client) return;
-    if (!portalPassword || portalPassword.length < 6) {
-      toast.error('كلمة المرور مطلوبة (6 أحرف على الأقل)');
+    if (!portalPassword || portalPassword.length < PASSWORD_MIN_LENGTH) {
+      toast.error(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
       return;
     }
     setActivatingPortal(true);
@@ -1318,7 +1319,7 @@ export function ClientDetailClient() {
               <Input
                 id="portal-password"
                 type="password"
-                placeholder="6 أحرف على الأقل"
+                placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
                 value={portalPassword}
                 onChange={(e) => setPortalPassword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleActivatePortal()}
@@ -1332,7 +1333,7 @@ export function ClientDetailClient() {
             </Button>
             <Button
               onClick={handleActivatePortal}
-              disabled={activatingPortal || !portalPassword || portalPassword.length < 6}
+              disabled={activatingPortal || !portalPassword || portalPassword.length < PASSWORD_MIN_LENGTH}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {activatingPortal ? (

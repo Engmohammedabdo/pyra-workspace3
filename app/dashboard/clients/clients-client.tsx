@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -150,8 +151,8 @@ export default function ClientsClient() {
     if (!form.name.trim()) { toast.error('اسم العميل مطلوب'); return; }
     if (!form.email.trim()) { toast.error('البريد الإلكتروني مطلوب'); return; }
     if (!form.company.trim()) { toast.error('اسم الشركة مطلوب'); return; }
-    if (form.create_portal && (!form.password || form.password.length < 6)) {
-      toast.error('كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return;
+    if (form.create_portal && (!form.password || form.password.length < PASSWORD_MIN_LENGTH)) {
+      toast.error(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`); return;
     }
     setSaving(true);
     try {
@@ -635,7 +636,7 @@ export default function ClientsClient() {
                 {form.create_portal && (
                   <div className="space-y-2 pt-2 border-t border-border/40">
                     <FormLabel required>كلمة مرور البورتال</FormLabel>
-                    <Input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} dir="ltr" placeholder="6 أحرف على الأقل" />
+                    <Input type="password" value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} dir="ltr" placeholder={`${PASSWORD_MIN_LENGTH} أحرف على الأقل`} />
                   </div>
                 )}
               </div>

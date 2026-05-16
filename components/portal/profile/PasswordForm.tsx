@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { mutateAPI } from '@/hooks/api-helpers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,8 +22,8 @@ export function PasswordForm() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    if (newPassword.length < 12) {
-      toast.error('كلمة المرور الجديدة يجب أن تكون 12 حرف على الأقل');
+    if (newPassword.length < PASSWORD_MIN_LENGTH) {
+      toast.error(`كلمة المرور الجديدة يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -69,7 +70,7 @@ export function PasswordForm() {
             <div className="space-y-2">
               <FormLabel htmlFor="new-password" required>كلمة المرور الجديدة</FormLabel>
               <div className="relative">
-                <Input id="new-password" type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={12} dir="ltr" className="text-start pe-10" />
+                <Input id="new-password" type={showNew ? 'text' : 'password'} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={PASSWORD_MIN_LENGTH} dir="ltr" className="text-start pe-10" />
                 <button type="button" onClick={() => setShowNew(!showNew)} className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -78,7 +79,7 @@ export function PasswordForm() {
             <div className="space-y-2">
               <FormLabel htmlFor="confirm-password" required>تأكيد كلمة المرور</FormLabel>
               <div className="relative">
-                <Input id="confirm-password" type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={12} dir="ltr" className={cn('text-start pe-10', confirmPassword && newPassword !== confirmPassword && 'border-destructive')} />
+                <Input id="confirm-password" type={showConfirm ? 'text' : 'password'} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={PASSWORD_MIN_LENGTH} dir="ltr" className={cn('text-start pe-10', confirmPassword && newPassword !== confirmPassword && 'border-destructive')} />
                 <button type="button" onClick={() => setShowConfirm(!showConfirm)} className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>

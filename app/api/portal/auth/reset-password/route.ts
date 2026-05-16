@@ -10,6 +10,7 @@ import {
 } from '@/lib/api/response';
 import { resetPasswordLimiter, getClientIp } from '@/lib/utils/rate-limit';
 import { generateId } from '@/lib/utils/id';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 
 /**
  * Hash a reset token using SHA-256 to look up the stored hash.
@@ -56,8 +57,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('رمز إعادة التعيين مطلوب');
     }
 
-    if (!password || password.length < 12) {
-      return apiValidationError('كلمة المرور مطلوبة (12 حرف على الأقل)');
+    if (!password || password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
     }
 
     const supabase = createServiceRoleClient();

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getPortalSession, destroyAllClientSessions } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { passwordChangeLimiter } from '@/lib/utils/rate-limit';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import {
   apiSuccess,
   apiError,
@@ -52,8 +53,8 @@ export async function POST(request: NextRequest) {
       return apiValidationError('كلمة المرور الجديدة مطلوبة');
     }
 
-    if (new_password.length < 12) {
-      return apiValidationError('كلمة المرور الجديدة يجب أن تكون 12 حرف على الأقل');
+    if (new_password.length < PASSWORD_MIN_LENGTH) {
+      return apiValidationError(`كلمة المرور الجديدة يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
     }
 
     if (new_password.length > 128) {
