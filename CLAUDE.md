@@ -1732,6 +1732,236 @@ See `CRM-PROGRESS.md` → "Phase 14.1 v1.1 items" — TTL prune cron,
 severity grouping/dedup, `apiServerError` user-context plumbing,
 broader `mutateAPI` audit, magic-byte file validation.
 
+## Phase D — Locked Decisions (P2 Security Polish)
+
+These are **intentional, documented design choices** locked during
+Phase D closure. **Do NOT re-litigate.** Phase D shipped 9 of 10
+P2-backlog items from `docs/SECURITY-AUDIT-2025-01.md` across 4
+substantive commits + 1 closure. The remaining P2 (Redis rate-limiter
+migration) is infra-heavy and stays in v1.1 backlog.
+
+### 1. `validateExtraPermissions` is the DRY entry point for per-user grants
+
+Phase D-1 lock (audit P2 #1). All sites that accept an
+`extra_permissions` payload from an admin request body MUST import
+`validateExtraPermissions()` from `lib/auth/rbac.ts` — NEVER re-implement
+inline.
+
+```ts
+import { validateExtraPermissions } from '@/lib/auth/rbac';
+
+const result = validateExtraPermissions(body.extra_permissions);
+if (!result.ok) return apiValidationError(result.error);
+updateData.extra_permissions = result.value;
+```
+
+The helper:
+- Whitelists against `ALLOWED_EXTRA_PERMISSIONS = new Set(Object.values(PERMISSIONS))` — exact-match only
+- Explicitly rejects wildcards (`*` and `module.*`) — wildcards MUST go
+  via `pyra_roles.permissions` for audit clarity (silent per-user
+  super-admin grants are an admin foot-gun)
+- Returns `{ ok: true, value: [] }` for null/undefined so PATCH partial
+  updates don't clobber existing extra_permissions when the field is
+  absent from the request body
+- Arabic error messages with the rejected permission included for
+  debugging
+
+### 2. `escapePostgrestValue(escapeLike(...))` is THE pattern for `.or()` user input
+
+Phase 14.3 closed legacy sales-leads sites (3 routes); Phase D-1 closed
+the WhatsApp conv site. Any future `.or()` / `.filter()` call that
+incorporates user input MUST use this canonical pattern:
+
+```ts
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+
+if (search) {
+  const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+  query = query.or(`field_a.ilike.${safe},field_b.ilike.${safe}`);
+}
+```
+
+**Regression smell:** any custom regex strip like
+`.replace(/[,...]/, '')` — these always miss at least one PostgREST
+filter delimiter (typically `.`) and reopen the injection. Grep for
+`\.replace\(\/\[.*\]\/g?,/` in `.or()`-containing files as a code
+review focus.
+
+### 3. Per-account lockout MUST follow the IP-rate-limit chain on every auth endpoint
+
+Phase D-2 lock (audit P2 #9). Two-tier defense:
+1. IP-keyed limit (existing `loginLimiter` / `adminLoginLimiter` —
+   defends against single-IP brute-force)
+2. Email-keyed lockout (`accountLockoutLimiter` 10/24h — defends against
+   distributed brute-force via proxy rotation)
+
+```ts
+// 1. IP gate
+const limited = checkRateLimit(adminLoginLimiter, request);
+if (limited) return limited;
+
+// 2. Email gate (normalized lowercase!)
+const lockoutKey = email.trim().toLowerCase();
+const lockoutCheck = accountLockoutLimiter.check(lockoutKey);
+if (lockoutCheck.limited) return error429;
+
+// 3. Actual auth
+const { data, error } = await supabase.auth.signInWithPassword({...});
+if (error) return error401;
+
+// 4. RESET on success (CRITICAL — legitimate user typos don't get
+//    24h lockout)
+accountLockoutLimiter.reset(lockoutKey);
+```
+
+**Rule:** any future auth surface (OAuth callback, alternative 2FA
+enrollment, etc.) MUST apply the same 2-tier gate. The reset-on-success
+step is mandatory.
+
+### 4. PII redaction pipeline ordering is FIXED (audit P2 #4)
+
+Phase D-3 locked the sequence in `lib/observability/log-error.ts`:
+
+```ts
+function redactString(input: string): string {
+  let s = input.replace(EMAIL_RE, '[EMAIL]');        // (1) email first
+  s = normalizeArabicDigits(s);                       // (2) Arabic → ASCII
+  s = collapsePhoneFormatting(s);                     // (3) strip spaces/hyphens/parens
+  s = s.replace(PHONE_RE, '[PHONE]');                 // (4) phone regex last
+  return s;
+}
+```
+
+Order rationale: emails never contain Arabic digits, so step 1 runs
+clean of any normalization side-effects. Steps 2-3 prepare the input
+for step 4's regex matcher. Reordering risks redaction misses or
+false-positives.
+
+Side effect: Arabic-Indic digits in the output become ASCII. Acceptable
+since this is internal audit-log content, not user-facing display. The
+`collapsePhoneFormatting` regex includes an **IPv4 guard** — if a
+matched run contains ONLY dots (no space/hyphen/paren), it's left
+unchanged. This distinguishes `192.168.1.1` from `(056) 579-9505`.
+
+### 5. External-auth uses constant-time iteration with NO early break
+
+Phase D-4 lock (audit P2 #10). The Phase 14.3 #5 lock established
+`timingSafeEqual` as the codebase standard for ANY secret comparison.
+Phase D-4 applied it to API-key hash lookup with one additional
+discipline:
+
+```ts
+// fetch all active + non-expired keys (LIMIT 1000)
+const { data: rows } = await supabase.from('pyra_api_keys')
+  .select(...).eq('is_active', true)
+  .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+  .limit(1000);
+
+// Iterate ALL rows; no early break
+let matched = null;
+for (const row of rows) {
+  const rowBuf = Buffer.from(row.key_hash, 'hex');
+  if (rowBuf.length === keyHashBuf.length &&
+      crypto.timingSafeEqual(rowBuf, keyHashBuf)) {
+    matched = row;
+    // NO break — keep scanning to neutralize position-timing attack
+  }
+}
+```
+
+**Rule:** any future constant-time lookup over multiple candidates
+MUST follow the no-early-break pattern. An attacker timing response
+latency could otherwise infer which position matched even with
+`timingSafeEqual` on the bytes.
+
+LOCK 4 cap: `LIMIT 1000` on the SELECT. `pyra_api_keys` currently has
+<10 rows in production. If you hit this limit, the table has grown
+beyond design assumptions — revisit with a bloom-filter pre-filter or
+Redis-backed lookup.
+
+### 6. Backup encryption is OPT-IN via env var (audit P2 #6)
+
+Phase D-4 lock. `scripts/db-backup.sh` checks for
+`BACKUP_ENCRYPTION_PASSPHRASE` in `.env.local`:
+- Set → GPG symmetric AES256 encryption, output `.sql.gz.gpg`
+- Unset → legacy `.sql.gz` with stderr warning (backwards compat)
+- Set but `gpg` not installed → abort cleanly with install instructions
+  (NO silent fallback — that would defeat the purpose)
+
+**Passphrase discipline (mandatory):**
+- Passphrase is sent to gpg via **file descriptor 3** with here-string
+  `3<<<"$PASS"` — out-of-band of stdin/stdout
+- Never appears in `ps aux` / shell history / process listings
+- During encryption: `gpg --passphrase-fd 3 3<<<"$PASS"` writes to stdout,
+  redirected to `"$OUT"` via `> "$OUT"` (NOT `--output`) so gpg failures
+  propagate through `set -o pipefail`
+- During restore: `gpg --passphrase-fd 3 --output - "$FILE" 3<<<"$PASS"`
+  reads the ciphertext file via positional arg, NOT via stdin — avoids
+  the fd-0 collision that `< FILE <<<PASS` would cause (gpg would
+  consume the passphrase as ciphertext and silently fail decryption)
+
+v1.1 may flip to default-on once passphrase rotation tooling exists.
+
+### 7. Cron endpoints follow the Phase 11 pattern verbatim
+
+Phase D-3 lock. Any new cron endpoint MUST mirror
+`/api/cron/follow-up-reminders` exactly:
+
+```ts
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Auth via x-api-key header → pyra_api_keys
+    const ctx = await getExternalAuth(request);
+    if (!ctx) return apiError('مفتاح API غير صالح أو مفقود', 401);
+
+    // 2. Permission check accepting wildcard
+    const perms = ctx.apiKey.permissions;
+    if (!perms.includes('cron.<name>') && !perms.includes('*')) {
+      return apiError('المفتاح لا يملك صلاحية cron.<name>', 403);
+    }
+
+    // 3. Service-role client (RLS bypass intentional for cron)
+    const supabase = createServiceRoleClient();
+    // ... cron logic ...
+
+    return apiSuccess({ ... });
+  } catch (err) {
+    logError({ error: err, request, metadata: { action: '...' } });
+    console.error('[cron/<name>] threw:', err);
+    return apiServerError();
+  }
+}
+```
+
+DO NOT invent a separate cron auth surface. n8n workflow setup
+documented in `docs/MIGRATIONS.md` §15 Operations.
+
+### 8. Rate-limiter messages auto-format units via `formatRetryArabic`
+
+Phase D-2 Reviewer-MEDIUM fix. The shared `checkRateLimit()` helper in
+`lib/utils/rate-limit.ts` calls `formatRetryArabic(retryMs)` to produce
+human-friendly Arabic units:
+- `< 60s` → `"N ثانية"`
+- `< 60min` → `"N دقيقة"`
+- else → `"N ساعة"`
+
+`Retry-After` HTTP header stays in seconds per RFC 7231 (downstream
+client tooling compliance).
+
+**Rule:** new limiter callers benefit automatically — DO NOT hand-format
+retry messages. Inconsistent unit choice across callers is a UX
+regression smell.
+
+### Phase D v1.1 backlog
+
+See `CRM-PROGRESS.md` → "## Phase D — P2 Security Polish" → P2 findings
+list for the actionable list. Highlights:
+- Redis-backed rate limiter (only when horizontal scaling required)
+- Offsite backup to S3 (encryption now in place reduces blast radius)
+- Default-on backup encryption + passphrase rotation tooling
+
+---
+
 ## Phase 15.1 — Locked Decisions
 
 These are **intentional, documented design choices** locked during

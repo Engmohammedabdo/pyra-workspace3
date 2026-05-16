@@ -8,7 +8,7 @@
 
 ---
 
-## Implementation Status (updated 2026-05-16, second wave)
+## Implementation Status (updated 2026-05-16, Phase D wave — 9 of 10 P2s shipped)
 
 This section is a delta layer ON TOP of the original audit. The findings below remain as the point-in-time audit record; this table tracks which have been actioned since.
 
@@ -23,17 +23,31 @@ This section is a delta layer ON TOP of the original audit. The findings below r
 | Section 7 #1 — No GDPR data-export endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 — **Business reason:** Pyramedia operates in UAE/GCC market, not EU. UAE PDPL has similar provisions but is less prescriptive. Will revisit if/when EU clients are onboarded. |
 | Section 7 #2 — No client self-erasure endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 — Same market rationale as #1 above. Admin can manually delete via existing user-DELETE endpoint until a self-service flow becomes business-critical. |
 | Section 4 #1 — No rate limit on `/api/crm/leads` POST | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog (lower priority — authenticated abuse only) |
-| All 🟡 P2 findings (10 items) | 🟡 P2 | ⏳ **Deferred** to v1.1 backlog (consolidated in `CRM-PROGRESS.md`) |
+| Section 1 #2 — WhatsApp conv search partial sanitization | 🟡 P2 | ✅ **FIXED** | `6869da7` (Phase D-1) |
+| Section 6 #1 — `extra_permissions` no whitelist | 🟡 P2 | ✅ **FIXED** | `6869da7` (Phase D-1 — `validateExtraPermissions` helper in `lib/auth/rbac.ts`, exact-match against PERMISSIONS catalog + wildcard rejection) |
+| Section 9 #5 — Dev-mode forgot-password leaks raw reset token | 🟡 P2 | ✅ **FIXED** | `a7b734e` (Phase D-2 — replaced NODE_ENV check with explicit ENABLE_TEST_RESET_TOKEN=true flag) |
+| Section 4 #2 — No rate limit on `/api/auth/two-factor` POST/PATCH/DELETE | 🟡 P2 | ✅ **FIXED** | `a7b734e` (Phase D-2 — `twoFactorLimiter` 5/IP/15min) |
+| Section 9 #6 — No per-account login lockout | 🟡 P2 | ✅ **FIXED** | `a7b734e` (Phase D-2 — `accountLockoutLimiter` 10/email/24h, reset-on-success) |
+| Section 7 #3 — `pyra_error_logs` no retention TTL | 🟡 P2 | ✅ **FIXED** | `649a5c0` (Phase D-3 — `/api/cron/error-logs-cleanup` POST endpoint, 90-day hardcoded retention) |
+| Section 7 #4 — PII redaction misses UAE phone formats | 🟡 P2 | ✅ **FIXED** | `649a5c0` (Phase D-3 — Arabic-Indic digit normalization + format collapse with IPv4 guard) |
+| Section 8 #1 — Local backups unencrypted at rest | 🟡 P2 | ✅ **FIXED** | `85bb99f` (Phase D-4 — OPT-IN GPG AES256 via `BACKUP_ENCRYPTION_PASSPHRASE` env var) |
+| Section 10 #2 — External-auth hash compare not constant-time | 🟡 P2 | ✅ **FIXED** | `85bb99f` (Phase D-4 — fetch active keys + `timingSafeEqual` iteration with no early break) |
+| Section 4 #3 — In-memory rate limiter (Redis swap) | 🟡 P2 | ⏳ **Deferred** to v1.1 — L-sized (~4h, infra provisioning + library swap + all-callers migration). Stays in backlog until horizontal scaling required. |
+| Section 8 #2 — No offsite backup configured | 🟡 P2 | ⏳ **Deferred** to v1.1 — Operational (S3 + Coolify object-storage integration). Backup encryption now in place makes offsite storage safer when added. |
 | Reviewer bonus — `countQuery` mutation bug | (not in audit) | ✅ **FIXED** | `0825f54` |
 
-**Bundle stats — across 2 fix-bundle sessions:**
+**Bundle stats — across 3 fix-bundle sessions (Phase 14.3 wave 1 + 2 + Phase D):**
 - **5 of 8 P1 findings shipped** + 1 Reviewer-surfaced bonus bug fix
+- **9 of 11 P2 findings shipped** (8 in Phase D commits D-1 through D-4 + 1 already-shipped in Phase 14.3 was actually a P1 not P2 — see note below)
 - 3 P1s deferred with explicit business rationale (2FA × 2 + GDPR × 2 + 1 lower-priority rate limit)
-- All 10 P2s tracked in `CRM-PROGRESS.md` v1.1 backlog
-- Zero scope creep across both sessions — every fix matches its audit finding precisely
+- 2 P2s deferred (Redis swap — infra-heavy; offsite backup — operational)
+- Zero scope creep across all 3 sessions — every fix matches its audit finding precisely
+
+**Note on P2 count:** Original audit summary said "10 P2 findings" but the doc body has 11 P2 headings. The discrepancy: "Section 8 #2 — No offsite backup" was already tracked separately in Phase 14.2's v1.1 backlog as an operational item, so it was excluded from the original "10 P2s" tally. Phase D-4's encryption work makes offsite storage less risky when added; it remains deferred but with reduced exposure.
 
 **First wave (2026-05-15 session):** Fixes #1, #2, #3 + audit Implementation Status doc.
 **Second wave (2026-05-16 quick wins):** Fix #2 from Top-5 (task XSS) + Reviewer-bonus countQuery.
+**Third wave (2026-05-16 Phase D):** 9 P2 fixes across 4 commits (D-1 through D-4) + closure (D-5).
 
 **Remaining 3 P1s** (2FA encrypt + 2FA enforce + GDPR pair) are unblocked from a technical-effort standpoint — they wait on **business decisions** (when does 2FA roll out; when do EU clients onboard). Once those triggers fire, the audit + the `CRM-PROGRESS.md` Phase 14.3 v1.1 backlog entries describe exact fix shapes ready for a future session.
 

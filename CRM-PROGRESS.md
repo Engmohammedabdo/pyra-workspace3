@@ -886,6 +886,40 @@ Customer Header gradient cover banner was deferred to Phase 13 visual polish (Ph
 
 ---
 
+## Phase D — P2 Security Polish ✅ (5/5)
+
+**Status:** Complete. 9 of 10 v1.1-backlog P2 findings from `docs/SECURITY-AUDIT-2025-01.md` closed across 4 substantive commits + 1 closure. Only #2 (Redis rate-limiter migration — L-sized, infra-heavy) remains in v1.1 as designed. Offsite backup (#11 from the audit body — was already in Phase 14.2 backlog) also deferred, but encryption work in D-4 reduces its exposure.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `6869da7` | **Input sanitization + permission whitelist (P2 #7 + #1).** WhatsApp conv search swapped `.replace(/[,().%*]/g, '')` for canonical `escapePostgrestValue(escapeLike(...))` — closes dot-delimiter injection path that the old regex missed. `extra_permissions` validation extracted to shared `validateExtraPermissions()` helper in `lib/auth/rbac.ts` with `ALLOWED_EXTRA_PERMISSIONS = new Set(Object.values(PERMISSIONS))` exact-match whitelist + explicit wildcard rejection (`*` and `module.*` MUST go via `pyra_roles` for audit clarity). Arabic error "صلاحية غير معروفة: {permission}" with `rejected` field for debugging. Reviewer LIGHT PASS (no findings). 28/28 smoke assertions. |
+| 2 | `a7b734e` | **Auth rate limits + dev-leak hardening (P2 #5 + #8 + #9).** New `accountLockoutLimiter` (10/email/24h) + `twoFactorLimiter` (5/IP/15min) added to `lib/utils/rate-limit.ts`. Both login routes (admin + portal) gain secondary email-keyed lockout check after the existing IP-keyed limit; reset-on-success path prevents legitimate-user lockout after typos. All 3 `/api/auth/two-factor` handlers (POST/PATCH/DELETE) get `twoFactorLimiter` gate. Dev-mode forgot-password token leak switched from `NODE_ENV !== 'production'` (misconfig risk) to explicit `ENABLE_TEST_RESET_TOKEN === 'true'` flag (defaults OFF). Reviewer LIGHT CONDITIONAL — fixed inline: `checkRateLimit` was emitting raw seconds (e.g. "843 ثانية" for 15-min window). Added `formatRetryArabic(retryMs)` helper with auto-unit (<60s ثانية, <60min دقيقة, else ساعة); HTTP `Retry-After` header stays in seconds per RFC 7231. Benefits ALL existing limiter callers. 33/33 smoke assertions. |
+| 3 | `649a5c0` | **Error-logs TTL cron + PII regex Arabic/format hardening (P2 #3 + #4).** New POST `/api/cron/error-logs-cleanup` endpoint mirrors Phase 11 cron pattern (getExternalAuth + permission `cron.error-logs-cleanup` or `*` wildcard). 2-step pattern: pre-count for telemetry + DELETE with `{ count: 'exact' }` for actual deleted-row count. Hardcoded 90-day retention (Q-D-4 lock — single-tenant, no runtime knob). PII redaction pipeline rewired: `EMAIL → normalizeArabicDigits → collapsePhoneFormatting → PHONE_RE`. Arabic-Indic digits (Eastern ٠-٩ + Persian/Urdu ۰-۹) mapped to ASCII; format collapse strips spaces/hyphens/parens with IPv4 guard (dots-only formatting NOT collapsed — distinguishes `192.168.1.1` from `(056) 579-9505`). `docs/MIGRATIONS.md` gained §15 Operations section with cron schedule table + n8n workflow setup pattern. Reviewer MEDIUM PASS — fixed inline: response `deleted` field changed from pre-count estimate to actual delete count via `{ count: 'exact' }`; pre-count preserved as `estimated_before_delete` for telemetry comparison. 26/26 smoke assertions. |
+| 4 | `85bb99f` | **Backup encryption + external-auth constant-time (P2 #6 + #10).** `scripts/db-backup.sh` extended with opt-in GPG symmetric AES256 encryption gated by `BACKUP_ENCRYPTION_PASSPHRASE` env var (read from `.env.local`, same discipline as `SUPABASE_DB_URL`). Passphrase via `--passphrase-fd 3 + here-string 3<<<"$PASS"` — out-of-band of stdin/stdout so never appears in process listings. Pipe layout uses `> "$OUT"` (NOT `--output "$OUT"`) so gpg failure propagates through `set -o pipefail`. When env unset → falls back to legacy `.sql.gz` with stderr warning (backwards compat). When env set but gpg missing → aborts cleanly with install instructions. `lib/api/external-auth.ts` rewritten: fetches all `is_active=true` + non-expired API keys with `LIMIT 1000` (LOCK 4), iterates with `crypto.timingSafeEqual` to find match, NO early break (defends against position-timing attack). Length-guard before `timingSafeEqual` prevents the function's throw-on-unequal-length from becoming a timing oracle. `idx_api_keys_active` already exists (verified — no migration needed). `docs/MIGRATIONS.md` §10 restructured: §10.1 encryption setup, §10.2 BOTH restore paths. Reviewer LIGHT PASS — fixed inline: MEDIUM (restore command had `< FILE <<<PASS` stdin collision; gpg silently consumed passphrase as ciphertext — rewrote to fd-3 pattern in both script hint + docs) + LOW (gpg `--output` bypassed pipefail; switched to stdout pipe). 14/14 smoke assertions. |
+| 5 | (this commit) | **Closure** — CRM-PROGRESS Phase D ✅ section + CLAUDE.md "## Phase D — Locked Decisions" + `docs/SECURITY-AUDIT-2025-01.md` Implementation Status delta updated (5 P1s + 9 P2s + 1 Reviewer bonus shipped; 3 P1s + 2 P2s deferred with rationale). |
+
+### Architectural invariants locked
+
+- **`validateExtraPermissions` is the DRY entry point for all admin-assignable per-user grants.** Future `extra_permissions` sites MUST import the helper from `lib/auth/rbac.ts` — do NOT re-implement inline. Whitelists against `Object.values(PERMISSIONS)`; explicitly rejects wildcards (`*` and `module.*`) which must go via `pyra_roles.permissions` for audit clarity.
+
+- **`escapePostgrestValue(escapeLike(...))` is the ONE pattern for user input in `.or()` / `.filter()` calls.** Phase 14.3 closed the legacy sales-leads sites (3 routes); Phase D-1 closed the WhatsApp conv site. Any future `.or()` call with user input MUST use this pattern — grep for `.replace(/[,...]/` or similar custom escapes as a regression smell.
+
+- **Per-account lockout MUST follow the IP-rate-limit chain on every auth endpoint, with reset-on-success.** Lockout key = `email.trim().toLowerCase()` (normalized lowercase for case-insensitive bucket match). Both admin + portal login routes follow this pattern. Future auth surfaces (2FA enrollment alternative flows, OAuth callback, etc.) MUST apply the same 2-tier (IP + email) gate.
+
+- **PII redaction pipeline ordering is FIXED: email → Arabic-norm → format-collapse → phone.** Order matters: emails contain `@` which the phone format-collapse would never see, but if Arabic numerals normalized first then ended up inside email parts (extremely rare), we'd mutate them unnecessarily. Locked sequence preserves correct semantics. Side effect: Arabic-Indic digits in audit log output become ASCII — acceptable for internal forensics.
+
+- **External-auth uses constant-time iteration with NO early break.** The `timingSafeEqual` byte comparison is necessary but NOT sufficient — an attacker timing response latency could still infer which position in the rows array matched if we broke early on first match. The full-scan pattern neutralizes this.
+
+- **Backup encryption is OPT-IN via env var, NOT default-on.** Backwards compat for existing v1 setups that haven't configured a passphrase. When set, gpg must be installed (script aborts with install instructions, no silent fallback). v1.1 may flip to default-on once passphrase rotation tooling exists.
+
+- **Cron endpoints use the Phase 11 pattern verbatim**: `getExternalAuth` (x-api-key header → `pyra_api_keys`) + permission check accepting wildcard `*`. Mirror this for any new cron — DO NOT invent a separate auth surface.
+
+- **Rate limiter messages auto-format units via `formatRetryArabic`.** Future limiter callers benefit automatically — DO NOT hand-format retry messages.
+
+---
+
 ## Phase 15.1 — Team Collaboration ✅ (7/7)
 
 **Status:** Complete. Three feature additions delivered as 6 ship commits + 1 closure commit: (1) @-mentions in lead activity timeline + DOM-based highlight UX; (2) lead-attached tasks (new `pyra_lead_tasks` table — independent from board tasks); (3) unified calendar — events feed API spanning 3 sources (lead tasks + follow-ups + meeting activities) + custom calendar UI built from date-fns (4 views — month/week/day/agenda) + dashboard widget paired with MyWorkInbox.
@@ -1146,18 +1180,21 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 
 - [ ] **🟠 P1 — No rate limit on `/api/crm/leads` POST** — authenticated abuse only (sales agent could spam-create leads). Lower priority than the others; add `apiWriteLimiter` when convenient. Estimated time: XS.
 
-**Remaining P2 findings (10) — full list in `docs/SECURITY-AUDIT-2025-01.md` Risk Matrix:**
+**P2 findings (Phase D — 9 of 10 SHIPPED, 1 deferred):**
 
-- [ ] **🟡 P2 — `extra_permissions` field accepts any string** (admin foot-gun: phished admin → set `["*"]` → instant super-admin). Fix: whitelist against `PERMISSIONS` constants. Time: S.
-- [ ] **🟡 P2 — In-memory rate limiter** non-shared across processes. Switch to Redis (ioredis or upstash/ratelimit) when scaling horizontally. Time: L.
-- [ ] **🟡 P2 — `pyra_error_logs` no retention TTL** — Phase 14.1 left this open. Add cron `/api/cron/error-logs-cleanup` for 90-day prune. Time: S.
-- [ ] **🟡 P2 — PII regex misses Arabic-numeral phones** (`٠٥٦٥٧٩٩٥٠٥`) + parens-formatted phones. Add normalization pass before regex. Time: S.
-- [ ] **🟡 P2 — Dev-mode forgot-password leaks raw reset token** — `NODE_ENV` check is too easy to misconfigure. Replace with explicit `ENABLE_TEST_RESET_TOKEN=true` flag. Time: XS.
-- [ ] **🟡 P2 — Local backups unencrypted at rest** — `backups/` relies on filesystem encryption. Add `gpg --symmetric` or `age` wrapper. Time: S.
-- [ ] **🟡 P2 — WhatsApp conv search partial sanitization** — strips commas/parens but not dots. Switch to `escapePostgrestValue` like the just-fixed sales-leads route. Time: XS.
-- [ ] **🟡 P2 — No 2FA rate limit** on `/api/auth/two-factor` POST/PATCH/DELETE — brute force 6-digit TOTP in seconds without limiter. Add `apiWriteLimiter`. Time: XS.
-- [ ] **🟡 P2 — No per-account login lockout** (only per-IP) — distributed brute-force via proxy rotation bypasses the IP limiter. Add per-email secondary limiter. Time: S.
-- [ ] **🟡 P2 — External-auth helper hash compare not constant-time** (`lib/api/external-auth.ts:14-28`) — theoretical timing leak on the SHA-256 digest. Switch to `timingSafeEqual` (defense in depth). Time: S.
+- [x] ~~🟡 P2 — `extra_permissions` field accepts any string~~ **✅ FIXED Phase D-1 `6869da7`** — `validateExtraPermissions()` helper enforces exact-match whitelist + wildcard rejection
+- [ ] **🟡 P2 — In-memory rate limiter** non-shared across processes. Switch to Redis (ioredis or upstash/ratelimit) when scaling horizontally. Time: L. **DEFERRED to v1.1** — infra-heavy, no value at single-instance scale.
+- [x] ~~🟡 P2 — `pyra_error_logs` no retention TTL~~ **✅ FIXED Phase D-3 `649a5c0`** — `POST /api/cron/error-logs-cleanup` with 90-day hardcoded retention; n8n workflow runs daily 03:00 Dubai
+- [x] ~~🟡 P2 — PII regex misses Arabic-numeral phones + parens-formatted~~ **✅ FIXED Phase D-3 `649a5c0`** — Arabic-Indic digit normalization (Eastern + Persian/Urdu) + format collapse with IPv4 guard
+- [x] ~~🟡 P2 — Dev-mode forgot-password leaks raw reset token~~ **✅ FIXED Phase D-2 `a7b734e`** — explicit `ENABLE_TEST_RESET_TOKEN=true` flag replaces NODE_ENV check
+- [x] ~~🟡 P2 — Local backups unencrypted at rest~~ **✅ FIXED Phase D-4 `85bb99f`** — opt-in GPG AES256 via `BACKUP_ENCRYPTION_PASSPHRASE` env var; fd-3 passphrase discipline; documented restore path in MIGRATIONS.md §10
+- [x] ~~🟡 P2 — WhatsApp conv search partial sanitization~~ **✅ FIXED Phase D-1 `6869da7`** — swapped regex strip for `escapePostgrestValue(escapeLike(...))` matching the canonical CRM leads pattern
+- [x] ~~🟡 P2 — No 2FA rate limit~~ **✅ FIXED Phase D-2 `a7b734e`** — `twoFactorLimiter` 5/IP/15min applied to POST + PATCH + DELETE handlers
+- [x] ~~🟡 P2 — No per-account login lockout~~ **✅ FIXED Phase D-2 `a7b734e`** — `accountLockoutLimiter` 10/email/24h with reset-on-success path on both admin + portal login routes
+- [x] ~~🟡 P2 — External-auth helper hash compare not constant-time~~ **✅ FIXED Phase D-4 `85bb99f`** — restructured to fetch active keys (LIMIT 1000) + `timingSafeEqual` iteration with no early break; length-guard before compare
+
+**Additional P2 from audit body (not in original 10 — was already in Phase 14.2 backlog):**
+- [ ] **🟡 P2 — No offsite backup configured** — Currently relies on single-machine local backups in `backups/` (gitignored). DEFERRED to v1.1 — operational (S3 + Coolify object-storage). Phase D-4 encryption work makes offsite storage safer when added.
 
 **⚠️ Unknown (operational verification needed):**
 
