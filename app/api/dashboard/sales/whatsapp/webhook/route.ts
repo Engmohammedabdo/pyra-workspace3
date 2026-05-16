@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import type { EvoMessageData } from '@/lib/evolution/types';
@@ -48,7 +49,26 @@ export async function POST(request: NextRequest) {
   const queryKey = request.nextUrl.searchParams.get('secret') || '';
   const providedKey = headerKey || queryKey;
 
-  if (!WEBHOOK_SECRET || providedKey !== WEBHOOK_SECRET) {
+  // Phase 14.3 P1 fix — replaced plain `!==` string comparison with
+  // crypto.timingSafeEqual. Plain JavaScript equality is not constant-time;
+  // a network-level attacker could byte-by-byte recover the secret via
+  // response-timing analysis. `timingSafeEqual` performs a fixed-time
+  // comparison regardless of which bytes match.
+  //
+  // CAVEAT: timingSafeEqual THROWS RangeError on length mismatch — so we
+  // MUST guard the length check explicitly BEFORE calling it (otherwise
+  // the throw itself becomes a timing oracle differentiating the
+  // length-mismatch path from the equal-length-mismatch path). Length
+  // leakage is acceptable — guessing the secret's length is trivial;
+  // guessing the bytes is what we're preventing. Also short-circuit when
+  // WEBHOOK_SECRET is empty (deployment misconfiguration → reject all).
+  const providedKeyBuf = Buffer.from(providedKey, 'utf8');
+  const expectedKeyBuf = Buffer.from(WEBHOOK_SECRET, 'utf8');
+  if (
+    !WEBHOOK_SECRET ||
+    providedKeyBuf.length !== expectedKeyBuf.length ||
+    !timingSafeEqual(providedKeyBuf, expectedKeyBuf)
+  ) {
     console.warn('[WA Webhook] Unauthorized request — invalid or missing secret');
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
