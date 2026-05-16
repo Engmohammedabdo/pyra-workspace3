@@ -1079,3 +1079,36 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 - [ ] **Offsite backup to S3** via Coolify's object-storage integration. Currently `backups/` is local-only + gitignored. Offsite is Abdou's call; the backup script itself is unchanged — only the post-dump upload step is added.
 - [ ] **pg_dump availability check** at `pnpm dev` startup or first-migration time — currently the dev hits the error only when they try `pnpm db:backup`. A pre-flight check at install time would surface the missing-tool sooner.
 - [ ] **Pre-commit hook** that runs `pnpm db:check-drift` against the working tree — catches drift before pushing rather than after. Optional opt-in via husky.
+
+### Phase 14.3 v1.1 items — security audit remaining findings
+
+This session shipped 3 of 8 P1 findings from `docs/SECURITY-AUDIT-2025-01.md` (commits `4eaaa70` + `7abad17` + `125104e`). The remaining items below.
+
+**Remaining P1 findings (5):**
+
+- [ ] **🟠 P1 — Task description XSS via `dangerouslySetInnerHTML`** (`components/boards/task-sheet.tsx:565-575`) — markdown converter has no sanitizer; user-supplied text flows raw into the DOM. Fix shape: replace with the safe JSX-based `<InlineMarkdown>` pattern from `file-preview.tsx:1463-1480` + block `javascript:` href schemes. Estimated time: M (90 min - 4 hours).
+- [ ] **🟠 P1 — 2FA secret stored unencrypted in DB** (`app/api/auth/two-factor/route.ts:38,73,131-142`) — `pyra_users.two_factor_secret` is raw text. A DB-read breach exposes valid TOTP codes for every user. Fix shape: encrypt via separate `TWO_FACTOR_ENCRYPTION_KEY` env var (NaCl/age/AES-GCM); migrate existing rows. Estimated time: M.
+- [ ] **🟠 P1 — 2FA not enforced at login** (`app/api/auth/login/route.ts:44-66`) — `signInWithPassword` succeeds without checking `pyra_users.two_factor_enabled`. Users with 2FA enabled get password-only login (security theater). Fix shape: 2-step flow when `two_factor_enabled=true`; partial-auth response → TOTP verification → full session. Estimated time: M.
+- [ ] **🟠 P1 — No GDPR data export endpoint** — UAE PDPL + GDPR Article 20 compliance gap. Fix shape: `/api/users/[username]/export` (self-only OR `users.manage`) returning JSON/ZIP of all rows referencing the user across `pyra_*` tables. Estimated time: M.
+- [ ] **🟠 P1 — No client self-erasure endpoint** — GDPR Article 17. Admin can hard-delete users; clients have no portal flow. Fix shape: `/api/portal/profile/delete-account` with email confirmation, mark `is_active=false` + scrub PII while preserving FK integrity for invoices/payments. Estimated time: M.
+
+**Remaining P2 findings (10) — full list in `docs/SECURITY-AUDIT-2025-01.md` Risk Matrix:**
+
+- [ ] **🟡 P2 — `extra_permissions` field accepts any string** (admin foot-gun: phished admin → set `["*"]` → instant super-admin). Fix: whitelist against `PERMISSIONS` constants. Time: S.
+- [ ] **🟡 P2 — In-memory rate limiter** non-shared across processes. Switch to Redis (ioredis or upstash/ratelimit) when scaling horizontally. Time: L.
+- [ ] **🟡 P2 — `pyra_error_logs` no retention TTL** — Phase 14.1 left this open. Add cron `/api/cron/error-logs-cleanup` for 90-day prune. Time: S.
+- [ ] **🟡 P2 — PII regex misses Arabic-numeral phones** (`٠٥٦٥٧٩٩٥٠٥`) + parens-formatted phones. Add normalization pass before regex. Time: S.
+- [ ] **🟡 P2 — Dev-mode forgot-password leaks raw reset token** — `NODE_ENV` check is too easy to misconfigure. Replace with explicit `ENABLE_TEST_RESET_TOKEN=true` flag. Time: XS.
+- [ ] **🟡 P2 — Local backups unencrypted at rest** — `backups/` relies on filesystem encryption. Add `gpg --symmetric` or `age` wrapper. Time: S.
+- [ ] **🟡 P2 — WhatsApp conv search partial sanitization** — strips commas/parens but not dots. Switch to `escapePostgrestValue` like the just-fixed sales-leads route. Time: XS.
+- [ ] **🟡 P2 — No 2FA rate limit** on `/api/auth/two-factor` POST/PATCH/DELETE — brute force 6-digit TOTP in seconds without limiter. Add `apiWriteLimiter`. Time: XS.
+- [ ] **🟡 P2 — No per-account login lockout** (only per-IP) — distributed brute-force via proxy rotation bypasses the IP limiter. Add per-email secondary limiter. Time: S.
+- [ ] **🟡 P2 — External-auth helper hash compare not constant-time** (`lib/api/external-auth.ts:14-28`) — theoretical timing leak on the SHA-256 digest. Switch to `timingSafeEqual` (defense in depth). Time: S.
+
+**⚠️ Unknown (operational verification needed):**
+
+- [ ] **Coolify-managed Postgres auto-backup encryption** — out of codebase audit scope. Needs Abdou confirmation: is Coolify auto-backing-up the Postgres instance? Are those backups encrypted at rest? Documented in CLAUDE.md Phase 14.2 locked decisions as "needs Abdou confirmation".
+
+**Reviewer-surfaced bug (NOT in original audit, ship-blocker for count accuracy but not security):**
+
+- [ ] **`countQuery` mutation-without-reassignment** (`app/api/dashboard/sales/leads/route.ts:81-99`) — `const countQuery = supabase.from(...).select(..., { count: 'exact', head: true })` then chains like `countQuery.eq(...)` and `countQuery.or(...)` without reassignment. Supabase JS filter methods return NEW builders — all count-side filters (including the agent-scope clause + the newly-escaped `.or()`) are silently discarded. Practical impact: non-admin agents see incorrect `total` / `totalPages` in pagination (count of ALL leads, not just their own). Surfaced during the Phase 14.3 fix #2 Reviewer pass. Time: XS (mechanical refactor — change `const` to `let`, add `=` reassignment to each chain).

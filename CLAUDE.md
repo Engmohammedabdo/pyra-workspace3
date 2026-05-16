@@ -2076,6 +2076,148 @@ lock for concurrent migration safety, order-gap warnings in
 `db-check-drift`, offsite backup to S3, pg_dump availability pre-flight
 check, optional pre-commit drift hook.
 
+## Phase 14.3 — Locked Decisions (Security Audit + Fix Bundle)
+
+Phase 14.3 was a read-only security audit (commit `945fd2e`) followed
+by a tight 3-fix bundle of the audit's highest-priority + lowest-
+effort findings. **3 of 8 P1 findings shipped this session.** The full
+audit + implementation status delta lives at
+`docs/SECURITY-AUDIT-2025-01.md`.
+
+### 1. Audit doc is a point-in-time record + delta layer
+
+`docs/SECURITY-AUDIT-2025-01.md` was written as the closure artifact
+of the read-only audit (Codebase HEAD `676d2ab`). The findings
+themselves are NEVER edited — they remain a historical snapshot.
+Post-audit implementation progress is tracked via an **"Implementation
+Status" delta table at the top** of the same doc, referencing commit
+SHAs for fixed items + deferral rationale for the rest.
+
+Future security audits should follow the same pattern: name the file
+`docs/SECURITY-AUDIT-YYYY-NN.md` (next would be `2025-02`), preserve
+the original findings verbatim, layer implementation status on top.
+Audit history is its own form of value — rewriting it loses context.
+
+### 2. `crypto.timingSafeEqual` is the standard for secret comparison
+
+Phase 14.3 fix #1 (commit `4eaaa70`) — WhatsApp webhook secret
+comparison was switched from plain `!==` to `timingSafeEqual` from
+`node:crypto`. **All future secret/key/token comparisons in the
+codebase MUST use `timingSafeEqual`**, NOT `===`/`!==`. Plain JS
+equality is variable-time and leaks the comparison position via
+network timing.
+
+**Length-guard is mandatory before `timingSafeEqual`** — it throws
+`RangeError` on unequal-length buffers, and that throw itself becomes
+a timing oracle differentiating the length-mismatch path from the
+equal-length-mismatch path. The canonical pattern:
+
+```ts
+const aBuf = Buffer.from(provided, 'utf8');
+const bBuf = Buffer.from(expected, 'utf8');
+if (
+  !expected ||                          // empty-secret guard
+  aBuf.length !== bBuf.length ||        // length-guard BEFORE timingSafeEqual
+  !timingSafeEqual(aBuf, bBuf)
+) {
+  return unauthorized();
+}
+```
+
+Length leakage is acceptable: guessing a JWT's length is trivial;
+guessing its bytes is what we prevent. Already-applied in
+`app/api/dashboard/sales/whatsapp/webhook/route.ts:51-74`.
+
+### 3. PostgREST `.or()` user input MUST be escaped
+
+Phase 14.3 fix #2 (commit `7abad17`) — legacy sales-leads search input
+flowed raw into `.or()` filter strings, letting authenticated agents
+inject `assigned_to.neq.self` to bypass the agent-scope clause.
+**ALL `.or()` calls that include user input MUST use the canonical
+escape pattern** documented in `lib/utils/path.ts`:
+
+```ts
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+
+if (search) {
+  const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+  query = query.or(`name.ilike.${safe},phone.ilike.${safe},...`);
+}
+```
+
+`escapeLike` escapes `%`, `_`, `\` (LIKE wildcards).
+`escapePostgrestValue` wraps the result in double-quotes + escapes
+any pre-existing quotes — preventing the attacker from closing the
+quoted literal early. PostgREST treats the entire quoted token as a
+single literal ilike pattern; commas and dots inside are NOT parsed
+as filter syntax.
+
+Single-column `.eq()`/`.in()`/`.gte()` calls are safe (parameter
+binding is automatic). The injection vector is ONLY `.or()` /
+`.filter()` / `.match()` which take filter strings.
+
+Pre-fix audit: 21 `.or()` calls in the codebase. 4 had raw injection
+(fixed in commit `7abad17`). 1 more had partial sanitization (WA
+conversations route — P2 in audit, deferred to v1.1).
+
+### 4. `PASSWORD_MIN_LENGTH` is the single source of truth
+
+Phase 14.3 fix #3 (commit `125104e`) — password length minimums were
+inconsistent across 17 surfaces (6/8/12 chars depending on UI).
+Now centralized in `lib/constants/auth.ts`:
+
+```ts
+export const PASSWORD_MIN_LENGTH = 8;
+```
+
+**ALL password validation MUST import this constant**, both server-
+side (API route validation) AND client-side (form input `minLength`
+attrs + JS submit-gate length checks + toast/setError messages via
+template-literal interpolation `${PASSWORD_MIN_LENGTH}`).
+
+**Documented exceptions** (intentional hardcoded values):
+- `lib/config/module-guide.ts` — module-guide tip text is plain data
+  config without runtime templating; hardcoded "8 أحرف" is acceptable
+  because the file is reviewed when constants change.
+- `docs/IMPLEMENTATION-EMPLOYEE-SYSTEM.md` + `docs/SECURITY-AUDIT-
+  2025-01.md` — historical documentation, intentionally NOT
+  edited when constants change.
+
+If `PASSWORD_MIN_LENGTH` is raised in the future (e.g. → 12), the
+3 documented exceptions are the ONLY surfaces requiring manual
+text update — every other site auto-tracks via the import.
+
+**Value choice rationale (8 chars):** NIST SP 800-63B minimum, balance
+of security + UX for the small Pyramedia team, matches the existing
+dashboard profile pw-change → least churn. Abdou confirmed during
+Phase 14.3 fix-bundle session.
+
+### 5. Local shadow constants are forbidden
+
+Reviewer surfaced two cases during the Phase 14.3 fix #3 sweep:
+- `components/crm/customer/customer-convert-modal.tsx` declared its
+  OWN `const PASSWORD_MIN_LENGTH = 6;`
+- `app/api/crm/leads/[id]/convert-to-customer/route.ts` declared
+  `const PORTAL_PASSWORD_MIN_LENGTH = 6;`
+
+Both were removed and replaced with the canonical import.
+
+**General rule:** any shared invariant (password length, file size
+caps, rate limits, timeout values, max retries) MUST be imported
+from `lib/constants/`. Inline literals AND local re-declarations both
+violate the single-source-of-truth principle and cause drift over
+time. If a literal is unique to one file (e.g. a one-off magic
+number), prefer a top-of-file `const NAME = N;` comment-explained
+declaration — but never duplicate a name that exists in
+`lib/constants/`.
+
+### Phase 14.3 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "Phase 14.3 v1.1 items" — 5 remaining P1s
+(task XSS, 2FA encrypt, 2FA enforce, GDPR export, GDPR erasure) + 10
+P2s + 1 unknown (Coolify Postgres backup encryption — needs Abdou
+verification) + 1 Reviewer-surfaced count-bug.
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|

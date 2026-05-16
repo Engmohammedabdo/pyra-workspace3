@@ -8,6 +8,29 @@
 
 ---
 
+## Implementation Status (updated 2026-05-16)
+
+This section is a delta layer ON TOP of the original audit. The findings below remain as the point-in-time audit record; this table tracks which have been actioned since.
+
+| Finding | Original severity | Status | Commit |
+|---|---|---|---|
+| Section 10 #1 — WhatsApp webhook timing attack | 🟠 P1 | ✅ **FIXED** | `4eaaa70` |
+| Section 1 #1 — Sales-leads PostgREST `.or()` injection (3 sites) | 🟠 P1 | ✅ **FIXED** | `7abad17` |
+| Section 9 #1 — Password length inconsistency (7+ surfaces) | 🟠 P1 | ✅ **FIXED** | `125104e` (expanded to 17 files after Reviewer caught CRM convert-modal local shadow + 2 missed `minLength` literals — all now use `PASSWORD_MIN_LENGTH` from `lib/constants/auth.ts`) |
+| Section 2 #1 — Task description XSS via `dangerouslySetInnerHTML` markdown | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort fix, ~2-4h) |
+| Section 9 #2 — 2FA secret stored unencrypted | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort, requires key management + row migration) |
+| Section 9 #3 — 2FA not enforced at login | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort, requires multi-step login flow) |
+| Section 7 #1 — No GDPR data-export endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
+| Section 7 #2 — No client self-erasure endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
+| Section 4 #1 — No rate limit on `/api/crm/leads` POST | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
+| All 🟡 P2 findings (10 items) | 🟡 P2 | ⏳ **Deferred** to v1.1 backlog (consolidated in `CRM-PROGRESS.md`) |
+
+**Bundle stats:** 3 of 8 P1 findings shipped in this session (XS + S + S budget per the user's tight-scope decision). The 3 fixes are all from the audit's "Top 5 priorities" list — items 1, 3, and 4. Items 2 (task XSS) and 5 (2FA enforce + encrypt) are deferred to a dedicated security follow-up session.
+
+**Reviewer-surfaced bonus finding (NOT in the original audit):** `app/api/dashboard/sales/leads/route.ts` lines 81-99 — the `countQuery` filter chain uses `const countQuery = ...; countQuery.eq(...)` without reassignment. Supabase JS filter methods return new builders, so ALL count-side filters (agent-scope, stage, priority, source, search) are silently discarded. Practical impact: paginated lead views show incorrect `total` / `totalPages` to non-admin agents (they see the count of ALL leads, not their own). Filed to v1.1 backlog in this commit. This bug is independent of the injection vulnerability that was fixed — the injection vector itself was on the `query` branch (correctly reassigned), so fixing it had no interaction with the broken-count behavior.
+
+---
+
 ## Executive Summary
 
 Overall posture is **strong** — the architectural foundations are well-built: a single source of truth for permissions (`buildUserPermissions`), centralized `requireApiPermission` gates, robust CSRF middleware with explicit bypass documentation, defense-in-depth uploads (5+ layers on lead attachments), PII-redacted observability, and proper Stripe webhook signature verification.
