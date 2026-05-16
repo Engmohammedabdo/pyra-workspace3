@@ -27,6 +27,15 @@
 #   - SUPABASE_DB_URL is read from .env.local ONLY (never from process env
 #     or CLI). Same discipline as the TypeScript scripts: secrets stay in
 #     the file, shell history never sees them.
+#   - Phase D Commit 4 (audit P2 #6) — OPT-IN backup encryption via GPG.
+#     When BACKUP_ENCRYPTION_PASSPHRASE is set in .env.local, the dump is
+#     piped through `gpg --batch --symmetric --passphrase-fd 3` and the
+#     output ends in .sql.gz.gpg instead of .sql.gz. The passphrase is
+#     passed via fd 3 (out-of-band of stdin/stdout), so it never appears
+#     in process listings or shell history.
+#     - Skipped (with warning) when the env var is unset — preserves
+#       backwards compat for v1 setups that haven't opted in yet.
+#     - Restore path documented in docs/MIGRATIONS.md §10.
 
 set -euo pipefail
 
@@ -97,13 +106,42 @@ if [ -z "$DB_URL" ]; then
   exit 1
 fi
 
-# ─── 4. Prepare output ─────────────────────────────────────────────────────
+# ─── 4. Detect optional encryption passphrase (Phase D Commit 4) ───────────
+
+# Extract BACKUP_ENCRYPTION_PASSPHRASE (optional). If set + non-empty, we
+# encrypt the dump via GPG symmetric cipher. Skip with warning otherwise.
+BACKUP_PASS=$(grep '^BACKUP_ENCRYPTION_PASSPHRASE=' "$ENV_FILE" | head -n 1 | cut -d'=' -f2- | sed -e 's/^["'"'"']\(.*\)["'"'"']$/\1/' || true)
+
+ENCRYPT=0
+if [ -n "$BACKUP_PASS" ]; then
+  # Verify gpg is available — abort cleanly if user set the passphrase
+  # but doesn't have gpg installed (vs silently falling back to plain).
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "❌ BACKUP_ENCRYPTION_PASSPHRASE is set but 'gpg' is not on PATH." >&2
+    echo "" >&2
+    echo "   Install gpg:" >&2
+    echo "     macOS:   brew install gnupg" >&2
+    echo "     Linux:   apt install gnupg  (or distro equivalent)" >&2
+    echo "     Windows: install Gpg4win from gpg4win.org," >&2
+    echo "              then add C:\\Program Files (x86)\\GnuPG\\bin to PATH." >&2
+    echo "" >&2
+    echo "   OR unset BACKUP_ENCRYPTION_PASSPHRASE to fall back to unencrypted." >&2
+    exit 1
+  fi
+  ENCRYPT=1
+fi
+
+# ─── 5. Prepare output ─────────────────────────────────────────────────────
 
 mkdir -p backups
 TS=$(date -u +%Y-%m-%d_%H%M%S)
-OUT="backups/${TS}_${LABEL}.sql.gz"
+if [ "$ENCRYPT" = "1" ]; then
+  OUT="backups/${TS}_${LABEL}.sql.gz.gpg"
+else
+  OUT="backups/${TS}_${LABEL}.sql.gz"
+fi
 
-# ─── 5. Run pg_dump → gzip ─────────────────────────────────────────────────
+# ─── 6. Run pg_dump → gzip (→ gpg, optional) ───────────────────────────────
 #
 # Flags:
 #   --no-owner          Skip ownership SET — restoring into a different
@@ -121,17 +159,39 @@ OUT="backups/${TS}_${LABEL}.sql.gz"
 #                       and excluding them shrinks the dump significantly
 #                       on long-lived production DBs.
 
-echo "→ Running pg_dump …"
+if [ "$ENCRYPT" = "1" ]; then
+  echo "→ Running pg_dump → gzip → gpg (encrypted) …"
+  # Pipe layout: pg_dump | gzip | gpg --symmetric --passphrase-fd 3 > FILE
+  # FD 3 carries the passphrase out-of-band of stdin/stdout so it never
+  # appears in process listings or `ps aux`. We write gpg to stdout and
+  # redirect to the output file with `> "$OUT"` (NOT `--output "$OUT"`)
+  # so a gpg failure propagates through the pipeline and trips
+  # `set -o pipefail` — preventing a "successful backup" message
+  # alongside a truncated/corrupt output file (Reviewer LOW L1 fix).
+  pg_dump "$DB_URL" \
+    --no-owner \
+    --no-acl \
+    --schema=public \
+    --exclude-table-data='pyra_error_logs' \
+    --exclude-table-data='pyra_activity_log' \
+    | gzip \
+    | gpg --batch --quiet --symmetric --cipher-algo AES256 \
+          --passphrase-fd 3 3<<<"$BACKUP_PASS" \
+    > "$OUT"
+else
+  echo "→ Running pg_dump → gzip (unencrypted) …"
+  echo "   ⚠️  BACKUP_ENCRYPTION_PASSPHRASE not set in .env.local — backup is unencrypted." >&2
+  echo "   ⚠️  Set BACKUP_ENCRYPTION_PASSPHRASE to opt into GPG encryption." >&2
+  pg_dump "$DB_URL" \
+    --no-owner \
+    --no-acl \
+    --schema=public \
+    --exclude-table-data='pyra_error_logs' \
+    --exclude-table-data='pyra_activity_log' \
+    | gzip > "$OUT"
+fi
 
-pg_dump "$DB_URL" \
-  --no-owner \
-  --no-acl \
-  --schema=public \
-  --exclude-table-data='pyra_error_logs' \
-  --exclude-table-data='pyra_activity_log' \
-  | gzip > "$OUT"
-
-# ─── 6. Report ─────────────────────────────────────────────────────────────
+# ─── 7. Report ─────────────────────────────────────────────────────────────
 
 SIZE=$(du -h "$OUT" | cut -f1)
 echo ""
@@ -142,5 +202,17 @@ echo "ℹ️  Backup excludes row data from pyra_error_logs + pyra_activity_log"
 echo "   (audit tables — schema retained, data is regenerable). All other"
 echo "   public schema data is included."
 echo ""
-echo "   Restore command (verify the file path first):"
-echo "     gunzip -c ${OUT} | psql \"\$SUPABASE_DB_URL\""
+if [ "$ENCRYPT" = "1" ]; then
+  echo "🔒 Encryption: AES256 symmetric (GPG). Passphrase from"
+  echo "   BACKUP_ENCRYPTION_PASSPHRASE env var in .env.local."
+  echo ""
+  echo "   Restore command (passphrase via fd 3 — out-of-band of stdin"
+  echo "   so the ciphertext file can be the gpg input via --output -):"
+  echo "     gpg --batch --quiet --decrypt --passphrase-fd 3 \\"
+  echo "         --output - \"${OUT}\" 3<<<\"\$BACKUP_ENCRYPTION_PASSPHRASE\" \\"
+  echo "       | gunzip \\"
+  echo "       | psql \"\$SUPABASE_DB_URL\""
+else
+  echo "   Restore command (verify the file path first):"
+  echo "     gunzip -c ${OUT} | psql \"\$SUPABASE_DB_URL\""
+fi

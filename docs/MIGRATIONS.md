@@ -312,21 +312,72 @@ A `pnpm db:bootstrap` one-shot wrapper is in the v1.1 backlog.
 
 ```bash
 pnpm db:backup pre-017
-# Output: backups/2026-05-15_142301_pre-017.sql.gz
+# Unencrypted output: backups/2026-05-15_142301_pre-017.sql.gz
+# Encrypted output:   backups/2026-05-15_142301_pre-017.sql.gz.gpg
 ```
 
 The script:
 1. Reads `SUPABASE_DB_URL` from `.env.local`.
 2. Runs `pg_dump --no-owner --no-acl --schema=public` (public schema only — Supabase platform schemas are managed independently).
 3. Excludes **data** (not schema) from `pyra_error_logs` and `pyra_activity_log` — both are audit-only, regenerable, and would bloat the dump without value.
-4. Pipes through `gzip` → `backups/YYYY-MM-DD_HHMMSS_<label>.sql.gz`.
-5. Prints the file path + compressed size.
+4. Pipes through `gzip` → optionally through `gpg --batch --symmetric --cipher-algo AES256` if `BACKUP_ENCRYPTION_PASSPHRASE` is set.
+5. Writes to `backups/YYYY-MM-DD_HHMMSS_<label>.sql.gz[.gpg]`.
+6. Prints the file path + compressed size + the matching restore command.
 
-**Restore:**
+### 10.1 Encryption (Phase D Commit 4 — opt-in)
+
+Encryption is **opt-in via env var** (audit P2 #6 closure). When
+`BACKUP_ENCRYPTION_PASSPHRASE` is present in `.env.local`, the script
+encrypts the dump via GPG symmetric AES256 cipher.
+
+**Setup:**
+```bash
+# In .env.local — add a line like:
+BACKUP_ENCRYPTION_PASSPHRASE="<a strong passphrase, 24+ chars>"
+```
+
+The passphrase is sent to gpg via file descriptor 3 (`--passphrase-fd 3`)
+so it never appears in process listings or shell history. Generate a
+strong passphrase with `openssl rand -base64 32` or a password manager.
+
+**Verify gpg is installed:**
+- macOS: `brew install gnupg`
+- Linux: `apt install gnupg` (or distro equivalent)
+- Windows: Gpg4win from `gpg4win.org`, add `C:\Program Files (x86)\GnuPG\bin` to PATH
+
+If `BACKUP_ENCRYPTION_PASSPHRASE` is set but `gpg` is missing, the script
+aborts cleanly with installation instructions rather than silently
+falling back to unencrypted output.
+
+If `BACKUP_ENCRYPTION_PASSPHRASE` is **unset**, the script falls back to
+the legacy unencrypted path with a stderr warning (backwards compat for
+existing v1 setups).
+
+### 10.2 Restore paths
+
+**Encrypted backups (`.sql.gz.gpg`):**
+
+The passphrase is sent to gpg via **file descriptor 3** so the
+ciphertext file can be the gpg input (otherwise both would bind to
+stdin/fd 0 and gpg would consume the passphrase as ciphertext —
+silently failing the decryption).
+
+```bash
+gpg --batch --quiet --decrypt --passphrase-fd 3 \
+    --output - backups/2026-05-15_142301_pre-017.sql.gz.gpg \
+    3<<<"$BACKUP_ENCRYPTION_PASSPHRASE" \
+  | gunzip \
+  | psql "$SUPABASE_DB_URL"
+```
+
+**Legacy unencrypted backups (`.sql.gz`):**
 ```bash
 gunzip -c backups/2026-05-15_142301_pre-017.sql.gz \
   | psql "$SUPABASE_DB_URL"
 ```
+
+The `db:backup` script prints the matching restore command at the end of
+each run — copy-paste from there to avoid format mistakes.
 
 Backups land in `backups/` which is `.gitignore`-d. **Offsite storage is Abdou's choice** — current v1 has no automated offsite. v1.1 backlog includes an S3-compatible push (Coolify ships with object-storage integration).
 
