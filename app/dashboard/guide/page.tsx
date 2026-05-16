@@ -62,6 +62,11 @@ const SECTIONS = [
     hrefs: [
       '/dashboard/crm',
       '/dashboard/crm/pipeline',
+      // Phase 17 — lead-detail tab walkthrough entries (Phase 15.1 + 15.2 features)
+      '/dashboard/crm/leads/[id]?tab=tasks',
+      '/dashboard/crm/leads/[id]?tab=activity',
+      '/dashboard/crm/leads/[id]?tab=files',
+      '/dashboard/calendar',
       '/dashboard/sales/chat',
       '/dashboard/sales/whatsapp-analytics',
       '/dashboard/sales/approvals',
