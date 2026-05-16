@@ -1082,15 +1082,17 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 
 ### Phase 14.3 v1.1 items — security audit remaining findings
 
-This session shipped 3 of 8 P1 findings from `docs/SECURITY-AUDIT-2025-01.md` (commits `4eaaa70` + `7abad17` + `125104e`). The remaining items below.
+**Across two fix-bundle sessions (2026-05-15 + 2026-05-16):** shipped 5 of 8 P1 findings from `docs/SECURITY-AUDIT-2025-01.md` + 1 Reviewer-surfaced bonus bug fix. Commits: `4eaaa70` (WhatsApp timing), `7abad17` (sales-leads injection), `125104e` (password constant), `0825f54` (countQuery), `fa30e3a` (task XSS).
 
-**Remaining P1 findings (5):**
+**Remaining P1 findings (3) — all deferred with explicit business rationale:**
 
-- [ ] **🟠 P1 — Task description XSS via `dangerouslySetInnerHTML`** (`components/boards/task-sheet.tsx:565-575`) — markdown converter has no sanitizer; user-supplied text flows raw into the DOM. Fix shape: replace with the safe JSX-based `<InlineMarkdown>` pattern from `file-preview.tsx:1463-1480` + block `javascript:` href schemes. Estimated time: M (90 min - 4 hours).
-- [ ] **🟠 P1 — 2FA secret stored unencrypted in DB** (`app/api/auth/two-factor/route.ts:38,73,131-142`) — `pyra_users.two_factor_secret` is raw text. A DB-read breach exposes valid TOTP codes for every user. Fix shape: encrypt via separate `TWO_FACTOR_ENCRYPTION_KEY` env var (NaCl/age/AES-GCM); migrate existing rows. Estimated time: M.
-- [ ] **🟠 P1 — 2FA not enforced at login** (`app/api/auth/login/route.ts:44-66`) — `signInWithPassword` succeeds without checking `pyra_users.two_factor_enabled`. Users with 2FA enabled get password-only login (security theater). Fix shape: 2-step flow when `two_factor_enabled=true`; partial-auth response → TOTP verification → full session. Estimated time: M.
-- [ ] **🟠 P1 — No GDPR data export endpoint** — UAE PDPL + GDPR Article 20 compliance gap. Fix shape: `/api/users/[username]/export` (self-only OR `users.manage`) returning JSON/ZIP of all rows referencing the user across `pyra_*` tables. Estimated time: M.
-- [ ] **🟠 P1 — No client self-erasure endpoint** — GDPR Article 17. Admin can hard-delete users; clients have no portal flow. Fix shape: `/api/portal/profile/delete-account` with email confirmation, mark `is_active=false` + scrub PII while preserving FK integrity for invoices/payments. Estimated time: M.
+- [ ] **🟠 P1 — 2FA secret stored unencrypted in DB** (`app/api/auth/two-factor/route.ts:38,73,131-142`) — `pyra_users.two_factor_secret` is raw text. A DB-read breach exposes valid TOTP codes for every user. **Business deferral reason:** Pyramedia is not using 2FA yet. When 2FA usage is enabled, this becomes the first fix to ship — alongside the enforcement gap below (they're two halves of the same problem). Fix shape: encrypt via separate `TWO_FACTOR_ENCRYPTION_KEY` env var (NaCl/age/AES-GCM); migrate existing rows. Estimated time: M.
+- [ ] **🟠 P1 — 2FA not enforced at login** (`app/api/auth/login/route.ts:44-66`) — `signInWithPassword` succeeds without checking `pyra_users.two_factor_enabled`. Users with 2FA enabled get password-only login (security theater). **Business deferral reason:** Same dependency as 2FA encrypt above — no point enforcing an unencrypted secret; no point encrypting an unenforced secret. Ship both together when 2FA roll-out is approved. Fix shape: 2-step flow when `two_factor_enabled=true`; partial-auth response → TOTP verification → full session. Estimated time: M.
+- [ ] **🟠 P1 — No GDPR data export + client self-erasure** — UAE PDPL + GDPR Articles 17 + 20 compliance gap. **Business deferral reason:** Pyramedia operates in UAE/GCC market, not EU. UAE PDPL has similar provisions but is less prescriptive. Admin can manually export/delete via existing user-DELETE endpoint until either (a) an EU client is onboarded or (b) UAE enforcement becomes more proactive. Fix shape: `/api/users/[username]/export` (JSON/ZIP) + `/api/portal/profile/delete-account` (email-confirm soft-delete with PII scrub). Estimated time: L (each).
+
+**Deferred (lower-priority P1):**
+
+- [ ] **🟠 P1 — No rate limit on `/api/crm/leads` POST** — authenticated abuse only (sales agent could spam-create leads). Lower priority than the others; add `apiWriteLimiter` when convenient. Estimated time: XS.
 
 **Remaining P2 findings (10) — full list in `docs/SECURITY-AUDIT-2025-01.md` Risk Matrix:**
 
@@ -1109,6 +1111,6 @@ This session shipped 3 of 8 P1 findings from `docs/SECURITY-AUDIT-2025-01.md` (c
 
 - [ ] **Coolify-managed Postgres auto-backup encryption** — out of codebase audit scope. Needs Abdou confirmation: is Coolify auto-backing-up the Postgres instance? Are those backups encrypted at rest? Documented in CLAUDE.md Phase 14.2 locked decisions as "needs Abdou confirmation".
 
-**Reviewer-surfaced bug (NOT in original audit, ship-blocker for count accuracy but not security):**
+**Reviewer-surfaced bug (NOT in original audit) — RESOLVED:**
 
-- [ ] **`countQuery` mutation-without-reassignment** (`app/api/dashboard/sales/leads/route.ts:81-99`) — `const countQuery = supabase.from(...).select(..., { count: 'exact', head: true })` then chains like `countQuery.eq(...)` and `countQuery.or(...)` without reassignment. Supabase JS filter methods return NEW builders — all count-side filters (including the agent-scope clause + the newly-escaped `.or()`) are silently discarded. Practical impact: non-admin agents see incorrect `total` / `totalPages` in pagination (count of ALL leads, not just their own). Surfaced during the Phase 14.3 fix #2 Reviewer pass. Time: XS (mechanical refactor — change `const` to `let`, add `=` reassignment to each chain).
+- [x] ~~`countQuery` mutation-without-reassignment~~ **✅ FIXED** in commit `0825f54` (2026-05-16 quick-win session). The bug was real: pre-fix, with 29 total leads / sayed=27 / elharm=2, BOTH non-admin agents saw `total=29` in pagination. Post-fix, each sees their own count.

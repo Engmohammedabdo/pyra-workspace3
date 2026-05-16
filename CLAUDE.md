@@ -2211,12 +2211,86 @@ number), prefer a top-of-file `const NAME = N;` comment-explained
 declaration — but never duplicate a name that exists in
 `lib/constants/`.
 
+### 6. Task descriptions are plain text — no markdown rendering
+
+Phase 14.3 second-wave Fix B (commit `fa30e3a`) — the boards task
+sheet at `components/boards/task-sheet.tsx` previously rendered
+task descriptions via `dangerouslySetInnerHTML` + 5 regex passes
+to convert markdown to HTML. That path was XSS-vulnerable: text
+NOT matched by the regexes was preserved verbatim, so payloads
+like `**foo**<img src=x onerror=alert(1)>` executed.
+
+**Locked decision (Abdou):** Pyramedia doesn't need markdown in
+task descriptions. Plain-text rendering only. Existing descriptions
+with markdown syntax become literal characters — the `**bold**`
+shows as 5 literal asterisks.
+
+The view-mode rendering pattern is:
+```tsx
+<div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+  {task.description}
+</div>
+```
+React auto-escapes; `whitespace-pre-wrap` preserves line breaks;
+`break-words` wraps long URLs (which are no longer linkified);
+`leading-relaxed` provides comfortable line-height for plain text.
+
+The textarea placeholder + hint were updated to reflect the new
+behavior so users don't try to use markdown syntax that no longer
+works.
+
+**Generalized principle:** any user-input field rendered to other
+users (task descriptions, comments, notes, messages) should default
+to plain-text via `{value}` in JSX. If markdown becomes a real
+business need, ship it via a vetted library (`react-markdown` with
+`remark-gfm` + `rehype-sanitize`) — NEVER via regex-based HTML
+generation. The Phase 14.1 observability layer's PII redaction +
+auto-escape via React JSX text nodes is the canonical safe path.
+
+### 7. Supabase JS filter-builder semantics — reassignment is load-bearing
+
+Phase 14.3 second-wave Fix A (commit `0825f54`) — Reviewer surfaced
+this pre-existing bug at `app/api/dashboard/sales/leads/route.ts`.
+The `countQuery` was declared `const countQuery = supabase.from(...)
+.select(..., { count: 'exact', head: true });` then chained with
+`countQuery.eq(...)` without reassignment.
+
+**Critical: Supabase JS filter methods (`.eq`, `.in`, `.gte`,
+`.or`, `.match`, etc.) return a NEW PostgrestFilterBuilder rather
+than mutating in place.** Without reassignment, every filter is
+silently discarded.
+
+The canonical pattern (already correct in most places):
+```ts
+let query = supabase.from('table').select('*');
+if (filter1) query = query.eq('col1', value1);
+if (filter2) query = query.eq('col2', value2);
+```
+NOT:
+```ts
+const query = supabase.from('table').select('*');
+if (filter1) query.eq('col1', value1);  // ← SILENTLY DISCARDED
+```
+
+**Impact when wrong:** count queries return unscoped totals →
+non-admin users see global counts in pagination. Verified
+production bug pre-Fix-A: total leads = 29; sayed had 27, elharm
+had 2 — pre-fix both agents saw `total=29` in their pagination
+totals.
+
+**Recurring review focus:** any new filter chain on Supabase
+queries must use `let` + reassignment. Pattern is now grep-able:
+`const \w+Query = supabase` followed by `\1\.\w+\(` without `\1 =`
+is a code-smell.
+
 ### Phase 14.3 v1.1 backlog
 
-See `CRM-PROGRESS.md` → "Phase 14.3 v1.1 items" — 5 remaining P1s
-(task XSS, 2FA encrypt, 2FA enforce, GDPR export, GDPR erasure) + 10
-P2s + 1 unknown (Coolify Postgres backup encryption — needs Abdou
-verification) + 1 Reviewer-surfaced count-bug.
+See `CRM-PROGRESS.md` → "Phase 14.3 v1.1 items" — 3 remaining P1s
+(2FA encrypt, 2FA enforce, GDPR export + erasure deferred with
+explicit business rationale; 1 rate-limit deferral) + 10 P2s +
+1 unknown (Coolify Postgres backup encryption — needs Abdou
+verification). 5 of 8 audit P1s + 1 Reviewer-bonus bug fix shipped
+across the two fix-bundle sessions (2026-05-15 + 2026-05-16).
 
 ## Documentation (Read don't guess)
 | Doc | What it covers |

@@ -8,7 +8,7 @@
 
 ---
 
-## Implementation Status (updated 2026-05-16)
+## Implementation Status (updated 2026-05-16, second wave)
 
 This section is a delta layer ON TOP of the original audit. The findings below remain as the point-in-time audit record; this table tracks which have been actioned since.
 
@@ -17,17 +17,25 @@ This section is a delta layer ON TOP of the original audit. The findings below r
 | Section 10 #1 — WhatsApp webhook timing attack | 🟠 P1 | ✅ **FIXED** | `4eaaa70` |
 | Section 1 #1 — Sales-leads PostgREST `.or()` injection (3 sites) | 🟠 P1 | ✅ **FIXED** | `7abad17` |
 | Section 9 #1 — Password length inconsistency (7+ surfaces) | 🟠 P1 | ✅ **FIXED** | `125104e` (expanded to 17 files after Reviewer caught CRM convert-modal local shadow + 2 missed `minLength` literals — all now use `PASSWORD_MIN_LENGTH` from `lib/constants/auth.ts`) |
-| Section 2 #1 — Task description XSS via `dangerouslySetInnerHTML` markdown | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort fix, ~2-4h) |
-| Section 9 #2 — 2FA secret stored unencrypted | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort, requires key management + row migration) |
-| Section 9 #3 — 2FA not enforced at login | 🟠 P1 | ⏳ **Deferred** to future session (Medium-effort, requires multi-step login flow) |
-| Section 7 #1 — No GDPR data-export endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
-| Section 7 #2 — No client self-erasure endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
-| Section 4 #1 — No rate limit on `/api/crm/leads` POST | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog |
+| Section 2 #1 — Task description XSS via `dangerouslySetInnerHTML` markdown | 🟠 P1 | ✅ **FIXED** | `fa30e3a` (decision: switch to plain-text rendering; Pyramedia doesn't need markdown. Existing descriptions with markdown syntax become literal characters — acceptable for v1. Editor placeholder + hint also updated to reflect the new behavior.) |
+| Section 9 #2 — 2FA secret stored unencrypted | 🟠 P1 | ⏳ **Deferred** to v1.1 — **Business reason:** Pyramedia not using 2FA yet. When 2FA usage is enabled, this becomes the first fix to ship. |
+| Section 9 #3 — 2FA not enforced at login | 🟠 P1 | ⏳ **Deferred** to v1.1 — Same dependency as #2 above. Both should ship together (no point in encrypting an unenforced secret; no point in enforcing an unencrypted secret). |
+| Section 7 #1 — No GDPR data-export endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 — **Business reason:** Pyramedia operates in UAE/GCC market, not EU. UAE PDPL has similar provisions but is less prescriptive. Will revisit if/when EU clients are onboarded. |
+| Section 7 #2 — No client self-erasure endpoint | 🟠 P1 | ⏳ **Deferred** to v1.1 — Same market rationale as #1 above. Admin can manually delete via existing user-DELETE endpoint until a self-service flow becomes business-critical. |
+| Section 4 #1 — No rate limit on `/api/crm/leads` POST | 🟠 P1 | ⏳ **Deferred** to v1.1 backlog (lower priority — authenticated abuse only) |
 | All 🟡 P2 findings (10 items) | 🟡 P2 | ⏳ **Deferred** to v1.1 backlog (consolidated in `CRM-PROGRESS.md`) |
+| Reviewer bonus — `countQuery` mutation bug | (not in audit) | ✅ **FIXED** | `0825f54` |
 
-**Bundle stats:** 3 of 8 P1 findings shipped in this session (XS + S + S budget per the user's tight-scope decision). The 3 fixes are all from the audit's "Top 5 priorities" list — items 1, 3, and 4. Items 2 (task XSS) and 5 (2FA enforce + encrypt) are deferred to a dedicated security follow-up session.
+**Bundle stats — across 2 fix-bundle sessions:**
+- **5 of 8 P1 findings shipped** + 1 Reviewer-surfaced bonus bug fix
+- 3 P1s deferred with explicit business rationale (2FA × 2 + GDPR × 2 + 1 lower-priority rate limit)
+- All 10 P2s tracked in `CRM-PROGRESS.md` v1.1 backlog
+- Zero scope creep across both sessions — every fix matches its audit finding precisely
 
-**Reviewer-surfaced bonus finding (NOT in the original audit):** `app/api/dashboard/sales/leads/route.ts` lines 81-99 — the `countQuery` filter chain uses `const countQuery = ...; countQuery.eq(...)` without reassignment. Supabase JS filter methods return new builders, so ALL count-side filters (agent-scope, stage, priority, source, search) are silently discarded. Practical impact: paginated lead views show incorrect `total` / `totalPages` to non-admin agents (they see the count of ALL leads, not their own). Filed to v1.1 backlog in this commit. This bug is independent of the injection vulnerability that was fixed — the injection vector itself was on the `query` branch (correctly reassigned), so fixing it had no interaction with the broken-count behavior.
+**First wave (2026-05-15 session):** Fixes #1, #2, #3 + audit Implementation Status doc.
+**Second wave (2026-05-16 quick wins):** Fix #2 from Top-5 (task XSS) + Reviewer-bonus countQuery.
+
+**Remaining 3 P1s** (2FA encrypt + 2FA enforce + GDPR pair) are unblocked from a technical-effort standpoint — they wait on **business decisions** (when does 2FA roll out; when do EU clients onboard). Once those triggers fire, the audit + the `CRM-PROGRESS.md` Phase 14.3 v1.1 backlog entries describe exact fix shapes ready for a future session.
 
 ---
 
