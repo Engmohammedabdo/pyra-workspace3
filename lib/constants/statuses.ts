@@ -612,6 +612,54 @@ export const LEAD_TASK_PRIORITY_LABELS_AR: Record<LeadTaskPriority, string> = {
  */
 export const LEAD_TASK_TITLE_MAX = 200;
 
+// ── Calendar Events (Phase 15.1 Commit 4) ──
+// Unified feed over 3 sources: lead_tasks, lead_follow_ups, meeting_activities.
+// See app/api/calendar/events/route.ts for the API contract.
+export const CALENDAR_EVENT_SOURCE = {
+  TASK: 'task',
+  FOLLOW_UP: 'follow_up',
+  MEETING: 'meeting',
+} as const;
+
+export type CalendarEventSource = typeof CALENDAR_EVENT_SOURCE[keyof typeof CALENDAR_EVENT_SOURCE];
+
+export const CALENDAR_EVENT_SOURCE_LABELS_AR: Record<CalendarEventSource, string> = {
+  task: 'مهمة',
+  follow_up: 'متابعة',
+  meeting: 'اجتماع',
+};
+
+/**
+ * Per-source visual tone for calendar UI (Commit 5).
+ * Lead tasks → orange (matches CRM brand)
+ * Follow-ups → blue (matches existing follow-up surfaces)
+ * Meetings → purple (distinct from both above)
+ */
+export const CALENDAR_EVENT_TONES: Record<CalendarEventSource, string> = {
+  task:      'bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-800/40',
+  follow_up: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/40',
+  meeting:   'bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/40',
+};
+
+/**
+ * Maximum calendar query window in days. Prevents accidental
+ * "give me 5 years of events" → 100k row scan.
+ * v1.1 may raise to 366 (full year) if the agenda view demands it.
+ */
+export const CALENDAR_MAX_WINDOW_DAYS = 62;
+
+/**
+ * Hardcoded application timezone for date-only → datetime conversion
+ * (lead task `due_date` is a DATE column with no time component; we
+ * project it to midnight in this TZ for calendar placement).
+ *
+ * Asia/Dubai = UTC+4, no DST. v1.1 backlog: env-driven if Pyramedia
+ * expands beyond GCC. See `Asia/Dubai` precedent in lead-idle-check
+ * cron (CLAUDE.md Phase 11 decision 6).
+ */
+export const CALENDAR_TIMEZONE = 'Asia/Dubai';
+export const CALENDAR_TIMEZONE_OFFSET = '+04:00';
+
 // ── Currencies ──
 export const CURRENCIES = [
   { value: 'AED', label: 'AED — درهم إماراتي' },

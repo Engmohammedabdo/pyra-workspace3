@@ -1551,6 +1551,71 @@ export interface PyraLeadTask {
   created_by_display_name?: string | null;
 }
 
+/**
+ * Phase 15.1 Commit 4 — Calendar event (unified feed).
+ *
+ * The calendar is a derived projection over 3 underlying sources:
+ *   - pyra_lead_tasks   (with non-null due_date)
+ *   - pyra_sales_follow_ups (with non-null due_at; status != 'cancelled')
+ *   - pyra_lead_activities  (where activity_type='meeting_scheduled'
+ *                            AND metadata.meeting_date IS NOT NULL)
+ *
+ * Discriminated union via `source`. Per-source extras live in optional
+ * fields typed by the source they correspond to.
+ *
+ * ID is composite `${source}:${source_id}` to guarantee uniqueness across
+ * the unioned set — two different sources can have the same underlying ID
+ * (extremely rare with nanoid, but defensive).
+ *
+ * All datetime values are ISO 8601 with explicit timezone offset. Date-only
+ * sources (task due_date) are converted to midnight Asia/Dubai time.
+ */
+export type CalendarEventSource = 'task' | 'follow_up' | 'meeting';
+
+export interface CalendarEvent {
+  /** Composite "{source}:{source_id}" — unique across the unioned set */
+  id: string;
+  source: CalendarEventSource;
+  source_id: string;
+  title: string;
+  /** ISO 8601 datetime with offset (Asia/Dubai +04:00 for date-only sources) */
+  start: string;
+  /** Always null in v1 (no event durations); v1.1 may compute from meeting length */
+  end: string | null;
+  /** True for tasks (date-only source); false for follow_ups + meetings */
+  all_day: boolean;
+  /** Owning lead — task.lead_id / follow_up.lead_id / activity.lead_id */
+  lead_id: string | null;
+  /** Joined from pyra_sales_leads via batched lookup */
+  lead_name: string | null;
+  /** Owning assignee — task.assigned_to / follow_up.assigned_to / activity.created_by */
+  assigned_to: string | null;
+  /** Joined from pyra_users via batched lookup */
+  assigned_to_display_name: string | null;
+
+  // ── Per-source extras (optional — set only when source matches) ──
+  /** task source only */
+  status?: LeadTaskStatus;
+  /** task source only */
+  priority?: LeadTaskPriority | null;
+  /** follow_up source only — 4-value enum (no `snoozed` — verified pre-flight) */
+  follow_up_status?: 'pending' | 'completed' | 'overdue' | 'cancelled';
+  /** meeting source only — metadata.location, may be null */
+  meeting_location?: string | null;
+}
+
+export interface CalendarEventsResponse {
+  events: CalendarEvent[];
+  meta: {
+    from: string;        // echo back what server resolved (ISO date)
+    to: string;          // echo back (ISO date)
+    types: CalendarEventSource[];  // which sources were queried
+    assigned_to: string | null;    // null = no filter (admin all)
+    lead_id: string | null;        // null = no filter
+    counts: Record<CalendarEventSource, number>;  // per-source row count
+  };
+}
+
 export interface PyraWhatsAppTemplate {
   id: string;
   title: string;
