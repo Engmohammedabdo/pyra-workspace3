@@ -4,7 +4,22 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 
 // =============================================================
 // GET /api/my-tasks
-// Aggregates all tasks assigned to the current user across boards
+// Aggregates ALL tasks assigned to the current user across:
+//   - pyra_tasks (board tasks)        — existing
+//   - pyra_lead_tasks (lead tasks)    — Phase 15.1 Commit 2 extension
+//
+// The two sources are unioned into a single array. Each entry carries
+// `_source` discriminator + `target_path` field for the consumer's Link.
+// Board task target_path uses the existing /dashboard/boards/{board_id}
+// shape; lead task target_path uses /dashboard/crm/leads/{lead_id}?tab=tasks
+// (FIX 1 from Commit 2 plan — future-correct path so Commit 3 routing just
+// starts working when the tasks tab UI lands).
+//
+// Lead tasks are projected into a board-task-compatible synthetic shape
+// (pyra_boards/pyra_board_columns stubs) so the existing my-tasks-client
+// UI can render them without immediate refactor. Commit 3 will properly
+// wire up source-aware rendering (icons, badges) — for v1 the synthetic
+// stubs are sufficient.
 // =============================================================
 export async function GET() {
   try {
@@ -12,35 +27,125 @@ export async function GET() {
     if (!auth) return apiUnauthorized();
 
     const supabase = await createServerSupabaseClient();
+    const username = auth.pyraUser.username;
 
-    // Get all task IDs assigned to this user
+    // ── Source 1: board tasks (existing path) ────────────────
     const { data: assignments, error: assignError } = await supabase
       .from('pyra_task_assignees')
       .select('task_id')
-      .eq('username', auth.pyraUser.username);
+      .eq('username', username);
 
     if (assignError) return apiServerError(assignError.message);
-    if (!assignments || assignments.length === 0) return apiSuccess([]);
 
-    const taskIds = assignments.map(a => a.task_id);
+    const taskIds = (assignments ?? []).map(a => a.task_id);
 
-    const { data: tasks, error } = await supabase
-      .from('pyra_tasks')
-      .select(`
-        *,
-        pyra_boards!inner(id, name, project_id, view_mode, is_pipeline, pyra_projects!left(id, name)),
-        pyra_board_columns!inner(id, name, color, position, is_done_column, requires_approval),
-        pyra_task_labels(label_id, pyra_board_labels(id, name, color)),
-        pyra_task_checklist(id, title, is_checked),
-        pyra_task_assignees(id, username)
-      `)
-      .in('id', taskIds)
-      .eq('is_archived', false)
-      .order('due_date', { nullsFirst: false });
+    let boardTasks: unknown[] = [];
+    if (taskIds.length > 0) {
+      const { data, error } = await supabase
+        .from('pyra_tasks')
+        .select(`
+          *,
+          pyra_boards!inner(id, name, project_id, view_mode, is_pipeline, pyra_projects!left(id, name)),
+          pyra_board_columns!inner(id, name, color, position, is_done_column, requires_approval),
+          pyra_task_labels(label_id, pyra_board_labels(id, name, color)),
+          pyra_task_checklist(id, title, is_checked),
+          pyra_task_assignees(id, username)
+        `)
+        .in('id', taskIds)
+        .eq('is_archived', false)
+        .order('due_date', { nullsFirst: false });
 
-    if (error) return apiServerError(error.message);
-    return apiSuccess(tasks);
+      if (error) return apiServerError(error.message);
+      boardTasks = (data ?? []).map((t) => ({
+        ...(t as Record<string, unknown>),
+        _source: 'board_task',
+        target_path: `/dashboard/boards/${(t as { board_id: string }).board_id}`,
+      }));
+    }
 
+    // ── Source 2: lead tasks (Phase 15.1 Commit 2) ───────────
+    // Scope: tasks assigned_to the current username, NOT cancelled.
+    // Completed tasks ARE included (the consumer categorizes them into
+    // the "done" section via is_done_column). Cancelled is excluded
+    // because it's a terminal off-ramp, not a "done" state.
+    const { data: leadTaskRows, error: leadErr } = await supabase
+      .from('pyra_lead_tasks')
+      .select('id, lead_id, title, description, due_date, priority, status, assigned_to, created_by, created_at, completed_at, metadata')
+      .eq('assigned_to', username)
+      .neq('status', 'cancelled');
+
+    if (leadErr) return apiServerError(leadErr.message);
+
+    const leadTasks = (leadTaskRows ?? []).map((t) => {
+      const isDone = t.status === 'completed';
+      // FIX H1 (Reviewer) — the consumer's `upcoming` predicate is
+      // `!t.due_date || (t.due_date > weekEnd && !is_done_column)`. For a
+      // completed undated lead task, `!t.due_date` short-circuits to true
+      // and the task appears in BOTH `upcoming` AND `done` buckets. Backfill
+      // the synthetic due_date with completed_at (in the past) so the
+      // predicate evaluates against a real date and lands the task cleanly
+      // in `done`. Pure projection-layer fix — DB row's due_date stays null.
+      const syntheticDueDate =
+        isDone && !t.due_date && t.completed_at
+          ? t.completed_at.split('T')[0]
+          : t.due_date;
+      return {
+        // Core task fields (matching board-task shape for UI parity)
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        due_date: syntheticDueDate,
+        priority: t.priority ?? 'medium',
+        status: t.status,
+        created_at: t.created_at,
+        completion_percentage: isDone ? 100 : 0,
+        // Lead-task-specific
+        lead_id: t.lead_id,
+        completed_at: t.completed_at,
+        assigned_to: t.assigned_to,
+        created_by: t.created_by,
+        // No real board — synthetic stub so the existing UI's
+        // groupBy='board'/'project' don't blow up. Commit 3 swaps this
+        // for source-aware rendering.
+        board_id: null,
+        pyra_boards: {
+          id: null,
+          name: 'مهام Lead',
+          project_id: null,
+          view_mode: 'list',
+          is_pipeline: false,
+          pyra_projects: null,
+        },
+        pyra_board_columns: {
+          id: null,
+          name: t.status,
+          color: null,
+          position: 0,
+          is_done_column: isDone,
+          requires_approval: false,
+        },
+        // FIX 1 — future-correct CRM tab path. Commit 3 adds the tasks
+        // tab UI; this path starts working immediately when that lands.
+        _source: 'lead_task',
+        target_path: `/dashboard/crm/leads/${t.lead_id}?tab=tasks`,
+      };
+    });
+
+    // ── Union ────────────────────────────────────────────────
+    // Combined sort: due_date asc NULLS LAST, then created_at desc.
+    // The consumer further categorizes by overdue/today/week/upcoming.
+    const all = [...boardTasks, ...leadTasks].sort((a, b) => {
+      const ad = (a as { due_date: string | null }).due_date;
+      const bd = (b as { due_date: string | null }).due_date;
+      if (ad && bd) return ad.localeCompare(bd);
+      if (ad) return -1;
+      if (bd) return 1;
+      const ac = (a as { created_at: string }).created_at ?? '';
+      const bc = (b as { created_at: string }).created_at ?? '';
+      return bc.localeCompare(ac);
+    });
+
+    return apiSuccess(all);
   } catch (err) {
     console.error('[GET /api/my-tasks] error:', err);
     return apiServerError();

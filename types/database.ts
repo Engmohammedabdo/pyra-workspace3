@@ -1511,6 +1511,46 @@ export interface PyraLeadAttachment {
   public_url?: string;
 }
 
+/**
+ * Per-lead task (Phase 15.1 Commit 2).
+ *
+ * Backing table: pyra_lead_tasks (migration 018).
+ * Independent from PyraTask (board tasks) — lead lifecycle doesn't live on
+ * project boards. See `app/api/crm/leads/[id]/tasks/route.ts` for the
+ * permission contract (leads.update + canAccessLead) and the
+ * status-transition rules (completed_at lifecycle).
+ *
+ * Status ordering for list sort (matches API CASE statement):
+ *   pending(0) < in_progress(1) < completed(2) < cancelled(3)
+ *
+ * The `assigned_to_display_name` field is populated by the route handler
+ * via a batched lookup against pyra_users — not a DB column.
+ */
+export type LeadTaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export type LeadTaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface PyraLeadTask {
+  id: string;
+  lead_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  priority: LeadTaskPriority | null;
+  status: LeadTaskStatus;
+  /** pyra_users.username of assignee — null means unassigned */
+  assigned_to: string | null;
+  /** pyra_users.username of creator — server-derived, never from request body */
+  created_by: string;
+  created_at: string;
+  /** Set by API on transition TO 'completed', NULL on transition AWAY */
+  completed_at: string | null;
+  metadata: Record<string, unknown>;
+  /** Joined from pyra_users at read time — not a DB column */
+  assigned_to_display_name?: string | null;
+  /** Joined from pyra_users at read time — not a DB column */
+  created_by_display_name?: string | null;
+}
+
 export interface PyraWhatsAppTemplate {
   id: string;
   title: string;

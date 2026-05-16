@@ -567,6 +567,51 @@ export const CONVERSATION_PRIORITY_LABELS: Record<ConversationPriority, string> 
   urgent: 'عاجلة',
 };
 
+// ── Lead Tasks (Phase 15.1 Commit 2) ──
+// Per-lead tasks live in pyra_lead_tasks (independent from pyra_tasks/board
+// tasks). Status ordering for list sort matches the API CASE statement:
+//   pending(0) < in_progress(1) < completed(2) < cancelled(3)
+export const LEAD_TASK_STATUS = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type LeadTaskStatus = typeof LEAD_TASK_STATUS[keyof typeof LEAD_TASK_STATUS];
+
+export const LEAD_TASK_STATUS_LABELS_AR: Record<LeadTaskStatus, string> = {
+  pending: 'معلّقة',
+  in_progress: 'قيد التنفيذ',
+  completed: 'مكتملة',
+  cancelled: 'ملغية',
+};
+
+export const LEAD_TASK_PRIORITY = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  URGENT: 'urgent',
+} as const;
+
+export type LeadTaskPriority = typeof LEAD_TASK_PRIORITY[keyof typeof LEAD_TASK_PRIORITY];
+
+export const LEAD_TASK_PRIORITY_LABELS_AR: Record<LeadTaskPriority, string> = {
+  low: 'منخفضة',
+  medium: 'متوسطة',
+  high: 'عالية',
+  urgent: 'عاجلة',
+};
+
+/**
+ * Title length cap shared by POST + PATCH on `/api/crm/leads/[id]/tasks/*`.
+ * Mirror in DB CHECK (`length(title) > 0`) is the lower-bound contract; this
+ * is the upper-bound contract enforced API-side BEFORE the DB roundtrip so
+ * the user gets a friendly Arabic message instead of a raw constraint error.
+ * Phase 14.3 #5 — single source of truth (Reviewer L1 fix).
+ */
+export const LEAD_TASK_TITLE_MAX = 200;
+
 // ── Currencies ──
 export const CURRENCIES = [
   { value: 'AED', label: 'AED — درهم إماراتي' },
