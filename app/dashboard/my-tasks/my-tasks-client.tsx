@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   CheckSquare, Search, Calendar, Briefcase, AlertCircle, Clock,
   ArrowRight, CheckCircle, Circle, GitBranch, ChevronLeft, Loader2,
+  StickyNote, User,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -264,27 +265,45 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
             const projectName = task.pyra_boards?.pyra_projects?.name;
             const columnName = task.pyra_board_columns?.name;
             const isOverdue = task.due_date && task.due_date < new Date().toISOString().split('T')[0] && !task.pyra_board_columns?.is_done_column;
+            // Phase 15.1 Commit 3 — source-aware rendering. Lead tasks get
+            // a sticky-note icon + "Lead: {assigned/lead context}" sub-label;
+            // board tasks keep the existing briefcase + project/board path.
+            // `target_path` (added by /api/my-tasks union) wins over the
+            // legacy `/dashboard/boards/{board_id}` Link target.
+            const isLeadTask = task._source === 'lead_task';
+            const SourceIcon = isLeadTask ? StickyNote : Circle;
+            const href: string = task.target_path
+              || (task.board_id ? `/dashboard/boards/${task.board_id}` : '#');
 
             return (
-              <Link key={task.id} href={`/dashboard/boards/${task.board_id}`}>
+              <Link key={task.id} href={href}>
                 <Card className={`hover:border-orange-300 dark:hover:border-orange-700 transition-colors cursor-pointer ${isOverdue ? 'border-s-4 border-s-red-500' : ''}`}>
                   <CardContent className="p-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Circle className={`h-4 w-4 shrink-0 ${task.pyra_board_columns?.is_done_column ? 'text-green-500 fill-green-500' : 'text-muted-foreground'}`} />
+                      <SourceIcon className={`h-4 w-4 shrink-0 ${task.pyra_board_columns?.is_done_column ? 'text-green-500 fill-green-500' : (isLeadTask ? 'text-orange-500' : 'text-muted-foreground')}`} />
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{task.title}</p>
                         <div className="flex items-center gap-2 mt-0.5 text-[10px] text-muted-foreground">
-                          {projectName && (
-                            <span className="flex items-center gap-0.5">
-                              <Briefcase className="h-3 w-3" />
-                              {projectName}
+                          {isLeadTask ? (
+                            <span className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400">
+                              <User className="h-3 w-3" aria-hidden />
+                              عميل محتمل
                             </span>
-                          )}
-                          {boardName && <span>· {boardName}</span>}
-                          {columnName && (
-                            <Badge variant="outline" className="text-[9px] h-4 px-1">
-                              {columnName}
-                            </Badge>
+                          ) : (
+                            <>
+                              {projectName && (
+                                <span className="flex items-center gap-0.5">
+                                  <Briefcase className="h-3 w-3" />
+                                  {projectName}
+                                </span>
+                              )}
+                              {boardName && <span>· {boardName}</span>}
+                              {columnName && (
+                                <Badge variant="outline" className="text-[9px] h-4 px-1">
+                                  {columnName}
+                                </Badge>
+                              )}
+                            </>
                           )}
                           {task.pyra_boards?.is_pipeline && task.completion_percentage > 0 && (
                             <Badge className="text-[9px] h-4 px-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">

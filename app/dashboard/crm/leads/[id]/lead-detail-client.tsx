@@ -26,7 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   ArrowLeft, LayoutDashboard, Activity, FileSignature, Paperclip, StickyNote,
-  Info, ChevronLeft,
+  Info, ChevronLeft, ClipboardList,
 } from 'lucide-react';
 import { useLead, useLinkClient } from '@/hooks/useLeads';
 import { usePermission } from '@/hooks/usePermission';
@@ -36,6 +36,7 @@ import { LeadHeader } from '@/components/crm/lead-detail/lead-header';
 import { LeadStatStrip } from '@/components/crm/lead-detail/lead-stat-strip';
 import { LeadOverviewTab } from '@/components/crm/lead-detail/lead-overview-tab';
 import { LeadActivityTab } from '@/components/crm/lead-detail/lead-activity-tab';
+import { LeadTasksTab } from '@/components/crm/lead-detail/lead-tasks-tab';
 import { LeadDealsTab } from '@/components/crm/lead-detail/lead-deals-tab';
 import { LeadAttachmentsTab } from '@/components/crm/lead-detail/lead-attachments-tab';
 import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
@@ -46,12 +47,15 @@ import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
 
-const VALID_TABS = ['overview', 'activity', 'deals', 'files', 'notes'] as const;
+const VALID_TABS = ['overview', 'activity', 'tasks', 'deals', 'files', 'notes'] as const;
 type TabKey = (typeof VALID_TABS)[number];
 
 const TAB_DEFS: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
   { key: 'overview', label: 'نظرة عامة', icon: LayoutDashboard },
   { key: 'activity', label: 'النشاط',     icon: Activity },
+  // Phase 15.1 Commit 3 — lead tasks tab (slots between activity and deals
+  // per Q3-1 lock: activity feeds into tasks = next steps for the agent).
+  { key: 'tasks',    label: 'مهام',        icon: ClipboardList },
   { key: 'deals',    label: 'الصفقات',    icon: FileSignature },
   // Phase 15.2 Commit 1 — repurposed: this was the "files" placeholder
   // promised in v1.1, now the canonical attachments surface. The tab KEY
@@ -213,6 +217,9 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
               <Card className="p-4">
                 <LeadActivityTab leadId={lead.id} highlightId={highlightParam} />
               </Card>
+            </TabsContent>
+            <TabsContent value="tasks" className="m-0">
+              <Card className="p-4"><LeadTasksTab leadId={lead.id} /></Card>
             </TabsContent>
             <TabsContent value="deals" className="m-0">
               <LeadDealsTab data={data} />

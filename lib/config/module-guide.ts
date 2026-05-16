@@ -813,6 +813,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['leads', 'عملاء محتملين', 'kanban', 'pipeline', 'مبيعات'],
   },
+  '/dashboard/crm/leads/[id]?tab=tasks': {
+    href: '/dashboard/crm/pipeline',
+    description: 'مهام الـ Lead',
+    descriptionEn: 'Per-lead tasks tab',
+    goal: 'تتبّع المهام المرتبطة بكل عميل محتمل — مكالمة متابعة، تجهيز عرض، إرسال إيميل. المهام تظهر في "مهامي" تلقائياً للموظف المسؤول.',
+    tips: [
+      'اضغط "+ إضافة مهمة" لإنشاء مهمة جديدة بسرعة',
+      'انقر على عنوان المهمة لتعديله مباشرة',
+      'اضغط على الـ checkbox لتعليم المهمة كمنجَزة',
+      'القائمة المنسدلة تفتح Sheet لتعديل كل التفاصيل (الموعد، الأولوية، الحالة)',
+      'المهام تظهر في صفحة "مهامي" مع أيقونة Lead للتمييز عن مهام اللوحات',
+    ],
+    keywords: ['مهام', 'tasks', 'lead', 'متابعة', 'todo', 'إدارة المهام'],
+  },
   '/dashboard/sales/chat': {
     href: '/dashboard/sales/chat',
     description: 'محادثات واتساب المدمجة',
