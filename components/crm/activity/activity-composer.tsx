@@ -26,7 +26,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -185,13 +185,21 @@ export function ActivityComposer({
         </div>
       )}
 
-      <Textarea
+      {/* Phase 15.1 Commit 1 — Textarea → MentionTextarea swap. The
+          parent's autofocus-on-expand useEffect (line 79-80 above)
+          still works unchanged because MentionTextarea forwards the
+          ref to the underlying HTMLTextAreaElement via React.forwardRef.
+          The `leadId` prop drives /api/dashboard/leads/[id]/members for
+          autocomplete; mention notifications fire fire-and-forget from
+          the POST /api/crm/leads/[id]/activities route via notifyMany(). */}
+      <MentionTextarea
         ref={textareaRef}
+        leadId={leadId}
+        variant="dashboard"
         rows={3}
         value={content}
-        onChange={(e) => setContent(e.target.value)}
+        onChange={setContent}
         placeholder={KIND_DEFS[kind].placeholder}
-        className="resize-none"
       />
 
       {/* Type-specific fields */}

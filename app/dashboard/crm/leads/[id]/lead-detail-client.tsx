@@ -68,6 +68,12 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const activeTab: TabKey = (VALID_TABS as readonly string[]).includes(tabParam ?? '')
     ? (tabParam as TabKey)
     : 'overview';
+  // Phase 15.1 Commit 1 — `?highlight=<activity_id>` deep-link from
+  // mention notifications. When set + activity tab is active, the
+  // activity tab scrolls to the matching row + applies a brief flash
+  // ring. Graceful no-op when the activity isn't in the loaded pages
+  // (v1.1 could auto-load older pages until found).
+  const highlightParam = sp.get('highlight');
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [linkClientOpen, setLinkClientOpen] = useState(false);
   // Phase 10 Commit 2 — sidebar Sheet for mobile (max-md). Desktop (md+)
@@ -205,7 +211,7 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
             </TabsContent>
             <TabsContent value="activity" className="m-0">
               <Card className="p-4">
-                <LeadActivityTab leadId={lead.id} />
+                <LeadActivityTab leadId={lead.id} highlightId={highlightParam} />
               </Card>
             </TabsContent>
             <TabsContent value="deals" className="m-0">

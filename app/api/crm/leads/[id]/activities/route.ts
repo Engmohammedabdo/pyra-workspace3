@@ -10,6 +10,8 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { canAccessLead } from '@/lib/auth/lead-scope';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notifyMany } from '@/lib/notifications/notify';
+import { extractMentions } from '@/lib/utils/mentions';
 
 /**
  * GET /api/crm/leads/[id]/activities
@@ -179,6 +181,62 @@ export async function POST(
       { lead_id: id, activity_id: insertId, activity_type: activityType },
       request.headers.get('x-forwarded-for') || undefined,
     );
+
+    // Phase 15.1 Commit 1 — @-mention fan-out. Fire-and-forget so the
+    // activity insert response is never blocked by notification work.
+    // Uses the central notifyMany() helper (NOT raw INSERT — Phase 11
+    // v1.1 violation explicitly not replicated). Self-exclusion +
+    // dedup are handled inside notifyMany.
+    //
+    // Resolution flow:
+    //   1. Extract raw @-tokens from `content` via the Arabic-aware
+    //      MENTION_REGEX in lib/utils/mentions.tsx
+    //   2. Build a lowercase `display_name | username → username` map
+    //      from the admin + sales_agent pool (matches the membership
+    //      semantic of /api/dashboard/leads/[id]/members)
+    //   3. Resolve each raw token, exclude the actor, dedup via Set
+    //   4. Single notifyMany() call writes all rows at once
+    //
+    // Link includes `?tab=activity&highlight=<id>` so the recipient
+    // lands on the activity tab + the matched row scrolls into view
+    // with a flash. See lead-detail-client.tsx + lead-activity-tab.tsx
+    // for the receiving handler.
+    void (async () => {
+      try {
+        const rawMentions = extractMentions(content);
+        if (rawMentions.length === 0) return;
+
+        const { data: pool } = await supabase
+          .from('pyra_users')
+          .select('username, display_name')
+          .in('role', ['admin', 'sales_agent']);
+
+        const nameMap = new Map<string, string>();
+        for (const u of pool ?? []) {
+          if (u.username) nameMap.set(u.username.toLowerCase(), u.username);
+          if (u.display_name) nameMap.set(u.display_name.toLowerCase(), u.username);
+        }
+
+        const mentioned = new Set<string>();
+        for (const raw of rawMentions) {
+          const uname = nameMap.get(raw.toLowerCase());
+          if (uname && uname !== auth.pyraUser.username) mentioned.add(uname);
+        }
+
+        if (mentioned.size === 0) return;
+
+        await notifyMany(supabase, Array.from(mentioned), {
+          type: 'mention',
+          title: 'تم ذكرك في نشاط Lead',
+          message: `${auth.pyraUser.display_name} ذكرك في نشاط على عميل محتمل`,
+          link: `/dashboard/crm/leads/${id}?tab=activity&highlight=${insertId}`,
+          entity: { type: 'lead_activity', id: insertId },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      } catch (mentionErr) {
+        console.error('[lead activity mention fan-out] failed:', mentionErr);
+      }
+    })();
 
     return apiSuccess({ activity }, undefined, 201);
   } catch (err) {

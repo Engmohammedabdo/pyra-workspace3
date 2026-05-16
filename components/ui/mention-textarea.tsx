@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { forwardRef, useImperativeHandle, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { Loader2, AtSign } from 'lucide-react';
@@ -17,6 +17,8 @@ interface MentionTextareaProps {
   projectId?: string;
   /** Task ID — for task-scoped member fetching */
   taskId?: string;
+  /** Lead ID — for CRM lead-scoped member fetching (Phase 15.1 Commit 1) */
+  leadId?: string;
   /** Styling variant */
   variant?: 'dashboard' | 'portal';
   /** Additional onKeyDown handler (only called when dropdown is NOT active) */
@@ -33,14 +35,21 @@ interface MentionTextareaProps {
 /**
  * Textarea with @mention autocomplete.
  *
- * Context-aware: fetches mentionable users scoped to the project or task.
- * Supports both dashboard and portal variants with appropriate styling.
+ * Context-aware: fetches mentionable users scoped to the project, task, or
+ * CRM lead. Supports both dashboard and portal variants with appropriate
+ * styling.
+ *
+ * Phase 15.1 Commit 1 — wrapped in React.forwardRef so parent components
+ * can access the underlying HTMLTextAreaElement (e.g. for programmatic
+ * focus on expand). The 6 pre-existing consumers don't pass refs and
+ * continue to work unchanged; the ref is opt-in.
  */
-export function MentionTextarea({
+export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaProps>(function MentionTextarea({
   value,
   onChange,
   projectId,
   taskId,
+  leadId,
   variant = 'dashboard',
   onKeyDown: parentOnKeyDown,
   placeholder,
@@ -50,7 +59,7 @@ export function MentionTextarea({
   required,
   maxLength,
   disabled,
-}: MentionTextareaProps) {
+}, ref) {
   // ── Members cache ──
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
@@ -65,10 +74,23 @@ export function MentionTextarea({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // Phase 15.1 Commit 1 — bridge the external forwarded ref to the
+  // underlying HTMLTextAreaElement so parents can call .focus() etc.
+  // Internal code keeps using `textareaRef.current` unchanged; the
+  // imperative-handle re-exposes the same element to the caller's ref.
+  useImperativeHandle(ref, () => textareaRef.current as HTMLTextAreaElement, []);
+
   // ── Resolve members endpoint based on context ──
+  // Precedence: taskId > leadId > projectId. Each is a distinct scope —
+  // task members come from task assignees + board members; lead members
+  // come from the CRM team (admin + sales_agent union); project members
+  // come from team members + admins. Only one should be set per usage.
   const membersEndpoint = useMemo(() => {
     if (taskId) {
       return `/api/dashboard/tasks/${taskId}/members`;
+    }
+    if (leadId) {
+      return `/api/dashboard/leads/${leadId}/members`;
     }
     if (projectId && variant === 'portal') {
       return `/api/portal/projects/${projectId}/members`;
@@ -77,7 +99,7 @@ export function MentionTextarea({
       return `/api/dashboard/projects/${projectId}/members`;
     }
     return null;
-  }, [projectId, taskId, variant]);
+  }, [projectId, taskId, leadId, variant]);
 
   // ── Variant-specific colors ──
   const accentColor = variant === 'portal' ? 'text-portal' : 'text-orange-500';
@@ -302,4 +324,4 @@ export function MentionTextarea({
       )}
     </div>
   );
-}
+});

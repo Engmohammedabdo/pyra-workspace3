@@ -108,7 +108,13 @@ export function ActivityItem({ activity }: ActivityItemProps) {
   })();
 
   return (
-    <li className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors">
+    // Phase 15.1 Commit 1 — `data-activity-id` is the DOM hook used by
+    // ActivityTimeline's highlight effect (querySelector + scrollIntoView +
+    // flash-ring class). Stable id; never changes between renders.
+    <li
+      data-activity-id={activity.id}
+      className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors"
+    >
       <span
         className={cn(
           'shrink-0 size-8 rounded-full flex items-center justify-center mt-0.5',

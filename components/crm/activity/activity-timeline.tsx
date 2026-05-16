@@ -11,7 +11,7 @@
  * Day-divider rendering: groups items by their YYYY-MM-DD created_at.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,13 @@ interface ActivityTimelineProps {
   leadId: string;
   /** Render the composer at the top — defaults to true on the Activity tab. */
   showComposer?: boolean;
+  /**
+   * Phase 15.1 Commit 1 — Activity ID to scroll-into-view + flash on
+   * first render after data loads. Sourced from `?highlight=<id>` query
+   * param on mention notification links. Graceful no-op when the row
+   * isn't in the loaded pages (v1.1 may auto-fetch older pages).
+   */
+  highlightId?: string | null;
 }
 
 const FILTER_GROUPS: Array<{ label: string; types: LeadActivityTypeNew[] | 'all' }> = [
@@ -38,7 +45,7 @@ const FILTER_GROUPS: Array<{ label: string; types: LeadActivityTypeNew[] | 'all'
   { label: 'متابعات',     types: ['follow_up_created', 'follow_up_completed', 'follow_up_overdue'] },
 ];
 
-export function ActivityTimeline({ leadId, showComposer = true }: ActivityTimelineProps) {
+export function ActivityTimeline({ leadId, showComposer = true, highlightId }: ActivityTimelineProps) {
   const [activeFilter, setActiveFilter] = useState<string>('all');
 
   const filterTypes = useMemo(() => {
@@ -70,6 +77,49 @@ export function ActivityTimeline({ leadId, showComposer = true }: ActivityTimeli
     }
     return groups;
   }, [allActivities]);
+
+  // Phase 15.1 Commit 1 — scroll-to + flash effect for mention deep-links.
+  // Fires once when:
+  //   - highlightId is set (from ?highlight= query param)
+  //   - the first page has loaded (q.isLoading is false)
+  //   - the highlighted activity exists in allActivities
+  //
+  // Cleanup function clears the setTimeout per Abdou's refinement: prevents
+  // a setState-on-unmounted-component warning if the user navigates away
+  // before the 2-second flash completes. DOM class is also removed in the
+  // cleanup so a flash interrupted by unmount doesn't leak its class.
+  //
+  // The DOM lookup uses `data-activity-id` (set on ActivityItem root); the
+  // effect waits 1 paint via requestAnimationFrame so React's render commit
+  // has placed the element into the DOM before querySelector runs.
+  useEffect(() => {
+    if (!highlightId || q.isLoading) return;
+    const exists = allActivities.some((a) => a.id === highlightId);
+    if (!exists) return; // graceful no-op when activity is too deep in history
+
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let targetEl: HTMLElement | null = null;
+    const FLASH_CLASSES = ['ring-2', 'ring-orange-400', 'ring-offset-2', 'rounded-lg'];
+
+    const raf = requestAnimationFrame(() => {
+      targetEl = document.querySelector<HTMLElement>(`[data-activity-id="${CSS.escape(highlightId)}"]`);
+      if (!targetEl) return;
+      targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      targetEl.classList.add(...FLASH_CLASSES);
+
+      timer = setTimeout(() => {
+        targetEl?.classList.remove(...FLASH_CLASSES);
+      }, 2000);
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer !== null) clearTimeout(timer);
+      // Defensive: if the cleanup fires mid-flash, remove the class so it
+      // doesn't leak onto a re-render.
+      targetEl?.classList.remove(...FLASH_CLASSES);
+    };
+  }, [highlightId, q.isLoading, allActivities]);
 
   return (
     <div className="space-y-3">
