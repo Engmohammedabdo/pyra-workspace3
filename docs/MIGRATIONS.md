@@ -391,7 +391,46 @@ The TypeScript scripts (`db-record-migration.ts`, `db-check-drift.ts`) run via `
 
 ---
 
-## 15. Troubleshooting
+## 15. Operations
+
+### 15.1 Scheduled cron jobs
+
+Pyra runs operational cron via **n8n workflows** (self-hosted at
+`https://n8n.pyramedia.info`). Each workflow uses a Schedule Trigger
+node + HTTP Request node hitting an endpoint under `/api/cron/*`.
+
+| Endpoint | Schedule | Permission key | What it does |
+|---|---|---|---|
+| `POST /api/cron/follow-up-reminders` | every 5 min | `cron.follow-up-reminders` | Sends WhatsApp reminders to assigned agents for due follow-ups (Phase 11) |
+| `POST /api/cron/lead-idle-check` | daily | `cron.lead-idle-check` | Per-agent grouped notifications for stale-deal warnings (Phase 11) |
+| `POST /api/cron/error-logs-cleanup` | `0 3 * * *` (daily 03:00 Dubai) | `cron.error-logs-cleanup` | Deletes `pyra_error_logs` rows older than 90 days (Phase D Commit 3) |
+
+**Auth pattern (all cron endpoints):**
+```
+POST https://workspace.pyramedia.cloud/api/cron/<name>
+Header: x-api-key: <key from pyra_api_keys with the required permission>
+```
+
+The n8n workflow stores the API key in a credential — never hardcoded in
+the workflow itself. To rotate: generate a new key in `/dashboard/admin/
+api-keys` with the same permissions, update the n8n credential, then
+deactivate the old key.
+
+**Setting up a new cron workflow:**
+1. n8n → Workflows → New
+2. Add Schedule Trigger (set cron expression)
+3. Add HTTP Request node:
+   - Method: POST
+   - URL: `https://workspace.pyramedia.cloud/api/cron/<name>`
+   - Authentication: Header Auth → `x-api-key` = `{{ $credentials.pyraCronKey }}`
+4. Activate the workflow
+
+v1.1 backlog: a workflow registry doc tracking which n8n workflow ID
+corresponds to which endpoint.
+
+---
+
+## 16. Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|

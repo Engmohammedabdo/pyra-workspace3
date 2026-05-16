@@ -94,6 +94,63 @@ const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 //     longer alphanumeric runs).
 const PHONE_RE = /(?<![a-zA-Z0-9])\+?\d{7,15}(?![a-zA-Z0-9])/g;
 
+// Phase D Commit 3 (audit P2 #4) — phone-format normalization pre-pass.
+// PHONE_RE only matches contiguous digit runs, so PII written in common UAE
+// forms like "+971 56 579 9505" (spaces), "(056) 579-9505" (parens + hyphen),
+// or "٠٥٦٥٧٩٩٥٠٥" (Arabic-Indic digits) slips through unredacted. The
+// pre-pass:
+//   (1) Maps Arabic-Indic digits (٠-٩) → ASCII (0-9) — both Eastern Arabic
+//       (٠١٢٣٤٥٦٧٨٩) and Extended Arabic-Indic (۰۱۲۳۴۵۶۷۸۹) are mapped
+//   (2) Collapses spaces / hyphens / parens / dots inside phone-shaped
+//       runs so PHONE_RE catches them
+//
+// The pre-pass is applied ONLY for the redactString path (Layer 2-3
+// substring replacement). Original input keys + structural metadata are
+// untouched — we redact the value's textual content, not its shape.
+const ARABIC_DIGIT_MAP: Record<string, string> = {
+  '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+  '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9',
+  // Extended Arabic-Indic (Persian/Urdu)
+  '۰': '0', '۱': '1', '۲': '2', '۳': '3', '۴': '4',
+  '۵': '5', '۶': '6', '۷': '7', '۸': '8', '۹': '9',
+};
+
+/** Map Arabic-Indic digits to ASCII before phone regex matches. */
+function normalizeArabicDigits(input: string): string {
+  return input.replace(/[٠-٩۰-۹]/g, (ch) => ARABIC_DIGIT_MAP[ch] ?? ch);
+}
+
+/**
+ * Collapse spaces / hyphens / parens inside phone-shaped digit runs.
+ * Strategy: find runs that contain digits + formatting, with at least one
+ * non-dot formatting char (space, hyphen, paren) — this distinguishes
+ * `(056) 579-9505` from `192.168.1.1` (which has only dots and is most
+ * likely an IP/version string, not a phone).
+ *
+ * Pattern breakdown:
+ *   (?:[+(])?       optionally consume a leading `+` or `(` so the
+ *                    formatting is fully stripped from the match
+ *   \d              must start with a digit
+ *   [\d\s\-().]{5,20}  5-20 inner chars (digits + formatting)
+ *   \d              must end with a digit
+ *
+ * After matching, validate:
+ *   - digit count must be in PHONE_RE's 7-15 range
+ *   - must contain at least one space / hyphen / paren (not dots-only)
+ *     to exclude IP addresses + version strings
+ */
+function collapsePhoneFormatting(input: string): string {
+  return input.replace(/(?:[+(])?\d[\d\s\-().]{5,20}\d/g, (match) => {
+    const digitsOnly = match.replace(/[^\d]/g, '');
+    // Phone-shape digit count
+    if (digitsOnly.length < 7 || digitsOnly.length > 15) return match;
+    // Must contain at least one non-dot formatting char (excludes IPs)
+    if (!/[\s\-()]/.test(match)) return match;
+    const leadingPlus = match.startsWith('+') ? '+' : '';
+    return leadingPlus + digitsOnly;
+  });
+}
+
 // Layer 4: redact entire VALUE when KEY name contains any of these fragments
 const PII_KEY_FRAGMENTS = ['phone', 'email', 'password', 'token', 'secret', 'apikey', 'api_key'];
 
@@ -101,9 +158,19 @@ const PII_KEY_FRAGMENTS = ['phone', 'email', 'password', 'token', 'secret', 'api
 const SENSITIVE_HEADER_FRAGMENTS = ['authorization', 'x-api-key', 'apikey', 'stripe-signature', 'cookie'];
 
 function redactString(input: string): string {
-  return input
-    .replace(EMAIL_RE, '[EMAIL]')
-    .replace(PHONE_RE, '[PHONE]');
+  // Phase D Commit 3 (audit P2 #4) — pre-pass for phone normalization:
+  //   1. Replace emails first (no Arabic chars involved, no interference)
+  //   2. Map Arabic-Indic digits → ASCII so PHONE_RE matches them
+  //   3. Collapse formatting (spaces / hyphens / parens) inside phone-shaped
+  //      runs so PHONE_RE catches `+971 56 579 9505` and `(056) 579-9505`
+  //   4. Apply PHONE_RE
+  // Side effect: Arabic digits in the output become ASCII. Acceptable since
+  // this is an internal audit log, not user-facing display.
+  let s = input.replace(EMAIL_RE, '[EMAIL]');
+  s = normalizeArabicDigits(s);
+  s = collapsePhoneFormatting(s);
+  s = s.replace(PHONE_RE, '[PHONE]');
+  return s;
 }
 
 function keyLooksSensitive(key: string): boolean {
