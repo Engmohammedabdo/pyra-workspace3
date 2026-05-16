@@ -1732,6 +1732,276 @@ See `CRM-PROGRESS.md` → "Phase 14.1 v1.1 items" — TTL prune cron,
 severity grouping/dedup, `apiServerError` user-context plumbing,
 broader `mutateAPI` audit, magic-byte file validation.
 
+## Phase 15.1 — Locked Decisions
+
+These are **intentional, documented design choices** locked during
+Phase 15.1 closure (Team Collaboration). **Do NOT re-litigate.**
+Phase 15.1 covers 6 ship commits: (1) @-mentions in lead activity
+timeline + DOM-based highlight UX; (2) lead-attached tasks (new
+`pyra_lead_tasks` table); (3) lead tasks UI tab + my-tasks source
+discrimination; (4) calendar events unified feed API; (5) calendar
+UI (4 views) + follow-up highlight handler; (6) dashboard calendar
+widget.
+
+### 1. Lead activity highlight pattern is the canonical deep-link UX
+
+Commit 1 established the highlight pattern; Commit 5 re-used it
+verbatim for follow-ups. Any future deep-link surface (mentions on
+new entity types, scroll-to-row from notifications, etc.) MUST
+mirror this exact shape:
+
+```ts
+const idParam = sp.get('highlight');  // or domain-specific
+useEffect(() => {
+  if (!idParam) return;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let targetEl: HTMLElement | null = null;
+  const FLASH_CLASSES = ['ring-2', 'ring-orange-400', 'ring-offset-2', 'rounded-lg'];
+  const raf = requestAnimationFrame(() => {
+    targetEl = document.querySelector<HTMLElement>(
+      `[data-X-id="${CSS.escape(idParam)}"]`,
+    );
+    if (!targetEl) return;
+    targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetEl.classList.add(...FLASH_CLASSES);
+    timer = setTimeout(() => targetEl?.classList.remove(...FLASH_CLASSES), 2000);
+  });
+  return () => {
+    cancelAnimationFrame(raf);
+    if (timer !== null) clearTimeout(timer);
+    targetEl?.classList.remove(...FLASH_CLASSES);
+  };
+}, [idParam, /* data-loaded dep */]);
+```
+
+**Invariants:**
+- `data-X-id` attribute uses a namespace prefix (`data-activity-id`,
+  `data-followup-id`) so multiple highlight contexts on the same page
+  don't collide.
+- `CSS.escape()` is mandatory — defense against malicious IDs (basic
+  hygiene; nanoid IDs don't need it but external IDs might).
+- Cleanup function MUST run all 3 ops: `cancelAnimationFrame` +
+  `clearTimeout` + `classList.remove`. Skipping any one leaks state
+  on unmount or hot-reload.
+- Effect deps include the loaded-data signal (e.g. `q.isLoading` or
+  the array reference) — querySelector before render = silent no-op.
+- Graceful no-op when target isn't in the DOM (e.g. limit:1 list and
+  the targeted item is older) — log nothing, just skip. The user
+  still landed on the correct page; that's the better-than-nothing
+  fallback.
+
+### 2. Lead tasks live in `pyra_lead_tasks` — NOT a reuse of `pyra_tasks`
+
+Commit 2 lock Q2 = (c) — a new dedicated table, NOT a reuse of board
+tasks. Rationale: lead lifecycle is independent from project boards;
+forcing leads to live on a board would either require N hidden boards
+or bloat board columns with mixed lead+project work.
+
+Permission model (LOCKED):
+- GET   `leads.view`   + `canAccessLead()`
+- POST  `leads.update` + `canAccessLead()`
+- PATCH `leads.update` + `canAccessLead()` + cross-resource guard
+- DELETE `leads.update` + `canAccessLead()` + (admin OR creator)
+
+**Per-lead resource pattern (Phase 15.1 + Phase 15.2 inheritance):**
+the cross-resource guard via double-eq (`WHERE id = childId AND
+parent_id = parentId`) is the standard for any per-lead sub-resource
+mutation. Future per-lead resources (tags when implemented, notes-as-
+resource if extracted) MUST follow this pattern. DO NOT invent new
+permission scopes — reuse `leads.update`.
+
+### 3. Calendar is a derived projection, NOT a new source of truth
+
+`/api/calendar/events` (Commit 4) is **read-only**. It aggregates 3
+existing sources (`pyra_lead_tasks` + `pyra_sales_follow_ups` +
+`pyra_lead_activities` with `activity_type='meeting_scheduled'`).
+NO writes via this endpoint — edits go through the source-specific
+endpoints.
+
+**Future "manual calendar events" feature (v1.1 backlog) requires a
+NEW table** (`pyra_calendar_events`) — DO NOT shoehorn into the
+existing projection. The projection's value is that it has no
+state to manage; adding write-capability would re-introduce all the
+complexity (status, ownership, validation) that the source-specific
+endpoints already handle.
+
+### 4. `dubaiDayKey()` is MANDATORY for "today in Dubai" comparisons
+
+`.toISOString().slice(0, 10)` returns the **UTC** day, which differs
+from the **Dubai** day for the last 4 hours of every Dubai day
+(Dubai 20:00–23:59 = UTC 16:00–19:59 same day; Dubai 00:00–03:59
+NEXT day = UTC 20:00–23:59 same day). For a Dubai user at 23:30,
+`.toISOString().slice(0,10)` returns tomorrow's date — the "today"
+highlight, the today bucket, and the today-key route param ALL go
+wrong.
+
+Phase 15.1 Commit 5 HIGH 1 surfaced this. Fix: `dubaiDayKey(date?)`
+helper in `lib/utils/format.ts` — pure offset math (Dubai = UTC+4,
+no DST):
+
+```ts
+export function dubaiDayKey(d: Date = new Date()): string {
+  const utcMs = d.getTime();
+  const dubaiMs = utcMs + 4 * 60 * 60 * 1000;
+  const dubai = new Date(dubaiMs);
+  return `${dubai.getUTCFullYear()}-${
+    String(dubai.getUTCMonth() + 1).padStart(2, '0')
+  }-${String(dubai.getUTCDate()).padStart(2, '0')}`;
+}
+```
+
+**Rule:** any component that derives a YYYY-MM-DD key for comparison
+against the API's Dubai-offset ISO strings (`event.start` format)
+MUST use `dubaiDayKey`. Code review focus area: grep for
+`.toISOString().slice(0, 10)` as a regression smell — this regressed
+once already (Commit 6 review caught it didn't, but verified by
+inspection; same Reviewer focus area used in Commits 7+).
+
+Sister helper from Commit 4: `toDubaiIso(input)` for converting
+UTC datetimes TO Dubai-offset ISO strings. Same pure-offset math,
+different output shape (full ISO with `+04:00` vs date-only key).
+
+### 5. URL state persistence pattern for multi-view UIs
+
+Calendar (Commit 5) is the v1 reference implementation for any UI
+that has multiple "views" or "modes" the user switches between with
+meaningful state per view. Pattern:
+
+```ts
+const sp = useSearchParams();
+const view = parseView(sp.get('view'), defaultView);
+const date = parseDate(sp.get('date'));
+const types = parseTypes(sp.get('types'));
+
+const updateUrl = useCallback((patch) => {
+  const params = new URLSearchParams(sp.toString());
+  // ... patch handling ...
+  router.replace(qs ? `?${qs}` : '?', { scroll: false });
+}, [router, sp]);
+```
+
+**Invariants:**
+- `router.replace`, NOT `router.push` — back/forward navigation
+  should not record every filter toggle as a history entry.
+- `scroll: false` — URL change should not jump to top.
+- **Defaults NOT serialized to URL** (e.g. `date=today` → empty
+  params, NOT `?date=2026-05-16`). Cleaner shareable URLs.
+- **EXCEPT for fields whose default can DYNAMICALLY change**
+  (Commit 5 Reviewer MEDIUM fix): the calendar's `mobileDefault`
+  flips between `agenda` (mobile) and `month` (desktop) on
+  viewport rotation. If `view` were deleted-when-equal-to-
+  mobileDefault, rotating to desktop with a `?view=agenda`
+  bookmark would silently swap to month. Fix: ALWAYS serialize
+  view to URL once explicitly chosen.
+
+Future multi-view UIs (e.g. Pipeline with view=kanban|table,
+Reports with view=summary|detailed) MUST follow this pattern —
+back/forward + share-URL + refresh-preserves-state.
+
+### 6. Section-header-as-link affordance pattern
+
+Dashboard widget (Commit 6) demonstrates this:
+
+```tsx
+<Link
+  href={destinationHref}
+  className="group flex items-center justify-between rounded-lg
+             px-2 py-1.5 hover:bg-muted/50 transition-colors
+             cursor-pointer"
+  aria-label={`افتح التقويم على ${title}`}
+>
+  <div className="flex items-center gap-2">
+    <Icon className={tone} />
+    <span className={`text-sm font-semibold ${tone}`}>{title}</span>
+    <Badge count={count} tone={tone} />
+  </div>
+  <ArrowUpRight
+    className="h-3 w-3 text-muted-foreground opacity-0
+               group-hover:opacity-100 transition-opacity rtl:rotate-90"
+    aria-hidden
+  />
+</Link>
+```
+
+**Rule:** any widget header that navigates to a destination context
+(not just an informational label) MUST surface clickability with:
+- Whole-row click target (NOT just the text)
+- `cursor-pointer` (redundant on `<a>` but explicit-is-fine)
+- `hover:bg-muted/50` transition for visible affordance
+- ArrowUpRight (or similar directional icon) appearing on hover
+  via `opacity-0 group-hover:opacity-100 transition-opacity`
+- ARIA label naming the destination
+
+DO NOT render a bare `<div>` with click handler — keyboard-nav +
+screen-reader users get nothing.
+
+`<Link>` vs `<button>` is acceptable per LOCK ("buttons/anchors"
+wording) — anchors are right when click navigates; buttons are
+right when click triggers in-place state change.
+
+### 7. RTL chevron icons use `rtl:rotate-180`
+
+Workspace convention (verified via `components/layout/breadcrumb.tsx:106`):
+LTR-semantic icon names (ChevronLeft = previous = visually left in
+LTR) + `rtl:rotate-180` Tailwind utility for visual mirroring.
+
+```tsx
+{/* prev button — points visually rightward in RTL (= back in
+    Arabic reading flow) via rtl:rotate-180 */}
+<ChevronLeft className="size-4 rtl:rotate-180" aria-hidden />
+
+{/* next button — points visually leftward in RTL (= forward) */}
+<ChevronRight className="size-4 rtl:rotate-180" aria-hidden />
+```
+
+Phase 15.1 Commit 5 HIGH 2 surfaced this — calendar toolbar
+initially used inverted icons (ChevronRight for prev, ChevronLeft
+for next) WITHOUT the utility, expecting the SVG paths to "auto-
+mirror" in RTL. SVGs don't auto-mirror; the utility is required.
+
+**Rule:** any directional navigation icon (prev/next, expand/
+collapse, scroll-up/down) MUST follow the LTR-semantic + `rtl:`
+utility pattern. Don't try to "pre-compensate" by swapping the
+icon name — fragile + breaks if the page ever renders LTR.
+
+### 8. `logActivity()` action_type discipline (Phase 11.5 inheritance)
+
+Phase 11.5 locked: `action_type = ${ENTITY_TYPES.X}_${ACTIVITY_ACTIONS.Y}`
++ specificity in `metadata.source`. Phase 15.1 Commits 2 + 3 follow
+this for lead tasks:
+
+```ts
+// task created
+logActivity(..., `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
+  `/dashboard/crm/leads/${leadId}?tab=tasks`,
+  { lead_id: leadId, source: 'task_created', task_id: taskId, ... });
+
+// task status changed
+logActivity(..., `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
+  `/dashboard/crm/leads/${leadId}?tab=tasks`,
+  { lead_id: leadId, source: 'task_status_changed', from_status, to_status, ... });
+```
+
+`pyra_lead_activities` (timeline) uses parallel discipline:
+`activity_type='field_updated'` + `metadata.source` for specificity.
+The existing timeline renderer at `activity-item.tsx:93-95` auto-
+produces the Arabic title from `metadata.field`.
+
+DO NOT introduce specific action_type strings like
+`'lead_task_created'` directly. Phase 11.5 lock is in force; any new
+flavour goes in `metadata.source`.
+
+### Phase 15.1 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "## Phase 15.1" → "### Phase 15.1 v1.1
+items" for the actionable list. Highlights: manual calendar events
+table, drag-and-drop reschedule, email notifications for mentions,
+generic standalone tasks, calendar event recurrence, minute-
+precision week/day positioning, midnight-staleness fix for
+MyCalendarWidget.
+
+---
+
 ## Phase 15.2 — Locked Decisions
 
 These are **intentional, documented design choices** locked during
