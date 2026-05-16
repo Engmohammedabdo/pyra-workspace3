@@ -542,16 +542,26 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <label className="text-xs font-medium text-muted-foreground">الوصف</label>
                 {editingDesc ? (
                   <div className="space-y-1">
+                    {/* Phase 14.3 P1 fix B — placeholder + hint
+                        updated to match the new plain-text rendering.
+                        Markdown syntax (**bold**, *italic*, [link](url),
+                        - lists) used to be auto-converted via
+                        dangerouslySetInnerHTML — that path was XSS-
+                        vulnerable and Pyramedia doesn't need markdown
+                        in task descriptions. Both the placeholder and
+                        the hint line previously advertised features
+                        that no longer work; now both reflect plain-
+                        text behavior so users aren't confused when
+                        their **bold** displays as literal asterisks. */}
                     <Textarea
                       autoFocus
                       value={editDesc}
                       onChange={e => setEditDesc(e.target.value)}
                       onBlur={saveDescription}
                       rows={5}
-                      className="text-sm font-mono"
-                      placeholder="أضف وصف... يدعم **عريض** و *مائل* و - قوائم"
+                      className="text-sm"
+                      placeholder="أضف وصف للمهمة..."
                     />
-                    <p className="text-[9px] text-muted-foreground/50">**عريض** · *مائل* · - قائمة · [رابط](url)</p>
                   </div>
                 ) : (
                   <div
@@ -562,17 +572,26 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                     onClick={() => canEdit && setEditingDesc(true)}
                   >
                     {task.description ? (
-                      <div
-                        className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap"
-                        dangerouslySetInnerHTML={{
-                          __html: task.description
-                            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                            .replace(/^- (.+)$/gm, '<li>$1</li>')
-                            .replace(/((?:<li>.*<\/li>\n?)+)/g, '<ul>$1</ul>')
-                            .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" class="text-orange-500 underline">$1</a>')
-                        }}
-                      />
+                      // Phase 14.3 P1 fix B — switched from
+                      // dangerouslySetInnerHTML + markdown-via-regex to
+                      // plain-text rendering via JSX text node (React
+                      // auto-escapes). The previous implementation ran 5
+                      // .replace() passes on user-supplied text, then
+                      // injected the partial-HTML result into the DOM —
+                      // any text outside the regex matches was preserved
+                      // verbatim, so payloads like
+                      //   `**foo**<img src=x onerror=alert(1)>`
+                      // executed in every viewer's browser. Locked
+                      // decision: Pyramedia doesn't need markdown in
+                      // task descriptions; existing descriptions render
+                      // as plain text (any embedded markdown syntax
+                      // becomes literal characters — acceptable for v1).
+                      // `whitespace-pre-wrap` preserves user line
+                      // breaks; `break-words` wraps long URLs that
+                      // previously got linkified.
+                      <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                        {task.description}
+                      </div>
                     ) : 'اضغط لإضافة وصف...'}
                   </div>
                 )}
