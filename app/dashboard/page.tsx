@@ -41,6 +41,7 @@ import { StatCard } from '@/components/dashboard/home/StatCard';
 import { QuickAction } from '@/components/dashboard/home/QuickAction';
 import { LeaveBar } from '@/components/dashboard/home/LeaveBar';
 import { MyWorkInbox } from '@/components/dashboard/MyWorkInbox';
+import { MyCalendarWidget } from '@/components/dashboard/MyCalendarWidget';
 
 interface DashboardData {
   total_files?: number;
@@ -141,9 +142,16 @@ export default function DashboardPage() {
     <motion.div variants={containerMotion} initial="hidden" animate="show" className="space-y-6">
       <motion.div variants={itemMotion}><WelcomeHero today={today} onRefresh={loadDashboard} loading={loading} /></motion.div>
 
-      {/* My Work inbox — surfaces everything assigned to or waiting on the user.
-          Shown for ALL roles. Admin sees their assigned items + team approvals. */}
-      <motion.div variants={itemMotion}><MyWorkInbox /></motion.div>
+      {/* Phase 15.1 Commit 6 — My Work inbox + Calendar widget paired in a
+          2-col grid on lg+ screens (stack on mobile per LOCK 2). MyWorkInbox
+          surfaces tasks/approvals/conversations; MyCalendarWidget surfaces
+          today/overdue/upcoming events from the unified calendar feed.
+          Both shown for ALL roles. MyCalendarWidget self-hides for users
+          without calendar.view permission. */}
+      <motion.div variants={itemMotion} className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+        <MyWorkInbox />
+        <MyCalendarWidget />
+      </motion.div>
 
       {isAdmin && <motion.div variants={itemMotion}><SmartAlerts /></motion.div>}
       {isAdmin && <motion.div variants={itemMotion}><KpiGrid /></motion.div>}
