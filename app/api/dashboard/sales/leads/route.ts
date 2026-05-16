@@ -7,6 +7,7 @@ import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
 import { calculateLeadScore } from '@/lib/sales/lead-scoring';
 import { notifyLeadAssigned } from '@/lib/email/notify';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 export async function GET(request: NextRequest) {
   try {
@@ -42,7 +43,14 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_converted', isConverted === 'true');
     }
     if (search) {
-      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+      // Phase 14.3 P1 fix — escape user input before interpolating into
+      // PostgREST .or() filter. Without escaping, an authenticated agent
+      // could inject filter operators (e.g., `assigned_to.neq.self`) to
+      // bypass the agent-scope clause above and exfiltrate cross-agent
+      // leads. Mirrors the existing CRM route pattern at
+      // app/api/crm/leads/route.ts:88-89.
+      const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+      query = query.or(`name.ilike.${safe},phone.ilike.${safe},email.ilike.${safe},company.ilike.${safe}`);
     }
 
     // If kanban view, no pagination — return all grouped by stage
@@ -84,7 +92,11 @@ export async function GET(request: NextRequest) {
       countQuery.eq('is_converted', isConverted === 'true');
     }
     if (search) {
-      countQuery.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+      // Phase 14.3 P1 fix — same escape pattern as the main query above.
+      // Both .or() calls MUST use identical safe-value handling or the
+      // count and the page-of-results would diverge.
+      const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+      countQuery.or(`name.ilike.${safe},phone.ilike.${safe},email.ilike.${safe},company.ilike.${safe}`);
     }
 
     const { count } = await countQuery;

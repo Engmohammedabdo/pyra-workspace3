@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/dashboard/sales/leads/export
@@ -44,7 +45,13 @@ export async function GET(request: NextRequest) {
       query = query.eq('is_converted', isConverted === 'true');
     }
     if (search) {
-      query = query.or(`name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%,company.ilike.%${search}%`);
+      // Phase 14.3 P1 fix — escape user input before PostgREST .or().
+      // Same pattern as app/api/dashboard/sales/leads/route.ts. CSV
+      // export bypasses pagination so unescaped input is even higher
+      // risk here: an injected `assigned_to.neq.self` would dump every
+      // lead across all agents into a single download.
+      const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+      query = query.or(`name.ilike.${safe},phone.ilike.${safe},email.ilike.${safe},company.ilike.${safe}`);
     }
 
     const { data: leads, error } = await query;
