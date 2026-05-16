@@ -886,6 +886,32 @@ Customer Header gradient cover banner was deferred to Phase 13 visual polish (Ph
 
 ---
 
+## Phase 17 — Documentation Polish ✅ (3/3 — scoped)
+
+**Status:** Complete (scoped). Q17-3 (b) locked: critical-path coverage only — lead lifecycle, follow-ups, tasks, calendar, attachments, @-mentions for user guides + users/roles/settings/error-logs/backup/security for admin guides. Q17-2 (a) locked: extend existing in-app `lib/config/module-guide.ts` pattern (no new format introduced). Full API docs + onboarding tooltips DEFERRED to v1.1 dedicated documentation session.
+
+### Sub-step commits
+
+| # | Commit | What landed |
+|---|---|---|
+| 1 | `37c9992` | **User guides for critical CRM paths.** Enhanced 4 existing module-guide entries (`/dashboard/crm/pipeline` lifecycle + `/dashboard/calendar` 4-views/Dubai-TZ + `tab=tasks` inline-edit + `/dashboard/crm/follow-ups` workflow); added 2 NEW entries (`tab=activity` for @-mentions + `tab=files` for camera/voice attachments). Total tip count across these 6 entries: 14 → 41 (~3x richer). New entries added to `app/dashboard/guide/page.tsx` SECTIONS so they appear in search. |
+| 2 | `41b26a2` | **Admin guides + security/backup reference.** Enhanced 4 existing entries (`/dashboard/users` with manager hierarchy + extra_permissions whitelist + HR fields; `/dashboard/roles` with BASE_EMPLOYEE inheritance + wildcard discipline; `/dashboard/admin/error-logs` with triage workflow + Phase D-3 retention + 2-permission split; `/dashboard/settings` with multi-license + API keys + WhatsApp routing). Added 2 NEW pseudo-entries (`/dashboard/admin/backup-procedure` + `/dashboard/admin/security-checklist`) that link to the nearest real admin route + carry Phase D + 14.3 lock references. Total tip count across these 6 entries: 22 → 60 (~3x richer). |
+| 3 | (this commit) | **Closure** — CRM-PROGRESS Phase 17 ✅ section + CLAUDE.md "## Phase 17 — Locked Decisions" + v1.1 backlog (API docs + onboarding tooltips). |
+
+### Architectural invariants locked
+
+- **Single source of truth for in-app docs = `lib/config/module-guide.ts`.** All user-facing + admin-facing documentation lives here, exposed via the `PageGuide` popover (Phase 13) on every page + `/dashboard/guide` searchable directory. DO NOT create parallel doc surfaces (separate `/docs` pages, markdown files surfaced in-app, etc.) — they drift from the implementation. Future deep-dive docs live in `docs/*.md` (developer reference) and are linked-to from module-guide entries when relevant.
+
+- **Pseudo-entries are a valid pattern for cross-cutting admin reference.** Phase 17 introduced `/dashboard/admin/backup-procedure` + `/dashboard/admin/security-checklist` — these are NOT real routes (the `href` points to the nearest existing admin route). They serve as searchable reference content inside the guide system. Use sparingly; only for content that doesn't fit any specific page but benefits from in-app discoverability.
+
+- **Tip depth standard = 6-10 actionable items per entry.** Phase 17 calibration: the previous ~3-4 tips per entry was too thin for critical paths. New tips are sentence-length workflow walkthroughs (not labels), include concrete UI-element references ("اضغط الـ ⋮"), and call out related Phase locks where relevant (e.g. PII redaction in error-logs guide mentions Phase D-3 hardening).
+
+- **Tip language: Arabic with English technical terms inline.** Arabic for narrative; English for code/UI/API terms (e.g., "`extra_permissions`", "`WhatsApp Instance`"). Mirror the codebase's "Arabic UI + English code" convention.
+
+- **Deferred: API docs + onboarding tooltips.** Q17-3 (b) explicitly scoped these out — they're materially larger surfaces that need dedicated session(s). v1.1 backlog has the entries.
+
+---
+
 ## Phase D — P2 Security Polish ✅ (5/5)
 
 **Status:** Complete. 9 of 10 v1.1-backlog P2 findings from `docs/SECURITY-AUDIT-2025-01.md` closed across 4 substantive commits + 1 closure. Only #2 (Redis rate-limiter migration — L-sized, infra-heavy) remains in v1.1 as designed. Offsite backup (#11 from the audit body — was already in Phase 14.2 backlog) also deferred, but encryption work in D-4 reduces its exposure.
@@ -1117,6 +1143,15 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 - [ ] **Bulk link from leads list** (Phase 11.5) — multi-select leads + assign to single client
 - [ ] **Auto-suggest based on phone match** (Phase 11.5) — when opening Link-Client modal, pre-select likely matches based on `lead.phone` vs `pyra_clients.phone` similarity
 - [ ] **Audit-log action_type pattern sweep** (Phase 11.5) — migrate any pre-Phase-11.5 `logActivity()` call sites that used hardcoded strings to the `${ENTITY_TYPES}_${ACTIVITY_ACTIONS}` + `metadata.source` pattern
+
+### Phase 17 v1.1 items — full documentation polish
+
+- [ ] **API documentation (English, `docs/API.md`)** — Phase 17 Q17-1 listed this but it was scoped OUT of the current session (Q17-3 (b)). Should cover: auth patterns (Supabase Auth dashboard + portal cookie + x-api-key external), critical endpoints (auth, leads, tasks, follow-ups, calendar, activities), request/response shapes, error codes catalog, rate limits per-endpoint, pagination patterns (cursor for activities, offset for lists), webhook signature verification. Format like `docs/MIGRATIONS.md` (markdown sections numbered). Estimated time: M (4-6h).
+- [ ] **Onboarding tooltips (first-time user welcome tour)** — Phase 17 listed but scoped OUT. Considerations: which UI library (driver.js / shepherd / react-joyride), tour vs spotlight pattern, when to fire (first dashboard visit detected via `localStorage.first_visit`), opt-out gesture (don't show again). Coordinate with Empty State CTAs already in place (Phase 13 + Phase 15.1 Commit 5).
+- [ ] **Doc-as-code linting** — script that scans `lib/config/module-guide.ts` for entries with <3 tips OR missing keywords OR missing English description (signals incomplete entries). Could run as a pre-commit hook.
+- [ ] **Module-guide entry generator** — `pnpm guide:new <route>` scaffolds a new entry with stub fields + adds to the SECTIONS array. Removes the manual 2-step process.
+- [ ] **In-context shortcuts overlay** — Cmd/Ctrl+? globally shows keyboard shortcuts + tips for the current page. Materialize from `module-guide.ts` tips array.
+- [ ] **Module-guide localization** — currently Arabic + English (descriptionEn). v1.1 could add full English tips array for the bilingual UI mode (when switched).
 
 ### Phase 14.1 v1.1 items
 

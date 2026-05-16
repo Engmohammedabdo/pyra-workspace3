@@ -1732,6 +1732,100 @@ See `CRM-PROGRESS.md` → "Phase 14.1 v1.1 items" — TTL prune cron,
 severity grouping/dedup, `apiServerError` user-context plumbing,
 broader `mutateAPI` audit, magic-byte file validation.
 
+## Phase 17 — Locked Decisions (Documentation Polish)
+
+These are **intentional, documented design choices** locked during
+Phase 17 closure (scoped Documentation Polish). **Do NOT re-litigate.**
+Phase 17 covers 2 substantive commits + 1 closure: user guides for
+critical CRM paths + admin guides for the admin surface. Full API
+docs + onboarding tooltips were explicitly scoped OUT (Q17-3 (b) =
+critical paths only).
+
+### 1. Single source of truth for in-app docs = `lib/config/module-guide.ts`
+
+All user-facing + admin-facing documentation lives in the
+`MODULE_GUIDES` map, exposed via two surfaces:
+- `<PageGuide>` popover from `components/ui/page-guide.tsx` — appears
+  in the topbar on every dashboard page, auto-detects the route, and
+  shows the matching entry's description + goal + tips
+- `/dashboard/guide` page — searchable directory of ALL entries
+  grouped by section
+
+**Rule:** DO NOT create parallel in-app doc surfaces (separate `/docs`
+pages, markdown files surfaced as React components, onboarding modals
+that duplicate guide content). They drift from the implementation
+within weeks. Future deep-dive docs live in `docs/*.md` (developer
+reference) and are LINKED-TO from module-guide entries when relevant
+(e.g. backup-procedure entry references `docs/MIGRATIONS.md §10`).
+
+### 2. Tip depth standard = 6-10 actionable items per entry
+
+Phase 17 calibration: the previous ~3-4 tips per entry was too thin
+for critical paths. New tips MUST be:
+- **Sentence-length workflow walkthroughs**, not labels
+  - ❌ "إضافة مهمة"
+  - ✅ "إنشاء سريع: اضغط '+ إضافة مهمة' (h-11 touch target) → اكتب العنوان → اختر موعد + أولوية → 'إضافة'"
+- **Include concrete UI-element references** ("اضغط الـ ⋮ (3 نقاط)"
+  / "افتح Sheet" / "scroll مع flash برتقالي لمدة ثانيتين")
+- **Call out related Phase locks where relevant** — e.g. the
+  `error-logs` guide mentions Phase D-3 retention; the
+  `extra_permissions` warning in the `/dashboard/users` guide
+  mentions Phase D-1 whitelist rule
+
+This ensures the in-app docs stay in sync with the code's behavioural
+contracts as they evolve.
+
+### 3. Pseudo-entries are valid for cross-cutting admin reference
+
+Phase 17 introduced two pseudo-entries:
+- `/dashboard/admin/backup-procedure`
+- `/dashboard/admin/security-checklist`
+
+These are NOT real routes. Their `href` points to the nearest existing
+admin landing page (`/dashboard/admin/error-logs` in this case). They
+serve as **searchable reference content** inside the guide system for
+cross-cutting topics that don't fit any specific UI surface but
+benefit from in-app discoverability.
+
+**Use sparingly.** Only for content that:
+- Doesn't fit a specific page (e.g. operational procedures, security
+  references)
+- Has admin-only audience (so showing it in `<PageGuide>` on every
+  page would be noise)
+- Benefits from being searchable in the guide directory
+
+DO NOT create pseudo-entries for user-facing topics — those should
+land on the real route they relate to.
+
+### 4. Tip language: Arabic narrative with English technical terms inline
+
+Mirror the codebase's "Arabic UI + English code" convention:
+- Arabic for the narrative flow ("استخدم", "اضغط", "افتح", "كل")
+- English for code / UI elements / API terms (`extra_permissions`,
+  `WhatsApp Instance`, `is_done_column`, `escapePostgrestValue`,
+  `timingSafeEqual`)
+- Mixed in the same sentence is fine and idiomatic for the
+  codebase: "اضغط '+ إضافة مهمة' (h-11 touch target)"
+
+### 5. Deferred scope is EXPLICIT, not implicit
+
+Phase 17 explicitly scoped OUT (Q17-3 (b)):
+- Full API documentation (`docs/API.md`)
+- Onboarding tooltips / welcome tour
+
+Both have v1.1 backlog entries in `CRM-PROGRESS.md` describing the
+expected shape. The closure docs are explicit so future sessions
+don't re-discover this scope without context.
+
+### Phase 17 v1.1 backlog
+
+See `CRM-PROGRESS.md` → "### Phase 17 v1.1 items" for the full list.
+Highlights: API docs (English, `docs/API.md`-style), onboarding tour,
+doc-as-code linting, module-guide entry generator (`pnpm guide:new`),
+keyboard-shortcuts overlay, English-tips localization.
+
+---
+
 ## Phase D — Locked Decisions (P2 Security Polish)
 
 These are **intentional, documented design choices** locked during
