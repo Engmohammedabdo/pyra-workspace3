@@ -140,6 +140,9 @@ const SECTIONS = [
       '/dashboard/login-history',
       '/dashboard/sessions',
       '/dashboard/admin/error-logs',
+      // Phase 17 — admin reference entries (Phase D + 14.3 admin docs)
+      '/dashboard/admin/backup-procedure',
+      '/dashboard/admin/security-checklist',
     ],
   },
 ];
