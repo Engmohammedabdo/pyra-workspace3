@@ -77,26 +77,37 @@ export async function GET(request: NextRequest) {
     const from = (page - 1) * limit;
     const to = from + limit - 1;
 
-    // Get total count first (using a separate count query)
-    const countQuery = supabase
+    // Get total count first (using a separate count query).
+    //
+    // Phase 14.3 fix A — `let countQuery` (not const) + explicit
+    // reassignment on every filter call below. Supabase JS filter
+    // methods return a NEW PostgrestFilterBuilder rather than mutating
+    // in place — without reassignment, every filter was silently
+    // discarded and non-admin agents saw the count of ALL leads
+    // across all agents in pagination (incorrect total/totalPages).
+    // The main `query` branch above ALREADY uses the reassignment
+    // pattern correctly; only the count branch was bugged. Surfaced
+    // by Reviewer during the fix-#2 sweep, filed to v1.1, now fixed.
+    let countQuery = supabase
       .from('pyra_sales_leads')
       .select('id', { count: 'exact', head: true });
 
-    // Apply same filters to count query
-    if (!isAdmin) countQuery.eq('assigned_to', auth.pyraUser.username);
-    if (stageId) countQuery.eq('stage_id', stageId);
-    if (assignedTo && isAdmin) countQuery.eq('assigned_to', assignedTo);
-    if (priority) countQuery.eq('priority', priority);
-    if (source) countQuery.eq('source', source);
+    // Apply same filters to count query — each `=` reassignment is
+    // load-bearing per the comment above.
+    if (!isAdmin) countQuery = countQuery.eq('assigned_to', auth.pyraUser.username);
+    if (stageId) countQuery = countQuery.eq('stage_id', stageId);
+    if (assignedTo && isAdmin) countQuery = countQuery.eq('assigned_to', assignedTo);
+    if (priority) countQuery = countQuery.eq('priority', priority);
+    if (source) countQuery = countQuery.eq('source', source);
     if (isConverted !== null && isConverted !== undefined) {
-      countQuery.eq('is_converted', isConverted === 'true');
+      countQuery = countQuery.eq('is_converted', isConverted === 'true');
     }
     if (search) {
-      // Phase 14.3 P1 fix — same escape pattern as the main query above.
-      // Both .or() calls MUST use identical safe-value handling or the
-      // count and the page-of-results would diverge.
+      // Phase 14.3 P1 fix #2 — same escape pattern as the main query
+      // above. Both .or() calls MUST use identical safe-value handling
+      // or the count and the page-of-results would diverge.
       const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
-      countQuery.or(`name.ilike.${safe},phone.ilike.${safe},email.ilike.${safe},company.ilike.${safe}`);
+      countQuery = countQuery.or(`name.ilike.${safe},phone.ilike.${safe},email.ilike.${safe},company.ilike.${safe}`);
     }
 
     const { count } = await countQuery;
