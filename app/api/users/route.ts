@@ -10,6 +10,7 @@ import { generateId } from '@/lib/utils/id';
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { hashPassword } from '@/lib/utils/password';
+import { validateExtraPermissions } from '@/lib/auth/rbac';
 
 // =============================================================
 // GET /api/users
@@ -99,14 +100,13 @@ export async function POST(request: NextRequest) {
       return apiValidationError('معرّف الدور الوظيفي غير صالح');
     }
 
-    // Validate extra_permissions if provided
-    if (extra_permissions !== undefined && extra_permissions !== null) {
-      if (!Array.isArray(extra_permissions)) {
-        return apiValidationError('extra_permissions must be an array');
-      }
-      if (!extra_permissions.every((p: unknown) => typeof p === 'string')) {
-        return apiValidationError('extra_permissions must be array of strings');
-      }
+    // Validate extra_permissions — Phase D Commit 1 (audit P2 #1):
+    // exact-match whitelist against PERMISSIONS catalog; reject wildcards.
+    // Closes admin foot-gun where phished admin / typo could grant `["*"]`
+    // and silently promote a user to super-admin.
+    const extraPermsResult = validateExtraPermissions(extra_permissions);
+    if (!extraPermsResult.ok) {
+      return apiValidationError(extraPermsResult.error);
     }
 
     const cleanUsername = username.trim().toLowerCase();
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
         role,
         display_name: display_name.trim(),
         permissions: permissions || {},
-        extra_permissions: Array.isArray(extra_permissions) ? extra_permissions : [],
+        extra_permissions: extraPermsResult.value,
         role_id: role_id || null,
         phone: phone ? String(phone).trim() : null,
         job_title: job_title ? String(job_title).trim() : null,

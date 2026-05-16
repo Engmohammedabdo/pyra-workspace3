@@ -6,6 +6,7 @@ import { isSuperAdmin } from '@/lib/auth/rbac';
 import { WA_CONVERSATION_FIELDS } from '@/lib/supabase/fields';
 import { CONVERSATION_STATUS } from '@/lib/constants/statuses';
 import { typingMap } from '@/lib/whatsapp/typing-map';
+import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 /**
  * GET /api/dashboard/sales/whatsapp/conversations
@@ -103,10 +104,15 @@ export async function GET(request: NextRequest) {
       query = query.neq('id', excludeId);
     }
 
-    // Search by contact name or phone (sanitize PostgREST special chars)
-    const safeSearch = search.replace(/[,().%*]/g, '');
-    if (safeSearch) {
-      query = query.or(`contact_name.ilike.%${safeSearch}%,contact_phone.ilike.%${safeSearch}%`);
+    // Search by contact name or phone — Phase D Commit 1 hardening (audit
+    // P2 #7). Previous `.replace(/[,().%*]/g, '')` missed the dot (.) which
+    // is the PostgREST filter syntax delimiter, leaving room for
+    // `name.eq.foo.assigned_to.neq.x` style injection. Now uses the
+    // canonical escapePostgrestValue(escapeLike(...)) pattern matching
+    // /api/crm/leads/route.ts.
+    if (search) {
+      const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
+      query = query.or(`contact_name.ilike.${safe},contact_phone.ilike.${safe}`);
     }
 
     // Team filter

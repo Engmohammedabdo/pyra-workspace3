@@ -10,6 +10,7 @@ import {
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
+import { validateExtraPermissions } from '@/lib/auth/rbac';
 
 /**
  * Insert a salary history record when salary or hourly_rate changes.
@@ -135,14 +136,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // --- extra_permissions (per-user additional RBAC permissions) ---
+    // Phase D Commit 1 (audit P2 #1) — exact-match whitelist against
+    // PERMISSIONS catalog; reject wildcards. validateExtraPermissions
+    // returns { ok, value } for the happy path or { ok: false, error,
+    // rejected? } for typos / wildcard attempts. The shared helper keeps
+    // POST + PATCH in sync (DRY).
     if (body.extra_permissions !== undefined) {
-      if (!Array.isArray(body.extra_permissions)) {
-        return apiValidationError('extra_permissions must be an array');
+      const extraPermsResult = validateExtraPermissions(body.extra_permissions);
+      if (!extraPermsResult.ok) {
+        return apiValidationError(extraPermsResult.error);
       }
-      if (!body.extra_permissions.every((p: unknown) => typeof p === 'string')) {
-        return apiValidationError('extra_permissions must be array of strings');
-      }
-      updateData.extra_permissions = body.extra_permissions;
+      updateData.extra_permissions = extraPermsResult.value;
     }
 
     // --- role_id (RBAC role assignment) ---

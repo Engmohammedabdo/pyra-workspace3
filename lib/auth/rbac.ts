@@ -213,6 +213,94 @@ export const PERMISSIONS = {
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 
 // ============================================================
+// extra_permissions input validation
+// ============================================================
+
+/**
+ * Set of every PERMISSIONS string value — lazy-built ONCE at module load.
+ * Used by validateExtraPermissions() to whitelist admin-assignable per-user
+ * grants against the known permission catalog.
+ *
+ * Phase D Commit 1 (LOCK 3): exact-match only — no wildcards. The `*`
+ * superuser perm and any `module.*` flavour MUST be managed via
+ * `pyra_roles.permissions` (auditable role assignment), NOT via
+ * `extra_permissions` (silent per-user grant).
+ */
+const ALLOWED_EXTRA_PERMISSIONS = new Set<string>(Object.values(PERMISSIONS));
+
+export interface ValidateExtraPermissionsOk {
+  ok: true;
+  value: string[];
+}
+export interface ValidateExtraPermissionsErr {
+  ok: false;
+  /** Arabic-message error suitable for `apiValidationError(...)`. */
+  error: string;
+  /** The first invalid permission encountered, included for debugging. */
+  rejected?: string;
+}
+
+/**
+ * Validate an `extra_permissions` input from an admin request body.
+ *
+ * Rules:
+ *   - undefined/null → ok, value: [] (treat as "no grants")
+ *   - Not an array → reject (Arabic message)
+ *   - Array contains a non-string → reject
+ *   - Array contains `*` OR `module.*` wildcard → reject (use `pyra_roles`
+ *     for wildcards — keeps audit trail clean)
+ *   - Array contains a string not in the PERMISSIONS catalog → reject with
+ *     the rejected permission included for debugging
+ *   - Otherwise → ok, value: deduplicated array
+ *
+ * Phase D Commit 1 (audit P2 #1) — closes admin foot-gun where a phished
+ * admin or typo could grant `["*"]` to any user, instantly promoting them
+ * to super-admin without going through the auditable role-assignment flow.
+ */
+export function validateExtraPermissions(
+  input: unknown,
+): ValidateExtraPermissionsOk | ValidateExtraPermissionsErr {
+  if (input === undefined || input === null) {
+    return { ok: true, value: [] };
+  }
+  if (!Array.isArray(input)) {
+    return { ok: false, error: 'extra_permissions يجب أن تكون مصفوفة' };
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const item of input) {
+    if (typeof item !== 'string') {
+      return {
+        ok: false,
+        error: 'extra_permissions يجب أن تحتوي على نصوص فقط',
+      };
+    }
+    const v = item.trim();
+    if (!v) continue;
+    // Reject wildcards explicitly — wildcards go via pyra_roles only
+    if (v === '*' || v.endsWith('.*')) {
+      return {
+        ok: false,
+        error: 'الصلاحيات الشاملة (wildcards) غير مسموحة هنا — استخدم نظام الأدوار',
+        rejected: v,
+      };
+    }
+    if (!ALLOWED_EXTRA_PERMISSIONS.has(v)) {
+      return {
+        ok: false,
+        error: `صلاحية غير معروفة: ${v}`,
+        rejected: v,
+      };
+    }
+    if (!seen.has(v)) {
+      seen.add(v);
+      out.push(v);
+    }
+  }
+  return { ok: true, value: out };
+}
+
+// ============================================================
 // Permission Modules (for UI grouping)
 // ============================================================
 
