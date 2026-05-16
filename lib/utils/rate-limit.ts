@@ -152,6 +152,40 @@ export const userPasswordChangeLimiter = createRateLimiter('user-password-change
   windowMs: 15 * 60 * 1000,
 });
 
+// ─── Phase D Commit 2 — auth-flow secondary limiters ────────
+
+/**
+ * Account lockout: max 10 failed attempts per EMAIL per 24h.
+ *
+ * Phase D Commit 2 (audit P2 #9) — IP-keyed loginLimiter alone is bypassable
+ * by distributed brute-force across rotating proxies/VPNs. This secondary
+ * limiter keys on the email so the same target account cannot exceed 10
+ * failures in a 24h window regardless of source IP.
+ *
+ * IMPORTANT: callers MUST `accountLockoutLimiter.reset(email)` after a
+ * successful authentication so a legitimate user with a few typos doesn't
+ * get locked out for 24h.
+ */
+export const accountLockoutLimiter = createRateLimiter('account-lockout', {
+  maxRequests: 10,
+  windowMs: 24 * 60 * 60 * 1000,
+});
+
+/**
+ * 2FA endpoint: max 5 attempts per IP per 15 minutes.
+ *
+ * Phase D Commit 2 (audit P2 #8) — covers POST (setup) / PATCH (verify) /
+ * DELETE (disable). Without a rate limit, an attacker with a partial bypass
+ * could brute-force the 6-digit TOTP code (~1M combinations) in seconds.
+ * 5/15min gives the legitimate user enough retries for typos while making
+ * brute-force infeasible. Tighter than apiWriteLimiter (30/min) because
+ * 2FA is a high-value target.
+ */
+export const twoFactorLimiter = createRateLimiter('two-factor', {
+  maxRequests: 5,
+  windowMs: 15 * 60 * 1000,
+});
+
 /**
  * Extract client IP from request headers.
  * Checks x-forwarded-for first (behind proxy/load balancer), then x-real-ip.
@@ -172,6 +206,25 @@ export function getClientIp(request: Request): string {
  *   const limited = checkRateLimit(apiWriteLimiter, request);
  *   if (limited) return limited;
  */
+/**
+ * Format a retry duration as Arabic-friendly "N ثانية / دقيقة / ساعة".
+ * Used by checkRateLimit so 15-minute and 24-hour windows don't surface
+ * as "843 ثانية" or "85432 ثانية" — Phase D Commit 2 Reviewer MEDIUM fix.
+ *
+ * Boundaries:
+ *   < 60s     → "N ثانية"
+ *   < 60min   → "N دقيقة"
+ *   else      → "N ساعة"
+ */
+function formatRetryArabic(retryMs: number): string {
+  const seconds = Math.ceil(retryMs / 1000);
+  if (seconds < 60) return `${seconds} ثانية`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `${minutes} دقيقة`;
+  const hours = Math.ceil(minutes / 60);
+  return `${hours} ساعة`;
+}
+
 export function checkRateLimit(
   limiter: ReturnType<typeof createRateLimiter>,
   request: Request
@@ -180,15 +233,18 @@ export function checkRateLimit(
   const result = limiter.check(ip);
   if (result.limited) {
     const retrySeconds = Math.ceil(result.retryAfterMs / 1000);
+    const friendlyRetry = formatRetryArabic(result.retryAfterMs);
     return new Response(
       JSON.stringify({
         success: false,
-        error: `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retrySeconds} ثانية`,
+        error: `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${friendlyRetry}`,
       }),
       {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
+          // Retry-After header MUST be in seconds per RFC 7231; the
+          // Arabic message uses formatted units for the user.
           'Retry-After': String(retrySeconds),
         },
       }

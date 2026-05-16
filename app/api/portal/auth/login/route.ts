@@ -8,7 +8,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { loginLimiter, getClientIp } from '@/lib/utils/rate-limit';
+import { loginLimiter, accountLockoutLimiter, getClientIp } from '@/lib/utils/rate-limit';
 import { generateId } from '@/lib/utils/id';
 import bcrypt from 'bcryptjs';
 
@@ -77,6 +77,18 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
     const normalizedEmail = email.trim().toLowerCase();
 
+    // Phase D Commit 2 — per-account lockout (audit P2 #9). Secondary
+    // limiter keyed on normalized email; defends against distributed
+    // brute-force via proxy rotation. Reset on success below.
+    const lockoutCheck = accountLockoutLimiter.check(normalizedEmail);
+    if (lockoutCheck.limited) {
+      const retryHours = Math.ceil(lockoutCheck.retryAfterMs / (60 * 60 * 1000));
+      return apiError(
+        `تم قفل الحساب مؤقتاً بسبب محاولات دخول متعددة. حاول مرة أخرى بعد ${retryHours} ساعة`,
+        429,
+      );
+    }
+
     // ── Look up the client (include auth fields for verification) ──
     const { data: client, error: clientError } = await supabase
       .from('pyra_clients')
@@ -137,6 +149,11 @@ export async function POST(request: NextRequest) {
 
     // ── Record successful login attempt ──────────────
     recordPortalLoginAttempt(supabase, client.email || normalizedEmail, clientIp, true);
+
+    // Phase D Commit 2 — reset per-account lockout counter on success
+    // so a legitimate user with a few typos doesn't carry the failure
+    // count forward for 24h.
+    accountLockoutLimiter.reset(normalizedEmail);
 
     // ── Create portal session ────────────────────────
     await createPortalSession(client.id);

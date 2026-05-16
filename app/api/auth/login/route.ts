@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
-import { adminLoginLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
+import { adminLoginLimiter, accountLockoutLimiter, checkRateLimit, getClientIp } from '@/lib/utils/rate-limit';
 import { escapePostgrestValue } from '@/lib/utils/path';
 import { hasPermission, buildUserPermissions } from '@/lib/auth/rbac';
 
@@ -38,6 +38,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'البريد الإلكتروني وكلمة المرور مطلوبان' },
         { status: 400 }
+      );
+    }
+
+    // Phase D Commit 2 — per-account lockout (audit P2 #9). Secondary
+    // limiter keyed on email defends against distributed brute-force via
+    // proxy rotation (which would bypass the IP-keyed adminLoginLimiter).
+    // Normalized to lowercase for case-insensitive matching.
+    const lockoutKey = email.trim().toLowerCase();
+    const lockoutCheck = accountLockoutLimiter.check(lockoutKey);
+    if (lockoutCheck.limited) {
+      const retryHours = Math.ceil(lockoutCheck.retryAfterMs / (60 * 60 * 1000));
+      return NextResponse.json(
+        { error: `تم قفل الحساب مؤقتاً بسبب محاولات دخول متعددة. حاول مرة أخرى بعد ${retryHours} ساعة` },
+        { status: 429 }
       );
     }
 
@@ -109,6 +123,11 @@ export async function POST(request: NextRequest) {
 
     // ── Record successful login ──
     recordLoginAttempt(pyraUser.username, ip, true);
+
+    // Phase D Commit 2 — reset account lockout counter on success so a
+    // legitimate user with a few typos doesn't carry the failure count
+    // forward for 24h.
+    accountLockoutLimiter.reset(lockoutKey);
 
     return NextResponse.json({
       success: true,

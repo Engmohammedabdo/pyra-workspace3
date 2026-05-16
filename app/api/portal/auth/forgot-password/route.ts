@@ -130,8 +130,15 @@ export async function POST(request: NextRequest) {
       message: successMessage,
     };
 
-    // In development, include the token for testing
-    if (process.env.NODE_ENV !== 'production') {
+    // Phase D Commit 2 — dev-token leak hardening (audit P2 #5).
+    // Previous `NODE_ENV !== 'production'` check leaks the raw reset
+    // token in the response body for any misconfigured deployment
+    // (NODE_ENV unset, set to 'development' by mistake, etc.). Replaced
+    // with an explicit ENABLE_TEST_RESET_TOKEN=true flag that defaults
+    // to OFF — production NEVER leaks unless someone explicitly sets
+    // the test flag (would require deliberate misconfiguration, not
+    // an accidental NODE_ENV slip).
+    if (process.env.ENABLE_TEST_RESET_TOKEN === 'true') {
       response.debug = {
         token: resetToken,
         expires_at: expiresAt,

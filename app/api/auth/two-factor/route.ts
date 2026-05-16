@@ -4,6 +4,7 @@ import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from 
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { TOTP, NobleCryptoPlugin, ScureBase32Plugin, generateSecret } from 'otplib';
 import QRCode from 'qrcode';
+import { twoFactorLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'Pyra Workspace';
 
@@ -15,8 +16,14 @@ const totp = new TOTP({ crypto: cryptoPlugin, base32: base32Plugin });
 // =============================================================
 // POST /api/auth/two-factor — Setup 2FA (generate secret + QR)
 // =============================================================
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
+    // Phase D Commit 2 — 2FA rate limit (audit P2 #8). 5/15min/IP keeps
+    // a partially-bypassed attacker from brute-forcing the 6-digit TOTP
+    // code (~1M combinations) in seconds.
+    const limited = checkRateLimit(twoFactorLimiter, request);
+    if (limited) return limited;
+
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
 
@@ -55,6 +62,11 @@ export async function POST() {
 // =============================================================
 export async function PATCH(request: NextRequest) {
   try {
+    // Phase D Commit 2 — 2FA rate limit (audit P2 #8). Critical on PATCH
+    // because this is the verify endpoint — brute-force target.
+    const limited = checkRateLimit(twoFactorLimiter, request);
+    if (limited) return limited;
+
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
 
@@ -104,6 +116,11 @@ export async function PATCH(request: NextRequest) {
 // =============================================================
 export async function DELETE(request: NextRequest) {
   try {
+    // Phase D Commit 2 — 2FA rate limit (audit P2 #8). DELETE also
+    // verifies the token before unlinking — brute-force surface.
+    const limited = checkRateLimit(twoFactorLimiter, request);
+    if (limited) return limited;
+
     const auth = await getApiAuth();
     if (!auth) return apiUnauthorized();
 
