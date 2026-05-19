@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -88,9 +88,32 @@ export interface QuoteData {
   items: QuoteItem[];
 }
 
+/**
+ * Phase Q Commit 2 — Lead snapshot for prefilling the client section.
+ *
+ * Shape derived from LEAD_FIELDS (lib/supabase/fields.ts:152) — only the
+ * fields the form uses. Lead has no `address` column (verified — the
+ * convert-to-customer flow at app/api/crm/leads/[id]/convert-to-customer
+ * /route.ts:190 documents this), so address is omitted; user fills it
+ * manually.
+ */
+export interface LeadSnapshotForQuote {
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+}
+
 interface QuoteBuilderProps {
   quote?: QuoteData;
   leadId?: string;
+  /**
+   * Phase Q Commit 2 — full lead snapshot for prefilling the client fields
+   * on a fresh quote. Fired ONCE per component mount (ref-guarded), and
+   * only populates fields that are still empty (race-condition defense
+   * against user typing during the network fetch).
+   */
+  leadData?: LeadSnapshotForQuote | null;
   onSaved?: (id: string) => void;
   onClose?: () => void;
 }
@@ -109,7 +132,7 @@ const DEFAULT_TERMS = [
   { text: 'Balance payment due upon project completion.' },
 ];
 
-export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteBuilderProps) {
+export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose }: QuoteBuilderProps) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(quote?.client_id || '');
   const [clientName, setClientName] = useState(quote?.client_name || '');
@@ -189,6 +212,52 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
   useEffect(() => {
     return () => { if (previewUrl) URL.revokeObjectURL(previewUrl); };
   }, [previewUrl]);
+
+  // ── Phase Q Commit 2 — Lead snapshot prefill ──
+  // Fires ONCE per mount (ref-guarded) when leadData first arrives.
+  // Per-field "only-fill-still-empty" defense: if the user started typing
+  // before the network fetch resolved, the user's value is preserved.
+  // The closure captures the LATEST clientX state at the time the effect
+  // runs (after setLeadData triggers a re-render), so race-with-typing is
+  // handled correctly WITHOUT including clientX in the deps array.
+  //
+  // Deps INTENTIONALLY exclude clientX values (Reviewer HIGH fix):
+  //   - Including them would cause the effect to re-fire on every
+  //     keystroke (ref-guarded no-op, but wasteful)
+  //   - The closure reads them at effect-run time — already the latest
+  //     values post-render
+  //   - exhaustive-deps ESLint rule disabled inline (justified: this is
+  //     a "snapshot on leadData arrival" effect, not a "react to clientX
+  //     changes" effect)
+  //
+  // Cleanup resets the ref so a fresh mount (React StrictMode double-
+  // invoke in dev, or a parent-driven remount) re-applies prefill on
+  // the next leadData arrival.
+  const leadPrefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (leadPrefillAppliedRef.current) return;
+    if (!leadData) return;
+    // Skip when editing an existing quote (quote prop populates fields
+    // from saved data; lead snapshot would never overwrite anyway because
+    // the field-empty check fails, but defensive early return clarifies
+    // intent).
+    if (quote) {
+      leadPrefillAppliedRef.current = true;
+      return;
+    }
+    if (!clientName && leadData.name) setClientName(leadData.name);
+    if (!clientEmail && leadData.email) setClientEmail(leadData.email);
+    if (!clientPhone && leadData.phone) setClientPhone(leadData.phone);
+    if (!clientCompany && leadData.company) setClientCompany(leadData.company);
+    leadPrefillAppliedRef.current = true;
+    return () => {
+      // StrictMode double-invoke safety: cleanup resets the ref so the
+      // replay invocation can re-apply if needed. Production mount/unmount
+      // also resets correctly.
+      leadPrefillAppliedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadData, quote]);
 
   const handleClientSelect = (id: string) => {
     setClientId(id);
@@ -280,6 +349,12 @@ export default function QuoteBuilder({ quote, leadId, onSaved, onClose }: QuoteB
       if (savedId) onSaved?.(savedId);
     } catch (err) {
       console.error(err);
+      // Phase Q Commit 2 (Reviewer MEDIUM fix) — surface API errors to
+      // the user. Previously swallowed silently, so a 422 from the new
+      // client-info validation (added in this commit) would show the
+      // spinner stop with no feedback. mutateAPI's ApiError instance
+      // carries the Arabic message from the server's `error` field.
+      toast.error(err instanceof Error ? err.message : 'حدث خطأ في حفظ عرض السعر');
     } finally {
       setSaving(false);
     }

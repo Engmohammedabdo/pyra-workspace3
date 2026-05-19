@@ -135,6 +135,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Phase Q Commit 2 — client-info validation (closes broken-snapshot bug).
+    // A quote MUST identify its client one of two ways:
+    //   (1) `client_id` → server-side DB lookup fills snapshot fields below
+    //   (2) explicit `client_name` in the body → snapshot fields persist
+    //       as-typed
+    // Lead-linked-only with empty client_name = the Sayed/QT-0016 bug
+    // (PDF rendered with `---` placeholders, customer-visible damage).
+    // Validation-only (no server-side auto-fill from lead_id — that's
+    // v1.1 backlog per locked decision).
+    const rawClientName = typeof body.client_name === 'string' ? body.client_name.trim() : '';
+    if (!client_id && !rawClientName) {
+      return apiValidationError(
+        'اسم العميل مطلوب — اختر عميل من القائمة أو أدخل الاسم يدوياً',
+      );
+    }
+
     const supabase = createServiceRoleClient();
 
     // Generate quote number atomically (race-condition safe)
