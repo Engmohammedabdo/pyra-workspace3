@@ -20,7 +20,7 @@ import { LeadStagePill } from '@/components/crm/lead/lead-stage-pill';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
-  Link2, UserCheck,
+  Link2, UserCheck, FileSignature,
 } from 'lucide-react';
 import {
   PIPELINE_STAGE_LABELS_AR,
@@ -28,6 +28,7 @@ import {
   type PipelineStageId,
   type LeadType,
 } from '@/lib/constants/statuses';
+import { usePermission } from '@/hooks/usePermission';
 import type { PyraSalesLead } from '@/types/database';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
 
@@ -73,6 +74,11 @@ export function LeadHeader({
   const stageLabel = stage?.name_ar
     ?? (lead.stage_id ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId] : null);
   const wa = whatsAppHref(lead.phone, lead.name);
+  // Permission gate for the "إنشاء عرض سعر" button — closes the discoverability
+  // gap surfaced by Sayed's real-world workflow (lead at مكالمة استكشافية needed
+  // a quote; backend was complete but no in-app entry point existed).
+  // sales_agent role has quotes.create per lib/auth/rbac.ts ROLE_EXTRAS.
+  const canCreateQuote = usePermission('quotes.create');
 
   return (
     <div className="space-y-3">
@@ -195,6 +201,25 @@ export function LeadHeader({
             >
               <CalendarPlus className="size-4 me-1.5" /> متابعة
             </Button>
+            {/* "إنشاء عرض سعر" — quote CTA. Links to the existing
+                /dashboard/quotes/new?lead_id= flow (Phase 9 nullable
+                client_id + lead_id FK; auto-prefills from lead via the
+                QuoteBuilder useEffect). Gated by quotes.create permission
+                (sales_agent has it; employee does not). Logical placement:
+                after follow-up button (workflow: call → schedule next call
+                → create quote → win deal). */}
+            {canCreateQuote && (
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+              >
+                <Link href={`/dashboard/quotes/new?lead_id=${lead.id}`}>
+                  <FileSignature className="size-4 me-1.5" /> إنشاء عرض سعر
+                </Link>
+              </Button>
+            )}
           </div>
 
           {/* Phase 11.5 — admin actions row. Visible only when:
