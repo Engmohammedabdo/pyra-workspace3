@@ -36,7 +36,7 @@ import { useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { GitBranch, Plus, Info } from 'lucide-react';
+import { GitBranch, Plus } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeads, useMoveLeadStageWithToasts } from '@/hooks/useLeads';
@@ -216,31 +216,12 @@ export function PipelineClient() {
 
       <PipelineFilterBar isAdmin={!!isAdmin} ownerOptions={ownerOptions} total={total} />
 
-      {/* Soft hint for first-day users — only when no filter is applied and
-          the data layout makes the "everything is in stg_new_inquiry"
-          shape obvious. */}
-      {!stagesLoading && !leadsLoading && total !== undefined && total > 0 && filters.search === undefined && (
-        <NewInquiryHint count={total} />
-      )}
-
       <PipelineBoard
         stages={stages}
         leads={leads}
         loading={stagesLoading || leadsLoading}
         onDropChangeStage={handleDropChangeStage}
       />
-    </div>
-  );
-}
-
-function NewInquiryHint({ count }: { count: number }) {
-  return (
-    <div className="flex items-start gap-2 rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-500/5 px-3 py-2 text-xs text-orange-800 dark:text-orange-300">
-      <Info className="size-4 shrink-0 mt-0.5" aria-hidden />
-      <p className="leading-5">
-        <strong>تذكير:</strong> بعد ترحيل البيانات، الـ {count} Lead الحاليين كلهم في
-        <span className="mx-1 font-semibold">"استفسار جديد"</span>. لازم السايد يراجعهم ويحرّكهم للمراحل الصحيحة. ده القرار اللي اتفقنا عليه (Q-DB-002).
-      </p>
     </div>
   );
 }

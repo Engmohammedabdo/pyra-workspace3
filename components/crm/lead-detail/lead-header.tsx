@@ -20,7 +20,7 @@ import { LeadStagePill } from '@/components/crm/lead/lead-stage-pill';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
-  Link2, UserCheck, FileSignature,
+  Link2, UserCheck, FileSignature, UserCog,
 } from 'lucide-react';
 import {
   PIPELINE_STAGE_LABELS_AR,
@@ -46,6 +46,10 @@ interface LeadHeaderProps {
   onLinkClient?: () => void;
   /** Whether current user has leads.update permission. Required for the Link button visibility. */
   canLinkClient?: boolean;
+  /** Open the Reassign-owner modal (Commit 1 / Option A). */
+  onReassign?: () => void;
+  /** Whether current user has leads.assign permission. Required for the Reassign button. */
+  canReassign?: boolean;
 }
 
 function initials(name: string): string {
@@ -69,6 +73,8 @@ export function LeadHeader({
   onScheduleFollowUp,
   onLinkClient,
   canLinkClient,
+  onReassign,
+  canReassign,
 }: LeadHeaderProps) {
   const stage = stages?.find((s) => s.id === lead.stage_id);
   const stageLabel = stage?.name_ar
@@ -222,20 +228,35 @@ export function LeadHeader({
             )}
           </div>
 
-          {/* Phase 11.5 — admin actions row. Visible only when:
-              (a) the lead is not yet linked to a client (Q1 — no re-link UI in v1),
-              (b) the current user has leads.update permission,
-              (c) the parent provides the onLinkClient callback (defensive). */}
-          {!lead.client_id && canLinkClient && onLinkClient && (
-            <div className="mt-4 pt-4 border-t border-border/50 max-md:border-white/10">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onLinkClient}
-                className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
-              >
-                <UserCheck className="size-4 me-1.5" /> ربط بعميل موجود
-              </Button>
+          {/* Admin actions row. Shows when EITHER:
+              - Reassign is available (Commit 1: leads.assign + onReassign), OR
+              - Link-Client is available (Phase 11.5: lead not yet linked +
+                leads.update + onLinkClient).
+              Each button is independently gated so the row renders whenever at
+              least one admin action applies. */}
+          {((canReassign && onReassign) ||
+            (!lead.client_id && canLinkClient && onLinkClient)) && (
+            <div className="mt-4 pt-4 border-t border-border/50 max-md:border-white/10 flex flex-wrap gap-2">
+              {canReassign && onReassign && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onReassign}
+                  className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+                >
+                  <UserCog className="size-4 me-1.5" /> تغيير المسؤول
+                </Button>
+              )}
+              {!lead.client_id && canLinkClient && onLinkClient && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onLinkClient}
+                  className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+                >
+                  <UserCheck className="size-4 me-1.5" /> ربط بعميل موجود
+                </Button>
+              )}
             </div>
           )}
         </div>

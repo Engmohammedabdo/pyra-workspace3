@@ -14,14 +14,15 @@
 
 import { useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Phone, Mail, User, UserCheck, Building2, Users2, Tag, CalendarClock, Check, Loader2,
+  Phone, Mail, User, UserCheck, UserCog, Building2, Users2, Tag, CalendarClock, Check, Loader2,
 } from 'lucide-react';
 import { useFollowUps, useCompleteFollowUp, type FollowUpsResponse } from '@/hooks/useFollowUps';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { formatRelativeDate } from '@/lib/utils/format';
 import type { PyraSalesLead } from '@/types/database';
 
@@ -39,6 +40,20 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
   });
   const nextFollowUp = followUpsRes?.follow_ups?.[0];
   const complete = useCompleteFollowUp();
+
+  // Current owner — display gap fix (Commit 1 / Option A): the assignee was
+  // never surfaced on the lead detail. Resolve display_name via the shared
+  // ['users','lite'] query (deduped with the reassign modal); fall back to the
+  // raw username, which still resolves for an inactive owner (e.g. a departed
+  // agent whose leads haven't been reassigned yet).
+  const { data: liteUsers = [] } = useQuery<Array<{ username: string; display_name: string }>>({
+    queryKey: ['users', 'lite'],
+    queryFn: () => fetchAPI('/api/users/lite'),
+    staleTime: 5 * 60_000,
+  });
+  const assigneeName = lead.assigned_to
+    ? liteUsers.find((u) => u.username === lead.assigned_to)?.display_name ?? lead.assigned_to
+    : 'غير مُسند';
 
   // Phase 15.1 Commit 5 — follow-up highlight handler (LOCK 1). Triggered
   // by `?followup={fu_id}` deep-links from the calendar event pill. The
@@ -115,6 +130,7 @@ export function LeadSidebar({ lead }: LeadSidebarProps) {
       <Card className="p-4 space-y-3">
         <h3 className="text-sm font-semibold">معلومات الاتصال</h3>
         <ul className="space-y-2 text-sm">
+          <Row icon={<UserCog className="size-4" />} label="المسؤول" value={assigneeName} />
           {lead.phone && <Row icon={<Phone className="size-4" />} label="هاتف" value={lead.phone} />}
           {lead.email && <Row icon={<Mail className="size-4" />} label="إيميل" value={lead.email} />}
           {lead.contact_person && (

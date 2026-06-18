@@ -28,7 +28,7 @@ import {
   ArrowLeft, LayoutDashboard, Activity, FileSignature, Paperclip, StickyNote,
   Info, ChevronLeft, ClipboardList,
 } from 'lucide-react';
-import { useLead, useLinkClient } from '@/hooks/useLeads';
+import { useLead, useLinkClient, useUpdateLead } from '@/hooks/useLeads';
 import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeadActivities } from '@/hooks/useLeadActivities';
@@ -43,6 +43,7 @@ import { LeadNotesTab } from '@/components/crm/lead-detail/lead-notes-tab';
 import { LeadSidebar } from '@/components/crm/lead-detail/lead-sidebar';
 import { FollowUpModal } from '@/components/crm/follow-up-modal/follow-up-modal';
 import LinkClientModal from '@/components/crm/lead-detail/link-client-modal';
+import ReassignLeadModal from '@/components/crm/lead-detail/reassign-lead-modal';
 import {
   Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -86,6 +87,13 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const canLinkClient = usePermission('leads.update');
   const linkClientMutation = useLinkClient();
 
+  // Commit 1 / Option A — per-lead reassignment. Gated by leads.assign
+  // (admins have it; sales agents intentionally do NOT). The PATCH route
+  // logs `assignment_changed` + notifies the new owner — no backend change.
+  const canReassign = usePermission('leads.assign');
+  const [reassignOpen, setReassignOpen] = useState(false);
+  const updateLeadMutation = useUpdateLead();
+
   const handleLinkClient = async (clientId: string) => {
     try {
       await linkClientMutation.mutateAsync({ leadId, clientId });
@@ -93,6 +101,16 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
       setLinkClientOpen(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'فشل الربط');
+    }
+  };
+
+  const handleReassign = async (username: string) => {
+    try {
+      await updateLeadMutation.mutateAsync({ id: leadId, data: { assigned_to: username } });
+      toast.success('تم تغيير المسؤول بنجاح');
+      setReassignOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل تغيير المسؤول');
     }
   };
 
@@ -158,8 +176,21 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         onScheduleFollowUp={() => setFollowUpOpen(true)}
         onLinkClient={() => setLinkClientOpen(true)}
         canLinkClient={canLinkClient}
+        onReassign={() => setReassignOpen(true)}
+        canReassign={canReassign}
       />
       <FollowUpModal open={followUpOpen} onOpenChange={setFollowUpOpen} leadId={lead.id} />
+      {/* Conditional mount: the modal owns a ['users','lite'] query that
+          should only fire when the admin actually opens the picker. */}
+      {reassignOpen && (
+        <ReassignLeadModal
+          currentAssignee={lead.assigned_to ?? null}
+          open={reassignOpen}
+          onClose={() => setReassignOpen(false)}
+          onConfirm={handleReassign}
+          confirming={updateLeadMutation.isPending}
+        />
+      )}
       {/* Phase 11.5 — conditional mount: the modal owns a useClients query that
           should NOT fire on every lead detail page load (Reviewer finding 2).
           Trade-off: loses Dialog exit animation (modal unmounts on close); the

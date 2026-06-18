@@ -18,9 +18,14 @@ export async function GET() {
 
     const supabase = await createServerSupabaseClient();
 
+    // `status` + `role` are additive (Commit 1 / Option A): the reassign picker
+    // filters to active, lead-capable users client-side, and resolves the
+    // current owner's display_name even when that owner is inactive (e.g. a
+    // departed agent). Existing callers ignore the extra fields (UserLite has
+    // an index signature).
     const { data: users, error } = await supabase
       .from('pyra_users')
-      .select('username, display_name')
+      .select('username, display_name, status, role')
       .order('display_name', { ascending: true });
 
     if (error) {
