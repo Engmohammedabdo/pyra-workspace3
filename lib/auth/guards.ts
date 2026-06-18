@@ -31,6 +31,13 @@ async function loadUserWithRole(supabase: ReturnType<typeof import('@/lib/supaba
 
   if (!pyraUser) return null;
 
+  // Deactivation gate (Phase 1 remediation — audit Gap #1). Mirrors
+  // getApiAuth: a non-active account must not render server pages either,
+  // even with a valid Supabase session. requireAuth()/requirePermission()
+  // redirect to /login when this returns null. Fails closed — any
+  // status !== 'active' (incl. NULL) is denied.
+  if (pyraUser.status !== 'active') return null;
+
   const role = pyraUser.pyra_roles;
   // Build final permissions via central helper — guarantees BASE_EMPLOYEE
   // inheritance for every internal user, regardless of DB role assignment.

@@ -31,6 +31,16 @@ export async function getApiAuth(): Promise<ApiAuthResult | null> {
       return null;
     }
 
+    // Deactivation gate (Phase 1 remediation — audit Gap #1).
+    // A non-active pyra_user must NOT retain API access even with a valid
+    // Supabase Auth session. This is the systemic fix: setting
+    // pyra_users.status to anything other than 'active' (inactive / suspended)
+    // now revokes API access on the NEXT request, regardless of an unexpired
+    // JWT. Fails closed — any status !== 'active' (incl. NULL) is denied.
+    if (pyraUser.status !== 'active') {
+      return null;
+    }
+
     const role = pyraUser.pyra_roles;
     // Build final permissions via central helper — guarantees BASE_EMPLOYEE
     // inheritance for every internal user, regardless of DB role assignment.

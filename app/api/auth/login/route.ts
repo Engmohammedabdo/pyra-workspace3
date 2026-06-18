@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const username = data.user.user_metadata?.username || data.user.email;
     const { data: pyraUser, error: pyraErr } = await supabase
       .from('pyra_users')
-      .select('role, role_id, username, display_name, extra_permissions, pyra_roles!left(name, name_ar, permissions, color, icon)')
+      .select('role, role_id, username, display_name, status, extra_permissions, pyra_roles!left(name, name_ar, permissions, color, icon)')
       .or(`username.eq.${escapePostgrestValue(username)},email.eq.${escapePostgrestValue(email)}`)
       .limit(1)
       .maybeSingle();
@@ -85,6 +85,20 @@ export async function POST(request: NextRequest) {
       recordLoginAttempt(email, ip, false);
       return NextResponse.json(
         { error: 'هذا الحساب غير مسجل كمستخدم إداري' },
+        { status: 403 }
+      );
+    }
+
+    // ── Deactivation gate (Phase 1 remediation — audit Gap #1) ──
+    // Block login at the door for any non-active account, even with a valid
+    // Supabase Auth password. Fails closed — anything other than 'active'
+    // (inactive / suspended / NULL) is denied. Sign the session out so no
+    // refreshable token lingers client-side.
+    if (pyraUser.status !== 'active') {
+      await supabase.auth.signOut();
+      recordLoginAttempt(pyraUser.username, ip, false);
+      return NextResponse.json(
+        { error: 'الحساب غير نشط — تواصل مع الإدارة' },
         { status: 403 }
       );
     }
