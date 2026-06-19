@@ -47,7 +47,11 @@ import type { PyraLeadAttachment } from '@/types/database';
 //                                             metadata.source='attachment_added'
 // ────────────────────────────────────────────────────────────────────────────
 
-const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+// Gap #3 Phase 3a — lead attachments hold client PII, so they live in a PRIVATE
+// bucket and are served via short-lived signed URLs. Hardcoded (NOT the
+// env-overridable public bucket) so the private target can't be misconfigured away.
+const LEAD_ATTACH_BUCKET = 'pyra-private';
+const SIGNED_URL_TTL = 3600; // 1 hour
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB (parity for both file types)
 const MAX_PER_LEAD = 10;
 /** Phase 15.2 Commit 2 — hard cap on voice-note duration. Mirrors the
@@ -142,11 +146,17 @@ export async function GET(
       return apiServerError();
     }
 
-    // Compute the public URL per row at read time — not stored in DB.
-    const attachments: PyraLeadAttachment[] = (data ?? []).map((row) => {
-      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(row.storage_path);
-      return { ...(row as PyraLeadAttachment), public_url: urlData.publicUrl };
-    });
+    // Generate a short-lived SIGNED URL per row at read time (bucket is private).
+    // Field stays `public_url` so the viewer is unchanged — it just holds a
+    // time-limited signed URL now. Fresh per GET; the viewer refetches on error.
+    const attachments: PyraLeadAttachment[] = await Promise.all(
+      (data ?? []).map(async (row) => {
+        const { data: urlData } = await supabase.storage
+          .from(LEAD_ATTACH_BUCKET)
+          .createSignedUrl(row.storage_path, SIGNED_URL_TTL);
+        return { ...(row as PyraLeadAttachment), public_url: urlData?.signedUrl ?? '' };
+      }),
+    );
 
     return apiSuccess({ attachments });
   } catch (err) {
@@ -336,7 +346,7 @@ export async function POST(
     // Layer 10 — upload to Supabase Storage
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
+      .from(LEAD_ATTACH_BUCKET)
       .upload(storagePath, buffer, {
         contentType: file.type,
         upsert: false,
@@ -376,7 +386,7 @@ export async function POST(
     if (insertError || !inserted) {
       // Storage upload succeeded but DB insert failed — orphan the file.
       // Best-effort cleanup to avoid storage bloat.
-      void supabase.storage.from(BUCKET).remove([storagePath]);
+      void supabase.storage.from(LEAD_ATTACH_BUCKET).remove([storagePath]);
       logError({
         error: insertError ?? new Error('attachment insert returned no row'),
         request,
@@ -387,9 +397,11 @@ export async function POST(
       return apiServerError('فشل تسجيل المرفق');
     }
 
-    // Layer 12 — public URL
-    const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
-    const publicUrl = urlData.publicUrl;
+    // Layer 12 — short-lived signed URL (private bucket)
+    const { data: urlData } = await supabase.storage
+      .from(LEAD_ATTACH_BUCKET)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL);
+    const publicUrl = urlData?.signedUrl ?? '';
 
     // Layer 13 — Lead timeline activity (visible in activity tab).
     // Uses Supabase query-builder .then() per the lazy-thenable convention.

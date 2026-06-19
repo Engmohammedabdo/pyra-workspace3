@@ -3157,21 +3157,31 @@ rotate as precaution. Rotation needs manual dashboard/mail-server work (Abdou):
 - `stripe_publishable_key` — public by design, no rotation.
 
 ### 📋 PENDING — Phase 2 (least-privilege) + Phase 3 (storage), structural
-- **Phase 2 (MEDIUM):** `authenticated` still has full DML on 125 tables, so any
-  of the ~7 logged-in internal users could over-read/write via PostgREST directly
-  (NOT internet-wide). Locking it down requires migrating ~87 pure + ~40 mixed
-  session-client (`createServerSupabaseClient().from()`) routes to service role
-  first, plus handling the auth-path `pyra_users`/`pyra_roles` reads + dashboard
-  realtime tables (need authenticated SELECT). **~90–120 file migration → staged,
-  NOT a one-shot.** Deploy-ordering discipline: code-switch deploys BEFORE any
-  authenticated revoke (Group 2 / Phase 1 lesson).
-- **Phase 3 (MEDIUM):** the `pyraai-workspace` bucket is **public** → ALL objects
-  (lead attachments w/ client PII, portal client files, scripts, WhatsApp media)
-  are URL-fetchable unauthenticated — which also makes the file-manager's existing
-  `createSignedUrl` calls moot. Fix: make the bucket private + migrate the 7
-  `getPublicUrl` sites to signed URLs / auth-gated proxy, handling the WhatsApp
-  `send-pdf` case (Evolution fetches the URL externally → needs a valid signed URL
-  or alternate delivery).
+- **Phase 2 Tier-1 + Tier-2 — ✅ DONE:** revoked `authenticated` on **18 sensitive
+  tables** now service-role-only — Tier-1 (12, zero-migration): api_keys, cards,
+  payments, contracts, credit_notes, purchase_orders, suppliers, evaluations,
+  subscriptions, recurring_invoices, revenue_targets, business_entities; Tier-2 (6,
+  after switching their session-client readers to service role): payroll_runs,
+  payroll_items, employee_payments, error_logs, sessions, login_attempts. Plus a
+  real **payroll authz leak fixed** — `GET /payroll` + `/payroll/[id]` now require
+  `payroll.manage` (were `payroll.view` = every employee → all salaries); employees
+  keep their own payslip via `my-payslips`/`payslip` (self-scoped).
+- **Phase 2 FULL — 📋 deferred v1.1 (MEDIUM):** the remaining `authenticated` grants
+  on the other ~107 tables. Locking them needs migrating ~87 pure + ~40 mixed
+  session-client (`createServerSupabaseClient().from()`) routes to service role +
+  handling the auth-path `pyra_users`/`pyra_roles` reads + dashboard realtime
+  tables (need authenticated SELECT). **~90–120 file migration → staged.** Only the
+  ~7 logged-in internal users can over-read via PostgREST (NOT internet-wide).
+- **Phase 3a — ✅ DONE:** lead attachments (client PII) moved to a new **PRIVATE**
+  bucket `pyra-private` + served via 1h **signed URLs** (`createSignedUrl`, viewer
+  refetches on expiry). 0 existing rows → clean cutover, zero blast radius.
+- **Phase 3b — 📋 deferred v1.1 (MEDIUM):** make `pyraai-workspace` itself private
+  (248 file-manager project/client docs auto-secured — the file manager already
+  signs) + migrate display-asset stored URLs (avatars/branding/entity-logos: store
+  path + sign-on-read, or a dedicated public assets bucket) + WhatsApp media
+  long-TTL signed URL + **fix the `send-pdf` route targeting the non-existent
+  `files` bucket** (likely already broken). Paths are unguessable nanoids, so the
+  remaining exposure is MEDIUM, not enumerable.
 
 **Invariant for all remaining phases:** any `REVOKE`/RLS change on `authenticated`
 must be preceded by deploying the code that stops reading those tables as

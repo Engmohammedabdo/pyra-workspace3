@@ -33,7 +33,9 @@ import { logError } from '@/lib/observability/log-error';
 //   6. System audit log (logActivity).
 // ────────────────────────────────────────────────────────────────────────────
 
-const BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'pyraai-workspace';
+// Gap #3 Phase 3a — lead attachments live in the PRIVATE bucket (hardcoded,
+// matches the POST route). Removing from the wrong bucket would orphan the object.
+const LEAD_ATTACH_BUCKET = 'pyra-private';
 
 export async function DELETE(
   request: NextRequest,
@@ -97,7 +99,7 @@ export async function DELETE(
     // delete still gives the user the expected outcome. Orphan files
     // get swept in v1.1 cron.
     const { error: storageError } = await supabase.storage
-      .from(BUCKET)
+      .from(LEAD_ATTACH_BUCKET)
       .remove([row.storage_path]);
     if (storageError) {
       // Log as warning — not a failure for the user-facing flow.

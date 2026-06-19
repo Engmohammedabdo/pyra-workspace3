@@ -61,6 +61,7 @@ import {
   useDeleteAttachment,
 } from '@/hooks/useLeadAttachments';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
+import { useQueryClient } from '@tanstack/react-query';
 import { resizeImageForUpload, blobToFile } from '@/lib/utils/image-resize';
 import type { PyraLeadAttachment } from '@/types/database';
 
@@ -77,6 +78,17 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
 
   const { data, isLoading } = useLeadAttachments(leadId);
   const attachments = data?.attachments ?? [];
+
+  // Gap #3 Phase 3a — attachment URLs are short-lived signed URLs (private
+  // bucket). If one expires on a long-open page, refetch fresh URLs. Retry each
+  // broken URL at most once so a genuinely missing object can't loop.
+  const queryClient = useQueryClient();
+  const retriedUrls = useRef<Set<string>>(new Set());
+  const handleMediaError = (id: string) => {
+    if (retriedUrls.current.has(id)) return;
+    retriedUrls.current.add(id);
+    queryClient.invalidateQueries({ queryKey: ['crm', 'lead-attachments', leadId] });
+  };
   const remaining = Math.max(0, MAX_PER_LEAD - attachments.length);
   const atCap = attachments.length >= MAX_PER_LEAD;
 
@@ -313,7 +325,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {attachments.map((att) => (
             <li key={att.id}>
-              <AttachmentCell attachment={att} onSelect={() => setSelected(att)} />
+              <AttachmentCell attachment={att} onSelect={() => setSelected(att)} onMediaError={handleMediaError} />
             </li>
           ))}
         </ul>
@@ -329,6 +341,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
               currentUsername={user?.username ?? null}
               onDelete={() => void handleDelete(selected)}
               deleting={deleteMutation.isPending}
+              onMediaError={handleMediaError}
             />
           )}
         </SheetContent>
@@ -342,9 +355,11 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
 function AttachmentCell({
   attachment,
   onSelect,
+  onMediaError,
 }: {
   attachment: PyraLeadAttachment;
   onSelect: () => void;
+  onMediaError: (id: string) => void;
 }) {
   const isVoice = attachment.file_type === 'voice_note';
   const durationLabel = formatVoiceDuration(attachment.duration_seconds);
@@ -386,6 +401,7 @@ function AttachmentCell({
           src={attachment.public_url}
           alt=""
           loading="lazy"
+          onError={() => onMediaError(attachment.id)}
           className="absolute inset-0 h-full w-full object-cover transition-transform group-hover:scale-105"
         />
       ) : (
@@ -482,12 +498,14 @@ function AttachmentDetailPanel({
   currentUsername,
   onDelete,
   deleting,
+  onMediaError,
 }: {
   attachment: PyraLeadAttachment;
   isAdmin: boolean;
   currentUsername: string | null;
   onDelete: () => void;
   deleting: boolean;
+  onMediaError: (id: string) => void;
 }) {
   const canDelete = isAdmin || attachment.uploaded_by === currentUsername;
   const isVoice = attachment.file_type === 'voice_note';
@@ -537,6 +555,7 @@ function AttachmentDetailPanel({
                 src={attachment.public_url}
                 controls
                 preload="metadata"
+                onError={() => onMediaError(attachment.id)}
                 className="w-full"
               >
                 المتصفح لا يدعم تشغيل الصوت.
@@ -547,6 +566,7 @@ function AttachmentDetailPanel({
             <img
               src={attachment.public_url}
               alt="مرفق"
+              onError={() => onMediaError(attachment.id)}
               className="w-full h-auto max-h-[60vh] object-contain bg-black/5"
             />
           )}
