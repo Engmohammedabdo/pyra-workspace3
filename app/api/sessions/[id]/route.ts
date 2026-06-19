@@ -5,7 +5,7 @@ import {
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -21,7 +21,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_sessions service-role-only (Gap #3 Tier-2)
 
     const { data, error } = await supabase
       .from('pyra_sessions')

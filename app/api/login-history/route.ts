@@ -4,7 +4,7 @@ import {
   apiSuccess,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { escapeLike } from '@/lib/utils/path';
 
 // =============================================================
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_login_attempts service-role-only (Gap #3 Tier-2)
 
     let query = supabase
       .from('pyra_login_attempts')

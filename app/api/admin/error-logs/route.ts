@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(200, Math.max(1, parseInt(sp.get('limit') || '50', 10)));
     const offset = (page - 1) * limit;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_error_logs service-role-only (Gap #3 Tier-2)
 
     let query = supabase
       .from('pyra_error_logs')

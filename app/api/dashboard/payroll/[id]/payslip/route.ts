@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { hasPermission } from '@/lib/auth/rbac';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -29,7 +29,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       return apiValidationError('اسم المستخدم مطلوب');
     }
 
-    const supabase = await createServerSupabaseClient();
+    // Service role: payroll tables are service-role-only (Gap #3 Tier-2). The
+    // self-scope guard above (non-managers → own username only) is preserved.
+    const supabase = createServiceRoleClient();
 
     // Fetch the payroll run
     const { data: run, error: runError } = await supabase

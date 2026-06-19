@@ -4,7 +4,7 @@ import {
   apiSuccess,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 // =============================================================
 // GET /api/sessions
@@ -15,7 +15,7 @@ export async function GET(_request: NextRequest) {
     const auth = await requireApiPermission('sessions.view');
     if (isApiError(auth)) return auth;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_sessions service-role-only (Gap #3 Tier-2)
 
     const { data, count, error } = await supabase
       .from('pyra_sessions')
@@ -44,7 +44,7 @@ export async function DELETE(_request: NextRequest) {
     const auth = await requireApiPermission('sessions.manage');
     if (isApiError(auth)) return auth;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_sessions service-role-only (Gap #3 Tier-2)
 
     // Terminate all portal client sessions (exclude reset tokens and admin sessions)
     const { error } = await supabase

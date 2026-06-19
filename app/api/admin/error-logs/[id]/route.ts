@@ -6,7 +6,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 
@@ -74,7 +74,7 @@ export async function PATCH(
       }
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_error_logs service-role-only (Gap #3 Tier-2)
 
     // Pre-check: row exists + currently unresolved (idempotency safety —
     // a double-click should not mutate resolved_at twice).

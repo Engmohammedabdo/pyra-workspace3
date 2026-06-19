@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS } from '@/lib/constants/statuses';
 
@@ -9,16 +9,19 @@ import { PAYROLL_STATUS } from '@/lib/constants/statuses';
 // GET /api/dashboard/payroll
 // List payroll runs, optionally filtered by year.
 // Query params: ?year=YYYY
+// Gap #3 authz fix: the company-wide run list requires payroll.manage (admin/HR),
+// NOT payroll.view (which is BASE_EMPLOYEE) — employees see only their own payslip
+// via /api/dashboard/my-payslips. Prevents any employee reading all salaries.
 // =============================================================
 export async function GET(req: NextRequest) {
   try {
-    const auth = await requireApiPermission('payroll.view');
+    const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
 
     const { searchParams } = new URL(req.url);
     const yearParam = searchParams.get('year');
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_payroll_runs service-role-only (Gap #3 Tier-2)
 
     let query = supabase
       .from('pyra_payroll_runs')

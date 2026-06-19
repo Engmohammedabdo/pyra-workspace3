@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
@@ -10,15 +10,18 @@ type RouteParams = { params: Promise<{ id: string }> };
 // =============================================================
 // GET /api/dashboard/payroll/[id]
 // Get a single payroll run with all its items (joined with user info).
+// Gap #3 authz fix: full-run detail (all employees' items/salaries) requires
+// payroll.manage (admin/HR), NOT payroll.view (BASE_EMPLOYEE). Employees use
+// /api/dashboard/payroll/[id]/payslip (self-scoped) for their own payslip.
 // =============================================================
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
-    const auth = await requireApiPermission('payroll.view');
+    const auth = await requireApiPermission('payroll.manage');
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = createServiceRoleClient(); // pyra_payroll_* service-role-only (Gap #3 Tier-2)
 
     // Fetch the payroll run
     const { data: run, error: runError } = await supabase

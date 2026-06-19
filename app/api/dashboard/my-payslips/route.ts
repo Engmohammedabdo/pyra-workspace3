@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 
 // =============================================================
 // GET /api/dashboard/my-payslips
@@ -13,7 +13,10 @@ export async function GET(req: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const username = auth.pyraUser.username;
-    const supabase = await createServerSupabaseClient();
+    // Service role: pyra_payroll_items + pyra_employee_payments are locked to
+    // service-role-only (audit Gap #3 Tier-2). Self-scope preserved by the
+    // .eq('username', username) below — switch is scope-neutral (RLS is off).
+    const supabase = createServiceRoleClient();
 
     // Fetch payroll items for this user
     const { data: items, error } = await supabase
