@@ -3087,3 +3087,21 @@ verify with a DB read.
   sent-status UX — delivery receipts / retry).
 - Read-only quote view for agents (the Deals-tab card covers visibility for now;
   no standalone agent-facing quote detail).
+
+## Audit Gap #4 — `sales_leads.manage` misleading name (documented, rename deferred)
+
+**Decision (2026-06-19, Option B):** document, do NOT rename now. `sales_leads.manage`
+gates 9 routes across 7 files + 3 `rbac.ts` definitions + the live "Sales" DB role.
+Despite the `.manage` suffix it does **NOT** grant manage-all — every gated route
+ALSO enforces own-lead scope (`canAccessLead` / own-lead filter) and the leads LIST
+endpoint scopes by `sales_leads.view` + own-lead filter, so agents only ever touch
+their OWN leads. It's **P2 hygiene (no security hole), just a badly-named permission.**
+
+A bare rename carries a real **403 risk**: permissions resolve from the DB role, so a
+code/DB mismatch window during deploy would lock the 3 agents out of all 9 routes. The
+proper fix is a 3-step zero-downtime migration (accept both → flip gates → drop old),
+bundled with the **broader `sales.*` rename** already deferred in Phase 12 decision #4.
+
+**v1.1 backlog:** rename `sales_leads.manage` → `sales_leads.update` as part of the
+sales.* rename pass, via the zero-downtime alias migration. Clarifying comment lives at
+the `SALES_LEADS_MANAGE` definition in `lib/auth/rbac.ts`.

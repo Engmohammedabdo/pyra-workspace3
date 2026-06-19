@@ -179,6 +179,14 @@ export const PERMISSIONS = {
   SALES_MANAGE: 'sales.manage',
   SALES_LEADS_VIEW: 'sales_leads.view',
   SALES_LEADS_CREATE: 'sales_leads.create',
+  // ⚠️ MISLEADING NAME (audit Gap #4, 2026-06-19) — despite the `.manage` suffix,
+  // this does NOT grant manage-all or bypass lead ownership. Every route gating
+  // on it ALSO enforces own-lead scope (canAccessLead / own-lead filter), and the
+  // leads LIST endpoint scopes by `sales_leads.view` + own-lead filter — so a
+  // sales_agent holding this can only ever touch their OWN leads. Functionally
+  // correct, just badly named. A proper rename (→ `sales_leads.update`) is
+  // DEFERRED to the broader sales.* rename pass (v1.1, see Phase 12 decision #4)
+  // to avoid a piecemeal 13-reference / 3-deploy / 403-risk migration.
   SALES_LEADS_MANAGE: 'sales_leads.manage',
   SALES_WHATSAPP_VIEW: 'sales_whatsapp.view',
   SALES_WHATSAPP_SEND: 'sales_whatsapp.send',
@@ -813,7 +821,7 @@ const ROLE_EXTRAS: Record<string, string[]> = {
     'sales.view',
     'sales_leads.view',
     'sales_leads.create',
-    'sales_leads.manage',
+    'sales_leads.manage',  // scope-limited despite the name — see PERMISSIONS def note (audit Gap #4)
     'sales_whatsapp.view',
     'sales_whatsapp.send',
     'sales_whatsapp_groups.view',
