@@ -22,6 +22,10 @@ interface PipelineColumnProps {
   leads: Lead[];
   className?: string;
   compactCards?: boolean;
+  /** Option B (Commit 2) — bulk selection, threaded down to each card. */
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (leadId: string) => void;
 }
 
 const HEADER_TONE: Record<string, string> = {
@@ -54,7 +58,15 @@ const OVER_TINT: Record<string, string> = {
   stone:   'bg-stone-500/10 ring-2 ring-stone-300 dark:ring-stone-600/60',
 };
 
-export function PipelineColumn({ stage, leads, className, compactCards }: PipelineColumnProps) {
+export function PipelineColumn({
+  stage,
+  leads,
+  className,
+  compactCards,
+  selectionMode,
+  selectedIds,
+  onToggleSelect,
+}: PipelineColumnProps) {
   const total = leads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
   const headerTone = HEADER_TONE[stage.color] ?? 'border-t-muted-foreground/40';
   const countTone = COUNT_TONE[stage.color] ?? 'bg-muted text-muted-foreground';
@@ -101,7 +113,14 @@ export function PipelineColumn({ stage, leads, className, compactCards }: Pipeli
           <PipelineEmpty stageLabel={stage.name_ar} />
         ) : (
           leads.map((lead) => (
-            <PipelineCard key={lead.id} lead={lead} compact={compactCards} />
+            <PipelineCard
+              key={lead.id}
+              lead={lead}
+              compact={compactCards}
+              selectionMode={selectionMode}
+              isSelected={selectedIds?.has(lead.id)}
+              onToggleSelect={onToggleSelect}
+            />
           ))
         )}
       </div>

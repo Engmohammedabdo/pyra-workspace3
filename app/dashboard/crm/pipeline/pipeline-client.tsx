@@ -36,12 +36,14 @@ import { useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { GitBranch, Plus } from 'lucide-react';
+import { GitBranch, Plus, CheckSquare, X } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
-import { useLeads, useMoveLeadStageWithToasts } from '@/hooks/useLeads';
+import { useLeads, useMoveLeadStageWithToasts, useBulkAssignLeads } from '@/hooks/useLeads';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
+import { BulkActionBar } from '@/components/crm/pipeline/bulk-action-bar';
 import { AddLeadModal } from '@/components/crm/add-lead-modal/add-lead-modal';
 import {
   MoveStageConfirmModal,
@@ -60,6 +62,45 @@ export function PipelineClient() {
   // mobile MobileStageSheet (via PipelineBoard → PipelineCard onChangeStage
   // prop, which ultimately calls handleDropChangeStage with the same args).
   const { moveStage, runMoveStage } = useMoveLeadStageWithToasts();
+
+  // ── Option B (Commit 2) — bulk selection + assign ──
+  // Admin-only: gated by leads.assign (sales agents lack it, so the toggle
+  // never renders for them). Selection state is board-level (shared across
+  // cards) so it lives here, not per-card. Entering selection mode disables
+  // drag board-wide (PipelineBoard sets the sensor distance unreachable).
+  const canBulk = usePermission('leads.assign');
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const bulkAssign = useBulkAssignLeads();
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const exitSelection = useCallback(() => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const handleBulkAssign = useCallback(
+    async (username: string) => {
+      const ids = Array.from(selectedIds);
+      if (ids.length === 0) return;
+      try {
+        const res = await bulkAssign.mutateAsync({ lead_ids: ids, assigned_to: username });
+        toast.success(`تم تعيين ${res.affected ?? ids.length} صفقة بنجاح`);
+        exitSelection();
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'فشل التعيين الجماعي');
+      }
+    },
+    [selectedIds, bulkAssign, exitSelection],
+  );
 
   // Shared "needs-extra-data" modal state. Set when a card is dropped on
   // stg_contract_signed (needs attachment) or stg_closed_lost (needs
@@ -193,6 +234,16 @@ export function PipelineClient() {
           </p>
         </div>
         <div className="flex gap-2">
+          {canBulk &&
+            (selectionMode ? (
+              <Button variant="outline" onClick={exitSelection}>
+                <X className="size-4 me-2" /> إنهاء التحديد
+              </Button>
+            ) : (
+              <Button variant="outline" onClick={() => setSelectionMode(true)}>
+                <CheckSquare className="size-4 me-2" /> تحديد متعدد
+              </Button>
+            ))}
           <Button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
             <Plus className="size-4 me-2" /> Lead جديد
           </Button>
@@ -221,7 +272,19 @@ export function PipelineClient() {
         leads={leads}
         loading={stagesLoading || leadsLoading}
         onDropChangeStage={handleDropChangeStage}
+        selectionMode={selectionMode}
+        selectedIds={selectedIds}
+        onToggleSelect={toggleSelect}
       />
+
+      {selectionMode && selectedIds.size > 0 && (
+        <BulkActionBar
+          count={selectedIds.size}
+          busy={bulkAssign.isPending}
+          onAssign={handleBulkAssign}
+          onCancel={exitSelection}
+        />
+      )}
     </div>
   );
 }

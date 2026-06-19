@@ -49,22 +49,43 @@ interface PipelineBoardProps {
    * The parent owns the mutation + optimistic update.
    */
   onDropChangeStage?: (leadId: string, toStageId: string, fromStageId: string | null) => void;
+  /**
+   * Option B (Commit 2) — bulk selection. When `selectionMode` is true, drag is
+   * disabled board-wide (sensor distance set unreachable, same mechanism as
+   * mobile) and cards render their selectable variant. Default = locked
+   * drag-drop behavior, unchanged.
+   */
+  selectionMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (leadId: string) => void;
 }
 
 // Effectively-disabled sensor on mobile.
 const MOBILE_DRAG_DISTANCE = Number.MAX_SAFE_INTEGER;
 const DESKTOP_DRAG_DISTANCE = 8;
 
-export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: PipelineBoardProps) {
+export function PipelineBoard({
+  stages,
+  leads,
+  loading,
+  onDropChangeStage,
+  selectionMode = false,
+  selectedIds,
+  onToggleSelect,
+}: PipelineBoardProps) {
   const isDesktop = useIsDesktop();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
   // PointerSensor with viewport-aware activation. On mobile the threshold is
   // unreachable so drag never starts; the card's Link click still works.
+  // In selection mode (Option B) the threshold is likewise unreachable so a
+  // card click selects instead of starting a drag — reuses the exact mobile
+  // kill-switch, leaving the desktop drag path untouched when not selecting.
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: isDesktop ? DESKTOP_DRAG_DISTANCE : MOBILE_DRAG_DISTANCE,
+        distance:
+          isDesktop && !selectionMode ? DESKTOP_DRAG_DISTANCE : MOBILE_DRAG_DISTANCE,
       },
     }),
   );
@@ -143,7 +164,13 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
         <div className="flex gap-3 overflow-x-auto pb-3" dir="rtl">
           {stages.map((s) => (
             <div key={s.id} className="shrink-0 w-72 lg:w-80">
-              <PipelineColumn stage={s} leads={grouped.get(s.id) ?? []} />
+              <PipelineColumn
+                stage={s}
+                leads={grouped.get(s.id) ?? []}
+                selectionMode={selectionMode}
+                selectedIds={selectedIds}
+                onToggleSelect={onToggleSelect}
+              />
             </div>
           ))}
         </div>
@@ -197,6 +224,9 @@ export function PipelineBoard({ stages, leads, loading, onDropChangeStage }: Pip
                 lead={lead}
                 stages={stages}
                 onChangeStage={onDropChangeStage}
+                selectionMode={selectionMode}
+                isSelected={selectedIds?.has(lead.id)}
+                onToggleSelect={onToggleSelect}
               />
             ))
           )}

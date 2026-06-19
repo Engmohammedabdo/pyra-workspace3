@@ -43,7 +43,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils/cn';
-import { Phone, MessageCircle, ArrowRightLeft } from 'lucide-react';
+import { Phone, MessageCircle, ArrowRightLeft, Check } from 'lucide-react';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import { LeadSourceIcon } from '@/components/crm/lead/lead-source-icon';
 import { formatCurrency } from '@/lib/utils/format';
@@ -69,6 +69,15 @@ interface PipelineCardProps {
    * routine path). Optional: when omitted, the mobile button is hidden.
    */
   onChangeStage?: (leadId: string, toStageId: string, fromStageId: string | null) => void;
+  /**
+   * Option B (Commit 2) — bulk selection. When `selectionMode` is true the card
+   * renders a selectable, non-draggable, non-navigating variant (drag is also
+   * sensor-disabled board-wide in this mode). Default (false) = the locked
+   * draggable <Link> path, untouched.
+   */
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (leadId: string) => void;
 }
 
 function daysAgoLabel(iso: string | null | undefined): string | null {
@@ -100,6 +109,7 @@ function PipelineCardView({
   lead,
   compact = false,
   isDragging = false,
+  hideQuickActions = false,
 }: {
   lead: Lead;
   compact?: boolean;
@@ -107,6 +117,9 @@ function PipelineCardView({
    *  ring, and rotate flourish; suppresses the absolute-positioned quick-
    *  action buttons (which are a source-only affordance). */
   isDragging?: boolean;
+  /** Option B (Commit 2): suppress the quick-action buttons in selection mode
+   *  so a stray tap on a card edge selects instead of dialing/opening WhatsApp. */
+  hideQuickActions?: boolean;
 }) {
   const lastContact = daysAgoLabel(lead.last_contact_at);
   const winProb = lead.win_probability ?? 0;
@@ -166,8 +179,8 @@ function PipelineCardView({
       </div>
 
       {/* Quick actions — source-only. Suppressed in overlay variant so the
-          dragging ghost stays visually uncluttered. */}
-      {!isDragging && (lead.phone || wa) && (
+          dragging ghost stays visually uncluttered, and in selection mode. */}
+      {!isDragging && !hideQuickActions && (lead.phone || wa) && (
         <div
           className={cn(
             'absolute end-2 bottom-2 flex items-center gap-1',
@@ -219,7 +232,15 @@ function PipelineCardView({
  * dragging instead of `opacity-30` — HubSpot-style UX where only the
  * floating overlay ghost is visible during drag.
  */
-export function PipelineCard({ lead, compact = false, stages, onChangeStage }: PipelineCardProps) {
+export function PipelineCard({
+  lead,
+  compact = false,
+  stages,
+  onChangeStage,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
+}: PipelineCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
@@ -248,6 +269,41 @@ export function PipelineCard({ lead, compact = false, stages, onChangeStage }: P
   // both, so the button doesn't mount there). The md:hidden gate ensures
   // even when supplied, the button only paints on mobile.
   const showMobileStageButton = !!stages && !!onChangeStage;
+
+  // Option B (Commit 2) — selection mode: render a selectable, NON-draggable,
+  // NON-navigating variant. Drag is also sensor-disabled board-wide while in
+  // this mode, so the default draggable <Link> path (the `return` below) is
+  // byte-identical to the locked Phase 7 behavior. The useDraggable hook above
+  // is still called unconditionally (rules of hooks); its listeners/transform
+  // are simply not applied in this branch.
+  if (selectionMode) {
+    return (
+      <button
+        type="button"
+        onClick={() => onToggleSelect?.(lead.id)}
+        aria-pressed={isSelected}
+        aria-label={`تحديد ${lead.name}`}
+        className={cn(
+          'relative block w-full text-start rounded-xl transition-all',
+          'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
+          isSelected && 'ring-2 ring-orange-400 dark:ring-orange-600',
+        )}
+      >
+        <span
+          className={cn(
+            'absolute top-2 start-2 z-10 size-5 rounded-md border-2 flex items-center justify-center',
+            isSelected
+              ? 'border-orange-500 bg-orange-500 text-white'
+              : 'border-muted-foreground/40 bg-background',
+          )}
+          aria-hidden
+        >
+          {isSelected && <Check className="size-3.5" />}
+        </span>
+        <PipelineCardView lead={lead} compact={compact} hideQuickActions />
+      </button>
+    );
+  }
 
   return (
     <div

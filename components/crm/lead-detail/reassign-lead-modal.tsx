@@ -24,7 +24,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Check, UserCog } from 'lucide-react';
 import {
   Dialog,
@@ -37,21 +36,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { fetchAPI } from '@/hooks/api-helpers';
+import { useLeadCapableUsers } from '@/hooks/useLeadCapableUsers';
 import { cn } from '@/lib/utils/cn';
-
-interface UserLiteRow {
-  username: string;
-  display_name: string;
-  status?: string;
-  role?: string;
-}
-
-// Roles that can OWN a lead (have leads.view → can actually see/work it once
-// assigned). Assigning to anyone else (e.g. a plain `employee`) would re-orphan
-// the lead under someone who can't open it. v1 uses a role proxy; v1.1 could
-// filter by computed leads.view capability for custom roles.
-const LEAD_CAPABLE_ROLES = new Set(['sales_agent', 'admin']);
 
 export interface ReassignLeadModalProps {
   /** Current owner username — shown as "current" + excluded from the picker. */
@@ -80,30 +66,17 @@ export default function ReassignLeadModal({
     if (open) setSelected(null);
   }, [open]);
 
-  // Shared cache key with useUsersLite — React Query dedupes, so the sidebar's
-  // owner-name lookup and this picker hit the network once. enabled:open keeps
-  // it from firing on every lead-detail render.
-  const { data: users = [], isLoading } = useQuery<UserLiteRow[]>({
-    queryKey: ['users', 'lite'],
-    queryFn: () => fetchAPI('/api/users/lite'),
-    staleTime: 5 * 60_000,
-    enabled: open,
-  });
+  // Shared security filter (active + lead-capable) — the SAME source the
+  // pipeline bulk-assign bar uses, so the "who can own a lead" rule never
+  // drifts. `all` resolves the current owner's name even when inactive (e.g. a
+  // departed agent whose leads haven't been reassigned yet). The modal is
+  // conditionally mounted (only when open), so the query fires on open.
+  const { all, leadCapable, isLoading } = useLeadCapableUsers();
 
-  // Active + lead-capable, current-owner excluded. The active filter is the
-  // security-relevant invariant (no inactive/banned target); the role filter
-  // prevents re-orphaning the lead under a user who can't open it.
-  const options = users
-    .filter(
-      (u) =>
-        u.status === 'active' &&
-        LEAD_CAPABLE_ROLES.has(u.role ?? '') &&
-        u.username !== currentAssignee,
-    )
-    .sort((a, b) => a.display_name.localeCompare(b.display_name, 'ar'));
+  const options = leadCapable.filter((u) => u.username !== currentAssignee);
 
   const currentName =
-    users.find((u) => u.username === currentAssignee)?.display_name ??
+    all.find((u) => u.username === currentAssignee)?.display_name ??
     currentAssignee ??
     '—';
 

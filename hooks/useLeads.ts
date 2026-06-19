@@ -325,3 +325,32 @@ export function useLinkClient() {
     },
   });
 }
+
+// ── Option B (Commit 2): bulk reassign owner from the pipeline ──
+// POST /api/dashboard/sales/leads/bulk { action:'assign', lead_ids, assigned_to }
+// Reuses the existing (Phase-12-surviving) bulk endpoint. The server gates on
+// sales_leads.manage AND scopes non-admins to their OWN leads; the pipeline
+// selection UI itself is admin-gated (leads.assign). The endpoint caps at 50
+// ids/request and logs a per-lead `transfer` activity (metadata.bulk=true).
+// NOTE: unlike the per-lead PATCH path, the bulk endpoint does NOT emit a
+// new-owner notification (documented divergence — see CRM-PROGRESS).
+export interface BulkAssignInput {
+  lead_ids: string[];
+  assigned_to: string;
+}
+
+export function useBulkAssignLeads() {
+  const qc = useQueryClient();
+  return useMutation<{ action: string; affected: number }, Error, BulkAssignInput>({
+    mutationFn: ({ lead_ids, assigned_to }) =>
+      mutateAPI('/api/dashboard/sales/leads/bulk', 'POST', {
+        action: 'assign',
+        lead_ids,
+        assigned_to,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
+      qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+    },
+  });
+}
