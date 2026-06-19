@@ -5,7 +5,7 @@ import {
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity } from '@/lib/api/activity';
 
 // ── Allowed setting keys (whitelist) ─────────────────────────
@@ -113,7 +113,10 @@ export async function GET(_request: NextRequest) {
     const auth = await requireApiPermission('settings.view');
     if (isApiError(auth)) return auth;
 
-    const supabase = await createServerSupabaseClient();
+    // Service role: pyra_settings is locked to service-role-only (audit Gap #3
+    // Phase 1 — it holds SMTP/Stripe secrets). This route is admin-gated above
+    // (settings.view / settings.manage), so service role is the correct client.
+    const supabase = createServiceRoleClient();
 
     const { data: settings, error } = await supabase
       .from('pyra_settings')
@@ -163,7 +166,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const supabase = await createServerSupabaseClient();
+    // Service role: pyra_settings is locked to service-role-only (audit Gap #3
+    // Phase 1 — it holds SMTP/Stripe secrets). This route is admin-gated above
+    // (settings.view / settings.manage), so service role is the correct client.
+    const supabase = createServiceRoleClient();
     const now = new Date().toISOString();
     const errors: string[] = [];
 

@@ -5,7 +5,7 @@ import {
   apiUnauthorized,
   apiServerError,
 } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 
 // =============================================================
@@ -40,6 +40,10 @@ async function getAdminDashboard(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   username: string
 ) {
+  // pyra_settings is service-role-only (audit Gap #3 Phase 1 — holds secrets),
+  // so the max_storage_gb read below uses a service-role client; the rest stay
+  // on the (authenticated) session client.
+  const svc = createServiceRoleClient();
   // Use v_dashboard_stats view for all KPIs in ONE query
   // + separate queries for activity & notifications (user-specific)
   const [statsResult, activityResult, notificationsResult, storageSettingResult] = await Promise.all([
@@ -63,8 +67,8 @@ async function getAdminDashboard(
       .eq('recipient_username', username)
       .eq('is_read', false),
 
-    // Max storage setting
-    supabase
+    // Max storage setting (service-role — pyra_settings is service-role-only)
+    svc
       .from('pyra_settings')
       .select('value')
       .eq('key', 'max_storage_gb')
