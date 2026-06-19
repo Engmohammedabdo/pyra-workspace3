@@ -78,7 +78,15 @@ export async function POST(request: NextRequest) {
           metadata: { assigned_to, bulk: true },
           created_by: auth.pyraUser.username,
         }));
-        void supabase.from('pyra_lead_activities').insert(activityRows);
+        // Commit 2c bug fix: this was a bare `void` on a Supabase lazy-thenable
+        // — the query was BUILT BUT NEVER SENT (no .then()/await), so bulk
+        // reassign logged ZERO activity (verified missing in DB during the 2b
+        // test: transfer_activities=0). Awaited now so the transfer activity
+        // actually persists. (CLAUDE.md repeatedly warns about this footgun.)
+        const { error: assignActErr } = await supabase
+          .from('pyra_lead_activities')
+          .insert(activityRows);
+        if (assignActErr) console.error('[bulk assign] activity insert failed:', assignActErr.message);
 
         // Commit 2b — notify the new owner once per reassigned lead, at parity
         // with the per-lead reassign path (same type/title/message shape). One
@@ -127,7 +135,12 @@ export async function POST(request: NextRequest) {
           metadata: { stage_id, bulk: true },
           created_by: auth.pyraUser.username,
         }));
-        void supabase.from('pyra_lead_activities').insert(activityRows);
+        // Commit 2c bug fix: same lazy-thenable bug as the assign case — await
+        // so the bulk stage-change activity persists.
+        const { error: stageActErr } = await supabase
+          .from('pyra_lead_activities')
+          .insert(activityRows);
+        if (stageActErr) console.error('[bulk stage] activity insert failed:', stageActErr.message);
         break;
       }
 
@@ -157,8 +170,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log bulk action
-    void supabase.from('pyra_activity_log').insert({
+    // Log bulk action — Commit 2c bug fix: awaited (was a bare `void`
+    // lazy-thenable that never executed, so bulk actions left no audit-log row).
+    const { error: auditErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: `leads_bulk_${action}`,
       username: auth.pyraUser.username,
@@ -167,6 +181,7 @@ export async function POST(request: NextRequest) {
       details: { action, count: lead_ids.length, lead_ids },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+    if (auditErr) console.error('[bulk action] audit log insert failed:', auditErr.message);
 
     return apiSuccess({ action, affected });
   } catch (err) {
