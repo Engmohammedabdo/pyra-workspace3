@@ -27,11 +27,7 @@ export async function GET(request: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const scope = await resolveUserScope(auth);
-
-    // Non-admin with no linked clients → empty result
-    if (!scope.isAdmin && scope.clientIds.length === 0) {
-      return apiSuccess([], { total: 0, page: 1, limit: 20 });
-    }
+    const me = auth.pyraUser.username;
 
     const supabase = createServiceRoleClient();
     const sp = request.nextUrl.searchParams;
@@ -39,6 +35,7 @@ export async function GET(request: NextRequest) {
     const status = sp.get('status')?.trim() || '';
     const search = sp.get('search')?.trim() || '';
     const clientId = sp.get('client_id')?.trim() || '';
+    const leadIdParam = sp.get('lead_id')?.trim() || '';
     const page = Math.max(1, parseInt(sp.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(sp.get('limit') || '20')));
     const offset = (page - 1) * limit;
@@ -47,9 +44,40 @@ export async function GET(request: NextRequest) {
       .from('pyra_quotes')
       .select(QUOTE_FIELDS, { count: 'exact' });
 
-    // Scope-based filtering: non-admins only see quotes for their clients
+    // Gap #5a — lead-centric quote scoping. A non-admin sees a quote if ANY of:
+    //   (1) they created it (created_by), OR
+    //   (2) it's linked to a lead they own (lead_id ∈ their leads), OR
+    //   (3) it's for a client in their team/ERP scope (clientIds).
+    // Replaces the old `client_id IN clientIds`-only filter, which returned []
+    // for team-less CRM agents (no teams → no clientIds). Empty arrays are
+    // OMITTED (PostgREST `in.()` with empty parens is invalid). All values are
+    // quoted via escapePostgrestValue (usernames can contain dots, e.g.
+    // "mo.hanach"). NOTE: clientIds source (pyra_projects.client_id, `c_`
+    // scheme) rarely matches pyra_quotes.client_id (`cl_` scheme) — namespace
+    // mismatch is a known v1.1 issue; created_by + lead-owned are the workhorses.
     if (!scope.isAdmin) {
-      query = query.in('client_id', scope.clientIds);
+      const { data: myLeads } = await supabase
+        .from('pyra_sales_leads')
+        .select('id')
+        .eq('assigned_to', me);
+      const myLeadIds = (myLeads ?? []).map((l) => l.id as string);
+
+      const orClauses = [`created_by.eq.${escapePostgrestValue(me)}`];
+      if (myLeadIds.length) {
+        orClauses.push(`lead_id.in.(${myLeadIds.map(escapePostgrestValue).join(',')})`);
+      }
+      if (scope.clientIds.length) {
+        orClauses.push(
+          `client_id.in.(${scope.clientIds.map((c) => escapePostgrestValue(String(c))).join(',')})`,
+        );
+      }
+      query = query.or(orClauses.join(','));
+    }
+
+    // ?lead_id= filter — safe: AND-ed with the scope OR above, so a non-admin
+    // can't surface quotes for a lead they neither own nor created a quote on.
+    if (leadIdParam) {
+      query = query.eq('lead_id', leadIdParam);
     }
 
     if (status && status !== 'all') {

@@ -8,6 +8,8 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { canAccessLead } from '@/lib/auth/lead-scope';
+import { escapePostgrestValue } from '@/lib/utils/path';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { QUOTE_FIELDS } from '@/lib/supabase/fields';
@@ -41,9 +43,20 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
     if (!quote) return apiNotFound('عرض السعر غير موجود');
 
-    // Scope check: non-admins can only view quotes for their own clients
-    if (!scope.isAdmin && !scope.clientIds.includes(quote.client_id)) {
-      return apiForbidden();
+    // Gap #5a — three-way scope: own quote OR lead-owned OR client-scope.
+    // Mirrors the list endpoint so an agent can open a quote they created or a
+    // quote on a lead they own (team-less agents have no clientIds).
+    if (!scope.isAdmin) {
+      const me = auth.pyraUser.username;
+      const ownsQuote = quote.created_by === me;
+      const inClientScope =
+        !!quote.client_id && scope.clientIds.some((c) => String(c) === quote.client_id);
+      const ownsLead =
+        !!quote.lead_id &&
+        (await canAccessLead(supabase, me, auth.pyraUser.role, quote.lead_id));
+      if (!ownsQuote && !inClientScope && !ownsLead) {
+        return apiForbidden();
+      }
     }
 
     // Get items
@@ -81,10 +94,14 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     // Get revisions (other versions in the same chain)
     const rootId = quote.parent_quote_id || quote.id;
+    // escapePostgrestValue on the .or() interpolation (Phase D convention).
+    // Quote IDs are nanoid (no dots) so practical risk is nil, but keep the
+    // guard consistent across all .or() call sites.
+    const safeRootId = escapePostgrestValue(rootId);
     const { data: revisions } = await supabase
       .from('pyra_quotes')
       .select('id, quote_number, version, status, created_at')
-      .or(`id.eq.${rootId},parent_quote_id.eq.${rootId}`)
+      .or(`id.eq.${safeRootId},parent_quote_id.eq.${safeRootId}`)
       .neq('id', id)
       .order('version', { ascending: false });
 
