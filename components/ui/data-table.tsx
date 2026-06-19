@@ -323,9 +323,27 @@ export function DataTable<T>({
                     rowClassName?.(row)
                   )}
                   onClick={(e) => {
-                    // Don't trigger row click if clicking on checkbox or interactive elements
+                    // Don't trigger row click on checkboxes / interactive elements.
+                    //
+                    // CRITICAL: Radix portals (DropdownMenu/Popover/Select/Dialog)
+                    // render their content at document.body, but their React
+                    // onClick still bubbles through the React tree to THIS <tr>
+                    // handler. A click on a portaled menu item (e.g. the row's
+                    // ⋮ "delete") would otherwise fire row navigation — the
+                    // in-DOM `[data-no-row-click]` wrapper can't catch it because
+                    // the item lives in the portal subtree, not inside the row.
+                    // Guard against the popper wrapper + dialog roles too.
                     const target = e.target as HTMLElement;
-                    if (target.closest('button') || target.closest('[role="checkbox"]') || target.closest('a') || target.closest('[data-no-row-click]')) {
+                    if (
+                      target.closest('button') ||
+                      target.closest('[role="checkbox"]') ||
+                      target.closest('a') ||
+                      target.closest('[data-no-row-click]') ||
+                      target.closest('[data-radix-popper-content-wrapper]') ||
+                      target.closest('[role="menu"]') ||
+                      target.closest('[role="dialog"]') ||
+                      target.closest('[role="alertdialog"]')
+                    ) {
                       return;
                     }
                     onRowClick?.(row);
