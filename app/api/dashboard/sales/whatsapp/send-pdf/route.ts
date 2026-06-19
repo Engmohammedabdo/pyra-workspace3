@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { evolutionClient } from '@/lib/evolution/client';
 import { logActivity } from '@/lib/api/activity';
 import { QUOTE_FIELDS, INVOICE_FIELDS } from '@/lib/supabase/fields';
+import { loadServerPdfFonts, loadServerDefaultLogo } from '@/lib/pdf/pdf-assets-server';
 
 /**
  * POST /api/dashboard/sales/whatsapp/send-pdf
@@ -41,6 +42,14 @@ export async function POST(request: NextRequest) {
       .replace('@c.us', '')
       .replace('@lid', '');
 
+    // Server-side PDF assets (fonts + default logo) read from the filesystem and
+    // injected into the generators — the in-browser relative `fetch('/fonts/..')`
+    // throws in Node, which previously left these PDFs without Arabic shaping.
+    const [pdfFonts, pdfDefaultLogo] = await Promise.all([
+      loadServerPdfFonts(),
+      loadServerDefaultLogo(),
+    ]);
+
     let pdfBuffer: Buffer;
     let fileName: string;
 
@@ -71,7 +80,7 @@ export async function POST(request: NextRequest) {
 
       // Generate PDF using the existing generator with returnBlob
       const { generateQuotePDF } = await import('@/lib/pdf/quote-pdf');
-      const blob = await generateQuotePDF(quoteData, { returnBlob: true });
+      const blob = await generateQuotePDF(quoteData, { returnBlob: true, fonts: pdfFonts, defaultLogo: pdfDefaultLogo });
       if (!blob) return apiServerError('فشل إنشاء ملف PDF');
 
       const arrayBuffer = await (blob as Blob).arrayBuffer();
@@ -112,7 +121,7 @@ export async function POST(request: NextRequest) {
 
       // Generate PDF using the existing invoice generator with returnBlob
       const { generateInvoicePDF } = await import('@/lib/pdf/invoice-pdf');
-      const invBlob = await generateInvoicePDF(invoiceData, { returnBlob: true });
+      const invBlob = await generateInvoicePDF(invoiceData, { returnBlob: true, fonts: pdfFonts, defaultLogo: pdfDefaultLogo });
       if (!invBlob) return apiServerError('فشل إنشاء ملف PDF');
 
       pdfBuffer = Buffer.from(await (invBlob as Blob).arrayBuffer());

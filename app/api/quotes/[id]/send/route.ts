@@ -11,7 +11,10 @@ import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { sendQuoteSentEmail } from '@/lib/email/notify';
+import { loadServerPdfFonts, loadServerDefaultLogo } from '@/lib/pdf/pdf-assets-server';
+import { QUOTE_FIELDS } from '@/lib/supabase/fields';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -28,9 +31,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
+    // Full field set — needed to render the attached PDF (company/bank/terms/
+    // discount/client fields), not just the status-flip subset.
     const { data: quote } = await supabase
       .from('pyra_quotes')
-      .select('id, quote_number, client_id, client_name, client_email, total, currency, status')
+      .select(QUOTE_FIELDS)
       .eq('id', id)
       .maybeSingle();
 
@@ -84,12 +89,50 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!quote.client_email) {
       email = { sent: false, reason: 'no_email' };
     } else {
+      // Generate the quote PDF server-side to ATTACH it — lead recipients have no
+      // portal login, so the attachment (not the portal link) is the deliverable.
+      // Mirrors app/api/dashboard/sales/whatsapp/send-pdf: dynamic-import the
+      // generator + inject fs-loaded fonts/logo (relative fetch throws in Node).
+      let pdf: { filename: string; content: Buffer } | undefined;
+      try {
+        const { data: items } = await supabase
+          .from('pyra_quote_items')
+          .select('description, quantity, rate, amount')
+          .eq('quote_id', id)
+          .order('sort_order', { ascending: true });
+        const [fonts, defaultLogo] = await Promise.all([
+          loadServerPdfFonts(),
+          loadServerDefaultLogo(),
+        ]);
+        const { generateQuotePDF } = await import('@/lib/pdf/quote-pdf');
+        const blob = await generateQuotePDF(
+          {
+            ...quote,
+            items: items || [],
+            terms_conditions: quote.terms_conditions || [],
+            bank_details: quote.bank_details || { bank: '', account_name: '', account_no: '', iban: '' },
+          } as Parameters<typeof generateQuotePDF>[0],
+          { returnBlob: true, fonts, defaultLogo },
+        );
+        if (blob) {
+          pdf = {
+            filename: `Quote_${quote.quote_number}.pdf`,
+            content: Buffer.from(await (blob as Blob).arrayBuffer()),
+          };
+        }
+      } catch (pdfErr) {
+        // PDF generation must NOT block the email — fall back to a link-only send.
+        logError({ error: pdfErr, request: _request, metadata: { action: 'quote_send_pdf', quote_id: id } });
+        console.error('[quote/send] PDF generation failed:', (pdfErr as Error)?.message);
+      }
+
       const ok = await sendQuoteSentEmail({
         clientEmail: quote.client_email,
         clientName: quote.client_name || '',
         quoteNumber: quote.quote_number,
         total: quote.total,
         currency: quote.currency || 'AED',
+        pdf,
       });
       email = ok
         ? { sent: true, to: quote.client_email }

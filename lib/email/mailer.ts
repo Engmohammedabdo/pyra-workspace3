@@ -81,14 +81,21 @@ async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; 
   return { transporter: _transporter, fromName, fromEmail };
 }
 
+interface SendEmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 interface SendEmailOptions {
   to: string | string[];
   subject: string;
   html: string;
   text?: string;
+  attachments?: SendEmailAttachment[];
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailOptions): Promise<boolean> {
+export async function sendEmail({ to, subject, html, text, attachments }: SendEmailOptions): Promise<boolean> {
   const smtp = await getTransporter();
   if (!smtp) {
     console.warn('[Email] SMTP not configured (neither DB settings nor env vars), skipping email');
@@ -102,6 +109,7 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions): 
       subject,
       html,
       text: text || subject,
+      attachments: attachments && attachments.length ? attachments : undefined,
     });
     return true;
   } catch (error) {
@@ -281,13 +289,13 @@ export const emailTemplates = {
     baseLayout(`
       <h2>📋 عرض سعر جديد</h2>
       <p>عزيزي/عزيزتي ${escapeHtml(data.clientName)}،</p>
-      <p>تم إرسال عرض سعر جديد لكم من Pyramedia X.</p>
+      <p>تم إرسال عرض سعر جديد لكم من Pyramedia X. <strong>العرض مرفق بهذا البريد كملف PDF</strong> — يمكنكم فتحه ومراجعته مباشرة.</p>
       <div class="detail">
         <div class="detail-row"><span class="detail-label">رقم العرض:</span> <strong>${escapeHtml(data.quoteNumber)}</strong></div>
         <div class="detail-row"><span class="detail-label">المبلغ الإجمالي:</span> <strong>${escapeHtml(data.currency)} ${escapeHtml(data.total)}</strong></div>
       </div>
-      <p>يرجى مراجعة العرض والتوقيع عليه من خلال البورتال.</p>
-      <a href="${escapeHtml(data.portalUrl)}" class="btn">عرض عرض السعر</a>
+      <p style="font-size: 13px; color: #71717a;">عميل مسجّل لدينا؟ يمكنكم أيضاً مراجعة العرض والتوقيع عليه إلكترونياً من خلال البورتال.</p>
+      <a href="${escapeHtml(data.portalUrl)}" class="btn">عرض في البورتال</a>
     `),
 
   /** Quote signed by client — notification to agent/admin */

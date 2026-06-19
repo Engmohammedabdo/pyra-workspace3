@@ -1,4 +1,6 @@
-'use client';
+// NOTE: intentionally NOT 'use client' — isomorphic utility (see quote-pdf.ts).
+// Used in the browser AND server-side via dynamic import (WhatsApp send-pdf); a
+// 'use client' directive would break server generation (client-reference proxy).
 
 import jsPDF from 'jspdf';
 import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
@@ -161,15 +163,25 @@ const TERMS: Record<string, string[]> = {
 const FOOTER = { phone: '+971 565799505', social: 'PYRAMEDIA.DXB', web: 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI' };
 
 // ============================================================
-export async function generateInvoicePDF(invoice: InvoiceData, options?: { returnBlob?: boolean }): Promise<Blob | void> {
+export async function generateInvoicePDF(
+  invoice: InvoiceData,
+  options?: {
+    returnBlob?: boolean;
+    /** Server-injected Amiri fonts (fs) — browser omits and self-fetches. */
+    fonts?: { regular: string; bold: string };
+    /** Server-injected default logo data URI (fs) — browser omits. */
+    defaultLogo?: string | null;
+  },
+): Promise<Blob | void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  await registerArabicFont(doc);
+  await registerArabicFont(doc, options?.fonts);
   const ar = (t: string) => doc.processArabic(t);
   let y = 0;
 
-  // ── Load logo — prefer entity/record logo, fall back to default ──
+  // ── Load logo — entity/record logo → server-injected default → browser fetch ──
   let logo: string | null = null;
   if (invoice.company_logo) { try { logo = await loadImageAsBase64(invoice.company_logo); } catch { /* */ } }
+  if (!logo && options?.defaultLogo) logo = options.defaultLogo;
   if (!logo) { try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ } }
 
   // ╔══════════════════════════════════════════════════════════╗
@@ -181,7 +193,8 @@ export async function generateInvoicePDF(invoice: InvoiceData, options?: { retur
   const logoW = 52;
   const logoH = 22;
   if (logo) {
-    try { doc.addImage(logo, 'JPEG', M, y, logoW, logoH); } catch { logo = null; }
+    const imgFmt = logo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    try { doc.addImage(logo, imgFmt, M, y, logoW, logoH); } catch { logo = null; }
   }
   // Company name: always show as text (fallback or below logo)
   if (!logo) {

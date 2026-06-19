@@ -1,4 +1,9 @@
-'use client';
+// NOTE: intentionally NOT 'use client' — this is an isomorphic utility (plain
+// async function, no React/JSX), used BOTH in the browser (QuoteBuilder download)
+// AND server-side via dynamic import (quote-send email, WhatsApp send-pdf). A
+// 'use client' directive would make the server's `await import()` resolve to a
+// client-reference proxy and break server generation. Browser callers still
+// bundle it via their own 'use client' boundary.
 
 import jsPDF from 'jspdf';
 import { registerArabicFont, loadImageAsBase64 } from './pdf-fonts';
@@ -118,15 +123,25 @@ const TERMS: Record<string, string[]> = {
 const FOOTER = { phone: '+971 565799505', social: 'PYRAMEDIA.DXB', web: 'WWW.PYRAMEDIA.INFO - WWW.PYRAMEDIA.AI' };
 
 // ============================================================
-export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?: boolean }): Promise<Blob | void> {
+export async function generateQuotePDF(
+  quote: QuoteData,
+  options?: {
+    returnBlob?: boolean;
+    /** Server-injected Amiri fonts (fs) — browser omits and self-fetches. */
+    fonts?: { regular: string; bold: string };
+    /** Server-injected default logo data URI (fs) — browser omits. */
+    defaultLogo?: string | null;
+  },
+): Promise<Blob | void> {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  await registerArabicFont(doc);
+  await registerArabicFont(doc, options?.fonts);
   const ar = (t: string) => doc.processArabic(t);
   let y = 0;
 
-  // ── Load logo — prefer entity/record logo, fall back to default ──
+  // ── Load logo — entity/record logo → server-injected default → browser fetch ──
   let logo: string | null = null;
   if (quote.company_logo) { try { logo = await loadImageAsBase64(quote.company_logo); } catch { /* */ } }
+  if (!logo && options?.defaultLogo) logo = options.defaultLogo;
   if (!logo) { try { logo = await loadImageAsBase64('/images/pyramediax-logo.png'); } catch { /* */ } }
 
   // ╔══════════════════════════════════════════════════════════╗
@@ -138,7 +153,10 @@ export async function generateQuotePDF(quote: QuoteData, options?: { returnBlob?
   const logoW = 52;
   const logoH = 22;
   if (logo) {
-    try { doc.addImage(logo, 'JPEG', M, y, logoW, logoH); } catch { logo = null; }
+    // Detect format from the data URI — browser path yields JPEG (canvas), the
+    // server-injected default logo + most entity logos are PNG.
+    const imgFmt = logo.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+    try { doc.addImage(logo, imgFmt, M, y, logoW, logoH); } catch { logo = null; }
   }
   // Company name text: always show below logo (or as fallback if no logo)
   if (!logo) {

@@ -309,6 +309,9 @@ export async function sendQuoteSentEmail(data: {
   quoteNumber: string;
   total: number;
   currency: string;
+  /** The quote PDF to attach (server-generated). Lead recipients have no portal
+   *  login, so the attached PDF — not the portal link — is the deliverable. */
+  pdf?: { filename: string; content: Buffer };
 }): Promise<boolean> {
   try {
     if (!data.clientEmail) return false;
@@ -323,6 +326,9 @@ export async function sendQuoteSentEmail(data: {
         currency: data.currency || 'AED',
         portalUrl,
       }),
+      attachments: data.pdf
+        ? [{ filename: data.pdf.filename, content: data.pdf.content, contentType: 'application/pdf' }]
+        : undefined,
     });
   } catch (err) {
     console.error('[Notify] sendQuoteSentEmail error:', err);

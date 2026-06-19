@@ -30,13 +30,31 @@ async function fetchFontAsBase64(url: string): Promise<string> {
  *   doc.setFont('Amiri', 'normal')  // Regular
  *   doc.setFont('Amiri', 'bold')    // Bold
  */
-export async function registerArabicFont(doc: jsPDF): Promise<void> {
+export async function registerArabicFont(
+  doc: jsPDF,
+  preloaded?: { regular: string; bold: string },
+): Promise<void> {
   if (!fontCache) {
-    const [regular, bold] = await Promise.all([
-      fetchFontAsBase64('/fonts/Amiri-Regular.ttf'),
-      fetchFontAsBase64('/fonts/Amiri-Bold.ttf'),
-    ]);
-    fontCache = { regular, bold };
+    if (preloaded) {
+      // Server path — caller read the fonts from the filesystem (see
+      // lib/pdf/pdf-assets-server.ts). Browser's relative fetch throws in Node.
+      fontCache = preloaded;
+    } else {
+      // Guard: in Node, the relative fetch below throws ("Failed to parse URL"),
+      // which would silently yield a fontless PDF (no Arabic). Fail loudly so a
+      // server caller that forgot to pass `preloaded` fonts gets a clear error.
+      if (typeof window === 'undefined') {
+        throw new Error(
+          'registerArabicFont: server-side use must pass preloaded fonts (loadServerPdfFonts) — relative fetch is browser-only',
+        );
+      }
+      // Browser path — fetch from public/ over the origin.
+      const [regular, bold] = await Promise.all([
+        fetchFontAsBase64('/fonts/Amiri-Regular.ttf'),
+        fetchFontAsBase64('/fonts/Amiri-Bold.ttf'),
+      ]);
+      fontCache = { regular, bold };
+    }
   }
 
   doc.addFileToVFS('Amiri-Regular.ttf', fontCache.regular);
