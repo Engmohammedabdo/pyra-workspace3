@@ -1300,3 +1300,75 @@ lojain).
 - Bulk-assign stale-selection: a selected lead that leaves the filtered view
   stays in `selectedIds`; server scopes per-id so it's harmless, but pruning on
   filter change would be tidier.
+
+---
+
+## Quote System + Gap #5 Fix Arc (Groups 1–3) — 2026-06-19
+
+Closed the **"Bahaa broken-loop"** saga: sales agents could create quotes but
+not see / send / delete them, plus the broken-snapshot all-NULL PDF bug. Locked
+decisions in `CLAUDE.md` → "Quote System + Gap #5 — Locked Decisions".
+
+### Context (read-only re-investigation)
+- Gap #5: `quotes`/`clients` were scoped by `client_id IN clientIds` only —
+  team-less CRM agents have empty `clientIds`, so they got `[]` (couldn't see
+  their own quotes). The create→view loop was broken.
+- Prefill (commit `259e69d`, pre-arc) copied lead fields into a new quote but was
+  never verified because Sayed (the agent who hit the original bug) was
+  deactivated. The Sayed/QT-0016 quote had all-NULL client snapshot → `---`
+  placeholders in the PDF.
+
+### Group 1 — scoping + Deals card (shipped)
+- **5a** `app/api/quotes/route.ts` + `app/api/quotes/[id]/route.ts`: three-way
+  scope (created_by OR lead-owned via `canAccessLead` OR clientIds). Escaped
+  `.or()` per Phase D. Logged the `c_`/`cl_` namespace mismatch as v1.1.
+- **5b** `hooks/useQuotes.ts::useLeadQuotes` + `lead-deals-tab.tsx` quotes card
+  (closes issue #7). `refetchOnMount: 'always'` (QuoteBuilder uses raw
+  `mutateAPI`, no RQ invalidation — caught by orchestra review).
+- **kassem test (real-user gate):** prefill `259e69d` VERIFIED working — quote
+  snapshot mirrored the lead field-by-field (name+phone copied; email/company
+  NULL only because the lead was NULL). Scoping VERIFIED — kassem saw his own
+  quotes. Surfaced the save-and-send double-create bug (QT-0026 + QT-0027).
+
+### Group 2 — delete_own + delete-scope + save-and-send gate + glitch (shipped)
+- `quotes.delete_own` perm (code `ROLE_EXTRAS` + the live "Sales" DB role —
+  see locked decision #7, the DB-role gotcha).
+- DELETE three-way logic + issue #4 NULL-client_id fix (`d08a429`).
+- Save-and-send button gated by `quotes.edit` (`d08a429`).
+- **DataTable portaled-click glitch** (`c780511`): clicking ⋮ → "حذف" navigated
+  into the quote (React synthetic-event bubbling through the Radix portal). Root
+  fix in `components/ui/data-table.tsx` — covers quotes + invoices + projects.
+- Cleanup: deleted QT-0016 (broken artifact) + QT-0026 (save-and-send dup),
+  kept QT-0027 — DB-verified, scope held (23 quotes intact).
+- **kassem re-test (gate):** save-and-send gone for agent; deleted his own
+  QT-0027 via `delete_own` (creator-only branch, activity-log proven); NULL
+  client_id deletion confirmed.
+
+### Group 3 — SMTP + honest send-UX + PDF attachment (shipped)
+- Honest send-UX flip-and-warn + 3 toasts + DB-configurable `smtp_from_name`
+  "Pyramedia X" (`3c0b120`).
+- SMTP config in `pyra_settings` (DB-only). **Pre-flight caught the expired
+  `mail.pyramedia.info` cert (Jun 3)** before the live test → `smtp_allow_insecure`
+  DB-toggle, secure-by-default (`4c92a60`). **TEMPORARY — revert after cert
+  renewal.**
+- **PDF ATTACHMENT** (`9fbb8c1`): server-side PDF gen via `pdf-assets-server.ts`
+  (fs-injected fonts/logo), removed `'use client'` from the isomorphic PDF
+  modules, loud font guard, `addImage` PNG/JPEG detection. Email now attaches
+  `Quote_*.pdf` (leads have no portal). Also fixed the latent no-Arabic bug in
+  the WhatsApp `send-pdf` route. Verified server-side: 1.53 MB valid PDF,
+  Arabic + logo render.
+- **admin send test (gate):** email arrived at `eng.moabdo22@gmail.com`, PDF
+  attached, opened in Gmail, Arabic + logo correct, "Pyramedia X" sender. ✅
+
+### Verification discipline (every gate was a real user + DB confirmation)
+kassem (agent) for create/view/delete; elharm (admin) for send. No step
+declared done without a live test + DB/inbox confirmation.
+
+### v1.1 backlog (see CLAUDE.md → "Quote-system v1.1 backlog")
+`c_`/`cl_` namespace mismatch · dead `useQuotes`/`useQuote` hooks (404) ·
+entity-logo Gmail-25MB bloat (Node can't resize) · quote issues #8/#9/#10 ·
+standalone read-only agent quote view.
+
+### ⏳ Open operational item
+Renew `mail.pyramedia.info` Let's Encrypt cert → flip `smtp_allow_insecure` →
+`false` + re-run the connect+cert+auth pre-flight.
