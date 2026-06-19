@@ -1,14 +1,16 @@
 import { NextRequest } from 'next/server';
-import { requireApiPermission, isApiError } from '@/lib/api/auth';
+import { requireApiPermission, getApiAuth, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
   apiNotFound,
   apiForbidden,
+  apiUnauthorized,
   apiValidationError,
   apiServerError,
 } from '@/lib/api/response';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { canAccessLead } from '@/lib/auth/lead-scope';
+import { hasPermission } from '@/lib/auth/rbac';
 import { escapePostgrestValue } from '@/lib/utils/path';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
@@ -387,25 +389,59 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
   try {
-    const auth = await requireApiPermission('quotes.delete');
-    if (isApiError(auth)) return auth;
+    // Group 2: deletion accepts EITHER `quotes.delete` (full — admin / manager)
+    // OR `quotes.delete_own` (sales agent — own quotes only). We can't gate with
+    // requireApiPermission('quotes.delete') because that would 403 a sales agent
+    // before the own-scope branch runs. Authenticate first, then branch on which
+    // delete permission the caller holds.
+    const auth = await getApiAuth();
+    if (!auth) return apiUnauthorized();
+
+    const perms = auth.pyraUser.rolePermissions;
+    const canDeleteAny = hasPermission(perms, 'quotes.delete');
+    const canDeleteOwn = hasPermission(perms, 'quotes.delete_own');
+    if (!canDeleteAny && !canDeleteOwn) return apiForbidden();
 
     const scope = await resolveUserScope(auth);
     const { id } = await context.params;
     const supabase = createServiceRoleClient();
 
-    // Fetch quote for scope check
+    // Fetch quote for the authorization check — include created_by + lead_id for
+    // the three-way ownership model (mirrors the GET endpoint's Gap #5a scope).
     const { data: existing } = await supabase
       .from('pyra_quotes')
-      .select('id, client_id')
+      .select('id, client_id, lead_id, created_by')
       .eq('id', id)
       .maybeSingle();
 
     if (!existing) return apiNotFound('عرض السعر غير موجود');
 
-    // Scope check: non-admins can only delete quotes for their own clients
-    if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {
-      return apiForbidden();
+    // Authorization (admins bypass via scope.isAdmin).
+    if (!scope.isAdmin) {
+      const me = auth.pyraUser.username;
+      if (canDeleteAny) {
+        // Full-delete non-admin: apply the Gap #5a three-way scope — own quote
+        // OR a quote on a lead they own OR a quote for a client in their scope.
+        // FIX (issue #4): the old check was `!clientIds.includes(client_id)`,
+        // which returned false (→ forbidden) for lead-only quotes (client_id =
+        // NULL) even for the quote's own creator. The three-way model fixes it.
+        const ownsQuote = existing.created_by === me;
+        const inClientScope =
+          !!existing.client_id && scope.clientIds.some((c) => String(c) === existing.client_id);
+        const ownsLead =
+          !!existing.lead_id &&
+          (await canAccessLead(supabase, me, auth.pyraUser.role, existing.lead_id));
+        if (!ownsQuote && !inClientScope && !ownsLead) {
+          return apiForbidden();
+        }
+      } else {
+        // delete_own only (sales agent): must be the creator. Lead-only quotes
+        // (client_id = NULL) ARE deletable here — ownership is by created_by,
+        // not by client scope (this is the issue #4 fix for own-scoped users).
+        if (existing.created_by !== me) {
+          return apiForbidden('لا يمكنك حذف عرض سعر لم تنشئه');
+        }
+      }
     }
 
     // Delete items first

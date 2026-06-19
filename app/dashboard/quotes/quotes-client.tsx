@@ -19,6 +19,7 @@ import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
 import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 
@@ -33,6 +34,7 @@ interface Quote {
   currency: string;
   estimate_date: string;
   expiry_date: string | null;
+  created_by: string | null;
   created_at: string;
 }
 
@@ -52,7 +54,11 @@ export default function QuotesClient() {
   const router = useRouter();
   const canCreate = usePermission('quotes.create');
   const canEdit = usePermission('quotes.edit');
-  const canDelete = usePermission('quotes.delete');
+  const canSend = usePermission('quotes.edit');              // /send endpoint requires quotes.edit (matches QuoteBuilder)
+  const canDelete = usePermission('quotes.delete');          // delete ANY quote
+  const canDeleteOwn = usePermission('quotes.delete_own');   // delete OWN quotes only
+  const { data: currentUser } = useCurrentUser();
+  const currentUsername = currentUser?.username;
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
@@ -259,12 +265,14 @@ export default function QuotesClient() {
                   <Receipt className="h-3.5 w-3.5 me-2" /> تحويل لفاتورة
                 </DropdownMenuItem>
               )}
-              {canEdit && q.status === 'draft' && (
+              {canSend && q.status === 'draft' && (
                 <DropdownMenuItem onClick={() => handleSend(q.id)}>
                   <Send className="h-3.5 w-3.5 me-2" /> إرسال
                 </DropdownMenuItem>
               )}
-              {canDelete && (
+              {/* Delete: full-delete shows for every row; delete_own only for
+                  quotes the current user created (own-scope). Server re-gates. */}
+              {(canDelete || (canDeleteOwn && q.created_by === currentUsername)) && (
                 <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
                   <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
                 </DropdownMenuItem>
@@ -274,7 +282,7 @@ export default function QuotesClient() {
         </div>
       ),
     },
-  ], [canEdit, canCreate, canDelete, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice]);
+  ], [canEdit, canSend, canCreate, canDelete, canDeleteOwn, currentUsername, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
@@ -330,6 +338,9 @@ export default function QuotesClient() {
         onSortChange={handleSortChange}
         onRowClick={(q) => router.push(`/dashboard/quotes/${q.id}`)}
         skeletonRows={3}
+        /* Bulk delete is full-delete only (canDelete). delete_own users use the
+           per-row menu — a bulk selection could span others' quotes, and the
+           server would 403 each non-owned id anyway. Keeps bulk UX honest. */
         bulkActions={canDelete ? [
           {
             label: 'حذف المحدد',

@@ -17,6 +17,7 @@ import { formatDate } from '@/lib/utils/format';
 import { toast } from 'sonner';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
+import { usePermission } from '@/hooks/usePermission';
 
 interface QuoteTemplate {
   id: string;
@@ -167,6 +168,13 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [entities, setEntities] = useState<Array<{ id: string; name_en: string; name_ar: string; license_no: string; logo_url: string; is_default: boolean }>>([]);
   const [entityId, setEntityId] = useState(quote?.entity_id || '');
+
+  // Group 2 — "حفظ وإرسال" gate. The /api/quotes/[id]/send endpoint requires
+  // `quotes.edit`; sales agents lack it (their quotes go through the approval
+  // flow, then an admin sends post-approval). Hiding the button for them
+  // prevents the save-then-fail-send partial-state double-create bug surfaced
+  // by the kassem test. Admins (wildcard) keep both buttons.
+  const canSend = usePermission('quotes.edit');
 
   useEffect(() => {
     // Fetch templates
@@ -848,10 +856,12 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
             <Save className="h-4 w-4 me-1" />
             {saving ? 'جارٍ الحفظ...' : 'حفظ كمسودة'}
           </Button>
-          <Button onClick={() => handleSave(true)} disabled={saving} className="bg-orange-500 hover:bg-orange-600">
-            <Send className="h-4 w-4 me-1" />
-            {saving ? 'جارٍ الإرسال...' : 'حفظ وإرسال'}
-          </Button>
+          {canSend && (
+            <Button onClick={() => handleSave(true)} disabled={saving} className="bg-orange-500 hover:bg-orange-600">
+              <Send className="h-4 w-4 me-1" />
+              {saving ? 'جارٍ الإرسال...' : 'حفظ وإرسال'}
+            </Button>
+          )}
         </div>
       </div>
 

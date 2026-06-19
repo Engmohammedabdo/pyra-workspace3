@@ -36,7 +36,8 @@ export const PERMISSIONS = {
   QUOTES_VIEW: 'quotes.view',
   QUOTES_CREATE: 'quotes.create',
   QUOTES_EDIT: 'quotes.edit',
-  QUOTES_DELETE: 'quotes.delete',
+  QUOTES_DELETE: 'quotes.delete',          // delete ANY quote (admin / manager)
+  QUOTES_DELETE_OWN: 'quotes.delete_own',  // delete OWN quotes only (sales agent)
 
   // Invoices
   INVOICES_VIEW: 'invoices.view',
@@ -370,7 +371,8 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'quotes.view', label: 'View Quotes', labelAr: 'عرض العروض' },
       { key: 'quotes.create', label: 'Create Quotes', labelAr: 'إنشاء عروض' },
       { key: 'quotes.edit', label: 'Edit Quotes', labelAr: 'تعديل العروض' },
-      { key: 'quotes.delete', label: 'Delete Quotes', labelAr: 'حذف العروض' },
+      { key: 'quotes.delete', label: 'Delete Quotes', labelAr: 'حذف أي عرض' },
+      { key: 'quotes.delete_own', label: 'Delete Own Quotes', labelAr: 'حذف عروضي فقط' },
     ],
   },
   {
@@ -818,6 +820,7 @@ const ROLE_EXTRAS: Record<string, string[]> = {
     'sales_whatsapp_groups.manage',
     'quotes.view',
     'quotes.create',
+    'quotes.delete_own',  // Group 2 — agents can delete quotes THEY created (own scope)
     'quote_approvals.view',
     'clients.view',
     // CRM rebuild — own-only access; canAccessLead() enforces row scope.
