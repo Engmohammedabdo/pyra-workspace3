@@ -9,6 +9,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { notifyBatch } from '@/lib/notifications/notify';
 
 /**
  * POST /api/dashboard/sales/leads/bulk
@@ -78,6 +79,34 @@ export async function POST(request: NextRequest) {
           created_by: auth.pyraUser.username,
         }));
         void supabase.from('pyra_lead_activities').insert(activityRows);
+
+        // Commit 2b — notify the new owner once per reassigned lead, at parity
+        // with the per-lead reassign path (same type/title/message shape). One
+        // batched insert via notifyBatch (no N+1). Skipped when the admin
+        // assigns to themselves (notifyBatch drops self-notifications). Lead
+        // names fetched once for the message body. Awaited so the rows persist
+        // before the response (notifications are the whole point of this path).
+        if (assigned_to !== auth.pyraUser.username) {
+          const { data: namedLeads } = await supabase
+            .from('pyra_sales_leads')
+            .select('id, name')
+            .in('id', lead_ids);
+          await notifyBatch(
+            supabase,
+            (namedLeads ?? []).map((l) => ({
+              to: assigned_to,
+              type: 'lead_transferred',
+              title: 'تم تحويل Lead لك',
+              message: `${auth.pyraUser.display_name} حوّل Lead "${l.name ?? 'بدون اسم'}" إليك`,
+              link: `/dashboard/crm/leads/${l.id}`,
+              entity: { type: 'lead', id: l.id },
+              from: {
+                username: auth.pyraUser.username,
+                displayName: auth.pyraUser.display_name,
+              },
+            })),
+          );
+        }
         break;
       }
 

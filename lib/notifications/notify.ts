@@ -117,6 +117,50 @@ export async function notify(
 }
 
 /**
+ * Insert MANY DISTINCT notifications in a single round trip.
+ *
+ * Use when you have N different notifications (different recipient / message /
+ * link per row) to write at once — e.g. a bulk lead reassign that pings the new
+ * owner once per lead. Unlike notifyMany (same message → many recipients), each
+ * input here is its own notification. One batched insert (no N+1).
+ *
+ * Per-row guards mirror notify(): rows missing required fields are dropped, and
+ * self-notifications (from.username === to) are skipped. Fire-and-forget.
+ */
+export async function notifyBatch(
+  supabase: SupabaseClient,
+  inputs: NotifyInput[]
+): Promise<void> {
+  const rows = inputs
+    .filter((i) => i.to?.trim() && i.type?.trim() && i.title?.trim())
+    .filter((i) => !(i.from?.username && i.from.username === i.to))
+    .map((i) => ({
+      id: generateId('ntf'),
+      recipient_username: i.to.trim(),
+      type: i.type.trim(),
+      title: i.title.trim(),
+      message: i.message?.trim() || null,
+      target_path: i.link?.trim() || null,
+      source_username: i.from?.username || null,
+      source_display_name: i.from?.displayName || null,
+      entity_type: i.entity?.type || null,
+      entity_id: i.entity?.id || null,
+      is_read: false,
+    }));
+
+  if (rows.length === 0) return;
+
+  try {
+    const { error } = await supabase.from('pyra_notifications').insert(rows);
+    if (error) {
+      console.error('[notifyBatch] insert failed:', error.message, { count: rows.length });
+    }
+  } catch (err) {
+    console.error('[notifyBatch] threw:', err);
+  }
+}
+
+/**
  * Send the same notification to multiple recipients (deduplicates and skips actor).
  */
 export async function notifyMany(
