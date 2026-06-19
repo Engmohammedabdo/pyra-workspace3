@@ -53,8 +53,17 @@ async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; 
   // Group 3 — DB-configurable sender display name (smtp_from_name). Client-facing
   // quote emails should show the brand ("Pyramedia X"), not the internal default.
   const fromName = await getSmtpSetting('smtp_from_name', 'SMTP_FROM_NAME') || 'Pyra Workspace';
+  // Group 3 — DB-toggleable TLS cert validation. Default is SECURE (validate the
+  // server cert in production). Setting `smtp_allow_insecure=true` disables
+  // validation for THIS transport only — the connection stays TLS-encrypted, the
+  // cert just isn't verified. Documented compromise: enabled while
+  // mail.pyramedia.info's Let's Encrypt cert is expired (auto-renew broke
+  // 2026-06-03). REVERT by setting the DB key to 'false' (or deleting it) once
+  // the cert is renewed — no redeploy needed: allowInsecure is part of the
+  // transporter cache key below, so the next send rebuilds with validation on.
+  const allowInsecure = (await getSmtpSetting('smtp_allow_insecure', 'SMTP_ALLOW_INSECURE')) === 'true';
 
-  const configHash = `${host}:${port}:${user}`;
+  const configHash = `${host}:${port}:${user}:${allowInsecure}`;
 
   if (_transporter && _cachedConfigHash === configHash) {
     return { transporter: _transporter, fromName, fromEmail };
@@ -65,7 +74,7 @@ async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; 
     port: Number(port) || 587,
     secure: (Number(port) || 587) === 465,
     auth: user ? { user, pass: pass || '' } : undefined,
-    tls: { rejectUnauthorized: process.env.NODE_ENV === 'production' },
+    tls: { rejectUnauthorized: !allowInsecure && process.env.NODE_ENV === 'production' },
   });
   _cachedConfigHash = configHash;
 
