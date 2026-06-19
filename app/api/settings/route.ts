@@ -53,6 +53,7 @@ const ALLOWED_KEYS = new Set([
   'smtp_user',
   'smtp_pass',
   'smtp_from',
+  'smtp_from_name',
   'watermark_enabled',
   'watermark_text',
   // Invoice settings

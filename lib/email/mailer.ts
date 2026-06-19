@@ -50,7 +50,9 @@ async function getTransporter(): Promise<{ transporter: nodemailer.Transporter; 
   const user = await getSmtpSetting('smtp_user', 'SMTP_USER');
   const pass = await getSmtpSetting('smtp_pass', 'SMTP_PASS');
   const fromEmail = await getSmtpSetting('smtp_from', 'SMTP_FROM_EMAIL') || 'noreply@pyramedia.cloud';
-  const fromName = process.env.SMTP_FROM_NAME || 'Pyra Workspace';
+  // Group 3 — DB-configurable sender display name (smtp_from_name). Client-facing
+  // quote emails should show the brand ("Pyramedia X"), not the internal default.
+  const fromName = await getSmtpSetting('smtp_from_name', 'SMTP_FROM_NAME') || 'Pyra Workspace';
 
   const configHash = `${host}:${port}:${user}`;
 
@@ -94,7 +96,11 @@ export async function sendEmail({ to, subject, html, text }: SendEmailOptions): 
     });
     return true;
   } catch (error) {
-    console.error('[Email] Failed to send:', error);
+    // Log code + message only — enough to diagnose failures (e.g. TLS cert
+    // errors like DEPTH_ZERO_SELF_SIGNED_CERT) without dumping the full SMTP
+    // exchange. The SMTP password is NOT part of the nodemailer error object.
+    const e = error as { code?: string; message?: string };
+    console.error('[Email] Failed to send:', e.code ?? '', e.message ?? error);
     return false;
   }
 }

@@ -351,7 +351,20 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
       const savedId = result?.id || quote?.id;
 
       if (send && savedId) {
-        await mutateAPI(`/api/quotes/${savedId}/send`, 'POST');
+        // Group 3 — honest sent-UX. The quote flips to 'sent' server-side
+        // regardless; surface whether the email actually fired (flip-and-warn).
+        const sendResult = await mutateAPI<{ email?: { sent?: boolean; reason?: string; to?: string } }>(
+          `/api/quotes/${savedId}/send`,
+          'POST',
+        );
+        const email = sendResult?.email;
+        if (email?.sent) {
+          toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`);
+        } else if (email?.reason === 'no_email') {
+          toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل');
+        } else {
+          toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد');
+        }
       }
 
       if (savedId) onSaved?.(savedId);

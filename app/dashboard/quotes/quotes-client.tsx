@@ -109,7 +109,16 @@ export default function QuotesClient() {
       const res = await fetch(`/api/quotes/${id}/send`, { method: 'POST' });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
-      toast.success('تم إرسال عرض السعر');
+      // Group 3 — honest sent-UX. The quote flips to 'sent' regardless; the
+      // toast reflects whether the email actually fired (flip-and-warn).
+      const email = json.data?.email as { sent?: boolean; reason?: string; to?: string } | undefined;
+      if (email?.sent) {
+        toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`);
+      } else if (email?.reason === 'no_email') {
+        toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل');
+      } else {
+        toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد');
+      }
       fetchQuotes();
     } catch (err) { console.error(err); toast.error('حدث خطأ'); }
   };

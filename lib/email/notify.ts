@@ -256,7 +256,13 @@ export function notifyQuoteRejected(data: {
 }
 
 /**
- * Notify client via email when a quote is sent to them.
+ * Notify client via email when a quote is sent to them (fire-and-forget).
+ *
+ * ⚠️ For the quote-send route, use {@link sendQuoteSentEmail} instead — it
+ * AWAITS the result so the UI can report honest sent/failed status (Group 3).
+ * This fire-and-forget variant is retained only for future non-blocking callers
+ * that genuinely don't need the delivery result; using it on the send path
+ * would silently restore the old "always says تم الإرسال" dishonest behavior.
  */
 export function notifyQuoteSentToClient(data: {
   clientEmail: string;
@@ -284,6 +290,44 @@ export function notifyQuoteSentToClient(data: {
       console.error('[Notify] quoteSentToClient error:', err);
     }
   })();
+}
+
+/**
+ * Awaitable variant of {@link notifyQuoteSentToClient} (Group 3 — honest UX).
+ *
+ * Returns whether the email actually fired, so the quote-send route can report
+ * the truth to the UI instead of always claiming "تم الإرسال". Returns false if
+ * there's no client email OR the SMTP send failed/was unconfigured. Never
+ * throws — mirrors sendEmail()'s boolean contract.
+ *
+ * The fire-and-forget `notifyQuoteSentToClient` above is retained for any
+ * non-blocking callers; this one is for paths that need the delivery result.
+ */
+export async function sendQuoteSentEmail(data: {
+  clientEmail: string;
+  clientName: string;
+  quoteNumber: string;
+  total: number;
+  currency: string;
+}): Promise<boolean> {
+  try {
+    if (!data.clientEmail) return false;
+    const portalUrl = `${APP_URL}/portal/quotes`;
+    return await sendEmail({
+      to: data.clientEmail,
+      subject: `📋 عرض سعر جديد: ${data.quoteNumber}`,
+      html: emailTemplates.quoteSent({
+        clientName: data.clientName || 'العميل',
+        quoteNumber: data.quoteNumber,
+        total: data.total.toLocaleString('en-US'),
+        currency: data.currency || 'AED',
+        portalUrl,
+      }),
+    });
+  } catch (err) {
+    console.error('[Notify] sendQuoteSentEmail error:', err);
+    return false;
+  }
 }
 
 /**

@@ -10,7 +10,7 @@ import {
 import { resolveUserScope } from '@/lib/auth/scope';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { notifyQuoteSentToClient } from '@/lib/email/notify';
+import { sendQuoteSentEmail } from '@/lib/email/notify';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -74,15 +74,26 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       });
     }
 
-    // Send email to client (fire-and-forget)
-    if (quote.client_email) {
-      notifyQuoteSentToClient({
+    // Send email to client + capture the honest result (Group 3 — flip-and-warn).
+    // The quote is ALREADY marked 'sent' above regardless of email outcome; we
+    // report whether the email actually fired so the UI tells the truth instead
+    // of always claiming "تم الإرسال".
+    //   - no_email      → client row/quote has no email address
+    //   - not_delivered → SMTP send failed OR SMTP not configured
+    let email: { sent: boolean; reason?: 'no_email' | 'not_delivered'; to?: string };
+    if (!quote.client_email) {
+      email = { sent: false, reason: 'no_email' };
+    } else {
+      const ok = await sendQuoteSentEmail({
         clientEmail: quote.client_email,
         clientName: quote.client_name || '',
         quoteNumber: quote.quote_number,
         total: quote.total,
         currency: quote.currency || 'AED',
       });
+      email = ok
+        ? { sent: true, to: quote.client_email }
+        : { sent: false, reason: 'not_delivered' };
     }
 
     // Log activity
@@ -96,7 +107,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       ip_address: 'server',
     });
 
-    return apiSuccess(updated);
+    return apiSuccess({ ...updated, email });
   } catch (err) {
     console.error('POST /api/quotes/[id]/send error:', err);
     return apiServerError();
