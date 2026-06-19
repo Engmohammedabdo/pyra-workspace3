@@ -3105,3 +3105,74 @@ bundled with the **broader `sales.*` rename** already deferred in Phase 12 decis
 **v1.1 backlog:** rename `sales_leads.manage` → `sales_leads.update` as part of the
 sales.* rename pass, via the zero-downtime alias migration. Clarifying comment lives at
 the `SALES_LEADS_MANAGE` definition in `lib/auth/rbac.ts`.
+
+## Audit Gap #3 — DB exposure remediation (2026-06-19) — P0, partially closed
+
+**The incident (P0, proven live-exploitable):** 115/125 `pyra_*` tables had RLS
+OFF and the `anon` + `authenticated` Postgres roles held **full DML grants** on
+all 125. The `anon` key is public (client bundle + public repo). Net:
+**anyone on the internet could read/write the entire DB via PostgREST**, bypassing
+every app-layer permission/scope check. Proven: `GET /rest/v1/pyra_clients` with
+only the anon key returned `HTTP 200 + data`. Worst exposure: `pyra_settings`
+held the **live Stripe secret key**, Stripe webhook secret, and SMTP password.
+
+**Git history: CLEAN** — verified no real secret was ever committed (`.env`/
+`.env.local` never tracked; only `.env.example` placeholders; `__tests__/env.test.ts`
+JWTs are dummies, hash ≠ real keys). The ONLY exposure vector was the DB hole.
+
+### ✅ Phase 0 — DONE & verified (closed the internet hole)
+`REVOKE ALL PRIVILEGES ON ALL TABLES/SEQUENCES IN SCHEMA public FROM anon;` +
+`ALTER DEFAULT PRIVILEGES ... REVOKE ... FROM anon;`. Verified: anon probe →
+`HTTP 401 permission denied` (was 200); `authenticated` retained (app's auth path
++ dashboard realtime depend on it); service_role untouched; kassem login confirmed
+working. **Safe because** no code path reads tables as `anon` (portal/external/
+Stripe/share-token = service role; dashboard = authenticated post-sign-in). Only
+casualty: portal realtime notif pop (anon `postgres_changes` on
+`pyra_client_notifications`) degrades to refresh/poll — itself part of the hole.
+
+### ✅ Phase 1 — DONE & verified (locked the secrets table)
+`pyra_settings` had its 2 authenticated readers switched to service role
+(`app/api/settings/route.ts` GET+PATCH, `app/api/dashboard/route.ts` max_storage
+read — commit `443ffd2`, deployed first), THEN
+`REVOKE ALL PRIVILEGES ON TABLE public.pyra_settings FROM authenticated;`. Now
+**service-role-only** (anon + authenticated both gone). Verified: only
+`postgres`/`service_role`/`supabase_admin` retain grants; service read works (34
+rows); anon REST → 401. The other 25 `pyra_settings` readers were already service
+role.
+
+### ⏳ DEFERRED — precautionary secret rotation (low priority, do when free)
+These were briefly DB-readable while the hole was open (Stripe/everything since
+inception; the SMTP pass I added ~30 min). **Stripe dashboard logs are CLEAN** (no
+unfamiliar charges/refunds/payouts) and Stripe is rarely used → low priority, but
+rotate as precaution. Rotation needs manual dashboard/mail-server work (Abdou):
+- **`stripe_secret_key`** (LIVE `sk_live_`): roll in Stripe → Developers → API
+  keys → paste new key → update `pyra_settings.stripe_secret_key` (service-role
+  `pg/query` or admin Settings UI). App picks it up **next request** (no redeploy
+  — `lib/stripe.ts` auto-rebuilds on key change).
+- **`stripe_webhook_secret`**: roll in Stripe → update. Live next request.
+- **`smtp_pass`**: change on mail server → update. ⚠️ **needs a redeploy** to take
+  effect — `mailer.ts` caches the transporter keyed on `host:port:user:allowInsecure`
+  (NOT pass). **v1.1 fix (1 line): add the pass to that cache key** so future pass
+  changes auto-pick-up; fold in when next touching `mailer.ts` (cert renewal).
+- `stripe_publishable_key` — public by design, no rotation.
+
+### 📋 PENDING — Phase 2 (least-privilege) + Phase 3 (storage), structural
+- **Phase 2 (MEDIUM):** `authenticated` still has full DML on 125 tables, so any
+  of the ~7 logged-in internal users could over-read/write via PostgREST directly
+  (NOT internet-wide). Locking it down requires migrating ~87 pure + ~40 mixed
+  session-client (`createServerSupabaseClient().from()`) routes to service role
+  first, plus handling the auth-path `pyra_users`/`pyra_roles` reads + dashboard
+  realtime tables (need authenticated SELECT). **~90–120 file migration → staged,
+  NOT a one-shot.** Deploy-ordering discipline: code-switch deploys BEFORE any
+  authenticated revoke (Group 2 / Phase 1 lesson).
+- **Phase 3 (MEDIUM):** the `pyraai-workspace` bucket is **public** → ALL objects
+  (lead attachments w/ client PII, portal client files, scripts, WhatsApp media)
+  are URL-fetchable unauthenticated — which also makes the file-manager's existing
+  `createSignedUrl` calls moot. Fix: make the bucket private + migrate the 7
+  `getPublicUrl` sites to signed URLs / auth-gated proxy, handling the WhatsApp
+  `send-pdf` case (Evolution fetches the URL externally → needs a valid signed URL
+  or alternate delivery).
+
+**Invariant for all remaining phases:** any `REVOKE`/RLS change on `authenticated`
+must be preceded by deploying the code that stops reading those tables as
+`authenticated` — never revoke against live code that still depends on the grant.
