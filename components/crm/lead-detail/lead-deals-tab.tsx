@@ -13,16 +13,79 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { FileSignature, Receipt, Plus } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { FileSignature, Receipt, Plus, FileText } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
-import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { INVOICE_STATUS_LABELS, QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useLeadQuotes } from '@/hooks/useQuotes';
+import { usePermission } from '@/hooks/usePermission';
 import type { LeadDetail } from '@/hooks/useLeads';
 
 export function LeadDealsTab({ data }: { data: LeadDetail }) {
   const { lead, contracts, invoices, payments_summary } = data;
+  // Gap #5b — quotes linked to this lead (closes issue #7). The owning agent
+  // can finally SEE the quotes they created for the lead (Gap #5a scoping).
+  const quotesQuery = useLeadQuotes(lead.id);
+  const quotes = quotesQuery.data ?? [];
+  const canCreateQuote = usePermission('quotes.create');
 
   return (
     <div className="space-y-4">
+      {/* Quotes — Gap #5b (closes issue #7) */}
+      <Card className="p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="size-4 text-orange-500" /> عروض الأسعار
+            {quotes.length > 0 && (
+              <Badge variant="outline" className="bg-muted/50 tabular-nums">{quotes.length}</Badge>
+            )}
+          </h3>
+          {canCreateQuote && (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/dashboard/quotes/new?lead_id=${lead.id}`}>
+                <Plus className="size-4 me-1" /> عرض سعر
+              </Link>
+            </Button>
+          )}
+        </div>
+
+        {quotesQuery.isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : quotes.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="لا توجد عروض أسعار بعد"
+            description="اضغط «عرض سعر» لإنشاء أول عرض لهذا الـ Lead — هيتعبّى تلقائياً ببيانات العميل."
+            className="py-8"
+          />
+        ) : (
+          <ul className="divide-y divide-border">
+            {quotes.map((q) => (
+              <li key={q.id}>
+                <Link
+                  href={`/dashboard/quotes/${q.id}`}
+                  className="flex items-center justify-between gap-3 py-2 -mx-1 px-1 rounded hover:bg-muted/30 transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">{q.quote_number}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(q.created_at)}</p>
+                  </div>
+                  <Badge variant="outline" className="shrink-0">
+                    {QUOTE_STATUS_LABELS[q.status] ?? q.status}
+                  </Badge>
+                  <span className="text-sm font-semibold tabular-nums shrink-0">
+                    {formatCurrency(Number(q.total) || 0, q.currency || 'AED')}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
       {/* Contracts */}
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">

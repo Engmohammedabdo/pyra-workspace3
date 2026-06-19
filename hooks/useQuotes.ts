@@ -62,6 +62,26 @@ export function useQuote(id: string | undefined) {
   });
 }
 
+/**
+ * Quotes linked to a specific lead — powers the Lead Detail "Deals" tab quotes
+ * card (Gap #5b, closes issue #7). Hits the REAL, scoped `/api/quotes?lead_id=`
+ * endpoint; Gap #5a scoping ensures the owning agent sees the lead's quotes
+ * (own-created OR on-their-lead), with no cross-agent leak.
+ */
+export function useLeadQuotes(leadId: string | undefined) {
+  return useQuery<Quote[]>({
+    queryKey: ['quotes', 'by-lead', leadId],
+    queryFn: () => fetchAPI(`/api/quotes?lead_id=${encodeURIComponent(leadId ?? '')}`),
+    enabled: !!leadId,
+    staleTime: 30_000,
+    // Refetch whenever the Deals tab mounts. A quote created via QuoteBuilder
+    // uses raw mutateAPI (no React-Query invalidation), so returning to the
+    // lead within staleTime would otherwise show a stale list. This guarantees
+    // the card reflects a just-created quote on navigate-back.
+    refetchOnMount: 'always',
+  });
+}
+
 // ============================================================
 // Hooks: Mutations
 // ============================================================
