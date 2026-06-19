@@ -2895,3 +2895,54 @@ across the two fix-bundle sessions (2026-05-15 + 2026-05-16).
 | `docs/ARCHITECTURE.md` | System architecture, backup-rollback pattern |
 | `docs/CLIENT-MANAGEMENT.md` | Client system, portal branding |
 | `DATABASE-SCHEMA.md` | Full schema (~110 tables) |
+
+## CRM — Lead Reassignment UI (Locked Decisions, 2026-06-19)
+
+Restored the lead-reassignment UI removed by the Phase 12 sunset (the deleted
+`/dashboard/sales/leads` page had been the only bulk-assign surface; the bulk +
+transfer API routes survived UI-less). Surfaced during the first multi-agent
+migration. **Do NOT re-litigate.** Full arc in `CRM-PROGRESS.md`.
+
+### 1. Two surfaces, both gated by `leads.assign` (admin-only)
+- **Per-lead:** "تغيير المسؤول" on the lead-detail header → reuses CRM
+  `PATCH /api/crm/leads/[id]` (`assignment_changed` activity + `lead_transferred`
+  notify).
+- **Bulk:** pipeline "تحديد متعدد" → `POST /api/dashboard/sales/leads/bulk`
+  (≤50). Sales agents lack `leads.assign` so neither surface renders for them;
+  the server also re-gates (bulk on `sales_leads.manage` + own-lead scope).
+
+### 2. Bulk selection MUST NOT break the locked Phase 7 kanban
+Selection mode disables drag by reusing the board's existing sensor kill-switch
+(`MAX_SAFE_INTEGER` activation distance — the same mechanism mobile uses). The
+selectable card variant is an EARLY RETURN before the locked draggable `<Link>`
+path, so the default (non-selection) drag path is byte-identical, and
+`useDraggable` is still called unconditionally (rules of hooks). Do NOT touch the
+3-tier card split / single-`useDraggable`-per-lead / `pointerWithin` invariants.
+
+### 3. `useLeadCapableUsers` — single source for reassignment targets
+`hooks/useLeadCapableUsers.ts` returns `{ all, leadCapable }` from the shared
+`['users','lite']` cache. `leadCapable` = `status==='active' && role ∈
+{sales_agent, admin}`. BOTH the per-lead modal and the bulk bar use it — never
+re-implement the filter inline. An inactive (departed) or non-lead-capable
+(employee) target would re-orphan the lead under someone who can't open it.
+`/api/users/lite` returns `status`+`role` (additive) to support this.
+
+### 4. `notifyBatch` for N distinct notifications
+`lib/notifications/notify.ts`: `notify` (1→1), `notifyMany` (same msg → many
+recipients), `notifyBatch` (N DISTINCT notifications, one insert). Bulk reassign
+uses `notifyBatch` to ping the new owner once per lead → A/B parity: single AND
+bulk reassign both notify.
+
+### 5. Supabase lazy-thenable — `void <builder>` NEVER executes (re-confirmed)
+The bulk route shipped (pre-this-work) with three `void supabase…insert(…)`
+calls lacking `.then()`/await — built but NEVER sent, so bulk reassign logged no
+activity (caught by end-to-end DB verification; fixed `0f08bc8`). ALWAYS `await`
+or `.then()` a Supabase query builder. Documented across many phases — the bulk
+route was a missed instance. Grep smell: `void supabase` not followed by `.then(`.
+
+### 6. Manual pg/query SQL writes need `PYTHONUTF8=1` on Windows
+The pg/query helper pipes SQL through `python json.dumps`; Windows `python`
+defaults stdin to cp1252, mojibake-ing multi-byte UTF-8 (Arabic) on insert. Use
+`PYTHONUTF8=1` (or `PYTHONIOENCODING=utf-8`) and ALWAYS re-read after a manual
+write to confirm encoding. Backfilled audit rows carry `backfill:true` +
+`backfill_reason` so reconstructed rows are never mistaken for live-logged ones.

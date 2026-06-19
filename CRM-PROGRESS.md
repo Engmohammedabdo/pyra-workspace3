@@ -1238,3 +1238,65 @@ Single ordered list of all v1.1 items carried forward from Phases 7-13. Operatio
 **Reviewer-surfaced bug (NOT in original audit) — RESOLVED:**
 
 - [x] ~~`countQuery` mutation-without-reassignment~~ **✅ FIXED** in commit `0825f54` (2026-05-16 quick-win session). The bug was real: pre-fix, with 29 total leads / sayed=27 / elharm=2, BOTH non-admin agents saw `total=29` in pagination. Post-fix, each sees their own count.
+
+---
+
+## Lead Reassignment UI Restoration (Option A + B) — 2026-06-19
+
+**Context:** the Phase 12 sunset deleted the `/dashboard/sales/leads` list page,
+which had hosted the only bulk-assign UI. The bulk + transfer API routes
+survived but had NO UI surface. Surfaced during the first multi-agent migration
+(Sayed deactivated → 46 leads to reassign to 3 new agents: mo.hanach, kassem,
+lojain).
+
+### Shipped (5 commits + 1 backfill)
+- **Option A — per-lead reassign** (`91f50c7`): "تغيير المسؤول" button on the
+  lead-detail header (admin-actions row), gated by `leads.assign`. Picker of
+  ACTIVE + lead-capable users (current owner excluded). Reuses the existing CRM
+  `PATCH /api/crm/leads/[id]` `assigned_to` path → logs `assignment_changed` +
+  notifies the new owner. Also: lead-detail sidebar now shows the current owner
+  ("المسؤول" row); removed the stale "لازم السايد يراجعهم" pipeline hint.
+- **Option B — bulk multi-select** (`369e988`): "تحديد متعدد" toggle on the
+  pipeline (admin-only, `leads.assign`), checkbox cards + sticky bulk-action
+  bar. Drag-drop preserved by reusing the board sensor kill-switch
+  (`MAX_SAFE_INTEGER` distance) in selection mode — default drag path
+  byte-identical. Wired to `POST /api/dashboard/sales/leads/bulk` (≤50/req).
+- **Commit 2b — bulk notifications** (`4b9b2d5`): new `notifyBatch()` helper
+  (one batched insert of N distinct notifications); bulk assign notifies the new
+  owner per lead at parity with the per-lead path.
+- **Commit 2c — lazy-thenable fix** (`0f08bc8`): the bulk route's three
+  activity/audit inserts were bare `void supabase…insert(…)` (no `.then()`/
+  await) → never executed. Caught by end-to-end DB verification
+  (transfer_activities=0 after a real bulk reassign). Awaited all three.
+- **Backfill** (SQL, 2026-06-19): the 2 real leads bulk-reassigned during the
+  pre-2c test (Dr. Marwa Tarek `sl_q6USvrAE8L_TAP6Y`, Dr dina elyamany
+  `sl_DmbundJYWQTQToGO`) were missing their `transfer` activity. Backfilled 2
+  rows with correct values (type=`transfer`, from `sayed`→`kassem`,
+  created_by=`elharm`, created_at=`08:26:02.549` = verified bulk-action time,
+  `backfill:true` + `backfill_reason` markers). First insert mojibake'd Arabic
+  (Windows `python` cp1252 stdin) → deleted + reinserted with `PYTHONUTF8=1`.
+
+### Verified end-to-end (assignment + activity + notification)
+- Option A: Dr.Omnia Magdy — assignment + `assignment_changed` + notification,
+  timestamp-aligned to the ms.
+- Option B + 2b: Dr. Marwa + Dr dina — assignment + per-lead notification.
+- 2c + backfill: all 3 reassigned real leads now have complete, accurate
+  reassignment timelines.
+
+### Patterns introduced (locked — see CLAUDE.md)
+- `hooks/useLeadCapableUsers.ts` — single source for the "active + lead-capable"
+  reassignment-target filter (per-lead modal + bulk bar both use it).
+- `notifyBatch()` in `lib/notifications/notify.ts` — N distinct notifications,
+  one insert.
+- Re-confirmed Supabase lazy-thenable footgun + `PYTHONUTF8=1` for manual SQL.
+
+### v1.1 backlog
+- Unify bulk (`transfer` + `{assigned_to,bulk}`) vs per-lead (`assignment_changed`
+  + `{from_user,to_user}`) activity shapes (backfill rows carry both for
+  completeness).
+- `useUsersLite` type in `hooks/useUsers.ts` mis-declares the `/api/users/lite`
+  shape (`id/name/email` vs actual `username/display_name/status/role`) —
+  pre-existing; new code uses correct types. Cleanup when convenient.
+- Bulk-assign stale-selection: a selected lead that leaves the filtered view
+  stays in `selectedIds`; server scopes per-id so it's harmless, but pruning on
+  filter change would be tidier.
