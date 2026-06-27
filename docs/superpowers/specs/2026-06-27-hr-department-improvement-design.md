@@ -14,10 +14,16 @@ timesheet, payroll, my-payslips, evaluations, directory, announcements,
 approvals, org-chart, users, my-tasks, + settings pages). A research sweep
 (pages + APIs + hooks + schema) surfaced three buckets of gaps:
 
-- **A — UI/UX & code quality:** the **Attendance** and **Payroll** pages use
-  raw `fetch()` + local component state, violating the project's React Query
-  data-layer mandate (every other module complies). ~17 HR hooks are missing.
-  Accessibility gaps (charts, org-chart keyboard nav). Visual inconsistencies.
+- **A — UI/UX & code quality:** the **Payroll** page uses
+  `useState`+`useEffect`+manual fetch (not `useQuery`) and double-unwraps
+  `.data` (latent bug — `fetchAPI` already unwraps). The **Attendance** page is
+  already React-Query-compliant but ships an unused/mis-typed stub
+  `hooks/useAttendance.ts`, a `setWorkSchedule`-inside-`queryFn` side-effect,
+  inline status strings, and a dead `canManage` (computed, never used — no admin
+  UI). Several HR hooks are missing or stubbed. Accessibility gaps (charts,
+  org-chart keyboard nav). Visual inconsistencies.
+  *(Correction: an initial research pass overstated Attendance as "raw fetch +
+  state"; reading the file showed it is already compliant. Scope adjusted below.)*
 - **B — Functional gaps:** no bulk-approve, no timesheet pagination, **admin
   cannot manually adjust attendance** (`attendance.manage` exists but has no
   UI), no cascade-delete safety, no public-holiday handling.
@@ -121,14 +127,18 @@ subtlety locks. Consistency over novelty in an ERP.
 
 ## 7. Part B — Attendance improvements
 
-- **Data layer** (`hooks/useAttendance.ts`): keep `useAttendance(params)`; add
-  `useAttendanceSummary(params)`, `useClockIn()`, `useClockOut()`, and admin
-  `useUpsertAttendance()` + `useDeleteAttendance()`. Remove **all** raw `fetch()`
-  + local fetch-state from `attendance-client.tsx`; use `fetchAPI`/`mutateAPI`.
-- **Admin control (`attendance.manage`):** an admin section/tab — pick employee
-  + month → view their grid → add/correct a day (clock-in/out, status, notes)
-  via a dialog. New API: `PATCH /api/dashboard/attendance/[id]` + an admin-create
-  path, gated on `attendance.manage`; `logActivity()` on writes.
+- **Data layer** (already RQ-compliant — this is a *consolidation*, not a
+  rescue): replace the mis-typed stub `hooks/useAttendance.ts` with real, typed
+  hooks — `useAttendanceRecords(params)`, `useAttendanceSummary(params)`,
+  `useClockIn()`, `useClockOut()`, plus admin `useUpsertAttendance()` — and
+  adopt them in `attendance-client.tsx`, removing the inline `useQuery`/
+  `useMutation` duplication and the `setWorkSchedule`-inside-`queryFn`
+  side-effect (use a `select`/derived value instead).
+- **Admin control (`attendance.manage`):** `canManage` is computed today but
+  **unused** (dead code) — wire it. Add an admin section — pick employee +
+  month → view their grid → add/correct a day (clock-in/out, status, notes)
+  via a dialog. New API: `PATCH /api/dashboard/attendance/[id]` + an admin
+  create/upsert path, gated on `attendance.manage`; `logActivity()` on writes.
 - **Accessibility:** keyboard-navigable calendar grid; per-day `aria-label`
   (date + status); visible status legend; `aria-live` on clock-in/out result.
 - **Refactor/polish:** split into `components/attendance/` (calendar grid,
@@ -170,13 +180,14 @@ subtlety locks. Consistency over novelty in an ERP.
   + `app/dashboard/guide/page.tsx` SECTIONS; refresh attendance/payroll tips if
   behavior changes.
 
-## 10. Hook inventory (created this bundle)
+## 10. Hook inventory (this bundle)
 
-`useHROverview` · `useAttendanceSummary` · `useClockIn` · `useClockOut` ·
-`useUpsertAttendance` · `useDeleteAttendance` · `useCreatePayroll` ·
-`useUpdatePayroll` · `useCalculatePayroll` · `useMyPayslips` ·
-`useEmployeePayments` (+ create/update/delete). All via `fetchAPI`/`mutateAPI`,
-typed, with cache invalidation on mutations.
+`useHROverview` · `useAttendanceRecords` · `useAttendanceSummary` ·
+`useClockIn` · `useClockOut` · `useUpsertAttendance` (admin) ·
+`useCreatePayroll` · `useUpdatePayroll` (approve/pay) · `useCalculatePayroll` ·
+`useMyPayslips` · `useEmployeePayments` (+ create). All via
+`fetchAPI`/`mutateAPI`, typed against `types/database.ts`, with cache
+invalidation on mutations.
 
 ## 11. Phasing (each phase: `pnpm run check` + `pnpm build` → commit → push)
 
@@ -198,8 +209,10 @@ typed, with cache invalidation on mutations.
   (sidebar hidden + route guard); employee clock-in/out works through hooks;
   admin attendance edit writes + logs; payroll create/calculate works through
   hooks.
-- Data-layer compliance: zero raw `fetch()` remaining in `attendance-client.tsx`
-  and `payroll-client.tsx`.
+- Data-layer compliance: `payroll-client.tsx` migrated to `useQuery`/
+  `useMutation` hooks (no `useState`-as-cache, no double-`.data` unwrap);
+  `attendance-client.tsx` consumes the shared hooks (no inline `queryFn`
+  side-effects).
 
 ## 13. Risks & mitigations
 
