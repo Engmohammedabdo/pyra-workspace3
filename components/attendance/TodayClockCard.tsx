@@ -80,31 +80,33 @@ export default function TodayClockCard({
               </span>
             </div>
 
-            {loading ? (
-              <Skeleton className="h-5 w-48" />
-            ) : isClockedOut ? (
-              <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm font-medium">
-                  تم تسجيل الانصراف — {formatHours(todayRecord!.total_hours)} ساعة
-                </span>
-              </div>
-            ) : isClockedIn ? (
-              <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-                <Timer className="h-4 w-4 animate-pulse" />
-                <span className="text-sm font-medium">
-                  مسجل الدخول منذ {formatTime(todayRecord!.clock_in)}
-                </span>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {elapsed}
-                </Badge>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Fingerprint className="h-4 w-4" />
-                <span className="text-sm">لم تسجل الدخول اليوم</span>
-              </div>
-            )}
+            <div aria-live="polite" aria-atomic="false">
+              {loading ? (
+                <Skeleton className="h-5 w-48" />
+              ) : isClockedOut ? (
+                <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                  <CheckCircle className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-sm font-medium">
+                    تم تسجيل الانصراف — {formatHours(todayRecord!.total_hours)} ساعة
+                  </span>
+                </div>
+              ) : isClockedIn ? (
+                <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
+                  <Timer className="h-4 w-4 animate-pulse" aria-hidden="true" />
+                  <span className="text-sm font-medium">
+                    مسجل الدخول منذ {formatTime(todayRecord!.clock_in)}
+                  </span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {elapsed}
+                  </Badge>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Fingerprint className="h-4 w-4" aria-hidden="true" />
+                  <span className="text-sm">لم تسجل الدخول اليوم</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>

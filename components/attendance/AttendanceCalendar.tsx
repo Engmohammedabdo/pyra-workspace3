@@ -80,10 +80,10 @@ export default function AttendanceCalendar({
         </h2>
         <div className="flex items-center gap-1">
           <Button variant="outline" size="icon" onClick={onNext} className="h-8 w-8" aria-label="الشهر التالي">
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           </Button>
           <Button variant="outline" size="icon" onClick={onPrev} className="h-8 w-8" aria-label="الشهر السابق">
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -119,20 +119,31 @@ export default function AttendanceCalendar({
 
                 const isToday = cell.date === today;
 
+                const statusLabel = cell.status
+                  ? ATTENDANCE_STATUS_LABELS[cell.status as keyof typeof ATTENDANCE_STATUS_LABELS]
+                  : undefined;
+                const ariaLabel = statusLabel
+                  ? `${cell.date} — ${statusLabel}`
+                  : undefined;
+
                 return (
                   <div
                     key={cell.date}
+                    role={cell.status ? 'gridcell' : undefined}
+                    aria-label={ariaLabel}
+                    tabIndex={cell.status ? 0 : undefined}
                     className={`
                       h-9 flex flex-col items-center justify-center rounded text-xs relative
                       ${isToday ? 'ring-2 ring-orange-500 ring-offset-1 ring-offset-background' : ''}
                       ${cell.status === 'weekend' ? 'bg-muted/40' : 'bg-background'}
+                      ${cell.status ? 'focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:outline-none' : ''}
                     `}
                   >
                     <span className={`text-[11px] ${isToday ? 'font-bold text-orange-600 dark:text-orange-400' : 'text-foreground'}`}>
                       {cell.day}
                     </span>
                     {cell.status && (
-                      <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${getCalendarDotColor(cell.status)}`} />
+                      <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${getCalendarDotColor(cell.status)}`} aria-hidden="true" />
                     )}
                   </div>
                 );
@@ -140,16 +151,20 @@ export default function AttendanceCalendar({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border">
+          <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border" role="list" aria-label="مفتاح ألوان الحضور">
             {[
-              { color: 'bg-green-500', label: 'حاضر' },
-              { color: 'bg-yellow-500', label: 'متأخر' },
-              { color: 'bg-red-500', label: 'غائب' },
-              { color: 'bg-gray-300 dark:bg-gray-600', label: 'عطلة' },
+              { color: 'bg-green-500', status: 'present' },
+              { color: 'bg-yellow-500', status: 'late' },
+              { color: 'bg-red-500', status: 'absent' },
+              { color: 'bg-orange-500', status: 'early_leave' },
+              { color: 'bg-blue-500', status: 'holiday' },
+              { color: 'bg-gray-300 dark:bg-gray-600', status: 'weekend' },
             ].map(item => (
-              <div key={item.label} className="flex items-center gap-1.5">
-                <div className={`w-2 h-2 rounded-full ${item.color}`} />
-                <span className="text-[10px] text-muted-foreground">{item.label}</span>
+              <div key={item.status} className="flex items-center gap-1.5" role="listitem">
+                <div className={`w-2 h-2 rounded-full ${item.color}`} aria-hidden="true" />
+                <span className="text-[10px] text-muted-foreground">
+                  {ATTENDANCE_STATUS_LABELS[item.status as keyof typeof ATTENDANCE_STATUS_LABELS]}
+                </span>
               </div>
             ))}
           </div>
