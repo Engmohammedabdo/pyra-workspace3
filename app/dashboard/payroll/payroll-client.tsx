@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { useState } from 'react';
+import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +43,15 @@ import {
 } from 'lucide-react';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
 import { PAYROLL_STATUS_LABELS } from '@/lib/constants/statuses';
+import {
+  usePayrollRuns,
+  usePayrollRun,
+  useCreatePayroll,
+  useCalculatePayroll,
+  useUpdatePayroll,
+} from '@/hooks/usePayroll';
+import { useEmployeePayments, useCreateEmployeePayment } from '@/hooks/useEmployeePayments';
+import { useUsers } from '@/hooks/useUsers';
 
 // ============================================================
 // Types
@@ -137,7 +146,7 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
 };
 
 function formatCurrency(amount: number, currency: string = 'AED'): string {
-  return `\u200E${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
+  return `‎${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
 // ============================================================
@@ -145,27 +154,19 @@ function formatCurrency(amount: number, currency: string = 'AED'): string {
 // ============================================================
 
 export default function PayrollClient() {
-  const [runs, setRuns] = useState<PayrollRun[]>([]);
-  const [payments, setPayments] = useState<EmployeePayment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
+  // ── Expanded run (for items detail) ──
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
-  const [expandedRunData, setExpandedRunData] = useState<PayrollRun | null>(null);
-  const [expandedLoading, setExpandedLoading] = useState(false);
 
   // Create dialog state
   const [createOpen, setCreateOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [newMonth, setNewMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [newYear, setNewYear] = useState<string>(String(new Date().getFullYear()));
 
   // Add Payment dialog
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [savingPayment, setSavingPayment] = useState(false);
   const [payForm, setPayForm] = useState({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
-  const [allUsers, setAllUsers] = useState<Array<{ username: string; display_name: string }>>([]);
 
-  // Action loading states
+  // Per-row action tracking (only needed for UI spinner — mutations track isPending globally)
   const [calculatingId, setCalculatingId] = useState<string | null>(null);
   const [approvingId, setApprovingId] = useState<string | null>(null);
   const [payingId, setPayingId] = useState<string | null>(null);
@@ -175,156 +176,112 @@ export default function PayrollClient() {
   const currentYear = new Date().getFullYear();
   const [filterYear, setFilterYear] = useState<string>(String(currentYear));
 
-  // ── Fetch payroll runs ──
-  const fetchRuns = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fetchAPI<{ data: PayrollRun[] }>(`/api/dashboard/payroll?year=${filterYear}`);
-      setRuns((data as any).data ?? data ?? []);
-    } catch {
-      toast.error('فشل في تحميل مسيرات الرواتب');
-    } finally {
-      setLoading(false);
-    }
-  }, [filterYear]);
+  // ── React Query: list data ──
+  const { data: runs = [], isLoading: loading } = usePayrollRuns(filterYear);
+  const { data: payments = [], isLoading: paymentsLoading } = useEmployeePayments();
+  const { data: allUsersRaw = [] } = useUsers();
+  const allUsers = allUsersRaw
+    .filter((u) => u.username && u.display_name)
+    .map((u) => ({ username: u.username as string, display_name: u.display_name as string }));
 
-  // ── Fetch employee payments ──
-  const fetchPayments = useCallback(async () => {
-    try {
-      setPaymentsLoading(true);
-      const data = await fetchAPI<{ data: EmployeePayment[] }>('/api/dashboard/employee-payments');
-      setPayments((data as any).data ?? data ?? []);
-    } catch {
-      // Silently fail — this tab is secondary
-    } finally {
-      setPaymentsLoading(false);
-    }
-  }, []);
+  // ── React Query: expanded run detail ──
+  const { data: expandedRunData, isLoading: expandedLoading } = usePayrollRun(
+    expandedRunId ?? undefined,
+  );
 
-  useEffect(() => {
-    fetchRuns();
-    fetchPayments();
-  }, [fetchRuns, fetchPayments]);
+  // ── React Query: mutations ──
+  const createPayroll = useCreatePayroll();
+  const calculatePayroll = useCalculatePayroll();
+  const updatePayroll = useUpdatePayroll();
+  const createEmployeePayment = useCreateEmployeePayment();
 
-  // ── Fetch users for payment dialog ──
-  useEffect(() => {
-    fetchAPI<{ data: Array<{ username: string; display_name: string }> }>('/api/dashboard/users').then(data => {
-      const users = (data as any).data ?? data ?? [];
-      setAllUsers(users.map((u: { username: string; display_name: string }) => ({ username: u.username, display_name: u.display_name })));
-    }).catch(() => {});
-  }, []);
-
-  // ── Save new payment ──
-  const handleSavePayment = async () => {
-    if (!payForm.username || !payForm.amount || !payForm.source_type) {
-      toast.error('اختر الموظف والنوع والمبلغ');
-      return;
-    }
-    setSavingPayment(true);
-    try {
-      await mutateAPI('/api/dashboard/employee-payments', 'POST', {
-        username: payForm.username,
-        source_type: payForm.source_type,
-        description: payForm.description || null,
-        amount: Number(payForm.amount),
-        currency: payForm.currency,
-      });
-      toast.success('تم تسجيل الدفعة');
-      setPaymentOpen(false);
-      setPayForm({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
-      fetchPayments();
-    } catch {
-      toast.error('فشل في تسجيل الدفعة');
-    } finally {
-      setSavingPayment(false);
-    }
-  };
-
-  // ── Expand a run to see its items ──
-  const toggleExpandRun = async (runId: string) => {
+  // ── Toggle expanded run ──
+  const toggleExpandRun = (runId: string) => {
     if (expandedRunId === runId) {
       setExpandedRunId(null);
-      setExpandedRunData(null);
-      return;
-    }
-
-    setExpandedRunId(runId);
-    setExpandedLoading(true);
-
-    try {
-      const data = await fetchAPI<{ data: PayrollRun }>(`/api/dashboard/payroll/${runId}`);
-      setExpandedRunData((data as any).data ?? data);
-    } catch {
-      toast.error('فشل في تحميل تفاصيل المسير');
-    } finally {
-      setExpandedLoading(false);
+    } else {
+      setExpandedRunId(runId);
     }
   };
 
   // ── Create new payroll run ──
-  const handleCreate = async () => {
-    try {
-      setCreating(true);
-      await mutateAPI('/api/dashboard/payroll', 'POST', {
-        month: parseInt(newMonth, 10),
-        year: parseInt(newYear, 10),
-      });
-      toast.success('تم إنشاء مسير الرواتب بنجاح');
-      setCreateOpen(false);
-      fetchRuns();
-    } catch {
-      toast.error('فشل في إنشاء مسير الرواتب');
-    } finally {
-      setCreating(false);
-    }
+  const handleCreate = () => {
+    createPayroll.mutate(
+      { month: parseInt(newMonth, 10), year: parseInt(newYear, 10) },
+      {
+        onSuccess: () => {
+          toast.success('تم إنشاء مسير الرواتب بنجاح');
+          setCreateOpen(false);
+        },
+        onError: () => toast.error('فشل في إنشاء مسير الرواتب'),
+      },
+    );
   };
 
   // ── Calculate payroll ──
-  const handleCalculate = async (runId: string) => {
-    try {
-      setCalculatingId(runId);
-      const result = await mutateAPI<{ data: PayrollRun }>(`/api/dashboard/payroll/${runId}/calculate`, 'POST');
-      toast.success('تم حساب الرواتب بنجاح');
-      fetchRuns();
-      if (expandedRunId === runId) {
-        setExpandedRunData((result as any).data ?? result);
-      }
-    } catch {
-      toast.error('فشل في حساب الرواتب');
-    } finally {
-      setCalculatingId(null);
-    }
+  const handleCalculate = (runId: string) => {
+    setCalculatingId(runId);
+    calculatePayroll.mutate(runId, {
+      onSuccess: () => {
+        toast.success('تم حساب الرواتب بنجاح');
+      },
+      onError: () => toast.error('فشل في حساب الرواتب'),
+      onSettled: () => setCalculatingId(null),
+    });
   };
 
   // ── Approve payroll ──
-  const handleApprove = async (runId: string) => {
-    try {
-      setApprovingId(runId);
-      await mutateAPI(`/api/dashboard/payroll/${runId}`, 'PATCH', { action: 'approve' });
-      toast.success('تم اعتماد مسير الرواتب');
-      fetchRuns();
-    } catch {
-      toast.error('فشل في اعتماد المسير');
-    } finally {
-      setApprovingId(null);
-    }
+  const handleApprove = (runId: string) => {
+    setApprovingId(runId);
+    updatePayroll.mutate(
+      { runId, action: 'approve' },
+      {
+        onSuccess: () => toast.success('تم اعتماد مسير الرواتب'),
+        onError: () => toast.error('فشل في اعتماد المسير'),
+        onSettled: () => setApprovingId(null),
+      },
+    );
   };
 
   // ── Mark as paid ──
-  const handlePay = async (runId: string) => {
-    try {
-      setPayingId(runId);
-      await mutateAPI(`/api/dashboard/payroll/${runId}`, 'PATCH', { action: 'pay' });
-      toast.success('تم تأكيد صرف الرواتب');
-      fetchRuns();
-    } catch {
-      toast.error('فشل في تأكيد الدفع');
-    } finally {
-      setPayingId(null);
-    }
+  const handlePay = (runId: string) => {
+    setPayingId(runId);
+    updatePayroll.mutate(
+      { runId, action: 'pay' },
+      {
+        onSuccess: () => toast.success('تم تأكيد صرف الرواتب'),
+        onError: () => toast.error('فشل في تأكيد الدفع'),
+        onSettled: () => setPayingId(null),
+      },
+    );
   };
 
-  // ── Download payslip ──
+  // ── Save new payment ──
+  const handleSavePayment = () => {
+    if (!payForm.username || !payForm.amount || !payForm.source_type) {
+      toast.error('اختر الموظف والنوع والمبلغ');
+      return;
+    }
+    createEmployeePayment.mutate(
+      {
+        username: payForm.username,
+        source_type: payForm.source_type,
+        description: payForm.description || '',
+        amount: Number(payForm.amount),
+        currency: payForm.currency,
+      },
+      {
+        onSuccess: () => {
+          toast.success('تم تسجيل الدفعة');
+          setPaymentOpen(false);
+          setPayForm({ username: '', source_type: 'commission', description: '', amount: '', currency: 'AED' });
+        },
+        onError: () => toast.error('فشل في تسجيل الدفعة'),
+      },
+    );
+  };
+
+  // ── Download payslip (PDF generation — keep as-is) ──
   const handleDownloadPayslip = async (runId: string, username: string) => {
     try {
       setDownloadingPayslip(`${runId}-${username}`);
@@ -435,7 +392,7 @@ export default function PayrollClient() {
             />
           ) : (
             <div className="space-y-3">
-              {runs.map((run) => (
+              {(runs as PayrollRun[]).map((run) => (
                 <Card key={run.id} className="border-0 shadow-sm overflow-hidden">
                   {/* Run header (clickable) */}
                   <CardContent
@@ -567,7 +524,7 @@ export default function PayrollClient() {
                                 </tr>
                               </thead>
                               <tbody>
-                                {expandedRunData.items.map((item) => (
+                                {(expandedRunData.items as PayrollItem[]).map((item) => (
                                   <tr
                                     key={item.id}
                                     className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
@@ -697,7 +654,7 @@ export default function PayrollClient() {
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.map((p) => (
+                      {(payments as EmployeePayment[]).map((p) => (
                         <tr
                           key={p.id}
                           className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
@@ -783,10 +740,10 @@ export default function PayrollClient() {
             </Button>
             <Button
               onClick={handleCreate}
-              disabled={creating}
+              disabled={createPayroll.isPending}
               className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {creating ? (
+              {createPayroll.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Plus className="h-4 w-4" />
@@ -864,8 +821,16 @@ export default function PayrollClient() {
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setPaymentOpen(false)}>إلغاء</Button>
-            <Button onClick={handleSavePayment} disabled={savingPayment} className="bg-orange-500 hover:bg-orange-600 text-white">
-              {savingPayment ? <Loader2 className="h-4 w-4 animate-spin me-1" /> : <Plus className="h-4 w-4 me-1" />}
+            <Button
+              onClick={handleSavePayment}
+              disabled={createEmployeePayment.isPending}
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              {createEmployeePayment.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin me-1" />
+              ) : (
+                <Plus className="h-4 w-4 me-1" />
+              )}
               تسجيل
             </Button>
           </DialogFooter>
