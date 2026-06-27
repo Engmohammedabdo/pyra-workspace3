@@ -24,17 +24,11 @@ import { useUpsertAttendance } from '@/hooks/useAttendance';
 import { useUsers } from '@/hooks/useUsers';
 import { ATTENDANCE_STATUS_LABELS } from '@/lib/constants/statuses';
 import type { AttendanceStatus } from '@/lib/constants/statuses';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 interface AdminAttendanceDialogProps {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-}
-
-function getTodayUAE(): string {
-  const now = new Date();
-  const uaeOffset = 4 * 60 * 60 * 1000;
-  const uaeNow = new Date(now.getTime() + uaeOffset);
-  return uaeNow.toISOString().slice(0, 10);
 }
 
 /**
@@ -53,7 +47,7 @@ export default function AdminAttendanceDialog({
   open,
   onOpenChange,
 }: AdminAttendanceDialogProps) {
-  const today = getTodayUAE();
+  const today = dubaiDayKey();
 
   const [username, setUsername] = useState('');
   const [date, setDate] = useState(today);
@@ -127,8 +121,8 @@ export default function AdminAttendanceDialog({
               </SelectTrigger>
               <SelectContent>
                 {employees.map((u) => (
-                  <SelectItem key={String(u.id)} value={String(u['username'] ?? u.id)}>
-                    {String(u['display_name'] ?? u.name ?? u['username'] ?? u.id)}
+                  <SelectItem key={String(u.id)} value={u.username ?? String(u.id)}>
+                    {u.display_name ?? u.name ?? u.username ?? String(u.id)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -200,7 +194,7 @@ export default function AdminAttendanceDialog({
               onChange={(e) => setNotes(e.target.value)}
               placeholder="أي ملاحظات إضافية..."
               rows={3}
-              className="resize-none"
+              className="resize-none min-h-[44px]"
             />
           </div>
 

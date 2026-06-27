@@ -9,6 +9,8 @@ import { fetchAPI } from './api-helpers';
 export interface User {
   id: string;
   name?: string;
+  username?: string;
+  display_name?: string;
   email?: string;
   role?: string;
   avatar_url?: string;
