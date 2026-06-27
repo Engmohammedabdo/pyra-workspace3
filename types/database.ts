@@ -22,6 +22,7 @@ export interface PyraUser {
   salary?: number;
   hourly_rate?: number;
   hire_date?: string;
+  date_of_birth?: string | null;   // YYYY-MM-DD — birthday for HR celebrations
   national_id?: string;
   bank_details?: { bank?: string; iban?: string; account_name?: string; account_no?: string };
   department?: string;
