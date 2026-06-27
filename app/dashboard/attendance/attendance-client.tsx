@@ -31,7 +31,9 @@ import {
   ChevronRight,
   ChevronLeft,
   Fingerprint,
+  UserCog,
 } from 'lucide-react';
+import AdminAttendanceDialog from '@/components/attendance/AdminAttendanceDialog';
 import type { AuthSession } from '@/lib/auth/guards';
 import type { PyraWorkSchedule } from '@/types/database';
 import {
@@ -80,6 +82,7 @@ interface AttendanceClientProps {
 
 export default function AttendanceClient({ session }: AttendanceClientProps) {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [adminDialogOpen, setAdminDialogOpen] = useState(false);
 
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -513,14 +516,21 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
       </div>
 
       {canManage && (
-        <Card className="border-0 shadow-sm bg-orange-50/50 dark:bg-orange-950/20">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 text-sm">
-              <AlertTriangle className="h-4 w-4" />
-              <span>لديك صلاحية إدارة الحضور — يمكنك عرض سجلات جميع الموظفين عبر واجهة التقارير.</span>
-            </div>
-          </CardContent>
-        </Card>
+        <>
+          <div className="flex justify-end">
+            <Button
+              onClick={() => setAdminDialogOpen(true)}
+              className="h-11 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+            >
+              <UserCog className="h-4 w-4" />
+              تعديل حضور موظف
+            </Button>
+          </div>
+          <AdminAttendanceDialog
+            open={adminDialogOpen}
+            onOpenChange={setAdminDialogOpen}
+          />
+        </>
       )}
     </motion.div>
   );
