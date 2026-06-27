@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
 import { PAYROLL_STATUS_LABELS } from '@/lib/constants/statuses';
+import { formatCurrency } from '@/lib/utils/format';
 import {
   usePayrollRuns,
   usePayrollRun,
@@ -144,10 +145,6 @@ const PAYMENT_STATUS_LABELS: Record<string, string> = {
   rejected: 'مرفوض',
   paid: 'مدفوع',
 };
-
-function formatCurrency(amount: number, currency: string = 'AED'): string {
-  return `‎${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
-}
 
 // ============================================================
 // Component
