@@ -172,6 +172,7 @@ const navGroups: NavGroup[] = [
     titleEn: 'HR',
     description: 'الحضور والإجازات والرواتب والتقييمات',
     items: [
+      { href: '/dashboard/hr', label: 'نظرة عامة', labelEn: 'HR Overview', icon: LayoutDashboard, permission: 'hr.view' },
       { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.view', badgeKey: 'team_approvals' },
       { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
       { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
