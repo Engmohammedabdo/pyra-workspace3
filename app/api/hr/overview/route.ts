@@ -119,9 +119,11 @@ export async function GET(request: NextRequest) {
 
     if (pendingLeaveError) throw new Error(`pyra_leave_requests (pending): ${pendingLeaveError.message}`);
 
-    // Helper: get display_name for a username from the in-memory users list
+    // Helper: get display_name for a username from the full non-client user set.
+    // Uses allUsers (not activeUsers) so inactive employees on approved leave
+    // still resolve to their display_name rather than falling back to raw username.
     const nameOf = (un: string): string =>
-      activeUsers.find((u) => u.username === un)?.display_name ?? un;
+      (allUsers ?? []).find((u) => u.username === un)?.display_name ?? un;
 
     // On-leave today list
     const onLeaveTodayList = approvedLeave
@@ -132,8 +134,12 @@ export async function GET(request: NextRequest) {
         end_date: l.end_date as string,
       }));
 
-    // Upcoming leaves — starting in the next 7 days (exclusive of today)
-    const in7Days = daysFromNow(7);
+    // Upcoming leaves — starting in the next 7 days (exclusive of today).
+    // Derived from the Dubai calendar day so the window boundary is correct
+    // at the Dubai day boundary (not off by up to 4 hours vs UTC).
+    const in7DaysDate = new Date(todayKey + 'T00:00:00Z');
+    in7DaysDate.setUTCDate(in7DaysDate.getUTCDate() + 7);
+    const in7Days = in7DaysDate.toISOString().slice(0, 10);
     const upcomingLeave = approvedLeave
       .filter((l) => l.start_date > todayKey && l.start_date <= in7Days)
       .map((l) => ({
