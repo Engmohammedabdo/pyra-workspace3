@@ -141,6 +141,10 @@ export const PERMISSIONS = {
   ATTENDANCE_VIEW: 'attendance.view',
   ATTENDANCE_MANAGE: 'attendance.manage',
 
+  // HR Overview
+  HR_VIEW: 'hr.view',
+  HR_MANAGE: 'hr.manage',
+
   // Payroll
   PAYROLL_VIEW: 'payroll.view',
   PAYROLL_MANAGE: 'payroll.manage',
@@ -608,6 +612,15 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     permissions: [
       { key: 'attendance.view', label: 'View Attendance', labelAr: 'عرض الحضور' },
       { key: 'attendance.manage', label: 'Manage Attendance', labelAr: 'إدارة الحضور' },
+    ],
+  },
+  {
+    key: 'hr',
+    label: 'HR Overview',
+    labelAr: 'لوحة الموارد البشرية',
+    permissions: [
+      { key: 'hr.view', label: 'View HR Dashboard', labelAr: 'عرض لوحة الموارد البشرية' },
+      { key: 'hr.manage', label: 'Manage HR', labelAr: 'إدارة الموارد البشرية' },
     ],
   },
   {
