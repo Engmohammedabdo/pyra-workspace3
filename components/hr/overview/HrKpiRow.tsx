@@ -1,0 +1,62 @@
+'use client';
+
+import { Users, UserCheck, Plane, ClipboardCheck, Banknote } from 'lucide-react';
+import { KpiCard } from '@/components/dashboard/KpiCard';
+import { formatCurrency } from '@/lib/utils/format';
+import type { HROverview } from '@/hooks/useHROverview';
+
+interface HrKpiRowProps {
+  data: HROverview;
+}
+
+export function HrKpiRow({ data }: HrKpiRowProps) {
+  const pendingCount = data.leave.pending;
+  const pendingAccent = pendingCount > 5 ? '#ef4444' : undefined; // red-500
+
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* 1. Headcount */}
+      <KpiCard
+        title="إجمالي الموظفين"
+        value={String(data.headcount.active)}
+        icon={Users}
+        gradient="from-blue-500 to-indigo-600"
+        subtitle={`${data.headcount.new_30d} موظف جديد في آخر 30 يوم`}
+      />
+
+      {/* 2. Present today % */}
+      <KpiCard
+        title="الحضور اليوم"
+        value={`${data.attendance_today.present_rate_pct}%`}
+        icon={UserCheck}
+        gradient="from-emerald-500 to-teal-600"
+        subtitle={`حاضر: ${data.attendance_today.present} · غائب: ${data.attendance_today.absent}`}
+      />
+
+      {/* 3. On leave today */}
+      <KpiCard
+        title="في إجازة اليوم"
+        value={String(data.attendance_today.on_leave)}
+        icon={Plane}
+        gradient="from-amber-500 to-orange-600"
+      />
+
+      {/* 4. Pending approvals — red accent when > 5 */}
+      <KpiCard
+        title="طلبات إجازة معلقة"
+        value={String(pendingCount)}
+        icon={ClipboardCheck}
+        gradient={pendingCount > 5 ? 'from-red-500 to-rose-600' : 'from-orange-500 to-amber-600'}
+        accent={pendingAccent}
+      />
+
+      {/* 5. Monthly payroll cost */}
+      <KpiCard
+        title="تكلفة الرواتب الأخيرة"
+        value={formatCurrency(data.payroll.last_paid_total)}
+        icon={Banknote}
+        gradient="from-purple-500 to-violet-600"
+      />
+    </div>
+  );
+}
