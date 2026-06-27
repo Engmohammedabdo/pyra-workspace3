@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiServerError } from '@/lib/api/response'; // apiError retained for 422 validation responses
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 import { generateId } from '@/lib/utils/id';
 
 // =============================================================
@@ -61,7 +62,10 @@ export async function POST(request: NextRequest) {
         .eq('id', existing.id)
         .select()
         .single();
-      if (error) return apiError('فشل تحديث سجل الحضور', 500);
+      if (error) {
+        logError({ error, metadata: { action: 'admin_attendance_update', username, date } });
+        return apiServerError('فشل تحديث سجل الحضور');
+      }
       row = data;
     } else {
       const { data, error } = await supabase
@@ -78,7 +82,10 @@ export async function POST(request: NextRequest) {
         })
         .select()
         .single();
-      if (error) return apiError('فشل إنشاء سجل الحضور', 500);
+      if (error) {
+        logError({ error, metadata: { action: 'admin_attendance_insert', username, date } });
+        return apiServerError('فشل إنشاء سجل الحضور');
+      }
       row = data;
     }
 
