@@ -45,7 +45,7 @@ export function UpcomingLeaveList({ items }: UpcomingLeaveListProps) {
         {items.length > 0 ? (
           items.map((item) => (
             <div
-              key={item.username}
+              key={`${item.username}-${item.start_date}`}
               className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors"
             >
               <div className="flex flex-col gap-0.5 min-w-0">

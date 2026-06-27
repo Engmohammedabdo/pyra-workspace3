@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Banknote, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import {
@@ -21,6 +22,7 @@ interface PayrollTrendChartProps {
 const PAYROLL_COLOR = CHART_COLORS[4]; // purple-500
 
 export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
+  const gradientId = useId();
   const hasTrend = trend && trend.length > 0;
   const latestTotal = hasTrend ? trend[trend.length - 1].total : 0;
 
@@ -47,7 +49,7 @@ export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={trend}>
                 <defs>
-                  <linearGradient id="payrollGradient" x1="0" y1="0" x2="0" y2="1">
+                  <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={PAYROLL_COLOR} stopOpacity={0.3} />
                     <stop offset="95%" stopColor={PAYROLL_COLOR} stopOpacity={0} />
                   </linearGradient>
@@ -79,7 +81,7 @@ export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
                   dataKey="total"
                   stroke={PAYROLL_COLOR}
                   strokeWidth={2.5}
-                  fill="url(#payrollGradient)"
+                  fill={`url(#${gradientId})`}
                 />
               </AreaChart>
             </ResponsiveContainer>

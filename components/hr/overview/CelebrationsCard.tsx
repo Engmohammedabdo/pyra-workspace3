@@ -1,7 +1,6 @@
 'use client';
 
 import { Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/format';
 import type { HROverview } from '@/hooks/useHROverview';
 
