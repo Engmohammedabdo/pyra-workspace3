@@ -1,8 +1,15 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { fetchAPI } from '@/hooks/api-helpers';
+import {
+  useAttendanceRecords,
+  useAttendanceSummary,
+  useClockIn,
+  useClockOut,
+} from '@/hooks/useAttendance';
+import type { AttendanceRecord, AttendanceSummary } from '@/hooks/useAttendance';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,46 +33,11 @@ import {
   Fingerprint,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
-
-interface AttendanceRecord {
-  id: string;
-  username: string;
-  date: string;
-  clock_in: string | null;
-  clock_out: string | null;
-  total_hours: number;
-  status: 'present' | 'absent' | 'late' | 'early_leave' | 'holiday' | 'weekend';
-  notes: string | null;
-  ip_address: string | null;
-  created_at: string;
-}
-
-interface AttendanceSummary {
-  present_days: number;
-  late_days: number;
-  absent_days: number;
-  total_hours: number;
-  avg_hours_per_day: number;
-  expected_work_days: number;
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  present: 'bg-green-500/10 text-green-600 dark:text-green-400',
-  late: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
-  absent: 'bg-red-500/10 text-red-600 dark:text-red-400',
-  early_leave: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-  holiday: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
-  weekend: 'bg-gray-500/10 text-gray-500 dark:text-gray-400',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  present: 'حاضر',
-  late: 'متأخر',
-  absent: 'غائب',
-  early_leave: 'انصراف مبكر',
-  holiday: 'إجازة رسمية',
-  weekend: 'عطلة',
-};
+import type { PyraWorkSchedule } from '@/types/database';
+import {
+  ATTENDANCE_STATUS_STYLES,
+  ATTENDANCE_STATUS_LABELS,
+} from '@/lib/constants/statuses';
 
 const MONTH_NAMES_AR = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
@@ -107,10 +79,7 @@ interface AttendanceClientProps {
 }
 
 export default function AttendanceClient({ session }: AttendanceClientProps) {
-  const queryClient = useQueryClient();
   const [currentTime, setCurrentTime] = useState(new Date());
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [workSchedule, setWorkSchedule] = useState<any>(null);
 
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -123,54 +92,27 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
     return () => clearInterval(interval);
   }, []);
 
-  useQuery({
+  const { data: schedules } = useQuery<PyraWorkSchedule[]>({
     queryKey: ['work-schedules'],
-    queryFn: async () => {
-      const data = await fetchAPI<any[]>('/api/dashboard/work-schedules');
-      const schedule = (data || []).find((s: { is_default: boolean }) => s.is_default) || (data || [])[0] || null;
-      setWorkSchedule(schedule);
-      return data;
-    },
+    queryFn: () => fetchAPI<PyraWorkSchedule[]>('/api/dashboard/work-schedules'),
     staleTime: 10 * 60_000,
   });
+  const workSchedule = (schedules ?? []).find(s => s.is_default) ?? schedules?.[0] ?? null;
 
   const monthKey = getMonthKey(selectedYear, selectedMonth);
 
-  const { data: recordsData, isLoading: recordsLoading } = useQuery<AttendanceRecord[]>({
-    queryKey: ['attendance-records', monthKey],
-    queryFn: () => fetchAPI(`/api/dashboard/attendance?month=${monthKey}`),
-    staleTime: 60_000,
-  });
-
-  const { data: summaryData, isLoading: summaryLoading } = useQuery<AttendanceSummary>({
-    queryKey: ['attendance-summary', monthKey],
-    queryFn: () => fetchAPI(`/api/dashboard/attendance/summary?month=${monthKey}`),
-    staleTime: 60_000,
-  });
+  const { data: recordsData, isLoading: recordsLoading } = useAttendanceRecords({ month: monthKey });
+  const { data: summaryData, isLoading: summaryLoading } = useAttendanceSummary({ month: monthKey });
 
   const loading = recordsLoading || summaryLoading;
-  const records = recordsData || [];
-  const summary = summaryData || null;
+  const records = recordsData ?? [];
+  const summary = summaryData ?? null;
 
   const today = getTodayUAE();
-  const todayRecord = records.find((r) => r.date === today) || null;
+  const todayRecord = records.find((r) => r.date === today) ?? null;
 
-  const fetchData = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['attendance-records', monthKey] });
-    queryClient.invalidateQueries({ queryKey: ['attendance-summary', monthKey] });
-  }, [queryClient, monthKey]);
-
-  const clockInMutation = useMutation({
-    mutationFn: () => mutateAPI('/api/dashboard/attendance', 'POST', {}),
-    onSuccess: () => { toast.success('تم تسجيل الدخول بنجاح'); fetchData(); },
-    onError: () => toast.error('حدث خطأ أثناء تسجيل الدخول'),
-  });
-
-  const clockOutMutation = useMutation({
-    mutationFn: () => mutateAPI('/api/dashboard/attendance/clock-out', 'POST', {}),
-    onSuccess: () => { toast.success('تم تسجيل الانصراف بنجاح'); fetchData(); },
-    onError: () => toast.error('حدث خطأ أثناء تسجيل الانصراف'),
-  });
+  const clockIn = useClockIn();
+  const clockOut = useClockOut();
 
   const goToPreviousMonth = () => {
     if (selectedMonth === 1) {
@@ -192,8 +134,8 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
 
   const getElapsedTime = (): string => {
     if (!todayRecord?.clock_in || todayRecord.clock_out) return '';
-    const clockIn = new Date(todayRecord.clock_in);
-    const diff = currentTime.getTime() - clockIn.getTime();
+    const clockInTime = new Date(todayRecord.clock_in);
+    const diff = currentTime.getTime() - clockInTime.getTime();
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((diff % (1000 * 60)) / 1000);
@@ -320,23 +262,29 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
                 </Button>
               ) : isClockedIn ? (
                 <Button
-                  onClick={() => clockOutMutation.mutate()}
-                  disabled={clockOutMutation.isPending}
+                  onClick={() => clockOut.mutate(undefined, {
+                    onSuccess: () => toast.success('تم تسجيل الانصراف بنجاح'),
+                    onError: () => toast.error('حدث خطأ أثناء تسجيل الانصراف'),
+                  })}
+                  disabled={clockOut.isPending}
                   size="lg"
                   className="gap-2 bg-red-600 hover:bg-red-700 text-white"
                 >
                   <LogOut className="h-5 w-5" />
-                  {clockOutMutation.isPending ? 'جاري التسجيل...' : 'تسجيل انصراف'}
+                  {clockOut.isPending ? 'جاري التسجيل...' : 'تسجيل انصراف'}
                 </Button>
               ) : (
                 <Button
-                  onClick={() => clockInMutation.mutate()}
-                  disabled={clockInMutation.isPending}
+                  onClick={() => clockIn.mutate(undefined, {
+                    onSuccess: () => toast.success('تم تسجيل الدخول بنجاح'),
+                    onError: () => toast.error('حدث خطأ أثناء تسجيل الدخول'),
+                  })}
+                  disabled={clockIn.isPending}
                   size="lg"
                   className="gap-2 bg-green-600 hover:bg-green-700 text-white"
                 >
                   <LogIn className="h-5 w-5" />
-                  {clockInMutation.isPending ? 'جاري التسجيل...' : 'تسجيل دخول'}
+                  {clockIn.isPending ? 'جاري التسجيل...' : 'تسجيل دخول'}
                 </Button>
               )}
             </div>
@@ -548,9 +496,9 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
                           <td className="py-3">
                             <Badge
                               variant="outline"
-                              className={`text-[11px] border-0 ${STATUS_STYLES[record.status] || ''}`}
+                              className={`text-[11px] border-0 ${ATTENDANCE_STATUS_STYLES[record.status] || ''}`}
                             >
-                              {STATUS_LABELS[record.status] || record.status}
+                              {ATTENDANCE_STATUS_LABELS[record.status] || record.status}
                             </Badge>
                           </td>
                         </tr>
