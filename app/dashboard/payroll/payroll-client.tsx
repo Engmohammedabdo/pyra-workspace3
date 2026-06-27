@@ -389,13 +389,21 @@ export default function PayrollClient() {
             />
           ) : (
             <div className="space-y-3">
-              {(runs as PayrollRun[]).map((run) => (
+              {(runs as PayrollRun[]).map((run) => {
+                const isExpanded = expandedRunId === run.id;
+                const detailId = `payroll-detail-${run.id}`;
+                return (
                 <Card key={run.id} className="border-0 shadow-sm overflow-hidden">
-                  {/* Run header (clickable) */}
-                  <CardContent
-                    className="pt-5 pb-4 cursor-pointer hover:bg-muted/30 transition-colors"
-                    onClick={() => toggleExpandRun(run.id)}
-                  >
+                  {/* Run header — toggle button for expand/collapse */}
+                  <CardContent className="pt-5 pb-4">
+                    <button
+                      type="button"
+                      className="w-full text-start cursor-pointer hover:bg-muted/30 transition-colors rounded-sm -mx-1 px-1"
+                      onClick={() => toggleExpandRun(run.id)}
+                      aria-expanded={isExpanded}
+                      aria-controls={detailId}
+                      aria-label={`تفاصيل مسير ${run.month}/${run.year}`}
+                    >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         {/* Month/Year */}
@@ -432,18 +440,19 @@ export default function PayrollClient() {
                         </div>
 
                         {/* Expand icon */}
-                        {expandedRunId === run.id ? (
+                        {isExpanded ? (
                           <ChevronUp className="h-5 w-5 text-muted-foreground" />
                         ) : (
                           <ChevronDown className="h-5 w-5 text-muted-foreground" />
                         )}
                       </div>
                     </div>
+                    </button>
                   </CardContent>
 
                   {/* Expanded details */}
-                  {expandedRunId === run.id && (
-                    <div className="border-t border-border">
+                  {isExpanded && (
+                    <div id={detailId} className="border-t border-border">
                       <CardContent className="pt-4 pb-5">
                         {/* Action buttons */}
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -509,15 +518,15 @@ export default function PayrollClient() {
                             <table className="w-full text-sm">
                               <thead>
                                 <tr className="border-b border-border text-muted-foreground">
-                                  <th className="text-start pb-3 pe-3 font-medium">الموظف</th>
-                                  <th className="text-start pb-3 pe-3 font-medium">القسم</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">الراتب</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">المهام</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">إضافي</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">مكافأة</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">خصومات</th>
-                                  <th className="text-end pb-3 pe-3 font-medium">الصافي</th>
-                                  <th className="text-center pb-3 font-medium">كشف</th>
+                                  <th scope="col" className="text-start pb-3 pe-3 font-medium">الموظف</th>
+                                  <th scope="col" className="text-start pb-3 pe-3 font-medium">القسم</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">الراتب</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">المهام</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">إضافي</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">مكافأة</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">خصومات</th>
+                                  <th scope="col" className="text-end pb-3 pe-3 font-medium">الصافي</th>
+                                  <th scope="col" className="text-center pb-3 font-medium">كشف</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -602,7 +611,8 @@ export default function PayrollClient() {
                     </div>
                   )}
                 </Card>
-              ))}
+              );
+              })}
             </div>
           )}
         </TabsContent>
@@ -642,12 +652,12 @@ export default function PayrollClient() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-muted-foreground">
-                        <th className="text-start pb-3 pe-3 font-medium">الموظف</th>
-                        <th className="text-start pb-3 pe-3 font-medium">النوع</th>
-                        <th className="text-start pb-3 pe-3 font-medium">الوصف</th>
-                        <th className="text-end pb-3 pe-3 font-medium">المبلغ</th>
-                        <th className="text-start pb-3 pe-3 font-medium">الحالة</th>
-                        <th className="text-start pb-3 font-medium">التاريخ</th>
+                        <th scope="col" className="text-start pb-3 pe-3 font-medium">الموظف</th>
+                        <th scope="col" className="text-start pb-3 pe-3 font-medium">النوع</th>
+                        <th scope="col" className="text-start pb-3 pe-3 font-medium">الوصف</th>
+                        <th scope="col" className="text-end pb-3 pe-3 font-medium">المبلغ</th>
+                        <th scope="col" className="text-start pb-3 pe-3 font-medium">الحالة</th>
+                        <th scope="col" className="text-start pb-3 font-medium">التاريخ</th>
                       </tr>
                     </thead>
                     <tbody>
