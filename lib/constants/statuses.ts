@@ -660,6 +660,36 @@ export const CALENDAR_MAX_WINDOW_DAYS = 62;
 export const CALENDAR_TIMEZONE = 'Asia/Dubai';
 export const CALENDAR_TIMEZONE_OFFSET = '+04:00';
 
+// ── Attendance ──
+export const ATTENDANCE_STATUS = {
+  PRESENT: 'present',
+  ABSENT: 'absent',
+  LATE: 'late',
+  EARLY_LEAVE: 'early_leave',
+  HOLIDAY: 'holiday',
+  WEEKEND: 'weekend',
+} as const;
+
+export type AttendanceStatus = typeof ATTENDANCE_STATUS[keyof typeof ATTENDANCE_STATUS];
+
+export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
+  present: 'حاضر',
+  absent: 'غائب',
+  late: 'متأخر',
+  early_leave: 'انصراف مبكر',
+  holiday: 'إجازة رسمية',
+  weekend: 'عطلة',
+};
+
+export const ATTENDANCE_STATUS_STYLES: Record<AttendanceStatus, string> = {
+  present: 'bg-green-500/10 text-green-600 dark:text-green-400',
+  absent: 'bg-red-500/10 text-red-600 dark:text-red-400',
+  late: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
+  early_leave: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
+  holiday: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  weekend: 'bg-gray-500/10 text-gray-500 dark:text-gray-400',
+};
+
 // ── Currencies ──
 export const CURRENCIES = [
   { value: 'AED', label: 'AED — درهم إماراتي' },
