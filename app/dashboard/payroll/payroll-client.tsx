@@ -451,8 +451,8 @@ export default function PayrollClient() {
                   </CardContent>
 
                   {/* Expanded details */}
+                  <div id={detailId} hidden={!isExpanded} className="border-t border-border">
                   {isExpanded && (
-                    <div id={detailId} className="border-t border-border">
                       <CardContent className="pt-4 pb-5">
                         {/* Action buttons */}
                         <div className="flex flex-wrap gap-2 mb-4">
@@ -608,8 +608,8 @@ export default function PayrollClient() {
                           )}
                         </div>
                       </CardContent>
-                    </div>
                   )}
+                  </div>
                 </Card>
               );
               })}
