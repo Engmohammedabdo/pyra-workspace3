@@ -56,7 +56,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', username)
       .single();
 
@@ -89,7 +89,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Verify user exists
     const { data: existingUser, error: findError } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department')
       .eq('username', username)
       .single();
 
@@ -243,6 +243,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.hire_date = body.hire_date;
     }
 
+    if (body.date_of_birth !== undefined) {
+      if (body.date_of_birth !== null && typeof body.date_of_birth !== 'string') {
+        return apiValidationError('تاريخ الميلاد غير صالح');
+      }
+      updateData.date_of_birth = body.date_of_birth || null;
+    }
+
     if (body.department !== undefined) {
       if (body.department !== null && typeof body.department !== 'string') {
         return apiValidationError('القسم غير صالح');
@@ -284,7 +291,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department')
       .single();
 
     if (updateError) {

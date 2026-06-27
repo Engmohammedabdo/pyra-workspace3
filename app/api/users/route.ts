@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, pyra_roles!left(name, name_ar, color, icon)');
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (['admin', 'employee', 'sales_agent'].includes(role)) {
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       username, password, role, display_name, permissions, extra_permissions, role_id, phone, job_title,
-      employment_type, work_location, payment_type, salary, hourly_rate, hire_date, department, manager_username, email,
+      employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, manager_username, email,
     } = body;
 
     // --- Validation ---
@@ -163,6 +163,7 @@ export async function POST(request: NextRequest) {
         salary: salary || 0,
         hourly_rate: hourly_rate || 0,
         hire_date: hire_date || null,
+        date_of_birth: date_of_birth || null,
         department: department || null,
         manager_username: manager_username || null,
         email: email || null,

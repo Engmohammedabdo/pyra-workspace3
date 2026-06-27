@@ -77,6 +77,7 @@ interface PyraUser {
   salary?: number;
   hourly_rate?: number;
   hire_date?: string;
+  date_of_birth?: string | null;
   department?: string;
   extra_permissions?: string[];
 }
@@ -128,6 +129,7 @@ export default function UsersClient() {
     salary: '' as string | number,
     hourly_rate: '' as string | number,
     hire_date: '',
+    date_of_birth: '',
     department: '',
   });
   const [newPassword, setNewPassword] = useState('');
@@ -158,6 +160,7 @@ export default function UsersClient() {
       salary: '',
       hourly_rate: '',
       hire_date: '',
+      date_of_birth: '',
       department: '',
     });
   };
@@ -209,7 +212,7 @@ export default function UsersClient() {
       payment_type: formData.payment_type || null,
       salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
       hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
-      hire_date: formData.hire_date || null, department: formData.department || null,
+      hire_date: formData.hire_date || null, date_of_birth: formData.date_of_birth || null, department: formData.department || null,
       extra_permissions: extraPermissions,
     }});
   };
@@ -241,6 +244,7 @@ export default function UsersClient() {
       salary: user.salary ?? '',
       hourly_rate: user.hourly_rate ?? '',
       hire_date: user.hire_date || '',
+      date_of_birth: user.date_of_birth || '',
       department: user.department || '',
     });
     setEditStatus(user.status || 'active');
@@ -736,14 +740,26 @@ export default function UsersClient() {
                   />
                 </div>
               )}
-              <div className="space-y-2">
-                <FormLabel>تاريخ التعيين</FormLabel>
-                <Input
-                  type="date"
-                  value={formData.hire_date}
-                  onChange={e => setFormData(p => ({ ...p, hire_date: e.target.value }))}
-                  dir="ltr"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>تاريخ التعيين</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.hire_date}
+                    onChange={e => setFormData(p => ({ ...p, hire_date: e.target.value }))}
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date_of_birth">تاريخ الميلاد</Label>
+                  <Input
+                    id="date_of_birth"
+                    type="date"
+                    value={formData.date_of_birth ?? ''}
+                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    dir="ltr"
+                  />
+                </div>
               </div>
             </div>
           </div>
