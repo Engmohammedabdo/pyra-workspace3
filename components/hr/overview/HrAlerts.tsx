@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
-import { AlertCircle, AlertTriangle, Info, Bell, ExternalLink } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Info, ExternalLink } from 'lucide-react';
 import type { HROverview } from '@/hooks/useHROverview';
 
 type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';

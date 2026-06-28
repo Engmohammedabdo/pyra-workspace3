@@ -19,7 +19,7 @@ export default function PayrollClient() {
   const { data: payments = [], isLoading: paymentsLoading } = useEmployeePayments();
   const { data: allUsersRaw = [] } = useUsers();
   const allUsers = allUsersRaw
-    .filter((u) => u.username && u.display_name)
+    .filter((u) => u.username && u.display_name && u.role !== 'client')
     .map((u) => ({ username: u.username as string, display_name: u.display_name as string }));
 
   return (

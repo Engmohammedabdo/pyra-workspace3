@@ -1,7 +1,6 @@
 'use client';
 
 import { Users } from 'lucide-react';
-import { cn } from '@/lib/utils/cn';
 import {
   BarChart,
   Bar,
