@@ -241,9 +241,15 @@ app/api/tasks/            → Task CRUD, move, duplicate
 app/api/finance/contracts → Contract management + invoice generation (retainer_amount = source of truth)
 app/api/my-work/          → Unified employee inbox aggregator (one round trip, all sections)
 app/api/approvals/team/   → Manager approvals data (leave + expense + timesheet, scoped to direct reports)
+app/api/hr/overview/      → HR admin aggregator (hr.view gate + service role; headcount/attendance/leave/payroll/evaluations/alerts/celebrations)
+app/dashboard/hr/         → HR Overview page (admin-only, requirePermission('hr.view'))
 hooks/                    → 42+ React Query hooks (data fetching + mutations)
 hooks/api-helpers.ts      → fetchAPI() + mutateAPI() — shared fetch wrappers
 hooks/useMyWork.ts        → Inbox aggregator hook (30s staleTime, refetch on focus)
+hooks/useHROverview.ts    → HR Overview hook (60s staleTime, refetchOnWindowFocus)
+hooks/useAttendance.ts    → Shared attendance hooks (useAttendanceRecords, useAttendanceSummary, useClockIn, useClockOut, useUpsertAttendance)
+hooks/usePayroll.ts       → Shared payroll hooks (usePayrollRuns, usePayrollRun, useMyPayslips, useCreatePayroll, useCalculatePayroll, useUpdatePayroll)
+hooks/useEmployeePayments.ts → Employee payments hooks (useEmployeePayments, useCreateEmployeePayment, useUpdateEmployeePayment)
 components/ui/            → Shared primitives (both dashboard + portal)
 components/layout/        → Dashboard layout (sidebar, topbar)
 components/portal/        → Portal layout
@@ -251,6 +257,10 @@ components/boards/        → Board components (toolbar, task-sheet, calendar, l
 components/sales/chat/    → WhatsApp chat (conversation list, chat window, contact sidebar)
 components/files/         → Unified file-preview (shared between dashboard + portal)
 components/dashboard/MyWorkInbox.tsx → 5-section inbox card
+components/hr/overview/   → HR Overview widgets (HrAlerts, HrKpiRow, HeadcountChart, PayrollTrendChart, UpcomingLeaveList, EvaluationsStatusCard, CelebrationsCard)
+components/attendance/    → Attendance sub-components (AttendanceCalendar, AttendanceSummaryCards, TodayClockCard, AdminAttendanceDialog)
+components/payroll/       → Payroll sub-components (PayrollRunsTable, PayrollRunRow, EmployeePaymentsTab, CreatePayrollDialog, AddPaymentDialog)
+lib/hr/overview-helpers.ts → computeCelebrations() + deriveAlerts() — pure helpers unit-tested in __tests__/hr-overview-helpers.test.ts
 lib/auth/rbac.ts          → 79+ permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
 lib/auth/auth-mapping.ts  → resolveAuthUserId() — heals legacy users missing pyra_auth_mapping rows
 lib/auth/team-scope.ts    → getDirectReports / getManagerOf / isManager / canApproveFor()
@@ -2885,6 +2895,176 @@ explicit business rationale; 1 rate-limit deferral) + 10 P2s +
 1 unknown (Coolify Postgres backup encryption — needs Abdou
 verification). 5 of 8 audit P1s + 1 Reviewer-bonus bug fix shipped
 across the two fix-bundle sessions (2026-05-15 + 2026-05-16).
+
+## HR Department Improvement — Locked Decisions (2026-06-27)
+
+These are **intentional, documented design choices** locked during the HR
+Department Improvement bundle closure (30 commits merged to `main`).
+**Do NOT re-litigate.** Future sessions touching the HR Overview, attendance,
+or payroll surfaces should defer to the decisions recorded here.
+
+### 1. `hr.view` is admin-only — NOT in BASE_EMPLOYEE
+
+`PERMISSIONS.HR_VIEW = 'hr.view'` and `PERMISSIONS.HR_MANAGE = 'hr.manage'`
+are declared in `lib/auth/rbac.ts` under a dedicated `'hr'` `PERMISSION_MODULES`
+group. Neither is added to `BASE_EMPLOYEE` — the HR Overview is an admin-only
+aggregate dashboard showing ALL employees' headcount, payroll, and leave data.
+Admin gets it implicitly via `'*'`. `hr.manage` is reserved for future write
+operations (no routes use it in v1).
+
+**Rule:** any future HR admin write endpoint MUST gate on `hr.manage`, NOT on
+`payroll.manage` or `attendance.manage` (which are narrower per-module gates).
+
+### 2. `/api/hr/overview` = single aggregator, gate THEN service-role
+
+`GET /api/hr/overview` follows the gate-then-service-role pattern established
+for sensitive tables by audit Gap #3:
+
+1. `requireApiPermission('hr.view')` — 401/403 if not admin
+2. ONLY THEN `createServiceRoleClient()` — because `payroll_runs`,
+   `payroll_items`, `employee_payments`, and `attendance` tables had
+   `authenticated` revoked in Phase 2 Tier-2 (Gap #3)
+
+**Single-aggregator invariant:** the endpoint is one round trip returning all
+7 sections (headcount, attendance_today, leave, payroll, evaluations, alerts,
+celebrations). DO NOT fragment into per-widget endpoints — at this team size the
+aggregator is faster and simpler to maintain. The same pattern mirrors
+`/api/my-work` for employees.
+
+### 3. Migration 020 — `date_of_birth` is additive and nullable
+
+`supabase/migrations/020_pyra_users_date_of_birth.sql` adds:
+
+```sql
+ALTER TABLE pyra_users ADD COLUMN IF NOT EXISTS date_of_birth date NULL;
+```
+
+Idempotent (`IF NOT EXISTS`). `PyraUser.date_of_birth?: string | null`
+(YYYY-MM-DD). Celebrations in the HR Overview combine:
+- **Birthdays** — from `date_of_birth` (current month match, day/month only)
+- **Anniversaries** — from `hire_date` (current month match + years computed)
+
+Both computed by `computeCelebrations()` in `lib/hr/overview-helpers.ts` (pure
+helper, no DB access). The `date_of_birth` field is wired into `/api/users`
+POST + PATCH and the users create/edit form.
+
+### 4. Attendance was already React-Query-compliant — consolidated, not rewritten
+
+Initial research over-stated the attendance client as using "raw fetch + useState."
+It was already RQ-compliant with inline `useQuery`/`useMutation`. The bundle's
+work was **consolidation** onto a shared `hooks/useAttendance.ts`:
+
+- Exports: `useAttendanceRecords`, `useAttendanceSummary`, `useClockIn`,
+  `useClockOut`, `useUpsertAttendance` + typed `AttendanceRecord`/`AttendanceSummary`
+- Removed a `setWorkSchedule`-inside-`queryFn` side effect (mutations in queryFns
+  are a React Query anti-pattern — they fire on every background refetch)
+- Status constants centralized in `lib/constants/statuses.ts`:
+  `ATTENDANCE_STATUS`, `ATTENDANCE_STATUS_LABELS`, `ATTENDANCE_STATUS_STYLES`
+
+**Component split:** attendance client (537 → 197 lines) into
+`components/attendance/` sub-components (`AttendanceCalendar`,
+`AttendanceSummaryCards`, `TodayClockCard`).
+
+### 5. Admin attendance edit wires the previously-DEAD `canManage` flag
+
+The attendance client had a `canManage` boolean (gated on `attendance.manage`)
+that controlled conditional rendering — but the admin edit UI was never built.
+This bundle ships:
+
+- `POST /api/dashboard/attendance/admin` — `attendance.manage` gate + service
+  role + upsert on `(username, date)` + recomputes `total_hours` + `logActivity`
+  + DB errors via `logError`
+- `components/attendance/AdminAttendanceDialog.tsx` — wired to `canManage`,
+  now the flag actually gates real functionality
+
+The endpoint follows the same gate-then-service-role pattern as `/api/hr/overview`
+because attendance tables are service-role-only (Gap #3 Phase 2 Tier-2).
+
+### 6. Payroll migrated OFF `useState`/`useEffect` — fixed a double-`.data` unwrap bug
+
+The payroll client previously used manual `useState`/`useEffect`/`fetch()` for
+data loading. The bundle migrated it to React Query via `hooks/usePayroll.ts`:
+
+- Exports: `usePayrollRuns`, `usePayrollRun`, `useMyPayslips`, `useCreatePayroll`,
+  `useCalculatePayroll`, `useUpdatePayroll`
+- `hooks/useEmployeePayments.ts`: `useEmployeePayments`, `useCreateEmployeePayment`,
+  `useUpdateEmployeePayment`
+
+**Bug fixed:** the old manual-fetch path did `.data.data` on the response —
+`fetchAPI()` already unwraps `{ data }` (CLAUDE.md mandate), so reading `.data`
+again produced `undefined`. The migration surfaced and fixed this silently-broken
+double-unwrap.
+
+Additional payroll improvements: `formatCurrency` from `lib/utils/format` (was
+inline); a11y (toggle button `aria-expanded`/`aria-controls`, detail region in
+DOM via `hidden`, `scope=col` headers).
+
+**Component split:** payroll client (848 → 80 lines) into `components/payroll/`
+sub-components (`PayrollRunsTable`, `PayrollRunRow`, `EmployeePaymentsTab`,
+`CreatePayrollDialog`, `AddPaymentDialog`).
+
+### 7. A11y hardening across attendance and payroll
+
+Both attendance and payroll received targeted a11y improvements (not cosmetic):
+- **Attendance:** keyboard grid (`role=gridcell`, `aria-label`, `tabIndex`,
+  `focus-visible ring`); nav `aria-label`s + `rtl:rotate-180` for directional
+  icons; `aria-live` on clock-in/out result; status legend.
+- **Payroll:** toggle button `aria-expanded`/`aria-controls`; detail region kept
+  in DOM via `hidden` (not conditional render) so `aria-controls` target always
+  exists; `scope=col` on table headers.
+
+These invariants must be preserved in future edits to the attendance/payroll
+clients.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **`hr.view` is admin-only.** Do NOT add it to `BASE_EMPLOYEE` or `ROLE_EXTRAS`
+  for any role — the HR Overview surfaces all-employee aggregate data that must
+  never leak to individual employees or sales agents.
+- **Gate-then-service-role is mandatory for `/api/hr/overview` and
+  `/api/dashboard/attendance/admin`.** Never call `createServerSupabaseClient()`
+  (session client) after the permission check — those tables have `authenticated`
+  revoked (Gap #3).
+- **HR Overview stays a single aggregator endpoint.** Do NOT split into per-widget
+  endpoints. Extend the existing endpoint response when new data is needed.
+- **Attendance and payroll clients consume the shared hooks.** No inline `queryFn`
+  side-effects (mutations inside queryFns), no `useState`-as-cache, no
+  double-`.data` unwrap (recall: `fetchAPI()` already unwraps `{ data }`).
+- **`date_of_birth` is nullable/optional everywhere.** Celebrations degrade
+  gracefully when the field is NULL — the celebrations array simply omits those
+  users. Never throw on NULL `date_of_birth`.
+- **`computeCelebrations` + `deriveAlerts` are pure functions** in
+  `lib/hr/overview-helpers.ts`. They have no DB access and no side effects —
+  keep them pure so the unit tests in `__tests__/hr-overview-helpers.test.ts`
+  remain valid.
+- **Component split target: <300 lines per client file** (per CLAUDE.md mandate).
+  Attendance and payroll now meet this target; do not re-inline sub-components.
+
+### HR bundle v1.1 backlog
+
+- `users-client` `date_of_birth` field: `onChange` uses object-spread (not
+  functional `setFormData`); uses `<Label>` not `<FormLabel>` unlike `hire_date`.
+- `hooks/usePayroll.ts` `useMyPayslips` returns `unknown` shape AND is currently
+  unused (the my-payslips page was not migrated in this bundle) — wire onto the
+  hook or drop and add when the page is migrated.
+- `attendance-client.tsx`: merge duplicate import + `import type` from
+  `@/hooks/useAttendance`; drop dead `"|| ''"` status fallbacks; still has its
+  own `getTodayUAE()` (could reuse `dubaiDayKey` from `lib/utils/format`).
+- `AdminAttendanceDialog` `DialogFooter` `flex-row-reverse` cosmetic alignment.
+- `formatTime`/`formatHours` duplicated across the 3 attendance sub-components;
+  `MONTH_NAMES_AR` duplicated in 4 places (incl. the overview route `MONTHS_AR`)
+  — extract to a shared `lib/constants/` entry.
+- `CreatePayrollDialog` month/year not reset on close (pre-existing).
+- `components/payroll/PayrollRunsTable` imports `PayrollRunRow` via relative `'./'`
+  vs the project's `'@/'` path-alias convention.
+- Payslip download still uses imperative `fetchAPI` double-unwrap pattern (pre-
+  existing; the only remaining non-hook fetch in the payroll surface).
+- `useUsers()`-based pickers (`AdminAttendanceDialog`, `AddPaymentDialog`) depend
+  on `users.view` — a future HR-manager granted only `attendance.manage` /
+  `payroll.manage` via `extra_permissions` would see an empty dropdown. Consider
+  `/api/users/lite` (role+status only, narrower scope).
+- HR Overview "pending approvals" KPI surfaces `leave.pending` only (no combined
+  all-approvals count yet — leave + expense + timesheet).
 
 ## Documentation (Read don't guess)
 | Doc | What it covers |

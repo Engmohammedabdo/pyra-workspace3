@@ -7,20 +7,21 @@
 
 ## Overview
 
-The Employee System transforms Pyra Workspace from an admin-only tool into a full team collaboration platform. It adds **7 new modules** with **15 new database tables**, **14 new RBAC permissions**, and **9 new dashboard pages**.
+The Employee System transforms Pyra Workspace from an admin-only tool into a full team collaboration platform. It adds **8 new modules** (including the HR Overview dashboard) with **15+ new database tables**, **16 new RBAC permissions**, and **10+ new dashboard pages**.
 
 ### Modules
 
-| Module | Page | Description |
-|--------|------|-------------|
-| Profile | `/dashboard/profile` | Personal info, avatar, password, permissions view |
-| My Tasks | `/dashboard/my-tasks` | All tasks assigned to the current user |
-| Timesheet | `/dashboard/timesheet` | Time tracking with approval workflow |
-| Boards | `/dashboard/boards` | Kanban board management |
-| Board View | `/dashboard/boards/[id]` | Full Kanban board with drag-and-drop |
-| Announcements | `/dashboard/announcements` | Company announcements with read tracking |
-| Directory | `/dashboard/directory` | Team member directory |
-| Leave | `/dashboard/leave` | Leave request and balance management |
+| Module | Page | Audience | Description |
+|--------|------|----------|-------------|
+| HR Overview | `/dashboard/hr` | Admin only | Headcount, attendance rate, leave liability, payroll trend, evaluations, alerts, celebrations |
+| Profile | `/dashboard/profile` | All employees | Personal info, avatar, password, permissions view |
+| My Tasks | `/dashboard/my-tasks` | All employees | All tasks assigned to the current user |
+| Timesheet | `/dashboard/timesheet` | All employees | Time tracking with approval workflow |
+| Boards | `/dashboard/boards` | All employees | Kanban board management |
+| Board View | `/dashboard/boards/[id]` | All employees | Full Kanban board with drag-and-drop |
+| Announcements | `/dashboard/announcements` | All employees | Company announcements with read tracking |
+| Directory | `/dashboard/directory` | All employees | Team member directory |
+| Leave | `/dashboard/leave` | All employees | Leave request and balance management |
 
 ---
 
@@ -56,6 +57,36 @@ git push     # Vercel auto-deploys
 ---
 
 ## Module Details
+
+### HR Overview (`/dashboard/hr`) — Admin Only
+
+**What it does**: Single-pane admin dashboard aggregating HR data across all employees. Mirrors the `/api/my-work` single-aggregator pattern.
+
+**Access**: Requires `hr.view` permission (admin-only — NOT in `BASE_EMPLOYEE`; admins inherit it via `'*'`). The API endpoint (`GET /api/hr/overview`) gates with `requireApiPermission('hr.view')` and then uses `createServiceRoleClient()` — payroll and attendance tables are service-role-only per Gap #3 audit.
+
+**Widgets** (`components/hr/overview/`):
+
+| Widget | Data shown |
+|--------|-----------|
+| `HrKpiRow` | Headcount (active, by type, by department, new in 30d / 90d) |
+| `HeadcountChart` | Department breakdown chart |
+| Attendance today | Present / absent / late / on-leave counts + present-rate % |
+| `UpcomingLeaveList` | Leave pending approvals + employees on leave today + upcoming |
+| `PayrollTrendChart` | Current payroll status, last paid total, 6-month cost trend |
+| `EvaluationsStatusCard` | Active evaluation period, pending / submitted / acknowledged counts |
+| `HrAlerts` | Severity-tagged alerts (critical / high / medium / low) with deep links |
+| `CelebrationsCard` | Birthdays (`date_of_birth`) + work anniversaries (`hire_date`) for the current month |
+
+**API Endpoint**:
+| Method | Endpoint | Permission | Description |
+|--------|----------|-----------|-------------|
+| GET | `/api/hr/overview` | hr.view | Aggregated HR metrics (headcount, attendance, leave, payroll, evaluations, alerts, celebrations) |
+
+**Hook**: `hooks/useHROverview.ts` — `staleTime: 60_000`, `refetchOnWindowFocus: true`.
+
+**Pure helpers**: `lib/hr/overview-helpers.ts` (`computeCelebrations`, `deriveAlerts`) — unit-tested in `__tests__/hr-overview-helpers.test.ts`.
+
+---
 
 ### Profile (`/dashboard/profile`)
 
@@ -227,26 +258,58 @@ git push     # Vercel auto-deploys
 
 ---
 
+### Admin Attendance Edit
+
+**What it does**: Allows admins to create or correct any employee's attendance record for any date.
+
+**API Endpoint**:
+| Method | Endpoint | Permission | Description |
+|--------|----------|-----------|-------------|
+| POST | `/api/dashboard/attendance/admin` | attendance.manage | Upsert attendance record (username + date); recomputes total_hours; logs activity |
+
+**UI**: `components/attendance/AdminAttendanceDialog.tsx` — wires the previously-dead `canManage` flag on the attendance page. Opens when an admin clicks a date cell with no existing record or clicks an existing record's edit button.
+
+**Auth pattern**: `requireApiPermission('attendance.manage')` then `createServiceRoleClient()` (attendance tables are service-role-only per Gap #3 Phase 2).
+
+---
+
+## Data Layer (React Query Hooks)
+
+All attendance and payroll pages use shared React Query hooks. Direct `useState`/`useEffect` data fetching has been removed.
+
+| Hook file | Exports | Used by |
+|-----------|---------|---------|
+| `hooks/useAttendance.ts` | `useAttendanceRecords`, `useAttendanceSummary`, `useClockIn`, `useClockOut`, `useUpsertAttendance` | Attendance page + admin dialog |
+| `hooks/usePayroll.ts` | `usePayrollRuns`, `usePayrollRun`, `useMyPayslips`, `useCreatePayroll`, `useCalculatePayroll`, `useUpdatePayroll` | Payroll page |
+| `hooks/useEmployeePayments.ts` | `useEmployeePayments`, `useCreateEmployeePayment`, `useUpdateEmployeePayment` | Payroll → Employee Payments tab |
+| `hooks/useHROverview.ts` | `useHROverview` | HR Overview dashboard |
+
+**Status constants** for attendance (`ATTENDANCE_STATUS`, `ATTENDANCE_STATUS_LABELS`, `ATTENDANCE_STATUS_STYLES`) are centralized in `lib/constants/statuses.ts`.
+
+---
+
 ## RBAC Permissions
 
 ### New Permissions Added
 
-| Permission | Description | Default for Employee |
-|-----------|-------------|---------------------|
-| `boards.view` | View boards | Yes |
-| `boards.manage` | Create/edit/delete boards | No |
-| `tasks.view` | View tasks | Yes |
-| `tasks.create` | Create/move tasks | Yes |
-| `tasks.manage` | Edit/delete any task | No |
-| `directory.view` | View employee directory | Yes |
-| `timesheet.view` | View/create own timesheet | Yes |
-| `timesheet.manage` | View all timesheets | No |
-| `timesheet.approve` | Approve/reject timesheets | No |
-| `announcements.view` | View announcements | Yes |
-| `announcements.manage` | Create/edit/delete announcements | No |
-| `leave.view` | View/create own leave requests | Yes |
-| `leave.manage` | View all leave requests | No |
-| `leave.approve` | Approve/reject leave requests | No |
+| Permission | Description | Default for Employee | Notes |
+|-----------|-------------|---------------------|-------|
+| `boards.view` | View boards | Yes | |
+| `boards.manage` | Create/edit/delete boards | No | |
+| `tasks.view` | View tasks | Yes | |
+| `tasks.create` | Create/move tasks | Yes | |
+| `tasks.manage` | Edit/delete any task | No | |
+| `directory.view` | View employee directory | Yes | |
+| `timesheet.view` | View/create own timesheet | Yes | |
+| `timesheet.manage` | View all timesheets | No | |
+| `timesheet.approve` | Approve/reject timesheets | No | |
+| `announcements.view` | View announcements | Yes | |
+| `announcements.manage` | Create/edit/delete announcements | No | |
+| `leave.view` | View/create own leave requests | Yes | |
+| `leave.manage` | View all leave requests | No | |
+| `leave.approve` | Approve/reject leave requests | No | |
+| `hr.view` | View HR Overview dashboard | **No — Admin only** | Not in `BASE_EMPLOYEE`; admin gets via `'*'` |
+| `hr.manage` | Manage HR data (reserved) | **No — Admin only** | Reserved for future write operations |
 
 ### Permission Modules (for Role Editor UI)
 
@@ -258,6 +321,7 @@ git push     # Vercel auto-deploys
 | timesheet | ساعات العمل | timesheet.view, timesheet.manage, timesheet.approve |
 | announcements | الإعلانات | announcements.view, announcements.manage |
 | leave | الإجازات | leave.view, leave.manage, leave.approve |
+| hr | لوحة الموارد البشرية | hr.view, hr.manage |
 
 ---
 
@@ -305,6 +369,7 @@ Two new navigation groups added for employees:
 
 **Phase 1 (Profile Extensions)**:
 - `pyra_users` — 5 new columns: phone, job_title, avatar_url, bio, status
+- `pyra_users.date_of_birth` — added in migration 020 (`date NULL`, idempotent `ADD COLUMN IF NOT EXISTS`). Used by HR Overview celebrations widget (birthdays for current month). `PyraUser` type gained `date_of_birth?: string | null`; users create/edit form and `/api/users` POST & PATCH handle it.
 
 **Phase 2 (Boards & Tasks)**:
 - `pyra_boards` — Kanban boards
@@ -379,16 +444,48 @@ lib/config/board-templates.ts
 
 ### Modified Files
 ```
-lib/auth/rbac.ts                    — 14 new permissions, 6 new modules
-components/layout/sidebar.tsx       — 2 new nav groups (Personal, Workflow)
-lib/config/module-guide.ts          — 7 new module guides
-app/dashboard/guide/page.tsx        — New workflow section
+lib/auth/rbac.ts                    — 14 original + 2 new (hr.view, hr.manage) permissions; hr module group
+components/layout/sidebar.tsx       — 2 new nav groups (Personal, Workflow); /dashboard/hr as first HR group item
+lib/config/module-guide.ts          — 7 original + 1 new (/dashboard/hr) module guides
+app/dashboard/guide/page.tsx        — New workflow section + HR Overview entry
 app/dashboard/page.tsx              — Employee dashboard widgets
 app/api/dashboard/route.ts          — Employee stats API
+lib/constants/statuses.ts           — ATTENDANCE_STATUS / _LABELS / _STYLES centralized
 DATABASE-SCHEMA.md                  — 15 new table docs
 ```
 
-### Migration
+### HR Bundle Additions (2026-06-27)
 ```
-scripts/migration-employee-system.sql — Full SQL migration
+app/dashboard/hr/page.tsx                       — Server page (requirePermission('hr.view'))
+app/dashboard/hr/hr-overview-client.tsx         — Client HR Overview
+app/api/hr/overview/route.ts                    — Aggregator endpoint (service-role)
+app/api/dashboard/attendance/admin/route.ts     — Admin attendance upsert
+hooks/useHROverview.ts                          — HR overview data hook
+hooks/useAttendance.ts                          — Consolidated attendance hooks
+hooks/usePayroll.ts                             — React Query payroll hooks
+hooks/useEmployeePayments.ts                    — Employee payments hooks
+lib/hr/overview-helpers.ts                      — computeCelebrations, deriveAlerts
+components/hr/overview/HrAlerts.tsx             — Alerts widget
+components/hr/overview/HrKpiRow.tsx             — KPI row widget
+components/hr/overview/HeadcountChart.tsx       — Department chart
+components/hr/overview/PayrollTrendChart.tsx    — 6-month payroll trend
+components/hr/overview/UpcomingLeaveList.tsx    — Leave widget
+components/hr/overview/EvaluationsStatusCard.tsx — Evaluations widget
+components/hr/overview/CelebrationsCard.tsx     — Birthdays + anniversaries
+components/attendance/AdminAttendanceDialog.tsx — Admin attendance edit UI
+components/attendance/AttendanceCalendar.tsx    — Calendar sub-component
+components/attendance/AttendanceSummaryCards.tsx — Summary sub-component
+components/attendance/TodayClockCard.tsx        — Clock-in/out sub-component
+components/payroll/PayrollRunsTable.tsx         — Payroll table sub-component
+components/payroll/PayrollRunRow.tsx            — Payroll row sub-component
+components/payroll/EmployeePaymentsTab.tsx      — Payments tab sub-component
+components/payroll/CreatePayrollDialog.tsx      — Create payroll dialog
+components/payroll/AddPaymentDialog.tsx         — Add payment dialog
+__tests__/hr-overview-helpers.test.ts           — Unit tests for pure helpers
+```
+
+### Migrations
+```
+scripts/migration-employee-system.sql            — Original full SQL migration (renamed 001_employee_system_bootstrap.sql)
+supabase/migrations/020_pyra_users_date_of_birth.sql — Adds date_of_birth column
 ```

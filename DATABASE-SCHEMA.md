@@ -1727,6 +1727,7 @@ The following columns were added to `pyra_users` by the ERP migration:
 | department | varchar(100) | YES | — | Department name |
 | manager_username | varchar | YES | — | Reporting manager (self-referencing) |
 | work_schedule_id | varchar(20) | YES | — | FK to `pyra_work_schedules(id)` |
+| date_of_birth | date | YES | — | Birthday — feeds HR Overview celebrations (`020_pyra_users_date_of_birth.sql`) |
 
 **Index**: `idx_users_manager` on `manager_username`
 
