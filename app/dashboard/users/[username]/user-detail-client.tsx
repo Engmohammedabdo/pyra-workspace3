@@ -16,8 +16,9 @@ import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
 import {
   User, Briefcase, DollarSign, FolderKanban, ArrowRight,
   Phone, Mail, MapPin, Calendar, Clock, Building2,
-  CreditCard, Wallet, TrendingUp, Receipt, Download,
+  CreditCard, Wallet, TrendingUp, Receipt, Download, FileText,
 } from 'lucide-react';
+import { UserDocumentsTab } from '@/components/hr/documents/UserDocumentsTab';
 
 // ═══════════════════════════════════════════════════════════
 // Types
@@ -286,6 +287,10 @@ export default function UserDetailClient() {
             <User className="h-3.5 w-3.5" />
             البيانات
           </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-1.5 text-xs data-[state=active]:bg-orange-500/10 data-[state=active]:text-orange-600">
+            <FileText className="h-3.5 w-3.5" />
+            وثائق
+          </TabsTrigger>
         </TabsList>
 
         {/* ═══════════ Financial Tab ═══════════ */}
@@ -455,6 +460,11 @@ export default function UserDetailClient() {
               </Card>
             )}
           </div>
+        </TabsContent>
+
+        {/* ═══════════ Documents Tab ═══════════ */}
+        <TabsContent value="documents" className="space-y-4">
+          <UserDocumentsTab username={username} />
         </TabsContent>
       </Tabs>
     </div>

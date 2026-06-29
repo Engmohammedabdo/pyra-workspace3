@@ -23,13 +23,15 @@ interface Props {
   open: boolean;
   onClose: () => void;
   employees: User[];
+  /** Pre-select and lock the employee field (used by the user-detail page). */
+  defaultEmployeeUsername?: string;
 }
 
-export function UploadDocumentDialog({ open, onClose, employees }: Props) {
+export function UploadDocumentDialog({ open, onClose, employees, defaultEmployeeUsername }: Props) {
   const { data: docTypes = [] } = useDocumentTypes();
   const uploadMut = useUploadEmployeeDocument();
 
-  const [employeeUsername, setEmployeeUsername] = useState('');
+  const [employeeUsername, setEmployeeUsername] = useState(defaultEmployeeUsername ?? '');
   const [typeId, setTypeId] = useState('');
   const [label, setLabel] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
@@ -41,7 +43,7 @@ export function UploadDocumentDialog({ open, onClose, employees }: Props) {
   const requiresExpiry = selectedType?.requires_expiry ?? false;
 
   function reset() {
-    setEmployeeUsername('');
+    setEmployeeUsername(defaultEmployeeUsername ?? '');
     setTypeId('');
     setLabel('');
     setExpiryDate('');
@@ -106,7 +108,11 @@ export function UploadDocumentDialog({ open, onClose, employees }: Props) {
           {/* Employee */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">الموظف *</label>
-            <Select value={employeeUsername} onValueChange={setEmployeeUsername}>
+            <Select
+              value={employeeUsername}
+              onValueChange={setEmployeeUsername}
+              disabled={!!defaultEmployeeUsername}
+            >
               <SelectTrigger className="h-11">
                 <SelectValue placeholder="اختر موظفاً" />
               </SelectTrigger>
