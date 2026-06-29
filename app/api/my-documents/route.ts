@@ -64,13 +64,15 @@ export async function GET(request: NextRequest) {
     const typeMap = new Map((types ?? []).map((t) => [t.id, t.name_ar]));
 
     // Per-row signed URL (private bucket — urls expire after SIGNED_URL_TTL)
+    // Gap #3 Phase 3a: storage_path is stripped from the response (signed_url only)
     const documents = await Promise.all(
       (data ?? []).map(async (row) => {
+        const { storage_path, ...rest } = row;
         const { data: urlData } = await supabase.storage
           .from(DOC_BUCKET)
-          .createSignedUrl(row.storage_path, SIGNED_URL_TTL);
+          .createSignedUrl(storage_path, SIGNED_URL_TTL);
         return {
-          ...row,
+          ...rest,
           type_name_ar: typeMap.get(row.type_id) ?? row.type_id,
           signed_url: urlData?.signedUrl ?? '',
         };
