@@ -7,7 +7,7 @@
 
 ## Overview
 
-The Employee System transforms Pyra Workspace from an admin-only tool into a full team collaboration platform. It adds **8 new modules** (including the HR Overview dashboard) with **15+ new database tables**, **16 new RBAC permissions**, and **10+ new dashboard pages**.
+The Employee System transforms Pyra Workspace from an admin-only tool into a full team collaboration platform. It adds **9 new modules** (including the HR Overview dashboard and Employee Documents Vault) with **17+ new database tables**, **18 new RBAC permissions**, and **12+ new dashboard pages**.
 
 ### Modules
 
@@ -22,6 +22,8 @@ The Employee System transforms Pyra Workspace from an admin-only tool into a ful
 | Announcements | `/dashboard/announcements` | All employees | Company announcements with read tracking |
 | Directory | `/dashboard/directory` | All employees | Team member directory |
 | Leave | `/dashboard/leave` | All employees | Leave request and balance management |
+| Employee Documents (HR) | `/dashboard/hr/documents` | HR / Admin | Upload + manage all employees' documents; configurable types; 30/7-day expiry alerts |
+| Employee Documents (Self-service) | `/dashboard/my-documents` | All employees | Read-only view of own documents with signed-URL download |
 
 ---
 
@@ -258,6 +260,57 @@ git push     # Vercel auto-deploys
 
 ---
 
+### Employee Documents Vault (`/dashboard/hr/documents`) — HR / Admin
+
+**What it does**: Centralised HR vault for storing, managing, and tracking expiry of employee identity and compliance documents. Employees get a read-only self-service view at `/dashboard/my-documents`; a "وثائق" tab on `/dashboard/users/[username]` gives HR one-click upload against a specific employee.
+
+**Document types** are configurable via `/dashboard/hr/documents/settings` (catalogue of `pyra_document_types` rows). Six types are seeded: عقد عمل, هوية إماراتية _(requires\_expiry)_, جواز سفر _(requires\_expiry)_, إقامة / تأشيرة _(requires\_expiry)_, شهادة, أخرى.
+
+**Storage**: files land in the existing **private** bucket `pyra-private` under `employee-documents/{username}/{timestamp}-{nanoid}{ext}`. `storage_path` is **never** returned to clients — all downloads go through 1-hour signed URLs (`createSignedUrl`, TTL 3600). Storage path is 100% server-controlled (file.name is never used); extension is derived from validated MIME. MIME allowlist: `pdf / jpeg / png / webp` (SVG rejected). Hard cap: 20 MB per file.
+
+**Expiry tracking**: documents with an `expiry_date` are checked daily by the cron job (`/api/cron/document-expiry-check`). Two-tier alert system:
+- **7-day tier** — sets both `expiry_alert_7_sent` and `expiry_alert_30_sent`; notifies the employee with `type: 'document_expiring_soon'` (critical).
+- **30-day tier** — sets `expiry_alert_30_sent`; notifies the employee (medium severity).
+Both flags flip regardless of notification outcome (idempotency). Flags reset automatically when `expiry_date` is updated via PATCH.
+
+**HR Overview integration**: `deriveAlerts` in `lib/hr/overview-helpers.ts` surfaces expired-document counts as `critical` alerts and expiring-soon counts as `high` alerts, both linking to `/dashboard/hr/documents`.
+
+**Pure helper**: `lib/hr/document-expiry.ts` — `classifyExpiry(expiryDate, todayKey)` → `'expired' | 'expiring_7' | 'expiring_30' | 'ok' | 'none'` + `EXPIRY_BADGE` map. Unit-tested in `__tests__/document-expiry.test.ts`.
+
+**API Endpoints**:
+| Method | Endpoint | Permission | Description |
+|--------|----------|-----------|-------------|
+| GET | `/api/hr/document-types` | documents.manage | List active document types |
+| POST | `/api/hr/document-types` | documents.manage | Create document type |
+| PATCH | `/api/hr/document-types/[id]` | documents.manage | Update document type |
+| DELETE | `/api/hr/document-types/[id]` | documents.manage | Soft-delete (sets `is_active=false`) |
+| GET | `/api/hr/documents` | documents.manage | List all documents (returns `signed_url`, `type_name_ar`, `employee_display_name`; `storage_path` stripped) |
+| POST | `/api/hr/documents` | documents.manage | Multipart upload + DB insert; orphan cleanup on insert failure; upload rate-limited |
+| PATCH | `/api/hr/documents/[id]` | documents.manage | Update metadata; resets both alert flags when `expiry_date` changes |
+| DELETE | `/api/hr/documents/[id]` | documents.manage | Delete record + best-effort storage remove |
+| GET | `/api/hr/documents/[id]/signed-url` | documents.manage | Fresh 1h signed URL |
+| GET | `/api/my-documents` | documents.view | Own documents only (`WHERE employee_username = me`); signed URL inline |
+| GET | `/api/my-documents/[id]/signed-url` | documents.view | Fresh signed URL with ownership check |
+| POST | `/api/cron/document-expiry-check` | cron.document-expiry-check / `*` | Daily expiry scan; 7d + 30d tiers; grouped admin summary |
+
+All endpoints use `gate-then-service-role` pattern (permission check first, then `createServiceRoleClient()` for DB/storage access).
+
+**Hooks**: `hooks/useDocumentTypes.ts` (list + CRUD); `hooks/useEmployeeDocuments.ts` (`useEmployeeDocuments`, `useEmployeeDocumentsByUser`, `useUploadEmployeeDocument` [raw `fetch` FormData exemption], `useUpdateEmployeeDocument`, `useDeleteEmployeeDocument`); `hooks/useMyDocuments.ts`.
+
+**UI components** (all in `components/hr/documents/`):
+- `DocTypeRow` — one row of the document-types settings list
+- `UploadDocumentDialog` — accepts optional `defaultEmployeeUsername` prop for the user-detail tab
+- `DocumentRowActions` — download (signed URL) + edit + delete
+- `UserDocumentsTab` — used on `/dashboard/users/[username]` "وثائق" tab
+
+The HR documents list table is rendered inline in `documents-client.tsx` via the
+shared `<DataTable>` primitive (`@/components/ui/data-table`) — there is no
+dedicated table component.
+
+**V1.1 backlog**: employee self-upload; per-download audit log; document versioning; OCR auto-expiry; 60-day tier; bulk upload; export/zip; widen cron admin summary to all `documents.manage` holders; centralize bucket/TTL/size constants; `encodeURIComponent` on `employee_username` query param.
+
+---
+
 ### Admin Attendance Edit
 
 **What it does**: Allows admins to create or correct any employee's attendance record for any date.
@@ -283,6 +336,9 @@ All attendance and payroll pages use shared React Query hooks. Direct `useState`
 | `hooks/usePayroll.ts` | `usePayrollRuns`, `usePayrollRun`, `useMyPayslips`, `useCreatePayroll`, `useCalculatePayroll`, `useUpdatePayroll` | Payroll page |
 | `hooks/useEmployeePayments.ts` | `useEmployeePayments`, `useCreateEmployeePayment`, `useUpdateEmployeePayment` | Payroll → Employee Payments tab |
 | `hooks/useHROverview.ts` | `useHROverview` | HR Overview dashboard |
+| `hooks/useDocumentTypes.ts` | `useDocumentTypes`, `useCreateDocumentType`, `useUpdateDocumentType`, `useDeleteDocumentType` | Document types catalogue settings |
+| `hooks/useEmployeeDocuments.ts` | `useEmployeeDocuments`, `useEmployeeDocumentsByUser`, `useUploadEmployeeDocument`, `useUpdateEmployeeDocument`, `useDeleteEmployeeDocument` | HR documents page + user-detail tab |
+| `hooks/useMyDocuments.ts` | `useMyDocuments` | Employee self-service `/dashboard/my-documents` |
 
 **Status constants** for attendance (`ATTENDANCE_STATUS`, `ATTENDANCE_STATUS_LABELS`, `ATTENDANCE_STATUS_STYLES`) are centralized in `lib/constants/statuses.ts`.
 
@@ -310,6 +366,8 @@ All attendance and payroll pages use shared React Query hooks. Direct `useState`
 | `leave.approve` | Approve/reject leave requests | No | |
 | `hr.view` | View HR Overview dashboard | **No — Admin only** | Not in `BASE_EMPLOYEE`; admin gets via `'*'` |
 | `hr.manage` | Manage HR data (reserved) | **No — Admin only** | Reserved for future write operations |
+| `documents.view` | View own documents (read-only self-service) | Yes | In `BASE_EMPLOYEE`; own-scope only (`WHERE employee_username = me`) |
+| `documents.manage` | Upload / edit / delete any employee's documents; manage document types | **No — HR / Admin** | Not in `BASE_EMPLOYEE`; required for all HR-side endpoints |
 
 ### Permission Modules (for Role Editor UI)
 
@@ -322,6 +380,7 @@ All attendance and payroll pages use shared React Query hooks. Direct `useState`
 | announcements | الإعلانات | announcements.view, announcements.manage |
 | leave | الإجازات | leave.view, leave.manage, leave.approve |
 | hr | لوحة الموارد البشرية | hr.view, hr.manage |
+| documents | وثائق الموظفين | documents.view, documents.manage |
 
 ---
 
@@ -390,6 +449,10 @@ Two new navigation groups added for employees:
 - `pyra_leave_requests` — Leave requests
 - `pyra_leave_balances` — Leave balances
 
+**Phase 4 (Employee Documents — migration 021)**:
+- `pyra_document_types` — Configurable document type catalogue. Columns: `id varchar PK`, `name varchar`, `name_ar varchar`, `requires_expiry bool DEFAULT false`, `is_active bool DEFAULT true`, `sort_order int`, `created_at timestamptz`. Seeded with 6 rows (contract, Emirates ID, passport, visa/residency, certificate, other).
+- `pyra_employee_documents` — Document records. Columns: `id varchar PK`, `employee_username varchar`, `type_id varchar FK→pyra_document_types`, `label text`, `storage_path text` (server-only; never returned to clients), `mime_type varchar`, `size_bytes int CHECK>0`, `expiry_date date NULL`, `expiry_alert_30_sent bool DEFAULT false`, `expiry_alert_7_sent bool DEFAULT false`, `uploaded_by varchar`, `uploaded_at timestamptz`, `notes text`, `metadata jsonb`. Indexes: `(employee_username, uploaded_at DESC)`, `(type_id)`, partial index on `(expiry_date)` where `expiry_date IS NOT NULL AND (expiry_alert_30_sent=false OR expiry_alert_7_sent=false)`.
+
 ---
 
 ## Files Created
@@ -444,14 +507,44 @@ lib/config/board-templates.ts
 
 ### Modified Files
 ```
-lib/auth/rbac.ts                    — 14 original + 2 new (hr.view, hr.manage) permissions; hr module group
-components/layout/sidebar.tsx       — 2 new nav groups (Personal, Workflow); /dashboard/hr as first HR group item
-lib/config/module-guide.ts          — 7 original + 1 new (/dashboard/hr) module guides
-app/dashboard/guide/page.tsx        — New workflow section + HR Overview entry
+lib/auth/rbac.ts                    — 14 original + 2 new (hr.view, hr.manage) permissions + 2 more (documents.view, documents.manage); hr + documents module groups
+components/layout/sidebar.tsx       — 2 new nav groups (Personal, Workflow); /dashboard/hr as first HR group item; /dashboard/hr/documents + /dashboard/my-documents in HR group
+lib/config/module-guide.ts          — 7 original + 1 new (/dashboard/hr) + 2 more (/dashboard/hr/documents, /dashboard/my-documents) module guides
+app/dashboard/guide/page.tsx        — New workflow section + HR Overview entry + documents entries
+lib/hr/overview-helpers.ts          — deriveAlerts() extended: docsExpired → critical, docsExpiringSoon → high (links to /dashboard/hr/documents)
+lib/notifications/notify.ts         — NotificationType union += 'document_expiring_soon' | 'document_expired'
+lib/api/activity.ts                 — ENTITY_TYPES.DOCUMENT = 'document'
+app/api/hr/overview/route.ts        — Queries pyra_employee_documents for expired + expiring-soon counts
 app/dashboard/page.tsx              — Employee dashboard widgets
 app/api/dashboard/route.ts          — Employee stats API
 lib/constants/statuses.ts           — ATTENDANCE_STATUS / _LABELS / _STYLES centralized
 DATABASE-SCHEMA.md                  — 15 new table docs
+```
+
+### Employee Documents Bundle (2026-06-29)
+```
+app/api/hr/document-types/route.ts                       — Document types CRUD (GET/POST)
+app/api/hr/document-types/[id]/route.ts                  — PATCH / soft-DELETE
+app/api/hr/documents/route.ts                            — List (GET) + multipart upload (POST)
+app/api/hr/documents/[id]/route.ts                       — PATCH metadata + DELETE
+app/api/hr/documents/[id]/signed-url/route.ts            — Fresh 1h signed URL (HR scope)
+app/api/my-documents/route.ts                            — Own documents (GET, documents.view)
+app/api/my-documents/[id]/signed-url/route.ts            — Signed URL with ownership check
+app/api/cron/document-expiry-check/route.ts              — Daily 30d/7d expiry cron
+app/dashboard/hr/documents/page.tsx                      — HR documents vault page
+app/dashboard/hr/documents/documents-client.tsx          — HR documents client (DataTable + dialogs)
+app/dashboard/hr/documents/settings/page.tsx             — Document types catalogue settings page
+app/dashboard/my-documents/page.tsx                      — Employee self-service page
+app/dashboard/my-documents/my-documents-client.tsx       — Employee self-service client
+hooks/useDocumentTypes.ts                                — Document types list + CRUD mutations
+hooks/useEmployeeDocuments.ts                            — HR-scope document hooks (upload/update/delete)
+hooks/useMyDocuments.ts                                  — Employee self-service hook
+lib/hr/document-expiry.ts                                — classifyExpiry() + EXPIRY_BADGE (pure, unit-tested)
+components/hr/documents/DocTypeRow.tsx                   — One row of the document-types settings list
+components/hr/documents/UploadDocumentDialog.tsx         — Upload dialog (accepts defaultEmployeeUsername)
+components/hr/documents/DocumentRowActions.tsx           — Download + edit + delete row actions
+components/hr/documents/UserDocumentsTab.tsx             — "وثائق" tab on /dashboard/users/[username]
+__tests__/document-expiry.test.ts                        — Unit tests for classifyExpiry()
 ```
 
 ### HR Bundle Additions (2026-06-27)
@@ -486,6 +579,7 @@ __tests__/hr-overview-helpers.test.ts           — Unit tests for pure helpers
 
 ### Migrations
 ```
-scripts/migration-employee-system.sql            — Original full SQL migration (renamed 001_employee_system_bootstrap.sql)
-supabase/migrations/020_pyra_users_date_of_birth.sql — Adds date_of_birth column
+scripts/migration-employee-system.sql                   — Original full SQL migration (renamed 001_employee_system_bootstrap.sql)
+supabase/migrations/020_pyra_users_date_of_birth.sql    — Adds date_of_birth column
+supabase/migrations/021_pyra_employee_documents.sql     — pyra_document_types + pyra_employee_documents (Phase 4)
 ```

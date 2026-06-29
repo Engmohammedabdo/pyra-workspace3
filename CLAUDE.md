@@ -242,11 +242,21 @@ app/api/finance/contracts → Contract management + invoice generation (retainer
 app/api/my-work/          → Unified employee inbox aggregator (one round trip, all sections)
 app/api/approvals/team/   → Manager approvals data (leave + expense + timesheet, scoped to direct reports)
 app/api/hr/overview/      → HR admin aggregator (hr.view gate + service role; headcount/attendance/leave/payroll/evaluations/alerts/celebrations)
+app/api/hr/documents/     → HR document CRUD (documents.manage gate + service role; GET returns signed_url, strips storage_path)
+app/api/hr/document-types/ → Document-types catalogue CRUD (documents.manage gate + service role)
+app/api/my-documents/     → Employee own-scope document list + signed-URL refresh (documents.view gate + service role)
+app/api/cron/document-expiry-check/ → Daily expiry cron (getExternalAuth + cron.document-expiry-check or *; 30-day + 7-day tiers; flag-flip then notify)
 app/dashboard/hr/         → HR Overview page (admin-only, requirePermission('hr.view'))
+app/dashboard/hr/documents/ → HR document management page (admin; DataTable + upload + row actions)
+app/dashboard/hr/documents/settings/ → Document-types catalogue admin page
+app/dashboard/my-documents/ → Employee read-only document list + download
 hooks/                    → 42+ React Query hooks (data fetching + mutations)
 hooks/api-helpers.ts      → fetchAPI() + mutateAPI() — shared fetch wrappers
 hooks/useMyWork.ts        → Inbox aggregator hook (30s staleTime, refetch on focus)
 hooks/useHROverview.ts    → HR Overview hook (60s staleTime, refetchOnWindowFocus)
+hooks/useDocumentTypes.ts → Document-types CRUD hooks (useDocumentTypes + create/update/delete mutations)
+hooks/useEmployeeDocuments.ts → HR doc hooks (useEmployeeDocuments, useEmployeeDocumentsByUser, useUploadEmployeeDocument [raw fetch FormData exemption], useUpdateEmployeeDocument, useDeleteEmployeeDocument)
+hooks/useMyDocuments.ts   → Employee own-scope doc hook (documents.view; read-only)
 hooks/useAttendance.ts    → Shared attendance hooks (useAttendanceRecords, useAttendanceSummary, useClockIn, useClockOut, useUpsertAttendance)
 hooks/usePayroll.ts       → Shared payroll hooks (usePayrollRuns, usePayrollRun, useMyPayslips, useCreatePayroll, useCalculatePayroll, useUpdatePayroll)
 hooks/useEmployeePayments.ts → Employee payments hooks (useEmployeePayments, useCreateEmployeePayment, useUpdateEmployeePayment)
@@ -258,9 +268,11 @@ components/sales/chat/    → WhatsApp chat (conversation list, chat window, con
 components/files/         → Unified file-preview (shared between dashboard + portal)
 components/dashboard/MyWorkInbox.tsx → 5-section inbox card
 components/hr/overview/   → HR Overview widgets (HrAlerts, HrKpiRow, HeadcountChart, PayrollTrendChart, UpcomingLeaveList, EvaluationsStatusCard, CelebrationsCard)
+components/hr/documents/  → Document vault sub-components (UploadDocumentDialog, DocumentRowActions, DocTypeRow, UserDocumentsTab)
 components/attendance/    → Attendance sub-components (AttendanceCalendar, AttendanceSummaryCards, TodayClockCard, AdminAttendanceDialog)
 components/payroll/       → Payroll sub-components (PayrollRunsTable, PayrollRunRow, EmployeePaymentsTab, CreatePayrollDialog, AddPaymentDialog)
 lib/hr/overview-helpers.ts → computeCelebrations() + deriveAlerts() — pure helpers unit-tested in __tests__/hr-overview-helpers.test.ts
+lib/hr/document-expiry.ts → classifyExpiry(expiryDate, todayKey) → ExpiryTier ('expired'|'expiring_7'|'expiring_30'|'ok'|'none') + EXPIRY_BADGE map — unit-tested in __tests__/document-expiry.test.ts
 lib/auth/rbac.ts          → 79+ permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
 lib/auth/auth-mapping.ts  → resolveAuthUserId() — heals legacy users missing pyra_auth_mapping rows
 lib/auth/team-scope.ts    → getDirectReports / getManagerOf / isManager / canApproveFor()
@@ -3366,3 +3378,179 @@ rotate as precaution. Rotation needs manual dashboard/mail-server work (Abdou):
 **Invariant for all remaining phases:** any `REVOKE`/RLS change on `authenticated`
 must be preceded by deploying the code that stops reading those tables as
 `authenticated` — never revoke against live code that still depends on the grant.
+
+## Employee Documents Vault — Locked Decisions (2026-06-29)
+
+These are **intentional, documented design choices** locked during the Employee
+Documents Vault implementation. **Do NOT re-litigate.** Future sessions adding
+document-related features should defer to the decisions recorded here. The vault
+gives HR a private per-employee document store with expiry tracking and a daily
+cron alert pipeline, plus an employee self-service read-only surface.
+
+### 1. Reuse the existing `pyra-private` bucket — no new bucket (D1)
+
+Documents are stored in the **existing** `pyra-private` bucket under path
+`employee-documents/{employee_username}/{Date.now()}-{nanoid}{ext}`. Rejected: a
+dedicated `pyra-hr-private` bucket — identical security model, extra ops overhead,
+zero gain.
+
+**Gap #3 Phase 3a pattern reused verbatim:** private bucket + `createSignedUrl`
+(TTL 3600 s / 1 hour) + `storage_path` stripped from ALL list responses. The GET
+handler destructures `{ storage_path, ...rest }` before returning rows — raw paths
+NEVER leave the server.
+
+### 2. Configurable document types in `pyra_document_types` — not a fixed enum (D2)
+
+A dedicated `pyra_document_types` table holds the catalogue (id, name, name_ar,
+requires_expiry, is_active, sort_order). Seeded with 6 default rows: `dt_contract`
+(عقد عمل), `dt_eid` (هوية إماراتية, requires_expiry), `dt_passport` (جواز سفر,
+requires_expiry), `dt_visa` (إقامة/تأشيرة, requires_expiry), `dt_cert` (شهادة),
+`dt_other` (أخرى).
+
+**Rationale:** UAE-specific types (labour card, medical certificate, etc.) can be
+added by admin without a migration. The `requires_expiry` flag drives the upload
+form's expiry-date requirement — no code change needed for new types.
+
+Admin-only management at `/dashboard/hr/documents/settings` (documents.manage gate).
+
+### 3. HR-only upload; employee surface is read-only (D3 / D4)
+
+`documents.manage` is required for all write operations (upload, edit metadata,
+delete). `documents.view` (in `BASE_EMPLOYEE` — every internal user) grants
+read-own-documents only via `/api/my-documents` and `/dashboard/my-documents`.
+
+Employee self-upload is **explicitly deferred to v1.1** — the simplest safe model
+for employee PII data. HR remains the sole upload authority in v1.
+
+### 4. Two-tier daily expiry cron — flags flip before notify (D3)
+
+`POST /api/cron/document-expiry-check` runs daily at 08:00 Asia/Dubai via n8n
+Schedule Trigger (the same 'Integration' API key with `*` wildcard used by other
+crons). Two tiers:
+
+- **7-day tier** (`expiry_date ≤ today+7 AND expiry_alert_7_sent=false`) →
+  flip BOTH `expiry_alert_7_sent=true` AND `expiry_alert_30_sent=true`, then
+  notify the employee (critical severity).
+- **30-day tier** (else AND `expiry_alert_30_sent=false`) →
+  flip `expiry_alert_30_sent=true`, then notify the employee.
+
+After the per-doc loop a single **grouped admin summary** notification is sent to
+all users with `role='admin'` (count of expiring docs).
+
+**Idempotency (Phase 11 lock re-applied):** flags flip **regardless of notify
+outcome** — a notify exception never causes duplicate alerts on re-run. The SELECT
+filter `WHERE expiry_alert_*_sent = false` naturally excludes already-alerted docs.
+
+`dubaiDayKey()` (from `lib/utils/format.ts`) is used for all date-window
+comparisons — never `.toISOString().slice(0, 10)` (Phase 15.1 lock, UTC ≠ Dubai).
+
+### 5. PATCH re-arms both alert flags when `expiry_date` changes
+
+`PATCH /api/hr/documents/[id]` allows updating `label`, `expiry_date`, `notes`,
+`type_id`. When the request body contains `expiry_date` (even if unchanged), the
+handler unconditionally resets **both** `expiry_alert_30_sent = false` AND
+`expiry_alert_7_sent = false`. The admin summary notification field
+`expiry_alerts_reset` records this in the activity log.
+
+**Rationale:** an HR edit of the expiry date (e.g. visa renewed, new expiry)
+must re-trigger the alert pipeline as if the document were newly uploaded — stale
+flags from the previous expiry would silence the new reminder.
+
+### 6. Storage path 100% server-controlled; SVG rejected; 20 MB hard cap
+
+All guards inherited from the Gap #3 Phase 3a lead-attachments pattern:
+
+- Path = `employee-documents/{employee_username}/{Date.now()}-{generateId('doc').slice(4)}{ext}` —
+  `file.name` NEVER used anywhere in the path.
+- Extension derived from `MIME_TO_EXT` map server-side; hard-error (500) on a
+  missing MIME entry — preserves the path-control invariant against future drift.
+- MIME allowlist: `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
+  `image/svg+xml` is **explicitly rejected** (SVG can carry `<script>` — XSS).
+- `employee_username` path segment validated by `/^[a-zA-Z0-9._-]+$/` before use
+  in the storage path (path-traversal guard).
+- 20 MB cap enforced server-side (`MAX_DOC_SIZE = 20 * 1024 * 1024`).
+- Orphan cleanup: if the DB insert fails after a successful storage upload, the
+  route removes the uploaded file before returning the error.
+
+### 7. `documents.view` is own-scope only; `documents.manage` is full scope
+
+`GET /api/my-documents` (employee surface) filters `WHERE employee_username = auth
+user` — the scope gate is enforced server-side, NOT just by UI hiding. The
+employee can never access another employee's documents by manipulating query params.
+
+`GET /api/hr/documents` (HR surface) requires `documents.manage` and can filter by
+`?employee_username=` to scope to a specific employee. No cross-contamination: the
+two endpoints are separate routes with separate permission gates.
+
+### 8. `NotificationType` extended with `document_expiring_soon` + `document_expired`
+
+Both new types are added to the `NotificationType` union in
+`lib/notifications/notify.ts`. The cron uses `document_expiring_soon` for BOTH
+the per-employee 30-day/7-day alerts AND the grouped admin summary.
+`document_expired` is reserved in the union but currently unused (v1.1 may use
+it for an already-expired digest). DO NOT use generic `'reminder'` or custom
+strings outside this union.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **Gate-then-service-role on every route.** `requireApiPermission('documents.manage')`
+  (or `documents.view`) is called BEFORE `createServiceRoleClient()`. No route
+  creates the service client to check auth.
+- **`storage_path` NEVER leaves the server.** List routes destructure
+  `{ storage_path, ...rest }` and return `signed_url` instead. Single-item signed-
+  URL refresh endpoints (`/api/hr/documents/[id]/signed-url` and
+  `/api/my-documents/[id]/signed-url`) re-sign on demand. Clients must treat
+  signed URLs as ephemeral (1h TTL).
+- **`documents.view` is own-scope only — enforce server-side, not just in UI.** The
+  `/api/my-documents` route hardcodes `eq('employee_username', auth.pyraUser.username)`.
+  Any new read endpoint that uses `documents.view` MUST do the same.
+- **Server controls 100% of the storage path** — file.name input NEVER reaches
+  the path construction. `MIME_TO_EXT` hard-error on miss must NOT be softened to
+  a fallback.
+- **SVG explicitly rejected** — do NOT add `image/svg+xml` to `ALLOWED_DOC_MIME`
+  without a server-side SVG sanitizer. XSS risk is real.
+- **Document types are configurable — do NOT hardcode type IDs in business logic.**
+  Use the `type_id` FK and let the `requires_expiry` flag drive validation.
+- **PATCH re-arms BOTH flags when `expiry_date` is present** — even if the value
+  is identical. The flag reset is unconditional on key presence, not on value diff.
+- **Cron flag-flip happens before notify (idempotency).** Notify exceptions MUST
+  NOT prevent the flag from being set. Sequential `await` per doc (not
+  `Promise.all`) — low v1 volume, consistent with Phase 11 lock.
+- **`dubaiDayKey()` for all date windows in the cron.** `.toISOString().slice(0,10)`
+  is a regression smell (Phase 15.1 HIGH 1 re-confirmed).
+- **`DOC_BUCKET`, `SIGNED_URL_TTL`, `MAX_DOC_SIZE`, `ALLOWED_DOC_MIME` are
+  hardcoded constants in the route handler** (NOT env-overridable) — prevents
+  misconfiguration to a public bucket. v1.1 backlog: extract to `lib/constants/`.
+
+### Employee Documents v1.1 backlog
+
+- [ ] **Employee self-upload** — allow employees to upload their own documents (e.g.
+  updated visa scan). Needs a new permission scope (`documents.create`) + server-
+  side type restriction (employee can only upload to own username path).
+- [ ] **Per-download audit logging** — log `document_download` activity on each
+  signed-URL request (currently only upload + delete are logged).
+- [ ] **Document versioning / replace-in-place** — currently replace = delete + re-upload
+  (new row, new storage path). A true versioning model would chain rows by a
+  `parent_id` FK.
+- [ ] **OCR auto-expiry extraction** — parse expiry dates from uploaded PDFs/images
+  on the server and pre-fill the expiry_date field.
+- [ ] **Tiered 60/30/7 alerts** — add a 60-day early-warning tier (requires
+  `expiry_alert_60_sent` column + migration).
+- [ ] **Bulk upload** — upload multiple documents for one employee in a single form
+  submission.
+- [ ] **Export / zip an employee's docs** — generate a signed multi-file zip from
+  storage for HR offboarding packs.
+- [ ] **Widen cron admin summary to all `documents.manage` holders**, not just
+  `role='admin'` — so HR managers granted the permission via `extra_permissions`
+  also receive the daily summary.
+- [ ] **Centralize `DOC_BUCKET` / `SIGNED_URL_TTL` / `MAX_DOC_SIZE` /
+  `ALLOWED_DOC_MIME` into `lib/constants/`** — currently hardcoded inline in the
+  route; extraction avoids drift if a second upload endpoint is added.
+- [ ] **Cron: check `.update()` error return** — the current cron loops don't inspect
+  the Supabase update error before proceeding to notify; a failed flag-flip would
+  silently proceed.
+- [ ] **`encodeURIComponent` on `employee_username` query param** in
+  `useEmployeeDocumentsByUser` — usernames containing `.` are currently safe
+  because the allowlist forbids special chars, but encoding is defensive hygiene.
+- [ ] **T9 (typing test):** TypeScript `tsc --noEmit` clean pass post-completion was
+  confirmed; the T9 item in the plan refers to a deferred full regression test suite.

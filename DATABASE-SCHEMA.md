@@ -98,6 +98,11 @@
 83. [pyra_content_pipeline](#pyra_content_pipeline) — Content production pipeline
 84. [pyra_pipeline_stages](#pyra_pipeline_stages) — Pipeline stage tracking
 
+### Employee Documents Vault (021_pyra_employee_documents.sql)
+
+85. [pyra_document_types](#pyra_document_types) — Configurable HR document-type catalogue
+86. [pyra_employee_documents](#pyra_employee_documents) — Per-employee HR document store (private bucket, signed URLs)
+
 ---
 
 ## pyra_activity_log
@@ -2541,3 +2546,72 @@ WhatsApp group participant membership.
 **PK**: `id`
 **Unique**: `(conversation_id, participant_jid)`
 **Indexes**: `idx_group_participants_conv` on `conversation_id`
+
+---
+
+## New Tables — Employee Documents Vault (021_pyra_employee_documents.sql)
+
+### pyra_document_types
+
+Configurable document-type catalogue. Drives the type picker in the HR document upload dialog.
+Seeded with 6 rows on migration; soft-deletable via `is_active`.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| name | varchar(100) | NOT NULL | — |
+| name_ar | varchar(100) | NOT NULL | — |
+| requires_expiry | boolean | NOT NULL | `false` |
+| is_active | boolean | NOT NULL | `true` |
+| sort_order | integer | NOT NULL | `0` |
+| created_at | timestamptz | NOT NULL | `now()` |
+
+**PK**: `id`
+
+**Seed rows** (idempotent `ON CONFLICT DO NOTHING`):
+
+| id | name | name_ar | requires_expiry |
+|----|------|---------|-----------------|
+| dt_contract | Employment Contract | عقد عمل | false |
+| dt_eid | Emirates ID | هوية إماراتية | true |
+| dt_passport | Passport | جواز سفر | true |
+| dt_visa | Residence/Visa | إقامة · تأشيرة | true |
+| dt_cert | Certificate | شهادة | false |
+| dt_other | Other | أخرى | false |
+
+### pyra_employee_documents
+
+Per-employee HR document store. Files are uploaded to the **private** `pyra-private` bucket under
+`employee-documents/{username}/{ts}-{nanoid}{ext}` and served exclusively via 1-hour signed URLs
+(`createSignedUrl`, TTL 3600). `storage_path` is never returned in list API responses.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(20) | NOT NULL | — |
+| employee_username | varchar | NOT NULL | — |
+| type_id | varchar(20) | NOT NULL | FK → pyra_document_types(id) |
+| label | text | YES | — |
+| storage_path | text | NOT NULL | — (server-controlled path; never exposed to clients) |
+| mime_type | varchar(100) | NOT NULL | — (pdf / jpeg / png / webp only; SVG rejected) |
+| size_bytes | integer | NOT NULL | — CHECK > 0; cap 20 MB |
+| expiry_date | date | YES | — (null = no expiry) |
+| expiry_alert_30_sent | boolean | NOT NULL | `false` |
+| expiry_alert_7_sent | boolean | NOT NULL | `false` |
+| uploaded_by | varchar | NOT NULL | — |
+| uploaded_at | timestamptz | NOT NULL | `now()` |
+| notes | text | YES | — |
+| metadata | jsonb | NOT NULL | `'{}'` |
+
+**PK**: `id`
+
+**Indexes**:
+- `idx_emp_docs_user` on `(employee_username, uploaded_at DESC)` — per-employee list ordered by recency
+- `idx_emp_docs_type` on `type_id`
+- `idx_emp_docs_expiry` on `expiry_date` WHERE `expiry_date IS NOT NULL AND (expiry_alert_30_sent = false OR expiry_alert_7_sent = false)` — partial index for the daily expiry-check cron
+
+**Expiry alert logic** (`/api/cron/document-expiry-check`, daily 08:00 Dubai):
+- 7-day tier: `expiry_date <= today+7 AND NOT expiry_alert_7_sent` → sets both alert flags + notifies employee (critical)
+- 30-day tier: else `expiry_date <= today+30 AND NOT expiry_alert_30_sent` → sets 30-day flag + notifies employee
+- Flags flip regardless of notify() outcome (idempotency). Grouped admin summary also sent.
+
+**RBAC**: `documents.view` (BASE_EMPLOYEE — own scope only via `/api/my-documents`) · `documents.manage` (HR/admin — any employee via `/api/hr/documents`)
