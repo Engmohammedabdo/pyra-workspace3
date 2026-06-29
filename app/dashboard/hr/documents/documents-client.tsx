@@ -35,7 +35,7 @@ export default function DocumentsClient() {
   const { data: allUsers = [] } = useUsers();
 
   const employees = useMemo(
-    () => allUsers.filter((u) => u.role !== 'client' && u.status !== 'inactive'),
+    () => allUsers.filter((u) => u.role !== 'client' && u.status === 'active'),
     [allUsers],
   );
 

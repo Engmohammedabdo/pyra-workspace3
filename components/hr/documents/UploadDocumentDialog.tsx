@@ -48,6 +48,7 @@ export function UploadDocumentDialog({ open, onClose, employees }: Props) {
     setNotes('');
     setFile(null);
     if (fileRef.current) fileRef.current.value = '';
+    uploadMut.reset();
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
