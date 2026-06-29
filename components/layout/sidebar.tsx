@@ -184,6 +184,8 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
       { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
       { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
+      { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
+      { href: '/dashboard/my-documents', label: 'وثائقي', labelEn: 'My Documents', icon: FileText, permission: 'documents.view' },
     ],
   },
   {

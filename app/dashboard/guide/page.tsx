@@ -94,6 +94,8 @@ const SECTIONS = [
       '/dashboard/org-chart',
       '/dashboard/evaluations',
       '/dashboard/evaluations/settings',
+      '/dashboard/hr/documents',
+      '/dashboard/my-documents',
     ],
   },
   {
