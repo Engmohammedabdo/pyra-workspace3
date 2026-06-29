@@ -173,6 +173,12 @@ export async function POST(request: NextRequest) {
     if (typeof employee_username !== 'string' || !employee_username.trim()) {
       return apiValidationError('employee_username مطلوب');
     }
+    // Path-traversal guard: reject '/', '..', null bytes, spaces, and any
+    // characters outside the safe username alphabet before the value is
+    // embedded in the storage path.
+    if (!/^[a-zA-Z0-9._-]+$/.test(employee_username)) {
+      return apiValidationError('اسم المستخدم غير صالح');
+    }
     if (typeof type_id !== 'string' || !type_id.trim()) {
       return apiValidationError('type_id مطلوب');
     }
