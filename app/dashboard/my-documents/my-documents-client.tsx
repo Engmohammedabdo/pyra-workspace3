@@ -46,7 +46,7 @@ export default function MyDocumentsClient() {
     return tier === 'expired' || tier === 'expiring_7' || tier === 'expiring_30';
   });
 
-  function handleDownload(signedUrl: string | undefined, label: string | null) {
+  function handleDownload(signedUrl: string | undefined) {
     if (!signedUrl) {
       toast.error('رابط التنزيل غير متاح، تواصل مع الموارد البشرية');
       return;
@@ -142,7 +142,7 @@ export default function MyDocumentsClient() {
                       size="sm"
                       variant="outline"
                       className="gap-1.5 shrink-0"
-                      onClick={() => handleDownload(doc.signed_url, doc.label)}
+                      onClick={() => handleDownload(doc.signed_url)}
                     >
                       <Download className="size-4" aria-hidden />
                       <span className="hidden sm:inline">تحميل</span>

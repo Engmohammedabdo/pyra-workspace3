@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
     }
 
     // ── Document expiry counts (for alerts) ───────────────────────────────────
-    const in30Days = daysFromNow(30);
+    const in30Days = dubaiDayKey(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
     const { data: expiredDocs, error: expErr } = await supabase
       .from('pyra_employee_documents')

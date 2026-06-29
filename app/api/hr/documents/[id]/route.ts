@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiError,
   apiNotFound,
   apiServerError,
 } from '@/lib/api/response';
@@ -47,7 +48,7 @@ export async function PATCH(
     try {
       body = await request.json();
     } catch {
-      return apiServerError('طلب غير صالح');
+      return apiError('طلب غير صالح', 400);
     }
 
     // ── Allowlist — only accept known fields ──
@@ -60,7 +61,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updateData).length === 0) {
-      return apiServerError('لا توجد حقول صالحة للتحديث');
+      return apiError('لا توجد حقول صالحة للتحديث', 400);
     }
 
     // ── CRITICAL: if expiry_date is being changed, re-arm both alert flags ──

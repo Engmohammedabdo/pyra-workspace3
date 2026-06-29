@@ -11,7 +11,7 @@ import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity'
 // =============================================================
 export async function GET() {
   try {
-    const auth = await requireApiPermission('documents.view');
+    const auth = await requireApiPermission('documents.manage');
     if (isApiError(auth)) return auth;
 
     const supabase = createServiceRoleClient();

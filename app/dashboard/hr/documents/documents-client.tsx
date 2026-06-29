@@ -39,7 +39,10 @@ export default function DocumentsClient() {
     [allUsers],
   );
 
-  const allDocs = docsResponse?.documents ?? [];
+  const allDocs = useMemo(
+    () => docsResponse?.documents ?? [],
+    [docsResponse],
+  );
 
   const docs = useMemo(() => {
     if (expiryFilter === 'all') return allDocs;
