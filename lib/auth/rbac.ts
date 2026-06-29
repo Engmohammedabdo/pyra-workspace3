@@ -145,6 +145,10 @@ export const PERMISSIONS = {
   HR_VIEW: 'hr.view',
   HR_MANAGE: 'hr.manage',
 
+  // Employee Documents
+  DOCUMENTS_VIEW: 'documents.view',
+  DOCUMENTS_MANAGE: 'documents.manage',
+
   // Payroll
   PAYROLL_VIEW: 'payroll.view',
   PAYROLL_MANAGE: 'payroll.manage',
@@ -624,6 +628,15 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     ],
   },
   {
+    key: 'documents',
+    label: 'Employee Documents',
+    labelAr: 'وثائق الموظفين',
+    permissions: [
+      { key: 'documents.view', label: 'View Own Documents', labelAr: 'عرض وثائقي' },
+      { key: 'documents.manage', label: 'Manage Documents', labelAr: 'إدارة وثائق الموظفين' },
+    ],
+  },
+  {
     key: 'payroll',
     label: 'Payroll',
     labelAr: 'الرواتب',
@@ -821,6 +834,7 @@ const BASE_EMPLOYEE: string[] = [
   'payroll.view',       // see own payslips (my-payslips)
   'evaluations.view',   // see own evaluations
   'overtime.view',      // see own overtime
+  'documents.view',     // see own uploaded documents
 ];
 
 /** Role-specific permissions added ON TOP of BASE_EMPLOYEE */
