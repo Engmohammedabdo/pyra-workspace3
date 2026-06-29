@@ -223,6 +223,37 @@ export interface PyraLoginAttempt {
   created_at: string;
 }
 
+export interface PyraDocumentType {
+  id: string;
+  name: string;
+  name_ar: string;
+  requires_expiry: boolean;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+}
+
+export interface PyraEmployeeDocument {
+  id: string;
+  employee_username: string;
+  type_id: string;
+  label: string | null;
+  storage_path: string;
+  mime_type: string;
+  size_bytes: number;
+  expiry_date: string | null;
+  expiry_alert_30_sent: boolean;
+  expiry_alert_7_sent: boolean;
+  uploaded_by: string;
+  uploaded_at: string;
+  notes: string | null;
+  metadata: Record<string, unknown>;
+  // joined / derived (not columns):
+  type_name_ar?: string;
+  employee_display_name?: string;
+  signed_url?: string;
+}
+
 // ==========================================
 // Portal Tables (6)
 // ==========================================

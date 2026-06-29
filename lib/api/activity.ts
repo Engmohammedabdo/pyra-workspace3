@@ -32,6 +32,7 @@ export const ENTITY_TYPES = {
   LEAVE: 'leave',
   BOARD: 'board',
   TASK: 'task',
+  DOCUMENT: 'document',
 } as const;
 
 /**

@@ -65,6 +65,9 @@ export type NotificationType =
   | 'leave_rejected'
   | 'expense_approved'
   | 'expense_rejected'
+  // Documents
+  | 'document_expiring_soon'
+  | 'document_expired'
   // Generic
   | 'comment_reply'
   | 'mention'
