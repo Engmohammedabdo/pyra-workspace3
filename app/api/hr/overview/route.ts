@@ -236,6 +236,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // ── Document expiry counts (for alerts) ───────────────────────────────────
+    const in30Days = daysFromNow(30);
+
+    const { data: expiredDocs, error: expErr } = await supabase
+      .from('pyra_employee_documents')
+      .select('id')
+      .not('expiry_date', 'is', null)
+      .lt('expiry_date', todayKey);
+    if (expErr) throw new Error(`pyra_employee_documents (expired): ${expErr.message}`);
+
+    const { data: expiringDocs, error: expSoonErr } = await supabase
+      .from('pyra_employee_documents')
+      .select('id')
+      .gte('expiry_date', todayKey)
+      .lte('expiry_date', in30Days);
+    if (expSoonErr) throw new Error(`pyra_employee_documents (expiring): ${expSoonErr.message}`);
+
     // ── Alerts (pure helper) ───────────────────────────────────────────────────
     // payrollCalculated: current month run exists and is NOT in draft state
     const payrollCalculated = !!curRun && curRun.status !== 'draft';
@@ -243,6 +260,8 @@ export async function GET(request: NextRequest) {
       leavePending: (pendingLeaveData ?? []).length,
       payrollCalculated,
       absentNoLeave: absentNoLeaveCount,
+      docsExpired: (expiredDocs ?? []).length,
+      docsExpiringSoon: (expiringDocs ?? []).length,
     });
 
     // ── Celebrations (pure helper) ─────────────────────────────────────────────

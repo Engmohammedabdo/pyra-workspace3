@@ -44,33 +44,33 @@ describe('computeCelebrations', () => {
 
 describe('deriveAlerts', () => {
   it('emits a critical alert when pending approvals exceed 5', () => {
-    const alerts = deriveAlerts({ leavePending: 6, payrollCalculated: true, absentNoLeave: 0 });
+    const alerts = deriveAlerts({ leavePending: 6, payrollCalculated: true, absentNoLeave: 0, docsExpiringSoon: 0, docsExpired: 0 });
     expect(alerts.some((a) => a.severity === 'critical')).toBe(true);
   });
 
   it('emits high when payroll not calculated mid-month', () => {
-    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: false, absentNoLeave: 0 });
+    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: false, absentNoLeave: 0, docsExpiringSoon: 0, docsExpired: 0 });
     expect(alerts.some((a) => a.severity === 'high')).toBe(true);
   });
 
   it('emits medium alert when 1-5 pending leaves (not critical)', () => {
-    const alerts = deriveAlerts({ leavePending: 3, payrollCalculated: true, absentNoLeave: 0 });
+    const alerts = deriveAlerts({ leavePending: 3, payrollCalculated: true, absentNoLeave: 0, docsExpiringSoon: 0, docsExpired: 0 });
     expect(alerts.some((a) => a.severity === 'medium')).toBe(true);
     expect(alerts.every((a) => a.severity !== 'critical')).toBe(true);
   });
 
   it('emits high alert for absent employees with no leave', () => {
-    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 2 });
+    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 2, docsExpiringSoon: 0, docsExpired: 0 });
     expect(alerts.some((a) => a.severity === 'high' && a.id === 'absent-no-leave')).toBe(true);
   });
 
   it('returns empty array when everything is fine', () => {
-    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 0 });
+    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 0, docsExpiringSoon: 0, docsExpired: 0 });
     expect(alerts).toHaveLength(0);
   });
 
   it('sorts alerts by severity (critical first)', () => {
-    const alerts = deriveAlerts({ leavePending: 6, payrollCalculated: false, absentNoLeave: 2 });
+    const alerts = deriveAlerts({ leavePending: 6, payrollCalculated: false, absentNoLeave: 2, docsExpiringSoon: 0, docsExpired: 0 });
     const severities = alerts.map((a) => a.severity);
     expect(severities[0]).toBe('critical');
     // high items follow
@@ -78,5 +78,23 @@ describe('deriveAlerts', () => {
       const rank = { critical: 0, high: 1, medium: 2, low: 3 } as const;
       return i === 0 || rank[s as keyof typeof rank] >= rank[severities[i - 1] as keyof typeof rank];
     })).toBe(true);
+  });
+
+  it('emits a critical docs-expired alert when docsExpired > 0', () => {
+    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 0, docsExpiringSoon: 0, docsExpired: 3 });
+    const expired = alerts.find((a) => a.id === 'docs-expired');
+    expect(expired).toBeDefined();
+    expect(expired?.severity).toBe('critical');
+    expect(expired?.href).toBe('/dashboard/hr/documents');
+    expect(expired?.message).toContain('3');
+  });
+
+  it('emits a high docs-expiring-soon alert when docsExpiringSoon > 0', () => {
+    const alerts = deriveAlerts({ leavePending: 0, payrollCalculated: true, absentNoLeave: 0, docsExpiringSoon: 2, docsExpired: 0 });
+    const expiringSoon = alerts.find((a) => a.id === 'docs-expiring-soon');
+    expect(expiringSoon).toBeDefined();
+    expect(expiringSoon?.severity).toBe('high');
+    expect(expiringSoon?.href).toBe('/dashboard/hr/documents');
+    expect(expiringSoon?.message).toContain('2');
   });
 });

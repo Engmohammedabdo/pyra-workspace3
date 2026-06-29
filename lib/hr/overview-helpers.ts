@@ -81,6 +81,8 @@ export interface AlertInput {
   leavePending: number;
   payrollCalculated: boolean;
   absentNoLeave: number;
+  docsExpiringSoon: number;
+  docsExpired: number;
 }
 
 export interface HrAlert {
@@ -139,6 +141,24 @@ export function deriveAlerts(input: AlertInput): HrAlert[] {
       severity: 'high',
       message: `${input.absentNoLeave} موظفين غائبون بلا إجازة اليوم`,
       href: '/dashboard/attendance',
+    });
+  }
+
+  if (input.docsExpired > 0) {
+    alerts.push({
+      id: 'docs-expired',
+      severity: 'critical',
+      message: `${input.docsExpired} وثيقة منتهية الصلاحية`,
+      href: '/dashboard/hr/documents',
+    });
+  }
+
+  if (input.docsExpiringSoon > 0) {
+    alerts.push({
+      id: 'docs-expiring-soon',
+      severity: 'high',
+      message: `${input.docsExpiringSoon} وثيقة تنتهي خلال 30 يوماً`,
+      href: '/dashboard/hr/documents',
     });
   }
 
