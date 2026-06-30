@@ -169,10 +169,6 @@ export const PERMISSIONS = {
   LEAVE_TYPES_VIEW: 'leave_types.view',
   LEAVE_TYPES_MANAGE: 'leave_types.manage',
 
-  // Employee Payments
-  EMPLOYEE_PAYMENTS_VIEW: 'employee_payments.view',
-  EMPLOYEE_PAYMENTS_MANAGE: 'employee_payments.manage',
-
   // Content Pipeline
   CONTENT_PIPELINE_VIEW: 'content_pipeline.view',
   CONTENT_PIPELINE_MANAGE: 'content_pipeline.manage',
@@ -679,15 +675,6 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     permissions: [
       { key: 'leave_types.view', label: 'View Leave Types', labelAr: 'عرض أنواع الإجازات' },
       { key: 'leave_types.manage', label: 'Manage Leave Types', labelAr: 'إدارة أنواع الإجازات' },
-    ],
-  },
-  {
-    key: 'employee_payments',
-    label: 'Employee Payments',
-    labelAr: 'مدفوعات الموظفين',
-    permissions: [
-      { key: 'employee_payments.view', label: 'View Employee Payments', labelAr: 'عرض مدفوعات الموظفين' },
-      { key: 'employee_payments.manage', label: 'Manage Employee Payments', labelAr: 'إدارة مدفوعات الموظفين' },
     ],
   },
   {

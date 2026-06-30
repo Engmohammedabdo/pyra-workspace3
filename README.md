@@ -481,7 +481,6 @@ final = BASE_EMPLOYEE ∪ (DB role.permissions ?? legacy mapping) ∪ extra_perm
 | Timesheet | `timesheet.view`, `timesheet.manage` |
 | Overtime | `overtime.view`, `overtime.manage` |
 | Work Schedules | `work_schedules.view`, `work_schedules.manage` |
-| Employee Payments | `employee_payments.view`, `employee_payments.manage` |
 | Boards | `boards.view`, `boards.manage` |
 | Tasks | `tasks.view`, `tasks.create`, `tasks.manage` |
 | Content Pipeline | `content_pipeline.view`, `content_pipeline.manage` |
