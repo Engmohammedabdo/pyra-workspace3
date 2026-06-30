@@ -44,10 +44,13 @@ interface ParaOpts {
  * Draw a wrapped RTL Arabic paragraph, right-aligned at opts.x.
  * Wraps on the SHAPED text width, prepares each line, auto page-breaks.
  * Returns the new y after the paragraph.
+ * NOTE: the caller MUST have set the Amiri font on `doc` before calling
+ * (e.g. doc.setFont('Amiri', 'normal')) — this helper does not set it.
  */
 export function drawRtlParagraph(doc: jsPDF, text: string, opts: ParaOpts): number {
   const { x, maxWidth, lineHeight } = opts;
   let y = opts.y;
+  if (!text) return y; // empty paragraph → draw nothing, eat no vertical space
   const bottom = opts.bottomMargin ?? 280;
   const top = opts.pageTopY ?? 20;
   if (opts.fontSize) doc.setFontSize(opts.fontSize);
@@ -79,10 +82,16 @@ export function drawBilingualClause(
   opts: { xLeft: number; xRight: number; y: number; maxWidth: number; lineHeight: number },
 ): number {
   let y = opts.y;
+  // Save the caller's active font so we restore it on exit — otherwise the doc
+  // is left on 'Amiri' and subsequent LTR content renders in the wrong font.
+  const prevFont = (doc as unknown as {
+    internal: { getFont: () => { fontName: string; fontStyle: string } };
+  }).internal.getFont();
   doc.setFont('helvetica', 'normal');
   const enLines: string[] = doc.splitTextToSize(en, opts.maxWidth);
   for (const l of enLines) { doc.text(l, opts.xLeft, y); y += opts.lineHeight; }
   doc.setFont('Amiri', 'normal');
   y = drawRtlParagraph(doc, ar, { x: opts.xRight, y, maxWidth: opts.maxWidth, lineHeight: opts.lineHeight });
+  doc.setFont(prevFont.fontName, prevFont.fontStyle);
   return y;
 }
