@@ -3078,6 +3078,83 @@ clients.
 - HR Overview "pending approvals" KPI surfaces `leave.pending` only (no combined
   all-approvals count yet — leave + expense + timesheet).
 
+## Payroll Integrity Fixes — Locked Decisions (2026-06-30)
+
+Closure of the payroll integrity-fix bundle (8 commits + migrations 022/023,
+merged to `main`). Followed an audit (4 parallel agents) → plan → SDD →
+whole-branch review. **Do NOT re-litigate.** Full plan at
+`docs/superpowers/plans/2026-06-30-payroll-integrity-fixes.md`.
+
+### 1. Deduction model is LOCKED — fixed salary; ONLY unpaid leave is deducted
+
+User decision: monthly salary is **fixed**; the ONLY automatic deduction is
+approved **unpaid leave** (`baseSalary / PAYROLL_WORKING_DAYS_PER_MONTH × days`).
+**Attendance/absence is intentionally NOT wired into payroll** — `pyra_attendance`
+stays a tracking log only. No income tax / GPSSA.
+
+**Future sessions: do NOT "fix" the attendance→payroll disconnect as a gap.** A
+prior audit flagged it HIGH; the user reviewed and chose to keep attendance
+decoupled. Re-wiring it would violate the locked model. The pure calc core lives
+in `lib/payroll/calculate-item.ts` (unit-tested, `__tests__/payroll-calculate-item.test.ts`).
+
+### 2. Payroll math is a pure function; the route only maps DB→input→DB
+
+`calculatePayrollItem()` in `lib/payroll/calculate-item.ts` owns ALL summing
+(task/bonus/commission/overtime additions, manual + unpaid-leave deductions, net
+floored at 0). `app/api/dashboard/payroll/[id]/calculate/route.ts` only fetches
+rows and maps them in. New pay rules go in the pure fn + its tests — NOT inline
+in the route.
+
+### 3. Overtime = approved timesheets + manual `overtime` payments
+
+Two overtime sources, both fold into `overtime_amount`: timesheet rows
+(`is_overtime=true` AND **`status='approved'`** — draft no longer pays) × hourly
+rate × multiplier, PLUS `source_type='overtime'` employee_payments (previously
+silently dropped while still being consumed). `hourly_rate=0` salaried staff get
+0 timesheet overtime by design — manual overtime payments are how they're paid.
+
+### 4. Payment lifecycle settles forward; `markPaymentsPaidAndPropagate` is the DRY path
+
+`lib/payroll/payment-lifecycle.ts` flips `pyra_employee_payments` → `paid` (+`paid_at`)
+AND propagates `source_type='task'` rows to their `pyra_tasks.payment_status='paid'`.
+Called when a payroll **run** is paid (bulk) and mirrored inline when a single
+employee-payment is paid. A task payment is NO LONGER marked paid on creation —
+it is set `pending` and settles only when actually paid. Duplicate-active-payment
+guard fails **safe** (blocks on a `maybeSingle` multi-row error, not open).
+
+### 5. `commission` is a first-class stored line item (migration 022)
+
+`pyra_payroll_items.commission` (numeric NOT NULL DEFAULT 0) is populated by the
+calc and surfaced everywhere: payslip route, my-payslips route, `PayrollItem`
+type, payslip PDF, employee + admin payslip UIs. Invariant:
+`net_pay = base + task + overtime + bonus + commission − deductions` (floored 0).
+Commission was always inside net_pay; this just makes the breakdown reconcile.
+
+### 6. Config + observability + integrity
+
+- Magic numbers centralized in `lib/constants/payroll.ts` (working days 22,
+  overtime multiplier 1.5, default currency AED). Payslip `company_name` reads
+  `pyra_settings` key `company_name` (fallback constant). v1.1: admin-editable
+  working-days/multiplier via settings UI.
+- All payroll routes use `logError()` in catches; the payroll→expense insert no
+  longer swallows its error and upserts the `ec_salaries` category defensively.
+- Migration 023 added the missing `pyra_employee_payments.payroll_id` FK
+  (`ON DELETE SET NULL`) and removed an orphan `pyra_salary_history` row. Dead
+  `employee_payments.{view,manage}` permissions removed from `rbac.ts`.
+
+### Operational note (NOT a code bug)
+
+At closure, all active employees had `salary = 0/NULL`, so a run would output
+zeros. Payroll is non-functional until salaries are entered on the user records —
+this is data entry, not a defect.
+
+### Deferred (v1.1 backlog)
+
+- Payment attribution by **earned/work month** instead of `created_at` (needs a
+  `pay_period`/`earned_date` column + UI).
+- Admin-editable working-days + overtime multiplier via `pyra_settings` + UI.
+- Stored-field vs net_pay sub-cent rounding consistency (harmless at numeric(12,2)).
+
 ## Documentation (Read don't guess)
 | Doc | What it covers |
 |-----|---------------|
