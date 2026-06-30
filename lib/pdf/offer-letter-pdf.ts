@@ -73,15 +73,19 @@ function ensureSpace(doc: jsPDF, y: number, needed: number): number {
 
 /**
  * Draw a numbered section heading (bold, gold underline).
+ * EN part drawn left in helvetica; AR part drawn right in Amiri.
  * Returns y after the heading.
  */
 function drawSectionHeading(doc: jsPDF, num: number, enTitle: string, arTitle: string, y: number): number {
   y = ensureSpace(doc, y, 14);
   doc.setFontSize(10);
+  // English number + title — helvetica, left-aligned
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
-  const label = `${num}. ${enTitle} / ${arTitle}`;
-  doc.text(label, MARGIN, y + 6);
+  doc.text(`${num}. ${enTitle}`, MARGIN, y + 6);
+  // Arabic title — Amiri, right-aligned
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl(arTitle), PAGE_W - MARGIN, y + 6, { align: 'right' });
   // gold underline
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
@@ -192,21 +196,19 @@ export async function generateOfferLetterPDF(
   // DEAR + EMPLOYEE INFO BLOCK
   // ─────────────────────────────────────────────
   doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
   doc.setTextColor(...DARK);
-  doc.text('Dear / عزيزي(تي):', MARGIN, y);
-  y += 6;
+  // "Dear:" in helvetica left; Arabic greeting right in Amiri
+  y = drawInfoLine(doc, 'Dear:', 'عزيزي(تي):', y);
 
-  doc.text('Name / الاسم:', MARGIN, y);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.nameEn, MARGIN + 30, y);
-  y += 6;
+  // Name: EN name in helvetica left; Arabic label right in Amiri
+  y = drawInfoLine(doc, `Name: ${data.nameEn}`, 'الاسم', y);
 
-  doc.setFont('helvetica', 'bold');
+  // Nationality / Passport / ID — data.nationality may be Arabic, so put it on the Amiri side
   doc.setFontSize(8.5);
-  const employeeInfo = `Nationality / الجنسية: ${data.nationality}   Passport No / رقم الجواز: ${data.passport}   ID No / رقم الهوية: ${data.idNumber}`;
-  doc.text(employeeInfo, MARGIN, y);
-  y += 8;
+  y = drawInfoLine(doc, 'Nationality:', `الجنسية: ${data.nationality}`, y);
+  y = drawInfoLine(doc, `Passport No: ${data.passport}`, 'رقم الجواز', y);
+  y = drawInfoLine(doc, `ID No: ${data.idNumber}`, 'رقم الهوية', y);
+  y += 2;
 
   // ─────────────────────────────────────────────
   // INTRO TEXT
@@ -278,18 +280,18 @@ export async function generateOfferLetterPDF(
   // SECTION — POSITION
   // ─────────────────────────────────────────────
   y = drawSectionHeading(doc, snum('position'), 'Position', 'المسمى الوظيفي', y);
-  y = drawInfoLine(doc, `Job Title / المسمى: ${data.titleEn} / ${data.titleAr}`, '', y);
-  y = drawInfoLine(doc, `Department / القسم: ${data.deptEn} / ${data.deptAr}`, '', y);
-  y = drawInfoLine(doc, `Reporting to / المسؤول المباشر: ${data.reportsTo}`, '', y);
+  y = drawInfoLine(doc, `Job Title: ${data.titleEn}`, `المسمى: ${data.titleAr}`, y);
+  y = drawInfoLine(doc, `Department: ${data.deptEn}`, `القسم: ${data.deptAr}`, y);
+  y = drawInfoLine(doc, `Reporting to: ${data.reportsTo}`, 'المسؤول المباشر', y);
   y += 2;
 
   // ─────────────────────────────────────────────
   // SECTION — CONTRACT TYPE & DURATION
   // ─────────────────────────────────────────────
   y = drawSectionHeading(doc, snum('contract'), 'Contract Type & Duration', 'نوع العقد والمدة', y);
-  y = drawInfoLine(doc, 'Contract Type / نوع العقد: Fixed-Term / محدد المدة', '', y);
-  y = drawInfoLine(doc, 'Duration / المدة: One (1) Year / سنة واحدة', '', y);
-  y = drawInfoLine(doc, `Start Date / تاريخ البدء: ${data.startDate}`, '', y);
+  y = drawInfoLine(doc, 'Contract Type: Fixed-Term', 'نوع العقد: محدد المدة', y);
+  y = drawInfoLine(doc, 'Duration: One (1) Year', 'المدة: سنة واحدة', y);
+  y = drawInfoLine(doc, `Start Date: ${data.startDate}`, 'تاريخ البدء', y);
   y += 2;
 
   // ─────────────────────────────────────────────
@@ -327,10 +329,15 @@ export async function generateOfferLetterPDF(
   // Table header
   doc.setFillColor(...GOLD);
   doc.rect(col0, y, CONTENT_W, rowH, 'F');
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...WHITE);
-  doc.text('Component / البند', col0 + 3, y + 5.5);
+  // "Component" in helvetica left; Arabic label in Amiri right (within the first column)
+  doc.setFont('helvetica', 'bold');
+  doc.text('Component', col0 + 3, y + 5.5);
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl('البند'), col1 - 3, y + 5.5, { align: 'right' });
+  // Amount columns — Latin only, helvetica
+  doc.setFont('helvetica', 'bold');
   doc.text('Monthly (AED)', col1 + 3, y + 5.5);
   doc.text('Annual (AED)', col2, y + 5.5, { align: 'right' });
   y += rowH;
@@ -371,10 +378,14 @@ export async function generateOfferLetterPDF(
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.5);
   doc.line(col0, y, col0 + CONTENT_W, y);
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.setTextColor(...DARK);
-  doc.text('TOTAL / الإجمالي', col0 + 3, y + 5.5);
+  // "TOTAL" in helvetica left; Arabic "الإجمالي" in Amiri right (within label column)
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL', col0 + 3, y + 5.5);
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl('الإجمالي'), col1 - 3, y + 5.5, { align: 'right' });
+  doc.setFont('helvetica', 'bold');
   doc.text(fmt(monthly), col1 + 3, y + 5.5);
   doc.text(fmt(annual), col2, y + 5.5, { align: 'right' });
   y += rowH + 4;
@@ -589,21 +600,30 @@ export async function generateOfferLetterPDF(
   doc.line(MARGIN, y, PAGE_W - MARGIN, y);
   y += 5;
 
-  doc.setFont('helvetica', 'bold');
+  // "ACCEPTANCE" in helvetica left; Arabic heading in Amiri right — centered pair
   doc.setFontSize(11);
   doc.setTextColor(...DARK);
-  doc.text('ACCEPTANCE / القبول', PAGE_W / 2, y, { align: 'center' });
+  doc.setFont('helvetica', 'bold');
+  doc.text('ACCEPTANCE', MARGIN, y);
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl('القبول'), PAGE_W - MARGIN, y, { align: 'right' });
   y += 7;
 
+  // English acceptance text in helvetica
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...DARK);
-  const acceptText = 'I, the undersigned, hereby accept the above offer and agree to all terms and conditions. / أنا الموقع أدناه، أقبل بعرض التوظيف وأوافق على جميع الشروط والأحكام.';
-  const acceptLines: string[] = doc.splitTextToSize(acceptText, CONTENT_W);
-  for (const l of acceptLines) {
+  const acceptEnText = 'I, the undersigned, hereby accept the above offer and agree to all terms and conditions.';
+  const acceptEnLines: string[] = doc.splitTextToSize(acceptEnText, CONTENT_W);
+  for (const l of acceptEnLines) {
     doc.text(l, MARGIN, y);
     y += 5;
   }
+  // Arabic acceptance text in Amiri
+  doc.setFont('Amiri', 'normal');
+  y = drawRtlParagraph(doc, 'أنا الموقع أدناه، أقبل بعرض التوظيف وأوافق على جميع الشروط والأحكام.', {
+    x: PAGE_W - MARGIN, y, maxWidth: CONTENT_W, lineHeight: 5, fontSize: 9,
+  });
   y += 4;
 
   // Signature table — two columns
@@ -614,11 +634,18 @@ export async function generateOfferLetterPDF(
   doc.rect(MARGIN, y, sigColW, sigH, 'S');
   doc.rect(MARGIN + sigColW + 4, y, sigColW, sigH, 'S');
 
-  doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...DARK);
-  doc.text('For the Company / عن الشركة', MARGIN + 3, y + 6);
-  doc.text('Employee / الموظف', MARGIN + sigColW + 7, y + 6);
+  // Left box label: EN in helvetica, then AR in Amiri on the same baseline
+  doc.setFont('helvetica', 'bold');
+  doc.text('For the Company', MARGIN + 3, y + 6);
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl('عن الشركة'), MARGIN + sigColW - 3, y + 6, { align: 'right' });
+  // Right box label
+  doc.setFont('helvetica', 'bold');
+  doc.text('Employee', MARGIN + sigColW + 7, y + 6);
+  doc.setFont('Amiri', 'bold');
+  doc.text(prepareRtl('الموظف'), MARGIN + sigColW + 4 + sigColW - 3, y + 6, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
