@@ -3097,6 +3097,21 @@ prior audit flagged it HIGH; the user reviewed and chose to keep attendance
 decoupled. Re-wiring it would violate the locked model. The pure calc core lives
 in `lib/payroll/calculate-item.ts` (unit-tested, `__tests__/payroll-calculate-item.test.ts`).
 
+**Active-only + hire-date pro-ration (2026-06-30 follow-up).** Two refinements
+the user caught by running a real payroll:
+- Payroll includes ONLY `status='active'` employees. The calculate route filters
+  `.eq('status','active')` — `inactive` AND `suspended` are excluded entirely
+  (never paid). The earlier `.neq('status','suspended')` wrongly paid inactive
+  staff.
+- A new hire's FIRST partial month pro-rates the **base salary** by calendar days
+  worked. `hireProrationFactor(hire_date, year, month)` (in `calculate-item.ts`)
+  returns `daysWorked / daysInMonth` when the hire date is inside the run month,
+  `1` if hired earlier, and `0` (employee skipped — not yet hired) if hired after
+  the run month. Additions (task/bonus/commission/overtime) are NEVER pro-rated;
+  only the fixed base is. Example: hired 2026-06-29 in a June run → base × 2/30.
+- After deploying changes to the calc, **re-calculate** an existing run to refresh
+  its items (stale items are not auto-recomputed).
+
 ### 2. Payroll math is a pure function; the route only maps DB→input→DB
 
 `calculatePayrollItem()` in `lib/payroll/calculate-item.ts` owns ALL summing
