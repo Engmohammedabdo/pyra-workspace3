@@ -21,6 +21,9 @@ export interface PayrollItemInput {
   payments: PayrollPaymentInput[];              // approved, unlinked, this month
   overtimeTimesheets: OvertimeTimesheetInput[]; // approved is_overtime rows, this month
   unpaidLeave: UnpaidLeaveInput[];
+  /** 0..1 — pro-rates the BASE salary for a partial first month (hire-date
+   *  pro-ration). Defaults to 1 (full month). Additions are never pro-rated. */
+  prorationFactor?: number;
 }
 export interface DeductionDetail {
   type: string;
@@ -59,6 +62,11 @@ export function calculatePayrollItem(
   const baseSalary = Number(input.baseSalary) || 0;
   const hourlyRate = Number(input.hourlyRate) || 0;
 
+  // Hire-date pro-ration applies to the BASE salary only (a new hire's first
+  // partial month). Additions (task/bonus/commission/overtime) are paid in full.
+  const factor = input.prorationFactor ?? 1;
+  const proratedBase = round2(baseSalary * factor);
+
   const taskPayments = sum(input.payments, 'task');
   const bonus = sum(input.payments, 'bonus');
   const commission = sum(input.payments, 'commission');
@@ -88,11 +96,11 @@ export function calculatePayrollItem(
 
   const netPay = Math.max(
     0,
-    baseSalary + taskPayments + overtimeAmount + bonus + commission - deductions,
+    proratedBase + taskPayments + overtimeAmount + bonus + commission - deductions,
   );
 
   return {
-    base_salary: baseSalary,
+    base_salary: proratedBase,
     task_payments: taskPayments,
     overtime_amount: round2(overtimeAmount),
     bonus,
@@ -101,4 +109,41 @@ export function calculatePayrollItem(
     deduction_details: deductionDetails,
     net_pay: round2(netPay),
   };
+}
+
+/**
+ * Pro-ration factor (0..1) for an employee's FIRST partial month based on
+ * hire date, relative to the run's (year, month) — `month` is 1-based.
+ *
+ *  - No hire date, or hired on/before the run month → 1 (full month).
+ *  - Hired AFTER the run month → 0 (not yet employed; caller should skip).
+ *  - Hired WITHIN the run month → daysWorked / daysInThatMonth, where
+ *    daysWorked counts calendar days from the hire day to month end inclusive.
+ *
+ * Example: hired 2026-06-29 in a June run (30 days) → 2/30.
+ */
+export function hireProrationFactor(
+  hireDate: string | null | undefined,
+  year: number,
+  month: number,
+): number {
+  if (!hireDate) return 1;
+  const parts = hireDate.slice(0, 10).split('-');
+  if (parts.length < 3) return 1;
+  const hy = Number(parts[0]);
+  const hm = Number(parts[1]);
+  const hd = Number(parts[2]);
+  if (!hy || !hm || !hd) return 1;
+
+  // Hired before the run month → employed the whole month.
+  if (hy < year || (hy === year && hm < month)) return 1;
+  // Hired after the run month → not employed yet.
+  if (hy > year || (hy === year && hm > month)) return 0;
+
+  // Hired within the run month → pro-rate by calendar days worked.
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const daysWorked = daysInMonth - hd + 1;
+  if (daysWorked <= 0) return 0;
+  if (daysWorked >= daysInMonth) return 1;
+  return daysWorked / daysInMonth;
 }

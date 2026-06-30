@@ -4,7 +4,7 @@ import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/res
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
-import { calculatePayrollItem } from '@/lib/payroll/calculate-item';
+import { calculatePayrollItem, hireProrationFactor } from '@/lib/payroll/calculate-item';
 import { logError } from '@/lib/observability/log-error';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -59,10 +59,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .eq('payroll_id', id);
 
     // 3. Fetch all active employees
+    // Only ACTIVE employees are paid. Excludes 'inactive' AND 'suspended' —
+    // the previous .neq('status','suspended') wrongly paid inactive staff.
     const { data: employees, error: empError } = await supabase
       .from('pyra_users')
-      .select('username, display_name, salary, hourly_rate, department, payment_type, employment_type, status')
-      .neq('status', 'suspended');
+      .select('username, display_name, salary, hourly_rate, department, payment_type, employment_type, status, hire_date')
+      .eq('status', 'active');
 
     if (empError) return apiServerError(empError.message);
     if (!employees || employees.length === 0) {
@@ -176,6 +178,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     let totalAmount = 0;
 
     for (const emp of activeEmployees) {
+      // Hire-date pro-ration: skip anyone hired AFTER this run month (not yet
+      // employed); pro-rate the BASE salary for a partial first month.
+      const prorationFactor = hireProrationFactor(emp.hire_date, year, month);
+      if (prorationFactor === 0) continue;
+
       const userPayments = paymentsByUser[emp.username] || [];
       const userTimesheets = timesheetsByUser[emp.username] || [];
 
@@ -185,6 +192,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         payments: userPayments.map(p => ({ source_type: p.source_type, amount: p.amount })),
         overtimeTimesheets: userTimesheets.map(t => ({ hours: t.hours, multiplier: t.overtime_multiplier })),
         unpaidLeave: unpaidLeaveByUser[emp.username] || [],
+        prorationFactor,
       });
 
       payrollItems.push({

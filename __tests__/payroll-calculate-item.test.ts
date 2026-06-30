@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePayrollItem } from '@/lib/payroll/calculate-item';
+import { calculatePayrollItem, hireProrationFactor } from '@/lib/payroll/calculate-item';
 
 describe('calculatePayrollItem', () => {
   it('base salary only → net = base', () => {
@@ -79,5 +79,59 @@ describe('calculatePayrollItem', () => {
     });
     expect(r.deductions).toBe(0);
     expect(r.net_pay).toBe(0);
+  });
+
+  it('pro-rates ONLY the base salary; additions are paid in full', () => {
+    // hired with 2/30 of the month worked, base 3000 → 200; bonus 500 paid full
+    const r = calculatePayrollItem({
+      baseSalary: 3000, hourlyRate: 0,
+      payments: [{ source_type: 'bonus', amount: 500 }],
+      overtimeTimesheets: [], unpaidLeave: [],
+      prorationFactor: 2 / 30,
+    });
+    expect(r.base_salary).toBe(200);
+    expect(r.bonus).toBe(500);
+    expect(r.net_pay).toBe(700);
+  });
+
+  it('matches the real case: 5000 salary, hired day 29 of a 30-day month → 333.33', () => {
+    const factor = hireProrationFactor('2026-06-29', 2026, 6);
+    const r = calculatePayrollItem({
+      baseSalary: 5000, hourlyRate: 0, payments: [], overtimeTimesheets: [], unpaidLeave: [],
+      prorationFactor: factor,
+    });
+    expect(r.base_salary).toBe(333.33);
+    expect(r.net_pay).toBe(333.33);
+  });
+});
+
+describe('hireProrationFactor', () => {
+  it('returns 1 when no hire date', () => {
+    expect(hireProrationFactor(null, 2026, 6)).toBe(1);
+    expect(hireProrationFactor('', 2026, 6)).toBe(1);
+  });
+
+  it('returns 1 when hired before the run month', () => {
+    expect(hireProrationFactor('2025-06-29', 2026, 6)).toBe(1);
+    expect(hireProrationFactor('2026-05-31', 2026, 6)).toBe(1);
+  });
+
+  it('returns 0 when hired after the run month (not yet employed)', () => {
+    expect(hireProrationFactor('2026-07-01', 2026, 6)).toBe(0);
+    expect(hireProrationFactor('2027-01-10', 2026, 6)).toBe(0);
+  });
+
+  it('pro-rates within the hire month by calendar days / days-in-month', () => {
+    // June has 30 days; hired the 29th → days 29,30 = 2 worked
+    expect(hireProrationFactor('2026-06-29', 2026, 6)).toBeCloseTo(2 / 30, 10);
+    // first day → full month
+    expect(hireProrationFactor('2026-06-01', 2026, 6)).toBe(1);
+    // last day → 1 day
+    expect(hireProrationFactor('2026-06-30', 2026, 6)).toBeCloseTo(1 / 30, 10);
+  });
+
+  it('uses the actual days in the run month (February)', () => {
+    // Feb 2026 has 28 days; hired the 27th → days 27,28 = 2 worked
+    expect(hireProrationFactor('2026-02-27', 2026, 2)).toBeCloseTo(2 / 28, 10);
   });
 });
