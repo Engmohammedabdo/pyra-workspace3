@@ -157,7 +157,7 @@ export async function POST(
       const { generateNdaPDF } = await import('@/lib/pdf/nda-pdf');
       pdfBlob = await generateNdaPDF(
         {
-          date:        todayIso,
+          date:        offerData.date ?? todayIso,
           nameAr:      offerData.nameAr     ?? employee?.display_name ?? '',
           idNumber:    offerData.idNumber    ?? '',
           nationality: offerData.nationality ?? '',
