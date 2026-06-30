@@ -202,7 +202,7 @@ export async function generateNdaPDF(
     `ثانياً: السيد/السيدة: ${data.nameAr}، ` +
     `حامل/حاملة هوية/جواز رقم: ${data.idNumber}، ` +
     `الجنسية: ${data.nationality}، ` +
-    `المسمى الوظيفي: ${data.jobTitle} (قسم المبيعات / التسويق)، ` +
+    `المسمى الوظيفي: ${data.jobTitle}، ` +
     `والعنوان: ${address}، ` +
     'ويُشار إليه/إليها لاحقاً بـ «الطرف الثاني» أو «الموظف».';
   y = drawBody(doc, party2, y);
