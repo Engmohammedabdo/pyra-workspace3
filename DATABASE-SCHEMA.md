@@ -103,6 +103,11 @@
 85. [pyra_document_types](#pyra_document_types) — Configurable HR document-type catalogue
 86. [pyra_employee_documents](#pyra_employee_documents) — Per-employee HR document store (private bucket, signed URLs)
 
+### Employee Onboarding (024_pyra_onboarding.sql)
+
+87. [pyra_onboarding](#pyra_onboarding) — New-hire onboarding workflow records
+88. [pyra_onboarding_tasks](#pyra_onboarding_tasks) — Per-onboarding checklist tasks
+
 ---
 
 ## pyra_activity_log
@@ -2582,6 +2587,11 @@ Seeded with 6 rows on migration; soft-deletable via `is_active`.
 | dt_visa | Residence/Visa | إقامة · تأشيرة | true |
 | dt_cert | Certificate | شهادة | false |
 | dt_other | Other | أخرى | false |
+| dt_offer_letter | Offer Letter | عرض عمل | false |
+| dt_nda | NDA | اتفاقية سرية | false |
+| dt_asset_handover | Asset Handover | نموذج تسليم عهدة | false |
+
+_(Rows `dt_offer_letter`, `dt_nda`, `dt_asset_handover` added by migration 024 for the Onboarding module's auto-generated PDFs.)_
 
 ### pyra_employee_documents
 
@@ -2619,3 +2629,63 @@ Per-employee HR document store. Files are uploaded to the **private** `pyra-priv
 - Flags flip regardless of notify() outcome (idempotency). Grouped admin summary also sent.
 
 **RBAC**: `documents.view` (BASE_EMPLOYEE — own scope only via `/api/my-documents`) · `documents.manage` (HR/admin — any employee via `/api/hr/documents`)
+
+---
+
+## New Tables — Employee Onboarding (024_pyra_onboarding.sql)
+
+### pyra_onboarding
+
+Top-level onboarding workflow record. One row per new hire. Created by the admin wizard
+alongside the `pyra_users` row. Stores the wizard's collected data (`offer_data`) and
+the list of handed-over assets (`assets`).
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(24) | NOT NULL | — |
+| employee_username | varchar | NOT NULL | — |
+| status | varchar(20) | NOT NULL | `'in_progress'` (also: `'completed'`) |
+| offer_data | jsonb | NOT NULL | `'{}'` — wizard inputs (name, role, salary, start date, commission details, etc.) |
+| assets | jsonb | NOT NULL | `'[]'` — list of asset objects handed to the employee |
+| started_by | varchar | NOT NULL | — (admin username who initiated) |
+| started_at | timestamptz | NOT NULL | `now()` |
+| completed_at | timestamptz | YES | — (set when all tasks are done + admin marks complete) |
+| notes | text | YES | — |
+
+**PK**: `id`
+
+**Indexes**:
+- `idx_onboarding_employee` on `employee_username`
+- `idx_onboarding_status` on `status`
+
+**Related documents**: three PDF documents (`dt_offer_letter`, `dt_nda`, `dt_asset_handover`) are auto-generated and stored in `pyra_employee_documents` when the onboarding is created. `storage_path` is never returned to clients; all access is via 1-hour signed URLs.
+
+**RBAC**: `hr.manage` (admin-only — gates all `/api/hr/onboarding` routes)
+
+---
+
+### pyra_onboarding_tasks
+
+Checklist tasks attached to an onboarding record. Seeded from `DEFAULT_ONBOARDING_TASKS`
+(`lib/constants/onboarding.ts`) when the onboarding is created. Admins can mark each task
+done via the UI; completion triggers an AlertDialog confirmation.
+
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| **id** | varchar(24) | NOT NULL | — |
+| onboarding_id | varchar(24) | NOT NULL | FK → pyra_onboarding(id) ON DELETE CASCADE |
+| title_ar | text | NOT NULL | — (Arabic task description) |
+| is_done | boolean | NOT NULL | `false` |
+| done_at | timestamptz | YES | — |
+| done_by | varchar | YES | — (admin username who marked it done) |
+| sort_order | int | NOT NULL | `0` |
+| notes | text | YES | — |
+
+**PK**: `id`
+
+**FK**: `onboarding_id` → `pyra_onboarding(id)` — cascades on delete (cleaning up the parent removes all tasks).
+
+**Indexes**:
+- `idx_onboarding_tasks_onb` on `onboarding_id`
+
+**RBAC**: `hr.manage` (inherited from parent onboarding record — all task mutations go through `/api/hr/onboarding/[id]/tasks/[taskId]`)

@@ -273,6 +273,14 @@ components/attendance/    → Attendance sub-components (AttendanceCalendar, Att
 components/payroll/       → Payroll sub-components (PayrollRunsTable, PayrollRunRow, EmployeePaymentsTab, CreatePayrollDialog, AddPaymentDialog)
 lib/hr/overview-helpers.ts → computeCelebrations() + deriveAlerts() — pure helpers unit-tested in __tests__/hr-overview-helpers.test.ts
 lib/hr/document-expiry.ts → classifyExpiry(expiryDate, todayKey) → ExpiryTier ('expired'|'expiring_7'|'expiring_30'|'ok'|'none') + EXPIRY_BADGE map — unit-tested in __tests__/document-expiry.test.ts
+lib/hr/create-employee.ts → createEmployeeUser() — DRY user-creation helper (factored from /api/users POST); seeds leave balances for employee + sales_agent
+lib/hr/store-generated-document.ts → storeGeneratedDocument() — uploads a PDF Buffer to pyra-private bucket + inserts pyra_employee_documents row (signed-URL pattern)
+lib/pdf/arabic.ts        → prepareRtl() + drawRtlParagraph() + drawBilingualClause() — jsPDF Arabic reshaping + bidi helpers; callers must setFont('Amiri') first
+lib/pdf/offer-letter-pdf.ts → generateOfferLetterPdf(offerData) — Arabic offer-letter PDF; sales vs non-sales content branching
+lib/pdf/nda-pdf.ts       → generateNdaPdf(offerData) — Arabic NDA PDF
+lib/pdf/asset-handover-pdf.ts → generateAssetHandoverPdf(offerData, assets) — Arabic asset-handover PDF
+lib/constants/onboarding.ts → DEFAULT_ONBOARDING_TASKS — seed list for pyra_onboarding_tasks
+hooks/useOnboarding.ts   → useOnboardings, useOnboarding, useCreateOnboarding, useUpdateOnboarding, useToggleOnboardingTask, useRegenerateOnboardingDoc
 lib/auth/rbac.ts          → 79+ permissions, BASE_EMPLOYEE, ROLE_EXTRAS, buildUserPermissions()
 lib/auth/auth-mapping.ts  → resolveAuthUserId() — heals legacy users missing pyra_auth_mapping rows
 lib/auth/team-scope.ts    → getDirectReports / getManagerOf / isManager / canApproveFor()
@@ -3646,3 +3654,215 @@ strings outside this union.
   because the allowlist forbids special chars, but encoding is defensive hygiene.
 - [ ] **T9 (typing test):** TypeScript `tsc --noEmit` clean pass post-completion was
   confirmed; the T9 item in the plan refers to a deferred full regression test suite.
+
+## Employee Onboarding — Locked Decisions (2026-06-30)
+
+These are **intentional, documented design choices** locked during the Employee
+Onboarding implementation. **Do NOT re-litigate.** Future sessions adding
+onboarding-related features should defer to the decisions recorded here. The
+onboarding module provides a new-hire wizard for HR admins: it creates the user
+account, auto-generates three Arabic PDF documents (offer letter, NDA, asset-
+handover form) stored in the Employee Documents Vault, and seeds a simple
+per-hire task checklist.
+
+### 1. PDF Arabic engine: jsPDF + `arabic-reshaper` + `bidi-js` (NOT headless browser)
+
+All onboarding PDFs are generated with jsPDF + the `arabic-reshaper` + `bidi-js`
+npm packages, exposed via `lib/pdf/arabic.ts`:
+
+- `prepareRtl(text)` — reshapes Arabic glyph forms + applies Unicode BiDi algorithm
+- `drawRtlParagraph(doc, text, x, y, options)` — renders a single RTL Arabic
+  paragraph to the jsPDF document at the given position
+- `drawBilingualClause(doc, ar, en, x, y, options)` — renders an Arabic line
+  followed by its English equivalent (used for bilingual contract clauses)
+
+**Callers MUST call `doc.setFont('Amiri', ...)` before any standalone
+`drawRtlParagraph` call.** The helper does NOT set the font itself — omitting
+the call silently produces a fontless (Helvetica) PDF. Future refactoring may
+retrofit this helper into the invoice/quote/payslip generators (v1.1 backlog).
+
+The headless-browser alternative (Puppeteer, Playwright) was explicitly rejected
+by the user — it adds a heavy dependency and is not available in the Coolify
+Docker environment without custom image changes.
+
+### 2. Three auto-generated PDFs stored in the Employee Documents Vault
+
+The wizard generates exactly three documents per onboarding, stored as three new
+`pyra_document_types` rows added in migration 024:
+
+| Doc type ID | name | name_ar | Generator |
+|-------------|------|---------|-----------|
+| `dt_offer_letter` | Offer Letter | عرض عمل | `lib/pdf/offer-letter-pdf.ts` |
+| `dt_nda` | NDA | اتفاقية سرية | `lib/pdf/nda-pdf.ts` |
+| `dt_asset_handover` | Asset Handover | نموذج تسليم عهدة | `lib/pdf/asset-handover-pdf.ts` |
+
+All three are stored via `lib/hr/store-generated-document.ts` into the existing
+**`pyra-private`** bucket (same private-bucket + signed-URL pattern as the
+Document Vault). `storage_path` is NEVER returned to clients; all access is via
+1-hour signed URLs. Verbatim source content (for human review) lives in
+`docs/onboarding-templates/` (offer HTML, `nda-content-ar.md`,
+`asset-handover-content-ar.md`) — implementers copy from there when building
+the generators.
+
+The regenerate endpoint (`POST /api/hr/onboarding/[id]/documents/[docType]/regenerate`)
+replaces the most recent document of that type for the employee by inserting a
+new `pyra_employee_documents` row (old row is NOT deleted — the list query
+returns ordered by `uploaded_at DESC` so the newest is always served first).
+v1.1 backlog: add an `onboarding_id` FK on `pyra_employee_documents` to scope
+precisely which rows belong to an onboarding.
+
+### 3. Offer letter content differs by role; section numbering is dynamic
+
+The offer letter (`lib/pdf/offer-letter-pdf.ts`) branches on `offer_data.is_sales`:
+
+- **Sales hires** (`is_sales = true`): include the Sales Commission Structure section
+  with the commission tier table and monthly target.
+- **Non-sales hires** (`is_sales = false`): omit the commission section entirely.
+
+Section numbering is computed dynamically — no hardcoded section numbers.
+This prevents gaps if the commission section is absent.
+
+**Custom clauses ("بنود إضافية")** from `offer_data.custom_clauses` render as an
+additional section ONLY when present and non-empty.
+
+The monthly-target words-form (التعبير الحرفي للمبلغ) was **intentionally dropped**
+from the offer letter. The source HTML hardcoded a stale words-form that would
+always be wrong for variable targets. v1 renders the numeric value only.
+
+### 4. Wizard creates the user via `createEmployeeUser` (DRY helper)
+
+User creation is handled by `lib/hr/create-employee.ts::createEmployeeUser` —
+factored out of the `/api/users` POST handler to prevent copy-paste drift.
+
+- `pyra_users.salary` = the **monthly total package** (basic salary + allowances
+  combined into one number). The wizard does NOT store sub-components separately.
+- Role assignment: `is_sales ? 'sales_agent' : 'employee'`.
+- Leave balance seeding: `createEmployeeUser` seeds initial leave balances for
+  **both** `employee` AND `sales_agent` roles. The `/api/users` POST seeded only
+  `employee` before this refactor; the onboarding wizard was the trigger that
+  exposed the gap for `sales_agent` hires.
+
+All user creation runs via service-role AFTER the `hr.manage` permission gate
+(see Decision 6).
+
+### 5. Generated PDFs stored server-side via `lib/hr/store-generated-document.ts`
+
+`storeGeneratedDocument(supabase, { employeeUsername, typeId, buffer, mimeType,
+sizeBytes, uploadedBy })` handles both the Supabase Storage upload to `pyra-private`
+AND the `pyra_employee_documents` row insert in one call.
+
+**Path pattern**: `employee-documents/{employeeUsername}/{Date.now()}-{nanoid}{ext}` —
+same as the HR upload route, so all document tooling (expiry cron, signed-URL
+refresh, `UserDocumentsTab`) works on generated docs without modification.
+
+**`storage_path` is NEVER returned to clients.** The standard Document Vault
+`GET /api/hr/documents` endpoint already strips `storage_path` and returns
+`signed_url` instead — generated docs inherit this for free.
+
+v1.1 backlog: add `onboarding_id` FK on `pyra_employee_documents` to allow
+scoped "regenerate replaces old" logic without relying on the date-ordered
+query.
+
+### 6. `hr.manage` gates all onboarding routes (not `users.manage`)
+
+All `/api/hr/onboarding` routes check `requireApiPermission('hr.manage')` before
+doing anything, then use `createServiceRoleClient()` for DB and Storage access.
+
+**Documented deviation from routing user creation through `users.manage`:**
+onboarding is an inherently HR-admin action. Using `hr.manage` keeps the
+permission model clean — anyone who can manage HR can onboard a new hire.
+A user who has `users.manage` but NOT `hr.manage` cannot create onboarding
+records (they can still create raw users via `/api/users`).
+
+The `createEmployeeUser` helper itself does NOT check permissions — it is a
+pure DB helper that trusts the calling route to have already gated access.
+
+### 7. Simple unified checklist — no per-task assignees in v1
+
+`DEFAULT_ONBOARDING_TASKS` in `lib/constants/onboarding.ts` is a flat array of
+Arabic-titled task objects with `sort_order`. Seeded on onboarding creation by
+the POST route.
+
+- **No per-task assignees** in v1 — HR admin is implicitly responsible for all tasks.
+- **AlertDialog confirmation** before marking a task done (prevents accidental clicks).
+- Task toggle goes through `PATCH /api/hr/onboarding/[id]/tasks/[taskId]` — not
+  batched, one request per toggle.
+
+### 8. Out of scope in v1 (v1.1 backlog)
+
+The following were explicitly deferred:
+
+- **Probation tracking** — a separate `probation_end_date` column + reminder
+  cron. Deferred until the HR Overview surfaces probation KPIs.
+- **Salary-receipt generation** — an on-demand PDF showing the employee's
+  monthly salary breakdown. Belongs on the payroll surface (generate from a
+  `pyra_payroll_items` row), not on onboarding.
+- **Per-task assignees** — individual team members responsible for specific
+  onboarding tasks (IT setup, badge, etc.).
+- **`onboarding_id` FK on `pyra_employee_documents`** — would allow precise
+  scoping of generated docs to an onboarding; currently relies on date ordering.
+- **Admin notify on hire** — redundant because the admin IS the actor who
+  initiated the onboarding.
+- **Asset Register (Phase 2)** — a `pyra_assets` table tracking company
+  property, linked to the asset-handover form.
+- **Offboarding (Phase 3)** — return of assets, exit interview, access revocation
+  workflow.
+
+### 9. Migration 024 — Windows UTF-8 gotcha for Arabic inserts
+
+Migration 024 (`supabase/migrations/024_pyra_onboarding.sql`) added the two
+tables and the three `pyra_document_types` seed rows. The seed rows (`dt_offer_letter`,
+`dt_nda`, `dt_asset_handover`) contain only ASCII names and Arabic `name_ar` values.
+
+**Windows gotcha:** inserting Arabic via the `pg/query` curl endpoint in PowerShell
+requires `--data-binary @file.json` (pointing at a UTF-8 encoded file) rather
+than inline JSON in the command. PowerShell defaults to system code page
+(cp1252 / cp1256) which mojibakes multi-byte UTF-8 sequences. When in doubt,
+always re-read after a manual Arabic insert to confirm encoding (look for
+garbled `├┐` sequences vs proper Arabic glyphs). Backfilled rows carry
+`backfill:true` + `backfill_reason` in metadata so reconstructed rows are never
+mistaken for live-logged ones.
+
+### Implementation invariants (locked, do NOT regress)
+
+- **`doc.setFont('Amiri', ...)` BEFORE any `drawRtlParagraph` call.** The helper
+  does not set font internally. A missing setFont call produces a silent Latin
+  PDF — no error thrown.
+- **`createEmployeeUser` is the single user-creation entry point for onboarding.**
+  Do NOT copy-paste the Supabase Auth `signUp` + `pyra_users` insert into the
+  onboarding route directly.
+- **`storeGeneratedDocument` is the single PDF-storage entry point.** Do NOT call
+  `supabase.storage.from(...).upload(...)` + `pyra_employee_documents` insert
+  directly from route code — the helper handles orphan cleanup on insert failure.
+- **`hr.manage` is required for ALL `/api/hr/onboarding` routes** including the
+  task toggle and regenerate endpoints. Do NOT lower the gate to `hr.view`.
+- **Offer letter sales/non-sales branching is on `offer_data.is_sales`** — a
+  boolean set by the wizard. Do NOT infer it from the role string.
+- **Regenerate does NOT delete old rows** — it inserts a new `pyra_employee_documents`
+  row. The newest row (by `uploaded_at DESC`) is the active one. Do NOT change
+  this to a hard-delete without also adding the `onboarding_id` FK (v1.1).
+- **All three doc types (`dt_offer_letter`, `dt_nda`, `dt_asset_handover`) are
+  seeded by migration 024 with `ON CONFLICT (id) DO NOTHING`.** They are safe to
+  re-run. Do NOT hardcode the `type_id` values outside of `lib/constants/onboarding.ts`
+  or the route handlers.
+
+### Employee Onboarding v1.1 backlog
+
+- [ ] **`onboarding_id` FK on `pyra_employee_documents`** — migrate existing rows
+  + add column + unique constraint per `(onboarding_id, type_id)` so regenerate
+  can hard-replace instead of appending.
+- [ ] **Probation tracking** — `probation_end_date` on `pyra_onboarding` + 7-day
+  reminder cron + HR Overview alert tier.
+- [ ] **Salary-receipt generation** — move to payroll surface; generate from
+  `pyra_payroll_items` on first payslip after hire date.
+- [ ] **Per-task assignees** — `assigned_to varchar` on `pyra_onboarding_tasks` +
+  notify on assignment + My Work Inbox surface for the assignee.
+- [ ] **`lib/pdf/arabic.ts` into invoice/quote/payslip generators** — currently
+  those use a bespoke Arabic font registration path; the `prepareRtl` helper
+  would unify the approach.
+- [ ] **`smtp_pass` added to mailer transporter cache key** — so SMTP password
+  rotation takes effect without a redeploy. Track alongside the cert-renewal
+  `mailer.ts` work (deferred in Quote System v1.1).
+- [ ] **Asset Register (Phase 2)** — `pyra_assets` table + link to
+  `pyra_onboarding` via `asset_ids[]`.
+- [ ] **Offboarding (Phase 3)** — asset return, exit interview, access revocation.

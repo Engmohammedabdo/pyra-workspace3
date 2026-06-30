@@ -24,6 +24,7 @@ The Employee System transforms Pyra Workspace from an admin-only tool into a ful
 | Leave | `/dashboard/leave` | All employees | Leave request and balance management |
 | Employee Documents (HR) | `/dashboard/hr/documents` | HR / Admin | Upload + manage all employees' documents; configurable types; 30/7-day expiry alerts |
 | Employee Documents (Self-service) | `/dashboard/my-documents` | All employees | Read-only view of own documents with signed-URL download |
+| Employee Onboarding | `/dashboard/hr/onboarding` | HR / Admin | New-hire wizard: create user + generate offer letter / NDA / asset-handover PDFs + task checklist |
 
 ---
 
@@ -326,6 +327,44 @@ dedicated table component.
 
 ---
 
+### Employee Onboarding (`/dashboard/hr/onboarding`) — HR / Admin
+
+**What it does**: Guided new-hire wizard that (1) collects employee details, (2) creates the `pyra_users` account, (3) auto-generates three PDF documents (offer letter, NDA, asset-handover form) into the Employee Documents Vault, and (4) seeds a standard checklist (`pyra_onboarding_tasks`) of HR tasks to complete before the employee's first day.
+
+**Access**: Requires `hr.manage` permission (admin-only). All API routes gate with `requireApiPermission('hr.manage')` then `createServiceRoleClient()` — user creation and document storage both need service-role access.
+
+**PDF generation**: Three Arabic-first PDFs generated server-side using `jsPDF + arabic-reshaper + bidi-js` via `lib/pdf/arabic.ts`:
+
+| PDF generator | File | Doc type stored |
+|---------------|------|----------------|
+| Offer letter | `lib/pdf/offer-letter-pdf.ts` | `dt_offer_letter` |
+| NDA | `lib/pdf/nda-pdf.ts` | `dt_nda` |
+| Asset handover | `lib/pdf/asset-handover-pdf.ts` | `dt_asset_handover` |
+
+All three are stored into `pyra-private` bucket via `lib/hr/store-generated-document.ts` (same private-bucket + signed-URL pattern as the Document Vault). Source content templates live in `docs/onboarding-templates/`.
+
+**User creation**: handled by `lib/hr/create-employee.ts` (`createEmployeeUser`) — factored out of `/api/users` POST for DRY reuse. Sets `pyra_users.salary` to the monthly total package (basic + allowances). Assigns role `sales_agent` for sales hires, `employee` otherwise. Seeds leave balances for both roles.
+
+**Offer letter content** differs by role: sales hires include the Sales Commission Structure section with the full commission schedule; non-sales hires omit it. Section numbering is dynamic (no gaps). Custom clauses render only when present in `offer_data`.
+
+**Checklist**: `DEFAULT_ONBOARDING_TASKS` constant in `lib/constants/onboarding.ts` seeds the initial task list. Tasks are simple (no per-task assignees in v1). Marking done shows an AlertDialog confirmation.
+
+**API Endpoints**:
+| Method | Endpoint | Permission | Description |
+|--------|----------|-----------|-------------|
+| GET | `/api/hr/onboarding` | hr.manage | List all onboarding records |
+| POST | `/api/hr/onboarding` | hr.manage | Create onboarding: create user + generate 3 PDFs + seed tasks |
+| GET | `/api/hr/onboarding/[id]` | hr.manage | Single onboarding detail with tasks |
+| PATCH | `/api/hr/onboarding/[id]` | hr.manage | Update status / notes / mark complete |
+| PATCH | `/api/hr/onboarding/[id]/tasks/[taskId]` | hr.manage | Toggle task done/undone |
+| POST | `/api/hr/onboarding/[id]/documents/[docType]/regenerate` | hr.manage | Re-generate one PDF (offer-letter / nda / asset-handover) and replace in Vault |
+
+**Hook**: `hooks/useOnboarding.ts` — list + single + create + update mutations + task toggle + regenerate.
+
+**V1.1 backlog**: probation tracking; salary-receipt generation (belongs on payroll surface); per-task assignees; `onboarding_id` FK on `pyra_employee_documents`; admin notify on hire; Asset Register (Phase 2); Offboarding (Phase 3); `smtp_pass` cache-key fix so password rotation picks up without redeploy (tracks alongside `mailer.ts` cert-renewal).
+
+---
+
 ## Data Layer (React Query Hooks)
 
 All attendance and payroll pages use shared React Query hooks. Direct `useState`/`useEffect` data fetching has been removed.
@@ -339,6 +378,7 @@ All attendance and payroll pages use shared React Query hooks. Direct `useState`
 | `hooks/useDocumentTypes.ts` | `useDocumentTypes`, `useCreateDocumentType`, `useUpdateDocumentType`, `useDeleteDocumentType` | Document types catalogue settings |
 | `hooks/useEmployeeDocuments.ts` | `useEmployeeDocuments`, `useEmployeeDocumentsByUser`, `useUploadEmployeeDocument`, `useUpdateEmployeeDocument`, `useDeleteEmployeeDocument` | HR documents page + user-detail tab |
 | `hooks/useMyDocuments.ts` | `useMyDocuments` | Employee self-service `/dashboard/my-documents` |
+| `hooks/useOnboarding.ts` | `useOnboardings`, `useOnboarding`, `useCreateOnboarding`, `useUpdateOnboarding`, `useToggleOnboardingTask`, `useRegenerateOnboardingDoc` | Onboarding list + detail + wizard |
 
 **Status constants** for attendance (`ATTENDANCE_STATUS`, `ATTENDANCE_STATUS_LABELS`, `ATTENDANCE_STATUS_STYLES`) are centralized in `lib/constants/statuses.ts`.
 
