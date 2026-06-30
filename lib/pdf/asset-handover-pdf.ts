@@ -66,7 +66,7 @@ function drawSectionHeadingAr(doc: jsPDF, arTitle: string, y: number): number {
   doc.setFontSize(10.5);
   doc.setFont('Amiri', 'bold');
   doc.setTextColor(...DARK);
-  doc.text(prepareRtl(arTitle), PAGE_W - MARGIN, y + 5, { align: 'right' });
+  doc.text(prepareRtl(doc,arTitle), PAGE_W - MARGIN, y + 5, { align: 'right' });
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
   doc.line(MARGIN, y + 7, PAGE_W - MARGIN, y + 7);
@@ -84,11 +84,11 @@ function drawFieldRow(doc: jsPDF, label: string, value: string, y: number): numb
   doc.setTextColor(...DARK);
   // label bold, value normal — both right-aligned, label first
   doc.setFont('Amiri', 'bold');
-  const labelShaped = prepareRtl(label + ': ');
+  const labelShaped = prepareRtl(doc,label + ': ');
   const labelW = doc.getTextWidth(labelShaped);
   doc.text(labelShaped, PAGE_W - MARGIN, y, { align: 'right' });
   doc.setFont('Amiri', 'normal');
-  const valShaped = prepareRtl(value);
+  const valShaped = prepareRtl(doc,value);
   doc.text(valShaped, PAGE_W - MARGIN - labelW, y, { align: 'right' });
   // light separator line
   doc.setDrawColor(...BORDER);
@@ -108,7 +108,7 @@ function drawNumberedParagraph(doc: jsPDF, num: number, text: string, y: number)
   doc.setFont('Amiri', 'bold');
   doc.setTextColor(...DARK);
   const numStr = `${num}.`;
-  doc.text(prepareRtl(numStr), PAGE_W - MARGIN, y, { align: 'right' });
+  doc.text(prepareRtl(doc,numStr), PAGE_W - MARGIN, y, { align: 'right' });
   const numW = doc.getTextWidth(numStr) + 3;
   doc.setFont('Amiri', 'normal');
   y = drawRtlParagraph(doc, text, {
@@ -149,7 +149,7 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...WHITE);
   doc.setFontSize(12);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('بيراميديا إكس لإدارة التسويق'), PAGE_W / 2, 10, { align: 'center' });
+  doc.text(prepareRtl(doc,'بيراميديا إكس لإدارة التسويق'), PAGE_W / 2, 10, { align: 'center' });
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
@@ -165,7 +165,7 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...DARK);
   doc.setFontSize(12);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('نموذج تسليم عُهدة موظف'), PAGE_W / 2, y + 5, { align: 'center' });
+  doc.text(prepareRtl(doc,'نموذج تسليم عُهدة موظف'), PAGE_W / 2, y + 5, { align: 'center' });
   y += 8;
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
@@ -234,7 +234,7 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...WHITE);
   for (let i = 0; i < colHeaders.length; i++) {
     const cx2 = colX[i] + colWidths[i] / 2;
-    doc.text(prepareRtl(colHeaders[i]), cx2, y + 5.5, { align: 'center' });
+    doc.text(prepareRtl(doc,colHeaders[i]), cx2, y + 5.5, { align: 'center' });
   }
 
   // Draw vertical dividers for header
@@ -292,7 +292,7 @@ export async function generateAssetHandoverPDF(
       const val = rowValues[i];
       if (val) {
         const cx2 = colX[i] + colWidths[i] / 2;
-        const shaped = prepareRtl(val);
+        const shaped = prepareRtl(doc,val);
         doc.text(shaped, cx2, y + 5.5, { align: 'center' });
       }
     }
@@ -404,7 +404,7 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...DARK);
   for (const field of returnFields) {
     y = ensureSpace(doc, y, 8);
-    doc.text(prepareRtl(field), PAGE_W - MARGIN, y, { align: 'right' });
+    doc.text(prepareRtl(doc,field), PAGE_W - MARGIN, y, { align: 'right' });
     doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, y + 1.5, PAGE_W - MARGIN, y + 1.5);
@@ -439,7 +439,7 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...WHITE);
   for (let i = 0; i < sigColHeaders.length; i++) {
     const cx2 = sigColX[i] + sigColW[i] / 2;
-    doc.text(prepareRtl(sigColHeaders[i]), cx2, y + 6.5, { align: 'center' });
+    doc.text(prepareRtl(doc,sigColHeaders[i]), cx2, y + 6.5, { align: 'center' });
   }
   doc.setDrawColor(...WHITE);
   doc.setLineWidth(0.3);
@@ -476,7 +476,7 @@ export async function generateAssetHandoverPDF(
     for (let i = 0; i < row.length; i++) {
       if (row[i]) {
         const cx2 = sigColX[i] + sigColW[i] / 2;
-        doc.text(prepareRtl(row[i]), cx2, y + 6.5, { align: 'center' });
+        doc.text(prepareRtl(doc,row[i]), cx2, y + 6.5, { align: 'center' });
       }
     }
     y += SIG_ROW_H;
@@ -488,7 +488,7 @@ export async function generateAssetHandoverPDF(
   doc.setFont('Amiri', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(...DARK);
-  doc.text(prepareRtl('ختم الشركة: ......'), PAGE_W - MARGIN, y, { align: 'right' });
+  doc.text(prepareRtl(doc,'ختم الشركة: ......'), PAGE_W - MARGIN, y, { align: 'right' });
   y += 10;
 
   // ─────────────────────────────────────────────
@@ -512,7 +512,7 @@ export async function generateAssetHandoverPDF(
 
   doc.setFont('Amiri', 'bold');
   doc.setFontSize(9.5);
-  doc.text(prepareRtl('ملحق مختصر باللغة الإنجليزية'), PAGE_W / 2, y, { align: 'center' });
+  doc.text(prepareRtl(doc,'ملحق مختصر باللغة الإنجليزية'), PAGE_W / 2, y, { align: 'center' });
   y += 6;
 
   doc.setDrawColor(...GOLD);

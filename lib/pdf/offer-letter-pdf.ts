@@ -85,7 +85,7 @@ function drawSectionHeading(doc: jsPDF, num: number, enTitle: string, arTitle: s
   doc.text(`${num}. ${enTitle}`, MARGIN, y + 6);
   // Arabic title — Amiri, right-aligned
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl(arTitle), PAGE_W - MARGIN, y + 6, { align: 'right' });
+  doc.text(prepareRtl(doc,arTitle), PAGE_W - MARGIN, y + 6, { align: 'right' });
   // gold underline
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
@@ -120,7 +120,7 @@ function drawInfoLine(doc: jsPDF, leftText: string, rightAr: string, y: number):
   doc.text(leftText, MARGIN, y);
   if (rightAr) {
     doc.setFont('Amiri', 'normal');
-    doc.text(prepareRtl(rightAr), PAGE_W - MARGIN, y, { align: 'right' });
+    doc.text(prepareRtl(doc,rightAr), PAGE_W - MARGIN, y, { align: 'right' });
   }
   return y + 6;
 }
@@ -153,7 +153,7 @@ export async function generateOfferLetterPDF(
   doc.setTextColor(...WHITE);
   doc.setFontSize(12);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('بايراميديا إكس — للإدارة التسويقية'), PAGE_W / 2, 12, { align: 'center' });
+  doc.text(prepareRtl(doc,'بايراميديا إكس — للإدارة التسويقية'), PAGE_W / 2, 12, { align: 'center' });
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
@@ -173,7 +173,7 @@ export async function generateOfferLetterPDF(
   y += 8;
   doc.setFontSize(11);
   doc.setFont('Amiri', 'normal');
-  doc.text(prepareRtl('عرض توظيف'), PAGE_W / 2, y + 5, { align: 'center' });
+  doc.text(prepareRtl(doc,'عرض توظيف'), PAGE_W / 2, y + 5, { align: 'center' });
   y += 9;
 
   // Gold underline below title
@@ -335,7 +335,7 @@ export async function generateOfferLetterPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('Component', col0 + 3, y + 5.5);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('البند'), col1 - 3, y + 5.5, { align: 'right' });
+  doc.text(prepareRtl(doc,'البند'), col1 - 3, y + 5.5, { align: 'right' });
   // Amount columns — Latin only, helvetica
   doc.setFont('helvetica', 'bold');
   doc.text('Monthly (AED)', col1 + 3, y + 5.5);
@@ -364,7 +364,7 @@ export async function generateOfferLetterPDF(
     doc.text(enLabel, col0 + 3, y + 5.5);
     const enW = doc.getTextWidth(enLabel);
     doc.setFont('Amiri', 'normal');
-    doc.text(prepareRtl(row.ar), col0 + 3 + enW, y + 5.5);
+    doc.text(prepareRtl(doc,row.ar), col0 + 3 + enW, y + 5.5);
     // Amounts
     doc.setFont('helvetica', 'normal');
     doc.text(fmt(row.monthly), col1 + 3, y + 5.5);
@@ -384,7 +384,7 @@ export async function generateOfferLetterPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('TOTAL', col0 + 3, y + 5.5);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('الإجمالي'), col1 - 3, y + 5.5, { align: 'right' });
+  doc.text(prepareRtl(doc,'الإجمالي'), col1 - 3, y + 5.5, { align: 'right' });
   doc.setFont('helvetica', 'bold');
   doc.text(fmt(monthly), col1 + 3, y + 5.5);
   doc.text(fmt(annual), col2, y + 5.5, { align: 'right' });
@@ -606,7 +606,7 @@ export async function generateOfferLetterPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('ACCEPTANCE', MARGIN, y);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('القبول'), PAGE_W - MARGIN, y, { align: 'right' });
+  doc.text(prepareRtl(doc,'القبول'), PAGE_W - MARGIN, y, { align: 'right' });
   y += 7;
 
   // English acceptance text in helvetica
@@ -640,12 +640,12 @@ export async function generateOfferLetterPDF(
   doc.setFont('helvetica', 'bold');
   doc.text('For the Company', MARGIN + 3, y + 6);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('عن الشركة'), MARGIN + sigColW - 3, y + 6, { align: 'right' });
+  doc.text(prepareRtl(doc,'عن الشركة'), MARGIN + sigColW - 3, y + 6, { align: 'right' });
   // Right box label
   doc.setFont('helvetica', 'bold');
   doc.text('Employee', MARGIN + sigColW + 7, y + 6);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('الموظف'), MARGIN + sigColW + 4 + sigColW - 3, y + 6, { align: 'right' });
+  doc.text(prepareRtl(doc,'الموظف'), MARGIN + sigColW + 4 + sigColW - 3, y + 6, { align: 'right' });
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);

@@ -1,33 +1,26 @@
-// Improved Arabic rendering for jsPDF: contextual shaping (arabic-reshaper)
-// + visual reordering (bidi-js), then hand the result to jsPDF text() which
-// draws left-to-right. Fixes broken/disconnected Arabic in dense paragraphs
-// that jsPDF's built-in processArabic handles poorly.
+// Arabic rendering for jsPDF — uses jsPDF's BUILT-IN doc.processArabic(), the
+// exact same primitive the production quote-pdf / invoice-pdf / payslip-pdf
+// generators use (and which renders Arabic correctly). An earlier version of
+// this file rolled its own arabic-reshaper + bidi-js pipeline, which produced
+// garbled/disconnected glyphs — replaced wholesale.
+//
+// processArabic() does contextual letter shaping + visual reordering, returning
+// a string that jsPDF's text() (which lays out left-to-right) draws as correct
+// RTL Arabic. The caller MUST have the Amiri font set on `doc` first.
 //
 // Pure-JS only — no node:fs, no DOM. Works in Node (server PDF gen) and browser.
-//
-// arabic-reshaper API: reshaper.convertArabic(text) → shaped string
-// bidi-js API: bidiFactory() → bidi; bidi.getEmbeddingLevels(text, dir); bidi.getReorderSegments(text, embedding)
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const reshaper = require('arabic-reshaper') as { convertArabic: (text: string) => string };
-import bidiFactory from 'bidi-js';
 import type jsPDF from 'jspdf';
 
-const bidi = bidiFactory();
-
-/** Shape + bidi-reorder a single line for jsPDF (which renders LTR). */
-export function prepareRtl(text: string): string {
+/**
+ * Shape + visually reorder a single line via jsPDF's built-in processArabic,
+ * ready to hand straight to doc.text(). Matches the proven quote/invoice path.
+ * NOTE: pass the SAME `doc` you will draw with (processArabic is an instance
+ * method). The caller must have set the Amiri font before drawing the result.
+ */
+export function prepareRtl(doc: jsPDF, text: string): string {
   if (!text) return '';
-  const shaped = reshaper.convertArabic(text);
-  const embedding = bidi.getEmbeddingLevels(shaped, 'rtl');
-  const flips = bidi.getReorderSegments(shaped, embedding);
-  // Apply the reorder segments (reverse each) to produce visual order.
-  const chars = shaped.split('');
-  for (const [start, end] of flips) {
-    const slice = chars.slice(start, end + 1).reverse();
-    for (let i = start; i <= end; i++) chars[i] = slice[i - start];
-  }
-  return chars.join('');
+  return doc.processArabic(text);
 }
 
 interface ParaOpts {
@@ -42,7 +35,13 @@ interface ParaOpts {
 
 /**
  * Draw a wrapped RTL Arabic paragraph, right-aligned at opts.x.
- * Wraps on the SHAPED text width, prepares each line, auto page-breaks.
+ *
+ * Splits the RAW (logical-order) text into visual lines FIRST, then runs
+ * processArabic on each line individually. Doing it in this order is essential:
+ * processArabic reverses character order for LTR rendering, so splitting AFTER
+ * processing would scramble word order across line breaks. splitTextToSize
+ * honours embedded "\n" hard breaks too.
+ *
  * Returns the new y after the paragraph.
  * NOTE: the caller MUST have set the Amiri font on `doc` before calling
  * (e.g. doc.setFont('Amiri', 'normal')) — this helper does not set it.
@@ -54,26 +53,14 @@ export function drawRtlParagraph(doc: jsPDF, text: string, opts: ParaOpts): numb
   const bottom = opts.bottomMargin ?? 280;
   const top = opts.pageTopY ?? 20;
   if (opts.fontSize) doc.setFontSize(opts.fontSize);
-  const shaped = reshaper.convertArabic(text || '');
-  const lines: string[] = doc.splitTextToSize(shaped, maxWidth);
+  // Wrap on the RAW text (Amiri metrics), then shape+reorder each line.
+  const lines: string[] = doc.splitTextToSize(text, maxWidth);
   for (const line of lines) {
     if (y > bottom) { doc.addPage(); y = top; }
-    doc.text(prepareRtlShaped(line), x, y, { align: 'right' });
+    doc.text(doc.processArabic(line), x, y, { align: 'right' });
     y += lineHeight;
   }
   return y;
-}
-
-/** prepareRtl when text is ALREADY shaped (used internally after splitTextToSize). */
-function prepareRtlShaped(shaped: string): string {
-  const embedding = bidi.getEmbeddingLevels(shaped, 'rtl');
-  const flips = bidi.getReorderSegments(shaped, embedding);
-  const chars = shaped.split('');
-  for (const [start, end] of flips) {
-    const slice = chars.slice(start, end + 1).reverse();
-    for (let i = start; i <= end; i++) chars[i] = slice[i - start];
-  }
-  return chars.join('');
 }
 
 /** EN line (left) + AR line (right) clause block. Returns new y. */

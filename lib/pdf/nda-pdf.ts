@@ -42,7 +42,7 @@ function drawArticleHeading(doc: jsPDF, text: string, y: number): number {
   doc.setFontSize(10.5);
   doc.setFont('Amiri', 'bold');
   doc.setTextColor(...DARK);
-  doc.text(prepareRtl(text), PAGE_W - MARGIN, y, { align: 'right' });
+  doc.text(prepareRtl(doc,text), PAGE_W - MARGIN, y, { align: 'right' });
   y += 4;
   doc.setDrawColor(...GOLD);
   doc.setLineWidth(0.4);
@@ -87,7 +87,7 @@ function stampFooters(doc: jsPDF): void {
     // Arabic RTL part + page number
     doc.setFont('Amiri', 'normal');
     doc.setFontSize(6.5);
-    const arFooter = prepareRtl(`وثيقة سرية — صفحة ${i} من ${total}`);
+    const arFooter = prepareRtl(doc,`وثيقة سرية — صفحة ${i} من ${total}`);
     doc.text(arFooter, PAGE_W - MARGIN, 285, { align: 'right' });
   }
 }
@@ -120,7 +120,7 @@ export async function generateNdaPDF(
   doc.setTextColor(...WHITE);
   doc.setFontSize(11);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('بيراميديا إكس — للإدارة التسويقية'), PAGE_W / 2, 11, { align: 'center' });
+  doc.text(prepareRtl(doc,'بيراميديا إكس — للإدارة التسويقية'), PAGE_W / 2, 11, { align: 'center' });
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text(data.companyName || 'PyramediaX for Marketing & AI Solution L.L.C.', PAGE_W / 2, 19, { align: 'center' });
@@ -135,7 +135,7 @@ export async function generateNdaPDF(
   doc.setTextColor(...DARK);
   doc.setFontSize(11);
   doc.setFont('Amiri', 'bold');
-  doc.text(prepareRtl('اتفاقية عدم إفشاء وحماية المعلومات السرية والملكية الفكرية وعدم الاستقطاب'), PAGE_W / 2, y, { align: 'center' });
+  doc.text(prepareRtl(doc,'اتفاقية عدم إفشاء وحماية المعلومات السرية والملكية الفكرية وعدم الاستقطاب'), PAGE_W / 2, y, { align: 'center' });
   y += 7;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
@@ -173,10 +173,10 @@ export async function generateNdaPDF(
     doc.setFont('Amiri', 'bold');
     doc.setFontSize(8.5);
     doc.setTextColor(...DARK);
-    doc.text(prepareRtl(label), MARGIN + CONTENT_W * 0.38, y + 5.5, { align: 'right' });
+    doc.text(prepareRtl(doc,label), MARGIN + CONTENT_W * 0.38, y + 5.5, { align: 'right' });
     // Value (normal, right-aligned to page right)
     doc.setFont('Amiri', 'normal');
-    doc.text(prepareRtl(value), PAGE_W - MARGIN, y + 5.5, { align: 'right' });
+    doc.text(prepareRtl(doc,value), PAGE_W - MARGIN, y + 5.5, { align: 'right' });
     y += rowH;
   }
   y += 6;
@@ -429,7 +429,7 @@ export async function generateNdaPDF(
   doc.setFont('Amiri', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...DARK);
-  doc.text(prepareRtl('التوقيعات'), PAGE_W / 2, y, { align: 'center' });
+  doc.text(prepareRtl(doc,'التوقيعات'), PAGE_W / 2, y, { align: 'center' });
   y += 8;
 
   // Two-column signature boxes
@@ -447,9 +447,9 @@ export async function generateNdaPDF(
   doc.setFontSize(9.5);
   doc.setTextColor(...DARK);
   // Left box label
-  doc.text(prepareRtl('الطرف الثاني (الموظف)'), MARGIN + sigColW / 2, y + 7, { align: 'center' });
+  doc.text(prepareRtl(doc,'الطرف الثاني (الموظف)'), MARGIN + sigColW / 2, y + 7, { align: 'center' });
   // Right box label
-  doc.text(prepareRtl('الطرف الأول (الشركة)'), MARGIN + sigColW + 6 + sigColW / 2, y + 7, { align: 'center' });
+  doc.text(prepareRtl(doc,'الطرف الأول (الشركة)'), MARGIN + sigColW + 6 + sigColW / 2, y + 7, { align: 'center' });
 
   doc.setFont('Amiri', 'normal');
   doc.setFontSize(8.5);
@@ -463,15 +463,15 @@ export async function generateNdaPDF(
   ];
   let ey = y + 14;
   for (const line of empDetails) {
-    doc.text(prepareRtl(line), MARGIN + sigColW - 3, ey, { align: 'right' });
+    doc.text(prepareRtl(doc,line), MARGIN + sigColW - 3, ey, { align: 'right' });
     ey += 5.5;
   }
   // Signature line
   doc.setDrawColor(150, 150, 150);
   doc.setLineWidth(0.3);
   doc.line(MARGIN + 3, y + sigH - 12, MARGIN + sigColW - 3, y + sigH - 12);
-  doc.text(prepareRtl('التوقيع'), MARGIN + sigColW - 3, y + sigH - 7, { align: 'right' });
-  doc.text(prepareRtl('التاريخ: ___/___/______'), MARGIN + sigColW - 3, y + sigH - 2, { align: 'right' });
+  doc.text(prepareRtl(doc,'التوقيع'), MARGIN + sigColW - 3, y + sigH - 7, { align: 'right' });
+  doc.text(prepareRtl(doc,'التاريخ: ___/___/______'), MARGIN + sigColW - 3, y + sigH - 2, { align: 'right' });
 
   // Right box — company details
   const compDetails = [
@@ -481,13 +481,13 @@ export async function generateNdaPDF(
   ];
   let cy = y + 14;
   for (const line of compDetails) {
-    doc.text(prepareRtl(line), PAGE_W - MARGIN - 3, cy, { align: 'right' });
+    doc.text(prepareRtl(doc,line), PAGE_W - MARGIN - 3, cy, { align: 'right' });
     cy += 5.5;
   }
   // Signature line
   doc.line(MARGIN + sigColW + 9, y + sigH - 12, PAGE_W - MARGIN - 3, y + sigH - 12);
-  doc.text(prepareRtl('التوقيع'), PAGE_W - MARGIN - 3, y + sigH - 7, { align: 'right' });
-  doc.text(prepareRtl('التاريخ: ___/___/______'), PAGE_W - MARGIN - 3, y + sigH - 2, { align: 'right' });
+  doc.text(prepareRtl(doc,'التوقيع'), PAGE_W - MARGIN - 3, y + sigH - 7, { align: 'right' });
+  doc.text(prepareRtl(doc,'التاريخ: ___/___/______'), PAGE_W - MARGIN - 3, y + sigH - 2, { align: 'right' });
 
   // ─────────────────────────────────────────────
   // FOOTER PASS — stamp every page
