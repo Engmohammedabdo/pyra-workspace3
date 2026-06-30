@@ -97,7 +97,7 @@ export default function MyPayslipsClient() {
 
   const { data: payslipsData, isLoading: loading } = useMyPayslips();
 
-  const payslips: Payslip[] = payslipsData?.payslips || (Array.isArray(payslipsData) ? (payslipsData as unknown as Payslip[]) : []);
+  const payslips: Payslip[] = payslipsData?.payslips || [];
   const payments: Payment[] = payslipsData?.payments || [];
 
   // Download payslip

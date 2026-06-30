@@ -61,14 +61,16 @@ export async function POST(
     // Block if a non-rejected payment already exists for this task.
     // We no longer flip the task to 'paid' on creation, so guard against
     // accidentally recording the same task payment twice.
-    const { data: existingPayment } = await serviceClient
+    const { data: existingPayment, error: dupErr } = await serviceClient
       .from('pyra_employee_payments')
       .select('id, status')
       .eq('source_id', task.id)
       .eq('source_type', 'task')
       .neq('status', EMPLOYEE_PAYMENT_STATUS.REJECTED)
       .maybeSingle();
-    if (existingPayment) {
+    // Fail SAFE: a dupErr here means >1 active payment row already exists for
+    // this task (legacy data) — block, don't fall open and create a third.
+    if (existingPayment || dupErr) {
       return apiError('يوجد سجل دفع نشط لهذه المهمة بالفعل', 409);
     }
 

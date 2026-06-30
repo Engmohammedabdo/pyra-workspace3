@@ -1904,6 +1904,7 @@ Employee payment ledger tracking all payment sources (salary, tasks, overtime, b
 | created_at | timestamptz | YES | `now()` |
 
 **PK**: `id`
+**FK**: `payroll_id` -> `pyra_payroll_runs(id)` `ON DELETE SET NULL` (added migration 023)
 **Index**: `idx_emp_payments_user` on `username`, `idx_emp_payments_payroll` on `payroll_id`
 
 ---
@@ -1947,6 +1948,7 @@ Per-employee payroll line items within a payroll run.
 | task_payments | numeric(12,2) | YES | `0` |
 | overtime_amount | numeric(12,2) | YES | `0` |
 | bonus | numeric(12,2) | YES | `0` |
+| commission | numeric | NOT NULL | `0` |
 | deductions | numeric(12,2) | YES | `0` |
 | deduction_details | jsonb | YES | `'[]'` |
 | net_pay | numeric(12,2) | YES | `0` |
@@ -1955,6 +1957,8 @@ Per-employee payroll line items within a payroll run.
 
 **PK**: `id`
 **FK**: `payroll_id` -> `pyra_payroll_runs(id)`
+
+> `commission` added in migration 022 (Payroll Integrity Fixes). `net_pay` = base_salary + task_payments + overtime_amount + bonus + commission − deductions (floored at 0).
 **Index**: `idx_payroll_items_run` on `payroll_id`, `idx_payroll_items_user` on `username`
 
 ---
