@@ -22,14 +22,14 @@ type ExpiryFilter = 'all' | 'expiring' | 'expired';
 export default function DocumentsClient() {
   const todayKey = dubaiDayKey();
 
-  const [employeeFilter, setEmployeeFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [employeeFilter, setEmployeeFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
   const [uploadOpen, setUploadOpen] = useState(false);
 
   const { data: docsResponse, isLoading } = useEmployeeDocuments({
-    employee_username: employeeFilter || undefined,
-    type_id: typeFilter || undefined,
+    employee_username: employeeFilter === 'all' ? undefined : employeeFilter,
+    type_id: typeFilter === 'all' ? undefined : typeFilter,
   });
   const { data: docTypes = [] } = useDocumentTypes();
   const { data: allUsers = [] } = useUsers();
@@ -144,7 +144,7 @@ export default function DocumentsClient() {
             <SelectValue placeholder="كل الموظفين" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">كل الموظفين</SelectItem>
+            <SelectItem value="all">كل الموظفين</SelectItem>
             {employees.map((u) => (
               <SelectItem key={u.username as string} value={u.username as string}>
                 {(u.display_name || u.name || u.username) as string}
@@ -158,7 +158,7 @@ export default function DocumentsClient() {
             <SelectValue placeholder="كل الأنواع" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">كل الأنواع</SelectItem>
+            <SelectItem value="all">كل الأنواع</SelectItem>
             {activeTypes.map((t) => (
               <SelectItem key={t.id} value={t.id}>{t.name_ar}</SelectItem>
             ))}
