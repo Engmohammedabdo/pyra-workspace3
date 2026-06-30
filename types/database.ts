@@ -254,6 +254,29 @@ export interface PyraEmployeeDocument {
   signed_url?: string;
 }
 
+export interface PyraOnboarding {
+  id: string;
+  employee_username: string;
+  status: string; // 'in_progress' | 'completed' | 'cancelled'
+  offer_data: Record<string, unknown>;
+  assets: Array<Record<string, unknown>>;
+  started_by: string;
+  started_at: string;
+  completed_at: string | null;
+  notes: string | null;
+}
+
+export interface PyraOnboardingTask {
+  id: string;
+  onboarding_id: string;
+  title_ar: string;
+  is_done: boolean;
+  done_at: string | null;
+  done_by: string | null;
+  sort_order: number;
+  notes: string | null;
+}
+
 // ==========================================
 // Portal Tables (6)
 // ==========================================
