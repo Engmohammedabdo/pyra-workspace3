@@ -4,6 +4,8 @@ import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError }
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
+import { markPaymentsPaidAndPropagate } from '@/lib/payroll/payment-lifecycle';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -70,6 +72,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess({ ...run, items: enrichedItems });
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'payroll/[id]', method: 'GET' } });
     console.error('GET /api/dashboard/payroll/[id] error:', err);
     return apiServerError();
   }
@@ -189,11 +192,15 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
           };
         });
 
+        // Defensive: ensure the salaries expense category exists (referenced as category_id above)
+        await supabase
+          .from('pyra_expense_categories')
+          .upsert({ id: 'ec_salaries', name: 'Salaries', name_ar: 'الرواتب' }, { onConflict: 'id' });
         // Delete any existing payroll expenses for this run (re-approval case)
         await supabase.from('pyra_expenses').delete().eq('payroll_run_id', id);
         // Insert new expense records
         const { error: expErr } = await supabase.from('pyra_expenses').insert(expenseRecords);
-        if (expErr) console.error('Payroll expense creation error:', expErr);
+        if (expErr) logError({ error: expErr, request: req, metadata: { route: 'payroll/approve', step: 'expense-insert', payroll_id: id } });
       }
       // ─────────────────────────────────────────────────────────────
 
@@ -236,6 +243,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         .update({ status: PAYROLL_STATUS.PAID })
         .eq('payroll_id', id);
 
+      // Settle the employee_payments consumed by this run + their source tasks
+      const { data: consumed } = await supabase
+        .from('pyra_employee_payments')
+        .select('id')
+        .eq('payroll_id', id);
+      await markPaymentsPaidAndPropagate(supabase, (consumed || []).map((p: { id: string }) => p.id));
+
       // Activity log
       const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
         id: generateId('al'),
@@ -253,6 +267,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     return apiError('إجراء غير معروف', 400);
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'payroll/[id]', method: 'PATCH' } });
     console.error('PATCH /api/dashboard/payroll/[id] error:', err);
     return apiServerError();
   }
