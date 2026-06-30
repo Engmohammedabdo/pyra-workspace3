@@ -76,6 +76,7 @@ import {
   ShoppingCart,
   ClipboardCheck,
   Bug,
+  UserPlus,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -185,6 +186,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
       { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
       { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
+      { href: '/dashboard/hr/onboarding', label: 'تعيين موظفين', labelEn: 'Onboarding', icon: UserPlus, permission: 'hr.manage' },
       { href: '/dashboard/my-documents', label: 'وثائقي', labelEn: 'My Documents', icon: FileText, permission: 'documents.view' },
     ],
   },

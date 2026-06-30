@@ -95,6 +95,7 @@ const SECTIONS = [
       '/dashboard/evaluations',
       '/dashboard/evaluations/settings',
       '/dashboard/hr/documents',
+      '/dashboard/hr/onboarding',
       '/dashboard/my-documents',
     ],
   },
