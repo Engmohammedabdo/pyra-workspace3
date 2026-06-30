@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { FileText, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import {
   useRegenerateDocument,
   type OnboardingDetail,
@@ -174,27 +173,11 @@ const EXPECTED_DOC_TYPES = [
 
 interface Props {
   onboarding: OnboardingDetail;
-  loading?: boolean;
 }
 
-export function OnboardingDocuments({ onboarding, loading }: Props) {
+export function OnboardingDocuments({ onboarding }: Props) {
   const docs = onboarding.documents ?? [];
   const docsByType = new Map(docs.map((d) => [d.type_id, d]));
-
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">المستندات</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-lg" />
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card>

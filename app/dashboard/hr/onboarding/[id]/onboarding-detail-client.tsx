@@ -191,7 +191,10 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
 
       {/* Main content */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <OnboardingChecklist onboarding={onboarding} />
+        <OnboardingChecklist
+          onboarding={onboarding}
+          onRequestComplete={() => setCompleteDialogOpen(true)}
+        />
         <OnboardingDocuments onboarding={onboarding} />
       </div>
 

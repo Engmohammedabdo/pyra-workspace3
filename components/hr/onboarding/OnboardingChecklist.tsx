@@ -7,18 +7,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   useToggleOnboardingTask,
-  useUpdateOnboarding,
   type OnboardingDetail,
 } from '@/hooks/useOnboarding';
 import { ONBOARDING_STATUS } from '@/lib/constants/onboarding';
 
 interface Props {
   onboarding: OnboardingDetail;
+  onRequestComplete?: () => void;
 }
 
-export function OnboardingChecklist({ onboarding }: Props) {
+export function OnboardingChecklist({ onboarding, onRequestComplete }: Props) {
   const toggleTask = useToggleOnboardingTask();
-  const updateOnboarding = useUpdateOnboarding();
 
   const tasks = onboarding.tasks ?? [];
   const done = tasks.filter((t) => t.is_done).length;
@@ -36,19 +35,6 @@ export function OnboardingChecklist({ onboarding }: Props) {
       });
     } catch {
       toast.error('فشل تحديث المهمة');
-    }
-  }
-
-  async function handleComplete() {
-    try {
-      await updateOnboarding.mutateAsync({
-        id: onboarding.id,
-        action: 'complete',
-      });
-      toast.success('تم إنهاء التعيين بنجاح');
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'فشل إنهاء التعيين';
-      toast.error(msg);
     }
   }
 
@@ -115,16 +101,15 @@ export function OnboardingChecklist({ onboarding }: Props) {
           </p>
         )}
 
-        {/* Complete action */}
+        {/* Complete action — opens the parent's confirmation dialog */}
         {isInProgress && allDone && (
           <div className="pt-3 border-t">
             <Button
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 gap-2"
-              onClick={handleComplete}
-              disabled={updateOnboarding.isPending}
+              onClick={() => onRequestComplete?.()}
             >
               <CheckSquare className="h-4 w-4" />
-              {updateOnboarding.isPending ? 'جاري الإنهاء...' : 'إنهاء التعيين (كل المهام مكتملة)'}
+              إنهاء التعيين (كل المهام مكتملة)
             </Button>
           </div>
         )}
