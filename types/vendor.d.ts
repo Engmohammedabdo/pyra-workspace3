@@ -14,6 +14,18 @@ declare module 'bidi-js' {
       start?: number,
       end?: number,
     ): Array<[number, number]>;
+    getReorderedString(
+      text: string,
+      embeddingLevels: EmbeddingLevels,
+      start?: number,
+      end?: number,
+    ): string;
+    getReorderedIndices(
+      text: string,
+      embeddingLevels: EmbeddingLevels,
+      start?: number,
+      end?: number,
+    ): number[];
     getMirroredCharactersMap(
       text: string,
       embeddingLevels: EmbeddingLevels,

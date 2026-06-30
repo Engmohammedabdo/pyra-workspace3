@@ -5,7 +5,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
-import { prepareRtl, drawRtlParagraph } from './arabic';
+import { prepareRtl, drawRtlParagraph, enableRtlPassthrough } from './arabic';
 
 // ============================================================
 // NDA PDF — PyramediaX
@@ -99,6 +99,7 @@ export async function generateNdaPDF(
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   await registerArabicFont(doc, opts?.fonts);
+  enableRtlPassthrough(doc); // we do bidi via bidi-js; jsPDF must not re-reorder
 
   // ─────────────────────────────────────────────
   // HEADER BAR
