@@ -3,6 +3,9 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
+import { calculatePayrollItem } from '@/lib/payroll/calculate-item';
+import { logError } from '@/lib/observability/log-error';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -95,8 +98,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // 5. Fetch all overtime timesheets for this month
     const { data: allTimesheets } = await supabase
       .from('pyra_timesheets')
-      .select('username, hours, is_overtime, overtime_multiplier')
+      .select('username, hours, is_overtime, overtime_multiplier, status')
       .eq('is_overtime', true)
+      .eq('status', TIMESHEET_STATUS.APPROVED)
       .gte('date', startDate)
       .lte('date', endDate);
 
@@ -161,8 +165,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       task_payments: number;
       overtime_amount: number;
       bonus: number;
+      commission: number;
       deductions: number;
-      deduction_details: Array<{ type: string; amount: number }>;
+      deduction_details: Array<{ type: string; amount: number; reason?: string }>;
       net_pay: number;
       status: string;
     }> = [];
@@ -171,73 +176,35 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     let totalAmount = 0;
 
     for (const emp of activeEmployees) {
-      const baseSalary = Number(emp.salary) || 0;
-      const hourlyRate = Number(emp.hourly_rate) || 0;
       const userPayments = paymentsByUser[emp.username] || [];
       const userTimesheets = timesheetsByUser[emp.username] || [];
 
-      // Task payments
-      const taskPayments = userPayments
-        .filter(p => p.source_type === 'task')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // Overtime
-      const overtimeAmount = userTimesheets
-        .reduce((sum, t) => sum + (Number(t.hours) * hourlyRate * Number(t.overtime_multiplier)), 0);
-
-      // Bonus
-      const bonus = userPayments
-        .filter(p => p.source_type === 'bonus')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // Commission payments
-      const commissions = userPayments
-        .filter(p => p.source_type === 'commission')
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // Deductions (manual)
-      const deductionPayments = userPayments.filter(p => p.source_type === 'deduction');
-      let deductions = deductionPayments.reduce((sum, p) => sum + Number(p.amount), 0);
-      const deductionDetails: Array<{ type: string; amount: number; reason?: string }> = deductionPayments.map(p => ({
-        type: 'deduction',
-        amount: Number(p.amount),
-      }));
-
-      // Unpaid leave deductions (auto-calculated)
-      const unpaidLeave = unpaidLeaveByUser[emp.username] || [];
-      if (unpaidLeave.length > 0 && baseSalary > 0) {
-        const dailyRate = baseSalary / 22; // UAE standard working days
-        for (const leave of unpaidLeave) {
-          const leaveDeduction = Math.round(dailyRate * leave.days * 100) / 100;
-          deductions += leaveDeduction;
-          deductionDetails.push({
-            type: 'unpaid_leave',
-            amount: leaveDeduction,
-            reason: `${leave.typeName} — ${leave.days} يوم`,
-          });
-        }
-      }
-
-      // Net pay (include commissions as income) — floor at 0 to prevent negative payroll items
-      const netPay = Math.max(0, baseSalary + taskPayments + overtimeAmount + bonus + commissions - deductions);
+      const result = calculatePayrollItem({
+        baseSalary: Number(emp.salary) || 0,
+        hourlyRate: Number(emp.hourly_rate) || 0,
+        payments: userPayments.map(p => ({ source_type: p.source_type, amount: p.amount })),
+        overtimeTimesheets: userTimesheets.map(t => ({ hours: t.hours, multiplier: t.overtime_multiplier })),
+        unpaidLeave: unpaidLeaveByUser[emp.username] || [],
+      });
 
       payrollItems.push({
         id: generateId('pi'),
         payroll_id: id,
         username: emp.username,
-        base_salary: baseSalary,
-        task_payments: taskPayments,
-        overtime_amount: overtimeAmount,
-        bonus,
-        deductions,
-        deduction_details: deductionDetails,
-        net_pay: netPay,
+        base_salary: result.base_salary,
+        task_payments: result.task_payments,
+        overtime_amount: result.overtime_amount,
+        bonus: result.bonus,
+        commission: result.commission,
+        deductions: result.deductions,
+        deduction_details: result.deduction_details,
+        net_pay: result.net_pay,
         status: 'pending',
       });
 
-      totalAmount += netPay;
+      totalAmount += result.net_pay;
 
-      // Track payment IDs to link
+      // Track payment IDs to link (consumes ALL of the user's matched payments)
       userPayments.forEach(p => linkedPaymentIds.push(p.id));
     }
 
@@ -343,6 +310,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
     return apiSuccess({ ...updatedRun, items: enrichedItems });
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'payroll/calculate' } });
     console.error('POST /api/dashboard/payroll/[id]/calculate error:', err);
     return apiServerError();
   }
