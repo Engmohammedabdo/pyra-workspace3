@@ -25,6 +25,7 @@ interface PayslipData {
   task_payments: number;
   overtime_amount: number;
   bonus: number;
+  commission: number;
   deductions: number;
   deduction_details: DeductionDetail[];
   net_pay: number;
@@ -129,6 +130,7 @@ export async function generatePayslipPDF(data: PayslipData) {
     { label: 'Task Payments', labelAr: 'مدفوعات المهام', amount: data.task_payments },
     { label: 'Overtime', labelAr: 'العمل الإضافي', amount: data.overtime_amount },
     { label: 'Bonus', labelAr: 'المكافآت', amount: data.bonus },
+    { label: 'Commission', labelAr: 'العمولات', amount: data.commission },
   ];
 
   // Add deduction details
@@ -213,7 +215,7 @@ export async function generatePayslipPDF(data: PayslipData) {
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(113, 113, 122);
 
-  const totalEarnings = data.base_salary + data.task_payments + data.overtime_amount + data.bonus;
+  const totalEarnings = data.base_salary + data.task_payments + data.overtime_amount + data.bonus + data.commission;
 
   doc.text('Total Earnings:', margin + 5, y + 9);
   doc.setFont('helvetica', 'bold');

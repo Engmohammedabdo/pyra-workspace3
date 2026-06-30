@@ -106,18 +106,16 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
     const key = `${run.id}-${username}`;
     try {
       setDownloadingPayslip(key);
-      const resp = await fetchAPI<{ data: unknown }>(`/api/dashboard/payroll/${run.id}/payslip?username=${username}`);
-      const data = (resp as { data: unknown }).data ?? resp;
-      const d = data as {
+      const d = await fetchAPI<{
         company_name: string;
         employee: { display_name: string; department: string };
         payroll: { month: number; year: number; currency?: string };
         item: {
           base_salary: number; task_payments: number; overtime_amount: number;
-          bonus: number; deductions: number; deduction_details: Array<{ type: string; amount: number }>;
-          net_pay: number;
+          bonus: number; commission: number; deductions: number;
+          deduction_details: Array<{ type: string; amount: number }>; net_pay: number;
         };
-      };
+      }>(`/api/dashboard/payroll/${run.id}/payslip?username=${username}`);
 
       await generatePayslipPDF({
         company_name: d.company_name,
@@ -130,6 +128,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
         task_payments: Number(d.item.task_payments),
         overtime_amount: Number(d.item.overtime_amount),
         bonus: Number(d.item.bonus),
+        commission: Number(d.item.commission),
         deductions: Number(d.item.deductions),
         deduction_details: d.item.deduction_details || [],
         net_pay: Number(d.item.net_pay),
@@ -275,6 +274,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                       <th scope="col" className="text-end pb-3 pe-3 font-medium">المهام</th>
                       <th scope="col" className="text-end pb-3 pe-3 font-medium">إضافي</th>
                       <th scope="col" className="text-end pb-3 pe-3 font-medium">مكافأة</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">عمولة</th>
                       <th scope="col" className="text-end pb-3 pe-3 font-medium">خصومات</th>
                       <th scope="col" className="text-end pb-3 pe-3 font-medium">الصافي</th>
                       <th scope="col" className="text-center pb-3 font-medium">كشف</th>
@@ -305,6 +305,9 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
                           {item.bonus > 0 ? formatCurrency(item.bonus) : '—'}
+                        </td>
+                        <td className="py-3 pe-3 text-end font-mono text-foreground">
+                          {item.commission > 0 ? formatCurrency(item.commission) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-red-600 dark:text-red-400">
                           {item.deductions > 0 ? `- ${formatCurrency(item.deductions)}` : '—'}

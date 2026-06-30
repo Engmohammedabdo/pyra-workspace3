@@ -55,11 +55,34 @@ export function usePayrollRun(id: string | undefined) {
   });
 }
 
+export interface EmployeePaymentRow {
+  id: string;
+  source_type: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: string;
+}
+
+export interface MyPayslipRow extends PayrollItem {
+  month: number;
+  year: number;
+  run_status: string;
+  currency: string;
+  paid_at: string | null;
+}
+
+export interface PayslipsResponse {
+  payslips: MyPayslipRow[];
+  payments: EmployeePaymentRow[];
+}
+
 export function useMyPayslips() {
-  return useQuery({
+  return useQuery<PayslipsResponse>({
     queryKey: ['my-payslips'],
     queryFn: () => fetchAPI('/api/dashboard/my-payslips'),
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
   });
 }
 

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
+import { useMyPayslips } from '@/hooks/usePayroll';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,6 +33,7 @@ interface Payslip {
   task_payments: number;
   overtime_amount: number;
   bonus: number;
+  commission: number;
   deductions: number;
   deduction_details: Array<{ type: string; amount: number }>;
   net_pay: number;
@@ -91,19 +92,10 @@ const SOURCE_LABELS: Record<string, string> = {
   commission: 'عمولة', task: 'مهمة', bonus: 'مكافأة', deduction: 'خصم', overtime: 'إضافي', salary: 'راتب',
 };
 
-interface PayslipsResponse {
-  payslips: Payslip[];
-  payments: Payment[];
-}
-
 export default function MyPayslipsClient() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
-  const { data: payslipsData, isLoading: loading } = useQuery<PayslipsResponse>({
-    queryKey: ['my-payslips'],
-    queryFn: () => fetchAPI('/api/dashboard/my-payslips'),
-    staleTime: 5 * 60_000,
-  });
+  const { data: payslipsData, isLoading: loading } = useMyPayslips();
 
   const payslips: Payslip[] = payslipsData?.payslips || (Array.isArray(payslipsData) ? (payslipsData as unknown as Payslip[]) : []);
   const payments: Payment[] = payslipsData?.payments || [];
@@ -113,16 +105,16 @@ export default function MyPayslipsClient() {
     try {
       setDownloadingId(payslip.id);
 
-      const res = await fetch(
-        `/api/dashboard/payroll/${payslip.payroll_id}/payslip?username=${payslip.username}`
-      );
-
-      if (!res.ok) {
-        toast.error('فشل في تحميل بيانات كشف الراتب');
-        return;
-      }
-
-      const { data } = await res.json();
+      const data = await fetchAPI<{
+        company_name: string;
+        employee: { display_name: string; department: string | null };
+        payroll: { month: number; year: number; currency?: string };
+        item: {
+          base_salary: number; task_payments: number; overtime_amount: number;
+          bonus: number; commission: number; deductions: number;
+          deduction_details: Array<{ type: string; amount: number }>; net_pay: number;
+        };
+      }>(`/api/dashboard/payroll/${payslip.payroll_id}/payslip?username=${payslip.username}`);
 
       await generatePayslipPDF({
         company_name: data.company_name,
@@ -135,6 +127,7 @@ export default function MyPayslipsClient() {
         task_payments: Number(data.item.task_payments),
         overtime_amount: Number(data.item.overtime_amount),
         bonus: Number(data.item.bonus),
+        commission: Number(data.item.commission),
         deductions: Number(data.item.deductions),
         deduction_details: data.item.deduction_details || [],
         net_pay: Number(data.item.net_pay),
