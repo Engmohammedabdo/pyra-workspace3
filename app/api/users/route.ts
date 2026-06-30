@@ -9,8 +9,8 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { generateId } from '@/lib/utils/id';
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
-import { hashPassword } from '@/lib/utils/password';
 import { validateExtraPermissions } from '@/lib/auth/rbac';
+import { createEmployeeUser } from '@/lib/hr/create-employee';
 
 // =============================================================
 // GET /api/users
@@ -110,132 +110,43 @@ export async function POST(request: NextRequest) {
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const authEmail = `${cleanUsername}@pyra.local`;
 
     // Use service-role client for admin write operations
     const serviceClient = createServiceRoleClient();
 
-    // Check if username already exists
-    const { data: existing } = await serviceClient
-      .from('pyra_users')
-      .select('id')
-      .eq('username', cleanUsername)
-      .single();
-
-    if (existing) {
-      return apiValidationError('اسم المستخدم مستخدم بالفعل');
-    }
-
-    // Step 1: Create Supabase Auth user
-    const { data: authData, error: authError } = await serviceClient.auth.admin.createUser({
-      email: authEmail,
+    // Steps 1–5: existence check, auth user, pyra_users insert, auth mapping,
+    // leave balances (with rollbacks) — delegated to the shared helper.
+    const result = await createEmployeeUser(serviceClient, {
+      username,
       password,
-      email_confirm: true,
-      user_metadata: {
-        username: cleanUsername,
-        display_name: display_name.trim(),
-        role,
-      },
+      role,
+      display_name,
+      phone,
+      job_title,
+      employment_type,
+      work_location,
+      payment_type,
+      salary,
+      hourly_rate,
+      hire_date,
+      date_of_birth,
+      department,
+      manager_username,
+      email,
+      permissions,
+      extra_permissions: extraPermsResult.value,
+      role_id,
     });
 
-    if (authError) {
-      console.error('Supabase auth create error:', authError);
-      return apiServerError(`فشل في إنشاء حساب المصادقة: ${authError.message}`);
-    }
-
-    // Step 2: Insert into pyra_users (password_hash via scrypt)
-    const passwordHash = hashPassword(password);
-    const { data: newUser, error: insertError } = await serviceClient
-      .from('pyra_users')
-      .insert({
-        username: cleanUsername,
-        password_hash: passwordHash,
-        role,
-        display_name: display_name.trim(),
-        permissions: permissions || {},
-        extra_permissions: extraPermsResult.value,
-        role_id: role_id || null,
-        phone: phone ? String(phone).trim() : null,
-        job_title: job_title ? String(job_title).trim() : null,
-        employment_type: employment_type || 'full_time',
-        work_location: work_location || 'onsite',
-        payment_type: payment_type || 'monthly_salary',
-        salary: salary || 0,
-        hourly_rate: hourly_rate || 0,
-        hire_date: hire_date || null,
-        date_of_birth: date_of_birth || null,
-        department: department || null,
-        manager_username: manager_username || null,
-        email: email || null,
-      })
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at')
-      .single();
-
-    if (insertError) {
-      console.error('pyra_users insert error:', insertError);
-      // Rollback: delete the auth user we just created
-      if (authData.user) {
-        await serviceClient.auth.admin.deleteUser(authData.user.id);
+    if (!result.ok) {
+      // Map helper status codes to validation vs server error responses
+      if (result.status === 409) {
+        return apiValidationError(result.error);
       }
-      return apiServerError(`فشل في إنشاء المستخدم: ${insertError.message}`);
+      return apiServerError(result.error);
     }
 
-    // Step 3: Insert auth mapping (fail-fast — without this, password change & related flows break)
-    const { error: mappingError } = await serviceClient.from('pyra_auth_mapping').insert({
-      id: generateId('am'),
-      auth_user_id: authData.user.id,
-      pyra_username: cleanUsername,
-    });
-
-    if (mappingError) {
-      console.error('pyra_auth_mapping insert error:', mappingError);
-      // Rollback: delete pyra_users row + auth user we just created
-      await serviceClient.from('pyra_users').delete().eq('username', cleanUsername);
-      await serviceClient.auth.admin.deleteUser(authData.user.id);
-      return apiServerError(`فشل في إنشاء ربط المصادقة: ${mappingError.message}`);
-    }
-
-    // Step 3.5: Initialize leave balances for employees
-    if (role === 'employee') {
-      const currentYear = new Date().getFullYear();
-
-      // v1 balance
-      await serviceClient.from('pyra_leave_balances').insert({
-        username: cleanUsername,
-        year: currentYear,
-        annual_total: 30,
-        annual_used: 0,
-        sick_total: 15,
-        sick_used: 0,
-        personal_total: 5,
-        personal_used: 0,
-      });
-
-      // v2 balances — create one record per active leave type
-      try {
-        const { data: activeLeaveTypes } = await serviceClient
-          .from('pyra_leave_types')
-          .select('id, default_days')
-          .eq('is_active', true);
-
-        if (activeLeaveTypes && activeLeaveTypes.length > 0) {
-          const v2Records = activeLeaveTypes.map((lt) => ({
-            id: generateId('lb'),
-            username: cleanUsername,
-            year: currentYear,
-            leave_type_id: lt.id,
-            total_days: lt.default_days,
-            used_days: 0,
-          }));
-
-          await serviceClient.from('pyra_leave_balances_v2').insert(v2Records);
-        }
-      } catch {
-        // v2 tables may not exist yet — skip silently
-      }
-    }
-
-    // Step 4: Log the activity
+    // Step 4: Log the activity (route owns this — not in the shared helper)
     await serviceClient.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'user_created',
@@ -249,6 +160,14 @@ export async function POST(request: NextRequest) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    // Re-fetch the newly created user row so the 201 response shape is identical
+    // to before the refactor (includes id, status, created_at, etc.)
+    const { data: newUser } = await serviceClient
+      .from('pyra_users')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at')
+      .eq('username', cleanUsername)
+      .single();
 
     return apiSuccess(newUser, undefined, 201);
   } catch (err) {
