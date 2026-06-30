@@ -10,6 +10,7 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -97,6 +98,15 @@ export async function PATCH(
 
       if (error) return apiServerError(error.message);
 
+      // Settle the source task when this is a task payment
+      if (payment.source_type === 'task' && payment.source_id) {
+        const { error: taskErr } = await supabase
+          .from('pyra_tasks')
+          .update({ payment_status: EMPLOYEE_PAYMENT_STATUS.PAID, updated_at: new Date().toISOString() })
+          .eq('id', payment.source_id);
+        if (taskErr) logError({ error: taskErr, request: req, metadata: { route: 'employee-payments/pay', step: 'propagate-task', payment_id: id } });
+      }
+
       // Activity log
       const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
         id: generateId('al'),
@@ -114,6 +124,7 @@ export async function PATCH(
 
     return apiValidationError('إجراء غير معروف');
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'employee-payments/[id]' } });
     console.error('PATCH /api/dashboard/employee-payments/[id] error:', err);
     return apiServerError();
   }

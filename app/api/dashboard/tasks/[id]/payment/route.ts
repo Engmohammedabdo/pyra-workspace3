@@ -11,6 +11,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { generateId } from '@/lib/utils/id';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 import { logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // POST /api/dashboard/tasks/[id]/payment
@@ -56,6 +57,21 @@ export async function POST(
 
     // Create employee payment record using service role to bypass RLS
     const serviceClient = createServiceRoleClient();
+
+    // Block if a non-rejected payment already exists for this task.
+    // We no longer flip the task to 'paid' on creation, so guard against
+    // accidentally recording the same task payment twice.
+    const { data: existingPayment } = await serviceClient
+      .from('pyra_employee_payments')
+      .select('id, status')
+      .eq('source_id', task.id)
+      .eq('source_type', 'task')
+      .neq('status', EMPLOYEE_PAYMENT_STATUS.REJECTED)
+      .maybeSingle();
+    if (existingPayment) {
+      return apiError('يوجد سجل دفع نشط لهذه المهمة بالفعل', 409);
+    }
+
     const paymentId = generateId('ep');
 
     const { data: payment, error: paymentError } = await serviceClient
@@ -77,10 +93,11 @@ export async function POST(
       return apiServerError(paymentError.message);
     }
 
-    // Update task payment_status to 'paid'
+    // Mark task payment as pending — it settles to 'paid' only when the
+    // employee_payment is actually paid (manually or via a payroll run).
     const { error: updateError } = await serviceClient
       .from('pyra_tasks')
-      .update({ payment_status: EMPLOYEE_PAYMENT_STATUS.PAID, updated_at: new Date().toISOString() })
+      .update({ payment_status: EMPLOYEE_PAYMENT_STATUS.PENDING, updated_at: new Date().toISOString() })
       .eq('id', id);
 
     if (updateError) {
@@ -92,6 +109,7 @@ export async function POST(
     return apiSuccess(payment);
 
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'tasks/payment' } });
     console.error('[POST /api/dashboard/tasks/[id]/payment] error:', err);
     return apiServerError();
   }
