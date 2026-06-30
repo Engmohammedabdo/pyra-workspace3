@@ -17,7 +17,7 @@ import {
   loadServerPdfFonts,
   loadServerDefaultLogo,
 } from '@/lib/pdf/pdf-assets-server';
-import { DEFAULT_ONBOARDING_TASKS } from '@/lib/constants/onboarding';
+import { DEFAULT_ONBOARDING_TASKS, ONBOARDING_STATUS } from '@/lib/constants/onboarding';
 import { dubaiDayKey } from '@/lib/utils/format';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       .insert({
         id:               onboardingId,
         employee_username: employeeUsername,
-        status:            'in_progress',
+        status:            ONBOARDING_STATUS.IN_PROGRESS,
         offer_data:        offerData,
         assets:            cleanAssets,
         started_by:        auth.pyraUser.username,
@@ -309,7 +309,6 @@ export async function POST(request: NextRequest) {
     const companyName = settingRow?.value || 'PyramediaX';
 
     // ── Step 6: Generate 3 PDFs ───────────────────────────────────────────────
-    let pdfFailed = false;
     const storedDocuments: Array<{ type_id: string; label: string; doc_id: string }> = [];
 
     try {
@@ -457,7 +456,6 @@ export async function POST(request: NextRequest) {
         },
       });
       console.error('[hr/onboarding POST] PDF/storage error:', pdfErr);
-      pdfFailed = true;
 
       // Best-effort cleanup: delete onboarding row + tasks (user stays)
       try {
@@ -472,9 +470,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If we somehow reach here with pdfFailed, guard it (shouldn't happen — pdfFailed returns above)
-    if (pdfFailed) {
-      return apiServerError('فشل توليد المستندات');
+    // ── Step 7: All-docs-fail guard ───────────────────────────────────────────
+    // If every single document store failed (not just a partial failure), treat
+    // as fatal: delete the onboarding row (tasks cascade) and return error.
+    // Partial success (1–2 docs) falls through to the checklist-seed step.
+    if (storedDocuments.length === 0) {
+      logError({
+        error: new Error('All document stores failed'),
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: {
+          source:            'onboarding_all_docs_failed',
+          employee_username: employeeUsername,
+          onboarding_id:     onboardingId,
+        },
+      });
+      try {
+        await supabase.from('pyra_onboarding').delete().eq('id', onboardingId);
+      } catch (cleanupErr) {
+        console.error('[hr/onboarding POST] cleanup (all-docs-fail) error:', cleanupErr);
+      }
+      return apiServerError('فشل في إنشاء مستندات التعيين');
     }
 
     // ── Step 8: Seed onboarding checklist tasks ───────────────────────────────

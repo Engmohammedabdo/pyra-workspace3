@@ -10,7 +10,7 @@
  *   2. auth.admin.createUser (Supabase GoTrue)
  *   3. pyra_users insert (password_hash via scrypt) → rollback on failure
  *   4. pyra_auth_mapping insert → rollback on failure
- *   5. Employee leave balances (v1 + v2) when role === 'employee'
+ *   5. Employee leave balances (v1 + v2) when role === 'employee' || 'sales_agent'
  *
  * The activity-log step is intentionally OMITTED — callers own that.
  *
@@ -192,7 +192,7 @@ export async function createEmployeeUser(
   }
 
   // ── Step 5: Initialize leave balances for employees ───────────────────────
-  if (role === 'employee') {
+  if (role === 'employee' || role === 'sales_agent') {
     const currentYear = new Date().getFullYear();
 
     // v1 balance
