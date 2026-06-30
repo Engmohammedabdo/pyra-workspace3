@@ -58,7 +58,7 @@ onboarding checklist to completion.
 | id | varchar PK | `generateId('onb')` |
 | employee_username | varchar NOT NULL | the created `pyra_users.username` |
 | status | varchar NOT NULL | `in_progress` \| `completed` \| `cancelled` (default `in_progress`) |
-| offer_data | jsonb NOT NULL | snapshot of all offer-letter inputs (comp breakdown, is_sales, commission, target, contract, position, party fields) — lets us regenerate the offer letter |
+| offer_data | jsonb NOT NULL | snapshot of all offer-letter inputs: comp breakdown, **`is_sales`** (drives the commission section), commission rate, target, contract, position, party fields, and **`custom_clauses: Array<{title?: string, body: string}>`** (the repeatable extra clauses) — lets us regenerate the offer letter deterministically |
 | assets | jsonb NOT NULL default `'[]'` | array of `{type, description, serial, condition, value, notes}` for the handover form (Phase 1 inline; Phase 2 promotes to a register) |
 | started_by | varchar NOT NULL | admin username |
 | started_at | timestamptz default now() |
@@ -104,9 +104,14 @@ offer-letter generator:
 3. **Compensation (AED):** basic, housing, transport, communication, other;
    monthly + annual totals computed live. If `is_sales`: commission rate (%) +
    monthly target.
-4. **Assets:** repeatable rows — type (laptop/phone/SIM/access card/camera/other),
+4. **Custom clauses (بنود إضافية):** a **repeatable** free-text input — admin can
+   add any number of extra clauses (each: optional title + Arabic body) that are
+   appended to the offer letter (see §7.2). Empty by default; renders nothing
+   when none added. (Mirrors and generalizes the user's HTML `f_extra12` "extra
+   note" field.)
+5. **Assets:** repeatable rows — type (laptop/phone/SIM/access card/camera/other),
    description/model, serial/IMEI, condition, estimated value, notes.
-5. **Review → Create.** On submit (single server transaction-ish, backup-rollback
+6. **Review → Create.** On submit (single server transaction-ish, backup-rollback
    pattern — no DB transactions):
    1. Create `pyra_users` (status `active`, `hire_date` = start date, salary +
       payment_type from comp, `date_of_birth`, etc.). Reuse the SAME creation
@@ -146,14 +151,27 @@ dense flowing Arabic. Replace with a proper pipeline:
 
 ### 7.2 Generators (server-side; reuse `pdf-assets-server.ts` font/logo injection)
 - `lib/pdf/offer-letter-pdf.ts` — full bilingual offer letter ported from the
-  user's HTML generator: header + ref/date, employee block, Position, Contract
-  type & duration, Probation clause, Compensation **table** (basic/housing/
-  transport/comm/other + monthly/annual totals), **Sales Commission section
-  (rendered only when `is_sales`)** with the exact clauses (rate, payment
-  condition, exclusions, target, probation compensation, confirmation condition,
-  3-month note), Working Hours & Days, Annual Leave, Other Benefits, Termination
-  & Notice, Confidentiality (NDA ref), Media & Image Rights, Work Location +
-  optional extra note, General Terms, Acceptance + signature blocks, footer.
+  user's HTML generator. **The content differs by role** (this is the core
+  variation, exactly mirroring the HTML generator's `is_sales` toggle):
+  - **Sales hires** (`is_sales = true`): include the **Sales Commission
+    Structure** section with the exact clauses a–f (rate, payment condition =
+    paid only after client pays 100%, exclusions = no printing revenue, monthly
+    target, probation compensation = basic-only if no deals closed, confirmation
+    condition = close ≥1 deal or build a qualified pipeline, + the 3-consecutive-
+    months note).
+  - **Non-sales hires** (`is_sales = false`): the **entire commission section is
+    omitted**, and section numbering shifts up accordingly (the HTML's
+    `renumber()` behaviour — sections are numbered dynamically so no gap shows).
+  - **Common to both:** header + ref/date, employee block, Position, Contract
+    type & duration, Probation clause, Compensation **table** (basic/housing/
+    transport/comm/other + monthly/annual totals), Working Hours & Days, Annual
+    Leave, Other Benefits, Termination & Notice, Confidentiality (NDA ref),
+    Media & Image Rights, Work Location, **Custom clauses (بنود إضافية)** —
+    rendered as an "Additional Terms / بنود إضافية" section iff
+    `offer_data.custom_clauses` is non-empty (one numbered clause per entry,
+    title optional), General Terms, Acceptance + signature blocks, footer.
+  - **Section numbering is dynamic** (compute the visible section list first,
+    then number) so omitting commission and/or custom-clauses never leaves a gap.
 - `lib/pdf/nda-pdf.ts` — the 3-page NDA: static legal Arabic body (15 articles,
   verbatim from the user's PDF) + filled party/employee fields (name, EID/passport,
   nationality, job title, dates) + signature block. Uses `drawRtlParagraph` with
