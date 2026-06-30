@@ -13,6 +13,7 @@ export interface PayrollItem {
   task_payments: number;
   overtime_amount: number;
   bonus: number;
+  commission: number;
   deductions: number;
   deduction_details: Array<{ type: string; amount: number }>;
   net_pay: number;

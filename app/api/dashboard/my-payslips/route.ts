@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // GET /api/dashboard/my-payslips
@@ -38,6 +39,7 @@ export async function GET(req: NextRequest) {
         task_payments: item.task_payments,
         overtime_amount: item.overtime_amount,
         bonus: item.bonus,
+        commission: item.commission,
         deductions: item.deductions,
         deduction_details: item.deduction_details,
         net_pay: item.net_pay,
@@ -59,6 +61,7 @@ export async function GET(req: NextRequest) {
 
     return apiSuccess({ payslips, payments: payments || [] });
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'my-payslips' } });
     console.error('GET /api/dashboard/my-payslips error:', err);
     return apiServerError();
   }

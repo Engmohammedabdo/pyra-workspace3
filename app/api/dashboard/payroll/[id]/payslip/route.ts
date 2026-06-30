@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiValidationError, apiError } from '@/lib/api/response';
 import { hasPermission } from '@/lib/auth/rbac';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { logError } from '@/lib/observability/log-error';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -59,6 +60,14 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       .eq('username', username)
       .single();
 
+    // Company name from settings (falls back to a sane default)
+    const { data: setting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'company_name')
+      .maybeSingle();
+    const companyName = setting?.value || 'Pyramedia X';
+
     return apiSuccess({
       payroll: {
         id: run.id,
@@ -79,14 +88,16 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         task_payments: item.task_payments,
         overtime_amount: item.overtime_amount,
         bonus: item.bonus,
+        commission: item.commission,
         deductions: item.deductions,
         deduction_details: item.deduction_details,
         net_pay: item.net_pay,
         status: item.status,
       },
-      company_name: 'Pyramedia X',
+      company_name: companyName,
     });
   } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'payroll/payslip' } });
     console.error('GET /api/dashboard/payroll/[id]/payslip error:', err);
     return apiServerError();
   }
