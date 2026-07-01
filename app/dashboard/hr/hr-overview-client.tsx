@@ -73,7 +73,7 @@ export default function HrOverviewClient() {
       {/* Charts row — 2 columns on lg+ */}
       <motion.div variants={itemMotion} className="grid gap-4 lg:grid-cols-2">
         <HeadcountChart byDepartment={data.headcount.by_department} />
-        <PayrollTrendChart trend={data.payroll.trend} />
+        <PayrollTrendChart trendByCurrency={data.payroll.trend_by_currency} />
       </motion.div>
 
       {/* Bottom row — 3 columns on lg+ */}

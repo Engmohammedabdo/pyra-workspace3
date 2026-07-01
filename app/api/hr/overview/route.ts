@@ -198,16 +198,27 @@ export async function GET(request: NextRequest) {
     const curRun = runs.find((r) => r.month === curMonth && r.year === curYear) ?? null;
     const lastPaidRun = runs.find((r) => r.status === 'paid') ?? null;
 
-    // Trend: last 6 runs, oldest-first for chart rendering.
-    // Include per-run currency so the chart never sums across currencies.
-    const trend = runs
-      .slice(0, 6)
-      .reverse()
-      .map((r) => ({
-        label: MONTH_NAMES_AR[r.month - 1] ?? String(r.month),
-        total: Number(r.total_amount) || 0,
-        currency: (r.currency as string) || 'AED',
-      }));
+    // Trend grouped by currency — NEVER sum or plot across currencies (an
+    // AED 15,000 run and an EGP 25,000 run share no axis). Each currency gets
+    // its own last-6-runs series, oldest-first for chart rendering. Encounter
+    // order is preserved from the desc-sorted runs, so the currency with the
+    // most recent run appears first.
+    const runsByCurrency = new Map<string, typeof runs>();
+    for (const r of runs) {
+      const cur = (r.currency as string) || 'AED';
+      if (!runsByCurrency.has(cur)) runsByCurrency.set(cur, []);
+      runsByCurrency.get(cur)!.push(r);
+    }
+    const trend_by_currency = Array.from(runsByCurrency.entries()).map(([currency, cRuns]) => ({
+      currency,
+      points: cRuns
+        .slice(0, 6)
+        .reverse()
+        .map((r) => ({
+          label: MONTH_NAMES_AR[r.month - 1] ?? String(r.month),
+          total: Number(r.total_amount) || 0,
+        })),
+    }));
 
     // Count pending employee payments (used for KPI display — no currency summing)
     const { data: pendingPaymentsData, error: pendingPayError } = await supabase
@@ -313,7 +324,7 @@ export async function GET(request: NextRequest) {
         current_year: curYear,
         last_paid_total: Number(lastPaidRun?.total_amount) || 0,
         last_paid_currency: (lastPaidRun?.currency as string) || 'AED',
-        trend,
+        trend_by_currency,
         pending_payments_count: (pendingPaymentsData ?? []).length,
       },
       evaluations: {

@@ -16,8 +16,11 @@ export interface HROverview {
     last_paid_total: number;
     /** ISO-4217 currency code of the most recently paid run (e.g. 'AED', 'EGP'). */
     last_paid_currency: string;
-    /** Per-run trend items — each carries its own currency to prevent cross-currency summing. */
-    trend: Array<{ label: string; total: number; currency: string }>;
+    /**
+     * Payroll-cost trend grouped by currency — one independent series per
+     * currency so the chart never plots AED and EGP on a shared axis.
+     */
+    trend_by_currency: Array<{ currency: string; points: Array<{ label: string; total: number }> }>;
     pending_payments_count: number;
   };
   evaluations: { active_period: string | null; pending: number; submitted: number; acknowledged: number };
