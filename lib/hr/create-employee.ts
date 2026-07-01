@@ -48,6 +48,17 @@ export interface CreateEmployeeInput {
   extra_permissions?: string[];
   /** DB role_id FK */
   role_id?: string | null;
+  // ── New in migration 025 ───────────────────────────────────────────────────
+  /** ISO 4217 currency code for salary (default 'AED') */
+  salary_currency?: string;
+  /** Salary breakdown details (e.g. { basic, housing, transport }) */
+  salary_breakdown?: Record<string, unknown> | null;
+  // ── Previously orphaned columns (no write path until Phase 1) ─────────────
+  national_id?: string | null;
+  bank_details?: Record<string, unknown> | null;
+  /** Commission percentage 0–100 */
+  commission_rate?: number | null;
+  work_schedule_id?: string | null;
 }
 
 export type CreateEmployeeResult =
@@ -93,6 +104,12 @@ export async function createEmployeeUser(
     permissions,
     extra_permissions,
     role_id,
+    salary_currency,
+    salary_breakdown,
+    national_id,
+    bank_details,
+    commission_rate,
+    work_schedule_id,
   } = input;
 
   // Normalise username exactly as the route does
@@ -155,6 +172,12 @@ export async function createEmployeeUser(
       department: department || null,
       manager_username: manager_username || null,
       email: email || null,
+      salary_currency: salary_currency || 'AED',
+      salary_breakdown: salary_breakdown || null,
+      national_id: national_id || null,
+      bank_details: bank_details || null,
+      commission_rate: commission_rate ?? null,
+      work_schedule_id: work_schedule_id || null,
     })
     .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at')
     .single();

@@ -24,3 +24,15 @@
  * form-input checks for fast feedback.
  */
 export const PASSWORD_MIN_LENGTH = 8;
+
+// ─── Employment classification enums ─────────────────────────────────────────
+// Single source of truth for the inline arrays previously duplicated across
+// app/api/users/route.ts and app/api/users/[username]/route.ts.
+// Use: (EMPLOYMENT_TYPES as readonly string[]).includes(value)
+
+export const EMPLOYMENT_TYPES = ['full_time', 'part_time', 'contract', 'freelance', 'intern'] as const;
+export const WORK_LOCATIONS   = ['remote', 'onsite', 'hybrid'] as const;
+export const PAYMENT_TYPES    = ['monthly_salary', 'hourly', 'per_task', 'commission'] as const;
+
+/** ISO 4217 currencies accepted for employee salary. */
+export const SALARY_CURRENCIES = ['AED', 'EGP', 'USD', 'SAR'] as const;

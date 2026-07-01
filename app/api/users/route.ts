@@ -7,7 +7,7 @@ import {
 } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
-import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
+import { PASSWORD_MIN_LENGTH, EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } from '@/lib/constants/auth';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { validateExtraPermissions } from '@/lib/auth/rbac';
 import { createEmployeeUser } from '@/lib/hr/create-employee';
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, pyra_roles!left(name, name_ar, color, icon)');
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, commission_rate, onboarding_id, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (['admin', 'employee', 'sales_agent'].includes(role)) {
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest) {
     const {
       username, password, role, display_name, permissions, extra_permissions, role_id, phone, job_title,
       employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, manager_username, email,
+      salary_currency, salary_breakdown, national_id, bank_details, commission_rate, work_schedule_id,
     } = body;
 
     // --- Validation ---
@@ -98,6 +99,31 @@ export async function POST(request: NextRequest) {
 
     if (role_id !== undefined && role_id !== null && typeof role_id !== 'string') {
       return apiValidationError('معرّف الدور الوظيفي غير صالح');
+    }
+
+    // --- New / previously-orphan field validation ---
+    if (salary_currency !== undefined && salary_currency !== null &&
+        !(SALARY_CURRENCIES as readonly string[]).includes(salary_currency)) {
+      return apiValidationError(`عملة الراتب غير صالحة. القيم المسموح بها: ${SALARY_CURRENCIES.join('، ')}`);
+    }
+    if (commission_rate !== undefined && commission_rate !== null) {
+      if (typeof commission_rate !== 'number' || Number.isNaN(commission_rate) || commission_rate < 0 || commission_rate > 100) {
+        return apiValidationError('نسبة العمولة يجب أن تكون رقم بين 0 و 100');
+      }
+    }
+    if (national_id !== undefined && national_id !== null && typeof national_id !== 'string') {
+      return apiValidationError('رقم الهوية الوطنية غير صالح');
+    }
+    if (work_schedule_id !== undefined && work_schedule_id !== null && typeof work_schedule_id !== 'string') {
+      return apiValidationError('معرّف جدول العمل غير صالح');
+    }
+    if (bank_details !== undefined && bank_details !== null &&
+        (typeof bank_details !== 'object' || Array.isArray(bank_details))) {
+      return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+    }
+    if (salary_breakdown !== undefined && salary_breakdown !== null &&
+        (typeof salary_breakdown !== 'object' || Array.isArray(salary_breakdown))) {
+      return apiValidationError('تفاصيل الراتب يجب أن تكون كائن JSON');
     }
 
     // Validate extra_permissions — Phase D Commit 1 (audit P2 #1):
@@ -136,6 +162,12 @@ export async function POST(request: NextRequest) {
       permissions,
       extra_permissions: extraPermsResult.value,
       role_id,
+      salary_currency,
+      salary_breakdown,
+      national_id,
+      bank_details,
+      commission_rate,
+      work_schedule_id,
     });
 
     if (!result.ok) {

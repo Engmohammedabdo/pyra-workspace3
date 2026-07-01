@@ -39,6 +39,13 @@ export interface PyraUser {
   status?: 'active' | 'inactive' | 'suspended';
   // Additional permissions granted beyond role
   extra_permissions?: string[];
+  // Migration 025 columns
+  /** ISO 4217 currency code for salary (default 'AED') */
+  salary_currency?: string;
+  /** FK → pyra_onboarding (set by the onboarding wizard) */
+  onboarding_id?: string | null;
+  /** Salary component breakdown, e.g. { basic, housing, transport } */
+  salary_breakdown?: Record<string, unknown> | null;
   // Joined from pyra_roles
   role_name?: string;
   role_name_ar?: string;

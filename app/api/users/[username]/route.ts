@@ -11,6 +11,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supab
 import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
 import { validateExtraPermissions } from '@/lib/auth/rbac';
+import { EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } from '@/lib/constants/auth';
 
 /**
  * Insert a salary history record when salary or hourly_rate changes.
@@ -56,7 +57,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department, pyra_roles!left(name, name_ar, color, icon)')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, avatar_url, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, bank_details, commission_rate, work_schedule_id, salary_breakdown, onboarding_id, pyra_roles!left(name, name_ar, color, icon)')
       .eq('username', username)
       .single();
 
@@ -199,24 +200,21 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // --- Employment classification fields ---
     if (body.employment_type !== undefined) {
-      const validTypes = ['full_time', 'part_time', 'contract', 'freelance', 'intern'];
-      if (body.employment_type !== null && !validTypes.includes(body.employment_type)) {
+      if (body.employment_type !== null && !(EMPLOYMENT_TYPES as readonly string[]).includes(body.employment_type)) {
         return apiValidationError('نوع التوظيف غير صالح');
       }
       updateData.employment_type = body.employment_type;
     }
 
     if (body.work_location !== undefined) {
-      const validLocations = ['remote', 'onsite', 'hybrid'];
-      if (body.work_location !== null && !validLocations.includes(body.work_location)) {
+      if (body.work_location !== null && !(WORK_LOCATIONS as readonly string[]).includes(body.work_location)) {
         return apiValidationError('موقع العمل غير صالح');
       }
       updateData.work_location = body.work_location;
     }
 
     if (body.payment_type !== undefined) {
-      const validPaymentTypes = ['monthly_salary', 'hourly', 'per_task', 'commission'];
-      if (body.payment_type !== null && !validPaymentTypes.includes(body.payment_type)) {
+      if (body.payment_type !== null && !(PAYMENT_TYPES as readonly string[]).includes(body.payment_type)) {
         return apiValidationError('نوع الدفع غير صالح');
       }
       updateData.payment_type = body.payment_type;
@@ -282,6 +280,58 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // --- salary_currency (migration 025) ---
+    if (body.salary_currency !== undefined) {
+      // Column is NOT NULL — reject null/invalid explicitly (no silent coercion).
+      if (!(SALARY_CURRENCIES as readonly string[]).includes(body.salary_currency)) {
+        return apiValidationError(`عملة الراتب غير صالحة. القيم المسموح بها: ${SALARY_CURRENCIES.join('، ')}`);
+      }
+      updateData.salary_currency = body.salary_currency;
+    }
+
+    // --- national_id ---
+    if (body.national_id !== undefined) {
+      if (body.national_id !== null && typeof body.national_id !== 'string') {
+        return apiValidationError('رقم الهوية الوطنية غير صالح');
+      }
+      updateData.national_id = body.national_id ? body.national_id.trim() : null;
+    }
+
+    // --- bank_details ---
+    if (body.bank_details !== undefined) {
+      if (body.bank_details !== null &&
+          (typeof body.bank_details !== 'object' || Array.isArray(body.bank_details))) {
+        return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+      }
+      updateData.bank_details = body.bank_details ?? null;
+    }
+
+    // --- commission_rate ---
+    if (body.commission_rate !== undefined) {
+      if (body.commission_rate !== null &&
+          (typeof body.commission_rate !== 'number' || Number.isNaN(body.commission_rate) || body.commission_rate < 0 || body.commission_rate > 100)) {
+        return apiValidationError('نسبة العمولة يجب أن تكون رقم بين 0 و 100');
+      }
+      updateData.commission_rate = body.commission_rate ?? null;
+    }
+
+    // --- work_schedule_id ---
+    if (body.work_schedule_id !== undefined) {
+      if (body.work_schedule_id !== null && typeof body.work_schedule_id !== 'string') {
+        return apiValidationError('معرّف جدول العمل غير صالح');
+      }
+      updateData.work_schedule_id = body.work_schedule_id ?? null;
+    }
+
+    // --- salary_breakdown (migration 025) ---
+    if (body.salary_breakdown !== undefined) {
+      if (body.salary_breakdown !== null &&
+          (typeof body.salary_breakdown !== 'object' || Array.isArray(body.salary_breakdown))) {
+        return apiValidationError('تفاصيل الراتب يجب أن تكون كائن JSON');
+      }
+      updateData.salary_breakdown = body.salary_breakdown ?? null;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return apiValidationError('لا توجد بيانات للتحديث');
     }
@@ -291,7 +341,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .from('pyra_users')
       .update(updateData)
       .eq('username', username)
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, hourly_rate, hire_date, date_of_birth, department')
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, bank_details, commission_rate, work_schedule_id, salary_breakdown, onboarding_id')
       .single();
 
     if (updateError) {

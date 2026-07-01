@@ -694,8 +694,8 @@ Employee and admin accounts. Passwords hashed with scrypt.
 | created_at | timestamptz | YES | `now()` | — |
 
 **payment_type values**: `monthly_salary`, `hourly`, `per_task`, `commission`
-**employment_type values**: `full_time`, `part_time`, `contractor`, `freelancer`
-**status values**: `active`, `suspended`
+**employment_type values**: `full_time`, `part_time`, `contract`, `freelance`, `intern` (single source: `EMPLOYMENT_TYPES` in `lib/constants/auth.ts`)
+**status values**: `active`, `inactive`, `suspended`
 
 **Permissions JSON structure:**
 ```json
@@ -1726,18 +1726,27 @@ The following columns were added to `pyra_users` by the ERP migration:
 
 | Column | Type | Nullable | Default | Description |
 |--------|------|----------|---------|-------------|
-| employment_type | varchar(30) | YES | `'full_time'` | `full_time`, `part_time`, `contractor`, `freelance`, `intern` |
-| work_location | varchar(20) | YES | `'onsite'` | `onsite`, `remote`, `hybrid` |
-| payment_type | varchar(30) | YES | `'monthly_salary'` | `monthly_salary`, `hourly`, `per_task`, `commission` |
-| salary | numeric(12,2) | YES | `0` | Base monthly salary |
+| employment_type | varchar(30) | YES | `'full_time'` | Single-source enum `EMPLOYMENT_TYPES` (`lib/constants/auth.ts`): `full_time`, `part_time`, `contract`, `freelance`, `intern` |
+| work_location | varchar(20) | YES | `'onsite'` | `WORK_LOCATIONS`: `onsite`, `remote`, `hybrid` |
+| payment_type | varchar(30) | YES | `'monthly_salary'` | `PAYMENT_TYPES`: `monthly_salary`, `hourly`, `per_task`, `commission` |
+| salary | numeric(12,2) | YES | `0` | Base monthly salary (in `salary_currency`) — for `monthly_salary` staff this is the fixed monthly total |
 | hourly_rate | numeric(8,2) | YES | `0` | Hourly rate (for hourly workers) |
-| hire_date | date | YES | — | Employment start date |
-| national_id | text | YES | — | National/Emirates ID |
-| bank_details | jsonb | YES | `'{}'` | Bank account info (encrypted at rest) |
+| hire_date | date | YES | — | Employment start date (drives first-partial-month pro-ration) |
+| national_id | text | YES | — | National/Emirates ID (write path: users API POST/PATCH + edit dialog) |
+| bank_details | jsonb | YES | `'{}'` | Bank account info |
 | department | varchar(100) | YES | — | Department name |
 | manager_username | varchar | YES | — | Reporting manager (self-referencing) |
 | work_schedule_id | varchar(20) | YES | — | FK to `pyra_work_schedules(id)` |
+| commission_rate | numeric | YES | — | Commission % (write path: users API + edit dialog) |
 | date_of_birth | date | YES | — | Birthday — feeds HR Overview celebrations (`020_pyra_users_date_of_birth.sql`) |
+
+### Migration 025 — Schema of record (HR/payroll organization Phase 1)
+
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|---------|-------------|
+| salary_currency | varchar(3) | NOT NULL | `'AED'` | First-class per-employee pay currency (`SALARY_CURRENCIES`: AED, EGP, USD, SAR). Enables non-AED staff without the `salary=0` hack; each payroll run is single-currency and includes only employees whose `salary_currency` matches the run (Phase 2). |
+| onboarding_id | varchar(24) | YES | — | FK → `pyra_onboarding(id)` `ON DELETE SET NULL`. Set by the onboarding wizard; links a user to the onboarding record that created them (Phase 3). |
+| salary_breakdown | jsonb | YES | — | Salary component split (basic/housing/transport/…) from the onboarding wizard. `salary` stays the monthly total. |
 
 **Index**: `idx_users_manager` on `manager_username`
 

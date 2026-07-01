@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
-import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
+import { PASSWORD_MIN_LENGTH, SALARY_CURRENCIES } from '@/lib/constants/auth';
 import { useUsers } from '@/hooks/useUsers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -75,10 +75,13 @@ interface PyraUser {
   work_location?: 'remote' | 'onsite' | 'hybrid';
   payment_type?: 'monthly_salary' | 'hourly' | 'per_task' | 'commission';
   salary?: number;
+  salary_currency?: string;
   hourly_rate?: number;
   hire_date?: string;
   date_of_birth?: string | null;
   department?: string;
+  national_id?: string | null;
+  commission_rate?: number | null;
   extra_permissions?: string[];
 }
 
@@ -127,10 +130,13 @@ export default function UsersClient() {
     work_location: '' as string,
     payment_type: '' as string,
     salary: '' as string | number,
+    salary_currency: 'AED' as string,
     hourly_rate: '' as string | number,
     hire_date: '',
     date_of_birth: '',
     department: '',
+    national_id: '',
+    commission_rate: '' as string | number,
   });
   const [newPassword, setNewPassword] = useState('');
   const [extraPermissions, setExtraPermissions] = useState<string[]>([]);
@@ -158,10 +164,13 @@ export default function UsersClient() {
       work_location: '',
       payment_type: '',
       salary: '',
+      salary_currency: 'AED',
       hourly_rate: '',
       hire_date: '',
       date_of_birth: '',
       department: '',
+      national_id: '',
+      commission_rate: '',
     });
   };
 
@@ -199,6 +208,9 @@ export default function UsersClient() {
       role_id: formData.role_id || null,
       phone: formData.phone || null,
       job_title: formData.job_title || null,
+      salary_currency: formData.salary_currency || 'AED',
+      national_id: formData.national_id || null,
+      commission_rate: formData.commission_rate === '' ? null : Number(formData.commission_rate),
     });
   };
 
@@ -211,8 +223,11 @@ export default function UsersClient() {
       employment_type: formData.employment_type || null, work_location: formData.work_location || null,
       payment_type: formData.payment_type || null,
       salary: formData.payment_type === 'monthly_salary' && formData.salary ? Number(formData.salary) : null,
+      salary_currency: formData.salary_currency || 'AED',
       hourly_rate: formData.payment_type === 'hourly' && formData.hourly_rate ? Number(formData.hourly_rate) : null,
       hire_date: formData.hire_date || null, date_of_birth: formData.date_of_birth || null, department: formData.department || null,
+      national_id: formData.national_id || null,
+      commission_rate: formData.commission_rate === '' ? null : Number(formData.commission_rate),
       extra_permissions: extraPermissions,
     }});
   };
@@ -242,10 +257,13 @@ export default function UsersClient() {
       work_location: user.work_location || '',
       payment_type: user.payment_type || '',
       salary: user.salary ?? '',
+      salary_currency: user.salary_currency || 'AED',
       hourly_rate: user.hourly_rate ?? '',
       hire_date: user.hire_date || '',
       date_of_birth: user.date_of_birth || '',
       department: user.department || '',
+      national_id: user.national_id || '',
+      commission_rate: user.commission_rate ?? '',
     });
     setEditStatus(user.status || 'active');
     setExtraPermissions(Array.isArray(user.extra_permissions) ? user.extra_permissions : []);
@@ -715,31 +733,76 @@ export default function UsersClient() {
                 </div>
               </div>
               {formData.payment_type === 'monthly_salary' && (
-                <div className="space-y-2">
-                  <FormLabel>الراتب الشهري AED</FormLabel>
-                  <Input
-                    type="number"
-                    value={formData.salary}
-                    onChange={e => setFormData(p => ({ ...p, salary: e.target.value }))}
-                    placeholder="0.00"
-                    dir="ltr"
-                    min={0}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel>الراتب الشهري</FormLabel>
+                    <Input
+                      type="number"
+                      value={formData.salary}
+                      onChange={e => setFormData(p => ({ ...p, salary: e.target.value }))}
+                      placeholder="0.00"
+                      dir="ltr"
+                      min={0}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>العملة</FormLabel>
+                    <Select value={formData.salary_currency} onValueChange={v => setFormData(p => ({ ...p, salary_currency: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SALARY_CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
               {formData.payment_type === 'hourly' && (
-                <div className="space-y-2">
-                  <FormLabel>سعر الساعة AED</FormLabel>
-                  <Input
-                    type="number"
-                    value={formData.hourly_rate}
-                    onChange={e => setFormData(p => ({ ...p, hourly_rate: e.target.value }))}
-                    placeholder="0.00"
-                    dir="ltr"
-                    min={0}
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <FormLabel>سعر الساعة</FormLabel>
+                    <Input
+                      type="number"
+                      value={formData.hourly_rate}
+                      onChange={e => setFormData(p => ({ ...p, hourly_rate: e.target.value }))}
+                      placeholder="0.00"
+                      dir="ltr"
+                      min={0}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <FormLabel>العملة</FormLabel>
+                    <Select value={formData.salary_currency} onValueChange={v => setFormData(p => ({ ...p, salary_currency: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {SALARY_CURRENCIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <FormLabel>رقم الهوية / الجواز</FormLabel>
+                  <Input
+                    value={formData.national_id}
+                    onChange={e => setFormData(p => ({ ...p, national_id: e.target.value }))}
+                    placeholder="مثال: 784-XXXX-XXXXXXX-X"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>نسبة العمولة %</FormLabel>
+                  <Input
+                    type="number"
+                    value={formData.commission_rate}
+                    onChange={e => setFormData(p => ({ ...p, commission_rate: e.target.value }))}
+                    placeholder="0"
+                    dir="ltr"
+                    min={0}
+                    max={100}
+                  />
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <FormLabel>تاريخ التعيين</FormLabel>
