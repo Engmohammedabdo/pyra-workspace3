@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 
@@ -18,7 +18,9 @@ export async function GET(req: NextRequest) {
     let targetUsername = searchParams.get('username');
     if (!canManage) targetUsername = auth.pyraUser.username;
 
-    const supabase = await createServerSupabaseClient();
+    // Gate-then-service-role (Gap #3 Phase 5): requireApiPermission checked above;
+    // service-role bypasses RLS — user scope enforced explicitly via targetUsername below.
+    const supabase = createServiceRoleClient();
     let query = supabase
       .from('pyra_timesheet_periods')
       .select('*')

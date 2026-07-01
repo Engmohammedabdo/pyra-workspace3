@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(req: NextRequest) {
+  // Gate first, then service-role client (Gap #3 Phase 5 pattern).
   const auth = await getApiAuth();
   if (!auth) return apiUnauthorized();
 
@@ -15,7 +16,7 @@ export async function GET(req: NextRequest) {
   const week = searchParams.get('week'); // ISO date of week start
   const status = searchParams.get('status');
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
   let query = supabase
     .from('pyra_timesheets')
     .select('*, pyra_projects!left(id, name)')
@@ -68,7 +69,7 @@ const UAE_DEFAULT_SCHEDULE = {
  * Returns { is_overtime, overtime_multiplier } or null if not overtime.
  */
 async function detectOvertime(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  supabase: ReturnType<typeof createServiceRoleClient>,
   username: string,
   date: string,
   hours: number,
@@ -122,6 +123,7 @@ async function detectOvertime(
 }
 
 export async function POST(req: NextRequest) {
+  // Gate first, then service-role client (Gap #3 Phase 5 pattern).
   const auth = await getApiAuth();
   if (!auth) return apiUnauthorized();
 
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest) {
   if (!date || !hours) return apiValidationError('التاريخ والساعات مطلوبة');
   if (hours <= 0 || hours > 24) return apiValidationError('الساعات يجب أن تكون بين 0 و 24');
 
-  const supabase = await createServerSupabaseClient();
+  const supabase = createServiceRoleClient();
 
   // Detect overtime BEFORE inserting so the DB query won't include the new entry
   let is_overtime = false;
@@ -175,9 +177,8 @@ export async function POST(req: NextRequest) {
 
   if (error) return apiServerError(error.message);
 
-  // Activity log
-  const serviceClient = createServiceRoleClient();
-  const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+  // Activity log (reuse the already-service-role supabase client)
+  const { error: logErr } = await supabase.from('pyra_activity_log').insert({
     id: generateId('al'),
     action_type: 'timesheet_entry_created',
     username: auth.pyraUser.username,

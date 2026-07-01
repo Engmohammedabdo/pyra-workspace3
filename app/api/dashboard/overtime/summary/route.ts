@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 
 export async function GET(req: NextRequest) {
@@ -31,7 +31,9 @@ export async function GET(req: NextRequest) {
       ? `${year + 1}-01-01`
       : `${year}-${String(monthNum + 1).padStart(2, '0')}-01`;
 
-    const supabase = await createServerSupabaseClient();
+    // Gate-then-service-role (Gap #3 Phase 5): requireApiPermission checked above;
+    // service-role bypasses RLS — user scope enforced explicitly via targetUsername below.
+    const supabase = createServiceRoleClient();
 
     // Build query for overtime entries
     let query = supabase

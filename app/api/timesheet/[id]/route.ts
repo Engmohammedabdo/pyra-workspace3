@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
-import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 import { generateId } from '@/lib/utils/id';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
@@ -14,7 +14,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { id } = await params;
     const body = await req.json();
 
-    const supabase = await createServerSupabaseClient();
+    // Gate-then-service-role (Gap #3 Phase 5): auth already checked above;
+    // service-role bypasses RLS — ownership scope enforced explicitly below.
+    const supabase = createServiceRoleClient();
 
     // Check if user owns this entry or has manage permission
     const { data: existing } = await supabase.from('pyra_timesheets').select('username, status').eq('id', id).single();
@@ -58,9 +60,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (error) return apiServerError(error.message);
 
-    // Activity log
-    const serviceClient = createServiceRoleClient();
-    const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    // Activity log (reuse the already-service-role supabase client)
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'timesheet_entry_updated',
       username: auth.pyraUser.username,
@@ -85,7 +86,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (!auth) return apiUnauthorized();
 
     const { id } = await params;
-    const supabase = await createServerSupabaseClient();
+
+    // Gate-then-service-role (Gap #3 Phase 5): auth already checked above;
+    // service-role bypasses RLS — ownership scope enforced explicitly below.
+    const supabase = createServiceRoleClient();
 
     const { data: existing } = await supabase.from('pyra_timesheets').select('username, status').eq('id', id).single();
     if (!existing) return apiNotFound('السجل غير موجود');
@@ -99,9 +103,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     const { error } = await supabase.from('pyra_timesheets').delete().eq('id', id);
     if (error) return apiServerError(error.message);
 
-    // Activity log
-    const serviceClient = createServiceRoleClient();
-    const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
+    // Activity log (reuse the already-service-role supabase client)
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
       id: generateId('al'),
       action_type: 'timesheet_entry_deleted',
       username: auth.pyraUser.username,
