@@ -90,6 +90,7 @@ const SECTIONS = [
       '/dashboard/hr/documents',
       '/dashboard/hr/documents/settings',
       '/dashboard/hr/onboarding',
+      '/dashboard/hr/work-schedules',
     ],
   },
   {

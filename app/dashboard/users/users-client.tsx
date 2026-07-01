@@ -51,6 +51,7 @@ import { formatDate } from '@/lib/utils/format';
 import { usePermission } from '@/hooks/usePermission';
 import { cn } from '@/lib/utils/cn';
 import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
+import { useWorkSchedules } from '@/hooks/useWorkSchedules';
 
 interface PyraRole {
   name: string;
@@ -85,6 +86,7 @@ interface PyraUser {
   commission_rate?: number | null;
   extra_permissions?: string[];
   onboarding_id?: string | null;
+  work_schedule_id?: string | null;
 }
 
 interface RoleOption {
@@ -101,6 +103,7 @@ export default function UsersClient() {
 
   // React Query hooks
   const { data: users = [], isLoading: loading } = useUsers() as unknown as { data: PyraUser[]; isLoading: boolean };
+  const { data: workSchedules = [] } = useWorkSchedules();
   const { data: roles = [] } = useQuery<RoleOption[]>({
     queryKey: ['roles'],
     queryFn: async () => {
@@ -139,6 +142,7 @@ export default function UsersClient() {
     department: '',
     national_id: '',
     commission_rate: '' as string | number,
+    work_schedule_id: '' as string,
   });
   const [newPassword, setNewPassword] = useState('');
   const [extraPermissions, setExtraPermissions] = useState<string[]>([]);
@@ -173,6 +177,7 @@ export default function UsersClient() {
       department: '',
       national_id: '',
       commission_rate: '',
+      work_schedule_id: '',
     });
   };
 
@@ -213,6 +218,7 @@ export default function UsersClient() {
       salary_currency: formData.salary_currency || 'AED',
       national_id: formData.national_id || null,
       commission_rate: formData.commission_rate === '' ? null : Number(formData.commission_rate),
+      work_schedule_id: formData.work_schedule_id || null,
     });
   };
 
@@ -231,6 +237,7 @@ export default function UsersClient() {
       national_id: formData.national_id || null,
       commission_rate: formData.commission_rate === '' ? null : Number(formData.commission_rate),
       extra_permissions: extraPermissions,
+      work_schedule_id: formData.work_schedule_id || null,
     }});
   };
 
@@ -266,6 +273,7 @@ export default function UsersClient() {
       department: user.department || '',
       national_id: user.national_id || '',
       commission_rate: user.commission_rate ?? '',
+      work_schedule_id: user.work_schedule_id || '',
     });
     setEditStatus(user.status || 'active');
     setExtraPermissions(Array.isArray(user.extra_permissions) ? user.extra_permissions : []);
@@ -507,6 +515,23 @@ export default function UsersClient() {
                     dir="ltr"
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <FormLabel>جدول العمل</FormLabel>
+                <Select
+                  value={formData.work_schedule_id || '__none__'}
+                  onValueChange={v => setFormData(p => ({ ...p, work_schedule_id: v === '__none__' ? '' : v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+                    {workSchedules.map(ws => (
+                      <SelectItem key={ws.id} value={ws.id}>
+                        {ws.name_ar}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>
@@ -837,6 +862,23 @@ export default function UsersClient() {
                     dir="ltr"
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <FormLabel>جدول العمل</FormLabel>
+                <Select
+                  value={formData.work_schedule_id || '__none__'}
+                  onValueChange={v => setFormData(p => ({ ...p, work_schedule_id: v === '__none__' ? '' : v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="— الجدول الافتراضي —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— الجدول الافتراضي —</SelectItem>
+                    {workSchedules.map(ws => (
+                      <SelectItem key={ws.id} value={ws.id}>
+                        {ws.name_ar}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

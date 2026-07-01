@@ -183,6 +183,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
       { href: '/dashboard/hr/documents/settings', label: 'أنواع الوثائق', labelEn: 'Document Types', icon: Settings2, permission: 'documents.manage' },
       { href: '/dashboard/hr/onboarding', label: 'تعيين موظفين', labelEn: 'Onboarding', icon: UserPlus, permission: 'hr.manage' },
+      { href: '/dashboard/hr/work-schedules', label: 'جداول العمل', labelEn: 'Work Schedules', icon: Clock, permission: 'attendance.manage' },
     ],
   },
   {
