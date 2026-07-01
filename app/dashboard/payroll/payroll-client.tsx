@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, Receipt, Wallet } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEmployeePayments } from '@/hooks/useEmployeePayments';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsersLite } from '@/hooks/useUsers';
 import { PayrollRunsTable } from '@/components/payroll/PayrollRunsTable';
 import { EmployeePaymentsTab } from '@/components/payroll/EmployeePaymentsTab';
 import { CreatePayrollDialog } from '@/components/payroll/CreatePayrollDialog';
@@ -17,7 +17,9 @@ export default function PayrollClient() {
   const [paymentOpen, setPaymentOpen] = useState(false);
 
   const { data: payments = [], isLoading: paymentsLoading } = useEmployeePayments();
-  const { data: allUsersRaw = [] } = useUsers();
+  // Lite endpoint (no users.view needed) — an HR manager with only
+  // payroll.manage still gets a populated employee picker.
+  const { data: allUsersRaw = [] } = useUsersLite();
   const allUsers = allUsersRaw
     .filter((u) => u.username && u.display_name && u.role !== 'client')
     .map((u) => ({ username: u.username as string, display_name: u.display_name as string }));

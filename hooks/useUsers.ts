@@ -24,6 +24,13 @@ export interface UserLite {
   name?: string;
   email?: string;
   avatar_url?: string;
+  // `/api/users/lite` actually returns these four (username, display_name,
+  // status, role) — declared so pickers can filter/display on them without
+  // falling through the index signature.
+  username?: string;
+  display_name?: string;
+  status?: string;
+  role?: string;
   [key: string]: unknown;
 }
 

@@ -213,7 +213,7 @@ export default function AttendanceCalendar({
                         <td className="py-3">
                           <Badge
                             variant="outline"
-                            className={`text-[11px] border-0 ${ATTENDANCE_STATUS_STYLES[record.status] || ''}`}
+                            className={`text-[11px] border-0 ${ATTENDANCE_STATUS_STYLES[record.status]}`}
                           >
                             {ATTENDANCE_STATUS_LABELS[record.status] || record.status}
                           </Badge>

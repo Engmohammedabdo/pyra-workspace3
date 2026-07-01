@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useUpsertAttendance } from '@/hooks/useAttendance';
-import { useUsers } from '@/hooks/useUsers';
+import { useUsersLite } from '@/hooks/useUsers';
 import { ATTENDANCE_STATUS_LABELS } from '@/lib/constants/statuses';
 import type { AttendanceStatus } from '@/lib/constants/statuses';
 import { dubaiDayKey } from '@/lib/utils/format';
@@ -56,11 +56,17 @@ export default function AdminAttendanceDialog({
   const [clockOut, setClockOut] = useState('');
   const [notes, setNotes] = useState('');
 
-  const { data: usersRaw = [] } = useUsers();
-  // Filter out clients; only internal employees
-  const employees = usersRaw.filter(
-    (u) => u.role !== 'client' && u.status !== 'inactive'
-  );
+  // Lite endpoint (no users.view needed) → an HR manager with only
+  // attendance.manage still gets a populated picker. Returns username /
+  // display_name / status / role.
+  const { data: usersRaw = [] } = useUsersLite();
+  // Only internal, non-inactive employees; normalise to a clean typed shape.
+  const employees = usersRaw
+    .filter((u) => u.username && u.role !== 'client' && u.status !== 'inactive')
+    .map((u) => ({
+      username: String(u.username),
+      display_name: (u.display_name as string) ?? String(u.username),
+    }));
 
   const upsert = useUpsertAttendance();
 
@@ -121,8 +127,8 @@ export default function AdminAttendanceDialog({
               </SelectTrigger>
               <SelectContent>
                 {employees.map((u) => (
-                  <SelectItem key={String(u.id)} value={u.username ?? String(u.id)}>
-                    {u.display_name ?? u.name ?? u.username ?? String(u.id)}
+                  <SelectItem key={u.username} value={u.username}>
+                    {u.display_name}
                   </SelectItem>
                 ))}
               </SelectContent>

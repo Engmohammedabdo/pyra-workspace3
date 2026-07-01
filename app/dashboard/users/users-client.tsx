@@ -829,12 +829,11 @@ export default function UsersClient() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date_of_birth">تاريخ الميلاد</Label>
+                  <FormLabel>تاريخ الميلاد</FormLabel>
                   <Input
-                    id="date_of_birth"
                     type="date"
                     value={formData.date_of_birth ?? ''}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
+                    onChange={e => setFormData(p => ({ ...p, date_of_birth: e.target.value }))}
                     dir="ltr"
                   />
                 </div>

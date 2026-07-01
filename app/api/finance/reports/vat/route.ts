@@ -3,12 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
-
-/* ── Arabic month names ────────────────────────────── */
-const ARABIC_MONTHS = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -43,7 +38,7 @@ function buildMonths(from: string, to: string) {
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     months.push({
-      label: `${ARABIC_MONTHS[month]} ${year}`,
+      label: `${MONTH_NAMES_AR[month]} ${year}`,
       start: monthStart,
       end: monthEnd,
     });

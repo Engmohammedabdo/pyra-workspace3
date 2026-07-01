@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Wallet } from 'lucide-react';
 import { usePayrollRuns } from '@/hooks/usePayroll';
-import { PayrollRunRow } from './PayrollRunRow';
+import { PayrollRunRow } from '@/components/payroll/PayrollRunRow';
 
 interface Props {
   onCreateRun: () => void;
