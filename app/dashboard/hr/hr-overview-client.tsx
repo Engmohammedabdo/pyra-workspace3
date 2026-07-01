@@ -12,6 +12,7 @@ import { PayrollTrendChart } from '@/components/hr/overview/PayrollTrendChart';
 import { UpcomingLeaveList } from '@/components/hr/overview/UpcomingLeaveList';
 import { EvaluationsStatusCard } from '@/components/hr/overview/EvaluationsStatusCard';
 import { CelebrationsCard } from '@/components/hr/overview/CelebrationsCard';
+import { LeaveLiabilityCard } from '@/components/hr/overview/LeaveLiabilityCard';
 
 const containerMotion = {
   hidden: { opacity: 0 },
@@ -30,8 +31,8 @@ export default function HrOverviewClient() {
     return (
       <div className="space-y-6">
         <Skeleton className="h-12 rounded-2xl" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {Array.from({ length: 5 }).map((_, i) => (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-36 rounded-2xl" />
           ))}
         </div>
@@ -39,7 +40,8 @@ export default function HrOverviewClient() {
           <Skeleton className="h-80 rounded-2xl" />
           <Skeleton className="h-80 rounded-2xl" />
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 lg:grid-cols-4">
+          <Skeleton className="h-64 rounded-2xl" />
           <Skeleton className="h-64 rounded-2xl" />
           <Skeleton className="h-64 rounded-2xl" />
           <Skeleton className="h-64 rounded-2xl" />
@@ -76,11 +78,12 @@ export default function HrOverviewClient() {
         <PayrollTrendChart trendByCurrency={data.payroll.trend_by_currency} />
       </motion.div>
 
-      {/* Bottom row — 3 columns on lg+ */}
-      <motion.div variants={itemMotion} className="grid gap-4 lg:grid-cols-3">
+      {/* Bottom row — 4 columns on lg+ */}
+      <motion.div variants={itemMotion} className="grid gap-4 lg:grid-cols-4">
         <UpcomingLeaveList items={data.leave.upcoming} />
         <EvaluationsStatusCard evaluations={data.evaluations} />
         <CelebrationsCard items={data.celebrations} />
+        <LeaveLiabilityCard liabilityByCurrency={data.leave.liability_by_currency} />
       </motion.div>
     </motion.div>
   );

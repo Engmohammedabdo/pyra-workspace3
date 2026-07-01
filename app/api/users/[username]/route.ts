@@ -198,6 +198,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         return apiValidationError('الحالة يجب أن تكون active أو inactive أو suspended');
       }
       updateData.status = body.status;
+      // Stamp/clear the departure timestamp for turnover metrics: set it only on
+      // the transition FROM active into an inactive state; clear on reactivation.
+      if ((body.status === 'inactive' || body.status === 'suspended') && existingUser.status === 'active') {
+        updateData.deactivated_at = new Date().toISOString();
+      } else if (body.status === 'active') {
+        updateData.deactivated_at = null;
+      }
     }
 
     // --- Employment classification fields ---

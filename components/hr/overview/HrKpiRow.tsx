@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, UserCheck, Plane, ClipboardCheck, Banknote } from 'lucide-react';
+import { Users, UserCheck, Plane, ClipboardCheck, Banknote, UserMinus } from 'lucide-react';
 import { KpiCard } from '@/components/dashboard/KpiCard';
 import { formatCurrency } from '@/lib/utils/format';
 import type { HROverview } from '@/hooks/useHROverview';
@@ -22,7 +22,7 @@ export function HrKpiRow({ data }: HrKpiRowProps) {
   const pendingSubtitle = breakdownParts.length > 0 ? breakdownParts.join(' · ') : undefined;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
       {/* 1. Headcount */}
       <KpiCard
         title="إجمالي الموظفين"
@@ -65,6 +65,15 @@ export function HrKpiRow({ data }: HrKpiRowProps) {
         value={formatCurrency(data.payroll.last_paid_total, data.payroll.last_paid_currency)}
         icon={Banknote}
         gradient="from-purple-500 to-violet-600"
+      />
+
+      {/* 6. Turnover — departed in the last 90 days (E4) */}
+      <KpiCard
+        title="المغادرون (90 يوم)"
+        value={String(data.headcount.departed_90d)}
+        icon={UserMinus}
+        gradient="from-slate-500 to-gray-600"
+        subtitle={`إجمالي غير نشط: ${data.headcount.inactive}`}
       />
     </div>
   );

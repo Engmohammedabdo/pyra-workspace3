@@ -6,6 +6,7 @@ import { logError } from '@/lib/observability/log-error';
 import { computeCelebrations, deriveAlerts } from '@/lib/hr/overview-helpers';
 import { dubaiDayKey } from '@/lib/utils/format';
 import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
 
 // ============================================================
 // GET /api/hr/overview
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
     // ── Headcount ──────────────────────────────────────────────────────────────
     const { data: allUsers, error: usersError } = await supabase
       .from('pyra_users')
-      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role')
+      .select('username, display_name, status, employment_type, department, hire_date, date_of_birth, role, deactivated_at, salary, salary_currency')
       .neq('role', 'client');
 
     if (usersError) throw new Error(`pyra_users: ${usersError.message}`);
@@ -60,8 +61,37 @@ export async function GET(request: NextRequest) {
 
     const thirtyDaysAgo = daysFromNow(-30);
     const ninetyDaysAgo = daysFromNow(-90);
+    const threeSixtyFiveDaysAgo = daysFromNow(-365);
     const new_30d = activeUsers.filter((u) => u.hire_date && u.hire_date >= thirtyDaysAgo).length;
     const new_90d = activeUsers.filter((u) => u.hire_date && u.hire_date >= ninetyDaysAgo).length;
+
+    // ── Turnover / attrition (E4) ────────────────────────────────────────────
+    // deactivated_at is a timestamptz stamped on the active → inactive/suspended
+    // transition (migration 029). Compare the ISO date portion against the same
+    // daysFromNow() windows used for hire-date lookback above.
+    const dateOnly = (iso: string) => iso.slice(0, 10);
+    const allNonClientUsers = allUsers ?? [];
+    const inactive = allNonClientUsers.filter((u) => u.status !== 'active').length;
+    const departed_30d = allNonClientUsers.filter(
+      (u) => u.deactivated_at && dateOnly(u.deactivated_at) >= thirtyDaysAgo,
+    ).length;
+    const departed_90d = allNonClientUsers.filter(
+      (u) => u.deactivated_at && dateOnly(u.deactivated_at) >= ninetyDaysAgo,
+    ).length;
+    const departed_365d = allNonClientUsers.filter(
+      (u) => u.deactivated_at && dateOnly(u.deactivated_at) >= threeSixtyFiveDaysAgo,
+    ).length;
+
+    // Salary lookup per employee — used by the leave-liability calc (E5) below.
+    // CURRENCY-SAFE: never sum across currencies, only used per-user then
+    // bucketed by that user's own salary_currency.
+    const userSalaryMap = new Map<string, { salary: number; currency: string }>();
+    for (const u of allNonClientUsers) {
+      userSalaryMap.set(u.username, {
+        salary: Number(u.salary) || 0,
+        currency: (u.salary_currency as string) || 'AED',
+      });
+    }
 
     // ── Attendance today ────────────────────────────────────────────────────────
     // pyra_attendance.status values: 'present' | 'late' | 'absent' | etc.
@@ -166,19 +196,44 @@ export async function GET(request: NextRequest) {
         days: l.days_count ?? 0,
       }));
 
-    // Paid-leave liability: remaining paid days across all balances (current year)
+    // Paid-leave liability (E5): remaining days on PAID leave-type balances,
+    // valued at each employee's own daily rate (salary / working days per
+    // month), bucketed by that employee's salary_currency. NEVER sum across
+    // currencies — mirrors the payroll-trend runsByCurrency pattern above.
     const currentYear = new Date().getFullYear();
     const { data: balancesData, error: balancesError } = await supabase
       .from('pyra_leave_balances_v2')
-      .select('total_days, used_days, carried_over')
+      .select('username, total_days, used_days, carried_over, pyra_leave_types(is_paid)')
       .eq('year', currentYear);
 
     if (balancesError) throw new Error(`pyra_leave_balances_v2: ${balancesError.message}`);
 
-    const paid_liability_days = (balancesData ?? []).reduce(
-      (sum, b) => sum + Math.max(0, (b.total_days ?? 0) + (b.carried_over ?? 0) - (b.used_days ?? 0)),
-      0,
-    );
+    const liabilityByCurrency = new Map<string, { amount: number; days: number }>();
+
+    for (const b of balancesData ?? []) {
+      // Supabase embeds a many-to-one relation (leave_type_id FK) as a single
+      // object, but guard against an array shape defensively.
+      const typeRel = Array.isArray(b.pyra_leave_types) ? b.pyra_leave_types[0] : b.pyra_leave_types;
+      if (!typeRel || typeRel.is_paid !== true) continue; // unpaid leave types contribute nothing
+
+      const remainingDays = Math.max(0, (b.total_days ?? 0) + (b.carried_over ?? 0) - (b.used_days ?? 0));
+      const employee = userSalaryMap.get(b.username);
+      const currency = employee?.currency || 'AED';
+      const dailyRate = (employee?.salary ?? 0) / PAYROLL_WORKING_DAYS_PER_MONTH;
+
+      const bucket = liabilityByCurrency.get(currency) ?? { amount: 0, days: 0 };
+      bucket.amount += remainingDays * dailyRate;
+      bucket.days += remainingDays;
+      liabilityByCurrency.set(currency, bucket);
+    }
+
+    const liability_by_currency = Array.from(liabilityByCurrency.entries()).map(([currency, v]) => ({
+      currency,
+      amount: Math.round(v.amount * 100) / 100,
+      days: v.days,
+    }));
+
+    const paid_liability_days = liability_by_currency.reduce((sum, v) => sum + v.days, 0);
 
     // ── Payroll ────────────────────────────────────────────────────────────────
     const now = new Date();
@@ -298,6 +353,10 @@ export async function GET(request: NextRequest) {
         by_department,
         new_30d,
         new_90d,
+        inactive,
+        departed_30d,
+        departed_90d,
+        departed_365d,
       },
       attendance_today: {
         present: presentCount,
@@ -310,6 +369,7 @@ export async function GET(request: NextRequest) {
         pending: pendingLeaveCt,
         on_leave_today: onLeaveTodayList,
         paid_liability_days,
+        liability_by_currency,
         upcoming: upcomingLeave,
       },
       pending_approvals: {

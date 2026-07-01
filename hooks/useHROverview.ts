@@ -4,9 +4,32 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from './api-helpers';
 
 export interface HROverview {
-  headcount: { active: number; by_type: Record<string, number>; by_department: Record<string, number>; new_30d: number; new_90d: number };
+  headcount: {
+    active: number;
+    by_type: Record<string, number>;
+    by_department: Record<string, number>;
+    new_30d: number;
+    new_90d: number;
+    /** Non-active (inactive/suspended) headcount among all non-client users. */
+    inactive: number;
+    /** Turnover — count of employees whose deactivated_at falls in the last N days. */
+    departed_30d: number;
+    departed_90d: number;
+    departed_365d: number;
+  };
   attendance_today: { present: number; absent: number; late: number; on_leave: number; present_rate_pct: number };
-  leave: { pending: number; on_leave_today: Array<{ username: string; display_name: string; end_date: string }>; paid_liability_days: number; upcoming: Array<{ username: string; display_name: string; start_date: string; end_date: string; days: number }> };
+  leave: {
+    pending: number;
+    on_leave_today: Array<{ username: string; display_name: string; end_date: string }>;
+    /** Total remaining paid-leave days across all currencies (backward-compat). */
+    paid_liability_days: number;
+    /**
+     * Monetary leave liability grouped by currency — never sum across
+     * currencies (mirrors payroll's trend_by_currency pattern).
+     */
+    liability_by_currency: Array<{ currency: string; amount: number; days: number }>;
+    upcoming: Array<{ username: string; display_name: string; start_date: string; end_date: string; days: number }>;
+  };
   /** Combined cross-module pending-approvals breakdown. */
   pending_approvals: { leave: number; expense: number; timesheet: number; total: number };
   payroll: {

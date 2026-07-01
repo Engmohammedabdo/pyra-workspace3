@@ -46,6 +46,8 @@ export interface PyraUser {
   onboarding_id?: string | null;
   /** Salary component breakdown, e.g. { basic, housing, transport } */
   salary_breakdown?: Record<string, unknown> | null;
+  /** Migration 029 — timestamp set when status flips active → inactive/suspended (turnover metrics); cleared on reactivation */
+  deactivated_at?: string | null;
   // Joined from pyra_roles
   role_name?: string;
   role_name_ar?: string;

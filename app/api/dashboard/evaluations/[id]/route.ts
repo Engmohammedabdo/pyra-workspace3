@@ -206,16 +206,19 @@ export async function PATCH(
         return apiError('التقييم لا يستحق مكافأة', 400);
       }
 
-      // Fetch employee salary
+      // Fetch employee salary (+ currency — the workspace is multi-currency;
+      // never hardcode 'AED' for the payment record)
       const { data: employee, error: empError } = await supabase
         .from('pyra_users')
-        .select('salary, display_name')
+        .select('salary, salary_currency, display_name')
         .eq('username', evaluation.employee_username)
         .single();
 
       if (empError || !employee) {
         return apiError('لم يتم العثور على بيانات الموظف', 404);
       }
+
+      const currency = employee.salary_currency || 'AED';
 
       const salary = Number(employee.salary);
       if (!salary || salary <= 0) {
@@ -254,7 +257,7 @@ export async function PATCH(
           source_id: evaluation.id,
           description,
           amount: bonusAmount,
-          currency: 'AED',
+          currency,
           status: EMPLOYEE_PAYMENT_STATUS.PENDING,
         })
         .select()
@@ -284,7 +287,7 @@ export async function PATCH(
       });
 
       return apiSuccess({
-        message: `تمت التوصية بمكافأة بمبلغ ${bonusAmount} AED`,
+        message: `تمت التوصية بمكافأة بمبلغ ${bonusAmount} ${currency}`,
         payment,
         bonus_amount: bonusAmount,
         bonus_percent: bonusPercent * 100,

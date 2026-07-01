@@ -31,6 +31,8 @@ import {
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
 import { motion } from 'framer-motion';
+import { KpiProgressEditor } from '@/components/evaluations/KpiProgressEditor';
+import { PerformanceTrend } from '@/components/evaluations/PerformanceTrend';
 import {
   RadarChart,
   PolarGrid,
@@ -52,6 +54,7 @@ import {
   FileText,
   Users,
   TrendingUp,
+  Gift,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -188,6 +191,10 @@ export default function EvaluationsClient({ session }: { session: AuthSession })
             <Target className="h-4 w-4" />
             مؤشرات الأداء
           </TabsTrigger>
+          <TabsTrigger value="trend" className="gap-1.5">
+            <TrendingUp className="h-4 w-4" />
+            الأداء عبر الفترات
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="evaluations">
@@ -200,6 +207,10 @@ export default function EvaluationsClient({ session }: { session: AuthSession })
 
         <TabsContent value="kpis">
           <KpisTab session={session} canManage={canManage} />
+        </TabsContent>
+
+        <TabsContent value="trend">
+          <PerformanceTrend />
         </TabsContent>
       </Tabs>
     </motion.div>
@@ -247,6 +258,9 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 
   // Comment fields for evaluation
   const [editComments, setEditComments] = useState({ comments: '', strengths: '', improvements: '' });
+
+  // Bonus recommendations already sent this session (hide/disable the button after success)
+  const [bonusRecommendedIds, setBonusRecommendedIds] = useState<Set<string>>(new Set());
 
   const fetchData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['evaluations'] });
@@ -350,6 +364,18 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     onError: () => toast.error('فشل في حفظ الملاحظات'),
   });
 
+  const recommendBonusMutation = useMutation({
+    mutationFn: (evalId: string) =>
+      mutateAPI<{ message: string }>(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'recommend_bonus' }),
+    onSuccess: (data, evalId) => {
+      toast.success(data?.message || 'تمت التوصية بمكافأة بنجاح');
+      setBonusRecommendedIds((prev) => new Set(prev).add(evalId));
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : 'فشل في التوصية بمكافأة');
+    },
+  });
+
   const handleCreate = () => {
     if (!newEval.period_id || !newEval.employee_username || !newEval.evaluator_username) {
       toast.error('جميع الحقول مطلوبة');
@@ -389,6 +415,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const handleSubmit = (evalId: string) => submitEvalMutation.mutate(evalId);
   const handleAcknowledge = (evalId: string) => acknowledgeEvalMutation.mutate(evalId);
   const handleSaveComments = (evalId: string) => saveCommentsMutation.mutate({ evalId, comments: editComments });
+  const handleRecommendBonus = (evalId: string) => recommendBonusMutation.mutate(evalId);
 
   const renderStars = (rating: number | null) => {
     if (!rating) return <span className="text-muted-foreground text-sm">—</span>;
@@ -698,6 +725,23 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                           >
                             <CheckCircle className="h-4 w-4" />
                             الاعتراف بالتقييم
+                          </Button>
+                        )}
+                      {canManage &&
+                        (expandedData.status === 'submitted' || expandedData.status === 'acknowledged') &&
+                        Number(expandedData.overall_rating) >= 3.5 && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleRecommendBonus(ev.id)}
+                            disabled={recommendBonusMutation.isPending || bonusRecommendedIds.has(ev.id)}
+                            className="gap-1.5 bg-amber-500 hover:bg-amber-600 text-white dark:bg-amber-600 dark:hover:bg-amber-700"
+                          >
+                            <Gift className="h-4 w-4" />
+                            {bonusRecommendedIds.has(ev.id)
+                              ? 'تمت التوصية بمكافأة'
+                              : recommendBonusMutation.isPending
+                              ? 'جارٍ الإرسال...'
+                              : 'التوصية بمكافأة'}
                           </Button>
                         )}
                     </div>
@@ -1208,6 +1252,15 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
                   <div className="space-y-1">
                     <Progress value={pct} className="h-2" />
                     <p className="text-xs text-muted-foreground text-end">{pct}%</p>
+                  </div>
+                )}
+                {canManage && (
+                  <div className="pt-2 border-t flex items-center justify-end">
+                    <KpiProgressEditor
+                      kpiId={kpi.id}
+                      currentValue={kpi.actual_value}
+                      onSaved={fetchData}
+                    />
                   </div>
                 )}
               </CardContent>

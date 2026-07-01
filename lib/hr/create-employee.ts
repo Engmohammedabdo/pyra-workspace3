@@ -311,6 +311,7 @@ export async function reactivateEmployeeUser(
     .from('pyra_users')
     .update({
       status: 'active',
+      deactivated_at: null,
       password_hash: passwordHash,
       role,
       display_name: display_name.trim(),
