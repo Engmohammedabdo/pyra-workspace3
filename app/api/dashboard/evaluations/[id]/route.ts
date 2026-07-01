@@ -206,6 +206,19 @@ export async function PATCH(
         return apiError('التقييم لا يستحق مكافأة', 400);
       }
 
+      // Idempotency: a bonus was already recommended for THIS evaluation — don't
+      // create a duplicate pending payment (the UI button also guards, but that
+      // resets on refresh; this is the authoritative guard).
+      const { data: existingBonus } = await supabase
+        .from('pyra_employee_payments')
+        .select('id')
+        .eq('source_type', 'bonus')
+        .eq('source_id', evaluation.id)
+        .limit(1);
+      if (existingBonus && existingBonus.length > 0) {
+        return apiError('تمت التوصية بمكافأة لهذا التقييم مسبقاً', 409);
+      }
+
       // Fetch employee salary (+ currency — the workspace is multi-currency;
       // never hardcode 'AED' for the payment record)
       const { data: employee, error: empError } = await supabase

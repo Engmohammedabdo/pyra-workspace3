@@ -67,9 +67,10 @@ export async function GET(request: NextRequest) {
 
     // ── Turnover / attrition (E4) ────────────────────────────────────────────
     // deactivated_at is a timestamptz stamped on the active → inactive/suspended
-    // transition (migration 029). Compare the ISO date portion against the same
-    // daysFromNow() windows used for hire-date lookback above.
-    const dateOnly = (iso: string) => iso.slice(0, 10);
+    // transition (migration 029). Convert it to the Dubai calendar day (NOT a raw
+    // UTC .slice(0,10), which skews ~4h near midnight) so both sides of the window
+    // comparison use dubaiDayKey — the thresholds are already Dubai-day via daysFromNow.
+    const dateOnly = (iso: string) => dubaiDayKey(new Date(iso));
     const allNonClientUsers = allUsers ?? [];
     const inactive = allNonClientUsers.filter((u) => u.status !== 'active').length;
     const departed_30d = allNonClientUsers.filter(
