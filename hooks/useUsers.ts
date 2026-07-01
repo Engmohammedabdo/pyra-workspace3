@@ -59,5 +59,9 @@ export function useUser<T = User>(username: string | undefined) {
     queryFn: () => fetchAPI<T>(`/api/users/${username}`),
     enabled: !!username,
     staleTime: 60_000,
+    // Single-entity lookup: a 404 (deleted/nonexistent user) should surface
+    // immediately so the caller can redirect — don't spin through React Query's
+    // default 3 retries (~7s of skeleton) before failing.
+    retry: false,
   });
 }
