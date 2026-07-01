@@ -8,18 +8,12 @@ import {
   XCircle,
   TrendingUp,
 } from 'lucide-react';
+import { formatHours } from '@/lib/utils/format';
 import type { AttendanceSummary } from '@/hooks/useAttendance';
 
 interface AttendanceSummaryCardsProps {
   summary: AttendanceSummary | null;
   loading: boolean;
-}
-
-function formatHours(hours: number): string {
-  if (!hours) return '0:00';
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}:${String(m).padStart(2, '0')}`;
 }
 
 export default function AttendanceSummaryCards({

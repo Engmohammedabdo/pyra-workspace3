@@ -19,6 +19,7 @@ import {
   Clock, Plus, Send, CheckCircle, XCircle, Trash2, Briefcase,
   Timer, CalendarRange, DollarSign, AlertTriangle, Loader2,
 } from 'lucide-react';
+import { dubaiDayKey } from '@/lib/utils/format';
 import type { AuthSession } from '@/lib/auth/guards';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -103,7 +104,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
   const [periodStartDate, setPeriodStartDate] = useState('');
   const [periodEndDate, setPeriodEndDate] = useState('');
 
-  const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
+  const [formDate, setFormDate] = useState(dubaiDayKey());
   const [formHours, setFormHours] = useState('');
   const [formProject, setFormProject] = useState('');
   const [formDesc, setFormDesc] = useState('');

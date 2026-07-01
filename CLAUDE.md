@@ -3866,3 +3866,87 @@ mistaken for live-logged ones.
 - [ ] **Asset Register (Phase 2)** — `pyra_assets` table + link to
   `pyra_onboarding` via `asset_ids[]`.
 - [ ] **Offboarding (Phase 3)** — asset return, exit interview, access revocation.
+
+## HR + Payroll Organization — Locked Decisions (2026-07-01)
+
+A 7-phase "organization" pass (design spec:
+`docs/superpowers/specs/2026-07-01-hr-payroll-organization-design.md`) that closed
+audited gaps and made payroll multi-currency. **Do NOT re-litigate.** Each phase
+shipped to `main` independently (audit → design → implement → review → build).
+
+### 1. Multi-currency payroll = per-employee currency + single-currency runs (Phase 2)
+
+Currency is a first-class attribute of the EMPLOYEE (`pyra_users.salary_currency`,
+migration 025, default `'AED'`). Each payroll RUN is **single-currency**
+(`pyra_payroll_runs.currency`); run uniqueness is `(month, year, currency)`
+(migration 026) so an AED run and an EGP run coexist in one month.
+`app/api/dashboard/payroll/[id]/calculate/route.ts` includes ONLY employees whose
+`salary_currency === run.currency`, gates `pyra_employee_payments` to the run
+currency (mismatches skipped → `warnings[]`), and stamps
+`pyra_payroll_items.currency`. `total_amount` is therefore a same-currency sum —
+**never mix currencies in a run.** `salary_currency` governs BOTH `salary` AND
+`hourly_rate` (there is no separate hourly_rate_currency). Display: every
+`formatCurrency(amount, currency)` call passes the row's real currency; the
+`salary=0` contractor hack is GONE.
+
+### 2. Unpaid-leave deduction — the columns are `type` + `days_count` (Phase 0)
+
+`pyra_leave_requests` has `type` (a NAME string matching `pyra_leave_types.name` —
+there is NO `leave_type_id`) and `days_count` (NOT `total_days`). The calculate
+route previously SELECTed the non-existent `total_days`/`leave_type_id`, so
+PostgREST returned null and **no unpaid leave was ever deducted**. Fixed:
+resolve unpaid types by `pyra_leave_types.name` where `is_paid=false`; deduct only
+the days that fall inside the run month via `leaveOverlapDays()` (cross-month
+safe). **Operational note:** all seeded leave types are `is_paid=true` today — to
+actually deduct unpaid leave, an admin must create an `is_paid=false` leave type.
+
+### 3. The two EGP contractors are real EGP employees
+
+`wael.hany` (25,000 EGP) and `abdelrahman.morshedy` (14,000 EGP) have
+`salary_currency='EGP'` + real salaries. Pay them by creating an **EGP payroll
+run** (Create Payroll → currency=EGP → calculate) — pro-ration is automatic from
+`hire_date`. Do NOT pay them via manual Employee Payments anymore, and do NOT set
+their salary to 0.
+
+### 4. `pyra_users` is the schema of record (Phase 1)
+
+`national_id`, `bank_details`, `commission_rate`, `work_schedule_id`,
+`salary_currency`, `salary_breakdown` all have write paths (users API POST/PATCH +
+edit dialog). Employment enums are single-source in `lib/constants/auth.ts`
+(`EMPLOYMENT_TYPES` = full_time/part_time/contract/freelance/intern;
+`WORK_LOCATIONS`; `PAYMENT_TYPES`; `SALARY_CURRENCIES` = AED/EGP/USD/SAR). Do NOT
+re-inline these enums.
+
+### 5. Onboarding ↔ Users are linked, not merged (Phase 3)
+
+`pyra_users.onboarding_id` (FK → pyra_onboarding) is set by the onboarding POST
+after both rows exist. Both creation paths write the SAME employment fields (the
+wizard passes national_id/commission_rate/employment_type/work_location/
+salary_breakdown through `createEmployeeUser`; `salary` stays the monthly total).
+Cancelling an onboarding sets the linked user `status='inactive'` (no ghost
+logins). Cross-links: users-list badge, user-detail button, onboarding-detail
+link. Keep the two surfaces separate but linked.
+
+### 6. Workflow + security + IA (Phases 4-6)
+
+- Contractors (`employment_type` contract/freelance) are BLOCKED from submitting
+  leave; leave approve/reject notifies the employee (`leave_approved`/`leave_rejected`).
+- Employee-payments have approve/pay row actions; draft payroll runs are deletable
+  (draft-only: unlink payments → delete items → delete run).
+- HR Overview "pending approvals" KPI = leave + expense + timesheet (combined).
+- Timesheet/overtime routes use gate-then-service-role (Gap #3-safe) with explicit
+  own-user scoping for non-managers.
+- `/dashboard/approvals` is gated on `leave.approve` (was `leave.view` — showed to
+  every employee).
+- Accounting basis: the payroll→expense bridge fires on APPROVE (accrual), by
+  decision — documented, not on-pay.
+
+### v1.1 backlog (this effort)
+
+- Route payroll/leave/attendance/timesheet activity logs through `logActivity()`
+  with `${ENTITY_TYPES.X}_${ACTIVITY_ACTIONS.Y}` (several still use hardcoded
+  action_type strings).
+- Replace the two raw `fetch()` calls in `user-detail-client.tsx` with hooks.
+- Deeper HR Overview per-currency payroll trend (currently tooltip-labelled).
+- `hourly_rate_currency` only if an hourly worker ever needs a currency different
+  from their salary_currency (today they share one).

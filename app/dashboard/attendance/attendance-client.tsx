@@ -19,18 +19,12 @@ import TodayClockCard from '@/components/attendance/TodayClockCard';
 import AttendanceSummaryCards from '@/components/attendance/AttendanceSummaryCards';
 import AttendanceCalendar from '@/components/attendance/AttendanceCalendar';
 import type { CalendarDay } from '@/components/attendance/AttendanceCalendar';
+import { dubaiDayKey } from '@/lib/utils/format';
 import type { AuthSession } from '@/lib/auth/guards';
 import type { PyraWorkSchedule } from '@/types/database';
 
 function getMonthKey(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}`;
-}
-
-function getTodayUAE(): string {
-  const now = new Date();
-  const uaeOffset = 4 * 60 * 60 * 1000;
-  const uaeNow = new Date(now.getTime() + uaeOffset);
-  return uaeNow.toISOString().slice(0, 10);
 }
 
 interface AttendanceClientProps {
@@ -68,7 +62,7 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
   const records = recordsData ?? [];
   const summary = summaryData ?? null;
 
-  const today = getTodayUAE();
+  const today = dubaiDayKey();
   const todayRecord = records.find((r) => r.date === today) ?? null;
 
   const clockIn = useClockIn();

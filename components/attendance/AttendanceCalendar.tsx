@@ -10,12 +10,9 @@ import {
   ATTENDANCE_STATUS_STYLES,
   ATTENDANCE_STATUS_LABELS,
 } from '@/lib/constants/statuses';
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { formatTime, formatHours } from '@/lib/utils/format';
 import type { AttendanceRecord } from '@/hooks/useAttendance';
-
-const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
 
 const DAY_NAMES_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
 
@@ -30,23 +27,6 @@ interface AttendanceCalendarProps {
   onNext: () => void;
   loading: boolean;
   today: string;
-}
-
-function formatTime(isoString: string | null): string {
-  if (!isoString) return '—';
-  const d = new Date(isoString);
-  return d.toLocaleTimeString('ar-AE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Dubai',
-  });
-}
-
-function formatHours(hours: number): string {
-  if (!hours) return '0:00';
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}:${String(m).padStart(2, '0')}`;
 }
 
 function getCalendarDotColor(status?: string): string {

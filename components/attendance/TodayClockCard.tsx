@@ -12,6 +12,7 @@ import {
   Timer,
   Fingerprint,
 } from 'lucide-react';
+import { formatTime, formatHours } from '@/lib/utils/format';
 import type { AttendanceRecord } from '@/hooks/useAttendance';
 
 interface TodayClockCardProps {
@@ -23,23 +24,6 @@ interface TodayClockCardProps {
   clockingOut: boolean;
   loading: boolean;
   currentTime: Date;
-}
-
-function formatTime(isoString: string | null): string {
-  if (!isoString) return '—';
-  const d = new Date(isoString);
-  return d.toLocaleTimeString('ar-AE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Asia/Dubai',
-  });
-}
-
-function formatHours(hours: number): string {
-  if (!hours) return '0:00';
-  const h = Math.floor(hours);
-  const m = Math.round((hours - h) * 60);
-  return `${h}:${String(m).padStart(2, '0')}`;
 }
 
 export default function TodayClockCard({

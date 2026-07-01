@@ -20,11 +20,7 @@ import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useCreatePayroll } from '@/hooks/usePayroll';
 import { SALARY_CURRENCIES } from '@/lib/constants/auth';
-
-const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 interface Props {
   open: boolean;

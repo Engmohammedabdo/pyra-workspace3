@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { useCreateOnboarding, type CreateOnboardingInput } from '@/hooks/useOnboarding';
 import { useUsers } from '@/hooks/useUsers';
+import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import {
   StepPersonal,
   StepPosition,
@@ -130,8 +131,8 @@ function validateStep(step: number, data: CreateOnboardingInput): string | null 
       if (!data.nameEn.trim()) return 'الاسم بالإنجليزية مطلوب';
       if (!data.nameAr.trim()) return 'الاسم بالعربية مطلوب';
       if (!data.username.trim()) return 'اسم المستخدم مطلوب';
-      if (!data.password.trim() || data.password.length < 8)
-        return 'كلمة المرور يجب أن تكون 8 أحرف على الأقل';
+      if (!data.password.trim() || data.password.length < PASSWORD_MIN_LENGTH)
+        return `كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`;
       return null;
     case 1:
       if (!data.titleEn.trim()) return 'المسمى الوظيفي مطلوب';

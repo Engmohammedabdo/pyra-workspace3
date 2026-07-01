@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
 import { computeCelebrations, deriveAlerts } from '@/lib/hr/overview-helpers';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 // ============================================================
 // GET /api/hr/overview
@@ -17,20 +18,13 @@ import { dubaiDayKey } from '@/lib/utils/format';
 // Data access: service-role client (bypasses RLS on all HR tables)
 // ============================================================
 
-const MONTHS_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
-
 /**
- * Returns a YYYY-MM-DD string N days from today (negative = past).
- * Uses UTC date math — only used for hire_date comparisons where
- * same-day precision is not needed.
+ * Returns a Dubai-calendar YYYY-MM-DD string N days from today (negative = past).
+ * Phase 6B: switched from UTC date math to dubaiDayKey so hire-date window
+ * boundaries are consistent with the Dubai calendar day used throughout the route.
  */
 function daysFromNow(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + n);
-  return d.toISOString().slice(0, 10);
+  return dubaiDayKey(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
 }
 
 export async function GET(request: NextRequest) {
@@ -210,7 +204,7 @@ export async function GET(request: NextRequest) {
       .slice(0, 6)
       .reverse()
       .map((r) => ({
-        label: MONTHS_AR[r.month - 1] ?? String(r.month),
+        label: MONTH_NAMES_AR[r.month - 1] ?? String(r.month),
         total: Number(r.total_amount) || 0,
         currency: (r.currency as string) || 'AED',
       }));

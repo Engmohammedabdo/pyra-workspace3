@@ -1,4 +1,33 @@
 import { format, formatDistanceToNow, differenceInCalendarDays } from 'date-fns';
+
+// ─── Attendance time / duration helpers ───────────────────────────────────────
+// Phase 6B — extracted from three identical local copies in
+// components/attendance/{AttendanceCalendar,TodayClockCard,AttendanceSummaryCards}.
+
+/**
+ * Format an ISO timestamp as a Dubai-timezone HH:MM string.
+ * Returns '—' for null/undefined input.
+ */
+export function formatTime(isoString: string | null | undefined): string {
+  if (!isoString) return '—';
+  const d = new Date(isoString);
+  return d.toLocaleTimeString('ar-AE', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Dubai',
+  });
+}
+
+/**
+ * Format a decimal hours value as "H:MM".
+ * Returns '0:00' for falsy values.
+ */
+export function formatHours(hours: number): string {
+  if (!hours) return '0:00';
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
 import { ar } from 'date-fns/locale';
 
 export function formatFileSize(bytes: number): string {

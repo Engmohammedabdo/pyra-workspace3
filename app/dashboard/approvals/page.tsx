@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import { requirePermission } from '@/lib/auth/guards';
 import ApprovalsClient from './approvals-client';
 
 export const metadata: Metadata = {
@@ -6,6 +7,7 @@ export const metadata: Metadata = {
   description: 'موافقات الإجازات والمصاريف وساعات العمل لفريقك',
 };
 
-export default function ApprovalsPage() {
+export default async function ApprovalsPage() {
+  await requirePermission('leave.approve');
   return <ApprovalsClient />;
 }

@@ -29,15 +29,11 @@ import {
 } from '@/hooks/usePayroll';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 // PayrollItem from the hook predates multi-currency; extend locally
 // so we can safely access the currency column the API already returns.
 type PayrollItemWithCurrency = PayrollItem & { currency?: string };
-
-const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20',

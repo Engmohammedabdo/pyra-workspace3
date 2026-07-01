@@ -2,6 +2,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 // ============================================================
 // Payslip PDF Generator
@@ -30,11 +31,6 @@ interface PayslipData {
   deduction_details: DeductionDetail[];
   net_pay: number;
 }
-
-const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
 
 function formatAmount(amount: number, currency: string): string {
   return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;

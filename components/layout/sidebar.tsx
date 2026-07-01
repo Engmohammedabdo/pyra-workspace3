@@ -169,25 +169,38 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    // Admin-only HR aggregate pages — gated by admin-level permissions (hr.view, hr.manage,
+    // leave.approve, documents.manage, payroll.manage, evaluations.manage).
+    // Employees with only BASE_EMPLOYEE perms will not see any item in this group.
     title: 'الموارد البشرية',
     titleEn: 'HR',
-    description: 'الحضور والإجازات والرواتب والتقييمات',
+    description: 'نظرة إدارية على الحضور والإجازات والرواتب والوثائق والتقييمات',
     items: [
       { href: '/dashboard/hr', label: 'نظرة عامة', labelEn: 'HR Overview', icon: LayoutDashboard, permission: 'hr.view' },
-      { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.view', badgeKey: 'team_approvals' },
+      { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.approve', badgeKey: 'team_approvals' },
+      { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
+      { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
+      { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
+      { href: '/dashboard/hr/documents/settings', label: 'أنواع الوثائق', labelEn: 'Document Types', icon: Settings2, permission: 'documents.manage' },
+      { href: '/dashboard/hr/onboarding', label: 'تعيين موظفين', labelEn: 'Onboarding', icon: UserPlus, permission: 'hr.manage' },
+    ],
+  },
+  {
+    // Self-service HR pages — all gated by BASE_EMPLOYEE permissions so every
+    // internal user (employee, sales_agent, admin) sees this group.
+    title: 'الخدمة الذاتية',
+    titleEn: 'Self-Service',
+    description: 'مهامي الشخصية: حضور، إجازات، رواتب، وثائق، ودليل الفريق',
+    items: [
       { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
       { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
       { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
-      { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
-      { href: '/dashboard/my-payslips', label: 'كشف حسابي', labelEn: 'My Payments', icon: Receipt, permission: 'payroll.view' },
+      { href: '/dashboard/my-payslips', label: 'راتبي', labelEn: 'My Payslip', icon: Receipt, permission: 'payroll.view' },
+      { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
+      { href: '/dashboard/my-documents', label: 'وثائقي', labelEn: 'My Documents', icon: FileText, permission: 'documents.view' },
       { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
       { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
       { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
-      { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
-      { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
-      { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
-      { href: '/dashboard/hr/onboarding', label: 'تعيين موظفين', labelEn: 'Onboarding', icon: UserPlus, permission: 'hr.manage' },
-      { href: '/dashboard/my-documents', label: 'وثائقي', labelEn: 'My Documents', icon: FileText, permission: 'documents.view' },
     ],
   },
   {

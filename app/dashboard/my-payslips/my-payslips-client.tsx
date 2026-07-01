@@ -20,6 +20,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
+import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 
 // ============================================================
 // Types
@@ -48,11 +49,6 @@ interface Payslip {
 // ============================================================
 // Constants
 // ============================================================
-
-const MONTH_NAMES_AR = [
-  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
-  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
-];
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
