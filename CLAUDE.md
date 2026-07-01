@@ -3943,10 +3943,55 @@ link. Keep the two surfaces separate but linked.
 
 ### v1.1 backlog (this effort)
 
-- Route payroll/leave/attendance/timesheet activity logs through `logActivity()`
-  with `${ENTITY_TYPES.X}_${ACTIVITY_ACTIONS.Y}` (several still use hardcoded
-  action_type strings).
-- Replace the two raw `fetch()` calls in `user-detail-client.tsx` with hooks.
-- Deeper HR Overview per-currency payroll trend (currently tooltip-labelled).
+- ✅ DONE (2026-07-01) — Route payroll/leave/attendance/timesheet activity logs
+  through `logActivity()` with `${ENTITY_TYPES.X}_${ACTIVITY_ACTIONS.Y}`. 20 raw
+  `pyra_activity_log` inserts across 13 routes converted; old string → `details.source`;
+  4 new `ENTITY_TYPES` (timesheet/attendance/work_schedule/employee_payment).
+- ✅ DONE (2026-07-01) — Replaced the two raw `fetch()` calls in
+  `user-detail-client.tsx` with `useUser` + `useEmployeePayments` hooks.
+- ✅ DONE (2026-07-01) — HR Overview per-currency payroll trend: server groups runs
+  into `trend_by_currency`, chart renders one series per currency (no shared axis).
 - `hourly_rate_currency` only if an hourly worker ever needs a currency different
   from their salary_currency (today they share one).
+
+## HR/Payroll v1.1 Cleanup — Closure (2026-07-01)
+
+A scoped hygiene pass after the 3 items above, run superpowers-style (parallel
+discovery agents → disjoint work-groups → implement → adversarial review). **Do
+NOT re-litigate.** Shipped:
+
+1. **Activity-log consistency** (commit) — see the ✅ item above. The old HR
+   action_type strings were referenced NOWHERE outside `app/api/**` (verified), so
+   the rename is behavior-preserving; the activity feed's `ACTION_LABELS` gained
+   Arabic labels for the new categories.
+2. **HR pickers off `useUsers()` → `useUsersLite()`** — `AdminAttendanceDialog` and
+   `payroll-client` no longer require `users.view`; an HR manager granted only
+   `attendance.manage`/`payroll.manage` via `extra_permissions` now gets populated
+   dropdowns. `/api/users/lite` already returns `username/display_name/status/role`;
+   the `UserLite` type was extended (additively) to declare them. The two other
+   `useUsersLite` consumers (`teams`, `permissions`) cast via `as unknown as`, so the
+   change is safe for them.
+3. **DRY: finance `ARABIC_MONTHS` → shared `MONTH_NAMES_AR`** — `vat`/`pnl`/`cashflow`
+   report routes now import the canonical array (0-based indexing preserved).
+4. **Minor** — dead `|| ''` removed in `AttendanceCalendar`; `date_of_birth` field in
+   `users-client` switched to the functional `setFormData` updater + `<FormLabel>`
+   (matching every sibling field); `PayrollRunsTable` imports `PayrollRunRow` via the
+   `@/` alias.
+
+### Verified STALE — backlog notes that were already resolved (do NOT chase)
+
+Discovery found several `HR bundle v1.1 backlog` items no longer valid:
+- `getTodayUAE()` does not exist anywhere — attendance already uses `dubaiDayKey`.
+- `formatTime`/`formatHours` are already shared from `lib/utils/format.ts`; the two
+  remaining LOCAL `formatTime` copies (`calendar-event-pill.tsx`,
+  `crm/dashboard/dashboard-data-sources.tsx`) **intentionally differ** (pre-zoned
+  `+04:00` string-slicing / numeric ts + `ar-EG`) and MUST NOT be swapped to the shared one.
+- `useMyPayslips` is typed (`PayslipsResponse`) and actively used by `my-payslips-client`.
+- `CreatePayrollDialog` already resets month/year/currency on close.
+- Payslip download does NOT double-unwrap `.data` (it uses `fetchAPI` correctly); the
+  imperative `fetchAPI`-on-click for PDF generation is the accepted pattern, not a raw `fetch`.
+- `attendance-client` has no duplicate/`import type` merge opportunity.
+
+### Still deferred (low value)
+- `AdminAttendanceDialog` `DialogFooter` `flex-row-reverse` — cosmetic only.
+- `hourly_rate_currency` — only if an hourly worker needs a currency ≠ salary_currency.
