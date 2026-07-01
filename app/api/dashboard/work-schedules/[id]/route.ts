@@ -33,8 +33,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       return apiValidationError('الاسم والاسم العربي مطلوبان');
     }
 
-    // Validate work_days
-    if (work_days && (!Array.isArray(work_days) || work_days.some((d: number) => d < 0 || d > 6))) {
+    // Validate work_days — if provided it must be a non-empty array of valid
+    // day numbers (0-6); empty [] is rejected (a schedule with no working days
+    // is meaningless).
+    if (
+      work_days !== undefined && work_days !== null &&
+      (!Array.isArray(work_days) || work_days.length === 0 || work_days.some((d: number) => d < 0 || d > 6))
+    ) {
       return apiValidationError('أيام العمل غير صالحة');
     }
     if (start_time && !/^\d{2}:\d{2}$/.test(start_time)) {
@@ -45,6 +50,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const supabase = createServiceRoleClient();
+
+    // Guard: don't allow unsetting the LAST default — attendance late-calc would
+    // silently fall back to the hard-coded 09:00 for every unassigned employee.
+    if (is_default === false) {
+      const { data: current } = await supabase
+        .from('pyra_work_schedules')
+        .select('is_default')
+        .eq('id', id)
+        .single();
+      if (current?.is_default) {
+        return apiError('لا يمكن إلغاء الجدول الافتراضي — عيّن جدولاً افتراضياً آخر أولاً', 400);
+      }
+    }
 
     // If setting as default, first clear is_default on all other rows
     if (is_default === true) {

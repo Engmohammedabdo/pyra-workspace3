@@ -4,6 +4,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 
 // =============================================================
 // GET /api/dashboard/work-schedules
@@ -57,8 +58,13 @@ export async function POST(req: NextRequest) {
       return apiValidationError('الاسم والاسم العربي مطلوبان');
     }
 
-    // Validate work_days, start_time, end_time
-    if (work_days && (!Array.isArray(work_days) || work_days.some((d: number) => d < 0 || d > 6))) {
+    // Validate work_days, start_time, end_time. If provided it must be a
+    // non-empty array of valid day numbers (0-6); empty [] is rejected because
+    // a schedule with zero working days is meaningless.
+    if (
+      work_days !== undefined && work_days !== null &&
+      (!Array.isArray(work_days) || work_days.length === 0 || work_days.some((d: number) => d < 0 || d > 6))
+    ) {
       return apiValidationError('أيام العمل غير صالحة');
     }
     if (start_time && !/^\d{2}:\d{2}$/.test(start_time)) {
@@ -77,7 +83,7 @@ export async function POST(req: NextRequest) {
         id,
         name,
         name_ar,
-        work_days: work_days || [0, 1, 2, 3, 4],
+        work_days: Array.isArray(work_days) && work_days.length ? work_days : [...DEFAULT_WORK_DAYS],
         start_time: start_time || '09:00',
         end_time: end_time || '18:00',
         break_minutes: break_minutes ?? 60,
@@ -96,7 +102,7 @@ export async function POST(req: NextRequest) {
       auth.pyraUser.username,
       auth.pyraUser.display_name,
       `${ENTITY_TYPES.WORK_SCHEDULE}_${ACTIVITY_ACTIONS.CREATE}`,
-      '/dashboard/users',
+      '/dashboard/hr/work-schedules',
       { schedule_id: id, name, source: 'work_schedule_created' },
       req.headers.get('x-forwarded-for') || 'unknown',
     );

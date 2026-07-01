@@ -36,3 +36,11 @@ export const PAYMENT_TYPES    = ['monthly_salary', 'hourly', 'per_task', 'commis
 
 /** ISO 4217 currencies accepted for employee salary. */
 export const SALARY_CURRENCIES = ['AED', 'EGP', 'USD', 'SAR'] as const;
+
+/**
+ * Default working days for a NEW work schedule. Day numbering is 0=Sunday ..
+ * 6=Saturday (JS getDay + pyra_work_schedules.work_days). Pyramedia's weekend
+ * is Sunday only, so the default work week is Monday–Saturday = [1,2,3,4,5,6].
+ * Single source shared by the work-schedules API fallback and the admin form.
+ */
+export const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5, 6] as const;

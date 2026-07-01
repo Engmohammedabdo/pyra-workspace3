@@ -161,10 +161,6 @@ export const PERMISSIONS = {
   OVERTIME_VIEW: 'overtime.view',
   OVERTIME_MANAGE: 'overtime.manage',
 
-  // Work Schedules
-  WORK_SCHEDULES_VIEW: 'work_schedules.view',
-  WORK_SCHEDULES_MANAGE: 'work_schedules.manage',
-
   // Leave Types
   LEAVE_TYPES_VIEW: 'leave_types.view',
   LEAVE_TYPES_MANAGE: 'leave_types.manage',
@@ -657,15 +653,6 @@ export const PERMISSION_MODULES: PermissionModule[] = [
     permissions: [
       { key: 'overtime.view', label: 'View Overtime', labelAr: 'عرض العمل الإضافي' },
       { key: 'overtime.manage', label: 'Manage Overtime', labelAr: 'إدارة العمل الإضافي' },
-    ],
-  },
-  {
-    key: 'work_schedules',
-    label: 'Work Schedules',
-    labelAr: 'جداول العمل',
-    permissions: [
-      { key: 'work_schedules.view', label: 'View Work Schedules', labelAr: 'عرض جداول العمل' },
-      { key: 'work_schedules.manage', label: 'Manage Work Schedules', labelAr: 'إدارة جداول العمل' },
     ],
   },
   {

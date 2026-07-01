@@ -3,17 +3,9 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,48 +25,8 @@ import {
   useDeleteWorkSchedule,
 } from '@/hooks/useWorkSchedules';
 import type { PyraWorkSchedule } from '@/types/database';
-
-// Day labels indexed by 0=Sunday..6=Saturday
-const DAY_LABELS: Record<number, string> = {
-  0: 'الأحد',
-  1: 'الإثنين',
-  2: 'الثلاثاء',
-  3: 'الأربعاء',
-  4: 'الخميس',
-  5: 'الجمعة',
-  6: 'السبت',
-};
-
-const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
-
-// Default for NEW schedules: Mon–Sat (company weekend = Sunday only)
-const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5, 6];
-
-interface ScheduleForm {
-  name: string;
-  name_ar: string;
-  work_days: number[];
-  start_time: string;
-  end_time: string;
-  break_minutes: number;
-  daily_hours: number;
-  overtime_multiplier: number;
-  weekend_multiplier: number;
-  is_default: boolean;
-}
-
-const EMPTY_FORM: ScheduleForm = {
-  name: '',
-  name_ar: '',
-  work_days: DEFAULT_WORK_DAYS,
-  start_time: '09:00',
-  end_time: '18:00',
-  break_minutes: 60,
-  daily_hours: 8,
-  overtime_multiplier: 1.5,
-  weekend_multiplier: 2.0,
-  is_default: false,
-};
+import { WorkScheduleDialog } from '@/components/hr/work-schedules/WorkScheduleDialog';
+import { DAY_LABELS, ALL_DAYS, EMPTY_FORM, type ScheduleForm } from '@/components/hr/work-schedules/schedule-form';
 
 export default function WorkSchedulesClient() {
   const { data: schedules = [], isLoading } = useWorkSchedules();
@@ -111,16 +63,6 @@ export default function WorkSchedulesClient() {
       is_default: s.is_default,
     });
     setShowDialog(true);
-  };
-
-  const toggleDay = (day: number) => {
-    setForm((prev) => {
-      const exists = prev.work_days.includes(day);
-      const next = exists
-        ? prev.work_days.filter((d) => d !== day)
-        : [...prev.work_days, day].sort((a, b) => a - b);
-      return { ...prev, work_days: next };
-    });
   };
 
   const handleSave = async () => {
@@ -183,10 +125,7 @@ export default function WorkSchedulesClient() {
             إدارة جداول العمل الأسبوعية وتعيينها للموظفين
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="bg-orange-500 hover:bg-orange-600 text-white"
-        >
+        <Button onClick={openCreate} className="bg-orange-500 hover:bg-orange-600 text-white">
           <Plus className="h-4 w-4 me-2" />
           إضافة جدول
         </Button>
@@ -204,9 +143,7 @@ export default function WorkSchedulesClient() {
       ) : (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              جداول العمل ({schedules.length})
-            </CardTitle>
+            <CardTitle className="text-base">جداول العمل ({schedules.length})</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="divide-y">
@@ -260,12 +197,7 @@ export default function WorkSchedulesClient() {
 
                   {/* Actions */}
                   <div className="flex items-center gap-1 flex-shrink-0 ms-3">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => openEdit(s)}
-                    >
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(s)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Button
@@ -285,171 +217,15 @@ export default function WorkSchedulesClient() {
       )}
 
       {/* Create / Edit Dialog */}
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingId ? 'تعديل جدول العمل' : 'إضافة جدول عمل جديد'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-5 mt-2">
-            {/* Name fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (إنجليزي) *</label>
-                <Input
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Standard Week"
-                  dir="ltr"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">الاسم (عربي) *</label>
-                <Input
-                  value={form.name_ar}
-                  onChange={(e) => setForm({ ...form, name_ar: e.target.value })}
-                  placeholder="الأسبوع العادي"
-                />
-              </div>
-            </div>
-
-            {/* Work days */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">أيام العمل</label>
-              <div className="flex flex-wrap gap-2">
-                {ALL_DAYS.map((day) => {
-                  const active = form.work_days.includes(day);
-                  return (
-                    <button
-                      key={day}
-                      type="button"
-                      onClick={() => toggleDay(day)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                        active
-                          ? 'bg-orange-500 text-white border-orange-500'
-                          : 'bg-background text-muted-foreground border-border hover:border-orange-400 hover:text-orange-600 dark:hover:text-orange-400'
-                      }`}
-                    >
-                      {DAY_LABELS[day]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Time fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">وقت البداية</label>
-                <Input
-                  type="time"
-                  value={form.start_time}
-                  onChange={(e) => setForm({ ...form, start_time: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">وقت النهاية</label>
-                <Input
-                  type="time"
-                  value={form.end_time}
-                  onChange={(e) => setForm({ ...form, end_time: e.target.value })}
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            {/* Numeric fields */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">الاستراحة (دقيقة)</label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.break_minutes}
-                  onChange={(e) =>
-                    setForm({ ...form, break_minutes: Number(e.target.value) })
-                  }
-                  dir="ltr"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">ساعات اليوم</label>
-                <Input
-                  type="number"
-                  min={0}
-                  step={0.5}
-                  value={form.daily_hours}
-                  onChange={(e) =>
-                    setForm({ ...form, daily_hours: Number(e.target.value) })
-                  }
-                  dir="ltr"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">معامل الإضافي</label>
-                <Input
-                  type="number"
-                  min={1}
-                  step={0.1}
-                  value={form.overtime_multiplier}
-                  onChange={(e) =>
-                    setForm({ ...form, overtime_multiplier: Number(e.target.value) })
-                  }
-                  dir="ltr"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">معامل عمل نهاية الأسبوع</label>
-              <Input
-                type="number"
-                min={1}
-                step={0.1}
-                value={form.weekend_multiplier}
-                onChange={(e) =>
-                  setForm({ ...form, weekend_multiplier: Number(e.target.value) })
-                }
-                dir="ltr"
-                className="max-w-[180px]"
-              />
-            </div>
-
-            {/* Default toggle */}
-            <div className="flex items-center justify-between py-2 border rounded-lg px-3 bg-muted/30 dark:bg-muted/20">
-              <div>
-                <p className="text-sm font-medium">جدول افتراضي</p>
-                <p className="text-xs text-muted-foreground">
-                  يُطبَّق على الموظفين الذين لم يُعيَّن لهم جدول محدد
-                </p>
-              </div>
-              <Switch
-                checked={form.is_default}
-                onCheckedChange={(v) => setForm({ ...form, is_default: v })}
-              />
-            </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={saving || !form.name.trim() || !form.name_ar.trim()}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
-                  جاري الحفظ...
-                </>
-              ) : editingId ? (
-                'تحديث'
-              ) : (
-                'إنشاء'
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WorkScheduleDialog
+        open={showDialog}
+        onOpenChange={setShowDialog}
+        editingId={editingId}
+        form={form}
+        setForm={setForm}
+        onSave={handleSave}
+        saving={saving}
+      />
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={(open) => { if (!open) setDeleteId(null); }}>

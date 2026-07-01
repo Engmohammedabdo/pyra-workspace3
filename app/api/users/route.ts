@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from('pyra_users')
-      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, commission_rate, onboarding_id, pyra_roles!left(name, name_ar, color, icon)');
+      .select('id, username, role, display_name, permissions, extra_permissions, role_id, phone, job_title, status, created_at, manager_username, employment_type, work_location, payment_type, salary, salary_currency, hourly_rate, hire_date, date_of_birth, department, national_id, commission_rate, onboarding_id, work_schedule_id, pyra_roles!left(name, name_ar, color, icon)');
 
     // Apply role filter
     if (['admin', 'employee', 'sales_agent'].includes(role)) {
