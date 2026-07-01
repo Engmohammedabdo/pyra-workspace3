@@ -86,6 +86,7 @@ const SECTIONS = [
       '/dashboard/hr',
       '/dashboard/approvals',
       '/dashboard/leave/settings',
+      '/dashboard/hr/leave-balances',
       '/dashboard/evaluations/settings',
       '/dashboard/hr/documents',
       '/dashboard/hr/documents/settings',

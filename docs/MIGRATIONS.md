@@ -455,6 +455,7 @@ node + HTTP Request node hitting an endpoint under `/api/cron/*`.
 | `POST /api/cron/follow-up-reminders` | every 5 min | `cron.follow-up-reminders` | Sends WhatsApp reminders to assigned agents for due follow-ups (Phase 11) |
 | `POST /api/cron/lead-idle-check` | daily | `cron.lead-idle-check` | Per-agent grouped notifications for stale-deal warnings (Phase 11) |
 | `POST /api/cron/error-logs-cleanup` | `0 3 * * *` (daily 03:00 Dubai) | `cron.error-logs-cleanup` | Deletes `pyra_error_logs` rows older than 90 days (Phase D Commit 3) |
+| `POST /api/cron/leave-balance-rollover` | yearly, `0 0 1 1 *` (Jan 1 00:00 Dubai) | `cron.leave-balance-rollover` | Carries over remaining `pyra_leave_balances_v2` balances into the new year (reuses `calculateCarryOver()`) + seeds any still-missing employee×leave-type row for the new year |
 
 **Auth pattern (all cron endpoints):**
 ```

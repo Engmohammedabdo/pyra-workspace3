@@ -77,6 +77,7 @@ import {
   ClipboardCheck,
   Bug,
   UserPlus,
+  CalendarDays,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -179,6 +180,7 @@ const navGroups: NavGroup[] = [
       { href: '/dashboard/hr', label: 'نظرة عامة', labelEn: 'HR Overview', icon: LayoutDashboard, permission: 'hr.view' },
       { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.approve', badgeKey: 'team_approvals' },
       { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
+      { href: '/dashboard/hr/leave-balances', label: 'أرصدة الإجازات', labelEn: 'Leave Balances', icon: CalendarDays, permission: 'leave.manage' },
       { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
       { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
       { href: '/dashboard/hr/documents/settings', label: 'أنواع الوثائق', labelEn: 'Document Types', icon: Settings2, permission: 'documents.manage' },

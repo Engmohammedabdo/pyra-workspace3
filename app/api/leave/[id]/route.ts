@@ -7,7 +7,10 @@ import { canApproveFor } from '@/lib/auth/team-scope';
 import { generateId } from '@/lib/utils/id';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
 import { notify } from '@/lib/notifications/notify';
+import { notifyApprovers } from '@/lib/notifications/approvers';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { countLeaveDays } from '@/lib/leave/days';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -51,74 +54,44 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const { data, error } = await supabase.from('pyra_leave_requests').update(updates).eq('id', id).select().single();
     if (error) return apiServerError(error.message);
 
-    // If approved, update leave balance (v1 + v2)
+    // If approved, update leave balance (v2 — the single source of truth)
     if (body.status === LEAVE_STATUS.APPROVED) {
       const year = new Date(existing.start_date).getFullYear();
-      const usedKey = `${existing.type}_used`;
       const serviceSupabase = createServiceRoleClient();
 
-      // ── v1 balance update ──
-      const { data: balance } = await supabase
-        .from('pyra_leave_balances')
-        .select('*')
-        .eq('username', existing.username)
-        .eq('year', year)
+      const { data: leaveType } = await serviceSupabase
+        .from('pyra_leave_types')
+        .select('id, default_days')
+        .eq('name', existing.type)
         .single();
 
-      if (balance) {
-        await supabase
-          .from('pyra_leave_balances')
-          .update({ [usedKey]: ((balance as Record<string, unknown>)[usedKey] as number) + existing.days_count })
+      if (leaveType) {
+        const { data: v2Balance } = await serviceSupabase
+          .from('pyra_leave_balances_v2')
+          .select('id, used_days')
           .eq('username', existing.username)
-          .eq('year', year);
-      } else {
-        await supabase
-          .from('pyra_leave_balances')
-          .insert({
-            username: existing.username,
-            year,
-            [usedKey]: existing.days_count,
-          });
-      }
-
-      // ── v2 balance update ──
-      try {
-        const { data: leaveType } = await serviceSupabase
-          .from('pyra_leave_types')
-          .select('id, default_days')
-          .eq('name', existing.type)
+          .eq('year', year)
+          .eq('leave_type_id', leaveType.id)
           .single();
 
-        if (leaveType) {
-          const { data: v2Balance } = await serviceSupabase
+        if (v2Balance) {
+          await serviceSupabase
             .from('pyra_leave_balances_v2')
-            .select('id, used_days')
-            .eq('username', existing.username)
-            .eq('year', year)
-            .eq('leave_type_id', leaveType.id)
-            .single();
-
-          if (v2Balance) {
-            await serviceSupabase
-              .from('pyra_leave_balances_v2')
-              .update({ used_days: v2Balance.used_days + existing.days_count })
-              .eq('id', v2Balance.id);
-          } else {
-            // Upsert: create v2 record if it doesn't exist
-            await serviceSupabase
-              .from('pyra_leave_balances_v2')
-              .insert({
-                id: generateId('lb'),
-                username: existing.username,
-                year,
-                leave_type_id: leaveType.id,
-                total_days: leaveType.default_days,
-                used_days: existing.days_count,
-              });
-          }
+            .update({ used_days: v2Balance.used_days + existing.days_count })
+            .eq('id', v2Balance.id);
+        } else {
+          // Upsert: create v2 record if it doesn't exist
+          await serviceSupabase
+            .from('pyra_leave_balances_v2')
+            .insert({
+              id: generateId('lb'),
+              username: existing.username,
+              year,
+              leave_type_id: leaveType.id,
+              total_days: leaveType.default_days,
+              used_days: existing.days_count,
+            });
         }
-      } catch {
-        // v2 tables may not exist — skip silently
       }
     }
 
@@ -168,31 +141,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (error) return apiServerError(error.message);
 
-    // Restore balance in v1 (pending requests may have been pre-deducted)
+    // Restore only the UNUSED (future) portion of the leave in v2 — a
+    // request may span dates already partially elapsed by cancellation time.
     const year = new Date(existing.start_date).getFullYear();
-    const usedKey = `${existing.type}_used`;
+    const serviceSupabase = createServiceRoleClient();
 
-    const { data: balance } = await supabase
-      .from('pyra_leave_balances')
-      .select('*')
-      .eq('username', existing.username)
-      .eq('year', year)
-      .single();
+    const today = dubaiDayKey();
+    const tomorrow = dubaiDayKey(new Date(Date.now() + 24 * 60 * 60 * 1000));
+    const restoreStart = existing.start_date > tomorrow ? existing.start_date : tomorrow;
+    const restoreDays = restoreStart > existing.end_date ? 0 : countLeaveDays(restoreStart, existing.end_date);
 
-    if (balance) {
-      const currentUsed = ((balance as Record<string, unknown>)[usedKey] as number) || 0;
-      if (currentUsed > 0) {
-        await supabase
-          .from('pyra_leave_balances')
-          .update({ [usedKey]: Math.max(0, currentUsed - existing.days_count) })
-          .eq('username', existing.username)
-          .eq('year', year);
-      }
-    }
-
-    // Restore balance in v2
-    try {
-      const serviceSupabase = createServiceRoleClient();
+    if (restoreDays > 0) {
       const { data: leaveType } = await serviceSupabase
         .from('pyra_leave_types')
         .select('id')
@@ -211,12 +170,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         if (balV2 && balV2.used_days > 0) {
           await serviceSupabase
             .from('pyra_leave_balances_v2')
-            .update({ used_days: Math.max(0, balV2.used_days - existing.days_count) })
+            .update({ used_days: Math.max(0, balV2.used_days - restoreDays) })
             .eq('id', balV2.id);
         }
       }
-    } catch {
-      // v2 tables may not exist — skip silently
     }
 
     // Activity log
@@ -228,6 +185,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { leave_id: id, action: 'cancel', source: 'leave_request_updated' },
       req.headers.get('x-forwarded-for') || 'unknown',
     );
+
+    // Notify the manager/approver that the leave was cancelled
+    await notifyApprovers(serviceSupabase, existing.username, {
+      type: 'leave_cancelled',
+      title: `تم إلغاء إجازة — ${existing.username}`,
+      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`,
+      link: '/dashboard/approvals',
+      entity: { type: 'leave_request', id },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    });
 
     return apiSuccess(cancelled);
   }
@@ -268,32 +235,20 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (updateError) return apiServerError(updateError.message);
 
-    // If the leave was approved, restore the balance
+    // If the leave was approved, restore only the UNUSED (future) portion in
+    // v2 — a leave already partially taken by cancellation time shouldn't
+    // hand back days that were actually used.
     if (wasApproved) {
       const year = new Date(existing.start_date).getFullYear();
-      const usedKey = `${existing.type}_used`;
+      const serviceSupabase = createServiceRoleClient();
 
-      // Restore in pyra_leave_balances (legacy table)
-      const { data: balance } = await supabase
-        .from('pyra_leave_balances')
-        .select('*')
-        .eq('username', existing.username)
-        .eq('year', year)
-        .single();
+      const today = dubaiDayKey();
+      const tomorrow = dubaiDayKey(new Date(Date.now() + 24 * 60 * 60 * 1000));
+      const restoreStart = existing.start_date > tomorrow ? existing.start_date : tomorrow;
+      const restoreDays = restoreStart > existing.end_date ? 0 : countLeaveDays(restoreStart, existing.end_date);
 
-      if (balance) {
-        const currentUsed = ((balance as Record<string, unknown>)[usedKey] as number) || 0;
-        await supabase
-          .from('pyra_leave_balances')
-          .update({ [usedKey]: Math.max(0, currentUsed - existing.days_count) })
-          .eq('username', existing.username)
-          .eq('year', year);
-      }
-
-      // Also try pyra_leave_balances_v2
-      // Look up actual leave_type_id from pyra_leave_types (custom types have random IDs)
-      try {
-        const serviceSupabase = createServiceRoleClient();
+      if (restoreDays > 0) {
+        // Look up actual leave_type_id from pyra_leave_types (custom types have random IDs)
         const { data: leaveType } = await serviceSupabase
           .from('pyra_leave_types')
           .select('id')
@@ -312,12 +267,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           if (balV2) {
             await serviceSupabase
               .from('pyra_leave_balances_v2')
-              .update({ used_days: Math.max(0, balV2.used_days - existing.days_count) })
+              .update({ used_days: Math.max(0, balV2.used_days - restoreDays) })
               .eq('id', balV2.id);
           }
         }
-      } catch {
-        // v2 tables may not exist — skip silently
       }
     }
 
@@ -330,6 +283,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { leave_id: id, action: 'cancel', source: 'leave_request_updated' },
       req.headers.get('x-forwarded-for') || 'unknown',
     );
+
+    // Notify the manager/approver that the leave was cancelled
+    await notifyApprovers(createServiceRoleClient(), existing.username, {
+      type: 'leave_cancelled',
+      title: `تم إلغاء إجازة — ${existing.username}`,
+      message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`,
+      link: '/dashboard/approvals',
+      entity: { type: 'leave_request', id },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    });
 
     return apiSuccess(updated);
   }

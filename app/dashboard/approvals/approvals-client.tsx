@@ -201,6 +201,19 @@ export default function ApprovalsClient() {
                           <Badge variant="secondary" className="text-xs">
                             {l.days_count} يوم
                           </Badge>
+                          {l.remaining_balance !== null && (
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-xs',
+                                l.remaining_balance < l.days_count
+                                  ? 'border-red-300 text-red-700 bg-red-500/10 dark:border-red-700/60 dark:text-red-400'
+                                  : 'border-amber-300 text-amber-700 bg-amber-500/10 dark:border-amber-700/60 dark:text-amber-400',
+                              )}
+                            >
+                              الرصيد المتبقي: {l.remaining_balance} يوم
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-sm text-muted-foreground mt-1">
                           من <span dir="ltr">{formatDate(l.start_date)}</span> إلى{' '}

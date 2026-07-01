@@ -8,6 +8,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
 import { notifyApprovers } from '@/lib/notifications/approvers';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { countLeaveDays } from '@/lib/leave/days';
 
 export async function GET(req: NextRequest) {
   const auth = await getApiAuth();
@@ -57,7 +58,8 @@ export async function POST(req: NextRequest) {
   const end = new Date(end_date);
   if (end < start) return apiValidationError('تاريخ النهاية يجب أن يكون بعد البداية');
 
-  const days_count = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+  const days_count = countLeaveDays(start_date, end_date);
+  if (days_count === 0) return apiValidationError('لا توجد أيام عمل ضمن الفترة المحددة');
 
   const supabase = await createServerSupabaseClient();
   const serviceSupabase = createServiceRoleClient();
@@ -72,57 +74,35 @@ export async function POST(req: NextRequest) {
     return apiError('المتعاقدون المستقلون لا يقدّمون طلبات إجازة عبر النظام', 403);
   }
 
-  // Check balance — try v2 first, then fall back to v1
+  // Balance check — v2 is the single source of truth. Resolve the leave type
+  // first; unpaid types (e.g. lt_unpaid) skip the check entirely since
+  // unpaid leave doesn't draw from a balance.
   const year = start.getFullYear();
-  let balanceChecked = false;
 
-  // v2: look up leave_type_id from pyra_leave_types by name
-  try {
-    const { data: leaveType } = await serviceSupabase
-      .from('pyra_leave_types')
-      .select('id')
-      .eq('name', type)
-      .eq('is_active', true)
-      .single();
+  const { data: leaveType } = await serviceSupabase
+    .from('pyra_leave_types')
+    .select('id, default_days, is_paid')
+    .eq('name', type)
+    .eq('is_active', true)
+    .single();
 
-    if (leaveType) {
-      const { data: v2Balance } = await serviceSupabase
-        .from('pyra_leave_balances_v2')
-        .select('total_days, used_days')
-        .eq('username', auth.pyraUser.username)
-        .eq('year', year)
-        .eq('leave_type_id', leaveType.id)
-        .single();
-
-      if (v2Balance) {
-        balanceChecked = true;
-        const remaining = v2Balance.total_days - v2Balance.used_days;
-        if (days_count > remaining) {
-          return apiError(`رصيد الإجازات غير كافي. المتبقي: ${remaining} يوم`, 400);
-        }
-      }
-    }
-  } catch {
-    // v2 tables may not exist — fall through to v1
-  }
-
-  // v1 fallback: only if v2 check didn't find a record
-  if (!balanceChecked) {
-    const { data: balance } = await supabase
-      .from('pyra_leave_balances')
-      .select('*')
+  if (leaveType?.is_paid) {
+    const { data: v2Balance } = await serviceSupabase
+      .from('pyra_leave_balances_v2')
+      .select('total_days, used_days, carried_over')
       .eq('username', auth.pyraUser.username)
       .eq('year', year)
+      .eq('leave_type_id', leaveType.id)
       .single();
 
-    if (balance) {
-      const totalKey = `${type}_total` as keyof typeof balance;
-      const usedKey = `${type}_used` as keyof typeof balance;
-      const total = (balance[totalKey] as number) || 0;
-      const used = (balance[usedKey] as number) || 0;
-      if (used + days_count > total) {
-        return apiError(`رصيد الإجازات غير كافي. المتبقي: ${total - used} يوم`, 400);
-      }
+    // Missing row → assume fresh entitlement (default_days) so employees
+    // aren't blocked before rollover/seeding has run for them.
+    const available = v2Balance
+      ? v2Balance.total_days + (v2Balance.carried_over || 0) - v2Balance.used_days
+      : leaveType.default_days;
+
+    if (days_count > available) {
+      return apiError(`رصيد الإجازات غير كافٍ. المتبقي: ${available} يوم`, 400);
     }
   }
 

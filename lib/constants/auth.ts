@@ -44,3 +44,10 @@ export const SALARY_CURRENCIES = ['AED', 'EGP', 'USD', 'SAR'] as const;
  * Single source shared by the work-schedules API fallback and the admin form.
  */
 export const DEFAULT_WORK_DAYS = [1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * Non-working weekend days (0=Sunday .. 6=Saturday). Pyramedia's weekend is
+ * Sunday only. Used to exclude weekend days when counting leave days deducted
+ * from an employee's balance. Complement of DEFAULT_WORK_DAYS.
+ */
+export const WEEKEND_DAYS = [0] as const;

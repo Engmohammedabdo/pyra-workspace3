@@ -192,13 +192,14 @@ async function getEmployeeDashboard(
       .select('id', { count: 'exact', head: true })
       .or(`expires_at.is.null,expires_at.gt.${now.toISOString()}`),
 
-    // Leave balance (current year)
+    // Leave balance (current year) — v2 is the single source of truth.
+    // Joined with pyra_leave_types(name, name_ar) so callers can match rows
+    // by leave-type id without a second round trip.
     supabase
-      .from('pyra_leave_balances')
-      .select('annual_total, annual_used, sick_total, sick_used, personal_total, personal_used')
+      .from('pyra_leave_balances_v2')
+      .select('leave_type_id, total_days, used_days, carried_over, pyra_leave_types(name, name_ar)')
       .eq('username', pyraUser.username)
-      .eq('year', now.getFullYear())
-      .maybeSingle(),
+      .eq('year', now.getFullYear()),
 
     // Pending leave requests count
     supabase
@@ -225,11 +226,29 @@ async function getEmployeeDashboard(
     0
   );
 
-  // Leave balance with defaults
-  const lb = leaveBalanceResult.data || {
-    annual_total: 30, annual_used: 0,
-    sick_total: 15, sick_used: 0,
-    personal_total: 5, personal_used: 0,
+  // Leave balance (v2) — map rows by leave_type_id. A missing row (not yet
+  // seeded for this employee/year) defaults that pair to 0.
+  interface LeaveBalanceV2Row {
+    leave_type_id: string;
+    total_days: number;
+    used_days: number;
+    carried_over: number | null;
+  }
+  const leaveBalanceRows = (leaveBalanceResult.data || []) as LeaveBalanceV2Row[];
+  const findLeaveBalance = (typeId: string) =>
+    leaveBalanceRows.find((r) => r.leave_type_id === typeId);
+
+  const annualBal = findLeaveBalance('lt_annual');
+  const sickBal = findLeaveBalance('lt_sick');
+  const personalBal = findLeaveBalance('lt_personal');
+
+  const lb = {
+    annual_total: (annualBal?.total_days ?? 0) + (annualBal?.carried_over ?? 0),
+    annual_used: annualBal?.used_days ?? 0,
+    sick_total: (sickBal?.total_days ?? 0) + (sickBal?.carried_over ?? 0),
+    sick_used: sickBal?.used_days ?? 0,
+    personal_total: (personalBal?.total_days ?? 0) + (personalBal?.carried_over ?? 0),
+    personal_used: personalBal?.used_days ?? 0,
   };
 
   return apiSuccess({
@@ -243,9 +262,9 @@ async function getEmployeeDashboard(
     my_hours_this_week: Math.round(weekHours * 10) / 10,
     unread_announcements: unreadAnnouncements,
     leave_balance: {
-      annual_remaining: (lb.annual_total ?? 30) - (lb.annual_used ?? 0),
-      sick_remaining: (lb.sick_total ?? 15) - (lb.sick_used ?? 0),
-      personal_remaining: (lb.personal_total ?? 5) - (lb.personal_used ?? 0),
+      annual_remaining: lb.annual_total - lb.annual_used,
+      sick_remaining: lb.sick_total - lb.sick_used,
+      personal_remaining: lb.personal_total - lb.personal_used,
     },
     pending_leave_count: pendingLeaveResult.count ?? 0,
   });

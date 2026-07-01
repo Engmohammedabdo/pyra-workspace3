@@ -23,6 +23,10 @@ export interface TeamApprovalsResponse {
     days_count: number;
     reason: string | null;
     created_at: string;
+    /** Requester's remaining balance for this leave type (v2), computed at
+     *  the leave request's start_date year. null for unpaid leave types
+     *  (is_paid=false) — those don't draw from any balance. */
+    remaining_balance: number | null;
   }>;
   expense: Array<{
     id: string;
@@ -147,8 +151,77 @@ export async function GET() {
       (users || []).map((u: { username: string; display_name: string }) => [u.username, u.display_name])
     );
 
+    // ── Enrich pending leave with the requester's remaining v2 balance ──
+    // Batched (2 extra queries total, never N+1 per request): resolve each
+    // leave request's TYPE NAME → pyra_leave_types row, then look up the
+    // requester's pyra_leave_balances_v2 row for (username, start_date's
+    // year, leave_type_id). Unpaid types (is_paid=false) never draw a
+    // balance → remaining_balance is null. Missing v2 row → fall back to
+    // the type's default_days (a not-yet-seeded employee/year effectively
+    // has their full default entitlement).
+    const leaveRows = leaveResult.data || [];
+    const leaveTypeNames = Array.from(new Set(leaveRows.map((l) => l.type).filter(Boolean)));
+
+    const leaveTypeByName = new Map<
+      string,
+      { id: string; is_paid: boolean; default_days: number }
+    >();
+    const balanceMap = new Map<
+      string,
+      { total_days: number; used_days: number; carried_over: number }
+    >();
+
+    if (leaveTypeNames.length > 0) {
+      const { data: leaveTypesData } = await serviceClient
+        .from('pyra_leave_types')
+        .select('id, name, is_paid, default_days')
+        .in('name', leaveTypeNames);
+
+      for (const t of leaveTypesData || []) {
+        leaveTypeByName.set(t.name, {
+          id: t.id,
+          is_paid: t.is_paid,
+          default_days: t.default_days,
+        });
+      }
+
+      const typeIds = Array.from(leaveTypeByName.values()).map((t) => t.id);
+      const balanceUsernames = Array.from(new Set(leaveRows.map((l) => l.username)));
+
+      if (typeIds.length > 0 && balanceUsernames.length > 0) {
+        const { data: balancesData } = await serviceClient
+          .from('pyra_leave_balances_v2')
+          .select('username, year, leave_type_id, total_days, used_days, carried_over')
+          .in('leave_type_id', typeIds)
+          .in('username', balanceUsernames);
+
+        for (const b of balancesData || []) {
+          balanceMap.set(`${b.username}:${b.year}:${b.leave_type_id}`, {
+            total_days: b.total_days,
+            used_days: b.used_days,
+            carried_over: b.carried_over,
+          });
+        }
+      }
+    }
+
+    function resolveRemainingBalance(
+      username: string,
+      type: string,
+      startDate: string,
+    ): number | null {
+      const leaveType = leaveTypeByName.get(type);
+      if (!leaveType || !leaveType.is_paid) return null;
+      const year = Number(startDate.slice(0, 4));
+      const balance = balanceMap.get(`${username}:${year}:${leaveType.id}`);
+      if (balance) {
+        return balance.total_days + balance.carried_over - balance.used_days;
+      }
+      return leaveType.default_days;
+    }
+
     const response: TeamApprovalsResponse = {
-      leave: (leaveResult.data || []).map((l) => ({
+      leave: leaveRows.map((l) => ({
         id: l.id,
         username: l.username,
         display_name: userMap.get(l.username) || l.username,
@@ -158,6 +231,7 @@ export async function GET() {
         days_count: l.days_count,
         reason: l.reason || null,
         created_at: l.created_at,
+        remaining_balance: resolveRemainingBalance(l.username, l.type, l.start_date),
       })),
       expense: (expenseResult.data || []).map((e) => ({
         id: e.id,

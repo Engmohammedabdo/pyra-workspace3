@@ -63,6 +63,8 @@ export type NotificationType =
   // Approval results (employee-facing)
   | 'leave_approved'
   | 'leave_rejected'
+  // Manager-facing — employee cancelled their own (pending or approved) leave
+  | 'leave_cancelled'
   | 'expense_approved'
   | 'expense_rejected'
   // Payroll / employee payments (employee-facing)

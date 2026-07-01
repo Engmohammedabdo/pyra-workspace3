@@ -10,7 +10,8 @@
  *   2. auth.admin.createUser (Supabase GoTrue)
  *   3. pyra_users insert (password_hash via scrypt) → rollback on failure
  *   4. pyra_auth_mapping insert → rollback on failure
- *   5. Employee leave balances (v1 + v2) when role === 'employee' || 'sales_agent'
+ *   5. Employee leave balances (v2 — single source of truth) when
+ *      role === 'employee' || 'sales_agent'
  *
  * The activity-log step is intentionally OMITTED — callers own that.
  *
@@ -215,43 +216,27 @@ export async function createEmployeeUser(
     };
   }
 
-  // ── Step 5: Initialize leave balances for employees ───────────────────────
+  // ── Step 5: Initialize leave balances for employees (v2 — single source
+  //            of truth; one record per active leave type) ────────────────
   if (role === 'employee' || role === 'sales_agent') {
     const currentYear = new Date().getFullYear();
 
-    // v1 balance
-    await serviceClient.from('pyra_leave_balances').insert({
-      username: cleanUsername,
-      year: currentYear,
-      annual_total: 30,
-      annual_used: 0,
-      sick_total: 15,
-      sick_used: 0,
-      personal_total: 5,
-      personal_used: 0,
-    });
+    const { data: activeLeaveTypes } = await serviceClient
+      .from('pyra_leave_types')
+      .select('id, default_days')
+      .eq('is_active', true);
 
-    // v2 balances — create one record per active leave type
-    try {
-      const { data: activeLeaveTypes } = await serviceClient
-        .from('pyra_leave_types')
-        .select('id, default_days')
-        .eq('is_active', true);
+    if (activeLeaveTypes && activeLeaveTypes.length > 0) {
+      const v2Records = activeLeaveTypes.map((lt) => ({
+        id: generateId('lb'),
+        username: cleanUsername,
+        year: currentYear,
+        leave_type_id: lt.id,
+        total_days: lt.default_days,
+        used_days: 0,
+      }));
 
-      if (activeLeaveTypes && activeLeaveTypes.length > 0) {
-        const v2Records = activeLeaveTypes.map((lt) => ({
-          id: generateId('lb'),
-          username: cleanUsername,
-          year: currentYear,
-          leave_type_id: lt.id,
-          total_days: lt.default_days,
-          used_days: 0,
-        }));
-
-        await serviceClient.from('pyra_leave_balances_v2').insert(v2Records);
-      }
-    } catch {
-      // v2 tables may not exist yet — skip silently
+      await serviceClient.from('pyra_leave_balances_v2').insert(v2Records);
     }
   }
 
@@ -375,32 +360,10 @@ export async function reactivateEmployeeUser(
     console.error('[reactivateEmployeeUser] auth password reset error:', authErr);
   }
 
-  // ── Step 3: Seed leave balances if the employee has none for this year ────
+  // ── Step 3: Seed leave balances (v2) if the employee has none for this
+  //            year — safe no-op for employees who already have balances ───
   if (role === 'employee' || role === 'sales_agent') {
     const currentYear = new Date().getFullYear();
-
-    try {
-      const { count: existingV1Count } = await serviceClient
-        .from('pyra_leave_balances')
-        .select('username', { count: 'exact', head: true })
-        .eq('username', cleanUsername)
-        .eq('year', currentYear);
-
-      if ((existingV1Count ?? 0) === 0) {
-        await serviceClient.from('pyra_leave_balances').insert({
-          username: cleanUsername,
-          year: currentYear,
-          annual_total: 30,
-          annual_used: 0,
-          sick_total: 15,
-          sick_used: 0,
-          personal_total: 5,
-          personal_used: 0,
-        });
-      }
-    } catch {
-      // Non-fatal — leave balances may already exist or table may differ
-    }
 
     try {
       const { count: existingV2Count } = await serviceClient
@@ -428,7 +391,7 @@ export async function reactivateEmployeeUser(
         }
       }
     } catch {
-      // v2 tables may not exist yet — skip silently
+      // Non-fatal — leave balances may already exist
     }
   }
 
