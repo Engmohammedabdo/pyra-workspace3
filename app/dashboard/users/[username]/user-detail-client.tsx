@@ -17,6 +17,7 @@ import {
   User, Briefcase, DollarSign, FolderKanban, ArrowRight,
   Phone, Mail, MapPin, Calendar, Clock, Building2,
   CreditCard, Wallet, TrendingUp, Receipt, Download, FileText,
+  ClipboardList,
 } from 'lucide-react';
 import { UserDocumentsTab } from '@/components/hr/documents/UserDocumentsTab';
 
@@ -46,6 +47,7 @@ interface UserData {
   manager_username?: string;
   bank_details?: { bank?: string; iban?: string; account_name?: string; account_no?: string };
   created_at: string;
+  onboarding_id?: string | null;
 }
 
 interface Payment {
@@ -247,6 +249,14 @@ export default function UserDetailClient() {
 
             {/* Quick Actions */}
             <div className="flex gap-2 shrink-0">
+              {user.onboarding_id && (
+                <Link href={`/dashboard/hr/onboarding/${user.onboarding_id}`}>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30">
+                    <ClipboardList className="h-3.5 w-3.5" />
+                    عرض ملف التعيين
+                  </Button>
+                </Link>
+              )}
               <Link href="/dashboard/users">
                 <Button variant="outline" size="sm">رجوع</Button>
               </Link>

@@ -44,6 +44,8 @@ function defaultForm(): CreateOnboardingInput {
     reportsTo: '',
     startDate: '',
     isSales: false,
+    employment_type: 'full_time',
+    work_location: 'onsite',
     basic: 0,
     housing: 0,
     transport: 0,

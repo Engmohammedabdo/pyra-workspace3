@@ -13,6 +13,21 @@ import {
 import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
 import type { User } from '@/hooks/useUsers';
 import { Field } from './WizardStepPersonal';
+import { EMPLOYMENT_TYPES, WORK_LOCATIONS } from '@/lib/constants/auth';
+
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+  full_time:  'دوام كامل',
+  part_time:  'دوام جزئي',
+  contract:   'عقد مؤقت',
+  freelance:  'فريلانس',
+  intern:     'تدريب',
+};
+
+const WORK_LOCATION_LABELS: Record<string, string> = {
+  onsite:  'مكتبي',
+  remote:  'عن بُعد',
+  hybrid:  'هجين',
+};
 
 type FormData = CreateOnboardingInput;
 type OnChange = (patch: Partial<FormData>) => void;
@@ -89,6 +104,40 @@ export function StepPosition({
           value={data.startDate}
           onChange={(e) => onChange({ startDate: e.target.value })}
         />
+      </Field>
+      <Field label="نوع التوظيف">
+        <Select
+          value={data.employment_type ?? 'full_time'}
+          onValueChange={(v) => onChange({ employment_type: v })}
+        >
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="اختر نوع التوظيف" />
+          </SelectTrigger>
+          <SelectContent>
+            {(EMPLOYMENT_TYPES as readonly string[]).map((t) => (
+              <SelectItem key={t} value={t}>
+                {EMPLOYMENT_TYPE_LABELS[t] ?? t}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="مكان العمل">
+        <Select
+          value={data.work_location ?? 'onsite'}
+          onValueChange={(v) => onChange({ work_location: v })}
+        >
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder="اختر مكان العمل" />
+          </SelectTrigger>
+          <SelectContent>
+            {(WORK_LOCATIONS as readonly string[]).map((l) => (
+              <SelectItem key={l} value={l}>
+                {WORK_LOCATION_LABELS[l] ?? l}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </Field>
       <div className="sm:col-span-2 flex items-center gap-3 rounded-lg border p-4">
         <Switch

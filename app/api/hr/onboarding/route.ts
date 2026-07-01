@@ -156,6 +156,8 @@ export async function POST(request: NextRequest) {
       reportsTo,
       startDate,
       isSales,
+      employment_type,
+      work_location,
       // compensation
       basic,
       housing,
@@ -217,20 +219,44 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleClient();
 
     // ── Step 3: Create the employee user ──────────────────────────────────────
+    const cleanEmploymentType =
+      employment_type && typeof employment_type === 'string'
+        ? String(employment_type).trim()
+        : 'full_time';
+    const cleanWorkLocation =
+      work_location && typeof work_location === 'string'
+        ? String(work_location).trim()
+        : 'onsite';
+
+    const salaryBreakdown = {
+      basic:         basicNum,
+      housing:       housingNum,
+      transport:     transportNum,
+      communication: commNum,
+      other:         otherNum,
+    };
+
     const createResult = await createEmployeeUser(supabase, {
-      username:        cleanUsername,
-      password:        cleanPassword,
-      role:            isSalesBool ? 'sales_agent' : 'employee',
-      display_name:    cleanNameAr || cleanNameEn,
-      phone:           phone    ? String(phone).trim()    : undefined,
-      email:           email    ? String(email).trim()    : undefined,
-      job_title:       cleanTitleAr || cleanTitleEn,
-      department:      cleanDeptAr  || cleanDeptEn || null,
-      hire_date:       cleanStartDate,
-      date_of_birth:   dateOfBirth ? String(dateOfBirth).trim() : null,
+      username:         cleanUsername,
+      password:         cleanPassword,
+      role:             isSalesBool ? 'sales_agent' : 'employee',
+      display_name:     cleanNameAr || cleanNameEn,
+      phone:            phone    ? String(phone).trim()    : undefined,
+      email:            email    ? String(email).trim()    : undefined,
+      job_title:        cleanTitleAr || cleanTitleEn,
+      department:       cleanDeptAr  || cleanDeptEn || null,
+      hire_date:        cleanStartDate,
+      date_of_birth:    dateOfBirth ? String(dateOfBirth).trim() : null,
       manager_username: cleanReportsTo || null,
-      payment_type:    'monthly_salary',
-      salary:          monthlyTotal,
+      payment_type:     'monthly_salary',
+      salary:           monthlyTotal,
+      employment_type:  cleanEmploymentType,
+      work_location:    cleanWorkLocation,
+      national_id:      idNumber ? String(idNumber).trim() : null,
+      commission_rate:  isSalesBool && commissionRate !== undefined
+        ? Number(commissionRate)
+        : null,
+      salary_breakdown: salaryBreakdown,
     });
 
     if (!createResult.ok) {
@@ -298,6 +324,30 @@ export async function POST(request: NextRequest) {
       return apiServerError(
         `تم إنشاء المستخدم لكن فشل إنشاء سجل الإيبورد. يُرجى التواصل مع المسؤول. (${onbInsertError.message})`,
       );
+    }
+
+    // ── Step 4b: Link pyra_users.onboarding_id → this onboarding row ─────────
+    // Defensive: log on failure but don't abort — user + onboarding row exist.
+    {
+      const { error: linkError } = await supabase
+        .from('pyra_users')
+        .update({ onboarding_id: onboardingId })
+        .eq('username', employeeUsername);
+
+      if (linkError) {
+        logError({
+          error: linkError,
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: {
+            source:            'onboarding_link_user',
+            employee_username: employeeUsername,
+            onboarding_id:     onboardingId,
+          },
+        });
+        console.error('[hr/onboarding POST] onboarding_id link error:', linkError.message);
+        // Non-fatal: continue
+      }
     }
 
     // ── Step 5: Read company_name from pyra_settings ──────────────────────────

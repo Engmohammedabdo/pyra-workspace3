@@ -261,11 +261,50 @@ export interface PyraEmployeeDocument {
   signed_url?: string;
 }
 
+/** Typed shape of the offer_data JSONB column on pyra_onboarding. */
+export interface OfferData {
+  // Document meta
+  refNo: string;
+  year: string;
+  date: string;          // Dubai day key YYYY-MM-DD (today when generated)
+  // Dates & personal
+  startDate: string;
+  nameEn: string;
+  nameAr: string;
+  nationality: string;
+  passport: string;
+  idNumber: string;
+  dateOfBirth?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  // Position
+  titleEn: string;
+  titleAr: string;
+  deptEn: string;
+  deptAr: string;
+  reportsTo: string | null;
+  isSales: boolean;
+  // Compensation components (AED)
+  basic: number;
+  housing: number;
+  transport: number;
+  communication: number;
+  other: number;
+  commissionRate?: number;
+  monthlyTarget?: number;
+  // Contract extras
+  customClauses: Array<{ title?: string; body: string }>;
+  // Signatory
+  signatoryName: string;
+  signatoryTitle: string;
+  companyName?: string;
+}
+
 export interface PyraOnboarding {
   id: string;
   employee_username: string;
   status: string; // 'in_progress' | 'completed' | 'cancelled'
-  offer_data: Record<string, unknown>;
+  offer_data: OfferData | null; // JSONB — can be null
   assets: Array<Record<string, unknown>>;
   started_by: string;
   started_at: string;

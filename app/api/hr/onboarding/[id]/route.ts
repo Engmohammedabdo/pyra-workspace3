@@ -226,6 +226,34 @@ export async function PATCH(
       return apiServerError();
     }
 
+    // ── If cancelled, deactivate the linked employee account ─────────────────
+    // Prevents ghost logins from a cancelled onboarding. Defensive: log on
+    // failure but don't fail the response — the status update already succeeded.
+    if (action === 'cancel') {
+      const { error: deactivateError } = await supabase
+        .from('pyra_users')
+        .update({ status: 'inactive' })
+        .eq('username', existing.employee_username);
+
+      if (deactivateError) {
+        logError({
+          error: deactivateError,
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: {
+            source:            'onboarding_cancel_deactivate_user',
+            onboarding_id:     id,
+            employee_username: existing.employee_username,
+          },
+        });
+        console.error(
+          '[hr/onboarding/[id] PATCH] user deactivation error:',
+          deactivateError.message,
+        );
+        // Non-fatal: continue — the onboarding was cancelled successfully
+      }
+    }
+
     // ── Activity log (Phase 11.5 lock: action_type from constants + metadata.source) ──
     logActivity(
       auth.pyraUser.username,

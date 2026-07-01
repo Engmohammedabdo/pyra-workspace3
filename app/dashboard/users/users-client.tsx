@@ -43,6 +43,7 @@ import {
   Key,
   Shield,
   Loader2,
+  ClipboardList,
 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
@@ -83,6 +84,7 @@ interface PyraUser {
   national_id?: string | null;
   commission_rate?: number | null;
   extra_permissions?: string[];
+  onboarding_id?: string | null;
 }
 
 interface RoleOption {
@@ -348,9 +350,22 @@ export default function UsersClient() {
                       </div>
                     </td>
                     <td className="p-3 font-medium">
-                      <Link href={`/dashboard/users/${user.username}`} className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">
-                        {user.display_name}
-                      </Link>
+                      <div className="space-y-1">
+                        <Link href={`/dashboard/users/${user.username}`} className="hover:text-orange-600 dark:hover:text-orange-400 transition-colors">
+                          {user.display_name}
+                        </Link>
+                        {user.onboarding_id && (
+                          <Link
+                            href={`/dashboard/hr/onboarding/${user.onboarding_id}`}
+                            className="inline-flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                            title="عرض ملف التعيين"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <ClipboardList className="h-3 w-3" />
+                            معيّن عبر التعيين
+                          </Link>
+                        )}
+                      </div>
                     </td>
                     <td className="p-3">
                       {user.pyra_roles ? (

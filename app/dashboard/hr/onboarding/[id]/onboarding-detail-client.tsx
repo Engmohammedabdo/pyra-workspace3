@@ -8,6 +8,7 @@ import {
   UserCheck,
   XCircle,
   ClipboardList,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +33,7 @@ import {
 import { OnboardingChecklist } from '@/components/hr/onboarding/OnboardingChecklist';
 import { OnboardingDocuments } from '@/components/hr/onboarding/OnboardingDocuments';
 import { formatDate } from '@/lib/utils/format';
+import type { OfferData } from '@/types/database';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Status badge colours (matching list page)
@@ -91,9 +93,10 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
   }
 
   const isInProgress = onboarding.status === ONBOARDING_STATUS.IN_PROGRESS;
+  const offerData = onboarding.offer_data as OfferData | null | undefined;
   const employeeName =
-    (onboarding.offer_data?.nameAr as string) ||
-    (onboarding.offer_data?.nameEn as string) ||
+    offerData?.nameAr ||
+    offerData?.nameEn ||
     onboarding.employee_username;
 
   async function handleCancel() {
@@ -138,7 +141,16 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-bold">{employeeName}</h1>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold">{employeeName}</h1>
+            <Link
+              href={`/dashboard/users/${onboarding.employee_username}`}
+              className="inline-flex items-center gap-1.5 text-sm text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 transition-colors"
+            >
+              <User className="h-4 w-4" />
+              عرض ملف الموظف
+            </Link>
+          </div>
           <div className="flex items-center gap-3">
             <Badge
               className={`text-xs ${STATUS_CLASS[onboarding.status] ?? ''}`}
@@ -199,29 +211,29 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
       </div>
 
       {/* Offer data summary */}
-      {onboarding.offer_data && Object.keys(onboarding.offer_data).length > 0 && (
+      {offerData && Object.keys(offerData).length > 0 && (
         <div className="rounded-xl border bg-muted/30 dark:bg-muted/10 p-5 space-y-3">
           <h2 className="font-semibold">تفاصيل العرض</h2>
           <div className="grid gap-y-2 gap-x-8 grid-cols-2 sm:grid-cols-3 text-sm">
             {[
-              ['القسم', (onboarding.offer_data.deptAr || onboarding.offer_data.deptEn) as string],
-              ['المسمى', (onboarding.offer_data.titleAr || onboarding.offer_data.titleEn) as string],
-              ['تاريخ الالتحاق', onboarding.offer_data.startDate as string],
+              ['القسم', offerData.deptAr || offerData.deptEn],
+              ['المسمى', offerData.titleAr || offerData.titleEn],
+              ['تاريخ الالتحاق', offerData.startDate],
               [
                 'الراتب الأساسي',
-                onboarding.offer_data.basic
-                  ? `${Number(onboarding.offer_data.basic).toLocaleString('ar-AE')} د.إ`
+                offerData.basic
+                  ? `${Number(offerData.basic).toLocaleString('ar-AE')} د.إ`
                   : undefined,
               ],
               [
                 'الإجمالي الشهري',
                 (() => {
                   const total =
-                    Number(onboarding.offer_data.basic || 0) +
-                    Number(onboarding.offer_data.housing || 0) +
-                    Number(onboarding.offer_data.transport || 0) +
-                    Number(onboarding.offer_data.communication || 0) +
-                    Number(onboarding.offer_data.other || 0);
+                    Number(offerData.basic || 0) +
+                    Number(offerData.housing || 0) +
+                    Number(offerData.transport || 0) +
+                    Number(offerData.communication || 0) +
+                    Number(offerData.other || 0);
                   return total > 0
                     ? `${total.toLocaleString('ar-AE')} د.إ`
                     : undefined;
@@ -230,7 +242,7 @@ export default function OnboardingDetailClient({ id }: { id: string }) {
             ]
               .filter(([, v]) => v)
               .map(([label, value]) => (
-                <div key={label as string}>
+                <div key={String(label)}>
                   <p className="text-xs text-muted-foreground">{label}</p>
                   <p className="font-medium">{value}</p>
                 </div>

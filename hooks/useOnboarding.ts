@@ -57,6 +57,10 @@ export interface CreateOnboardingInput {
   reportsTo: string;
   startDate: string;
   isSales: boolean;
+  /** Default: 'full_time' */
+  employment_type?: string;
+  /** Default: 'onsite' */
+  work_location?: string;
   // compensation (numbers)
   basic: number;
   housing: number;
@@ -133,6 +137,8 @@ export function useUpdateOnboarding() {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['onboarding'] });
       qc.invalidateQueries({ queryKey: ['onboarding', vars.id] });
+      // cancel sets the linked user status='inactive' server-side — refresh users list
+      qc.invalidateQueries({ queryKey: ['users'] });
     },
   });
 }
