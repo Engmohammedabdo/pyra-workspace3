@@ -37,8 +37,12 @@ export async function GET() {
       .order('logged_in_at', { ascending: false })
       .limit(5);
 
+    // Never expose the password hash over the wire
+    const safeUser: Record<string, unknown> = { ...user };
+    delete safeUser.password_hash;
+
     return apiSuccess({
-      ...user,
+      ...safeUser,
       activity_count: activityCount || 0,
       login_history: loginHistory || [],
     });
@@ -97,7 +101,7 @@ export async function PATCH(request: NextRequest) {
       .from('pyra_users')
       .update(updates)
       .eq('username', auth.pyraUser.username)
-      .select()
+      .select('id, username, display_name, email, phone, job_title, bio, avatar_url, bank_details')
       .single();
 
     if (error) {

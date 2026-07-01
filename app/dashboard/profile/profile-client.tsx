@@ -26,7 +26,8 @@ interface ProfileClientProps {
 
 export default function ProfileClient({ session }: ProfileClientProps) {
   const queryClient = useQueryClient();
-  const [saving, setSaving] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingBank, setSavingBank] = useState(false);
   const [activeTab, setActiveTab] = useState('info');
 
   // Form state
@@ -74,27 +75,30 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   });
 
   const saveProfile = async () => {
-    setSaving(true);
+    setSavingProfile(true);
     try {
       await saveProfileMutation.mutateAsync({ display_name: displayName, phone, job_title: jobTitle, bio });
     } finally {
-      setSaving(false);
+      setSavingProfile(false);
     }
   };
 
   const saveBank = async () => {
-    setSaving(true);
+    setSavingBank(true);
     try {
+      const allBlank = !bankName.trim() && !iban.trim() && !accountName.trim() && !accountNo.trim();
       await saveProfileMutation.mutateAsync({
-        bank_details: {
-          bank: bankName.trim() || undefined,
-          iban: iban.trim() || undefined,
-          account_name: accountName.trim() || undefined,
-          account_no: accountNo.trim() || undefined,
-        },
+        bank_details: allBlank
+          ? null
+          : {
+              bank: bankName.trim() || undefined,
+              iban: iban.trim() || undefined,
+              account_name: accountName.trim() || undefined,
+              account_no: accountNo.trim() || undefined,
+            },
       });
     } finally {
-      setSaving(false);
+      setSavingBank(false);
     }
   };
 
@@ -254,8 +258,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                 <p className="text-xs text-muted-foreground text-end">{bio.length}/280</p>
               </div>
               <div className="flex justify-end">
-                <Button onClick={saveProfile} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
-                  {saving ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
+                <Button onClick={saveProfile} disabled={savingProfile} className="bg-orange-500 hover:bg-orange-600 text-white">
+                  {savingProfile ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
                   حفظ التغييرات
                 </Button>
               </div>
@@ -290,8 +294,8 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={saveBank} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
-                  {saving ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
+                <Button onClick={saveBank} disabled={savingBank} className="bg-orange-500 hover:bg-orange-600 text-white">
+                  {savingBank ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
                   حفظ البيانات البنكية
                 </Button>
               </div>

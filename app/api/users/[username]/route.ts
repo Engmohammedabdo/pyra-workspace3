@@ -374,7 +374,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // about any direct reports that may need a new manager assigned.
     // (We do NOT null manager_username on deactivation — the link is preserved
     // for potential reactivation; admins may reassign manually if needed.)
-    if (body.status === 'inactive' || body.status === 'suspended') {
+    if (
+      (body.status === 'inactive' || body.status === 'suspended') &&
+      existingUser.status !== body.status
+    ) {
       try {
         const deactServiceClient = createServiceRoleClient();
         const orphanedReports = await getDirectReports(deactServiceClient, username);
@@ -507,6 +510,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       { table: 'pyra_timesheet_periods', column: 'username' },
       { table: 'pyra_employee_payments', column: 'username' },
       { table: 'pyra_evaluations', column: 'employee_username' },
+      { table: 'pyra_evaluations', column: 'evaluator_username' },
       { table: 'pyra_kpi_targets', column: 'username' },
       { table: 'pyra_task_assignees', column: 'username' },
       { table: 'pyra_task_comments', column: 'author_username' },
