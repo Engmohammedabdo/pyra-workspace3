@@ -118,10 +118,14 @@ export async function POST(request: NextRequest) {
           // ── 7-day tier (critical) ──────────────────────────────────────────
           // Flip BOTH flags so the 30-day email is never sent after the 7-day one.
           // Flags flip BEFORE notify (idempotency: notify failure won't re-queue).
-          await supabase
+          const { error: flag7Err } = await supabase
             .from('pyra_employee_documents')
             .update({ expiry_alert_7_sent: true, expiry_alert_30_sent: true })
             .eq('id', doc.id);
+          if (flag7Err) {
+            console.error(`[cron/document-expiry-check] 7d flag flip failed doc=${doc.id}:`, flag7Err.message);
+            continue; // don't notify if the flag didn't flip — avoids duplicate alerts next run
+          }
 
           await notify(supabase, {
             to: doc.employee_username,
@@ -136,10 +140,14 @@ export async function POST(request: NextRequest) {
         } else if (!doc.expiry_alert_30_sent) {
           // ── 30-day tier ────────────────────────────────────────────────────
           // Flip flag BEFORE notify (same idempotency guarantee).
-          await supabase
+          const { error: flag30Err } = await supabase
             .from('pyra_employee_documents')
             .update({ expiry_alert_30_sent: true })
             .eq('id', doc.id);
+          if (flag30Err) {
+            console.error(`[cron/document-expiry-check] 30d flag flip failed doc=${doc.id}:`, flag30Err.message);
+            continue;
+          }
 
           await notify(supabase, {
             to: doc.employee_username,
@@ -171,7 +179,8 @@ export async function POST(request: NextRequest) {
       .select('id, employee_username, type_id, expiry_date')
       .not('expiry_date', 'is', null)
       .lt('expiry_date', todayKey)
-      .eq('expiry_alert_expired_sent', false);
+      .eq('expiry_alert_expired_sent', false)
+      .limit(200); // bounded batch — the flag flip clears the rest on subsequent ticks
 
     if (expiredErr) {
       logError({
@@ -189,10 +198,14 @@ export async function POST(request: NextRequest) {
       }>) {
         try {
           const typeAr = typeMap.get(doc.type_id) ?? 'وثيقة';
-          await supabase
+          const { error: flagExpErr } = await supabase
             .from('pyra_employee_documents')
             .update({ expiry_alert_expired_sent: true })
             .eq('id', doc.id);
+          if (flagExpErr) {
+            console.error(`[cron/document-expiry-check] expired flag flip failed doc=${doc.id}:`, flagExpErr.message);
+            continue;
+          }
 
           await notify(supabase, {
             to: doc.employee_username,

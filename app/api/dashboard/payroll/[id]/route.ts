@@ -237,11 +237,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
       if (error) return apiServerError(error.message);
 
-      // Also update all payroll items to 'paid'
-      await supabase
+      // Also update all payroll items to 'paid' — return the rows so we can send
+      // payslip-ready notifications without a second SELECT.
+      const { data: paidItems, error: paidItemsErr } = await supabase
         .from('pyra_payroll_items')
         .update({ status: PAYROLL_STATUS.PAID })
-        .eq('payroll_id', id);
+        .eq('payroll_id', id)
+        .select('username, net_pay, currency');
+      if (paidItemsErr) {
+        logError({ error: paidItemsErr, request: req, metadata: { route: 'payroll/[id]', method: 'PATCH', step: 'items-paid', payroll_id: id } });
+        console.error('[payroll/pay] items update failed:', paidItemsErr.message);
+      }
 
       // Settle the employee_payments consumed by this run + their source tasks
       const { data: consumed } = await supabase
@@ -260,11 +266,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         req.headers.get('x-forwarded-for') || 'unknown',
       );
 
-      // Notify each employee that their payslip is ready
-      const { data: paidItems } = await supabase
-        .from('pyra_payroll_items')
-        .select('username, net_pay, currency')
-        .eq('payroll_id', id);
+      // Notify each employee that their payslip is ready. System-sent so an admin
+      // who is also on this run still receives their own payslip notification
+      // (notify() skips self-notifications when from === to).
       const monthLabel = `${run.month}/${run.year}`;
       await notifyBatch(
         supabase,
@@ -277,7 +281,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
             message: `راتب شهر ${monthLabel}: ${it.net_pay} ${it.currency || 'AED'} — كشف الراتب جاهز`,
             link: '/dashboard/my-payslips',
             entity: { type: 'payroll', id },
-            from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+            from: { username: 'system' },
           })),
       );
 
