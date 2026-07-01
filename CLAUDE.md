@@ -3995,3 +3995,97 @@ Discovery found several `HR bundle v1.1 backlog` items no longer valid:
 ### Still deferred (low value)
 - `AdminAttendanceDialog` `DialogFooter` `flex-row-reverse` — cosmetic only.
 - `hourly_rate_currency` — only if an hourly worker needs a currency ≠ salary_currency.
+
+## HR Gap-Remediation — Locked Decisions (2026-07-02)
+
+A 5-batch effort (A/C/B/D/E) closing an adversarial gap audit (47 confirmed
+gaps). Each batch: deep discovery → design → implement → adversarial multi-lens
+review (opus verify) → fix → ship. UAE legal compliance (gratuity/WPS/exports)
+was explicitly DEFERRED by the user — do NOT treat its absence as a bug. Plans in
+`docs/superpowers/plans/2026-07-0{1,2}-hr-batch-*.md`. Migrations 027–029.
+
+### Batch A — fixes + notifications (`e0c4137`, `e41d87e`)
+- **BUG fixed:** `/api/approvals/team` + `/api/my-work` selected non-existent
+  `period_start`/`period_end` on `pyra_timesheet_periods` (real cols
+  `start_date`/`end_date`) — the query 42703'd silently so the timesheet approval
+  queue was ALWAYS empty. Aliased in the API map (client field names unchanged).
+- Entry-level timesheet approval (`/api/timesheet/[id]`) now enforces
+  `canApproveFor` (was permission-only → any manager approved anyone).
+- 8 notifications wired via `notify`/`notifyBatch` (6 new `NotificationType`s):
+  timesheet submit→manager, payroll paid→employee, employee-payment
+  approve/pay→employee, evaluation submit→employee + ack→evaluator, HR doc
+  upload→employee, doc expired→employee. Migration 027 `expiry_alert_expired_sent`.
+
+### Batch C — Work Schedules admin UI (`9f6a920`, `5d37617`)
+- `/dashboard/hr/work-schedules` CRUD + `work-schedules/[id]` PATCH/DELETE
+  (DELETE blocks when `is_default` or referenced by any user; PATCH blocks
+  unsetting the LAST default → attendance would fall back to hard-coded 09:00).
+- Per-employee assignment via `work_schedule_id` in the user create/edit dialogs.
+- **`DEFAULT_WORK_DAYS = [1,2,3,4,5,6]`** + **`WEEKEND_DAYS = [0]`** in
+  `lib/constants/auth.ts` — **Pyramedia weekend = Sunday only** (Mon–Sat work
+  week; 0=Sunday..6=Saturday). Do NOT revert to Sun–Thu.
+- Review caught a CRITICAL: `GET /api/users` omitted `work_schedule_id` from its
+  SELECT → editing any user silently wiped their schedule. Fixed.
+
+### Batch B — lifecycle + integrity + self-service (`4439e23`, `1ad4450`)
+- **Hard-delete a user is BLOCKED (409) when payroll/payment/document/onboarding
+  records exist** → admin must deactivate instead (user's locked choice). Clean
+  delete also nulls direct reports' `manager_username` + alerts admins.
+- Deactivating/suspending a manager alerts admins (only on the real transition).
+- **`notifyApprovers(supabase, employeeUsername, input)`** (`lib/notifications/
+  approvers.ts`) — the canonical approval-notify: notifies the employee's ACTIVE
+  manager, else falls back to all active admins. Used by leave/expense/timesheet
+  submit so approvals are never stranded on a dead inbox. Use this for any new
+  approval-submit path; do NOT hand-roll `getManagerOf` + `notify`.
+- Re-hire: onboarding reactivates an existing inactive/suspended account
+  (`reactivateEmployeeUser`) instead of hard-409'ing on a duplicate username.
+- Self-service: employees edit their own contact + bank (IBAN) from
+  `/dashboard/profile` (whitelisted `bank_details`, logged). Profile GET/PATCH
+  never returns `password_hash`.
+
+### Batch D — leave depth (`aafe6f8`, `748a7f8`)
+- **`pyra_leave_balances_v2` is the SINGLE source of truth. The legacy v1
+  `pyra_leave_balances` is DEAD — do NOT read/write it.** (Both were 0-row at
+  cutover.) available = `total_days + carried_over − used_days`.
+  create/approve/cancel + employee seeding are all v2-only; the dashboard widget
+  reads v2. v1's table + a couple dead references remain (harmless no-ops).
+- **`countLeaveDays(start, end)`** (`lib/leave/days.ts`) — leave day-count
+  EXCLUDES the weekend (Sunday). Do NOT deduct weekend days.
+- Cancel restores ONLY the unused/future working days (not the whole request);
+  a PENDING cancel restores NOTHING (pending was never deducted); notifies the
+  manager (`leave_cancelled`).
+- Migration 028 seeds **`lt_unpaid` (`is_paid=false`)** → activates the
+  previously-dead unpaid-leave payroll deduction. Unpaid leave skips the balance
+  check on submit AND the deduct on approve.
+- Rollover cron **`/api/cron/leave-balance-rollover`** (n8n yearly, Jan 1 Dubai)
+  reuses `calculateCarryOver` then seeds any missing next-year rows.
+- Admin `/dashboard/hr/leave-balances` (view by year + per-employee adjust) +
+  `/api/hr/leave-balances` GET/POST (`leave.manage`). Approvals leave tab shows
+  the requester's remaining balance (amber/red when insufficient).
+
+### Batch E — evaluations + reporting (`fa27b58`, `ecc1a51`)
+- KPI progress: `kpi/[id]` PATCH (`evaluations.manage`) + `KpiProgressEditor`
+  (`actual_value` was permanently 0).
+- Bonus: the `recommend_bonus` action (tiered 5/10/15% → pending payment) is now
+  surfaced as a button (manage + rating≥3.5); uses the employee's
+  `salary_currency` (was hardcoded AED); server-side idempotency guard (one bonus
+  per evaluation via `source_id`).
+- `PerformanceTrend` tab — an employee's rating across periods (+below-3.0 flag).
+- **Turnover:** migration 029 **`pyra_users.deactivated_at`** — stamped on
+  active→inactive/suspended in the users PATCH, cleared on reactivation/re-hire.
+  HR Overview surfaces `inactive` + `departed_30d/90d/365d` (a 6th KPI card).
+  Turnover-window comparison MUST use `dubaiDayKey(new Date(iso))` — never a raw
+  `.slice(0,10)` (Dubai-day lock).
+- **Leave liability is now monetary + currency-grouped:** remaining PAID-leave
+  days × (salary / `PAYROLL_WORKING_DAYS_PER_MONTH`), bucketed by
+  `salary_currency` (`leave.liability_by_currency` + `LeaveLiabilityCard`). Never
+  sum across currencies.
+
+### v1.1 backlog (this effort)
+- Leave: reserve PENDING requests against balance + re-validate on approve
+  (pre-existing over-approval gap); public-holiday exclusion in `countLeaveDays`;
+  drop the dead v1 table + its remaining references; migrate `leave-client.tsx`
+  off raw fetch/useState to React Query.
+- Evaluations: KPI PATCH stricter type validation on optional fields.
+- UAE legal compliance (deferred by decision): end-of-service gratuity engine,
+  WPS/SIF bank-file export, HR CSV/PDF exports, YTD/annual payroll summary.
