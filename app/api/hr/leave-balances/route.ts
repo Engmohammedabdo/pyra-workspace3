@@ -200,8 +200,8 @@ export async function POST(request: NextRequest) {
       ['used_days', used_days],
       ['carried_over', carried_over],
     ] as const) {
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
-        return apiValidationError(`${key} يجب أن يكون رقماً أكبر من أو يساوي صفر`);
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+        return apiValidationError(`${key} يجب أن يكون رقماً صحيحاً أكبر من أو يساوي صفر`);
       }
     }
 
@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
     logActivity(
       auth.pyraUser.username,
       auth.pyraUser.display_name,
-      `${ENTITY_TYPES.USER}_${ACTIVITY_ACTIONS.UPDATE}`,
+      `${ENTITY_TYPES.LEAVE}_${ACTIVITY_ACTIONS.UPDATE}`,
       '/dashboard/hr/leave-balances',
       {
         source: 'leave_balance_adjusted',

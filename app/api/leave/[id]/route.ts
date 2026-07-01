@@ -61,11 +61,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
       const { data: leaveType } = await serviceSupabase
         .from('pyra_leave_types')
-        .select('id, default_days')
+        .select('id, default_days, is_paid')
         .eq('name', existing.type)
         .single();
 
-      if (leaveType) {
+      // Unpaid leave (is_paid=false) never draws from a balance — don't deduct
+      // (mirrors the POST route's is_paid skip; otherwise used_days would go
+      // negative-remaining on the zero-total lt_unpaid row).
+      if (leaveType && leaveType.is_paid) {
         const { data: v2Balance } = await serviceSupabase
           .from('pyra_leave_balances_v2')
           .select('id, used_days')
@@ -141,40 +144,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     if (error) return apiServerError(error.message);
 
-    // Restore only the UNUSED (future) portion of the leave in v2 — a
-    // request may span dates already partially elapsed by cancellation time.
-    const year = new Date(existing.start_date).getFullYear();
-    const serviceSupabase = createServiceRoleClient();
-
-    const today = dubaiDayKey();
-    const tomorrow = dubaiDayKey(new Date(Date.now() + 24 * 60 * 60 * 1000));
-    const restoreStart = existing.start_date > tomorrow ? existing.start_date : tomorrow;
-    const restoreDays = restoreStart > existing.end_date ? 0 : countLeaveDays(restoreStart, existing.end_date);
-
-    if (restoreDays > 0) {
-      const { data: leaveType } = await serviceSupabase
-        .from('pyra_leave_types')
-        .select('id')
-        .eq('name', existing.type)
-        .single();
-
-      if (leaveType) {
-        const { data: balV2 } = await serviceSupabase
-          .from('pyra_leave_balances_v2')
-          .select('id, used_days')
-          .eq('username', existing.username)
-          .eq('year', year)
-          .eq('leave_type_id', leaveType.id)
-          .single();
-
-        if (balV2 && balV2.used_days > 0) {
-          await serviceSupabase
-            .from('pyra_leave_balances_v2')
-            .update({ used_days: Math.max(0, balV2.used_days - restoreDays) })
-            .eq('id', balV2.id);
-        }
-      }
-    }
+    // A PENDING request was never deducted from the balance (deduction happens
+    // only on approval), so cancelling it must NOT touch used_days — mirrors the
+    // reject path. Only cancellation of an APPROVED leave restores days (see the
+    // reason-based cancel branch below).
 
     // Activity log
     logActivity(
@@ -187,7 +160,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     );
 
     // Notify the manager/approver that the leave was cancelled
-    await notifyApprovers(serviceSupabase, existing.username, {
+    await notifyApprovers(createServiceRoleClient(), existing.username, {
       type: 'leave_cancelled',
       title: `تم إلغاء إجازة — ${existing.username}`,
       message: `${existing.type} من ${existing.start_date} إلى ${existing.end_date}`,

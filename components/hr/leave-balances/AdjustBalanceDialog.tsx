@@ -53,24 +53,26 @@ export function AdjustBalanceDialog({
 
   const handleSave = async () => {
     if (!employee) return;
-    try {
-      await Promise.all(
-        rows.map((r) =>
-          adjustMut.mutateAsync({
-            username: employee.username,
-            year,
-            leave_type_id: r.leave_type_id,
-            total_days: r.total_days,
-            used_days: r.used_days,
-            carried_over: r.carried_over,
-          }),
-        ),
-      );
+    // allSettled so one failing leave-type row doesn't hide which others saved;
+    // only close the dialog when every row persisted.
+    const results = await Promise.allSettled(
+      rows.map((r) =>
+        adjustMut.mutateAsync({
+          username: employee.username,
+          year,
+          leave_type_id: r.leave_type_id,
+          total_days: r.total_days,
+          used_days: r.used_days,
+          carried_over: r.carried_over,
+        }),
+      ),
+    );
+    const failed = rows.filter((_, i) => results[i].status === 'rejected');
+    if (failed.length === 0) {
       toast.success('تم تحديث أرصدة الإجازات');
       onOpenChange(false);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'فشل الحفظ';
-      toast.error(msg);
+    } else {
+      toast.error(`فشل حفظ: ${failed.map((r) => r.name_ar).join('، ')}`);
     }
   };
 
