@@ -3,6 +3,7 @@ import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
+import { canApproveFor } from '@/lib/auth/team-scope';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
@@ -42,6 +43,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (body.status === TIMESHEET_STATUS.APPROVED || body.status === TIMESHEET_STATUS.REJECTED) {
       if (!hasPermission(auth.pyraUser.rolePermissions, 'timesheet.approve')) {
         return apiError('غير مصرح بالاعتماد', 403);
+      }
+      // Manager-scope guard — permission alone gates the action category; this
+      // enforces "only your direct reports" (admin overrides). Mirrors the
+      // period-approval route so entry-level approval can't be done cross-team.
+      const allowedToApprove = await canApproveFor(
+        supabase,
+        auth.pyraUser.username,
+        auth.pyraUser.role,
+        existing.username,
+      );
+      if (!allowedToApprove) {
+        return apiError('يمكنك فقط اعتماد إدخالات الموظفين تحت إدارتك المباشرة', 403);
       }
       // Prevent self-approval
       if (body.status === TIMESHEET_STATUS.APPROVED && existing.username === auth.pyraUser.username) {

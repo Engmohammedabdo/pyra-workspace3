@@ -11,6 +11,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { uploadLimiter, checkRateLimit } from '@/lib/utils/rate-limit';
+import { notify } from '@/lib/notifications/notify';
 
 // ────────────────────────────────────────────────────────────────────────────
 // /api/hr/documents
@@ -320,6 +321,17 @@ export async function POST(request: NextRequest) {
       },
       request.headers.get('x-forwarded-for') ?? undefined,
     );
+
+    // Notify the employee that a new document was added to their vault
+    await notify(supabase, {
+      to: inserted.employee_username,
+      type: 'document_uploaded',
+      title: 'تم إضافة وثيقة إلى ملفك',
+      message: 'أضاف قسم الموارد البشرية وثيقة جديدة إلى مستنداتك',
+      link: '/dashboard/my-documents',
+      entity: { type: 'document', id: docId },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    });
 
     return apiSuccess({ document: { ...inserted, signed_url } }, undefined, 201);
   } catch (err) {

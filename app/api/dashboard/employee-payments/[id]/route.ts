@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -75,6 +76,17 @@ export async function PATCH(
         req.headers.get('x-forwarded-for') || 'unknown',
       );
 
+      // Notify the employee their payment was approved
+      await notify(supabase, {
+        to: payment.username,
+        type: 'employee_payment_approved',
+        title: 'تم اعتماد دفعة لك',
+        message: `${payment.description || payment.source_type}: ${payment.amount} ${payment.currency || 'AED'}`,
+        link: '/dashboard/my-payslips',
+        entity: { type: 'employee_payment', id },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+
       return apiSuccess(data);
     }
 
@@ -114,6 +126,17 @@ export async function PATCH(
         { payment_id: id, status: 'paid', source: 'employee_payment_updated' },
         req.headers.get('x-forwarded-for') || 'unknown',
       );
+
+      // Notify the employee their payment was paid
+      await notify(supabase, {
+        to: payment.username,
+        type: 'employee_payment_paid',
+        title: 'تم صرف دفعة لك',
+        message: `${payment.description || payment.source_type}: ${payment.amount} ${payment.currency || 'AED'}`,
+        link: '/dashboard/my-payslips',
+        entity: { type: 'employee_payment', id },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
 
       return apiSuccess(data);
     }

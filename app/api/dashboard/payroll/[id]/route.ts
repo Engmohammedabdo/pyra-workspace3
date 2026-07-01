@@ -7,6 +7,7 @@ import { PAYROLL_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { markPaymentsPaidAndPropagate } from '@/lib/payroll/payment-lifecycle';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notifyBatch } from '@/lib/notifications/notify';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -257,6 +258,27 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         '/dashboard/payroll',
         { payroll_id: id, new_status: 'paid', source: 'payroll_status_changed' },
         req.headers.get('x-forwarded-for') || 'unknown',
+      );
+
+      // Notify each employee that their payslip is ready
+      const { data: paidItems } = await supabase
+        .from('pyra_payroll_items')
+        .select('username, net_pay, currency')
+        .eq('payroll_id', id);
+      const monthLabel = `${run.month}/${run.year}`;
+      await notifyBatch(
+        supabase,
+        (paidItems || [])
+          .filter((it: { username?: string | null }) => !!it.username)
+          .map((it: { username: string; net_pay: number; currency: string | null }) => ({
+            to: it.username,
+            type: 'payroll_paid',
+            title: 'تم صرف راتبك',
+            message: `راتب شهر ${monthLabel}: ${it.net_pay} ${it.currency || 'AED'} — كشف الراتب جاهز`,
+            link: '/dashboard/my-payslips',
+            entity: { type: 'payroll', id },
+            from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+          })),
       );
 
       return apiSuccess(data);

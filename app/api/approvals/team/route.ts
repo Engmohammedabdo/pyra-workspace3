@@ -119,7 +119,7 @@ export async function GET() {
     const buildTimesheetQuery = () => {
       let q = serviceClient
         .from('pyra_timesheet_periods')
-        .select('id, username, period_start, period_end, total_hours, submitted_at')
+        .select('id, username, start_date, end_date, total_hours, submitted_at')
         .eq('status', 'submitted')
         .order('submitted_at', { ascending: false })
         .limit(100);
@@ -177,8 +177,8 @@ export async function GET() {
         id: t.id,
         username: t.username,
         display_name: userMap.get(t.username) || t.username,
-        period_start: t.period_start,
-        period_end: t.period_end,
+        period_start: t.start_date,
+        period_end: t.end_date,
         total_hours: t.total_hours || null,
         submitted_at: t.submitted_at || null,
       })),

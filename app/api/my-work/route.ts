@@ -213,9 +213,9 @@ export async function GET() {
 
       let tsQuery = serviceClient
         .from('pyra_timesheet_periods')
-        .select('id, username, period_start, period_end, total_hours')
+        .select('id, username, start_date, end_date, total_hours')
         .eq('status', 'submitted')
-        .order('period_end', { ascending: false })
+        .order('end_date', { ascending: false })
         .limit(20);
       if (!isAdmin) tsQuery = tsQuery.in('username', approvalScope);
       const { data: timesheets } = await tsQuery;
@@ -229,8 +229,8 @@ export async function GET() {
         id: t.id,
         username: t.username,
         display_name: tsUserMap.get(t.username) || t.username,
-        period_start: t.period_start,
-        period_end: t.period_end,
+        period_start: t.start_date,
+        period_end: t.end_date,
         total_hours: t.total_hours,
       }));
     }

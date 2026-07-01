@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 import { generateId } from '@/lib/utils/id';
 import { EVALUATION_STATUS, EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
+import { notify } from '@/lib/notifications/notify';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -180,6 +181,17 @@ export async function PATCH(
       });
       if (logErr) console.error('Activity log error:', logErr);
 
+      // Notify the evaluated employee their evaluation was submitted (needs ack)
+      await notify(supabase, {
+        to: evaluation.employee_username,
+        type: 'evaluation_submitted',
+        title: 'تم تقديم تقييم أدائك',
+        message: 'راجع تقييمك وأكّد اطّلاعك عليه',
+        link: '/dashboard/evaluations',
+        entity: { type: 'evaluation', id },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+
       return apiSuccess(data);
     }
 
@@ -311,6 +323,17 @@ export async function PATCH(
         ip_address: req.headers.get('x-forwarded-for') || 'unknown',
       });
       if (logErr2) console.error('Activity log error:', logErr2);
+
+      // Notify the evaluator that the employee acknowledged the evaluation
+      await notify(supabase, {
+        to: evaluation.evaluator_username,
+        type: 'evaluation_acknowledged',
+        title: 'تم الاعتراف بالتقييم',
+        message: `${auth.pyraUser.display_name} اطّلع على التقييم وأكّده`,
+        link: '/dashboard/evaluations',
+        entity: { type: 'evaluation', id },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
 
       return apiSuccess(data);
     }

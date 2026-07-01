@@ -160,17 +160,71 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ── Q2: Already-expired docs that haven't had an "expired" alert yet ──────
+    // A document that crossed its expiry_date silently (the 7-day alert already
+    // flipped both flags) would otherwise get NO "it's now expired" signal.
+    // One-shot via expiry_alert_expired_sent (migration 027), same idempotency
+    // discipline: flip the flag BEFORE notify.
+    let expired = 0;
+    const { data: expiredDocs, error: expiredErr } = await supabase
+      .from('pyra_employee_documents')
+      .select('id, employee_username, type_id, expiry_date')
+      .not('expiry_date', 'is', null)
+      .lt('expiry_date', todayKey)
+      .eq('expiry_alert_expired_sent', false);
+
+    if (expiredErr) {
+      logError({
+        error: expiredErr,
+        request,
+        metadata: { source: 'cron', job: 'document-expiry-check', stage: 'expired_select' },
+      });
+      console.error('[cron/document-expiry-check] expired SELECT failed:', expiredErr.message);
+    } else {
+      for (const doc of (expiredDocs ?? []) as Array<{
+        id: string;
+        employee_username: string;
+        type_id: string;
+        expiry_date: string;
+      }>) {
+        try {
+          const typeAr = typeMap.get(doc.type_id) ?? 'وثيقة';
+          await supabase
+            .from('pyra_employee_documents')
+            .update({ expiry_alert_expired_sent: true })
+            .eq('id', doc.id);
+
+          await notify(supabase, {
+            to: doc.employee_username,
+            type: 'document_expired',
+            title: 'وثيقة منتهية الصلاحية',
+            message: `${typeAr} انتهت بتاريخ ${doc.expiry_date} — يرجى تجديدها وتحديث الملف`,
+            link: '/dashboard/my-documents',
+            entity: { type: 'document', id: doc.id },
+            from: { username: 'system' },
+          });
+          expired++;
+        } catch (rowErr) {
+          console.error(`[cron/document-expiry-check] expired row error doc=${doc.id}:`, rowErr);
+        }
+      }
+    }
+
     // ── Grouped admin summary ─────────────────────────────────────────────────
-    // Notify each admin ONCE with the total number of expiring docs (scanned, not
-    // just processed) so HR can review even docs whose alerts were previously sent.
-    if (scanned > 0 && adminUsernames.length > 0) {
+    // Notify each admin ONCE covering both the expiring-soon and newly-expired
+    // buckets so HR has a single daily action item.
+    if ((scanned > 0 || expired > 0) && adminUsernames.length > 0) {
+      const titleParts: string[] = [];
+      if (scanned > 0) titleParts.push(`${scanned} تنتهي خلال 30 يوماً`);
+      if (expired > 0) titleParts.push(`${expired} منتهية`);
+      const summaryTitle = `وثائق موظفين: ${titleParts.join(' و')}`;
       for (const adminUsername of adminUsernames) {
         try {
           await notify(supabase, {
             to: adminUsername,
-            type: 'document_expiring_soon',
-            title: `${scanned} وثيقة موظفين تنتهي خلال 30 يوماً`,
-            message: `${processed} إشعار جديد أُرسل. راجع وثائق الموظفين المنتهية أو القريبة من الانتهاء`,
+            type: expired > 0 ? 'document_expired' : 'document_expiring_soon',
+            title: summaryTitle,
+            message: `${processed} إشعار قرب-انتهاء و${expired} إشعار انتهاء أُرسلت للموظفين. راجع وثائق الموظفين.`,
             link: '/dashboard/hr/documents',
             entity: { type: 'document_summary', id: todayKey },
             from: { username: 'system' },
@@ -181,7 +235,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return apiSuccess({ scanned, processed });
+    return apiSuccess({ scanned, processed, expired });
   } catch (err) {
     logError({
       error: err,

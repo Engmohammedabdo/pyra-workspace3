@@ -65,7 +65,15 @@ export type NotificationType =
   | 'leave_rejected'
   | 'expense_approved'
   | 'expense_rejected'
+  // Payroll / employee payments (employee-facing)
+  | 'payroll_paid'
+  | 'employee_payment_approved'
+  | 'employee_payment_paid'
+  // Evaluations
+  | 'evaluation_submitted'
+  | 'evaluation_acknowledged'
   // Documents
+  | 'document_uploaded'
   | 'document_expiring_soon'
   | 'document_expired'
   // Generic

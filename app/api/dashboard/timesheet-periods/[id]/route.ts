@@ -3,8 +3,9 @@ import { requireApiPermission, isApiError, getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
-import { canApproveFor } from '@/lib/auth/team-scope';
+import { canApproveFor, getManagerOf } from '@/lib/auth/team-scope';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -106,6 +107,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       { period_id: id, status: action, source: 'timesheet_period_updated' },
       req.headers.get('x-forwarded-for') || 'unknown',
     );
+
+    // Notify the employee's manager that a timesheet period awaits approval
+    if (action === 'submit') {
+      const managerUsername = await getManagerOf(serviceClient, period.username);
+      if (managerUsername) {
+        await notify(serviceClient, {
+          to: managerUsername,
+          type: 'timesheet_pending',
+          title: `جدول دوام بانتظار الاعتماد من ${auth.pyraUser.display_name}`,
+          message: `الفترة من ${period.start_date} إلى ${period.end_date}`,
+          link: '/dashboard/approvals',
+          entity: { type: 'timesheet_period', id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      }
+    }
 
     return apiSuccess(data);
 
