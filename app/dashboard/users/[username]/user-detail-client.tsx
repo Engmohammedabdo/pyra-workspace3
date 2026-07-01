@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useProjects } from '@/hooks/useProjects';
+import { useUser } from '@/hooks/useUsers';
+import { useEmployeePayments } from '@/hooks/useEmployeePayments';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -48,16 +50,6 @@ interface UserData {
   bank_details?: { bank?: string; iban?: string; account_name?: string; account_no?: string };
   created_at: string;
   onboarding_id?: string | null;
-}
-
-interface Payment {
-  id: string;
-  source_type: string;
-  description: string | null;
-  amount: number;
-  currency: string;
-  status: string;
-  created_at: string;
 }
 
 interface ProjectItem {
@@ -117,8 +109,9 @@ export default function UserDetailClient() {
   const router = useRouter();
   const username = params.username as string;
 
-  const [user, setUser] = useState<UserData | null>(null);
-  const [payments, setPayments] = useState<Payment[]>([]);
+  // ── Data (React Query hooks — no raw fetch) ──
+  const { data: user, isLoading: loading, isError } = useUser<UserData>(username);
+  const { data: payments = [], isLoading: paymentsLoading } = useEmployeePayments({ username });
   const { data: projectsRaw = [], isLoading: projectsLoading } = useProjects();
   const projects: ProjectItem[] = projectsRaw.slice(0, 20).map(p => ({
     id: p.id,
@@ -126,43 +119,14 @@ export default function UserDetailClient() {
     status: p.status || '',
     client_name: (p as unknown as Record<string, unknown> & { pyra_clients?: { name: string } }).pyra_clients?.name,
   }));
-  const [loading, setLoading] = useState(true);
-  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
-  // ── Fetch user ──
-  const fetchUser = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/users/${username}`);
-      if (!res.ok) {
-        toast.error('فشل في تحميل بيانات الموظف');
-        router.push('/dashboard/users');
-        return;
-      }
-      const j = await res.json();
-      setUser(j.data);
-    } catch {
-      toast.error('خطأ في الاتصال');
-    } finally {
-      setLoading(false);
-    }
-  }, [username, router]);
-
-  // ── Fetch payments ──
-  const fetchPayments = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/dashboard/employee-payments?username=${username}`);
-      if (res.ok) {
-        const j = await res.json();
-        setPayments(j.data || []);
-      }
-    } catch { /* silent */ }
-    finally { setPaymentsLoading(false); }
-  }, [username]);
-
+  // Redirect back to the list when the user can't be loaded (404 / fetch error)
   useEffect(() => {
-    fetchUser();
-    fetchPayments();
-  }, [fetchUser, fetchPayments]);
+    if (isError) {
+      toast.error('فشل في تحميل بيانات الموظف');
+      router.push('/dashboard/users');
+    }
+  }, [isError, router]);
 
   // ── Stats — grouped by currency to avoid summing across currencies ──
   const totalPaidByCurrency: Record<string, number> = {};

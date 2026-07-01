@@ -48,3 +48,16 @@ export function useUsersLite() {
     staleTime: 5 * 60_000, // 5 دقائق — بيانات مختصرة تتغير نادراً
   });
 }
+
+/**
+ * مستخدم واحد بالـ username. النوع قابل للتخصيص (`useUser<UserData>`) لأن صفحة
+ * التفاصيل تحتاج حقولاً أكثر من واجهة `User` العامة.
+ */
+export function useUser<T = User>(username: string | undefined) {
+  return useQuery<T>({
+    queryKey: ['users', username],
+    queryFn: () => fetchAPI<T>(`/api/users/${username}`),
+    enabled: !!username,
+    staleTime: 60_000,
+  });
+}
