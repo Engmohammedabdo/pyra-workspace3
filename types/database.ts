@@ -1141,6 +1141,7 @@ export interface PyraPayrollItem {
   task_payments: number;
   overtime_amount: number;
   bonus: number;
+  commission: number;
   deductions: number;
   deduction_details: Array<{ reason: string; amount: number }>;
   net_pay: number;

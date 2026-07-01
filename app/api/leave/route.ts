@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getApiAuth } from '@/lib/api/auth';
+import { getApiAuth, requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiUnauthorized, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -45,8 +45,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await getApiAuth();
-  if (!auth) return apiUnauthorized();
+  // Gate on leave.create (in BASE_EMPLOYEE for all internal users; blocks
+  // clients / anyone without the permission from submitting leave).
+  const auth = await requireApiPermission('leave.create');
+  if (isApiError(auth)) return auth;
 
   const { type, start_date, end_date, reason } = await req.json();
   if (!type || !start_date || !end_date) return apiValidationError('النوع وتواريخ البداية والنهاية مطلوبة');

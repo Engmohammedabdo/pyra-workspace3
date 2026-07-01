@@ -1,5 +1,31 @@
 import { describe, it, expect } from 'vitest';
-import { calculatePayrollItem, hireProrationFactor } from '@/lib/payroll/calculate-item';
+import { calculatePayrollItem, hireProrationFactor, leaveOverlapDays } from '@/lib/payroll/calculate-item';
+
+describe('leaveOverlapDays', () => {
+  it('leave fully inside the run month → full inclusive day count', () => {
+    expect(leaveOverlapDays('2026-07-10', '2026-07-12', '2026-07-01', '2026-07-31')).toBe(3);
+  });
+  it('single-day leave → 1', () => {
+    expect(leaveOverlapDays('2026-07-05', '2026-07-05', '2026-07-01', '2026-07-31')).toBe(1);
+  });
+  it('leave spanning into the month from before → only the in-month days', () => {
+    // Jun 28 → Jul 3, run = July → Jul 1,2,3 = 3 days
+    expect(leaveOverlapDays('2026-06-28', '2026-07-03', '2026-07-01', '2026-07-31')).toBe(3);
+  });
+  it('leave spanning out of the month → only the in-month days', () => {
+    // Jul 30 → Aug 2, run = July → Jul 30,31 = 2 days
+    expect(leaveOverlapDays('2026-07-30', '2026-08-02', '2026-07-01', '2026-07-31')).toBe(2);
+  });
+  it('leave entirely outside the run month → 0', () => {
+    expect(leaveOverlapDays('2026-08-01', '2026-08-05', '2026-07-01', '2026-07-31')).toBe(0);
+  });
+  it('leave covering the whole month → all days', () => {
+    expect(leaveOverlapDays('2026-06-15', '2026-08-15', '2026-07-01', '2026-07-31')).toBe(31);
+  });
+  it('malformed date → 0 (no crash)', () => {
+    expect(leaveOverlapDays('', '2026-07-05', '2026-07-01', '2026-07-31')).toBe(0);
+  });
+});
 
 describe('calculatePayrollItem', () => {
   it('base salary only → net = base', () => {

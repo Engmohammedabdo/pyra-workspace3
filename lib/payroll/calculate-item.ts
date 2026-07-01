@@ -112,6 +112,29 @@ export function calculatePayrollItem(
 }
 
 /**
+ * Inclusive count of calendar days a leave [leaveStart, leaveEnd] overlaps a
+ * run month [monthStart, monthEnd]. All args are 'YYYY-MM-DD'. Returns 0 when
+ * there is no overlap. Used so a leave spanning a month boundary only deducts
+ * the days that actually fall inside the run month (cross-month safe).
+ */
+export function leaveOverlapDays(
+  leaveStart: string,
+  leaveEnd: string,
+  monthStart: string,
+  monthEnd: string,
+): number {
+  const ls = Date.parse(leaveStart.slice(0, 10) + 'T00:00:00Z');
+  const le = Date.parse(leaveEnd.slice(0, 10) + 'T00:00:00Z');
+  const ms = Date.parse(monthStart.slice(0, 10) + 'T00:00:00Z');
+  const me = Date.parse(monthEnd.slice(0, 10) + 'T00:00:00Z');
+  if ([ls, le, ms, me].some((n) => Number.isNaN(n))) return 0;
+  const from = Math.max(ls, ms);
+  const to = Math.min(le, me);
+  if (to < from) return 0;
+  return Math.floor((to - from) / 86_400_000) + 1;
+}
+
+/**
  * Pro-ration factor (0..1) for an employee's FIRST partial month based on
  * hire date, relative to the run's (year, month) — `month` is 1-based.
  *

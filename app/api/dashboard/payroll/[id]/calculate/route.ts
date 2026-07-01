@@ -4,7 +4,7 @@ import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/res
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
-import { calculatePayrollItem, hireProrationFactor } from '@/lib/payroll/calculate-item';
+import { calculatePayrollItem, hireProrationFactor, leaveOverlapDays } from '@/lib/payroll/calculate-item';
 import { logError } from '@/lib/observability/log-error';
 
 type RouteParams = { params: Promise<{ id: string }> };
@@ -106,39 +106,51 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       .gte('date', startDate)
       .lte('date', endDate);
 
-    // 5b. Fetch approved unpaid leave for this month
+    // 5b. Fetch approved unpaid leave OVERLAPPING this month (cross-month safe).
+    // NOTE: pyra_leave_requests columns are `type` (a NAME string, NOT an id) and
+    // `days_count` — there is NO leave_type_id / total_days. The previous code
+    // selected the non-existent columns, so PostgREST returned null and NO unpaid
+    // leave was EVER deducted. Overlap filter (start <= monthEnd AND end >= monthStart)
+    // catches leaves spanning a month boundary.
     const { data: leaveRequests } = await supabase
       .from('pyra_leave_requests')
-      .select('username, total_days, leave_type_id')
+      .select('username, type, start_date, end_date')
       .eq('status', 'approved')
-      .gte('start_date', startDate)
-      .lte('start_date', endDate);
+      .lte('start_date', endDate)
+      .gte('end_date', startDate);
 
-    // Fetch leave types to check is_paid
-    let unpaidLeaveTypes: Set<string> = new Set();
+    // Resolve which leave TYPE NAMES are unpaid (is_paid=false). `type` matches
+    // pyra_leave_types.name (there is no id link on the request).
+    const unpaidTypeNames = new Set<string>();
     if (leaveRequests && leaveRequests.length > 0) {
-      const typeIds = [...new Set(leaveRequests.map((lr: { leave_type_id: string | null }) => lr.leave_type_id).filter(Boolean))];
-      if (typeIds.length > 0) {
+      const typeNames = [
+        ...new Set(leaveRequests.map((lr: { type: string | null }) => lr.type).filter(Boolean)),
+      ] as string[];
+      if (typeNames.length > 0) {
         const { data: types } = await supabase
           .from('pyra_leave_types')
-          .select('id, name_ar, is_paid')
-          .in('id', typeIds);
+          .select('name, is_paid')
+          .in('name', typeNames);
         if (types) {
-          for (const t of types) {
-            if (!t.is_paid) unpaidLeaveTypes.add(t.id);
+          for (const t of types as { name: string; is_paid: boolean }[]) {
+            if (!t.is_paid) unpaidTypeNames.add(t.name);
           }
         }
       }
     }
 
-    // Build unpaid leave deductions per user
+    // Build unpaid leave deductions per user — count ONLY the days that fall
+    // inside this run month (leaveOverlapDays handles month-boundary spans).
     const unpaidLeaveByUser: Record<string, { days: number; typeName: string }[]> = {};
     if (leaveRequests) {
-      for (const lr of leaveRequests) {
-        if (lr.leave_type_id && unpaidLeaveTypes.has(lr.leave_type_id)) {
-          if (!unpaidLeaveByUser[lr.username]) unpaidLeaveByUser[lr.username] = [];
-          unpaidLeaveByUser[lr.username].push({ days: lr.total_days, typeName: 'إجازة غير مدفوعة' });
-        }
+      for (const lr of leaveRequests as {
+        username: string; type: string | null; start_date: string; end_date: string;
+      }[]) {
+        if (!lr.type || !unpaidTypeNames.has(lr.type)) continue;
+        const days = leaveOverlapDays(lr.start_date, lr.end_date, startDate, endDate);
+        if (days <= 0) continue;
+        if (!unpaidLeaveByUser[lr.username]) unpaidLeaveByUser[lr.username] = [];
+        unpaidLeaveByUser[lr.username].push({ days, typeName: 'إجازة غير مدفوعة' });
       }
     }
 

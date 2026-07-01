@@ -10,6 +10,7 @@ const EXCHANGE_RATES: Record<string, number> = {
   EUR: 4.12,    // Approximate
   SAR: 1.0027,  // Near-fixed (SAR pegged to USD)
   GBP: 4.75,    // Approximate
+  EGP: 0.0735,  // Approximate — EGP floats; review periodically (1 AED ≈ 13.6 EGP)
 };
 
 /**
