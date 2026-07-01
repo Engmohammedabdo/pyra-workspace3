@@ -44,3 +44,29 @@ export function useUpdateEmployeePayment() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['employee-payments'] }),
   });
 }
+
+export function useApproveEmployeePayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mutateAPI(`/api/dashboard/employee-payments/${id}`, 'PATCH', { action: 'approve' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employee-payments'] });
+      qc.invalidateQueries({ queryKey: ['payroll'] });
+      qc.invalidateQueries({ queryKey: ['payroll-run'] });
+    },
+  });
+}
+
+export function usePayEmployeePayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      mutateAPI(`/api/dashboard/employee-payments/${id}`, 'PATCH', { action: 'pay' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['employee-payments'] });
+      qc.invalidateQueries({ queryKey: ['payroll'] });
+      qc.invalidateQueries({ queryKey: ['payroll-run'] });
+    },
+  });
+}

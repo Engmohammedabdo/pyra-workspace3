@@ -1,13 +1,25 @@
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { DollarSign, Plus } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { DollarSign, Plus, MoreVertical, CheckCircle, Banknote, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
-import type { EmployeePayment } from '@/hooks/useEmployeePayments';
+import {
+  useApproveEmployeePayment,
+  usePayEmployeePayment,
+  type EmployeePayment,
+} from '@/hooks/useEmployeePayments';
 
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   task: 'مهمة',
@@ -40,6 +52,28 @@ interface Props {
 }
 
 export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
+  const [actioningId, setActioningId] = useState<string | null>(null);
+  const approveMutation = useApproveEmployeePayment();
+  const payMutation = usePayEmployeePayment();
+
+  const handleApprove = (id: string) => {
+    setActioningId(id);
+    approveMutation.mutate(id, {
+      onSuccess: () => toast.success('تمت الموافقة على الدفعة'),
+      onError: () => toast.error('فشل في الموافقة على الدفعة'),
+      onSettled: () => setActioningId(null),
+    });
+  };
+
+  const handlePay = (id: string) => {
+    setActioningId(id);
+    payMutation.mutate(id, {
+      onSuccess: () => toast.success('تم تأكيد دفع الدفعة'),
+      onError: () => toast.error('فشل في تأكيد الدفع'),
+      onSettled: () => setActioningId(null),
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -81,7 +115,8 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                     <th scope="col" className="text-start pb-3 pe-3 font-medium">الوصف</th>
                     <th scope="col" className="text-end pb-3 pe-3 font-medium">المبلغ</th>
                     <th scope="col" className="text-start pb-3 pe-3 font-medium">الحالة</th>
-                    <th scope="col" className="text-start pb-3 font-medium">التاريخ</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">التاريخ</th>
+                    <th scope="col" className="pb-3 w-10"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -110,8 +145,49 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                           {PAYMENT_STATUS_LABELS[p.status] || p.status}
                         </Badge>
                       </td>
-                      <td className="py-3 text-muted-foreground text-xs">
+                      <td className="py-3 pe-3 text-muted-foreground text-xs">
                         {new Date(p.created_at).toLocaleDateString('ar-AE')}
+                      </td>
+                      <td className="py-3">
+                        {(p.status === 'pending' || p.status === 'approved') && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                disabled={actioningId === p.id}
+                                aria-label="إجراءات"
+                              >
+                                {actioningId === p.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <MoreVertical className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {p.status === 'pending' && (
+                                <DropdownMenuItem
+                                  onClick={() => handleApprove(p.id)}
+                                  className="gap-2 text-green-600 dark:text-green-400"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  اعتماد
+                                </DropdownMenuItem>
+                              )}
+                              {p.status === 'approved' && (
+                                <DropdownMenuItem
+                                  onClick={() => handlePay(p.id)}
+                                  className="gap-2 text-emerald-600 dark:text-emerald-400"
+                                >
+                                  <Banknote className="h-4 w-4" />
+                                  دفع
+                                </DropdownMenuItem>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </td>
                     </tr>
                   ))}

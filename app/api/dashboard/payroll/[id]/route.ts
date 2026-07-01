@@ -272,3 +272,84 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return apiServerError();
   }
 }
+
+// =============================================================
+// DELETE /api/dashboard/payroll/[id]
+// Delete a draft payroll run and clean up related data.
+// Only allowed when the run is in 'draft' status.
+// =============================================================
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  try {
+    const auth = await requireApiPermission('payroll.manage');
+    if (isApiError(auth)) return auth;
+
+    const { id } = await params;
+    const supabase = createServiceRoleClient();
+
+    // Fetch the run to validate status
+    const { data: run, error: runError } = await supabase
+      .from('pyra_payroll_runs')
+      .select('id, status, month, year')
+      .eq('id', id)
+      .single();
+
+    if (runError || !run) return apiNotFound('مسير الرواتب غير موجود');
+
+    if (run.status !== PAYROLL_STATUS.DRAFT) {
+      return apiError(`لا يمكن حذف مسير بحالة "${run.status}"، يمكن حذف المسيرات المسودة فقط`, 400);
+    }
+
+    // 1. Unlink any employee_payments FIRST (preserve the payment records; only
+    //    detach them from this run) — do this before deleting the run so the links
+    //    are cleared explicitly and we can surface an error.
+    const { error: unlinkError } = await supabase
+      .from('pyra_employee_payments')
+      .update({ payroll_id: null })
+      .eq('payroll_id', id);
+
+    if (unlinkError) {
+      logError({ error: unlinkError, request: req, metadata: { route: 'payroll/delete', step: 'unlink-payments', payroll_id: id } });
+      return apiServerError(unlinkError.message);
+    }
+
+    // 2. Delete all payroll items for this run
+    const { error: itemsDeleteError } = await supabase
+      .from('pyra_payroll_items')
+      .delete()
+      .eq('payroll_id', id);
+
+    if (itemsDeleteError) {
+      logError({ error: itemsDeleteError, request: req, metadata: { route: 'payroll/delete', step: 'delete-items', payroll_id: id } });
+      return apiServerError(itemsDeleteError.message);
+    }
+
+    // 3. Delete the run itself
+    const { error: runDeleteError } = await supabase
+      .from('pyra_payroll_runs')
+      .delete()
+      .eq('id', id);
+
+    if (runDeleteError) {
+      logError({ error: runDeleteError, request: req, metadata: { route: 'payroll/delete', step: 'delete-run', payroll_id: id } });
+      return apiServerError(runDeleteError.message);
+    }
+
+    // Activity log
+    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
+      id: generateId('al'),
+      action_type: 'payroll_deleted',
+      username: auth.pyraUser.username,
+      display_name: auth.pyraUser.display_name,
+      target_path: '/dashboard/payroll',
+      details: { payroll_id: id, month: run.month, year: run.year },
+      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
+    });
+    if (logErr) console.error('Activity log error:', logErr);
+
+    return apiSuccess({ deleted: true });
+  } catch (err) {
+    logError({ error: err, request: req, metadata: { route: 'payroll/[id]', method: 'DELETE' } });
+    console.error('DELETE /api/dashboard/payroll/[id] error:', err);
+    return apiServerError();
+  }
+}

@@ -14,6 +14,7 @@ import {
   Banknote,
   Download,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
@@ -22,6 +23,7 @@ import {
   usePayrollRun,
   useCalculatePayroll,
   useUpdatePayroll,
+  useDeletePayroll,
   type PayrollRun,
   type PayrollItem,
 } from '@/hooks/usePayroll';
@@ -66,14 +68,23 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
     isExpanded ? run.id : undefined,
   );
 
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const calculatePayroll = useCalculatePayroll();
   const updatePayroll = useUpdatePayroll();
+  const deletePayroll = useDeletePayroll();
 
   const handleCalculate = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCalculatingId(run.id);
     calculatePayroll.mutate(run.id, {
-      onSuccess: () => toast.success('تم حساب الرواتب بنجاح'),
+      onSuccess: (result) => {
+        toast.success('تم حساب الرواتب بنجاح');
+        const warnings = (result as { warnings?: string[] })?.warnings;
+        if (warnings && warnings.length > 0) {
+          warnings.forEach((w: string) => toast.warning(w));
+        }
+      },
       onError: () => toast.error('فشل في حساب الرواتب'),
       onSettled: () => setCalculatingId(null),
     });
@@ -103,6 +114,17 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
         onSettled: () => setPayingId(null),
       },
     );
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm('هل تريد حذف هذا المسير؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    setDeletingId(run.id);
+    deletePayroll.mutate(run.id, {
+      onSuccess: () => toast.success('تم حذف المسير بنجاح'),
+      onError: () => toast.error('فشل في حذف المسير'),
+      onSettled: () => setDeletingId(null),
+    });
   };
 
   const handleDownloadPayslip = async (e: React.MouseEvent, username: string) => {
@@ -256,6 +278,23 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                     <Banknote className="h-4 w-4" />
                   )}
                   تأكيد الصرف
+                </Button>
+              )}
+
+              {run.status === 'draft' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800/40 dark:hover:bg-red-950/30 ms-auto"
+                  onClick={handleDelete}
+                  disabled={deletingId === run.id}
+                >
+                  {deletingId === run.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  حذف المسير
                 </Button>
               )}
             </div>

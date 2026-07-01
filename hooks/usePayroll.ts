@@ -116,6 +116,18 @@ export function useUpdatePayroll() {
   return useMutation({
     mutationFn: ({ runId, action }: { runId: string; action: 'approve' | 'pay' }) =>
       mutateAPI(`/api/dashboard/payroll/${runId}`, 'PATCH', { action }),
+    onSuccess: (_d, vars) => {
+      invalidatePayroll(qc);
+      qc.invalidateQueries({ queryKey: ['payroll-run', vars.runId] });
+    },
+  });
+}
+
+export function useDeletePayroll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (runId: string) =>
+      mutateAPI(`/api/dashboard/payroll/${runId}`, 'DELETE'),
     onSuccess: () => invalidatePayroll(qc),
   });
 }

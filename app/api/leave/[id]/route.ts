@@ -6,6 +6,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { canApproveFor } from '@/lib/auth/team-scope';
 import { generateId } from '@/lib/utils/id';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
+import { notify } from '@/lib/notifications/notify';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -132,6 +133,23 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
     });
     if (logErr) console.error('Activity log error:', logErr);
+
+    // Notify the employee of the outcome (fire-and-forget)
+    void notify(serviceForLog, {
+      to: existing.username,
+      type: body.status === LEAVE_STATUS.APPROVED ? 'leave_approved' : 'leave_rejected',
+      title: body.status === LEAVE_STATUS.APPROVED
+        ? 'تمت الموافقة على طلب إجازتك'
+        : 'تم رفض طلب إجازتك',
+      message: body.review_note
+        ? body.review_note
+        : body.status === LEAVE_STATUS.APPROVED
+          ? `وافق ${auth.pyraUser.display_name} على طلب إجازتك`
+          : `رفض ${auth.pyraUser.display_name} طلب إجازتك`,
+      link: '/dashboard/leave',
+      entity: { type: 'leave_request', id },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    }).then(() => {});
 
     return apiSuccess(data);
   }

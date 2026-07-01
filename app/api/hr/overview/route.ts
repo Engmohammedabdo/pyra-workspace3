@@ -119,6 +119,27 @@ export async function GET(request: NextRequest) {
 
     if (pendingLeaveError) throw new Error(`pyra_leave_requests (pending): ${pendingLeaveError.message}`);
 
+    // Pending expense approvals (status='pending' — default is 'approved', so 'pending' means awaiting HR)
+    const { data: pendingExpensesData, error: pendingExpensesError } = await supabase
+      .from('pyra_expenses')
+      .select('id')
+      .eq('status', 'pending');
+
+    if (pendingExpensesError) throw new Error(`pyra_expenses (pending): ${pendingExpensesError.message}`);
+
+    // Submitted timesheet periods awaiting approval (status='submitted')
+    const { data: pendingTimesheetsData, error: pendingTimesheetsError } = await supabase
+      .from('pyra_timesheet_periods')
+      .select('id')
+      .eq('status', 'submitted');
+
+    if (pendingTimesheetsError) throw new Error(`pyra_timesheet_periods (submitted): ${pendingTimesheetsError.message}`);
+
+    const pendingLeaveCt = (pendingLeaveData ?? []).length;
+    const pendingExpenseCt = (pendingExpensesData ?? []).length;
+    const pendingTimesheetCt = (pendingTimesheetsData ?? []).length;
+    const pendingApprovalTotal = pendingLeaveCt + pendingExpenseCt + pendingTimesheetCt;
+
     // Helper: get display_name for a username from the full non-client user set.
     // Uses allUsers (not activeUsers) so inactive employees on approved leave
     // still resolve to their display_name rather than falling back to raw username.
@@ -172,7 +193,7 @@ export async function GET(request: NextRequest) {
 
     const { data: payrollRuns, error: payrollError } = await supabase
       .from('pyra_payroll_runs')
-      .select('id, month, year, status, total_amount, paid_at')
+      .select('id, month, year, status, total_amount, currency, paid_at')
       .order('year', { ascending: false })
       .order('month', { ascending: false })
       .limit(12);
@@ -183,27 +204,24 @@ export async function GET(request: NextRequest) {
     const curRun = runs.find((r) => r.month === curMonth && r.year === curYear) ?? null;
     const lastPaidRun = runs.find((r) => r.status === 'paid') ?? null;
 
-    // Trend: last 6 runs, oldest-first for chart rendering
+    // Trend: last 6 runs, oldest-first for chart rendering.
+    // Include per-run currency so the chart never sums across currencies.
     const trend = runs
       .slice(0, 6)
       .reverse()
       .map((r) => ({
         label: MONTHS_AR[r.month - 1] ?? String(r.month),
         total: Number(r.total_amount) || 0,
+        currency: (r.currency as string) || 'AED',
       }));
 
+    // Count pending employee payments (used for KPI display — no currency summing)
     const { data: pendingPaymentsData, error: pendingPayError } = await supabase
       .from('pyra_employee_payments')
-      .select('id, amount')
+      .select('id')
       .eq('status', 'pending');
 
     if (pendingPayError) throw new Error(`pyra_employee_payments: ${pendingPayError.message}`);
-
-    const pendingPayments = pendingPaymentsData ?? [];
-    const pending_payments_sum = pendingPayments.reduce(
-      (sum, p) => sum + (Number(p.amount) || 0),
-      0,
-    );
 
     // ── Evaluations ────────────────────────────────────────────────────────────
     const { data: activePeriods, error: periodsError } = await supabase
@@ -257,7 +275,7 @@ export async function GET(request: NextRequest) {
     // payrollCalculated: current month run exists and is NOT in draft state
     const payrollCalculated = !!curRun && curRun.status !== 'draft';
     const alerts = deriveAlerts({
-      leavePending: (pendingLeaveData ?? []).length,
+      leavePending: pendingLeaveCt,
       payrollCalculated,
       absentNoLeave: absentNoLeaveCount,
       docsExpired: (expiredDocs ?? []).length,
@@ -284,19 +302,25 @@ export async function GET(request: NextRequest) {
         present_rate_pct,
       },
       leave: {
-        pending: (pendingLeaveData ?? []).length,
+        pending: pendingLeaveCt,
         on_leave_today: onLeaveTodayList,
         paid_liability_days,
         upcoming: upcomingLeave,
+      },
+      pending_approvals: {
+        leave: pendingLeaveCt,
+        expense: pendingExpenseCt,
+        timesheet: pendingTimesheetCt,
+        total: pendingApprovalTotal,
       },
       payroll: {
         current_status: curRun?.status ?? null,
         current_month: curMonth,
         current_year: curYear,
         last_paid_total: Number(lastPaidRun?.total_amount) || 0,
+        last_paid_currency: (lastPaidRun?.currency as string) || 'AED',
         trend,
-        pending_payments_count: pendingPayments.length,
-        pending_payments_sum,
+        pending_payments_count: (pendingPaymentsData ?? []).length,
       },
       evaluations: {
         active_period: activePeriod?.name_ar ?? null,

@@ -15,6 +15,8 @@ import {
 import { CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
 import type { HROverview } from '@/hooks/useHROverview';
 
+type TrendItem = HROverview['payroll']['trend'][number];
+
 interface PayrollTrendChartProps {
   trend: HROverview['payroll']['trend'];
 }
@@ -24,7 +26,9 @@ const PAYROLL_COLOR = CHART_COLORS[4]; // purple-500
 export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
   const gradientId = useId();
   const hasTrend = trend && trend.length > 0;
-  const latestTotal = hasTrend ? trend[trend.length - 1].total : 0;
+  const latestItem: TrendItem | undefined = hasTrend ? trend[trend.length - 1] : undefined;
+  const latestTotal = latestItem?.total ?? 0;
+  const latestCurrency = latestItem?.currency ?? 'AED';
 
   return (
     <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
@@ -36,7 +40,7 @@ export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
         <h3 className="font-bold text-sm">اتجاه تكلفة الرواتب</h3>
         {hasTrend && (
           <span className="ms-auto text-xs text-muted-foreground">
-            آخر: {formatCurrency(latestTotal)}
+            آخر: {formatCurrency(latestTotal, latestCurrency)}
           </span>
         )}
       </div>
@@ -44,7 +48,7 @@ export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
       <div className="p-5">
         {hasTrend ? (
           <div
-            aria-label={`اتجاه تكلفة الرواتب عبر ${trend.length} فترة. آخر قيمة ${formatCurrency(latestTotal)}`}
+            aria-label={`اتجاه تكلفة الرواتب عبر ${trend.length} فترة. آخر قيمة ${formatCurrency(latestTotal, latestCurrency)}`}
           >
             <ResponsiveContainer width="100%" height={260}>
               <AreaChart data={trend}>
@@ -73,7 +77,10 @@ export function PayrollTrendChart({ trend }: PayrollTrendChartProps) {
                 />
                 <Tooltip
                   contentStyle={CHART_TOOLTIP_STYLE}
-                  formatter={(value: number) => [formatCurrency(value), 'إجمالي الرواتب']}
+                  formatter={(value: number, _name: string, props: { payload?: TrendItem }) => {
+                    const currency = props?.payload?.currency ?? 'AED';
+                    return [formatCurrency(value, currency), 'إجمالي الرواتب'];
+                  }}
                   labelFormatter={(label: string) => label}
                 />
                 <Area

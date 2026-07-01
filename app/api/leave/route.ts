@@ -62,6 +62,16 @@ export async function POST(req: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const serviceSupabase = createServiceRoleClient();
 
+  // Contractor gate — contractors/freelancers manage their own time; block system leave submissions
+  const { data: requestingUser } = await serviceSupabase
+    .from('pyra_users')
+    .select('employment_type')
+    .eq('username', auth.pyraUser.username)
+    .single();
+  if (requestingUser?.employment_type === 'contract' || requestingUser?.employment_type === 'freelance') {
+    return apiError('المتعاقدون المستقلون لا يقدّمون طلبات إجازة عبر النظام', 403);
+  }
+
   // Check balance — try v2 first, then fall back to v1
   const year = start.getFullYear();
   let balanceChecked = false;

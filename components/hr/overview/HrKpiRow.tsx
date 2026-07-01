@@ -10,8 +10,16 @@ interface HrKpiRowProps {
 }
 
 export function HrKpiRow({ data }: HrKpiRowProps) {
-  const pendingCount = data.leave.pending;
-  const pendingAccent = pendingCount > 5 ? '#ef4444' : undefined; // red-500
+  const pendingTotal = data.pending_approvals.total;
+  const pendingAccent = pendingTotal > 5 ? '#ef4444' : undefined; // red-500
+
+  // Build a compact breakdown subtitle only when at least one sub-type is non-zero
+  const { leave, expense, timesheet } = data.pending_approvals;
+  const breakdownParts: string[] = [];
+  if (leave > 0) breakdownParts.push(`إجازات: ${leave}`);
+  if (expense > 0) breakdownParts.push(`مصاريف: ${expense}`);
+  if (timesheet > 0) breakdownParts.push(`جداول: ${timesheet}`);
+  const pendingSubtitle = breakdownParts.length > 0 ? breakdownParts.join(' · ') : undefined;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
@@ -41,19 +49,20 @@ export function HrKpiRow({ data }: HrKpiRowProps) {
         gradient="from-amber-500 to-orange-600"
       />
 
-      {/* 4. Pending approvals — red accent when > 5 */}
+      {/* 4. Combined pending approvals (leave + expense + timesheet) */}
       <KpiCard
-        title="طلبات إجازة معلقة"
-        value={String(pendingCount)}
+        title="موافقات معلقة"
+        value={String(pendingTotal)}
         icon={ClipboardCheck}
-        gradient={pendingCount > 5 ? 'from-red-500 to-rose-600' : 'from-orange-500 to-amber-600'}
+        gradient={pendingTotal > 5 ? 'from-red-500 to-rose-600' : 'from-orange-500 to-amber-600'}
         accent={pendingAccent}
+        subtitle={pendingSubtitle}
       />
 
-      {/* 5. Monthly payroll cost */}
+      {/* 5. Monthly payroll cost — uses the currency of the last paid run */}
       <KpiCard
         title="تكلفة الرواتب الأخيرة"
-        value={formatCurrency(data.payroll.last_paid_total)}
+        value={formatCurrency(data.payroll.last_paid_total, data.payroll.last_paid_currency)}
         icon={Banknote}
         gradient="from-purple-500 to-violet-600"
       />

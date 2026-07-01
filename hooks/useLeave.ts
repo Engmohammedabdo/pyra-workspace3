@@ -55,12 +55,3 @@ export function useUpdateLeaveRequest() {
   });
 }
 
-export function useDeleteLeaveRequest() {
-  const queryClient = useQueryClient();
-  return useMutation<void, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/leave/${id}`, 'DELETE'),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['leave'] });
-    },
-  });
-}
