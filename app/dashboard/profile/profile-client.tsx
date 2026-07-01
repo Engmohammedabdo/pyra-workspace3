@@ -16,7 +16,7 @@ import { getRoleColorClasses, PERMISSION_MODULES } from '@/lib/auth/rbac';
 import { formatRelativeDate } from '@/lib/utils/format';
 import {
   UserCircle, Shield, Activity, Lock, Camera,
-  Phone, Briefcase, Clock, Save, CheckCircle, X
+  Phone, Briefcase, Clock, Save, CheckCircle, X, CreditCard
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
 
@@ -34,6 +34,11 @@ export default function ProfileClient({ session }: ProfileClientProps) {
   const [phone, setPhone] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [bio, setBio] = useState('');
+  // Bank details (self-service)
+  const [bankName, setBankName] = useState('');
+  const [iban, setIban] = useState('');
+  const [accountName, setAccountName] = useState('');
+  const [accountNo, setAccountNo] = useState('');
   const [formInitialized, setFormInitialized] = useState(false);
 
   // Activity state
@@ -52,6 +57,10 @@ export default function ProfileClient({ session }: ProfileClientProps) {
     setPhone(profile.phone || '');
     setJobTitle(profile.job_title || '');
     setBio(profile.bio || '');
+    setBankName(profile.bank_details?.bank || '');
+    setIban(profile.bank_details?.iban || '');
+    setAccountName(profile.bank_details?.account_name || '');
+    setAccountNo(profile.bank_details?.account_no || '');
     setFormInitialized(true);
   }
 
@@ -68,6 +77,22 @@ export default function ProfileClient({ session }: ProfileClientProps) {
     setSaving(true);
     try {
       await saveProfileMutation.mutateAsync({ display_name: displayName, phone, job_title: jobTitle, bio });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveBank = async () => {
+    setSaving(true);
+    try {
+      await saveProfileMutation.mutateAsync({
+        bank_details: {
+          bank: bankName.trim() || undefined,
+          iban: iban.trim() || undefined,
+          account_name: accountName.trim() || undefined,
+          account_no: accountNo.trim() || undefined,
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -232,6 +257,42 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                 <Button onClick={saveProfile} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
                   {saving ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
                   حفظ التغييرات
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bank details — self-service (for payroll transfers) */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                البيانات البنكية
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">البنك</label>
+                  <Input value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="مثال: بنك الإمارات دبي الوطني" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">IBAN</label>
+                  <Input value={iban} onChange={(e) => setIban(e.target.value)} placeholder="AE..." dir="ltr" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">اسم صاحب الحساب</label>
+                  <Input value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">رقم الحساب</label>
+                  <Input value={accountNo} onChange={(e) => setAccountNo(e.target.value)} dir="ltr" />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={saveBank} disabled={saving} className="bg-orange-500 hover:bg-orange-600 text-white">
+                  {saving ? <Clock className="h-4 w-4 animate-spin me-2" /> : <Save className="h-4 w-4 me-2" />}
+                  حفظ البيانات البنكية
                 </Button>
               </div>
             </CardContent>

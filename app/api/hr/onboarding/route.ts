@@ -11,7 +11,7 @@ import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { logError } from '@/lib/observability/log-error';
 import { notify } from '@/lib/notifications/notify';
-import { createEmployeeUser } from '@/lib/hr/create-employee';
+import { createEmployeeUser, reactivateEmployeeUser } from '@/lib/hr/create-employee';
 import { storeGeneratedDocument } from '@/lib/hr/store-generated-document';
 import {
   loadServerPdfFonts,
@@ -236,7 +236,8 @@ export async function POST(request: NextRequest) {
       other:         otherNum,
     };
 
-    const createResult = await createEmployeeUser(supabase, {
+    // ── Re-hire branch: if the username already exists, reactivate instead of create
+    const employeeInput = {
       username:         cleanUsername,
       password:         cleanPassword,
       role:             isSalesBool ? 'sales_agent' : 'employee',
@@ -257,7 +258,24 @@ export async function POST(request: NextRequest) {
         ? Number(commissionRate)
         : null,
       salary_breakdown: salaryBreakdown,
-    });
+    } as const;
+
+    const { data: existingU } = await supabase
+      .from('pyra_users')
+      .select('username, status')
+      .eq('username', cleanUsername)
+      .single();
+
+    let createResult;
+    if (existingU) {
+      if (existingU.status === 'active') {
+        return apiError('اسم المستخدم مستخدم بالفعل لموظف نشط', 409);
+      }
+      // Re-hire: reactivate the existing account with updated details
+      createResult = await reactivateEmployeeUser(supabase, employeeInput);
+    } else {
+      createResult = await createEmployeeUser(supabase, employeeInput);
+    }
 
     if (!createResult.ok) {
       return apiError(createResult.error, createResult.status);

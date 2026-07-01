@@ -20,6 +20,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { generateId } from '@/lib/utils/id';
 import { hashPassword } from '@/lib/utils/password';
+import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Input / Output types
@@ -261,6 +262,183 @@ export async function createEmployeeUser(
       username: newUser!.username,
       role: newUser!.role,
       display_name: newUser!.display_name,
+    },
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Re-hire helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Reactivate an existing (inactive/suspended) employee account.
+ *
+ * - Updates pyra_users: sets status='active' + ALL employment fields (mirrors
+ *   createEmployeeUser's insert field list exactly, minus username/created_at).
+ * - Resets the Supabase Auth password so the returning employee can log in.
+ * - Seeds leave balances only when the employee has NONE for the current year
+ *   (safe no-op for employees who already have balances from before).
+ *
+ * Returns the same result shape as createEmployeeUser.
+ *
+ * @param serviceClient  Service-role client (bypasses RLS; caller must auth-gate)
+ * @param input          Same CreateEmployeeInput as createEmployeeUser. `username`
+ *                       must match an existing pyra_users row.
+ */
+export async function reactivateEmployeeUser(
+  serviceClient: SupabaseClient,
+  input: CreateEmployeeInput,
+): Promise<CreateEmployeeResult> {
+  const {
+    username,
+    password,
+    role,
+    display_name,
+    phone,
+    job_title,
+    employment_type,
+    work_location,
+    payment_type,
+    salary,
+    hourly_rate,
+    hire_date,
+    date_of_birth,
+    department,
+    manager_username,
+    email,
+    permissions,
+    extra_permissions,
+    role_id,
+    salary_currency,
+    salary_breakdown,
+    national_id,
+    bank_details,
+    commission_rate,
+    work_schedule_id,
+  } = input;
+
+  const cleanUsername = username.trim().toLowerCase();
+
+  // ── Step 1: Update pyra_users row ─────────────────────────────────────────
+  const passwordHash = hashPassword(password);
+
+  const { data: updatedUser, error: updateError } = await serviceClient
+    .from('pyra_users')
+    .update({
+      status: 'active',
+      password_hash: passwordHash,
+      role,
+      display_name: display_name.trim(),
+      permissions: permissions || {},
+      extra_permissions: extra_permissions ?? [],
+      role_id: role_id || null,
+      phone: phone ? String(phone).trim() : null,
+      job_title: job_title ? String(job_title).trim() : null,
+      employment_type: employment_type || 'full_time',
+      work_location: work_location || 'onsite',
+      payment_type: payment_type || 'monthly_salary',
+      salary: salary || 0,
+      hourly_rate: hourly_rate || 0,
+      hire_date: hire_date || null,
+      date_of_birth: date_of_birth || null,
+      department: department || null,
+      manager_username: manager_username || null,
+      email: email || null,
+      salary_currency: salary_currency || 'AED',
+      salary_breakdown: salary_breakdown || null,
+      national_id: national_id || null,
+      bank_details: bank_details || null,
+      commission_rate: commission_rate ?? null,
+      work_schedule_id: work_schedule_id || null,
+    })
+    .eq('username', cleanUsername)
+    .select('id, username, role, display_name')
+    .single();
+
+  if (updateError || !updatedUser) {
+    console.error('[reactivateEmployeeUser] pyra_users update error:', updateError);
+    return {
+      ok: false,
+      error: `فشل في إعادة تفعيل المستخدم: ${updateError?.message ?? 'unknown'}`,
+      status: 500,
+    };
+  }
+
+  // ── Step 2: Reset Supabase Auth password ──────────────────────────────────
+  try {
+    const authId = await resolveAuthUserId(serviceClient, cleanUsername);
+    if (authId) {
+      await serviceClient.auth.admin.updateUserById(authId, { password });
+    }
+  } catch (authErr) {
+    // Non-fatal — user can request a password reset; don't abort reactivation
+    console.error('[reactivateEmployeeUser] auth password reset error:', authErr);
+  }
+
+  // ── Step 3: Seed leave balances if the employee has none for this year ────
+  if (role === 'employee' || role === 'sales_agent') {
+    const currentYear = new Date().getFullYear();
+
+    try {
+      const { count: existingV1Count } = await serviceClient
+        .from('pyra_leave_balances')
+        .select('username', { count: 'exact', head: true })
+        .eq('username', cleanUsername)
+        .eq('year', currentYear);
+
+      if ((existingV1Count ?? 0) === 0) {
+        await serviceClient.from('pyra_leave_balances').insert({
+          username: cleanUsername,
+          year: currentYear,
+          annual_total: 30,
+          annual_used: 0,
+          sick_total: 15,
+          sick_used: 0,
+          personal_total: 5,
+          personal_used: 0,
+        });
+      }
+    } catch {
+      // Non-fatal — leave balances may already exist or table may differ
+    }
+
+    try {
+      const { count: existingV2Count } = await serviceClient
+        .from('pyra_leave_balances_v2')
+        .select('id', { count: 'exact', head: true })
+        .eq('username', cleanUsername)
+        .eq('year', currentYear);
+
+      if ((existingV2Count ?? 0) === 0) {
+        const { data: activeLeaveTypes } = await serviceClient
+          .from('pyra_leave_types')
+          .select('id, default_days')
+          .eq('is_active', true);
+
+        if (activeLeaveTypes && activeLeaveTypes.length > 0) {
+          const v2Records = activeLeaveTypes.map((lt) => ({
+            id: generateId('lb'),
+            username: cleanUsername,
+            year: currentYear,
+            leave_type_id: lt.id,
+            total_days: lt.default_days,
+            used_days: 0,
+          }));
+          await serviceClient.from('pyra_leave_balances_v2').insert(v2Records);
+        }
+      }
+    } catch {
+      // v2 tables may not exist yet — skip silently
+    }
+  }
+
+  // ── Return success ─────────────────────────────────────────────────────────
+  return {
+    ok: true,
+    user: {
+      username: updatedUser.username,
+      role: updatedUser.role,
+      display_name: updatedUser.display_name,
     },
   };
 }

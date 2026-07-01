@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/profile — Get current user profile
@@ -77,6 +78,17 @@ export async function PATCH(request: NextRequest) {
       return apiValidationError('النبذة التعريفية يجب أن تكون أقل من 280 حرف');
     }
 
+    // bank_details — self-service editable (object|null, mirrors admin route validation)
+    if (body.bank_details !== undefined) {
+      if (
+        body.bank_details !== null &&
+        (typeof body.bank_details !== 'object' || Array.isArray(body.bank_details))
+      ) {
+        return apiValidationError('بيانات البنك يجب أن تكون كائن JSON');
+      }
+      updates.bank_details = body.bank_details ?? null;
+    }
+
     updates.updated_at = new Date().toISOString();
 
     const supabase = await createServerSupabaseClient();
@@ -92,6 +104,16 @@ export async function PATCH(request: NextRequest) {
       console.error('Profile update error:', error);
       return apiServerError('فشل في تحديث الملف الشخصي');
     }
+
+    // Audit self-edits (contact / bank details) so HR can see who changed what
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.USER}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/profile',
+      { updated_fields: Object.keys(updates).filter((k) => k !== 'updated_at'), source: 'self_edit' },
+      request.headers.get('x-forwarded-for') ?? undefined,
+    );
 
     return apiSuccess(data);
   } catch (err) {

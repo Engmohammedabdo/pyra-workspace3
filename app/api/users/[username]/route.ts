@@ -12,6 +12,8 @@ import { resolveAuthUserId } from '@/lib/auth/auth-mapping';
 import { generateId } from '@/lib/utils/id';
 import { validateExtraPermissions } from '@/lib/auth/rbac';
 import { EMPLOYMENT_TYPES, WORK_LOCATIONS, PAYMENT_TYPES, SALARY_CURRENCIES } from '@/lib/constants/auth';
+import { getDirectReports } from '@/lib/auth/team-scope';
+import { notifyMany } from '@/lib/notifications/notify';
 
 /**
  * Insert a salary history record when salary or hourly_rate changes.
@@ -368,6 +370,38 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // B2: If the user's status was set to inactive or suspended, alert admins
+    // about any direct reports that may need a new manager assigned.
+    // (We do NOT null manager_username on deactivation — the link is preserved
+    // for potential reactivation; admins may reassign manually if needed.)
+    if (body.status === 'inactive' || body.status === 'suspended') {
+      try {
+        const deactServiceClient = createServiceRoleClient();
+        const orphanedReports = await getDirectReports(deactServiceClient, username);
+        if (orphanedReports.length > 0) {
+          const { data: admins } = await deactServiceClient
+            .from('pyra_users')
+            .select('username')
+            .eq('role', 'admin')
+            .eq('status', 'active');
+          await notifyMany(
+            deactServiceClient,
+            (admins ?? []).map((a: { username: string }) => a.username),
+            {
+              type: 'system',
+              title: 'مدير مُعطَّل — موظفون بحاجة لمتابعة',
+              message: `تم تعطيل ${updatedUser.display_name ?? username} وله ${orphanedReports.length} موظف تابع — قد تحتاج لإعادة تعيين مديرهم`,
+              link: '/dashboard/users',
+              from: { username: 'system' },
+            },
+          );
+        }
+      } catch (deactErr) {
+        // Non-blocking — never fail the PATCH for a notification error
+        console.error('[PATCH /api/users] deactivation alert error:', deactErr);
+      }
+    }
+
     // Update Supabase Auth user metadata if display_name or role changed
     if (updateData.display_name || updateData.role) {
       const serviceClient = createServiceRoleClient();
@@ -437,6 +471,31 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     // Use service-role client to bypass RLS for cleanup
     const serviceClient = createServiceRoleClient();
 
+    // Block hard-delete when the employee has records that must be preserved — use deactivate instead.
+    const blockingChecks = await Promise.all([
+      serviceClient.from('pyra_payroll_items').select('id', { count: 'exact', head: true }).eq('username', username),
+      serviceClient.from('pyra_employee_payments').select('id', { count: 'exact', head: true }).eq('username', username),
+      serviceClient.from('pyra_employee_documents').select('id', { count: 'exact', head: true }).eq('employee_username', username),
+      serviceClient.from('pyra_onboarding').select('id', { count: 'exact', head: true }).eq('employee_username', username),
+    ]);
+    const blockingCount = blockingChecks.reduce((sum, r) => sum + (r.count ?? 0), 0);
+    if (blockingCount > 0) {
+      return apiError(
+        'لا يمكن حذف الموظف لوجود سجلات مالية أو وثائق أو ملف تعيين مرتبطة به. استخدم "تعطيل" الحساب بدلاً من الحذف للحفاظ على السجلات.',
+        409,
+      );
+    }
+
+    // Capture direct reports BEFORE deletion so we can null their manager link
+    // and alert admins after the user is gone.
+    const reports = await getDirectReports(serviceClient, username);
+    if (reports.length > 0) {
+      await serviceClient
+        .from('pyra_users')
+        .update({ manager_username: null })
+        .eq('manager_username', username);
+    }
+
     // Step 1: Clean up related records (cascade cleanup)
     // These tables reference username but may not have FK CASCADE
     const cleanupTables = [
@@ -504,6 +563,26 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       },
       ip_address: request.headers.get('x-forwarded-for') || 'unknown',
     });
+
+    // Step 5: If the deleted user had direct reports, alert admins to reassign them
+    if (reports.length > 0) {
+      const { data: admins } = await serviceClient
+        .from('pyra_users')
+        .select('username')
+        .eq('role', 'admin')
+        .eq('status', 'active');
+      await notifyMany(
+        serviceClient,
+        (admins ?? []).map((a: { username: string }) => a.username),
+        {
+          type: 'system',
+          title: 'موظفون بحاجة لإعادة تعيين مدير',
+          message: `تم حذف ${existingUser.display_name} وكان لديه ${reports.length} موظف تابع — يرجى إعادة تعيين مديرهم`,
+          link: '/dashboard/users',
+          from: { username: 'system' },
+        },
+      );
+    }
 
     return apiSuccess({ message: 'تم حذف المستخدم بنجاح' });
   } catch (err) {
