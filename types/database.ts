@@ -1152,6 +1152,7 @@ export interface PyraPayrollItem {
   deductions: number;
   deduction_details: Array<{ reason: string; amount: number }>;
   net_pay: number;
+  currency: string;
   status: 'pending' | 'approved' | 'paid';
   created_at: string;
   // Joined

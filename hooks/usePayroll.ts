@@ -93,7 +93,7 @@ function invalidatePayroll(qc: ReturnType<typeof useQueryClient>) {
 export function useCreatePayroll() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (input: { month: number; year: number; notes?: string }) =>
+    mutationFn: (input: { month: number; year: number; currency?: string; notes?: string }) =>
       mutateAPI('/api/dashboard/payroll', 'POST', input),
     onSuccess: () => invalidatePayroll(qc),
   });

@@ -39,6 +39,7 @@ interface UserData {
   work_location?: string;
   payment_type?: string;
   salary?: number;
+  salary_currency?: string;
   hourly_rate?: number;
   commission_rate?: number;
   hire_date?: string;
@@ -161,10 +162,24 @@ export default function UserDetailClient() {
     fetchPayments();
   }, [fetchUser, fetchPayments]);
 
-  // ── Stats ──
-  const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
-  const totalPending = payments.filter(p => p.status === 'pending' || p.status === 'approved').reduce((s, p) => s + p.amount, 0);
-  const totalDeductions = payments.filter(p => p.source_type === 'deduction').reduce((s, p) => s + p.amount, 0);
+  // ── Stats — grouped by currency to avoid summing across currencies ──
+  const totalPaidByCurrency: Record<string, number> = {};
+  for (const p of payments.filter(s => s.status === 'paid')) {
+    const cur = p.currency || 'AED';
+    totalPaidByCurrency[cur] = (totalPaidByCurrency[cur] ?? 0) + Number(p.amount);
+  }
+  const totalPendingByCurrency: Record<string, number> = {};
+  for (const p of payments.filter(s => s.status === 'pending' || s.status === 'approved')) {
+    const cur = p.currency || 'AED';
+    totalPendingByCurrency[cur] = (totalPendingByCurrency[cur] ?? 0) + Number(p.amount);
+  }
+  // Net paid per currency (paid non-deductions minus deductions)
+  const netPaidByCurrency: Record<string, number> = {};
+  for (const p of payments.filter(s => s.status === 'paid')) {
+    const cur = p.currency || 'AED';
+    const delta = p.source_type === 'deduction' ? -Number(p.amount) : Number(p.amount);
+    netPaidByCurrency[cur] = (netPaidByCurrency[cur] ?? 0) + delta;
+  }
 
   // ── Loading ──
   if (loading) {
@@ -246,14 +261,26 @@ export default function UserDetailClient() {
           <CardContent className="pt-4 pb-4 text-center">
             <Wallet className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
             <p className="text-[10px] text-muted-foreground">إجمالي المدفوع</p>
-            <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(totalPaid)}</p>
+            {Object.entries(totalPaidByCurrency).length === 0 ? (
+              <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(0)}</p>
+            ) : (
+              Object.entries(totalPaidByCurrency).map(([cur, amt]) => (
+                <p key={cur} className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 leading-tight">{formatCurrency(amt, cur)}</p>
+              ))
+            )}
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
           <CardContent className="pt-4 pb-4 text-center">
             <Clock className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
             <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>
-            <p className="text-lg font-bold font-mono text-yellow-600 dark:text-yellow-400">{formatCurrency(totalPending)}</p>
+            {Object.entries(totalPendingByCurrency).length === 0 ? (
+              <p className="text-lg font-bold font-mono text-yellow-600 dark:text-yellow-400">{formatCurrency(0)}</p>
+            ) : (
+              Object.entries(totalPendingByCurrency).map(([cur, amt]) => (
+                <p key={cur} className="text-lg font-bold font-mono text-yellow-600 dark:text-yellow-400 leading-tight">{formatCurrency(amt, cur)}</p>
+              ))
+            )}
           </CardContent>
         </Card>
         <Card className="border-0 shadow-sm">
@@ -359,7 +386,11 @@ export default function UserDetailClient() {
                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">صافي المدفوعات</span>
                   <span className="font-bold font-mono text-lg">
-                    {formatCurrency(totalPaid - totalDeductions)}
+                    {Object.entries(netPaidByCurrency).length === 0
+                      ? formatCurrency(0)
+                      : Object.entries(netPaidByCurrency).map(([cur, amt]) => (
+                          <span key={cur} className="block">{formatCurrency(amt, cur)}</span>
+                        ))}
                   </span>
                 </div>
               </CardContent>
@@ -436,8 +467,8 @@ export default function UserDetailClient() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <InfoRow label="نوع الدفع" value={PAYMENT_TYPE_LABELS[user.payment_type || ''] || user.payment_type || '—'} />
-                {user.salary ? <InfoRow label="الراتب الشهري" value={formatCurrency(user.salary)} /> : null}
-                {user.hourly_rate ? <InfoRow label="سعر الساعة" value={formatCurrency(user.hourly_rate)} /> : null}
+                {user.salary ? <InfoRow label="الراتب الشهري" value={formatCurrency(user.salary, user.salary_currency)} /> : null}
+                {user.hourly_rate ? <InfoRow label="سعر الساعة" value={formatCurrency(user.hourly_rate, user.salary_currency)} /> : null}
                 {user.commission_rate ? <InfoRow label="نسبة العمولة" value={`${user.commission_rate}%`} /> : null}
               </CardContent>
             </Card>

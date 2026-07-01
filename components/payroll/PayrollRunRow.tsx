@@ -28,6 +28,10 @@ import {
 import { fetchAPI } from '@/hooks/api-helpers';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
 
+// PayrollItem from the hook predates multi-currency; extend locally
+// so we can safely access the currency column the API already returns.
+type PayrollItemWithCurrency = PayrollItem & { currency?: string };
+
 const MONTH_NAMES_AR = [
   'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
   'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
@@ -281,7 +285,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(expandedRunData.items as PayrollItem[]).map((item) => (
+                    {(expandedRunData.items as PayrollItemWithCurrency[]).map((item) => (
                       <tr
                         key={item.id}
                         className="border-b border-border/50 last:border-0 hover:bg-muted/30 transition-colors"
@@ -295,25 +299,25 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                           {item.department || '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
-                          {formatCurrency(item.base_salary)}
+                          {formatCurrency(item.base_salary, item.currency)}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
-                          {item.task_payments > 0 ? formatCurrency(item.task_payments) : '—'}
+                          {item.task_payments > 0 ? formatCurrency(item.task_payments, item.currency) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
-                          {item.overtime_amount > 0 ? formatCurrency(item.overtime_amount) : '—'}
+                          {item.overtime_amount > 0 ? formatCurrency(item.overtime_amount, item.currency) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
-                          {item.bonus > 0 ? formatCurrency(item.bonus) : '—'}
+                          {item.bonus > 0 ? formatCurrency(item.bonus, item.currency) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-foreground">
-                          {item.commission > 0 ? formatCurrency(item.commission) : '—'}
+                          {item.commission > 0 ? formatCurrency(item.commission, item.currency) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-red-600 dark:text-red-400">
-                          {item.deductions > 0 ? `- ${formatCurrency(item.deductions)}` : '—'}
+                          {item.deductions > 0 ? `- ${formatCurrency(item.deductions, item.currency)}` : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono font-bold text-foreground">
-                          {formatCurrency(item.net_pay)}
+                          {formatCurrency(item.net_pay, item.currency)}
                         </td>
                         <td className="py-3 text-center">
                           <Button

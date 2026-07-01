@@ -100,7 +100,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                         {p.description || '—'}
                       </td>
                       <td className="py-3 pe-3 text-end font-mono text-foreground">
-                        {formatCurrency(p.amount)}
+                        {formatCurrency(p.amount, p.currency)}
                       </td>
                       <td className="py-3 pe-3">
                         <Badge

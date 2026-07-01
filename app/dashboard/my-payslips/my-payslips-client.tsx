@@ -141,21 +141,32 @@ export default function MyPayslipsClient() {
     }
   };
 
-  // Summary stats
-  const totalEarnings = payslips
-    .filter(p => p.run_status === 'paid')
-    .reduce((sum, p) => sum + Number(p.net_pay), 0);
+  // Summary stats — grouped by currency to avoid summing across currencies
+  // Each map: currency → amount
+  const totalEarningsByCurrency: Record<string, number> = {};
+  for (const p of payslips.filter(s => s.run_status === 'paid')) {
+    const cur = p.currency || 'AED';
+    totalEarningsByCurrency[cur] = (totalEarningsByCurrency[cur] ?? 0) + Number(p.net_pay);
+  }
 
-  const totalPayments = payments
-    .filter(p => p.status === 'paid')
-    .reduce((sum, p) => sum + (p.source_type === 'deduction' ? -p.amount : p.amount), 0);
+  const totalPaymentsByCurrency: Record<string, number> = {};
+  for (const p of payments.filter(s => s.status === 'paid')) {
+    const cur = p.currency || 'AED';
+    const delta = p.source_type === 'deduction' ? -Number(p.amount) : Number(p.amount);
+    totalPaymentsByCurrency[cur] = (totalPaymentsByCurrency[cur] ?? 0) + delta;
+  }
 
-  const pendingPayments = payments
-    .filter(p => p.status === 'pending' || p.status === 'approved')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const pendingPaymentsByCurrency: Record<string, number> = {};
+  for (const p of payments.filter(s => s.status === 'pending' || s.status === 'approved')) {
+    const cur = p.currency || 'AED';
+    pendingPaymentsByCurrency[cur] = (pendingPaymentsByCurrency[cur] ?? 0) + Number(p.amount);
+  }
 
-  const lastPaidPayslip = payslips.find(p => p.run_status === 'paid');
-  const grandTotal = totalEarnings + totalPayments;
+  // Grand total per currency = payslip earnings + paid payments
+  const grandTotalByCurrency: Record<string, number> = { ...totalEarningsByCurrency };
+  for (const [cur, amt] of Object.entries(totalPaymentsByCurrency)) {
+    grandTotalByCurrency[cur] = (grandTotalByCurrency[cur] ?? 0) + amt;
+  }
 
   return (
     <motion.div
@@ -188,21 +199,39 @@ export default function MyPayslipsClient() {
             <CardContent className="pt-4 pb-4 text-center">
               <Wallet className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
               <p className="text-[10px] text-muted-foreground">إجمالي المستلم</p>
-              <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(grandTotal)}</p>
+              {Object.entries(grandTotalByCurrency).length === 0 ? (
+                <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(0)}</p>
+              ) : (
+                Object.entries(grandTotalByCurrency).map(([cur, amt]) => (
+                  <p key={cur} className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono leading-tight">{formatCurrency(amt, cur)}</p>
+                ))
+              )}
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <TrendingUp className="h-5 w-5 mx-auto mb-1 text-orange-500" />
               <p className="text-[10px] text-muted-foreground">عمولات ومهام</p>
-              <p className="text-xl font-bold text-orange-600 dark:text-orange-400 font-mono">{formatCurrency(totalPayments)}</p>
+              {Object.entries(totalPaymentsByCurrency).length === 0 ? (
+                <p className="text-xl font-bold text-orange-600 dark:text-orange-400 font-mono">{formatCurrency(0)}</p>
+              ) : (
+                Object.entries(totalPaymentsByCurrency).map(([cur, amt]) => (
+                  <p key={cur} className="text-xl font-bold text-orange-600 dark:text-orange-400 font-mono leading-tight">{formatCurrency(amt, cur)}</p>
+                ))
+              )}
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <CalendarDays className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
               <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>
-              <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-mono">{formatCurrency(pendingPayments)}</p>
+              {Object.entries(pendingPaymentsByCurrency).length === 0 ? (
+                <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-mono">{formatCurrency(0)}</p>
+              ) : (
+                Object.entries(pendingPaymentsByCurrency).map(([cur, amt]) => (
+                  <p key={cur} className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-mono leading-tight">{formatCurrency(amt, cur)}</p>
+                ))
+              )}
             </CardContent>
           </Card>
           <Card className="border-0 shadow-sm">
@@ -275,15 +304,15 @@ export default function MyPayslipsClient() {
                         {formatCurrency(payslip.net_pay, payslip.currency)}
                       </p>
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>أساسي: {formatCurrency(payslip.base_salary)}</span>
+                        <span>أساسي: {formatCurrency(payslip.base_salary, payslip.currency)}</span>
                         {payslip.bonus > 0 && (
                           <span className="text-green-600 dark:text-green-400">
-                            +مكافأة: {formatCurrency(payslip.bonus)}
+                            +مكافأة: {formatCurrency(payslip.bonus, payslip.currency)}
                           </span>
                         )}
                         {payslip.deductions > 0 && (
                           <span className="text-red-600 dark:text-red-400">
-                            -خصم: {formatCurrency(payslip.deductions)}
+                            -خصم: {formatCurrency(payslip.deductions, payslip.currency)}
                           </span>
                         )}
                       </div>

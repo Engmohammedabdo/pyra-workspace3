@@ -36,6 +36,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     const { month, year } = run;
+    // Resolve the run's currency — default to AED for legacy rows that pre-date
+    // the currency column (migration 025).
+    const runCurrency: string = run.currency || 'AED';
 
     // 2. Backup existing items for rollback, then delete
     const { data: existingItems } = await supabase
@@ -63,7 +66,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // the previous .neq('status','suspended') wrongly paid inactive staff.
     const { data: employees, error: empError } = await supabase
       .from('pyra_users')
-      .select('username, display_name, salary, hourly_rate, department, payment_type, employment_type, status, hire_date')
+      .select('username, display_name, salary, hourly_rate, department, payment_type, employment_type, status, hire_date, salary_currency')
       .eq('status', 'active');
 
     if (empError) return apiServerError(empError.message);
@@ -72,15 +75,22 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
 
     // Filter out employees with no meaningful compensation
-    const activeEmployees = employees.filter((e: { payment_type: string | null; salary: number | null; hourly_rate: number | null }) =>
+    const activeEmployees = employees.filter((e: { payment_type: string | null; salary: number | null; hourly_rate: number | null; salary_currency: string | null }) =>
       (e.payment_type === 'monthly_salary' && (e.salary || 0) > 0) ||
       (e.payment_type === 'hourly' && (e.hourly_rate || 0) > 0) ||
       e.payment_type === 'per_task' ||
       e.payment_type === 'commission'
+    // Currency filter: include only employees whose salary_currency matches this
+    // run's currency. Defaults to 'AED' for employees missing the column (legacy rows).
+    // NOTE: salary_currency governs BOTH `salary` AND `hourly_rate` for an employee
+    // (there is no separate hourly_rate_currency) — an hourly worker's rate is
+    // assumed to be in their salary_currency.
+    ).filter((e: { salary_currency: string | null }) =>
+      (e.salary_currency || 'AED') === runCurrency
     );
 
     if (activeEmployees.length === 0) {
-      return apiError('لا يوجد موظفون بتعويضات فعّالة', 400);
+      return apiError('لا يوجد موظفون بعملة هذا المسير', 400);
     }
 
     // Build date range for this month
@@ -91,7 +101,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // 4. Fetch all relevant employee_payments (unlinked, approved)
     const { data: allPayments } = await supabase
       .from('pyra_employee_payments')
-      .select('id, username, source_type, amount, status, payroll_id, created_at')
+      .select('id, username, source_type, amount, currency, status, payroll_id, created_at')
       .eq('status', 'approved')
       .is('payroll_id', null)
       .gte('created_at', startDate + 'T00:00:00')
@@ -157,9 +167,19 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     // Build lookup maps
     // NOTE: allPayments already includes ALL source_types (task, commission, bonus, deduction, overtime)
     // Do NOT fetch commissions separately — that would double-count them!
+    //
+    // Currency gate: only include payments whose currency matches this run's currency.
+    // Mismatched payments (e.g. a USD bonus in an AED run) are skipped and counted
+    // separately so the caller can surface a warning.
     const paymentsByUser: Record<string, Array<{ id: string; source_type: string; amount: number }>> = {};
+    let skippedMismatchedPayments = 0;
     const allPaymentsCombined = [...(allPayments || [])];
-    allPaymentsCombined.forEach((p: { id: string; username: string; source_type: string; amount: number }) => {
+    allPaymentsCombined.forEach((p: { id: string; username: string; source_type: string; amount: number; currency: string | null }) => {
+      const pCurrency = p.currency || 'AED';
+      if (pCurrency !== runCurrency) {
+        skippedMismatchedPayments++;
+        return;
+      }
       if (!paymentsByUser[p.username]) paymentsByUser[p.username] = [];
       paymentsByUser[p.username].push({ id: p.id, source_type: p.source_type, amount: p.amount });
     });
@@ -183,6 +203,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       deductions: number;
       deduction_details: Array<{ type: string; amount: number; reason?: string }>;
       net_pay: number;
+      currency: string;
       status: string;
     }> = [];
 
@@ -219,6 +240,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         deductions: result.deductions,
         deduction_details: result.deduction_details,
         net_pay: result.net_pay,
+        currency: runCurrency,
         status: 'pending',
       });
 
@@ -328,7 +350,13 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     });
     if (logErr) console.error('Activity log error:', logErr);
 
-    return apiSuccess({ ...updatedRun, items: enrichedItems });
+    // Build optional warnings array for the caller
+    const warnings: string[] = [];
+    if (skippedMismatchedPayments > 0) {
+      warnings.push(`${skippedMismatchedPayments} دفعة بعملة مختلفة تم تجاهلها`);
+    }
+
+    return apiSuccess({ ...updatedRun, items: enrichedItems, warnings });
   } catch (err) {
     logError({ error: err, request: req, metadata: { route: 'payroll/calculate' } });
     console.error('POST /api/dashboard/payroll/[id]/calculate error:', err);

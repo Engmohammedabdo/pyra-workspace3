@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS } from '@/lib/constants/statuses';
+import { SALARY_CURRENCIES } from '@/lib/constants/auth';
 
 // =============================================================
 // GET /api/dashboard/payroll
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     if (isApiError(auth)) return auth;
 
     const body = await req.json().catch(() => ({}));
-    const { month, year, notes } = body;
+    const { month, year, notes, currency: currencyInput } = body;
 
     // Validate month
     if (!month || !Number.isInteger(month) || month < 1 || month > 12) {
@@ -70,18 +71,26 @@ export async function POST(req: NextRequest) {
       return apiValidationError('السنة غير صالحة');
     }
 
+    // Resolve and validate currency — default to AED when not provided
+    const resolvedCurrency: string = currencyInput ?? 'AED';
+    if (!(SALARY_CURRENCIES as readonly string[]).includes(resolvedCurrency)) {
+      return apiValidationError(`العملة غير صالحة. القيم المسموحة: ${SALARY_CURRENCIES.join('، ')}`);
+    }
+
     const supabase = createServiceRoleClient();
 
-    // Check for duplicate (month, year)
+    // Check for duplicate (month, year, currency) — an AED run and an EGP run
+    // for the same month can coexist as separate single-currency runs.
     const { data: existing } = await supabase
       .from('pyra_payroll_runs')
       .select('id')
       .eq('month', month)
       .eq('year', year)
+      .eq('currency', resolvedCurrency)
       .maybeSingle();
 
     if (existing) {
-      return apiError('يوجد مسير رواتب لهذا الشهر بالفعل', 409);
+      return apiError(`يوجد مسير رواتب بعملة ${resolvedCurrency} لهذا الشهر بالفعل`, 409);
     }
 
     const id = generateId('pr');
@@ -94,7 +103,7 @@ export async function POST(req: NextRequest) {
         year,
         status: PAYROLL_STATUS.DRAFT,
         total_amount: 0,
-        currency: 'AED',
+        currency: resolvedCurrency,
         employee_count: 0,
         notes: notes || null,
         created_by: auth.pyraUser.username,
@@ -111,7 +120,7 @@ export async function POST(req: NextRequest) {
       username: auth.pyraUser.username,
       display_name: auth.pyraUser.display_name,
       target_path: '/dashboard/payroll',
-      details: { payroll_id: id, month, year },
+      details: { payroll_id: id, month, year, currency: resolvedCurrency },
       ip_address: req.headers.get('x-forwarded-for') || 'unknown',
     });
     if (logErr) console.error('Activity log error:', logErr);
