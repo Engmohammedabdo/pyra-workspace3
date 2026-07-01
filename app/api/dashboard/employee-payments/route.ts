@@ -9,6 +9,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 const VALID_SOURCE_TYPES = ['task', 'overtime', 'bonus', 'deduction', 'commission'];
 
@@ -142,16 +143,14 @@ export async function POST(req: NextRequest) {
     } : data;
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'employee_payment_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/payroll',
-      details: { payment_id: paymentId, username: username, source_type, amount: Number(amount) },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.CREATE}`,
+      '/dashboard/payroll',
+      { payment_id: paymentId, username: username, source_type, amount: Number(amount), source: 'employee_payment_created' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(flatData, undefined, 201);
   } catch (err) {

@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/respon
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function GET(req: NextRequest) {
   try {
@@ -79,16 +80,14 @@ export async function POST(req: NextRequest) {
     if (error) return apiServerError(error.message);
 
     // Activity log
-    const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'timesheet_period_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/timesheet',
-      details: { period_id: data?.id, period_type: period_type || 'weekly', start_date, end_date },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.TIMESHEET}_${ACTIVITY_ACTIONS.CREATE}`,
+      '/dashboard/timesheet',
+      { period_id: data?.id, period_type: period_type || 'weekly', start_date, end_date, source: 'timesheet_period_created' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data, undefined, 201);
 

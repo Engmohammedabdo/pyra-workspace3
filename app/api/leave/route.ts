@@ -8,6 +8,7 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
 import { notify } from '@/lib/notifications/notify';
 import { getManagerOf } from '@/lib/auth/team-scope';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function GET(req: NextRequest) {
   const auth = await getApiAuth();
@@ -144,16 +145,14 @@ export async function POST(req: NextRequest) {
   if (error) return apiServerError(error.message);
 
   // Activity log
-  const { error: logErr } = await serviceSupabase.from('pyra_activity_log').insert({
-    id: generateId('al'),
-    action_type: 'leave_request_created',
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    target_path: '/dashboard/leave',
-    details: { leave_id: data?.id, leave_type: type, start_date, end_date, total_days: days_count },
-    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-  });
-  if (logErr) console.error('Activity log error:', logErr);
+  logActivity(
+    auth.pyraUser.username,
+    auth.pyraUser.display_name,
+    `${ENTITY_TYPES.LEAVE}_${ACTIVITY_ACTIONS.CREATE}`,
+    '/dashboard/leave',
+    { leave_id: data?.id, leave_type: type, start_date, end_date, total_days: days_count, source: 'leave_request_created' },
+    req.headers.get('x-forwarded-for') || 'unknown',
+  );
 
   // Notify the employee's manager that a leave request needs approval
   const managerUsername = await getManagerOf(serviceSupabase, auth.pyraUser.username);

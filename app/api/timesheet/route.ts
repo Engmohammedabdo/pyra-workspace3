@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function GET(req: NextRequest) {
   // Gate first, then service-role client (Gap #3 Phase 5 pattern).
@@ -178,16 +179,14 @@ export async function POST(req: NextRequest) {
   if (error) return apiServerError(error.message);
 
   // Activity log (reuse the already-service-role supabase client)
-  const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-    id: generateId('al'),
-    action_type: 'timesheet_entry_created',
-    username: auth.pyraUser.username,
-    display_name: auth.pyraUser.display_name,
-    target_path: '/dashboard/timesheet',
-    details: { entry_id: data?.id, date, hours },
-    ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-  });
-  if (logErr) console.error('Activity log error:', logErr);
+  logActivity(
+    auth.pyraUser.username,
+    auth.pyraUser.display_name,
+    `${ENTITY_TYPES.TIMESHEET}_${ACTIVITY_ACTIONS.CREATE}`,
+    '/dashboard/timesheet',
+    { entry_id: data?.id, date, hours, source: 'timesheet_entry_created' },
+    req.headers.get('x-forwarded-for') || 'unknown',
+  );
 
   return apiSuccess(data, undefined, 201);
 }

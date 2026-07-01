@@ -3,8 +3,8 @@ import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
-import { generateId } from '@/lib/utils/id';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -61,16 +61,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error) return apiServerError(error.message);
 
     // Activity log (reuse the already-service-role supabase client)
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'timesheet_entry_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/timesheet',
-      details: { entry_id: id },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.TIMESHEET}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/timesheet',
+      { entry_id: id, source: 'timesheet_entry_updated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data);
 
@@ -104,16 +102,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     if (error) return apiServerError(error.message);
 
     // Activity log (reuse the already-service-role supabase client)
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'timesheet_entry_deleted',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/timesheet',
-      details: { entry_id: id },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.TIMESHEET}_${ACTIVITY_ACTIONS.DELETE}`,
+      '/dashboard/timesheet',
+      { entry_id: id, source: 'timesheet_entry_deleted' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess({ deleted: true });
 

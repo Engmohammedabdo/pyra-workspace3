@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
 import { markPaymentsPaidAndPropagate } from '@/lib/payroll/payment-lifecycle';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -205,16 +206,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       // ─────────────────────────────────────────────────────────────
 
       // Activity log
-      const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-        id: generateId('al'),
-        action_type: 'payroll_status_changed',
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        target_path: '/dashboard/payroll',
-        details: { payroll_id: id, new_status: 'approved', expenses_created: payrollItems?.length || 0 },
-        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-      });
-      if (logErr) console.error('Activity log error:', logErr);
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.PAYROLL}_${ACTIVITY_ACTIONS.UPDATE}`,
+        '/dashboard/payroll',
+        { payroll_id: id, new_status: 'approved', expenses_created: payrollItems?.length || 0, source: 'payroll_status_changed' },
+        req.headers.get('x-forwarded-for') || 'unknown',
+      );
 
       return apiSuccess(data);
     }
@@ -251,16 +250,14 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       await markPaymentsPaidAndPropagate(supabase, (consumed || []).map((p: { id: string }) => p.id));
 
       // Activity log
-      const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
-        id: generateId('al'),
-        action_type: 'payroll_status_changed',
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        target_path: '/dashboard/payroll',
-        details: { payroll_id: id, new_status: 'paid' },
-        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-      });
-      if (logErr2) console.error('Activity log error:', logErr2);
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.PAYROLL}_${ACTIVITY_ACTIONS.UPDATE}`,
+        '/dashboard/payroll',
+        { payroll_id: id, new_status: 'paid', source: 'payroll_status_changed' },
+        req.headers.get('x-forwarded-for') || 'unknown',
+      );
 
       return apiSuccess(data);
     }
@@ -335,16 +332,14 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     }
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'payroll_deleted',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/payroll',
-      details: { payroll_id: id, month: run.month, year: run.year },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.PAYROLL}_${ACTIVITY_ACTIONS.DELETE}`,
+      '/dashboard/payroll',
+      { payroll_id: id, month: run.month, year: run.year, source: 'payroll_deleted' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess({ deleted: true });
   } catch (err) {

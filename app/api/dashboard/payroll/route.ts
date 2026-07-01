@@ -5,6 +5,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { PAYROLL_STATUS } from '@/lib/constants/statuses';
 import { SALARY_CURRENCIES } from '@/lib/constants/auth';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/dashboard/payroll
@@ -114,16 +115,14 @@ export async function POST(req: NextRequest) {
     if (error) return apiServerError(error.message);
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'payroll_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/payroll',
-      details: { payroll_id: id, month, year, currency: resolvedCurrency },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.PAYROLL}_${ACTIVITY_ACTIONS.CREATE}`,
+      '/dashboard/payroll',
+      { payroll_id: id, month, year, currency: resolvedCurrency, source: 'payroll_created' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data, undefined, 201);
   } catch (err) {

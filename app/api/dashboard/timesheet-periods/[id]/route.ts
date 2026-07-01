@@ -4,7 +4,7 @@ import { apiSuccess, apiServerError, apiNotFound, apiError, apiUnauthorized, api
 import { createServerSupabaseClient, createServiceRoleClient } from '@/lib/supabase/server';
 import { hasPermission } from '@/lib/auth/rbac';
 import { canApproveFor } from '@/lib/auth/team-scope';
-import { generateId } from '@/lib/utils/id';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -98,16 +98,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     if (error) return apiServerError(error.message);
 
     // Activity log
-    const { error: logErr } = await serviceClient.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'timesheet_period_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/timesheet',
-      details: { period_id: id, status: action },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.TIMESHEET}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/timesheet',
+      { period_id: id, status: action, source: 'timesheet_period_updated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data);
 

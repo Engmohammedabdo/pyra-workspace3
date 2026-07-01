@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiError } from '@/lib/api/response';
-import { generateId } from '@/lib/utils/id';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 // =============================================================
 // POST /api/dashboard/attendance/clock-out
@@ -68,16 +68,14 @@ export async function POST(req: NextRequest) {
     if (error) return apiServerError(error.message);
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'attendance_clock_out',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/attendance',
-      details: { date: today, total_hours: totalHours },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.ATTENDANCE}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/attendance',
+      { date: today, total_hours: totalHours, source: 'attendance_clock_out' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data);
   } catch (err) {

@@ -60,6 +60,13 @@ const ACTION_LABELS: Record<string, string> = {
   portal_password_reset_requested: 'طلب استعادة كلمة مرور',
   portal_password_reset_completed: 'إعادة تعيين كلمة مرور',
   portal_profile_updated: 'تحديث بروفايل عميل',
+  // HR / payroll
+  leave_create: 'طلب إجازة', leave_update: 'تحديث إجازة',
+  timesheet_create: 'تسجيل وقت', timesheet_update: 'تحديث وقت', timesheet_delete: 'حذف وقت',
+  work_schedule_create: 'جدول عمل',
+  employee_payment_create: 'دفعة موظف', employee_payment_update: 'تحديث دفعة',
+  payroll_create: 'إنشاء رواتب', payroll_update: 'تحديث رواتب', payroll_delete: 'حذف رواتب',
+  attendance_create: 'تسجيل حضور', attendance_update: 'تحديث حضور',
 };
 
 export default function ActivityClient() {

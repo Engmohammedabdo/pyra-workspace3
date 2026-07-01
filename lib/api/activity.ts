@@ -33,6 +33,10 @@ export const ENTITY_TYPES = {
   BOARD: 'board',
   TASK: 'task',
   DOCUMENT: 'document',
+  TIMESHEET: 'timesheet',
+  ATTENDANCE: 'attendance',
+  WORK_SCHEDULE: 'work_schedule',
+  EMPLOYEE_PAYMENT: 'employee_payment',
 } as const;
 
 /**

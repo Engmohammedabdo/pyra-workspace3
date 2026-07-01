@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 // =============================================================
 // GET /api/dashboard/work-schedules
@@ -91,16 +92,14 @@ export async function POST(req: NextRequest) {
     if (error) return apiServerError(error.message);
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'work_schedule_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/users',
-      details: { schedule_id: id, name },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.WORK_SCHEDULE}_${ACTIVITY_ACTIONS.CREATE}`,
+      '/dashboard/users',
+      { schedule_id: id, name, source: 'work_schedule_created' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(data, undefined, 201);
   } catch (err) {

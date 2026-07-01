@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
 import { calculatePayrollItem, hireProrationFactor, leaveOverlapDays } from '@/lib/payroll/calculate-item';
 import { logError } from '@/lib/observability/log-error';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -339,16 +340,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }));
 
     // Activity log
-    const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'payroll_calculated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/payroll',
-      details: { payroll_id: id, total_amount: totalAmount, employee_count: payrollItems.length },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.PAYROLL}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/payroll',
+      { payroll_id: id, total_amount: totalAmount, employee_count: payrollItems.length, source: 'payroll_calculated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     // Build optional warnings array for the caller
     const warnings: string[] = [];

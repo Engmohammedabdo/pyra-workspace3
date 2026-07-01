@@ -7,6 +7,7 @@ import { canApproveFor } from '@/lib/auth/team-scope';
 import { generateId } from '@/lib/utils/id';
 import { LEAVE_STATUS } from '@/lib/constants/statuses';
 import { notify } from '@/lib/notifications/notify';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await getApiAuth();
@@ -123,16 +124,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     // Activity log
     const serviceForLog = createServiceRoleClient();
-    const { error: logErr } = await serviceForLog.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'leave_request_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/leave',
-      details: { leave_id: id, action: body.status === LEAVE_STATUS.APPROVED ? 'approve' : 'reject' },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr) console.error('Activity log error:', logErr);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.LEAVE}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/leave',
+      { leave_id: id, action: body.status === LEAVE_STATUS.APPROVED ? 'approve' : 'reject', source: 'leave_request_updated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     // Notify the employee of the outcome (fire-and-forget)
     void notify(serviceForLog, {
@@ -221,17 +220,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Activity log
-    const serviceForLog2 = createServiceRoleClient();
-    const { error: logErr2 } = await serviceForLog2.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'leave_request_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/leave',
-      details: { leave_id: id, action: 'cancel' },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr2) console.error('Activity log error:', logErr2);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.LEAVE}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/leave',
+      { leave_id: id, action: 'cancel', source: 'leave_request_updated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(cancelled);
   }
@@ -326,17 +322,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
 
     // Activity log
-    const serviceForLog3 = createServiceRoleClient();
-    const { error: logErr3 } = await serviceForLog3.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'leave_request_updated',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: '/dashboard/leave',
-      details: { leave_id: id, action: 'cancel' },
-      ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-    });
-    if (logErr3) console.error('Activity log error:', logErr3);
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.LEAVE}_${ACTIVITY_ACTIONS.UPDATE}`,
+      '/dashboard/leave',
+      { leave_id: id, action: 'cancel', source: 'leave_request_updated' },
+      req.headers.get('x-forwarded-for') || 'unknown',
+    );
 
     return apiSuccess(updated);
   }

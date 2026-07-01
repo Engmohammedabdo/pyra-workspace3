@@ -8,9 +8,9 @@ import {
   apiError,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { generateId } from '@/lib/utils/id';
 import { EMPLOYEE_PAYMENT_STATUS } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 
 // =============================================================
 // PATCH /api/dashboard/employee-payments/[id]
@@ -66,16 +66,14 @@ export async function PATCH(
       if (error) return apiServerError(error.message);
 
       // Activity log
-      const { error: logErr } = await supabase.from('pyra_activity_log').insert({
-        id: generateId('al'),
-        action_type: 'employee_payment_updated',
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        target_path: '/dashboard/payroll',
-        details: { payment_id: id, status: 'approved' },
-        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-      });
-      if (logErr) console.error('Activity log error:', logErr);
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
+        '/dashboard/payroll',
+        { payment_id: id, status: 'approved', source: 'employee_payment_updated' },
+        req.headers.get('x-forwarded-for') || 'unknown',
+      );
 
       return apiSuccess(data);
     }
@@ -108,16 +106,14 @@ export async function PATCH(
       }
 
       // Activity log
-      const { error: logErr2 } = await supabase.from('pyra_activity_log').insert({
-        id: generateId('al'),
-        action_type: 'employee_payment_updated',
-        username: auth.pyraUser.username,
-        display_name: auth.pyraUser.display_name,
-        target_path: '/dashboard/payroll',
-        details: { payment_id: id, status: 'paid' },
-        ip_address: req.headers.get('x-forwarded-for') || 'unknown',
-      });
-      if (logErr2) console.error('Activity log error:', logErr2);
+      logActivity(
+        auth.pyraUser.username,
+        auth.pyraUser.display_name,
+        `${ENTITY_TYPES.EMPLOYEE_PAYMENT}_${ACTIVITY_ACTIONS.UPDATE}`,
+        '/dashboard/payroll',
+        { payment_id: id, status: 'paid', source: 'employee_payment_updated' },
+        req.headers.get('x-forwarded-for') || 'unknown',
+      );
 
       return apiSuccess(data);
     }
