@@ -65,6 +65,10 @@ export function useCreateLeadActivity() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id, 'activities'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
       qc.invalidateQueries({ queryKey: ['crm', 'dashboard', 'recent-activity'] });
+      // meeting_scheduled activities project into the unified calendar feed.
+      qc.invalidateQueries({ queryKey: ['calendar'] });
+      // The customer dossier embeds this lead's activity — refresh it too.
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', vars.lead_id, 'dossier'] });
     },
   });
 }

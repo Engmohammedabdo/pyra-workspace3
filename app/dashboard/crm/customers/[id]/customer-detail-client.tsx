@@ -42,7 +42,7 @@ interface Props {
 }
 
 export function CustomerDetailClient({ leadId }: Props) {
-  const { data: dossier, isLoading, error } = useCustomerDossier(leadId);
+  const { data: dossier, isLoading, error, refetch } = useCustomerDossier(leadId);
   const activeTab = useCustomerActiveTab();
 
   // 404 = lead not found OR caller lacks access (canAccessLead gate).
@@ -58,6 +58,26 @@ export function CustomerDetailClient({ leadId }: Props) {
         />
         <div className="text-center mt-4">
           <Button asChild variant="outline">
+            <Link href="/dashboard/crm/pipeline">العودة لخط المبيعات</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Non-404 error (500 / exhausted retries) — show a real error + retry instead
+  // of falling through to a permanent skeleton ("جاري تحميل..." forever).
+  if (error && !isLoading) {
+    return (
+      <div className="py-16">
+        <EmptyState
+          icon={AlertCircle}
+          title="تعذّر تحميل بيانات العميل"
+          description="حدث خطأ أثناء جلب البيانات. حاول مرة أخرى."
+        />
+        <div className="text-center mt-4 flex items-center justify-center gap-2">
+          <Button variant="outline" onClick={() => refetch()}>إعادة المحاولة</Button>
+          <Button asChild variant="ghost">
             <Link href="/dashboard/crm/pipeline">العودة لخط المبيعات</Link>
           </Button>
         </div>

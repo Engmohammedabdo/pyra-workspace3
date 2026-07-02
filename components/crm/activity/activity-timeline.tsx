@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
+import { dubaiDayKey } from '@/lib/utils/format';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -71,7 +72,9 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
   const groupedByDay = useMemo(() => {
     const groups = new Map<string, LeadActivity[]>();
     for (const a of allActivities) {
-      const key = a.created_at.slice(0, 10); // YYYY-MM-DD
+      // Group by the DUBAI calendar day, not UTC — `.slice(0,10)` files an
+      // activity logged at 02:00 Dubai (= 22:00Z prev day) under the wrong day.
+      const key = dubaiDayKey(new Date(a.created_at)); // YYYY-MM-DD (Asia/Dubai)
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(a);
     }
@@ -133,6 +136,7 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
             <button
               key={g.label}
               onClick={() => setActiveFilter(g.label)}
+              aria-pressed={isActive}
               className={
                 'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors ' +
                 (isActive
@@ -168,7 +172,9 @@ export function ActivityTimeline({ leadId, showComposer = true, highlightId }: A
           {Array.from(groupedByDay.entries()).map(([day, items]) => (
             <div key={day} className="space-y-1">
               <h4 className="text-xs font-medium text-muted-foreground sticky top-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70 py-1">
-                {format(new Date(day), 'eeee, d MMMM yyyy', { locale: ar })}
+                {/* `day` is a Dubai YYYY-MM-DD key — parse as local midnight so
+                    the printed label matches the key regardless of viewer TZ. */}
+                {format(new Date(day + 'T00:00:00'), 'eeee, d MMMM yyyy', { locale: ar })}
               </h4>
               <ul className="space-y-1 -m-1 ms-2 ps-3 border-s-2 border-dashed border-border/60">
                 {items.map((a) => (

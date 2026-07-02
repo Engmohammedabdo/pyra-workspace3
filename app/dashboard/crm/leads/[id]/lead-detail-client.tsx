@@ -28,8 +28,12 @@ import {
   ArrowLeft, LayoutDashboard, Activity, FileSignature, Paperclip, StickyNote,
   Info, ChevronLeft, ClipboardList,
 } from 'lucide-react';
-import { useLead, useLinkClient, useUpdateLead } from '@/hooks/useLeads';
+import { useLead, useLinkClient, useUpdateLead, useArchiveLead } from '@/hooks/useLeads';
 import { usePermission } from '@/hooks/usePermission';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeadActivities } from '@/hooks/useLeadActivities';
 import { LeadHeader } from '@/components/crm/lead-detail/lead-header';
@@ -94,6 +98,12 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const [reassignOpen, setReassignOpen] = useState(false);
   const updateLeadMutation = useUpdateLead();
 
+  // Soft-archive (migration 030 + leads.delete). Admins have leads.delete;
+  // owners only if granted. Archived leads drop out of the pipeline/list.
+  const canArchive = usePermission('leads.delete');
+  const archiveMutation = useArchiveLead();
+  const [archiveOpen, setArchiveOpen] = useState(false);
+
   const handleLinkClient = async (clientId: string) => {
     try {
       await linkClientMutation.mutateAsync({ leadId, clientId });
@@ -124,6 +134,17 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const latestActivityAt = useMemo(() => {
     return activitiesQuery.data?.pages?.[0]?.activities?.[0]?.created_at ?? null;
   }, [activitiesQuery.data]);
+
+  const handleArchiveConfirm = async () => {
+    const unarchive = !!data?.lead.archived_at;
+    try {
+      await archiveMutation.mutateAsync({ id: leadId, unarchive });
+      toast.success(unarchive ? 'تم إلغاء الأرشفة' : 'تم أرشفة الـ Lead');
+      setArchiveOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'فشل تنفيذ العملية');
+    }
+  };
 
   const switchTab = useCallback(
     (next: TabKey) => {
@@ -178,7 +199,29 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         canLinkClient={canLinkClient}
         onReassign={() => setReassignOpen(true)}
         canReassign={canReassign}
+        onArchive={() => setArchiveOpen(true)}
+        canArchive={canArchive}
       />
+      <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {lead.archived_at ? 'إلغاء أرشفة الـ Lead؟' : 'أرشفة الـ Lead؟'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {lead.archived_at
+                ? 'سيظهر الـ Lead مرة أخرى في الـ Pipeline والقوائم.'
+                : 'سيختفي الـ Lead من الـ Pipeline والقوائم (بدون حذف نهائي) — تقدر تسترجعه في أي وقت.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveConfirm} disabled={archiveMutation.isPending}>
+              {lead.archived_at ? 'إلغاء الأرشفة' : 'أرشفة'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <FollowUpModal open={followUpOpen} onOpenChange={setFollowUpOpen} leadId={lead.id} />
       {/* Conditional mount: the modal owns a ['users','lite'] query that
           should only fire when the admin actually opens the picker. */}

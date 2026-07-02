@@ -31,10 +31,11 @@ import { useFollowUps, useCompleteFollowUp, type FollowUp, type FollowUpsRespons
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
 import { FOLLOW_UP_STATUS_LABELS, type FollowUpStatus } from '@/lib/constants/statuses';
 
-type FilterKey = 'pending' | 'completed' | 'all';
+type FilterKey = 'pending' | 'overdue' | 'completed' | 'all';
 
 const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: 'pending',   label: 'قيد الانتظار' },
+  { key: 'overdue',   label: 'متأخرة' },
   { key: 'completed', label: 'مكتملة' },
   { key: 'all',       label: 'الكل' },
 ];
@@ -128,8 +129,10 @@ export function FollowUpsClient() {
 function FollowUpRow({ followUp }: { followUp: FollowUp }) {
   const qc = useQueryClient();
   const complete = useCompleteFollowUp();
-  const isPending = followUp.status === 'pending';
-  const isOverdue = isPending && new Date(followUp.due_at) < new Date();
+  // 'overdue' is a live not-done state (the check-due cron flips due-past
+  // pending → overdue) — treat it like pending so the row stays completable.
+  const isPending = followUp.status === 'pending' || followUp.status === 'overdue';
+  const isOverdue = isPending && (followUp.status === 'overdue' || new Date(followUp.due_at) < new Date());
 
   // Same optimistic-update pattern as components/crm/lead-detail/lead-sidebar.tsx
   // (Phase 6 follow-up commit). Cancel in-flight queries → snapshot every

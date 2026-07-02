@@ -77,6 +77,8 @@ export function useCreateFollowUp() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id, 'activities'] });
       qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+      // The unified calendar feed projects follow-ups — refresh it too.
+      qc.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
 }
@@ -95,6 +97,7 @@ export function useCompleteFollowUp() {
       qc.invalidateQueries({ queryKey: ['crm', 'follow-ups'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+      qc.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
 }

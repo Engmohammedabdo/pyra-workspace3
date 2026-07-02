@@ -124,6 +124,9 @@ export function useUpdateLead() {
     onSuccess: (_res, vars) => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.id] });
+      // Lead detail is the single editable surface for converted customers too,
+      // so refresh the customer dossier (header/notes/KPIs read the same row).
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', vars.id, 'dossier'] });
     },
   });
 }
@@ -207,6 +210,8 @@ export function useMoveLeadStage() {
       qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
       qc.invalidateQueries({ queryKey: ['crm', 'approvals'] });
       qc.invalidateQueries({ queryKey: ['sidebar-badges'] });
+      // A reopen/move changes the customer dossier's stage + health.
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', vars.id, 'dossier'] });
     },
   });
 }
@@ -290,13 +295,22 @@ export function useMoveLeadStageWithToasts() {
   return { moveStage, runMoveStage };
 }
 
+/**
+ * Soft-archive (or un-archive) a lead. DELETE /api/crm/leads/[id] sets
+ * archived_at; passing `{ unarchive: true }` clears it. Backed by migration
+ * 030 + the `leads.delete` permission (admin OR owner). Archived leads drop
+ * out of the pipeline/list by default.
+ */
 export function useArchiveLead() {
   const qc = useQueryClient();
-  return useMutation<unknown, Error, string>({
-    mutationFn: (id) => mutateAPI(`/api/crm/leads/${id}`, 'DELETE'),
-    onSuccess: (_res, id) => {
+  return useMutation<unknown, Error, { id: string; unarchive?: boolean }>({
+    mutationFn: ({ id, unarchive }) =>
+      mutateAPI(`/api/crm/leads/${id}`, 'DELETE', unarchive ? { unarchive: true } : undefined),
+    onSuccess: (_res, vars) => {
       qc.invalidateQueries({ queryKey: ['crm', 'leads'] });
-      qc.invalidateQueries({ queryKey: ['crm', 'leads', id] });
+      qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.id] });
+      qc.invalidateQueries({ queryKey: ['crm', 'dashboard'] });
+      qc.invalidateQueries({ queryKey: ['crm', 'customers', vars.id, 'dossier'] });
     },
   });
 }

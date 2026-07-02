@@ -41,6 +41,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeads, useMoveLeadStageWithToasts, useBulkAssignLeads } from '@/hooks/useLeads';
+import { useLeadCapableUsers } from '@/hooks/useLeadCapableUsers';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
 import { BulkActionBar } from '@/components/crm/pipeline/bulk-action-bar';
@@ -138,12 +139,15 @@ export function PipelineClient() {
   const total = leadsResp?.total;
   const isAdmin = me?.role === 'admin';
 
-  // Owner options derived from the loaded leads (admin can filter by any
-  // unique owner currently in the dataset).
-  const ownerOptions = useMemo(() => {
-    if (!isAdmin || !leads) return [];
-    return Array.from(new Set(leads.map((l) => l.assigned_to).filter((x): x is string => !!x))).sort();
-  }, [isAdmin, leads]);
+  // Owner options from the FULL lead-capable user list (admin only) — NOT the
+  // currently-filtered `leads`. Deriving from `leads` collapsed the dropdown to
+  // just the selected owner once a filter was applied (a one-way trap: you had
+  // to reset to "all" before you could switch to a different agent).
+  const { leadCapable } = useLeadCapableUsers();
+  const ownerOptions = useMemo(
+    () => (isAdmin ? leadCapable.map((u) => ({ value: u.username, label: u.display_name })) : []),
+    [isAdmin, leadCapable],
+  );
 
   // Drop handler — fired by PipelineBoard after a cross-column drop (desktop
   // drag) AND from the mobile MobileStageSheet via the same onChangeStage

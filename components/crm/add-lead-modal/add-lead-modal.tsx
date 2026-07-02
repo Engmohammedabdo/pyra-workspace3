@@ -22,7 +22,8 @@
  *   matched lead's id. Submit is NOT blocked.
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useId, cloneElement, isValidElement } from 'react';
+import type { ReactElement } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -551,13 +552,21 @@ function Field({
   required?: boolean;
   children: React.ReactNode;
 }) {
+  // Associate the <Label> with its control for a11y (was a bare sibling with no
+  // htmlFor, so screen readers announced "edit text, blank"). Derive a stable id
+  // and inject it into the single child control (preserving any existing id).
+  const generatedId = useId();
+  const child = isValidElement(children)
+    ? (children as ReactElement<{ id?: string }>)
+    : null;
+  const controlId = child?.props.id ?? generatedId;
   return (
     <div className="space-y-1">
-      <Label className="text-xs">
+      <Label htmlFor={controlId} className="text-xs">
         {label}
         {required && <span className="text-destructive ms-0.5">*</span>}
       </Label>
-      {children}
+      {child ? cloneElement(child, { id: controlId }) : children}
       {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
     </div>
   );

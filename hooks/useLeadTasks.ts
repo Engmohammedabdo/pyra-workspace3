@@ -57,6 +57,8 @@ export function useCreateLeadTask() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id, 'activities'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
       qc.invalidateQueries({ queryKey: ['my-tasks'] });
+      // Lead tasks with a due_date project into the unified calendar feed.
+      qc.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
 }
@@ -82,6 +84,8 @@ export function useUpdateLeadTask() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id, 'activities'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
       qc.invalidateQueries({ queryKey: ['my-tasks'] });
+      // Lead tasks with a due_date project into the unified calendar feed.
+      qc.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
 }
@@ -101,6 +105,8 @@ export function useDeleteLeadTask() {
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id, 'activities'] });
       qc.invalidateQueries({ queryKey: ['crm', 'leads', vars.lead_id] });
       qc.invalidateQueries({ queryKey: ['my-tasks'] });
+      // Lead tasks with a due_date project into the unified calendar feed.
+      qc.invalidateQueries({ queryKey: ['calendar'] });
     },
   });
 }

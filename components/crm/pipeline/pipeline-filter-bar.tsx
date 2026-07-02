@@ -29,7 +29,7 @@ interface PipelineFilterBarProps {
   /** Render owner-filter dropdown only for admins (sales agents see only their own leads). */
   isAdmin: boolean;
   /** Owner usernames the admin can choose from (derived from current leads). */
-  ownerOptions?: string[];
+  ownerOptions?: Array<{ value: string; label: string }>;
   /** Total leads visible after current filters (rendered as a small live counter). */
   total?: number;
 }
@@ -130,9 +130,9 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">كل المسؤولين</SelectItem>
-              {ownerOptions.map((u) => (
-                <SelectItem key={u} value={u}>
-                  {u}
+              {ownerOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
                 </SelectItem>
               ))}
             </SelectContent>

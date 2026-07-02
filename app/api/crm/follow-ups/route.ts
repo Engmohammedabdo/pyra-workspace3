@@ -51,7 +51,12 @@ export async function GET(request: NextRequest) {
       q = q.eq('assigned_to', auth.pyraUser.username);
     }
 
-    if (status !== 'all') q = q.eq('status', status);
+    // 'pending' (default) also surfaces 'overdue' rows — the check-due cron flips
+    // due-past pending → overdue, and without this they'd vanish from the default
+    // view (and drop out of reminder/next_follow_up logic). ?status=overdue still
+    // narrows to just overdue.
+    if (status === 'pending') q = q.in('status', ['pending', 'overdue']);
+    else if (status !== 'all') q = q.eq('status', status);
     if (leadId) q = q.eq('lead_id', leadId);
     if (dueBefore) q = q.lt('due_at', dueBefore);
     if (dueAfter) q = q.gte('due_at', dueAfter);
@@ -235,7 +240,7 @@ export async function POST(request: NextRequest) {
       .from('pyra_sales_follow_ups')
       .select('due_at')
       .eq('lead_id', leadId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'overdue'])
       .order('due_at', { ascending: true })
       .limit(1);
     if (pending && pending.length > 0) {

@@ -287,3 +287,83 @@ export async function PATCH(
     return apiServerError();
   }
 }
+
+// ────────────────────────────────────────────────────────────────────────────
+// DELETE /api/crm/leads/[id]  — SOFT-archive (NOT a hard delete)
+//
+// Permission: leads.delete + canAccessLead (admin OR the lead's owner).
+// Body: { unarchive?: boolean } — pass true to restore an archived lead.
+//
+// Sets pyra_sales_leads.archived_at (+ archived_by). Archived leads are hidden
+// from the pipeline / list by default (GET filters archived_at IS NULL) but stay
+// reachable by direct URL so they can be viewed and un-archived. Backing feature
+// for the previously-inert `leads.delete` permission (migration 030).
+// ────────────────────────────────────────────────────────────────────────────
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const auth = await requireApiPermission('leads.delete');
+    if (isApiError(auth)) return auth;
+
+    const { id } = await params;
+    const supabase = createServiceRoleClient();
+
+    const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
+    if (!allowed) return apiForbidden('لا تملك صلاحية أرشفة هذا الـ Lead');
+
+    const body = (await request.json().catch(() => null)) as { unarchive?: boolean } | null;
+    const unarchive = body?.unarchive === true;
+
+    const { data: existing } = await supabase
+      .from('pyra_sales_leads')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing) return apiNotFound('Lead غير موجود');
+
+    const nowIso = new Date().toISOString();
+    const { error: updErr } = await supabase
+      .from('pyra_sales_leads')
+      .update(
+        unarchive
+          ? { archived_at: null, archived_by: null, updated_at: nowIso }
+          : { archived_at: nowIso, archived_by: auth.pyraUser.username, updated_at: nowIso },
+      )
+      .eq('id', id);
+    if (updErr) {
+      console.error('DELETE /api/crm/leads/[id] update error:', updErr.message);
+      return apiServerError(unarchive ? 'فشل إلغاء الأرشفة' : 'فشل الأرشفة', updErr, request);
+    }
+
+    // Timeline activity (lazy-thenable → needs .then()).
+    void supabase
+      .from('pyra_lead_activities')
+      .insert({
+        id: generateId('la'),
+        lead_id: id,
+        activity_type: 'field_updated',
+        description: unarchive ? 'تم إلغاء أرشفة الـ Lead' : 'تم أرشفة الـ Lead',
+        metadata: { field: 'archived_at', source: unarchive ? 'unarchived' : 'archived' },
+        created_by: auth.pyraUser.username,
+      })
+      .then(({ error: e }) => {
+        if (e) console.error('[archive activity] insert failed:', e.message);
+      });
+
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.UPDATE}`,
+      `/dashboard/crm/leads/${id}`,
+      { lead_id: id, source: unarchive ? 'unarchived' : 'archived' },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
+
+    return apiSuccess({ id, archived: !unarchive });
+  } catch (err) {
+    console.error('DELETE /api/crm/leads/[id] threw:', err);
+    return apiServerError('فشل الأرشفة', err, request);
+  }
+}

@@ -16,7 +16,7 @@
  */
 
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
-import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { formatCurrency, formatDate, dubaiDayKey } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import type { DossierMilestone } from '@/hooks/useCustomerDossier';
 
@@ -30,7 +30,9 @@ type IconState = 'done' | 'overdue' | 'pending';
 function iconStateOf(m: DossierMilestone): IconState {
   if (m.status === 'completed' || m.status === 'invoiced') return 'done';
   if (m.status === 'pending' && m.due_date) {
-    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    // Dubai "today", not UTC — at 01:00 Dubai a milestone due on the just-passed
+    // Dubai date must still read as overdue (UTC .slice(0,10) mis-classifies it).
+    const today = dubaiDayKey(); // YYYY-MM-DD (Asia/Dubai)
     if (m.due_date < today) return 'overdue';
   }
   return 'pending';

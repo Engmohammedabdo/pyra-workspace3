@@ -26,6 +26,7 @@ const LEAD_FIELDS = [
   'lost_reason', 'contact_person', 'contact_role',
   'company_size', 'decision_maker', 'budget_range',
   'created_by', 'created_at', 'updated_at',
+  'archived_at', 'archived_by',
 ].join(', ');
 
 /**
@@ -84,6 +85,13 @@ export async function GET(request: NextRequest) {
     if (isConverted === 'true') query = query.eq('is_converted', true);
     else if (isConverted === 'false') query = query.eq('is_converted', false);
 
+    // Archive: hide archived leads by default (so they drop out of the pipeline
+    // + lists). ?archived=only shows just the archived; ?include_archived=true
+    // shows both.
+    const archivedParam = sp.get('archived')?.trim();
+    if (archivedParam === 'only') query = query.not('archived_at', 'is', null);
+    else if (sp.get('include_archived') !== 'true') query = query.is('archived_at', null);
+
     const search = sp.get('search')?.trim();
     if (search) {
       const safe = escapePostgrestValue(`%${escapeLike(search)}%`);
@@ -107,6 +115,12 @@ export async function GET(request: NextRequest) {
     const leads = (data ?? []) as unknown as LeadRow[];
 
     // Enrich with activity_count + last_activity_type (one extra query batched).
+    // NOTE: this materializes all activity rows for the page's leads and counts
+    // in JS. Correct as long as PostgREST returns every row — verified 2026-07-02
+    // that this deployment sets NO db-max-rows cap (a Range: 0-99999 request
+    // returned all rows) and the whole table holds <1k activity rows, so a
+    // single page can never breach a cap. v1.1: move to a server-side grouped
+    // count + latest-per-lead if activity volume grows past a page's worth.
     let enriched: Array<LeadRow & { activity_count: number; last_activity_type: string | null }> =
       leads.map((l) => ({ ...l, activity_count: 0, last_activity_type: null }));
     if (leads.length > 0) {

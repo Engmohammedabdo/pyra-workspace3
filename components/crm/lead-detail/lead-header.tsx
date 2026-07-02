@@ -20,7 +20,7 @@ import { LeadStagePill } from '@/components/crm/lead/lead-stage-pill';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
-  Link2, UserCheck, FileSignature, UserCog,
+  Link2, UserCheck, FileSignature, UserCog, Archive, ArchiveRestore,
 } from 'lucide-react';
 import {
   PIPELINE_STAGE_LABELS_AR,
@@ -50,6 +50,10 @@ interface LeadHeaderProps {
   onReassign?: () => void;
   /** Whether current user has leads.assign permission. Required for the Reassign button. */
   canReassign?: boolean;
+  /** Archive / un-archive the lead (soft-archive, migration 030). */
+  onArchive?: () => void;
+  /** Whether current user has leads.delete permission. Gates the Archive button. */
+  canArchive?: boolean;
 }
 
 function initials(name: string): string {
@@ -75,7 +79,10 @@ export function LeadHeader({
   canLinkClient,
   onReassign,
   canReassign,
+  onArchive,
+  canArchive,
 }: LeadHeaderProps) {
+  const isArchived = !!lead.archived_at;
   const stage = stages?.find((s) => s.id === lead.stage_id);
   const stageLabel = stage?.name_ar
     ?? (lead.stage_id ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId] : null);
@@ -137,6 +144,11 @@ export function LeadHeader({
                   </Badge>
                 )}
                 <LeadPriorityBadge priority={lead.priority} />
+                {isArchived && (
+                  <Badge variant="outline" className="bg-stone-500/10 text-stone-600 dark:text-stone-300 border-stone-200 dark:border-stone-700/50 max-md:bg-stone-500/20 max-md:text-stone-200 max-md:border-stone-400/30">
+                    <Archive className="size-3 me-1" /> مؤرشف
+                  </Badge>
+                )}
                 {(lead.win_probability ?? 0) > 0 && (
                   <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/40 tabular-nums max-md:bg-emerald-500/20 max-md:text-emerald-200 max-md:border-emerald-400/30">
                     احتمال الفوز · {lead.win_probability}%
@@ -235,7 +247,8 @@ export function LeadHeader({
               Each button is independently gated so the row renders whenever at
               least one admin action applies. */}
           {((canReassign && onReassign) ||
-            (!lead.client_id && canLinkClient && onLinkClient)) && (
+            (!lead.client_id && canLinkClient && onLinkClient) ||
+            (canArchive && onArchive)) && (
             <div className="mt-4 pt-4 border-t border-border/50 max-md:border-white/10 flex flex-wrap gap-2">
               {canReassign && onReassign && (
                 <Button
@@ -255,6 +268,23 @@ export function LeadHeader({
                   className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
                 >
                   <UserCheck className="size-4 me-1.5" /> ربط بعميل موجود
+                </Button>
+              )}
+              {canArchive && onArchive && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onArchive}
+                  className={cn(
+                    'max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20',
+                    !isArchived && 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 border-red-200 dark:border-red-900/50 max-md:text-red-300',
+                  )}
+                >
+                  {isArchived ? (
+                    <><ArchiveRestore className="size-4 me-1.5" /> إلغاء الأرشفة</>
+                  ) : (
+                    <><Archive className="size-4 me-1.5" /> أرشفة</>
+                  )}
                 </Button>
               )}
             </div>

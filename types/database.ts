@@ -1435,6 +1435,10 @@ export interface PyraSalesLead {
   decision_maker: string | null;
   budget_range: string | null;
   custom_fields: Record<string, unknown>;
+  // ── Soft-archive (migration 030) — archived leads drop out of the pipeline/
+  //    list by default; null = active. ──
+  archived_at?: string | null;
+  archived_by?: string | null;
   // Joined
   stage_name_ar?: string;
   stage_color?: string;
