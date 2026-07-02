@@ -37,6 +37,7 @@ import {
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeadActivities } from '@/hooks/useLeadActivities';
 import { LeadHeader } from '@/components/crm/lead-detail/lead-header';
+import { EditLeadDialog } from '@/components/crm/lead-detail/edit-lead-dialog';
 import { LeadStatStrip } from '@/components/crm/lead-detail/lead-stat-strip';
 import { LeadOverviewTab } from '@/components/crm/lead-detail/lead-overview-tab';
 import { LeadActivityTab } from '@/components/crm/lead-detail/lead-activity-tab';
@@ -103,6 +104,11 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
   const canArchive = usePermission('leads.delete');
   const archiveMutation = useArchiveLead();
   const [archiveOpen, setArchiveOpen] = useState(false);
+
+  // Admin-only lead-data editing (leads.edit_core — not in ROLE_EXTRAS, admin via *).
+  // The API re-gates on the same permission; agents never see the button.
+  const canEditCore = usePermission('leads.edit_core');
+  const [editOpen, setEditOpen] = useState(false);
 
   const handleLinkClient = async (clientId: string) => {
     try {
@@ -201,7 +207,12 @@ export function LeadDetailClient({ leadId }: { leadId: string }) {
         canReassign={canReassign}
         onArchive={() => setArchiveOpen(true)}
         canArchive={canArchive}
+        onEditCore={() => setEditOpen(true)}
+        canEditCore={canEditCore}
       />
+      {canEditCore && (
+        <EditLeadDialog lead={lead} open={editOpen} onOpenChange={setEditOpen} />
+      )}
       <AlertDialog open={archiveOpen} onOpenChange={setArchiveOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

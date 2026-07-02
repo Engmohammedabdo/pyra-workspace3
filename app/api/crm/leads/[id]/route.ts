@@ -158,9 +158,19 @@ const PATCHABLE_KEYS = new Set([
   'custom_fields',
 ]);
 
-const FIELDS_OF_INTEREST = new Set([
-  'priority', 'expected_value', 'deal_type', 'billing_cycle', 'win_probability', 'lost_reason',
-]);
+// Editing the lead's OWN data — identity, contact, and commercial fields — is
+// ADMIN-ONLY via `leads.edit_core` (see the gate in PATCH below). Agents keep
+// their workflow untouched: activities/notes (/activities), stage moves
+// (/move-stage), and follow-ups (/follow-ups) live on separate routes.
+// `assigned_to` is excluded here because it has its own `leads.assign` gate.
+const CORE_FIELDS = new Set(
+  [...PATCHABLE_KEYS].filter((k) => k !== 'assigned_to'),
+);
+
+// numeric columns are read back from PostgREST as STRINGS ("5000.00") but sent as
+// JS numbers — compare them numerically so the audit doesn't record phantom
+// changes when only the representation differs.
+const NUMERIC_FIELDS = new Set(['expected_value', 'win_probability']);
 
 export async function PATCH(
   request: NextRequest,
@@ -188,6 +198,16 @@ export async function PATCH(
       return apiForbidden('لا تملك صلاحية إعادة إسناد الـ Lead');
     }
 
+    // Editing any of the lead's own data fields is ADMIN-ONLY (leads.edit_core).
+    // Agents reach this handler via leads.update (for reassign) but cannot touch
+    // name/phone/email/company/notes/value/etc. Admin passes via the `*` wildcard.
+    if (
+      Object.keys(body).some((k) => CORE_FIELDS.has(k)) &&
+      !hasPermission(auth.pyraUser.rolePermissions, 'leads.edit_core')
+    ) {
+      return apiForbidden('تعديل بيانات الليد متاح للمشرف فقط');
+    }
+
     const updates: Record<string, unknown> = {};
     for (const key of Object.keys(body)) {
       if (PATCHABLE_KEYS.has(key)) updates[key] = body[key];
@@ -203,10 +223,11 @@ export async function PATCH(
     // but we want this PATCH to bump it deterministically.
     updates.updated_at = new Date().toISOString();
 
-    // Snapshot the prior values for the fields we care about.
+    // Snapshot the prior values for ALL patchable fields so every change can be
+    // recorded on the timeline with old/new values (GAP 1 — full field-edit audit).
     const { data: before } = await supabase
       .from('pyra_sales_leads')
-      .select(['name', 'assigned_to', 'priority', 'expected_value', 'deal_type', 'billing_cycle', 'win_probability', 'lost_reason'].join(', '))
+      .select([...PATCHABLE_KEYS].join(', '))
       .eq('id', id)
       .maybeSingle();
     if (!before) return apiNotFound('Lead غير موجود');
@@ -222,15 +243,26 @@ export async function PATCH(
       return apiServerError(`فشل تحديث الـ Lead${updErr?.message ? ': ' + updErr.message : ''}`);
     }
 
-    // ── Activity log: one row per "field of interest" change ──
+    // ── Activity log: one timeline row per CHANGED field (GAP 1 fix) ──
+    // Every changed lead data field now leaves a `field_updated` trace so edits
+    // to name/phone/email/company/notes/value are all visible on the timeline —
+    // not just the former 6 "fields of interest". `assigned_to` is skipped here
+    // because it gets its own dedicated `assignment_changed` activity below.
     // Supabase query builder is lazy; bare `void <builder>` never triggers
     // execution. Always attach .then().
     const beforeRow = before as unknown as Record<string, unknown>;
     for (const key of Object.keys(updates)) {
-      if (!FIELDS_OF_INTEREST.has(key)) continue;
-      const oldValue = beforeRow[key];
-      const newValue = updates[key];
-      if (oldValue === newValue) continue;
+      if (!CORE_FIELDS.has(key)) continue; // skips assigned_to + updated_at + win_probability_overridden
+      const oldValue = beforeRow[key] ?? null;
+      const newValue = (updates[key] as unknown) ?? null;
+      // Numeric-aware for numeric columns (string-from-DB vs number-from-body),
+      // object-aware for custom_fields (jsonb), strict otherwise.
+      const changed = NUMERIC_FIELDS.has(key)
+        ? Number(oldValue ?? 0) !== Number(newValue ?? 0)
+        : typeof oldValue === 'object' || typeof newValue === 'object'
+          ? JSON.stringify(oldValue) !== JSON.stringify(newValue)
+          : oldValue !== newValue;
+      if (!changed) continue;
       void supabase
         .from('pyra_lead_activities')
         .insert({
@@ -238,7 +270,7 @@ export async function PATCH(
           lead_id: id,
           activity_type: 'field_updated',
           description: null,
-          metadata: { field: key, old_value: oldValue ?? null, new_value: newValue ?? null },
+          metadata: { field: key, old_value: oldValue, new_value: newValue },
           created_by: auth.pyraUser.username,
         })
         .then(({ error: e }) => {

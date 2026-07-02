@@ -4202,3 +4202,64 @@ cell). move-stage contract/invoice attachment is scoped to the lead/client
   past a page's worth (verified 2026-07-02: no `db-max-rows` cap, <1k rows).
 - Legacy `/api/dashboard/sales/*` full deprecation once the WhatsApp chat dialogs
   migrate to `/api/crm/*`.
+
+## CRM — Admin Lead-Data Edit + Full Activity Logging (Locked, 2026-07-03)
+
+Added an **admin-only** capability to edit a lead's own data, closed the
+field-edit timeline gap, and fixed the Team-Activity month counter. **Do NOT
+re-litigate.** Shipped after audit → design → implement → adversarial review
+(opus, 3 lenses) → fix.
+
+### 1. `leads.edit_core` = admin-only edit of the lead's OWN data
+New permission `PERMISSIONS.LEADS_EDIT_CORE = 'leads.edit_core'` (rbac.ts). NOT
+in `BASE_EMPLOYEE` or `ROLE_EXTRAS.sales_agent` — admin holds it via the `*`
+wildcard only. It also appears in the role-editor catalogue so an admin could
+grant it to a specific user via `extra_permissions` (auto-whitelisted through
+`Object.values(PERMISSIONS)`).
+
+`PATCH /api/crm/leads/[id]` gates it: after the existing `assigned_to` →
+`leads.assign` guard, any body key in `CORE_FIELDS` (= all `PATCHABLE_KEYS`
+EXCEPT `assigned_to`) requires `leads.edit_core`, else 403
+(`تعديل بيانات الليد متاح للمشرف فقط`). Agents still reach the handler via
+`leads.update` for the reassign-only flow (manager + `leads.assign`), and keep
+their workflow untouched: activities/notes (`/activities`), stage moves
+(`/move-stage`), follow-ups (`/follow-ups`) are separate routes. **Verified by
+review: agents cannot edit name/phone/company; reassign-only still works; admin
+passes via `*`; no field leak.**
+
+UI: admin-only `<EditLeadDialog>` (button in the lead-header admin-actions row,
+gated by `usePermission('leads.edit_core')` — button AND dialog mount both
+gated). The dialog **diffs against the opened-form snapshot and PATCHes ONLY
+changed keys** — this is load-bearing: it prevents (a) phantom `field_updated`
+timeline rows on every save and (b) silently writing seeded defaults
+(`deal_type→'other'`, `source→'manual'`, etc.) onto leads whose DB value was
+NULL. Do NOT revert to a full-payload submit.
+
+### 2. Every changed lead field now writes a timeline entry (GAP 1)
+The PATCH previously logged a `field_updated` `pyra_lead_activities` row only for
+6 "fields of interest". Now it logs **one row per CHANGED field** (name / phone /
+email / company / notes / … — everything in `CORE_FIELDS`), with old/new values,
+so edits are visible on the lead timeline. `assigned_to` keeps its dedicated
+`assignment_changed` activity. Numeric columns (`expected_value`,
+`win_probability`) use a **numeric-aware compare** (`Number(a) !== Number(b)`)
+because PostgREST serializes `numeric` as a STRING — a plain `!==` logged phantom
+changes (`"5000.00" !== 5000`). `custom_fields` (jsonb) uses a JSON-string
+compare. Audit trail (`logActivity`) was already 100% — this was a timeline-only
+gap.
+
+Task edits (GAP 2): `tasks/[taskId]` PATCH now emits a timeline row for
+`title|description|due_date|priority|assigned_to` changes (was status/title
+only), so reassigning/rescheduling a task is traceable.
+
+**Manual notes/comments were already fully logged** (`ActivityComposer` →
+`/activities` → `pyra_lead_activities` + `logActivity`) — no change needed there.
+
+### 3. Team-Activity counter — Dubai month window
+`/api/dashboard/kpis/team-workload` (the "نشاط الفريق هذا الشهر" widget) was
+counting a **UTC** calendar month via `.toISOString().split('T')[0]`, mis-
+attributing activity in the ~4h Dubai/UTC boundary band + fragile on non-UTC
+hosts. Now uses `dubaiDayKey()` + explicit `+04:00` bounds with a half-open
+`[monthStart, nextMonthStart)` interval (Dec→Jan rollover handled). The counter
+itself was otherwise correct (no zeroing/double-unwrap). `TeamWorkloadChart`
+migrated `useState/useEffect` → React Query (`['dashboard','team-workload']`,
+`staleTime 60_000`).

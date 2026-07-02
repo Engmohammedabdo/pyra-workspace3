@@ -20,7 +20,7 @@ import { LeadStagePill } from '@/components/crm/lead/lead-stage-pill';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import {
   ArrowLeft, Phone, MessageCircle, Mail, NotebookPen, CalendarPlus, Building2,
-  Link2, UserCheck, FileSignature, UserCog, Archive, ArchiveRestore,
+  Link2, UserCheck, FileSignature, UserCog, Archive, ArchiveRestore, Pencil,
 } from 'lucide-react';
 import {
   PIPELINE_STAGE_LABELS_AR,
@@ -54,6 +54,10 @@ interface LeadHeaderProps {
   onArchive?: () => void;
   /** Whether current user has leads.delete permission. Gates the Archive button. */
   canArchive?: boolean;
+  /** Open the admin-only Edit-Lead-Data dialog. */
+  onEditCore?: () => void;
+  /** Whether current user has leads.edit_core permission (admin-only). Gates the Edit button. */
+  canEditCore?: boolean;
 }
 
 function initials(name: string): string {
@@ -81,6 +85,8 @@ export function LeadHeader({
   canReassign,
   onArchive,
   canArchive,
+  onEditCore,
+  canEditCore,
 }: LeadHeaderProps) {
   const isArchived = !!lead.archived_at;
   const stage = stages?.find((s) => s.id === lead.stage_id);
@@ -246,10 +252,21 @@ export function LeadHeader({
                 leads.update + onLinkClient).
               Each button is independently gated so the row renders whenever at
               least one admin action applies. */}
-          {((canReassign && onReassign) ||
+          {((canEditCore && onEditCore) ||
+            (canReassign && onReassign) ||
             (!lead.client_id && canLinkClient && onLinkClient) ||
             (canArchive && onArchive)) && (
             <div className="mt-4 pt-4 border-t border-border/50 max-md:border-white/10 flex flex-wrap gap-2">
+              {canEditCore && onEditCore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onEditCore}
+                  className="max-md:bg-white/10 max-md:text-white max-md:border-white/20 max-md:hover:bg-white/20"
+                >
+                  <Pencil className="size-4 me-1.5" /> تعديل البيانات
+                </Button>
+              )}
               {canReassign && onReassign && (
                 <Button
                   variant="outline"

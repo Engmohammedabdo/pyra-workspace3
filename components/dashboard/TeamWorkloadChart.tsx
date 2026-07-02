@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -23,25 +23,13 @@ interface WorkloadItem {
 }
 
 export function TeamWorkloadChart() {
-  const [data, setData] = useState<WorkloadItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data = [], isLoading } = useQuery<WorkloadItem[]>({
+    queryKey: ['dashboard', 'team-workload'],
+    queryFn: () => fetchAPI<WorkloadItem[]>('/api/dashboard/kpis/team-workload'),
+    staleTime: 60_000,
+  });
 
-  const fetchData = useCallback(async () => {
-    try {
-      const result = await fetchAPI<WorkloadItem[]>('/api/dashboard/kpis/team-workload');
-      setData(result);
-    } catch (err) {
-      console.error('TeamWorkloadChart fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm p-5 shadow-sm">
         <Skeleton className="h-5 w-44 mb-4" />

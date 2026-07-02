@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 // =============================================================
 // GET /api/dashboard/kpis/team-workload
@@ -15,20 +16,24 @@ export async function GET(_request: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    const now = new Date();
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split('T')[0];
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-      .toISOString()
-      .split('T')[0];
+    // Dubai-anchored current-month window (Asia/Dubai = UTC+4, no DST). The old
+    // `.toISOString().split('T')[0]` built a UTC calendar month from server-local
+    // midnight — mis-attributing activity in the ~4h Dubai/UTC boundary band and
+    // fragile on non-UTC hosts. Using the mandated `dubaiDayKey` helper + explicit
+    // +04:00 offsets makes the window a true Dubai month regardless of DB/server TZ.
+    const [y, m] = dubaiDayKey(new Date()).split('-').map(Number);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const monthStartUtc = `${y}-${pad(m)}-01T00:00:00+04:00`;
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    const nextMonthStartUtc = `${nextY}-${pad(nextM)}-01T00:00:00+04:00`; // exclusive upper bound
 
-    // Fetch activity logs for this month
+    // Fetch activity logs for this (Dubai) month
     const { data: logs, error } = await supabase
       .from('pyra_activity_log')
       .select('username, display_name')
-      .gte('created_at', monthStart)
-      .lte('created_at', monthEnd + 'T23:59:59');
+      .gte('created_at', monthStartUtc)
+      .lt('created_at', nextMonthStartUtc);
 
     if (error) {
       console.error('Team workload query error:', error);

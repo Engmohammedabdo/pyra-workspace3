@@ -40,6 +40,16 @@ import type { PyraLeadTask, LeadTaskStatus, LeadTaskPriority } from '@/types/dat
 const ALLOWED_STATUS = new Set<LeadTaskStatus>(['pending', 'in_progress', 'completed', 'cancelled']);
 const ALLOWED_PRIORITY = new Set<LeadTaskPriority>(['low', 'medium', 'high', 'urgent']);
 
+// Task fields whose change is worth a lead-timeline entry (GAP 2 — full coverage).
+const TASK_TIMELINE_FIELDS = ['title', 'description', 'due_date', 'priority', 'assigned_to'];
+const TASK_FIELD_LABELS_AR: Record<string, string> = {
+  title: 'العنوان',
+  description: 'الوصف',
+  due_date: 'تاريخ الاستحقاق',
+  priority: 'الأولوية',
+  assigned_to: 'المسؤول',
+};
+
 // ──────────────────────────────────────────────────────────────────────────
 // PATCH — update a task
 // ──────────────────────────────────────────────────────────────────────────
@@ -200,13 +210,17 @@ export async function PATCH(
       return apiServerError('فشل تحديث المهمة');
     }
 
-    // Activity dual-write — only emit for status transitions OR title
-    // changes (the user-visible changes). Other field updates are noisy.
-    const shouldLogTimeline = !!statusTransition || 'title' in updates;
+    // Activity dual-write — emit a timeline row for ANY user-visible task change:
+    // status transition, title, due date, priority, assignee, or description
+    // (GAP 2 fix — reassigning or rescheduling a task is now traceable on the
+    // lead timeline, not just status/title changes).
+    const changedTaskFields = TASK_TIMELINE_FIELDS.filter((f) => f in updates);
+    const shouldLogTimeline = !!statusTransition || changedTaskFields.length > 0;
     if (shouldLogTimeline) {
+      const taskTitle = (updated as PyraLeadTask).title;
       const desc = statusTransition
-        ? `حالة المهمة "${(updated as PyraLeadTask).title}" → ${statusTransition.to}`
-        : `تم تعديل المهمة: ${(updated as PyraLeadTask).title}`;
+        ? `حالة المهمة "${taskTitle}" → ${statusTransition.to}`
+        : `تم تعديل المهمة "${taskTitle}" (${changedTaskFields.map((f) => TASK_FIELD_LABELS_AR[f]).join('، ')})`;
       supabase
         .from('pyra_lead_activities')
         .insert({
@@ -218,6 +232,7 @@ export async function PATCH(
             source: statusTransition ? 'task_status_changed' : 'task_updated',
             task_id: taskId,
             field: 'task',
+            ...(changedTaskFields.length > 0 ? { updated_fields: changedTaskFields } : {}),
             ...(statusTransition ? { from_status: statusTransition.from, to_status: statusTransition.to } : {}),
           },
           created_by: auth.pyraUser.username,

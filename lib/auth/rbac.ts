@@ -209,6 +209,7 @@ export const PERMISSIONS = {
   LEADS_MOVE_STAGE:  'leads.move_stage',   // drag/drop stage change (own leads, except closed_won)
   LEADS_APPROVE:     'leads.approve',      // approve closed_won (manager via canApproveFor; admin)
   LEADS_MANAGE:      'leads.manage',       // admin override — sees all leads everywhere
+  LEADS_EDIT_CORE:   'leads.edit_core',    // ADMIN-ONLY — edit the lead's own data (name/phone/email/company/…). NOT in BASE_EMPLOYEE or ROLE_EXTRAS.
   LEAD_ACTIVITIES_VIEW:   'lead_activities.view',
   LEAD_ACTIVITIES_CREATE: 'lead_activities.create',
   FOLLOW_UPS_VIEW:        'follow_ups.view',
@@ -705,6 +706,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'leads.move_stage',  label: 'Move Stage (Pipeline)',      labelAr: 'تغيير المرحلة' },
       { key: 'leads.approve',     label: 'Approve Closed Won',         labelAr: 'اعتماد فوز بالصفقة' },
       { key: 'leads.manage',      label: 'Admin: see all leads',       labelAr: 'إدارة كاملة (مشرف)' },
+      { key: 'leads.edit_core',   label: 'Edit Lead Data (Admin)',     labelAr: 'تعديل بيانات الليد (مشرف فقط)' },
       { key: 'lead_activities.view',   label: 'View Activity Timeline',  labelAr: 'عرض سجل النشاط' },
       { key: 'lead_activities.create', label: 'Add Note / Log Call',     labelAr: 'إضافة ملاحظة / مكالمة' },
       { key: 'follow_ups.view',     label: 'View Follow-ups',          labelAr: 'عرض المتابعات' },
