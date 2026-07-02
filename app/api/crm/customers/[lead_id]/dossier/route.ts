@@ -171,7 +171,7 @@ export async function GET(
       .toISOString()
       .slice(0, 10); // due_date is DATE, not timestamp — slice to YYYY-MM-DD.
 
-    const [leadRes, activitiesRes, contractsRes, lastActivityRes] = await Promise.all([
+    const [leadRes, activitiesRes, lastActivityRes] = await Promise.all([
       supabase
         .from('pyra_sales_leads')
         .select(
@@ -189,16 +189,6 @@ export async function GET(
         .gte('created_at', thirtyDaysAgo)
         .order('created_at', { ascending: false })
         .limit(200),
-      supabase
-        .from('pyra_contracts')
-        .select(
-          'id, client_id, project_id, lead_id, title, description, contract_type, ' +
-          'total_value, currency, status, start_date, end_date, ' +
-          'retainer_amount, retainer_cycle, billing_day, ' +
-          'amount_billed, amount_collected, created_at',
-        )
-        .eq('lead_id', leadId)
-        .order('created_at', { ascending: false }),
       // Single most-recent activity WITHOUT the 30-day floor — the windowed
       // query above (engagement) can never surface an activity older than 30d,
       // so the recency 30-90d / >90d buckets were unreachable from it.
@@ -223,6 +213,25 @@ export async function GET(
     const lead = leadRes.data as unknown as LeadRow;
     const activities = (activitiesRes.data ?? []) as unknown as Array<{ id: string; created_at: string; activity_type: string }>;
     const lastActivityAt = (lastActivityRes.data as { created_at: string } | null)?.created_at ?? null;
+
+    // Contracts — union by lead_id OR the lead's client_id. `lead_id` is written
+    // by NO code path today (finance creates contracts against client_id), so
+    // filtering by lead_id alone returned NOTHING for a converted customer —
+    // zeroing MRR / contracts_count / the active-contracts health factor and
+    // making the Contracts tab empty while the finance client-statement showed
+    // the same contracts fine. Unioning by client_id surfaces the real contracts.
+    const contractOr: string[] = [`lead_id.eq.${leadId}`];
+    if (lead.client_id) contractOr.push(`client_id.eq.${lead.client_id}`);
+    const contractsRes = await supabase
+      .from('pyra_contracts')
+      .select(
+        'id, client_id, project_id, lead_id, title, description, contract_type, ' +
+        'total_value, currency, status, start_date, end_date, ' +
+        'retainer_amount, retainer_cycle, billing_day, ' +
+        'amount_billed, amount_collected, created_at',
+      )
+      .or(contractOr.join(','))
+      .order('created_at', { ascending: false });
     const contracts = (contractsRes.data ?? []) as unknown as ContractType[];
     const contractIds = contracts.map((c) => c.id);
 

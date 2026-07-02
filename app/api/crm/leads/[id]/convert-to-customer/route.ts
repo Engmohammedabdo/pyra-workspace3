@@ -257,6 +257,20 @@ export async function POST(
       return apiError('فشل ربط العميل بالسجل — تم التراجع، حاول مرة أخرى', 500);
     }
 
+    // ── Back-fill client_id onto the lead's lead-phase quotes ──
+    // Lead-phase quotes are created with client_id=null + lead_id set. The portal
+    // reads quotes strictly by client_id, so without this back-fill a signed quote
+    // stays invisible in the new customer's portal. Best-effort — a failure here
+    // must not undo an otherwise-successful conversion.
+    supabase
+      .from('pyra_quotes')
+      .update({ client_id: newClientId })
+      .eq('lead_id', leadId)
+      .is('client_id', null)
+      .then(({ error: e }) => {
+        if (e) console.error('[convert: quote client_id back-fill] failed:', e.message);
+      });
+
     // ── Lead timeline activity (visible in activity tab) ──
     // Direct insert into pyra_lead_activities (matches move-stage pattern).
     // The .then() is required — Supabase query builder is lazy thenable;

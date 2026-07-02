@@ -62,12 +62,19 @@ export async function GET(
       clientName = client?.name ?? null;
     }
 
+    // Contracts: union by lead_id OR the lead's client_id — `lead_id` is written
+    // by no code path, so a converted customer's contracts (created in finance
+    // against client_id) were invisible on the Deals tab. Mirror of the dossier
+    // union.
+    const contractOr = lead.client_id
+      ? `lead_id.eq.${id},client_id.eq.${lead.client_id}`
+      : `lead_id.eq.${id}`;
     // Fan out the dependent reads in parallel.
     const [contractsRes, activityRes, followUpsRes] = await Promise.all([
       supabase
         .from('pyra_contracts')
         .select('id, title, status, contract_type, total_value, currency, start_date, end_date, retainer_amount, retainer_cycle, amount_billed, amount_collected')
-        .eq('lead_id', id)
+        .or(contractOr)
         .order('created_at', { ascending: false }),
       supabase
         .from('pyra_lead_activities')
@@ -77,7 +84,7 @@ export async function GET(
         .from('pyra_sales_follow_ups')
         .select('id', { count: 'exact', head: true })
         .eq('lead_id', id)
-        .eq('status', 'pending'),
+        .in('status', ['pending', 'overdue']),
     ]);
 
     const contracts = contractsRes.data ?? [];
