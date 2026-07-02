@@ -100,7 +100,25 @@ export async function POST(request: NextRequest) {
       if (nfErr) console.error('[POST sales/follow-ups] next_follow_up update failed:', nfErr.message);
     }
 
-  
+    // Lead timeline entry (parity with the CRM follow-ups route) so a follow-up
+    // scheduled from the WhatsApp chat panel shows in the lead's activity tab —
+    // not only in the audit log.
+    if (lead_id) {
+      void supabase
+        .from('pyra_lead_activities')
+        .insert({
+          id: generateId('la'),
+          lead_id,
+          activity_type: 'follow_up_created',
+          description: title || 'متابعة',
+          metadata: { due_at, assigned_to: actualAssignedTo },
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[legacy follow_up_created activity] insert failed:', e.message);
+        });
+    }
+
     logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'follow_up_created', '/dashboard/crm/follow-ups', {});
 
   return apiSuccess(data, undefined, 201);

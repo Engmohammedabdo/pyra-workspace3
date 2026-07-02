@@ -384,7 +384,9 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-forwarded-for') || undefined,
     );
 
-    // Log lead activity if linked to a lead
+    // Log lead activity if linked to a lead. .then() is REQUIRED — a bare
+    // `void <builder>` is a lazy thenable that is built but never dispatched, so
+    // "quote created" was silently missing from the lead's activity timeline.
     if (lead_id) {
       void supabase.from('pyra_lead_activities').insert({
         id: generateId('la'),
@@ -393,6 +395,8 @@ export async function POST(request: NextRequest) {
         description: `تم إنشاء عرض سعر ${quoteNumber} بمبلغ ${total} AED`,
         metadata: { quote_id: quoteId, quote_number: quoteNumber, total },
         created_by: auth.pyraUser.username,
+      }).then(({ error: e }) => {
+        if (e) console.error('[quote created activity] insert failed:', e.message);
       });
     }
 

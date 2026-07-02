@@ -139,7 +139,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         : { sent: false, reason: 'not_delivered' };
     }
 
-    // Log activity
+    // Log activity (audit)
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
       action_type: 'quote_sent',
@@ -149,6 +149,25 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       details: { quote_number: quote.quote_number },
       ip_address: 'server',
     });
+
+    // Lead timeline: surface "quote sent" in the lead's activity tab (not just
+    // the audit log) so the owner/admin can track the touch. .then() required —
+    // a bare `void <builder>` never dispatches.
+    if (quote.lead_id) {
+      void supabase
+        .from('pyra_lead_activities')
+        .insert({
+          id: generateId('la'),
+          lead_id: quote.lead_id,
+          activity_type: 'note',
+          description: `تم إرسال عرض السعر ${quote.quote_number} للعميل`,
+          metadata: { quote_id: id, quote_number: quote.quote_number, sent: true },
+          created_by: auth.pyraUser.username,
+        })
+        .then(({ error: e }) => {
+          if (e) console.error('[quote sent activity] insert failed:', e.message);
+        });
+    }
 
     return apiSuccess({ ...updated, email });
   } catch (err) {
