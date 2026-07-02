@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { toAED } from '@/lib/utils/currency';
 import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(
@@ -24,10 +25,21 @@ export async function GET(
 
     if (error) return apiServerError(error.message);
 
-    // List stays unfiltered (shows pending/rejected) — money total counts approved rows only
-    const totalAmount = (data || [])
-      .filter((e) => e.status === EXPENSE_STATUS.APPROVED)
-      .reduce((sum, e) => sum + Number(e.amount), 0);
+    // Money total = ALL approved rows for this supplier (not just the
+    // visible page), AED-converted per row currency (Batch 4 — the old
+    // total was a mixed-currency sum over the latest 50 rows only).
+    const { data: approvedRows, error: totalErr } = await supabase
+      .from('pyra_expenses')
+      .select('amount, currency')
+      .eq('supplier_id', id)
+      .eq('status', EXPENSE_STATUS.APPROVED);
+    if (totalErr) return apiServerError(totalErr.message);
+
+    const totalAmount = Math.round(
+      (approvedRows || []).reduce(
+        (sum, e) => sum + toAED(Number(e.amount || 0), e.currency || 'AED'), 0
+      ) * 100
+    ) / 100;
 
     return apiSuccess(data || [], { total_amount: totalAmount, count: (data || []).length });
   } catch (e: unknown) {

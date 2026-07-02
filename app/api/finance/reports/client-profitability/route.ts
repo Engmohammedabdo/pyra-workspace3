@@ -48,16 +48,19 @@ export async function GET(req: NextRequest) {
 
     if (payErr) throw payErr;
 
-    // Map payment → client via invoice
+    // Map payment → client + currency via invoice (Batch 4: payments carry
+    // no currency; convert per invoice currency before summing)
     const payInvoiceIds = [...new Set((paymentsRaw || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
     const invoiceClientMap: Record<string, string> = {};
+    const invoiceCurrencyMap: Record<string, string> = {};
     if (payInvoiceIds.length > 0) {
       const { data: invClients } = await supabase
         .from('pyra_invoices')
-        .select('id, client_id')
+        .select('id, client_id, currency')
         .in('id', payInvoiceIds);
       for (const inv of invClients || []) {
         if (inv.client_id) invoiceClientMap[inv.id] = inv.client_id;
+        invoiceCurrencyMap[inv.id] = inv.currency || 'AED';
       }
     }
 
@@ -101,12 +104,15 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // 6. Aggregate revenue per client (from actual payments, cash-basis)
+    // 6. Aggregate revenue per client (from actual payments, cash-basis,
+    // AED-converted per invoice currency)
     const revenueByClient: Record<string, number> = {};
     (paymentsRaw || []).forEach((pay: { amount: number; invoice_id: string }) => {
       const clientId = invoiceClientMap[pay.invoice_id];
       if (clientId) {
-        revenueByClient[clientId] = (revenueByClient[clientId] || 0) + Number(pay.amount || 0);
+        revenueByClient[clientId] =
+          (revenueByClient[clientId] || 0) +
+          toAED(Number(pay.amount || 0), invoiceCurrencyMap[pay.invoice_id] || 'AED');
       }
     });
 

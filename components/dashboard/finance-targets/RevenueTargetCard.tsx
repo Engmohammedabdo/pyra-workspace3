@@ -62,8 +62,10 @@ export function RevenueTargetCard({ target, onEdit, onDelete }: TargetCardProps)
 
         <div className="mb-4">
           <p className="text-sm text-muted-foreground">الإيرادات الفعلية</p>
+          {/* actual_revenue is ALWAYS AED-converted server-side (Batch 4) —
+              labeling it with the target's currency would be wrong */}
           <p className={cn('text-xl font-bold', colorClass)}>
-            {formatCurrency(target.actual_revenue, target.currency)}
+            {formatCurrency(target.actual_revenue)}
           </p>
         </div>
 

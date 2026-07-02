@@ -65,16 +65,21 @@ export async function GET(req: NextRequest) {
     const { data: paymentsRaw, error: payErr } = await payQuery;
     if (payErr) throw payErr;
 
-    // Get project_id/project_name for each payment's invoice
+    // Get project_id/project_name + currency for each payment's invoice
+    // (Batch 4: payments carry no currency — convert per invoice currency)
     const payInvoiceIds = [...new Set((paymentsRaw || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
-    const invoiceProjectMap: Record<string, { project_id: string | null; project_name: string | null }> = {};
+    const invoiceProjectMap: Record<string, { project_id: string | null; project_name: string | null; currency: string }> = {};
     if (payInvoiceIds.length > 0) {
       const { data: invProjects } = await supabase
         .from('pyra_invoices')
-        .select('id, project_id, project_name')
+        .select('id, project_id, project_name, currency')
         .in('id', payInvoiceIds);
       for (const inv of invProjects || []) {
-        invoiceProjectMap[inv.id] = { project_id: inv.project_id, project_name: inv.project_name };
+        invoiceProjectMap[inv.id] = {
+          project_id: inv.project_id,
+          project_name: inv.project_name,
+          currency: inv.currency || 'AED',
+        };
       }
     }
 
@@ -123,7 +128,9 @@ export async function GET(req: NextRequest) {
         pid = nameToId.get(invInfo.project_name) || null;
       }
       if (pid) {
-        revByProject[pid] = (revByProject[pid] || 0) + Number((pay as { amount: number }).amount || 0);
+        revByProject[pid] =
+          (revByProject[pid] || 0) +
+          toAED(Number((pay as { amount: number }).amount || 0), invInfo.currency);
       }
     }
 

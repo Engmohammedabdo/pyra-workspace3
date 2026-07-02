@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
 import { MONTH_NAMES_AR } from '@/lib/constants/dates';
 import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
     // ── Cash Inflows: actual payments received (by payment_date) ──
     const { data: payments, error: payErr } = await supabase
       .from('pyra_payments')
-      .select('amount, payment_date, method')
+      .select('amount, payment_date, method, invoice_id')
       .gte('payment_date', from)
       .lte('payment_date', to)
       .gt('amount', 0); // Exclude refunds (negative amounts)
@@ -84,10 +85,17 @@ export async function GET(req: NextRequest) {
     // ── Refunds (negative payments) ──
     const { data: refunds } = await supabase
       .from('pyra_payments')
-      .select('amount, payment_date')
+      .select('amount, payment_date, invoice_id')
       .gte('payment_date', from)
       .lte('payment_date', to)
       .lt('amount', 0);
+
+    // Payments carry no currency — resolve each payment's invoice currency
+    // and convert to AED before ANY summing (Batch 4, never-mix-currencies).
+    const currencyByInvoice = await getInvoiceCurrencyMap(supabase, [
+      ...(payments || []).map((p: { invoice_id: string | null }) => p.invoice_id),
+      ...(refunds || []).map((r: { invoice_id: string | null }) => r.invoice_id),
+    ]);
 
     // ── Aggregate per period ──
     let totalInflow = 0;
@@ -96,10 +104,13 @@ export async function GET(req: NextRequest) {
     let runningBalance = 0;
 
     const periodResults = periods.map((p) => {
-      // Cash in
-      const periodInflow = (payments || [])
-        .filter((pay: { payment_date: string }) => pay.payment_date >= p.start && pay.payment_date <= p.end)
-        .reduce((sum: number, pay: { amount: number }) => sum + Number(pay.amount), 0);
+      // Cash in (AED-converted per invoice currency)
+      const periodInflow = sumPaymentsAED(
+        (payments || []).filter(
+          (pay: { payment_date: string }) => pay.payment_date >= p.start && pay.payment_date <= p.end
+        ),
+        currencyByInvoice
+      );
 
       // Cash out
       const periodOutflow = (expenses || [])
@@ -107,10 +118,15 @@ export async function GET(req: NextRequest) {
         .reduce((sum: number, exp: { amount: number; vat_amount: number; currency: string }) =>
           sum + toAED(Number(exp.amount) + Number(exp.vat_amount || 0), exp.currency), 0);
 
-      // Refunds
-      const periodRefunds = (refunds || [])
-        .filter((r: { payment_date: string }) => r.payment_date >= p.start && r.payment_date <= p.end)
-        .reduce((sum: number, r: { amount: number }) => sum + Math.abs(Number(r.amount)), 0);
+      // Refunds (AED-converted; abs of the negative sum)
+      const periodRefunds = Math.abs(
+        sumPaymentsAED(
+          (refunds || []).filter(
+            (r: { payment_date: string }) => r.payment_date >= p.start && r.payment_date <= p.end
+          ),
+          currencyByInvoice
+        )
+      );
 
       totalInflow += periodInflow;
       totalOutflow += periodOutflow;
@@ -131,11 +147,13 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // ── Payment method breakdown ──
+    // ── Payment method breakdown (AED-converted) ──
     const methodBreakdown: Record<string, number> = {};
     for (const pay of payments || []) {
       const method = (pay as { method: string }).method || 'other';
-      methodBreakdown[method] = (methodBreakdown[method] || 0) + Number(pay.amount);
+      const invId = (pay as { invoice_id: string | null }).invoice_id;
+      const aed = toAED(Number(pay.amount), (invId && currencyByInvoice.get(invId)) || 'AED');
+      methodBreakdown[method] = (methodBreakdown[method] || 0) + aed;
     }
     const byMethod = Object.entries(methodBreakdown)
       .map(([method, total]) => ({ method, total: Math.round(total * 100) / 100 }))
@@ -178,21 +196,6 @@ export async function GET(req: NextRequest) {
         sum + toAED(Number(inv.amount_due), inv.currency), 0
     );
 
-    // Upcoming recurring expenses (subscriptions)
-    const { data: activeSubs } = await supabase
-      .from('pyra_subscriptions')
-      .select('cost, currency, billing_cycle')
-      .eq('status', 'active');
-
-    const monthlySubCost = (activeSubs || []).reduce(
-      (sum: number, s: { cost: number; currency: string; billing_cycle: string }) => {
-        const cost = toAED(Number(s.cost), s.currency);
-        if (s.billing_cycle === 'yearly') return sum + cost / 12;
-        if (s.billing_cycle === 'quarterly') return sum + cost / 3;
-        return sum + cost;
-      }, 0
-    );
-
     const totalNet = totalInflow - totalOutflow - totalRefunds;
 
     return apiSuccess({
@@ -205,9 +208,10 @@ export async function GET(req: NextRequest) {
       },
       by_method: byMethod,
       by_category: byCategory,
+      // (monthly_subscription_cost removed — subscriptions module sunset
+      // 2026-07-03; recurring costs live in expenses)
       forecast: {
         expected_inflow: Math.round(forecastInflow * 100) / 100,
-        monthly_subscription_cost: Math.round(monthlySubCost * 100) / 100,
       },
     });
   } catch (err) {

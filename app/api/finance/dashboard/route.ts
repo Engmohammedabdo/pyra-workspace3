@@ -2,6 +2,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES, CONTRACT_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
@@ -42,22 +43,24 @@ export async function GET() {
       .lt('due_date', today)
       .then(() => {});
 
-    // Revenue MTD — from actual payments (by payment_date, not invoice issue_date)
-    const { data: paymentsMtd } = await supabase
+    // Revenue YTD — from actual payments (MTD is a subset of YTD, so one
+    // fetch covers both; Batch 4: sums are AED-converted per invoice
+    // currency via the shared payment-currency helper)
+    const { data: paymentsYtd } = await supabase
       .from('pyra_payments')
-      .select('amount, invoice_id')
-      .gte('payment_date', startOfMonth)
+      .select('amount, payment_date, invoice_id')
+      .gte('payment_date', startOfYear)
       .lte('payment_date', today);
 
+    const ytdCurrencyMap = await getInvoiceCurrencyMap(
+      supabase,
+      (paymentsYtd || []).map((p: { invoice_id: string | null }) => p.invoice_id)
+    );
+
     // If non-admin, filter payments by their invoice's client_id
-    let totalRevenueMtd = 0;
-    if (scope.isAdmin) {
-      totalRevenueMtd = (paymentsMtd || []).reduce(
-        (sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0
-      );
-    } else {
-      // Get invoice ids from payments, then filter by client
-      const paymentInvoiceIds = [...new Set((paymentsMtd || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
+    let scopedPaymentsYtd = paymentsYtd || [];
+    if (!scope.isAdmin) {
+      const paymentInvoiceIds = [...new Set(scopedPaymentsYtd.map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
       if (paymentInvoiceIds.length > 0) {
         const { data: invClients } = await supabase
           .from('pyra_invoices')
@@ -65,38 +68,21 @@ export async function GET() {
           .in('id', paymentInvoiceIds)
           .in('client_id', scope.clientIds);
         const allowedIds = new Set((invClients || []).map((i: { id: string }) => i.id));
-        totalRevenueMtd = (paymentsMtd || []).filter(
+        scopedPaymentsYtd = scopedPaymentsYtd.filter(
           (p: { invoice_id: string }) => allowedIds.has(p.invoice_id)
-        ).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
+        );
+      } else {
+        scopedPaymentsYtd = [];
       }
     }
 
-    // Revenue YTD — from actual payments
-    const { data: paymentsYtd } = await supabase
-      .from('pyra_payments')
-      .select('amount, invoice_id')
-      .gte('payment_date', startOfYear)
-      .lte('payment_date', today);
-
-    let totalRevenueYtd = 0;
-    if (scope.isAdmin) {
-      totalRevenueYtd = (paymentsYtd || []).reduce(
-        (sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0
-      );
-    } else {
-      const paymentInvoiceIdsYtd = [...new Set((paymentsYtd || []).map((p: { invoice_id: string }) => p.invoice_id).filter(Boolean))];
-      if (paymentInvoiceIdsYtd.length > 0) {
-        const { data: invClientsYtd } = await supabase
-          .from('pyra_invoices')
-          .select('id, client_id')
-          .in('id', paymentInvoiceIdsYtd)
-          .in('client_id', scope.clientIds);
-        const allowedIdsYtd = new Set((invClientsYtd || []).map((i: { id: string }) => i.id));
-        totalRevenueYtd = (paymentsYtd || []).filter(
-          (p: { invoice_id: string }) => allowedIdsYtd.has(p.invoice_id)
-        ).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0);
-      }
-    }
+    const totalRevenueYtd = sumPaymentsAED(scopedPaymentsYtd, ytdCurrencyMap);
+    const totalRevenueMtd = sumPaymentsAED(
+      scopedPaymentsYtd.filter(
+        (p: { payment_date: string }) => p.payment_date >= startOfMonth && p.payment_date <= today
+      ),
+      ytdCurrencyMap
+    );
 
     // Expenses MTD (approved only)
     let expensesMtdQuery = supabase
@@ -126,29 +112,31 @@ export async function GET() {
       (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
-    // Outstanding invoices (amount + count)
+    // Outstanding invoices (amount + count) — AED-converted per currency
     let outstandingQuery = supabase
       .from('pyra_invoices')
-      .select('amount_due')
+      .select('amount_due, currency')
       .in('status', INVOICE_OUTSTANDING_STATUSES);
     if (!scope.isAdmin) outstandingQuery = outstandingQuery.in('client_id', scope.clientIds);
     const { data: outstanding } = await outstandingQuery;
 
     const totalOutstanding = (outstanding || []).reduce(
-      (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
+      (sum: number, inv: { amount_due: number; currency: string | null }) =>
+        sum + toAED(Number(inv.amount_due || 0), inv.currency || 'AED'), 0
     );
     const outstandingCount = (outstanding || []).length;
 
-    // Overdue invoices (amount + count)
+    // Overdue invoices (amount + count) — AED-converted per currency
     let overdueQuery = supabase
       .from('pyra_invoices')
-      .select('amount_due')
+      .select('amount_due, currency')
       .eq('status', INVOICE_STATUS.OVERDUE);
     if (!scope.isAdmin) overdueQuery = overdueQuery.in('client_id', scope.clientIds);
     const { data: overdue } = await overdueQuery;
 
     const totalOverdue = (overdue || []).reduce(
-      (sum: number, inv: { amount_due: number }) => sum + Number(inv.amount_due || 0), 0
+      (sum: number, inv: { amount_due: number; currency: string | null }) =>
+        sum + toAED(Number(inv.amount_due || 0), inv.currency || 'AED'), 0
     );
     const overdueCount = (overdue || []).length;
 
@@ -183,11 +171,18 @@ export async function GET() {
       }
     }
 
-    filteredPayments12m.forEach((p: { amount: number; payment_date: string }) => {
+    const chartCurrencyMap = await getInvoiceCurrencyMap(
+      supabase,
+      filteredPayments12m.map((p: { invoice_id: string | null }) => p.invoice_id)
+    );
+    filteredPayments12m.forEach((p: { amount: number; payment_date: string; invoice_id: string | null }) => {
       const pDate = new Date(p.payment_date);
       const monthIndex = 11 - ((now.getFullYear() - pDate.getFullYear()) * 12 + now.getMonth() - pDate.getMonth());
       if (monthIndex >= 0 && monthIndex < 12) {
-        monthlyData[monthIndex].revenue += Number(p.amount || 0);
+        monthlyData[monthIndex].revenue += toAED(
+          Number(p.amount || 0),
+          (p.invoice_id && chartCurrencyMap.get(p.invoice_id)) || 'AED'
+        );
       }
     });
 

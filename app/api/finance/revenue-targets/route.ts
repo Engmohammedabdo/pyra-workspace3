@@ -4,6 +4,8 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { REVENUE_TARGET_FIELDS } from '@/lib/supabase/fields';
+import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
+import { toAED } from '@/lib/utils/currency';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -42,16 +44,26 @@ export async function GET(req: NextRequest) {
       }) => {
         const { data: targetPayments } = await supabase
           .from('pyra_payments')
-          .select('amount, payment_date')
+          .select('amount, payment_date, invoice_id')
           .gte('payment_date', target.period_start)
           .lte('payment_date', target.period_end);
 
-        const actual_revenue = Math.round(
-          (targetPayments || []).reduce((sum: number, p: { amount: number }) => sum + Number(p.amount || 0), 0) * 100
-        ) / 100;
+        // Batch 4: AED-convert per invoice currency before summing.
+        // actual_revenue is ALWAYS AED; the progress ratio converts the
+        // target to AED too so the comparison is unit-consistent even for
+        // non-AED targets.
+        const currencyMap = await getInvoiceCurrencyMap(
+          supabase,
+          (targetPayments || []).map((p: { invoice_id: string | null }) => p.invoice_id)
+        );
+        const actual_revenue = sumPaymentsAED(targetPayments || [], currencyMap);
 
-        const progress_percentage = target.target_amount > 0
-          ? Math.round((actual_revenue / target.target_amount) * 100)
+        const targetAmountAED = toAED(
+          Number(target.target_amount || 0),
+          (target as { currency?: string | null }).currency || 'AED'
+        );
+        const progress_percentage = targetAmountAED > 0
+          ? Math.round((actual_revenue / targetAmountAED) * 100)
           : 0;
 
         return {
