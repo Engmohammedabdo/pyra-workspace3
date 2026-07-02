@@ -70,6 +70,25 @@ export function formatNumber(num: number): string {
 }
 
 /**
+ * Format a per-currency amount map into a human string — one figure per
+ * currency joined by " + " (e.g. "10,000.00 AED + 5,000.00 USD"). Used on
+ * multi-currency money surfaces (LTV / MRR / pipeline) where summing across
+ * currencies is wrong. Zero-value currencies are dropped; an empty/undefined
+ * map renders a single formatted 0 in `fallbackCurrency`.
+ */
+export function formatCurrencyMap(
+  map: Record<string, number> | undefined | null,
+  fallbackCurrency: string = 'AED',
+): string {
+  const entries = Object.entries(map ?? {}).filter(([, v]) => Number.isFinite(v) && v !== 0);
+  if (entries.length === 0) return formatCurrency(0, fallbackCurrency);
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([cur, v]) => formatCurrency(v, cur))
+    .join(' + ');
+}
+
+/**
  * Compute the YYYY-MM-DD calendar-day key in Asia/Dubai (UTC+4, no DST).
  *
  * Phase 15.1 Commit 5 Reviewer HIGH fix — `new Date().toISOString().slice(0,10)`

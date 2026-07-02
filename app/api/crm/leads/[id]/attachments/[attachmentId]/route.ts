@@ -94,32 +94,12 @@ export async function DELETE(
       return apiForbidden('يمكن للمدير أو صاحب الرفع فقط حذف هذا المرفق');
     }
 
-    // ── Best-effort storage cleanup ──
-    // We don't fail the request if storage removal errors — the DB row
-    // delete still gives the user the expected outcome. Orphan files
-    // get swept in v1.1 cron.
-    const { error: storageError } = await supabase.storage
-      .from(LEAD_ATTACH_BUCKET)
-      .remove([row.storage_path]);
-    if (storageError) {
-      // Log as warning — not a failure for the user-facing flow.
-      logError({
-        severity: 'warning',
-        error: storageError,
-        request,
-        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-        metadata: {
-          lead_id: leadId,
-          attachment_id: attachmentId,
-          storage_path: row.storage_path,
-          action: 'delete-attachment',
-          stage: 'storage_remove',
-        },
-      });
-      console.warn('storage remove warning (continuing):', storageError.message);
-    }
-
-    // ── DB delete ──
+    // ── DB delete FIRST (fatal on error) ──
+    // Order matters: if storage removal ran first and the DB delete then failed,
+    // the row would survive while its object is gone → every later GET signs a
+    // URL for a missing object (a permanently broken image/audio cell). Deleting
+    // the row first means a failed storage remove only leaves a harmless orphan
+    // file (swept by the v1.1 cron), which is the documented, recoverable failure.
     const { error: deleteError } = await supabase
       .from('pyra_lead_attachments')
       .delete()
@@ -135,6 +115,30 @@ export async function DELETE(
       });
       console.error('attachment delete failed:', deleteError.message);
       return apiServerError('فشل حذف المرفق');
+    }
+
+    // ── Best-effort storage cleanup (after the row is gone) ──
+    // We don't fail the request if storage removal errors — the row is already
+    // deleted so the user sees the expected outcome; orphan files get swept in
+    // the v1.1 cron.
+    const { error: storageError } = await supabase.storage
+      .from(LEAD_ATTACH_BUCKET)
+      .remove([row.storage_path]);
+    if (storageError) {
+      logError({
+        severity: 'warning',
+        error: storageError,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: {
+          lead_id: leadId,
+          attachment_id: attachmentId,
+          storage_path: row.storage_path,
+          action: 'delete-attachment',
+          stage: 'storage_remove',
+        },
+      });
+      console.warn('storage remove warning (continuing):', storageError.message);
     }
 
     // ── Lead timeline activity ──

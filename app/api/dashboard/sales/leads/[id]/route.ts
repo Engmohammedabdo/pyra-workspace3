@@ -73,12 +73,15 @@ export async function GET(
       totalStages: stagesArr.length,
     });
 
-    // Update score in DB if changed
+    // Update score in DB if changed — await (a bare `void <builder>` never
+    // dispatches, so the stored score stayed frozen at its creation value while
+    // the detail response showed the fresh score → list/detail disagreement).
     if (data.score !== scoreBreakdown.total) {
-      void supabase
+      const { error: scoreErr } = await supabase
         .from('pyra_sales_leads')
         .update({ score: scoreBreakdown.total })
         .eq('id', id);
+      if (scoreErr) console.error('[GET sales/leads/[id]] score sync failed:', scoreErr.message);
     }
 
     return apiSuccess({ ...data, score: scoreBreakdown.total, score_breakdown: scoreBreakdown, labels, stage: stageInfo });
@@ -134,9 +137,10 @@ export async function PATCH(
 
     if (error) return apiServerError(error.message);
 
-    // Log stage change as activity
+    // Log stage change as activity — await (a bare `void <builder>` never
+    // dispatched, so the stage_change timeline entry was silently dropped).
     if (body.stage_id && body.stage_id !== existing.stage_id) {
-      void supabase.from('pyra_lead_activities').insert({
+      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
         id: generateId('la'),
         lead_id: id,
         activity_type: 'stage_change',
@@ -144,6 +148,7 @@ export async function PATCH(
         metadata: { from: existing.stage_id, to: body.stage_id },
         created_by: auth.pyraUser.username,
       });
+      if (actErr) console.error('[PATCH sales/leads/[id]] stage_change activity failed:', actErr.message);
     }
 
     // Recalculate score after update
@@ -172,11 +177,12 @@ export async function PATCH(
         totalStages: stagesArr.length,
       });
 
-      // Update score in background
-      void supabase
+      // Update score — await (a bare `void <builder>` never dispatched).
+      const { error: scoreErr } = await supabase
         .from('pyra_sales_leads')
         .update({ score: scoreBreakdown.total })
         .eq('id', id);
+      if (scoreErr) console.error('[PATCH sales/leads/[id]] score sync failed:', scoreErr.message);
 
       return apiSuccess({ ...data, score: scoreBreakdown.total });
     }

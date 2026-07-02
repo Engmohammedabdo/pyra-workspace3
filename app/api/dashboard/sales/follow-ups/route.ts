@@ -89,11 +89,16 @@ export async function POST(request: NextRequest) {
 
     if (error) return apiServerError(error.message);
 
-    // Update lead next_follow_up
-    void supabase
-      .from('pyra_sales_leads')
-      .update({ next_follow_up: due_at, updated_at: new Date().toISOString() })
-      .eq('id', lead_id);
+    // Update lead next_follow_up — await + guard on lead_id (a bare `void
+    // <builder>` never dispatched, so the parent lead's next_follow_up never
+    // reflected a follow-up scheduled from the WhatsApp chat panel).
+    if (lead_id) {
+      const { error: nfErr } = await supabase
+        .from('pyra_sales_leads')
+        .update({ next_follow_up: due_at, updated_at: new Date().toISOString() })
+        .eq('id', lead_id);
+      if (nfErr) console.error('[POST sales/follow-ups] next_follow_up update failed:', nfErr.message);
+    }
 
   
     logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'follow_up_created', '/dashboard/crm/follow-ups', {});

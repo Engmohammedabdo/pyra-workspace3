@@ -5,6 +5,7 @@ import { getLeadScopeFilter } from '@/lib/auth/lead-scope';
 import { getDirectReports } from '@/lib/auth/team-scope';
 import { hasPermission } from '@/lib/auth/rbac';
 import { PIPELINE_ACTIVE_STAGES, PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 /**
  * GET /api/crm/dashboard/ai-insights
@@ -71,11 +72,11 @@ export async function GET() {
     // ── Rule 1: idle deals ──
     const idleScopeQ = supabase
       .from('pyra_sales_leads')
-      .select('id, expected_value', { count: 'exact' })
+      .select('id, expected_value, last_contact_at', { count: 'exact' })
+      // IS NOT TRUE catches both false and legacy NULL rows.
       .in('stage_id', PIPELINE_ACTIVE_STAGES as readonly string[])
-      .eq('is_converted', false);
+      .not('is_converted', 'is', true);
     const idleQ = scope ? idleScopeQ.eq(scope.column, scope.value) : idleScopeQ;
-    // last_contact_at older than 7d (or null)
     const { data: candidateLeads } = await idleQ;
     if (candidateLeads && candidateLeads.length > 0) {
       const candidateIds = candidateLeads.map((l) => l.id);
@@ -85,7 +86,16 @@ export async function GET() {
         .in('lead_id', candidateIds)
         .gte('created_at', sevenDaysAgo);
       const haveRecent = new Set((recentActs ?? []).map((a) => a.lead_id));
-      const idleLeads = candidateLeads.filter((l) => !haveRecent.has(l.id));
+      // Idle = no recent activity AND last_contact_at older than 7d (or null).
+      // Including last_contact_at aligns this with deals-at-risk (which uses the
+      // greatest of last_contact_at and latest activity) so a lead phoned today
+      // but not activity-logged isn't wrongly counted idle.
+      const sevenDaysAgoMs = Date.parse(sevenDaysAgo);
+      const idleLeads = candidateLeads.filter((l) => {
+        if (haveRecent.has(l.id)) return false;
+        const lc = (l as { last_contact_at: string | null }).last_contact_at;
+        return !lc || new Date(lc).getTime() < sevenDaysAgoMs;
+      });
       const idleCount = idleLeads.length;
       const idleValue = idleLeads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
       // Phase 8 spec (CLAUDE.md "CRM AI Insights — Severity Scheme"):
@@ -155,16 +165,18 @@ export async function GET() {
     // Count of own pending follow-ups whose due_at falls on the current calendar day.
     // Distinct from "overdue" — these are not yet past due, but warrant attention today.
     // Always emits at severity 'medium' when count > 0.
-    const dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date();
-    dayEnd.setHours(23, 59, 59, 999);
+    // Dubai-day window (not server-local/UTC) — Phase 15.1 dubaiDayKey lock.
+    // On the UTC Coolify server, setHours(0/23...) produced the UTC calendar
+    // day, mis-bucketing every follow-up in the ±4h boundary window.
+    const dubaiKey = dubaiDayKey();
+    const dayStartIso = new Date(`${dubaiKey}T00:00:00.000+04:00`).toISOString();
+    const dayEndIso = new Date(`${dubaiKey}T23:59:59.999+04:00`).toISOString();
     let tq = supabase
       .from('pyra_sales_follow_ups')
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .gte('due_at', dayStart.toISOString())
-      .lte('due_at', dayEnd.toISOString());
+      .gte('due_at', dayStartIso)
+      .lte('due_at', dayEndIso);
     if (role !== 'admin') tq = tq.eq('assigned_to', username);
     const { count: todayCount } = await tq;
     const tCount = todayCount ?? 0;

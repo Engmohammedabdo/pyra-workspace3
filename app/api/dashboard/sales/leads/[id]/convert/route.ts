@@ -40,18 +40,28 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (lead.is_converted) return apiError('تم تحويل هذا العميل المحتمل بالفعل');
 
-  // 2. Create client record
+  // pyra_clients.email is NOT NULL — a lead with no email cannot become a client.
+  if (!lead.email) return apiError('لا يمكن التحويل: البريد الإلكتروني مطلوب على العميل المحتمل', 422);
+
+  // 2. Create client record. NOTE: pyra_clients has NO `notes` column and
+  // requires company / password_hash / portal_active (all NOT NULL). The
+  // previous insert sent `notes` (PGRST204) and omitted the NOT NULL fields,
+  // so this legacy route ALWAYS 500'd. Fixed to mirror the canonical CRM
+  // convert-to-customer insert shape.
   const clientId = generateId('cl');
   const { error: clientError } = await supabase
     .from('pyra_clients')
     .insert({
       id: clientId,
       name: lead.name,
-      email: lead.email || null,
+      email: lead.email,
       phone: lead.phone || null,
-      company: lead.company || null,
+      company: lead.company || lead.name,
       source: lead.source || 'sales',
-      notes: lead.notes || null,
+      role: 'client',
+      is_active: true,
+      portal_active: false,
+      password_hash: '', // Supabase Auth owns credentials; column is legacy.
       created_by: auth.pyraUser.username,
     });
 
@@ -126,7 +136,6 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   // 6. Link existing WhatsApp messages to the new client
   if (lead.phone) {
-    const phone = lead.phone.replace(/\D/g, '');
     await supabase
       .from('pyra_whatsapp_messages')
       .update({ client_id: clientId })

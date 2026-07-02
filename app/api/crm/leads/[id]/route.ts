@@ -83,12 +83,12 @@ export async function GET(
     const contracts = contractsRes.data ?? [];
     const contractIds = contracts.map((c) => c.id);
 
-    let invoices: Array<{ id: string; contract_id: string | null; client_id: string | null; total: number; status: string; due_date: string | null }> = [];
+    let invoices: Array<{ id: string; contract_id: string | null; client_id: string | null; invoice_number: string | null; currency: string | null; total: number; status: string; due_date: string | null }> = [];
     let totalPaid = 0;
     if (contractIds.length > 0) {
       const { data: invs } = await supabase
         .from('pyra_invoices')
-        .select('id, contract_id, client_id, total, status, due_date')
+        .select('id, contract_id, client_id, invoice_number, currency, total, status, due_date')
         .in('contract_id', contractIds);
       invoices = invs ?? [];
 

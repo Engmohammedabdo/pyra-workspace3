@@ -187,7 +187,7 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                   className="flex items-center justify-between py-2 hover:bg-muted/30 -mx-1 px-1 rounded"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">#{inv.id}</p>
+                    <p className="text-sm font-medium truncate">#{inv.invoice_number ?? inv.id}</p>
                     {inv.due_date && (
                       <p className="text-xs text-muted-foreground">استحقاق {formatDate(inv.due_date)}</p>
                     )}
@@ -196,7 +196,7 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                     {INVOICE_STATUS_LABELS[inv.status as keyof typeof INVOICE_STATUS_LABELS] ?? inv.status}
                   </Badge>
                   <span className="text-sm font-semibold tabular-nums">
-                    {formatCurrency(Number(inv.total) || 0, 'AED')}
+                    {formatCurrency(Number(inv.total) || 0, inv.currency ?? 'AED')}
                   </span>
                 </Link>
               </li>

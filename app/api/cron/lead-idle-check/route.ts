@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { notify } from '@/lib/notifications/notify';
 import { PIPELINE_FINAL_STAGES } from '@/lib/constants/statuses';
 import { logError } from '@/lib/observability/log-error';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 // ────────────────────────────────────────────────────────────────────────────
 // POST /api/cron/lead-idle-check
@@ -75,11 +76,16 @@ export async function POST(request: NextRequest) {
     const dedupCutoffIso = new Date(now - IDLE_DEDUP_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
     // ── Q1: Active-pipeline non-converted leads with assigned_to ──
+    const finalStagesList = PIPELINE_FINAL_STAGES.map((s) => `"${s}"`).join(',');
     const { data: leadData, error: leadErr } = await supabase
       .from('pyra_sales_leads')
       .select('id, name, assigned_to, expected_value, expected_value_currency, last_contact_at, stage_id')
-      .eq('is_converted', false)
-      .not('stage_id', 'in', `(${PIPELINE_FINAL_STAGES.map((s) => `"${s}"`).join(',')})`)
+      // is_converted IS NOT TRUE catches both false AND legacy NULL rows
+      // (a bare .eq('is_converted', false) excludes NULLs).
+      .not('is_converted', 'is', true)
+      // Exclude final stages but KEEP null-stage leads — a bare NOT IN(...)
+      // evaluates to NULL (not TRUE) for stage_id IS NULL and drops the row.
+      .or(`stage_id.is.null,stage_id.not.in.(${finalStagesList})`)
       .not('assigned_to', 'is', null);
 
     if (leadErr) {
@@ -111,11 +117,23 @@ export async function POST(request: NextRequest) {
     const leadIds = allLeads.map((l) => l.id);
 
     // ── Q2: Most-recent activity per lead (across all activity types) ──
-    const { data: actData } = await supabase
+    const { data: actData, error: actErr } = await supabase
       .from('pyra_lead_activities')
       .select('lead_id, created_at')
       .in('lead_id', leadIds)
       .order('created_at', { ascending: false });
+    if (actErr) {
+      // A swallowed error here would leave lastActivityByLead empty, so leads
+      // with a fresh note but null last_contact_at get mis-flagged idle → false
+      // warnings that also poison the 7-day dedup. Fail closed instead.
+      logError({
+        error: actErr,
+        request,
+        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'activities_select' },
+      });
+      console.error('[cron/lead-idle-check] activities SELECT failed:', actErr.message);
+      return apiServerError();
+    }
 
     const lastActivityByLead = new Map<string, string>();
     for (const row of ((actData ?? []) as unknown as ActivityRow[])) {
@@ -153,12 +171,23 @@ export async function POST(request: NextRequest) {
 
     // ── Q3: Per-lead 7-day idle_warning dedup (Q-11-2) ──
     const idleLeadIds = idleLeads.map((l) => l.id);
-    const { data: recentWarnings } = await supabase
+    const { data: recentWarnings, error: dedupErr } = await supabase
       .from('pyra_lead_activities')
       .select('lead_id')
       .in('lead_id', idleLeadIds)
       .eq('activity_type', 'idle_warning')
       .gte('created_at', dedupCutoffIso);
+    if (dedupErr) {
+      // A swallowed error empties the dedup set → already-warned leads get a
+      // duplicate idle_warning within the 7-day window. Fail closed.
+      logError({
+        error: dedupErr,
+        request,
+        metadata: { source: 'cron', job: 'lead-idle-check', stage: 'idle_dedup_select' },
+      });
+      console.error('[cron/lead-idle-check] idle_warning dedup SELECT failed:', dedupErr.message);
+      return apiServerError();
+    }
 
     const alreadyWarnedSet = new Set(
       ((recentWarnings ?? []) as Array<{ lead_id: string }>).map((r) => r.lead_id),
@@ -232,12 +261,23 @@ export async function POST(request: NextRequest) {
       const dubaiOffsetMs = 4 * 60 * 60 * 1000; // Asia/Dubai is UTC+4 (no DST)
       const dubaiTodayUtcIso = new Date(dubaiToday.getTime() - dubaiOffsetMs).toISOString();
 
-      const { data: existingNotifs } = await supabase
+      const { data: existingNotifs, error: notifDedupErr } = await supabase
         .from('pyra_notifications')
         .select('recipient_username')
         .in('recipient_username', agentsToCheck)
         .eq('type', 'lead_idle_warning')
         .gte('created_at', dubaiTodayUtcIso);
+      if (notifDedupErr) {
+        // A swallowed error empties the set → agents already notified today get
+        // a duplicate grouped summary. Fail closed.
+        logError({
+          error: notifDedupErr,
+          request,
+          metadata: { source: 'cron', job: 'lead-idle-check', stage: 'notif_dedup_select' },
+        });
+        console.error('[cron/lead-idle-check] notif dedup SELECT failed:', notifDedupErr.message);
+        return apiServerError();
+      }
 
       const alreadyNotifiedSet = new Set(
         ((existingNotifs ?? []) as Array<{ recipient_username: string }>).map(
@@ -262,7 +302,10 @@ export async function POST(request: NextRequest) {
           title: `${count} ${titleNoun} تحتاج متابعة`,
           message,
           link: '/dashboard/crm/pipeline?filter=at_risk',
-          entity: { type: 'agent_idle_summary', id: dubaiTodayUtcIso.slice(0, 10) },
+          // Dubai-day key for the grouping id — dubaiTodayUtcIso is the UTC
+          // instant of Dubai-midnight ((D-1)T20:00Z), so .slice(0,10) yielded
+          // the PREVIOUS UTC date. dubaiDayKey() returns the true Dubai date.
+          entity: { type: 'agent_idle_summary', id: dubaiDayKey() },
           from: { username: 'system' },
         });
         agentsNotified++;

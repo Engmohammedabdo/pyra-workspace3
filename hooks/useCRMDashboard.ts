@@ -9,6 +9,9 @@ import type { PipelineStageId } from '@/lib/constants/statuses';
 export type CRMPeriod = 'this_month' | 'last_30d' | 'quarter';
 
 export interface CRMKPIs {
+  /** Dominant currency (by summed expected_value) labelling every money KPI —
+   *  replaces the previously-hardcoded 'AED' in the cards. */
+  currency: string;
   pipeline_value: { total_aed: number; count: number; trend_pct: number };
   closed_won:     { total_aed: number; count: number; vs_target_pct: number };
   conversion_rate: { current_pct: number; vs_prior_pct: number };
@@ -102,7 +105,7 @@ export function useCRMKPIs(period: CRMPeriod = 'this_month') {
 }
 
 export function useCRMFunnel() {
-  return useQuery<{ stages: CRMFunnelStage[] }>({
+  return useQuery<{ stages: CRMFunnelStage[]; currency: string }>({
     queryKey: ['crm', 'dashboard', 'funnel'],
     queryFn: () => fetchAPI('/api/crm/dashboard/funnel'),
     staleTime: 60_000,

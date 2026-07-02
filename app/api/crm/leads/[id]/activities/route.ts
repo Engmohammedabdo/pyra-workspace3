@@ -44,6 +44,11 @@ export async function GET(
     const limitParam = parseInt(sp.get('limit') || '50', 10);
     const limit = Math.min(Math.max(Number.isFinite(limitParam) ? limitParam : 50, 1), 200);
     const before = sp.get('before')?.trim() || null;
+    // Validate the cursor before feeding it to .lt() against a timestamptz —
+    // a non-timestamp value raises Postgres 22007 → 500 for what is bad input.
+    if (before !== null && Number.isNaN(Date.parse(before))) {
+      return apiValidationError('before غير صالح — يجب أن يكون تاريخ ISO');
+    }
     const typeFilter = sp.get('type')?.trim() || null;
 
     let q = supabase

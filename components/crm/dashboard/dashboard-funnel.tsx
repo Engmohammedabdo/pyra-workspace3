@@ -117,7 +117,7 @@ export function DashboardFunnel() {
                   <span className="text-xs text-muted-foreground tabular-nums shrink-0">
                     {stage.count} {stage.count === 1 ? 'صفقة' : 'صفقات'}
                     {stage.total_value > 0 && (
-                      <> · {formatCurrency(stage.total_value, 'AED')}</>
+                      <> · {formatCurrency(stage.total_value, data?.currency ?? 'AED')}</>
                     )}
                   </span>
                 </div>

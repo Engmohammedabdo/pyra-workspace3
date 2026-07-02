@@ -111,13 +111,21 @@ export interface DossierContract {
 }
 
 export interface DossierTopLevelKPIs {
-  /** Lifetime value — sum of pyra_payments.amount across all this customer's contracts */
+  /** Lifetime value — sum of pyra_payments.amount across ALL this customer's
+   *  invoices (contract-linked + standalone). Single total for backward-compat. */
   ltv: number;
   /** Monthly recurring revenue — sum of active retainers normalised to monthly */
   mrr: number;
+  /** Per-currency LTV breakdown (never sum across currencies) — render via
+   *  formatCurrencyMap. Keyed by currency code (e.g. { AED: 60000, USD: 5000 }). */
+  ltv_by_currency?: Record<string, number>;
+  /** Per-currency MRR breakdown. */
+  mrr_by_currency?: Record<string, number>;
   contracts_count: number;
   active_contracts_count: number;
   projects_count: number;
+  /** Dominant currency (by LTV) — used as the fallback label, no longer a
+   *  hardcoded 'AED'. */
   currency: string;
 }
 

@@ -29,7 +29,8 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FileText, Plus } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
+import { toast } from 'sonner';
+import { formatCurrencyMap } from '@/lib/utils/format';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { hasPermission } from '@/lib/auth/rbac';
 import { ContractCard } from '@/components/crm/contracts/contract-card';
@@ -83,12 +84,18 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
       return (b.start_date ?? b.id).localeCompare(a.start_date ?? a.id);
     });
 
-  // Header summary numbers.
-  const totalContractValue = contracts.reduce(
-    (acc, c) => acc + (c.total_value || 0),
-    0,
-  );
+  // Header summary numbers — grouped PER-CURRENCY (never summed across
+  // currencies; the individual <ContractCard>s already use their own currency,
+  // so a cross-currency header sum would disagree with the cards below it).
   const currency = kpis.currency ?? 'AED';
+  const totalByCurrency: Record<string, number> = {};
+  for (const c of contracts) {
+    const cur = c.currency || currency;
+    totalByCurrency[cur] = (totalByCurrency[cur] || 0) + (c.total_value || 0);
+  }
+  const totalContractStr = formatCurrencyMap(totalByCurrency, currency);
+  const mrrStr = formatCurrencyMap(kpis.mrr_by_currency, currency);
+  const hasMrr = Object.values(kpis.mrr_by_currency ?? {}).some((v) => v > 0) || kpis.mrr > 0;
 
   return (
     <div className="space-y-3">
@@ -99,12 +106,12 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
           {contracts.length === 1 ? 'عقد' : 'عقود'}
           <span className="text-muted-foreground font-normal mx-2">·</span>
           <span className="text-muted-foreground font-normal">إجمالي</span>{' '}
-          <span className="tabular-nums">{formatCurrency(totalContractValue, currency)}</span>
-          {kpis.mrr > 0 && (
+          <span className="tabular-nums">{totalContractStr}</span>
+          {hasMrr && (
             <>
               <span className="text-muted-foreground font-normal mx-2">+</span>
               <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">
-                متجدد {formatCurrency(kpis.mrr, currency)} شهريًا
+                متجدد {mrrStr} شهريًا
               </span>
             </>
           )}
@@ -118,7 +125,7 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
             // lead_id pre-filled. v1 keeps a placeholder consistent with the
             // convert-to-customer button pattern in customer-header.tsx.
             onClick={() =>
-              alert('سيتم تفعيل إنشاء عقد جديد مرتبط بالعميل في إصدار قادم.')
+              toast.info('سيتم تفعيل إنشاء عقد جديد مرتبط بالعميل في إصدار قادم.')
             }
           >
             <Plus className="size-4 me-1.5" />

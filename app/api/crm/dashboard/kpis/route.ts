@@ -47,13 +47,24 @@ export async function GET(request: NextRequest) {
 
     // Base query for "leads I can see"
     const scopedLeadIdsPromise = (async () => {
-      let q = supabase.from('pyra_sales_leads').select('id, stage_id, expected_value, win_probability, is_converted, converted_at');
+      let q = supabase.from('pyra_sales_leads').select('id, stage_id, expected_value, expected_value_currency, win_probability, is_converted, converted_at');
       if (scope) q = q.eq(scope.column, scope.value);
       const { data } = await q;
       return data ?? [];
     })();
 
     const allLeads = await scopedLeadIdsPromise;
+
+    // Dominant currency across the scoped leads (by summed expected_value) — used
+    // to label the money KPIs honestly instead of a hardcoded 'AED'. (v1.1: full
+    // per-currency breakdown once mixed-currency pipelines exist — all data is
+    // AED today, so the single-total-with-dominant-label is exact.)
+    const currencyTotals: Record<string, number> = {};
+    for (const l of allLeads) {
+      const cur = (l as { expected_value_currency?: string | null }).expected_value_currency || 'AED';
+      currencyTotals[cur] = (currencyTotals[cur] || 0) + (Number(l.expected_value) || 0);
+    }
+    const currency = Object.entries(currencyTotals).sort((a, b) => b[1] - a[1])[0]?.[0] || 'AED';
 
     // ── Pipeline value: active stages, my leads
     const activeLeads = allLeads.filter(
@@ -138,6 +149,8 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess(
       {
+        // `currency` labels every money KPI below (was hardcoded 'AED' in the UI).
+        currency,
         pipeline_value: { total_aed: pipelineTotal, count: activeLeads.length, trend_pct: 0 },
         closed_won: { total_aed: closedWonTotal, count: closedWonCount, vs_target_pct: 0 },
         conversion_rate: { current_pct: Math.round(conversionRate * 10) / 10, vs_prior_pct: 0 },

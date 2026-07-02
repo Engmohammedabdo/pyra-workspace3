@@ -14,7 +14,7 @@
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Wallet, Repeat, FileText, Briefcase } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils/format';
+import { formatCurrencyMap } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 import { CustomerHealthRing } from './customer-health-ring';
 import type { DossierTopLevelKPIs, DossierHealthScore } from '@/hooks/useCustomerDossier';
@@ -48,14 +48,14 @@ export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
         icon={<Wallet className="size-5" />}
         tone="orange"
         label="القيمة الكلية"
-        value={isLoading ? null : (kpis ? formatCurrency(kpis.ltv, currency) : '—')}
+        value={isLoading ? null : (kpis ? formatCurrencyMap(kpis.ltv_by_currency, currency) : '—')}
         sub="مدفوع تراكميًا"
       />
       <StatCard
         icon={<Repeat className="size-5" />}
         tone="emerald"
         label="MRR"
-        value={isLoading ? null : (kpis ? formatCurrency(kpis.mrr, currency) : '—')}
+        value={isLoading ? null : (kpis ? formatCurrencyMap(kpis.mrr_by_currency, currency) : '—')}
         sub="شهريًا"
       />
       <StatCard

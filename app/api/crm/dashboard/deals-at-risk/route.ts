@@ -36,7 +36,10 @@ export async function GET(request: NextRequest) {
       .from('pyra_sales_leads')
       .select('id, name, phone, company, stage_id, expected_value, expected_value_currency, deal_type, last_contact_at, assigned_to, priority')
       .in('stage_id', PIPELINE_ACTIVE_STAGES as readonly string[])
-      .eq('is_converted', false);
+      // IS NOT TRUE catches both false and legacy NULL rows (migrations 010/011
+      // treat NULL as not-converted; a bare .eq(false) drops NULLs → the deal
+      // silently disappears from the at-risk surface).
+      .not('is_converted', 'is', true);
     if (scope) q = q.eq(scope.column, scope.value);
     const { data: leads, error } = await q;
     if (error) {

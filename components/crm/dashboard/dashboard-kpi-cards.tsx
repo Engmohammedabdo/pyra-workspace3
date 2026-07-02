@@ -41,7 +41,7 @@ export function DashboardKpiCards({ period = 'this_month' }: DashboardKpiCardsPr
         loading={isLoading}
         icon={<Wallet className="size-5" />}
         label="قيمة خط المبيعات"
-        value={kpis ? formatCurrency(kpis.pipeline_value.total_aed, 'AED') : '—'}
+        value={kpis ? formatCurrency(kpis.pipeline_value.total_aed, kpis.currency) : '—'}
         sub={kpis ? `${kpis.pipeline_value.count} ${kpis.pipeline_value.count === 1 ? 'صفقة نشطة' : 'صفقة نشطة'}` : undefined}
         tone="orange"
         trendPct={kpis?.pipeline_value.trend_pct ?? 0}
@@ -50,7 +50,7 @@ export function DashboardKpiCards({ period = 'this_month' }: DashboardKpiCardsPr
         loading={isLoading}
         icon={<TrendingUp className="size-5" />}
         label="فوز هذه الفترة"
-        value={kpis ? formatCurrency(kpis.closed_won.total_aed, 'AED') : '—'}
+        value={kpis ? formatCurrency(kpis.closed_won.total_aed, kpis.currency) : '—'}
         sub={kpis ? `${kpis.closed_won.count} ${kpis.closed_won.count === 1 ? 'صفقة' : 'صفقات'}` : undefined}
         tone="emerald"
         trendPct={kpis?.closed_won.vs_target_pct ?? 0}
@@ -68,7 +68,7 @@ export function DashboardKpiCards({ period = 'this_month' }: DashboardKpiCardsPr
         loading={isLoading}
         icon={<BarChart3 className="size-5" />}
         label="متوسط حجم الصفقة"
-        value={kpis ? formatCurrency(kpis.avg_deal_size.aed, 'AED') : '—'}
+        value={kpis ? formatCurrency(kpis.avg_deal_size.aed, kpis.currency) : '—'}
         sub="لكل صفقة نشطة"
         tone="amber"
         trendPct={0}

@@ -44,6 +44,8 @@ export interface LeadDetail {
     id: string;
     contract_id: string | null;
     client_id: string | null;
+    invoice_number: string | null;
+    currency: string | null;
     total: number;
     status: string;
     due_date: string | null;

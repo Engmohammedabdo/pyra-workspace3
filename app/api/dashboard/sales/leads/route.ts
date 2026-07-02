@@ -8,6 +8,8 @@ import { isSuperAdmin } from '@/lib/auth/rbac';
 import { calculateLeadScore } from '@/lib/sales/lead-scoring';
 import { notifyLeadAssigned } from '@/lib/email/notify';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
+import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { notify } from '@/lib/notifications/notify';
 
 export async function GET(request: NextRequest) {
   try {
@@ -224,40 +226,46 @@ export async function POST(request: NextRequest) {
 
     if (error) return apiServerError(error.message);
 
-    // Create activity entry
-    void supabase.from('pyra_lead_activities').insert({
-      id: generateId('la'),
-      lead_id: leadId,
-      activity_type: 'note',
-      description: `تم إنشاء العميل المحتمل`,
-      metadata: { source: source || 'manual' },
-      created_by: auth.pyraUser.username,
-    });
+    // Create activity entry — await (a bare `void <builder>` is a lazy thenable
+    // that is BUILT but never dispatched, so the timeline row silently no-ops).
+    {
+      const { error: actErr } = await supabase.from('pyra_lead_activities').insert({
+        id: generateId('la'),
+        lead_id: leadId,
+        activity_type: 'note',
+        description: `تم إنشاء العميل المحتمل`,
+        metadata: { source: source || 'manual' },
+        created_by: auth.pyraUser.username,
+      });
+      if (actErr) console.error('[POST sales/leads] activity insert failed:', actErr.message);
+    }
 
-    // Log activity
-    void supabase.from('pyra_activity_log').insert({
-      id: generateId('al'),
-      action_type: 'lead_created',
-      username: auth.pyraUser.username,
-      display_name: auth.pyraUser.display_name,
-      target_path: `/dashboard/crm/leads/${leadId}`,
-      details: { lead_name: name, source: source || 'manual' },
-      ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-    });
+    // System audit log — via the central helper (correct column shape + the
+    // Phase 11.5 action_type convention; the previous raw `void` insert never
+    // dispatched and used a bespoke action_type string).
+    logActivity(
+      auth.pyraUser.username,
+      auth.pyraUser.display_name,
+      `${ENTITY_TYPES.LEAD}_${ACTIVITY_ACTIONS.CREATE}`,
+      `/dashboard/crm/leads/${leadId}`,
+      { lead_name: name, source: source || 'manual' },
+      request.headers.get('x-forwarded-for') || undefined,
+    );
 
     // Notify assigned agent if different from creator
     const finalAssignedTo = assigned_to || auth.pyraUser.username;
     if (finalAssignedTo !== auth.pyraUser.username) {
-      void supabase.from('pyra_notifications').insert({
-        id: generateId('nt'),
-        recipient_username: finalAssignedTo,
+      // Via the central notify() helper — the previous raw `void` insert into
+      // pyra_notifications never dispatched, so the assignee got the email but
+      // no in-app bell notification.
+      await notify(supabase, {
+        to: finalAssignedTo,
         type: 'lead_assigned',
         title: 'تم تعيين عميل محتمل جديد لك',
         message: `تم تعيين العميل المحتمل "${name}" لك`,
-        source_username: auth.pyraUser.username,
-        source_display_name: auth.pyraUser.display_name,
-        target_path: `/dashboard/crm/leads/${leadId}`,
-        is_read: false,
+        link: `/dashboard/crm/leads/${leadId}`,
+        entity: { type: 'lead', id: leadId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
 
       // Email notification (fire-and-forget)
