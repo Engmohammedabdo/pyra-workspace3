@@ -15,6 +15,7 @@ import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
 import { logActivity } from '@/lib/api/activity';
+import { recalcContractBilled } from '@/lib/finance/contract-billing';
 
 /**
  * GET /api/invoices
@@ -330,23 +331,10 @@ export async function POST(request: NextRequest) {
       return apiServerError('فشل في إضافة بنود الفاتورة');
     }
 
-    // Update contract amount_billed if invoice is linked to a contract
+    // Refresh contract amount_billed from actual invoices (derive, don't
+    // increment — F-BILLED: read-modify-write increments drifted in prod).
     if (contract_id) {
-      const { data: contractData } = await supabase
-        .from('pyra_contracts')
-        .select('id, amount_billed')
-        .eq('id', contract_id)
-        .maybeSingle();
-
-      if (contractData) {
-        await supabase
-          .from('pyra_contracts')
-          .update({
-            amount_billed: (contractData.amount_billed || 0) + total,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', contract_id);
-      }
+      await recalcContractBilled(supabase, contract_id);
     }
 
     logActivity(

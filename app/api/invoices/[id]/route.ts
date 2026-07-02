@@ -12,7 +12,40 @@ import { generateId } from '@/lib/utils/id';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
+import { recalcContractBilled } from '@/lib/finance/contract-billing';
+
+/**
+ * PATCH field whitelist — finance audit 2026-07-02 (F-INV-MASS).
+ * Money state (total/subtotal/tax_amount/amount_paid/amount_due) is DERIVED
+ * from items+payments, never client-writable. Identity/audit fields
+ * (client_id, invoice_number, currency, contract_id, quote_id, created_by)
+ * are immutable via PATCH. `status` and discount fields are handled
+ * separately with their own validation.
+ */
+const ALLOWED_PATCH_FIELDS = [
+  'notes',
+  'terms_conditions',
+  'bank_details',
+  'issue_date',
+  'due_date',
+  'project_name',
+  'project_id',
+  'display_client_name',
+  'client_name',
+  'client_email',
+  'client_company',
+  'client_phone',
+  'client_address',
+  'early_payment_discount_percent',
+  'early_payment_discount_days',
+  'tax_rate',
+  'entity_id',
+  'license_no',
+  'company_name',
+  'company_logo',
+] as const;
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -171,7 +204,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Check exists
     const { data: existing } = await supabase
       .from('pyra_invoices')
-      .select('id, status, tax_rate, amount_paid, client_id, discount_type, discount_value, discount_amount')
+      .select('id, status, tax_rate, amount_paid, client_id, contract_id, discount_type, discount_value, discount_amount')
       .eq('id', id)
       .maybeSingle();
 
@@ -190,13 +223,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       return apiValidationError('لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)');
     }
 
-    const { items, status, discount_type: bodyDiscountType, discount_value: bodyDiscountValue, ...updateFields } = body;
+    const { items, status, discount_type: bodyDiscountType, discount_value: bodyDiscountValue } = body;
 
-    // Build update object
+    // Build update object — whitelist only (see ALLOWED_PATCH_FIELDS above)
     const updates: Record<string, unknown> = {
-      ...updateFields,
       updated_at: new Date().toISOString(),
     };
+    for (const field of ALLOWED_PATCH_FIELDS) {
+      if (field in body) updates[field] = body[field];
+    }
 
     // ── Validate state transition ────────────────────
     if (status !== undefined && status !== existing.status) {
@@ -230,7 +265,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
         }
       }
 
-      // Delete old items then insert new ones
+      // Backup-rollback pattern (no DB transactions): snapshot old items
+      // BEFORE the delete so a failed insert can restore them instead of
+      // leaving an item-less invoice with stale totals.
+      const { data: oldItems } = await supabase
+        .from('pyra_invoice_items')
+        .select('id, invoice_id, sort_order, description, quantity, rate, amount')
+        .eq('invoice_id', id);
+
       await supabase.from('pyra_invoice_items').delete().eq('invoice_id', id);
 
       const processedItems = items.map(
@@ -248,7 +290,29 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const { error: itemsErr } = await supabase
         .from('pyra_invoice_items')
         .insert(processedItems);
-      if (itemsErr) console.error('Invoice items insert error:', itemsErr);
+      if (itemsErr) {
+        console.error('Invoice items insert error:', itemsErr);
+        // Restore the snapshot — do NOT proceed to write totals computed
+        // from items that were never persisted.
+        if (oldItems && oldItems.length > 0) {
+          const { error: restoreErr } = await supabase
+            .from('pyra_invoice_items')
+            .insert(oldItems);
+          if (restoreErr) {
+            logError({
+              error: restoreErr,
+              request,
+              metadata: { source: 'invoices', action: 'patch_items_rollback', invoice_id: id },
+            });
+          }
+        }
+        logError({
+          error: itemsErr,
+          request,
+          metadata: { source: 'invoices', action: 'patch_items_insert', invoice_id: id },
+        });
+        return apiServerError('فشل تحديث بنود الفاتورة — لم يتم تغيير أي بيانات');
+      }
 
       const subtotal = processedItems.reduce(
         (sum: number, i: { amount: number }) => sum + i.amount,
@@ -276,7 +340,16 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       updates.tax_rate = effectiveTaxRate;
       updates.tax_amount = taxAmount;
       updates.total = total;
-      updates.amount_due = Math.round((total - amountPaid) * 100) / 100;
+      // Clamp at 0 — editing a partially-paid invoice below what was already
+      // paid must not store a negative balance (finance audit 2026-07-02).
+      const newDue = Math.round((total - amountPaid) * 100) / 100;
+      updates.amount_due = Math.max(0, newDue);
+      // If existing payments now fully cover the new total, the invoice is
+      // paid — otherwise an overdue/sent invoice would keep claiming a
+      // balance that no longer exists.
+      if (updates.status === undefined && amountPaid > 0 && newDue <= 0) {
+        updates.status = INVOICE_STATUS.PAID;
+      }
       updates.discount_type = discountType;
       updates.discount_value = discountValue;
       updates.discount_amount = discountAmount;
@@ -292,6 +365,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     if (updateError) {
       console.error('Invoice update error:', updateError);
       return apiServerError();
+    }
+
+    // Contract-linked invoice totals changed → refresh the derived
+    // amount_billed (F-BILLED: edits previously never adjusted it).
+    if (items && Array.isArray(items) && existing.contract_id) {
+      await recalcContractBilled(supabase, existing.contract_id);
     }
 
     // Get updated items
@@ -332,7 +411,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     const { data: existing } = await supabase
       .from('pyra_invoices')
-      .select('id, status, invoice_number, client_id')
+      .select('id, status, invoice_number, client_id, contract_id')
       .eq('id', id)
       .maybeSingle();
 
@@ -347,6 +426,18 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
 
     if (existing.status !== INVOICE_STATUS.DRAFT) {
       return apiValidationError('لا يمكن حذف فاتورة غير مسودة');
+    }
+
+    // Resolve the contract for the billed-recompute BEFORE deleting —
+    // a generated draft may be linked via contract_id OR via a milestone.
+    let contractIdForRecalc: string | null = existing.contract_id || null;
+    if (!contractIdForRecalc) {
+      const { data: milestoneLink } = await supabase
+        .from('pyra_contract_milestones')
+        .select('contract_id')
+        .eq('invoice_id', id)
+        .maybeSingle();
+      contractIdForRecalc = milestoneLink?.contract_id || null;
     }
 
     // Delete items first
@@ -365,6 +456,11 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       console.error('Invoice delete error:', error);
       return apiServerError();
     }
+
+    // The deleted invoice may have counted in its contract's amount_billed —
+    // recompute from the remaining invoices (F-BILLED: deletes previously
+    // stranded the increment forever; production drift was 97,000 AED).
+    await recalcContractBilled(supabase, contractIdForRecalc);
 
     logActivity(
       auth.pyraUser.username,

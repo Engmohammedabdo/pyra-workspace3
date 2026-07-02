@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -89,7 +90,7 @@ export async function GET(req: NextRequest) {
     // VAT = payment_amount * rate / (100 + rate) — extract VAT from gross payment
     const invoices = (paymentsRaw || []).map((p: { amount: number; payment_date: string; invoice_id: string }) => {
       const rate = taxRateMap[p.invoice_id] || 0;
-      const vatAmount = Math.round(Math.abs(Number(p.amount || 0)) * rate / (100 + rate) * 100) / 100;
+      const vatAmount = Math.round(Number(p.amount || 0) * rate / (100 + rate) * 100) / 100;
       return {
         tax_amount: vatAmount,
         currency: 'AED' as const,
@@ -97,10 +98,11 @@ export async function GET(req: NextRequest) {
       };
     });
 
-    // VAT Paid: vat_amount from expenses
+    // VAT Paid: vat_amount from expenses (approved only)
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
       .select('vat_amount, currency, expense_date')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', from)
       .lte('expense_date', to);
 

@@ -78,6 +78,11 @@ export type NotificationType =
   | 'document_uploaded'
   | 'document_expiring_soon'
   | 'document_expired'
+  // Stripe money events (admin-facing — finance audit 2026-07-02 fix:
+  // previously direct inserts addressed to a non-existent 'admin' user)
+  | 'dispute_created'
+  | 'dispute_closed'
+  | 'payment_failed'
   // Generic
   | 'comment_reply'
   | 'mention'

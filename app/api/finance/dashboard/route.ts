@@ -3,7 +3,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { resolveUserScope } from '@/lib/auth/scope';
-import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES, SUBSCRIPTION_STATUS, CONTRACT_STATUS } from '@/lib/constants/statuses';
+import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES, SUBSCRIPTION_STATUS, CONTRACT_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 export async function GET() {
   const auth = await requireApiPermission('finance.view');
@@ -100,10 +100,11 @@ export async function GET() {
       }
     }
 
-    // Expenses MTD
+    // Expenses MTD (approved only)
     let expensesMtdQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
     if (!scope.isAdmin) expensesMtdQuery = expensesMtdQuery.in('project_id', scope.projectIds);
@@ -113,10 +114,11 @@ export async function GET() {
       (sum: number, e: { amount: number; vat_amount: number; currency: string }) => sum + toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency), 0
     );
 
-    // Expenses YTD
+    // Expenses YTD (approved only)
     let expensesYtdQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', startOfYear)
       .lte('expense_date', today);
     if (!scope.isAdmin) expensesYtdQuery = expensesYtdQuery.in('project_id', scope.projectIds);
@@ -205,10 +207,11 @@ export async function GET() {
       }
     });
 
-    // Get all expenses for last 12 months
+    // Get all expenses for last 12 months (approved only)
     let expenses12mQuery = supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency, expense_date')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', twelveMonthsAgo)
       .lte('expense_date', today);
     if (!scope.isAdmin) expenses12mQuery = expenses12mQuery.in('project_id', scope.projectIds);
@@ -222,10 +225,11 @@ export async function GET() {
       }
     });
 
-    // Expense breakdown by category (current month)
+    // Expense breakdown by category (current month, approved only)
     let expenseByCatQuery = supabase
       .from('pyra_expenses')
       .select('category_id, amount, currency')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', startOfMonth)
       .lte('expense_date', today);
     if (!scope.isAdmin) expenseByCatQuery = expenseByCatQuery.in('project_id', scope.projectIds);

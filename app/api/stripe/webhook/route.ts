@@ -1,9 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient, getStripeWebhookSecret } from '@/lib/stripe';
 import { logError } from '@/lib/observability/log-error';
+import { notifyMany, type NotifyInput } from '@/lib/notifications/notify';
 import Stripe from 'stripe';
+
+/**
+ * Notify all active admins. The previous direct inserts addressed a literal
+ * user named 'admin' which does not exist — dispute/failure alerts were
+ * invisible (finance audit 2026-07-02, F-ADMIN-GHOST).
+ */
+async function notifyAdmins(
+  supabase: SupabaseClient,
+  input: Omit<NotifyInput, 'to'>
+): Promise<void> {
+  const { data: admins } = await supabase
+    .from('pyra_users')
+    .select('username')
+    .eq('role', 'admin')
+    .eq('status', 'active');
+  const usernames = (admins || []).map((a: { username: string }) => a.username);
+  if (usernames.length === 0) {
+    console.error('[Stripe Webhook] No active admin users found for notification');
+    return;
+  }
+  await notifyMany(supabase, usernames, input);
+}
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,6 +70,10 @@ export async function POST(req: NextRequest) {
       const invoiceId = session.metadata?.invoice_id;
       const clientId = session.metadata?.client_id;
       const paymentIntentId = (session.payment_intent as string) || null;
+      // Idempotency reference: payment_intent is always present for paid card
+      // sessions, but fall back to the session id so a null intent can never
+      // bypass the duplicate check (PostgREST .eq(null) matches nothing).
+      const paymentRef = paymentIntentId || `session_${session.id}`;
 
       if (!invoiceId) {
         console.error('[Stripe Webhook] No invoice_id in session metadata');
@@ -82,11 +110,11 @@ export async function POST(req: NextRequest) {
         .from('pyra_payments')
         .select('id')
         .eq('invoice_id', invoiceId)
-        .eq('reference', paymentIntentId)
+        .eq('reference', paymentRef)
         .maybeSingle();
 
       if (existingPayment) {
-        console.log(`[Stripe Webhook] Payment already recorded for intent=${paymentIntentId}, skipping`);
+        console.log(`[Stripe Webhook] Payment already recorded for ref=${paymentRef}, skipping`);
         return NextResponse.json({ received: true });
       }
 
@@ -97,7 +125,7 @@ export async function POST(req: NextRequest) {
         amount: paymentAmount,
         payment_date: new Date().toISOString().split('T')[0],
         method: 'online',
-        reference: paymentIntentId,
+        reference: paymentRef,
         notes: 'Stripe online payment',
         recorded_by: 'system',
       });
@@ -134,7 +162,7 @@ export async function POST(req: NextRequest) {
           client_id: clientId,
           type: 'payment_confirmed',
           title: 'تم استلام الدفع',
-          message: `تم استلام دفعتك للفاتورة ${invoice.invoice_number} بنجاح بمبلغ ${paymentAmount} ${session.currency?.toUpperCase() || 'SAR'}`,
+          message: `تم استلام دفعتك للفاتورة ${invoice.invoice_number} بنجاح بمبلغ ${paymentAmount} ${session.currency?.toUpperCase() || 'AED'}`,
           is_read: false,
         });
       }
@@ -311,7 +339,12 @@ export async function POST(req: NextRequest) {
     if (event.type === 'charge.refunded') {
       const charge = event.data.object as Stripe.Charge;
       const paymentIntentId = (charge.payment_intent as string) || null;
-      const refundAmount = (charge.amount_refunded || 0) / 100;
+      // Stripe's charge.amount_refunded is CUMULATIVE across all refunds on
+      // the charge, and this event fires per refund AND on replays. We record
+      // only the DELTA vs what is already in pyra_payments — this makes the
+      // handler idempotent for replays and correct for partial refunds
+      // (finance audit 2026-07-02, F-STRIPE-REF).
+      const cumulativeRefunded = Math.round(((charge.amount_refunded || 0) / 100) * 100) / 100;
       const currency = charge.currency?.toUpperCase() || 'AED';
 
       if (paymentIntentId) {
@@ -330,14 +363,35 @@ export async function POST(req: NextRequest) {
             .eq('id', stripePayment.id);
 
           if (stripePayment.invoice_id) {
-            // Insert negative payment record (refund)
+            // Sum refunds already recorded for this payment intent
+            const { data: priorRefundRows } = await supabase
+              .from('pyra_payments')
+              .select('amount, reference')
+              .eq('invoice_id', stripePayment.invoice_id)
+              .eq('method', 'refund');
+            const alreadyRecorded = Math.round(
+              (priorRefundRows || [])
+                .filter((p: { reference: string | null }) =>
+                  (p.reference || '').startsWith(`refund_${paymentIntentId}`))
+                .reduce((sum: number, p: { amount: number }) => sum + Math.abs(Number(p.amount)), 0) * 100
+            ) / 100;
+            const refundAmount = Math.round((cumulativeRefunded - alreadyRecorded) * 100) / 100;
+
+            if (refundAmount <= 0) {
+              console.log(`[Stripe Webhook] Refund already recorded (cumulative=${cumulativeRefunded}, recorded=${alreadyRecorded}), skipping`);
+              return NextResponse.json({ received: true });
+            }
+
+            // Insert negative payment record (the refund DELTA only).
+            // Reference is keyed on the cumulative level so each refund step
+            // gets a distinct reference and replays compute delta 0 above.
             await supabase.from('pyra_payments').insert({
               id: generateId('pay'),
               invoice_id: stripePayment.invoice_id,
               amount: -refundAmount,
               payment_date: new Date().toISOString().split('T')[0],
               method: 'refund',
-              reference: `refund_${paymentIntentId}`,
+              reference: `refund_${paymentIntentId}_${Math.round(cumulativeRefunded * 100)}`,
               notes: `استرجاع Stripe — ${refundAmount} ${currency}`,
               recorded_by: 'system',
             });
@@ -407,7 +461,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log(`[Stripe Webhook] Refund processed: intent=${paymentIntentId}, amount=${refundAmount}`);
+      console.log(`[Stripe Webhook] Refund processed: intent=${paymentIntentId}, cumulative=${cumulativeRefunded}`);
     }
 
     // ── Handle: charge.dispute.created ───────────────────────────
@@ -438,19 +492,14 @@ export async function POST(req: NextRequest) {
             })
             .eq('id', stripePayment.id);
 
-          // Create admin notification (critical alert)
-          void supabase.from('pyra_notifications').insert({
-            id: generateId('nt'),
-            recipient_username: 'admin',
+          // Create admin notification (critical alert — all active admins)
+          await notifyAdmins(supabase, {
             type: 'dispute_created',
             title: '⚠️ نزاع دفع جديد',
             message: `تم فتح نزاع بقيمة ${disputeAmount} ${currency} — السبب: ${reason}`,
-            source_username: 'system',
-            source_display_name: 'Stripe',
-            target_path: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
-            is_read: false,
-          })
-            .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
+            link: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
+            from: { username: 'system', displayName: 'Stripe' },
+          });
         }
       }
 
@@ -507,6 +556,18 @@ export async function POST(req: NextRequest) {
           if (outcome === 'lost' && stripePayment.invoice_id) {
             const disputeAmount = (dispute.amount || 0) / 100;
 
+            // Idempotency — Stripe redelivers webhooks; a replay must not
+            // book the dispute loss twice (finance audit 2026-07-02).
+            const { data: existingDispute } = await supabase
+              .from('pyra_payments')
+              .select('id')
+              .eq('invoice_id', stripePayment.invoice_id)
+              .eq('reference', `dispute_${dispute.id}`)
+              .maybeSingle();
+
+            if (existingDispute) {
+              console.log(`[Stripe Webhook] Dispute loss already recorded: ${dispute.id}, skipping insert`);
+            } else {
             // Insert negative payment (like refund due to lost dispute)
             await supabase.from('pyra_payments').insert({
               id: generateId('pay'),
@@ -546,21 +607,17 @@ export async function POST(req: NextRequest) {
                 })
                 .eq('id', stripePayment.invoice_id);
             }
+            }
           }
 
-          // Admin notification
-          void supabase.from('pyra_notifications').insert({
-            id: generateId('nt'),
-            recipient_username: 'admin',
+          // Admin notification (all active admins — not the ghost 'admin' user)
+          await notifyAdmins(supabase, {
             type: 'dispute_closed',
             title: outcome === 'won' ? '✅ تم كسب النزاع' : '❌ تم خسارة النزاع',
             message: `النزاع ${dispute.id} انتهى — النتيجة: ${outcome}`,
-            source_username: 'system',
-            source_display_name: 'Stripe',
-            target_path: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
-            is_read: false,
-          })
-            .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
+            link: stripePayment.invoice_id ? `/dashboard/invoices/${stripePayment.invoice_id}` : '/dashboard/finance',
+            from: { username: 'system', displayName: 'Stripe' },
+          });
         }
       }
 
@@ -617,19 +674,14 @@ export async function POST(req: NextRequest) {
           .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
       }
 
-      // Admin notification
-      void supabase.from('pyra_notifications').insert({
-        id: generateId('nt'),
-        recipient_username: 'admin',
+      // Admin notification (all active admins — not the ghost 'admin' user)
+      await notifyAdmins(supabase, {
         type: 'payment_failed',
         title: 'فشل دفع إلكتروني',
         message: `فشل الدفع — ${failureMessage}`,
-        source_username: 'system',
-        source_display_name: 'Stripe',
-        target_path: invoiceId ? `/dashboard/invoices/${invoiceId}` : '/dashboard/finance',
-        is_read: false,
-      })
-        .then(({ error: e }) => { if (e) console.error('[Stripe Webhook] Notification error:', e.message); });
+        link: invoiceId ? `/dashboard/invoices/${invoiceId}` : '/dashboard/finance',
+        from: { username: 'system', displayName: 'Stripe' },
+      });
 
       // Log activity
       void supabase.from('pyra_activity_log').insert({

@@ -11,6 +11,7 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { dispatchWebhookEvent } from '@/lib/webhooks/dispatcher';
 import { resolveUserScope } from '@/lib/auth/scope';
+import { logError } from '@/lib/observability/log-error';
 import { INVOICE_STATUS, PAYMENT_METHOD } from '@/lib/constants/statuses';
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -118,7 +119,34 @@ export async function POST(request: NextRequest, context: RouteContext) {
       })
       .eq('id', id);
 
-    if (updateErr) console.error('Invoice amount update error:', updateErr);
+    if (updateErr) {
+      // The payment row exists but the invoice totals were NOT persisted —
+      // returning 201 here would report numbers that aren't in the DB
+      // (finance audit 2026-07-02, F3). Backup-rollback: remove the payment
+      // and fail loudly so the user retries a consistent operation.
+      console.error('Invoice amount update error:', updateErr);
+      const { error: rollbackErr } = await supabase
+        .from('pyra_payments')
+        .delete()
+        .eq('id', payment.id);
+      logError({
+        error: updateErr,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: {
+          source: 'payments',
+          action: 'invoice_recompute_failed',
+          invoice_id: id,
+          payment_id: payment.id,
+          rollback_ok: !rollbackErr,
+        },
+      });
+      if (rollbackErr) {
+        console.error('Payment rollback error:', rollbackErr);
+        return apiServerError('سُجلت الدفعة لكن فشل تحديث الفاتورة — راجع الفاتورة يدويًا قبل إعادة المحاولة');
+      }
+      return apiServerError('فشل تحديث الفاتورة — لم يتم تسجيل الدفعة، أعد المحاولة');
+    }
 
     // Log activity
     await supabase.from('pyra_activity_log').insert({

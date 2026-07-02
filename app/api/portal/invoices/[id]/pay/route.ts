@@ -108,6 +108,16 @@ export async function POST(_request: NextRequest, context: RouteContext) {
           client_id: client.id,
           contract_id: contractId,
         },
+        // Session metadata does NOT propagate to the payment intent — the
+        // payment_intent.payment_failed handler reads intent metadata, so it
+        // must be set explicitly here (finance audit 2026-07-02, F-PI-META).
+        payment_intent_data: {
+          metadata: {
+            invoice_id: id,
+            invoice_number: invoice.invoice_number,
+            client_id: client.id,
+          },
+        },
         customer_email: client.email,
       }, {
         idempotencyKey,

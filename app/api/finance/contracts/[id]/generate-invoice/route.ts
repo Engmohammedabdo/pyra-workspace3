@@ -6,6 +6,8 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { CONTRACT_STATUS, INVOICE_STATUS } from '@/lib/constants/statuses';
+import { recalcContractBilled } from '@/lib/finance/contract-billing';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -32,6 +34,29 @@ export async function POST(req: NextRequest, context: RouteContext) {
 
     if (cErr || !contract) return apiNotFound('العقد غير موجود');
     if (contract.status !== CONTRACT_STATUS.ACTIVE) return apiError('العقد غير نشط', 400);
+
+    // Duplicate-period guard (finance audit 2026-07-02, F-BILLED/RETAINER-DUP):
+    // a double-click or repeated call must not bill the same period twice.
+    // Heuristic: one contract-linked invoice per Dubai calendar month.
+    // Deliberate re-billing (e.g. a second milestone-style charge in the same
+    // month) requires an explicit { force: true } in the body.
+    if (body.force !== true) {
+      const monthStart = `${dubaiDayKey().slice(0, 7)}-01`;
+      const { data: existingThisMonth } = await supabase
+        .from('pyra_invoices')
+        .select('id, invoice_number')
+        .eq('contract_id', id)
+        .neq('status', INVOICE_STATUS.CANCELLED)
+        .gte('issue_date', monthStart)
+        .limit(1)
+        .maybeSingle();
+      if (existingThisMonth) {
+        return apiError(
+          `تم توليد فاتورة لهذا العقد خلال هذا الشهر بالفعل (${existingThisMonth.invoice_number}). لو التكرار مقصود أعد الطلب مع force.`,
+          409
+        );
+      }
+    }
 
     // 2. Determine invoice amount.
     //
@@ -131,7 +156,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         project_name: contract.title || null,
         display_client_name: body.display_client_name || null,
         status: INVOICE_STATUS.DRAFT,
-        issue_date: new Date().toISOString().split('T')[0],
+        issue_date: dubaiDayKey(),
         due_date: dueDate.toISOString().split('T')[0],
         currency: contract.currency || 'AED',
         subtotal,
@@ -180,13 +205,9 @@ export async function POST(req: NextRequest, context: RouteContext) {
       return apiServerError('فشل في إدراج بنود الفاتورة — تم التراجع عن إنشاء الفاتورة');
     }
 
-    // 12. Update contract amount_billed — only if items were inserted
-    if (itemsInserted > 0) {
-      await supabase.from('pyra_contracts').update({
-        amount_billed: (contract.amount_billed || 0) + subtotal,
-        updated_at: new Date().toISOString(),
-      }).eq('id', id);
-    }
+    // 12. Refresh contract amount_billed from actual invoices (derive, don't
+    // increment — the increment pattern drifted 97,000 AED in production).
+    await recalcContractBilled(supabase, id);
 
     // 12. Activity log
     supabase.from('pyra_activity_log').insert({

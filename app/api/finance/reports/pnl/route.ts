@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -119,10 +120,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Fetch all expenses in the full range at once (include category_id for breakdown)
+    // Fetch all expenses in the full range at once (approved only; include category_id for breakdown)
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
       .select('amount, vat_amount, currency, expense_date, category_id')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', from)
       .lte('expense_date', to);
 

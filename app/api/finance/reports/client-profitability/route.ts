@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -75,10 +76,11 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // 4. Get all expenses in range (with project_id)
+    // 4. Get all expenses in range (approved only, with project_id)
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
       .select('project_id, amount, vat_amount, currency')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', from)
       .lte('expense_date', to);
 

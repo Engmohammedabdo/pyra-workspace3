@@ -11,6 +11,7 @@ import { generateId } from '@/lib/utils/id';
 import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
+import { recalcContractBilled } from '@/lib/finance/contract-billing';
 
 type RouteContext = { params: Promise<{ id: string; milestoneId: string }> };
 
@@ -213,18 +214,9 @@ export async function POST(
       console.error('Milestone update error:', mUpdateErr);
     }
 
-    // 11. Update contract: amount_billed += milestone.amount
-    const { error: cUpdateErr } = await supabase
-      .from('pyra_contracts')
-      .update({
-        amount_billed: (contract.amount_billed || 0) + (milestone.amount || 0),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (cUpdateErr) {
-      console.error('Contract update error:', cUpdateErr);
-    }
+    // 11. Refresh contract amount_billed from actual invoices (derive, don't
+    // increment — finance audit 2026-07-02, F-BILLED).
+    await recalcContractBilled(supabase, id);
 
     // 12. Log activity
     supabase.from('pyra_activity_log').insert({

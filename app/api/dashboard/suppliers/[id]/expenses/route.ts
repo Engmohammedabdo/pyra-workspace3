@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 export async function GET(
   _req: NextRequest,
@@ -23,7 +24,10 @@ export async function GET(
 
     if (error) return apiServerError(error.message);
 
-    const totalAmount = (data || []).reduce((sum, e) => sum + Number(e.amount), 0);
+    // List stays unfiltered (shows pending/rejected) — money total counts approved rows only
+    const totalAmount = (data || [])
+      .filter((e) => e.status === EXPENSE_STATUS.APPROVED)
+      .reduce((sum, e) => sum + Number(e.amount), 0);
 
     return apiSuccess(data || [], { total_amount: totalAmount, count: (data || []).length });
   } catch (e: unknown) {

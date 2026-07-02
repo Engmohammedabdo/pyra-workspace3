@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 interface Alert {
   type: string;
@@ -142,6 +143,7 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
     const { data: expenses } = await supabase
       .from('pyra_expenses')
       .select('project_id, amount, vat_amount, currency')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .in('project_id', projectIds);
 
     const expByProject: Record<string, number> = {};

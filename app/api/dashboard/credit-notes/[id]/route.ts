@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CREDIT_NOTE_FIELDS, CREDIT_NOTE_ITEM_FIELDS } from '@/lib/supabase/fields';
@@ -60,16 +60,45 @@ export async function PATCH(
 
     const { status } = body;
     const allowedStatuses = [CREDIT_NOTE_STATUS.DRAFT, CREDIT_NOTE_STATUS.ISSUED, CREDIT_NOTE_STATUS.CANCELLED];
-    if (!allowedStatuses.includes(status)) return apiNotFound();
+    if (!allowedStatuses.includes(status)) {
+      return apiValidationError('حالة غير صالحة');
+    }
 
+    // Transition map keyed on the CURRENT status (finance audit 2026-07-02,
+    // F-CN-GUARD): an APPLIED credit note already has a negative payment on
+    // the invoice — resetting it to draft would allow a second apply (double
+    // refund) or a delete that orphans the payment. APPLIED is terminal;
+    // reversing requires a dedicated un-apply flow that reverses the payment.
+    const CN_TRANSITIONS: Record<string, string[]> = {
+      [CREDIT_NOTE_STATUS.DRAFT]: [CREDIT_NOTE_STATUS.ISSUED, CREDIT_NOTE_STATUS.CANCELLED],
+      [CREDIT_NOTE_STATUS.ISSUED]: [CREDIT_NOTE_STATUS.DRAFT, CREDIT_NOTE_STATUS.CANCELLED],
+      [CREDIT_NOTE_STATUS.APPLIED]: [],
+      [CREDIT_NOTE_STATUS.CANCELLED]: [],
+    };
+
+    const { data: existing } = await supabase
+      .from('pyra_credit_notes')
+      .select('id, status')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing) return apiNotFound();
+
+    const allowedNext = CN_TRANSITIONS[existing.status] || [];
+    if (!allowedNext.includes(status)) {
+      return apiValidationError(`لا يمكن تغيير حالة الإشعار الدائن من "${existing.status}" إلى "${status}"`);
+    }
+
+    // Conditional update — if a concurrent apply flipped the status between
+    // our read and this write, the .eq('status') filter makes it a no-op.
     const { data, error } = await supabase
       .from('pyra_credit_notes')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('status', existing.status)
       .select(CREDIT_NOTE_FIELDS)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) return apiNotFound();
+    if (error || !data) return apiValidationError('تغيّرت حالة الإشعار الدائن أثناء التعديل — أعد تحميل الصفحة');
 
     await supabase.from('pyra_activity_log').insert({
       id: generateId('log'),
@@ -110,7 +139,7 @@ export async function DELETE(
       .single();
 
     if (!existing) return apiNotFound();
-    if (existing.status !== CREDIT_NOTE_STATUS.DRAFT) return apiServerError('لا يمكن حذف إشعار دائن غير مسودة');
+    if (existing.status !== CREDIT_NOTE_STATUS.DRAFT) return apiValidationError('لا يمكن حذف إشعار دائن غير مسودة');
 
     const { error } = await supabase.from('pyra_credit_notes').delete().eq('id', id);
     if (error) throw error;

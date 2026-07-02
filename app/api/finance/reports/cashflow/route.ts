@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -70,10 +71,11 @@ export async function GET(req: NextRequest) {
 
     if (payErr) throw payErr;
 
-    // ── Cash Outflows: expenses (by expense_date) ──
+    // ── Cash Outflows: expenses (by expense_date, approved only) ──
     const { data: expenses, error: expErr } = await supabase
       .from('pyra_expenses')
-      .select('amount, vat_amount, currency, expense_date, category')
+      .select('amount, vat_amount, currency, expense_date, category_id')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .gte('expense_date', from)
       .lte('expense_date', to);
 
@@ -140,9 +142,23 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.total - a.total);
 
     // ── Expense category breakdown ──
+    // Resolve category names (expenses store category_id → pyra_expense_categories)
+    const categoryIds = [...new Set((expenses || []).map((e: { category_id: string | null }) => e.category_id).filter(Boolean))] as string[];
+    const categoryNames: Record<string, string> = {};
+    if (categoryIds.length > 0) {
+      const { data: cats } = await supabase
+        .from('pyra_expense_categories')
+        .select('id, name, name_ar')
+        .in('id', categoryIds);
+      for (const c of cats || []) {
+        categoryNames[c.id] = c.name_ar || c.name;
+      }
+    }
+
     const categoryBreakdown: Record<string, number> = {};
     for (const exp of expenses || []) {
-      const cat = (exp as { category: string }).category || 'أخرى';
+      const catId = (exp as { category_id: string | null }).category_id;
+      const cat = (catId && categoryNames[catId]) || 'أخرى';
       categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) +
         toAED(Number(exp.amount) + Number(exp.vat_amount || 0), exp.currency);
     }

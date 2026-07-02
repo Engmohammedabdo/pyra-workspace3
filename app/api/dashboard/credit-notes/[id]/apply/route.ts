@@ -4,6 +4,8 @@ import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/l
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CREDIT_NOTE_STATUS, INVOICE_STATUS, PAYMENT_METHOD } from '@/lib/constants/statuses';
+import { logError } from '@/lib/observability/log-error';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 /**
  * POST /api/dashboard/credit-notes/[id]/apply
@@ -55,18 +57,73 @@ export async function POST(
       );
     }
 
+    // 0. Atomically CLAIM the credit note before writing any money — two
+    // concurrent applies both pass the guards above; the .eq('status')
+    // conditional update lets exactly one win (finance audit 2026-07-02,
+    // F-CN-GUARD).
+    const { data: claimed, error: claimErr } = await supabase
+      .from('pyra_credit_notes')
+      .update({
+        status: CREDIT_NOTE_STATUS.APPLIED,
+        applied_amount: applyAmount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('status', cn.status)
+      .select('id')
+      .maybeSingle();
+
+    if (claimErr || !claimed) {
+      return apiValidationError('تعذر تطبيق الإشعار الدائن — تغيّرت حالته (ربما طُبّق بالفعل). أعد تحميل الصفحة');
+    }
+
+    // Re-validate the cap AFTER the claim with a FRESH read — the pre-claim
+    // check used a potentially stale amount_due (another credit note or a
+    // payment may have landed in between). Reviewer finding 2026-07-02.
+    const { data: freshInv } = await supabase
+      .from('pyra_invoices')
+      .select('amount_due')
+      .eq('id', cn.invoice_id)
+      .maybeSingle();
+    const freshDue = Math.round(Number(freshInv?.amount_due ?? 0) * 100) / 100;
+    if (applyAmount > freshDue) {
+      await supabase
+        .from('pyra_credit_notes')
+        .update({ status: cn.status, applied_amount: cn.applied_amount || 0, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      return apiValidationError(
+        `مبلغ الإشعار الدائن (${applyAmount}) يتجاوز المبلغ المستحق الحالي على الفاتورة (${freshDue})`
+      );
+    }
+
     // 1. Create a NEGATIVE payment record (same pattern as refunds in Stripe webhook)
     const paymentId = generateId('pay');
-    await supabase.from('pyra_payments').insert({
+    const { error: payErr } = await supabase.from('pyra_payments').insert({
       id: paymentId,
       invoice_id: cn.invoice_id,
       amount: -applyAmount,
-      payment_date: new Date().toISOString().split('T')[0],
+      payment_date: dubaiDayKey(),
       method: PAYMENT_METHOD.CREDIT_NOTE,
       reference: cn.credit_note_number,
       notes: `إشعار دائن ${cn.credit_note_number}${cn.reason ? ` — ${cn.reason}` : ''}`,
       recorded_by: auth.pyraUser.username,
     });
+
+    if (payErr) {
+      // Roll the claim back — the money write failed, the CN must not stay
+      // marked applied with no payment behind it.
+      await supabase
+        .from('pyra_credit_notes')
+        .update({ status: cn.status, applied_amount: cn.applied_amount || 0, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      logError({
+        error: payErr,
+        request: req,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { source: 'credit-notes', action: 'apply_payment_insert', credit_note_id: id },
+      });
+      return apiServerError('فشل تسجيل دفعة الإشعار الدائن — لم يتم التطبيق');
+    }
 
     // 2. Re-sum ALL payments (same safe pattern as payment recording)
     const { data: allPayments } = await supabase
@@ -95,15 +152,7 @@ export async function POST(
       })
       .eq('id', cn.invoice_id);
 
-    // 4. Update credit note status
-    await supabase
-      .from('pyra_credit_notes')
-      .update({
-        status: CREDIT_NOTE_STATUS.APPLIED,
-        applied_amount: applyAmount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
+    // 4. (credit note already claimed as APPLIED in step 0)
 
     // 5. Update contract amount_collected if invoice is linked to a contract
     //    (same pattern as payment recording in /api/invoices/[id]/payments)

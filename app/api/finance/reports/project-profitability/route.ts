@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
+import { EXPENSE_STATUS } from '@/lib/constants/statuses';
 
 /* ── GET /api/finance/reports/project-profitability ── */
 
@@ -40,10 +41,11 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 2. Fetch expenses (optionally date-filtered)
+    // 2. Fetch expenses (approved only, optionally date-filtered)
     let expQuery = supabase
       .from('pyra_expenses')
       .select('project_id, amount, vat_amount, currency, expense_date')
+      .eq('status', EXPENSE_STATUS.APPROVED)
       .not('project_id', 'is', null);
 
     if (from) expQuery = expQuery.gte('expense_date', from);
