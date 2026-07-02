@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
+    const flippedCount = (flipped ?? []).length; // ALL pending→overdue transitions
     const rows = ((flipped ?? []) as FlippedRow[]).filter((r) => r.assigned_to);
     let notified = 0;
 
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return apiSuccess({ flipped: rows.length, notified });
+    return apiSuccess({ flipped: flippedCount, notified });
   } catch (err) {
     logError({ error: err, request, metadata: { action: 'follow-ups-check-due' } });
     console.error('[cron/follow-ups-check-due] threw:', err);

@@ -83,10 +83,13 @@ export async function GET() {
       // Pending CRM follow-ups assigned to me (admin sees all)
       canViewFollowUps
         ? (() => {
+            // pending + overdue — the check-due cron flips due-past pending →
+            // overdue, so filtering pending alone would drop the most-urgent
+            // (overdue) items from the badge (locked follow-up-status rule).
             let q = serviceClient
               .from('pyra_sales_follow_ups')
               .select('id', { count: 'exact', head: true })
-              .eq('status', 'pending');
+              .in('status', ['pending', 'overdue']);
             if (!isAdmin) q = q.eq('assigned_to', username);
             return q;
           })()

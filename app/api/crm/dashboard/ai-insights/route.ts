@@ -142,10 +142,14 @@ export async function GET() {
     }
 
     // ── Rule 3: overdue follow-ups (own only — non-admin) ──
+    // Count pending AND overdue rows that are past due — the check-due cron
+    // flips due-past pending → overdue, so filtering status='pending' alone
+    // would drop the very rows that became overdue (locked rule: never filter
+    // follow-ups on status='pending' alone anywhere user-facing).
     let fq = supabase
       .from('pyra_sales_follow_ups')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
+      .in('status', ['pending', 'overdue'])
       .lt('due_at', now);
     if (role !== 'admin') fq = fq.eq('assigned_to', username);
     const { count: overdueCount } = await fq;
@@ -169,13 +173,17 @@ export async function GET() {
     // On the UTC Coolify server, setHours(0/23...) produced the UTC calendar
     // day, mis-bucketing every follow-up in the ±4h boundary window.
     const dubaiKey = dubaiDayKey();
-    const dayStartIso = new Date(`${dubaiKey}T00:00:00.000+04:00`).toISOString();
     const dayEndIso = new Date(`${dubaiKey}T23:59:59.999+04:00`).toISOString();
+    // Lower bound = now (not day-start) so this counts today's STILL-UPCOMING
+    // follow-ups only — anything earlier today that's past due belongs to Rule 3
+    // (overdue). Cleanly disjoint, no double-count, and no overdue row is
+    // dropped (a not-yet-due row can't be overdue, but include the status for
+    // locked-rule consistency).
     let tq = supabase
       .from('pyra_sales_follow_ups')
       .select('id', { count: 'exact', head: true })
-      .eq('status', 'pending')
-      .gte('due_at', dayStartIso)
+      .in('status', ['pending', 'overdue'])
+      .gte('due_at', now)
       .lte('due_at', dayEndIso);
     if (role !== 'admin') tq = tq.eq('assigned_to', username);
     const { count: todayCount } = await tq;

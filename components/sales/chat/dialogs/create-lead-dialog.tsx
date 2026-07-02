@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { cn } from '@/lib/utils/cn';
 import { UserPlus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 
 interface PipelineStage {
   id: string;
@@ -37,12 +38,17 @@ export function CreateLeadDialog({ open = true, contactName, phone, onClose, onC
   useEffect(() => {
     async function fetchStages() {
       try {
-        const stagesList = await fetchAPI<PipelineStage[]>('/api/dashboard/sales/pipeline-stages');
+        // Use the CRM stages endpoint (stg_* only). The legacy
+        // /api/dashboard/sales/pipeline-stages returns BOTH legacy stage_* and
+        // CRM stg_* rows with TWO is_default=true rows — .find(is_default) there
+        // deterministically picked legacy 'stage_new', which the CRM pipeline
+        // board silently drops (only stg_* columns render) → invisible lead.
+        const stagesList = await fetchAPI<PipelineStage[]>('/api/crm/pipeline-stages');
         setStages(stagesList);
-        // Set default stage
+        // Default to the canonical new-inquiry stage — never stagesList[0]
+        // (that is stg_reshuffle now, sort_order 0).
         const def = stagesList.find((s: PipelineStage) => s.is_default);
-        if (def) setStageId(def.id);
-        else if (stagesList.length) setStageId(stagesList[0].id);
+        setStageId(def?.id ?? PIPELINE_STAGE_IDS.NEW_INQUIRY);
       } catch {
         // silent
       }

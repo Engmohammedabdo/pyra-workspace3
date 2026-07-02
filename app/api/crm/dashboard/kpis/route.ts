@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
     // Base query for "leads I can see"
     const scopedLeadIdsPromise = (async () => {
-      let q = supabase.from('pyra_sales_leads').select('id, stage_id, expected_value, expected_value_currency, win_probability, is_converted, converted_at');
+      let q = supabase.from('pyra_sales_leads').select('id, client_id, stage_id, expected_value, expected_value_currency, win_probability, is_converted, converted_at').is('archived_at', null);
       if (scope) q = q.eq(scope.column, scope.value);
       const { data } = await q;
       return data ?? [];
@@ -83,31 +83,55 @@ export async function GET(request: NextRequest) {
     );
     const closedWonCount = closedWonInPeriod.length;
 
-    // ── Closed Won (cash basis): payments received in period for invoices linked
-    //   to contracts whose lead is mine and is_converted=true.
-    let closedWonTotal = 0;
+    // ── Scoped contracts: union by (lead_id OR client_id).
+    //   `pyra_contracts.lead_id` historically had no write path, so a converted
+    //   customer's contracts (created in finance against client_id) were
+    //   invisible to these money KPIs — MRR + closed-won cash computed against
+    //   an always-empty lead_id set. We now honour BOTH keys: lead_id (the
+    //   direct CRM link, written by finance POST going forward) AND client_id
+    //   (catches contracts on the converted-customer's client row).
+    //
+    //   NOTE: this surfaces contracts only for leads that ARE linked to their
+    //   client (converted or link-client'd). A legacy client with no CRM lead
+    //   (e.g. a pre-CRM `c_`-namespace client) still won't appear here — that's
+    //   a data-linkage gap, not a code gap; link a lead to the client to fix.
+    //
+    //   Two plain .in() queries merged in JS (dedup by contract id) instead of
+    //   one .or() — avoids an unbounded PostgREST URL as the lead set grows.
     const myLeadIds = allLeads.map((l) => l.id);
-    if (myLeadIds.length > 0) {
-      const { data: contracts } = await supabase
+    const myClientIds = [...new Set(allLeads.map((l) => l.client_id).filter((c): c is string => !!c))];
+
+    const contractById = new Map<string, { id: string; retainer_amount: number | null; retainer_cycle: string | null; status: string | null }>();
+    const collectContracts = async (column: 'lead_id' | 'client_id', ids: string[]) => {
+      if (!ids.length) return;
+      const { data } = await supabase
         .from('pyra_contracts')
+        .select('id, retainer_amount, retainer_cycle, status')
+        .in(column, ids);
+      for (const c of data ?? []) contractById.set(c.id, c);
+    };
+    await collectContracts('lead_id', myLeadIds);
+    await collectContracts('client_id', myClientIds);
+    const scopedContracts = [...contractById.values()];
+    const contractIds = scopedContracts.map((c) => c.id);
+
+    // ── Closed Won (cash basis): payments received in period for invoices linked
+    //   to the scoped contracts.
+    let closedWonTotal = 0;
+    if (contractIds.length > 0) {
+      const { data: invs } = await supabase
+        .from('pyra_invoices')
         .select('id')
-        .in('lead_id', myLeadIds);
-      const contractIds = (contracts ?? []).map((c) => c.id);
-      if (contractIds.length > 0) {
-        const { data: invs } = await supabase
-          .from('pyra_invoices')
-          .select('id')
-          .in('contract_id', contractIds);
-        const invoiceIds = (invs ?? []).map((i) => i.id);
-        if (invoiceIds.length > 0) {
-          const { data: payments } = await supabase
-            .from('pyra_payments')
-            .select('amount, payment_date')
-            .in('invoice_id', invoiceIds)
-            .gte('payment_date', startISO)
-            .lte('payment_date', endISO);
-          for (const p of payments ?? []) closedWonTotal += Number(p.amount) || 0;
-        }
+        .in('contract_id', contractIds);
+      const invoiceIds = (invs ?? []).map((i) => i.id);
+      if (invoiceIds.length > 0) {
+        const { data: payments } = await supabase
+          .from('pyra_payments')
+          .select('amount, payment_date')
+          .in('invoice_id', invoiceIds)
+          .gte('payment_date', startISO)
+          .lte('payment_date', endISO);
+        for (const p of payments ?? []) closedWonTotal += Number(p.amount) || 0;
       }
     }
 
@@ -123,21 +147,16 @@ export async function GET(request: NextRequest) {
       : 0;
 
     // ── MRR: active retainer contracts (status=active, retainer_amount > 0)
+    //   from the same (lead_id OR client_id) scoped contract set.
     let mrr = 0;
-    if (myLeadIds.length > 0) {
-      const { data: retainers } = await supabase
-        .from('pyra_contracts')
-        .select('retainer_amount, retainer_cycle, status')
-        .in('lead_id', myLeadIds)
-        .eq('status', 'active');
-      for (const c of retainers ?? []) {
-        const amt = Number(c.retainer_amount) || 0;
-        if (!amt) continue;
-        const cycle = (c.retainer_cycle || 'monthly').toLowerCase();
-        if (cycle === 'monthly') mrr += amt;
-        else if (cycle === 'quarterly') mrr += amt / 3;
-        else if (cycle === 'yearly' || cycle === 'annual') mrr += amt / 12;
-      }
+    for (const c of scopedContracts) {
+      if (c.status !== 'active') continue;
+      const amt = Number(c.retainer_amount) || 0;
+      if (!amt) continue;
+      const cycle = (c.retainer_cycle || 'monthly').toLowerCase();
+      if (cycle === 'monthly') mrr += amt;
+      else if (cycle === 'quarterly') mrr += amt / 3;
+      else if (cycle === 'yearly' || cycle === 'annual') mrr += amt / 12;
     }
 
     // ── Forecast close value

@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceRoleClient();
     const body = await req.json();
     const {
-      client_id, project_id, title, description, contract_type,
+      client_id, project_id, lead_id, title, description, contract_type,
       total_value, currency, vat_rate, billing_structure,
       start_date, end_date, notes,
       retainer_amount, retainer_cycle, billing_day,
@@ -121,6 +121,10 @@ export async function POST(req: NextRequest) {
         id: generateId('ctr'),
         client_id: client_id || null,
         project_id: project_id || null,
+        // lead_id links a contract back to its CRM lead so the dossier /
+        // dashboard money KPIs (MRR, closed-won cash) can find it. Historically
+        // unwritten (dead linkage) — now persisted when the caller supplies it.
+        lead_id: lead_id || null,
         title,
         description,
         contract_type,

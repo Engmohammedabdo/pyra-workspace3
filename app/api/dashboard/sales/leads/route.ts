@@ -5,6 +5,7 @@ import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { LEAD_FIELDS } from '@/lib/supabase/fields';
 import { generateId } from '@/lib/utils/id';
 import { isSuperAdmin } from '@/lib/auth/rbac';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import { calculateLeadScore } from '@/lib/sales/lead-scoring';
 import { notifyLeadAssigned } from '@/lib/email/notify';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
@@ -161,16 +162,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // If no stage_id, use default stage
-    let finalStageId = stage_id;
-    if (!finalStageId) {
-      const { data: defaultStage } = await supabase
-        .from('pyra_sales_pipeline_stages')
-        .select('id')
-        .eq('is_default', true)
-        .single();
-      finalStageId = defaultStage?.id || 'stage_new';
-    }
+    // Force a valid CRM stage. Legacy stage_* ids (incl. 'stage_new', which the
+    // seed data still marks is_default=true alongside stg_new_inquiry) are
+    // dropped by the CRM pipeline board — a lead created on one is invisible.
+    // Coerce any missing / non-stg_ value to the canonical new-inquiry stage.
+    const finalStageId =
+      typeof stage_id === 'string' && stage_id.startsWith('stg_')
+        ? stage_id
+        : PIPELINE_STAGE_IDS.NEW_INQUIRY;
 
     const leadId = generateId('sl');
     const now = new Date().toISOString();
