@@ -64,9 +64,28 @@ export async function GET(request: NextRequest) {
     if (scopeFilter) {
       query = query.eq(scopeFilter.column, scopeFilter.value);
     } else {
-      // Admin can override owner via ?assigned_to=
+      // Admin overrides (mutually exclusive, checked in order):
+      //   ?assigned_to=<username>        → that owner's leads
+      //   ?assigned_status=inactive|active → leads whose owner is (in)active —
+      //       the offboarding cleanup surface: find leads stranded on departed
+      //       agents so they can be re-homed. Admin-only (this whole branch).
       const ownerParam = sp.get('assigned_to')?.trim();
-      if (ownerParam) query = query.eq('assigned_to', ownerParam);
+      const assignedStatus = sp.get('assigned_status')?.trim();
+      if (ownerParam) {
+        query = query.eq('assigned_to', ownerParam);
+      } else if (assignedStatus === 'inactive' || assignedStatus === 'active') {
+        const { data: users } = await supabase
+          .from('pyra_users')
+          .select('username, status');
+        const wantActive = assignedStatus === 'active';
+        const usernames = (users ?? [])
+          .filter((u) => (wantActive ? u.status === 'active' : u.status !== 'active'))
+          .map((u) => u.username);
+        // No matching owners → force an empty result rather than "all leads".
+        query = usernames.length
+          ? query.in('assigned_to', usernames)
+          : query.eq('id', '___none___');
+      }
     }
 
     const stageId = sp.get('stage_id')?.trim();

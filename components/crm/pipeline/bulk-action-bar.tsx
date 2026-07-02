@@ -24,7 +24,9 @@ import {
 } from '@/components/ui/select';
 import { useLeadCapableUsers } from '@/hooks/useLeadCapableUsers';
 
-/** Matches the /api/dashboard/sales/leads/bulk server cap. */
+/** Per-request server cap on /api/dashboard/sales/leads/bulk. Selections larger
+ *  than this are split into batches of MAX_BULK by the parent's assign handler,
+ *  so the admin can reassign an entire departed agent's book in one action. */
 const MAX_BULK = 50;
 
 export interface BulkActionBarProps {
@@ -42,8 +44,8 @@ export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBar
   const { leadCapable, isLoading } = useLeadCapableUsers();
   const [target, setTarget] = useState<string>('');
 
-  const overCap = count > MAX_BULK;
-  const canAssign = count > 0 && !overCap && !!target && !busy;
+  const overCap = count > MAX_BULK; // now a hint only — parent chunks into ≤MAX_BULK
+  const canAssign = count > 0 && !!target && !busy;
 
   return (
     <div className="sticky bottom-3 z-20 mx-auto w-full max-w-2xl px-2">
@@ -53,40 +55,39 @@ export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBar
           محدد: <span className="tabular-nums">{count}</span>
         </span>
 
-        {overCap ? (
-          <span className="text-xs text-destructive ms-auto">
-            الحد الأقصى {MAX_BULK} صفقة في المرة — قلّل التحديد
-          </span>
-        ) : (
-          <div className="flex items-center gap-2 ms-auto">
-            <Select value={target} onValueChange={setTarget} disabled={busy || isLoading}>
-              <SelectTrigger className="h-9 w-44">
-                <SelectValue placeholder="تعيين لـ..." />
-              </SelectTrigger>
-              <SelectContent>
-                {leadCapable.map((u) => (
-                  <SelectItem key={u.username} value={u.username}>
-                    {u.display_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => target && onAssign(target)}
-              disabled={!canAssign}
-              className="h-9"
-            >
-              {busy ? (
-                <Loader2 className="size-4 animate-spin me-1.5" />
-              ) : (
-                <UserCog className="size-4 me-1.5" />
-              )}
-              تعيين
-            </Button>
-          </div>
-        )}
+        <div className="flex items-center gap-2 ms-auto">
+          {overCap && (
+            <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+              توزيع على دفعات من {MAX_BULK}
+            </span>
+          )}
+          <Select value={target} onValueChange={setTarget} disabled={busy || isLoading}>
+            <SelectTrigger className="h-9 w-44">
+              <SelectValue placeholder="تعيين لـ..." />
+            </SelectTrigger>
+            <SelectContent>
+              {leadCapable.map((u) => (
+                <SelectItem key={u.username} value={u.username}>
+                  {u.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => target && onAssign(target)}
+            disabled={!canAssign}
+            className="h-9"
+          >
+            {busy ? (
+              <Loader2 className="size-4 animate-spin me-1.5" />
+            ) : (
+              <UserCog className="size-4 me-1.5" />
+            )}
+            تعيين
+          </Button>
+        </div>
 
         <Button
           type="button"

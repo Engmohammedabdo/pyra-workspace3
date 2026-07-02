@@ -42,7 +42,7 @@ import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
 import { useLeads, useMoveLeadStageWithToasts, useBulkAssignLeads } from '@/hooks/useLeads';
-import { useLeadCapableUsers } from '@/hooks/useLeadCapableUsers';
+import { useLeadCapableUsers, LEAD_CAPABLE_ROLES } from '@/hooks/useLeadCapableUsers';
 import { PipelineFilterBar } from '@/components/crm/pipeline/pipeline-filter-bar';
 import { PipelineBoard } from '@/components/crm/pipeline/pipeline-board';
 import { BulkActionBar } from '@/components/crm/pipeline/bulk-action-bar';
@@ -94,8 +94,19 @@ export function PipelineClient() {
       const ids = Array.from(selectedIds);
       if (ids.length === 0) return;
       try {
-        const res = await bulkAssign.mutateAsync({ lead_ids: ids, assigned_to: username });
-        toast.success(`تم تعيين ${res.affected ?? ids.length} صفقة بنجاح`);
+        // The server bulk route caps each request at 50 — chunk client-side so
+        // selecting an entire departed agent's book (e.g. 69 leads) reassigns in
+        // one action instead of forcing the admin to do it in batches of 50.
+        const CHUNK = 50;
+        let affected = 0;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          const res = await bulkAssign.mutateAsync({
+            lead_ids: ids.slice(i, i + CHUNK),
+            assigned_to: username,
+          });
+          affected += res.affected ?? 0;
+        }
+        toast.success(`تم تعيين ${affected || ids.length} صفقة بنجاح`);
         exitSelection();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'فشل التعيين الجماعي');
@@ -127,7 +138,10 @@ export function PipelineClient() {
     const source = sp.get('source');
     const priority = sp.get('priority');
     if (search) params.search = search;
-    if (owner) params.assigned_to = owner;
+    // '__inactive__' sentinel → the "كل المغادرين" view (all departed agents'
+    // leads) via the admin assigned_status filter; otherwise a normal owner.
+    if (owner === '__inactive__') params.assigned_status = 'inactive';
+    else if (owner) params.assigned_to = owner;
     if (source) params.source = source;
     if (priority) params.priority = priority;
     return params;
@@ -140,15 +154,40 @@ export function PipelineClient() {
   const total = leadsResp?.total;
   const isAdmin = me?.role === 'admin';
 
-  // Owner options from the FULL lead-capable user list (admin only) — NOT the
-  // currently-filtered `leads`. Deriving from `leads` collapsed the dropdown to
-  // just the selected owner once a filter was applied (a one-way trap: you had
-  // to reset to "all" before you could switch to a different agent).
-  const { leadCapable } = useLeadCapableUsers();
-  const ownerOptions = useMemo(
-    () => (isAdmin ? leadCapable.map((u) => ({ value: u.username, label: u.display_name })) : []),
-    [isAdmin, leadCapable],
-  );
+  // Owner options for the admin filter — sourced from ALL sales-capable users
+  // (active AND departed), NOT the currently-filtered `leads` (which collapsed
+  // the dropdown to just the selected owner). Departed agents are KEPT + marked
+  // "مغادر" so an admin can filter to a departed agent's leads and re-home them;
+  // a trailing "كل المغادرين" option shows every departed agent's leads at once.
+  // (Reassignment TARGETS stay active-only via useLeadCapableUsers().leadCapable
+  // in the bulk bar / reassign modal — you never hand leads to someone who left.)
+  const { all: allUsers } = useLeadCapableUsers();
+  const ownerOptions = useMemo(() => {
+    if (!isAdmin) return [];
+    const capable = allUsers.filter((u) => LEAD_CAPABLE_ROLES.has(u.role ?? ''));
+    const opts = capable
+      .slice()
+      .sort((a, b) => {
+        const sa = a.status === 'active' ? 0 : 1;
+        const sb = b.status === 'active' ? 0 : 1;
+        if (sa !== sb) return sa - sb; // active first
+        return a.display_name.localeCompare(b.display_name, 'ar');
+      })
+      .map((u) => ({
+        value: u.username,
+        label: u.status === 'active' ? u.display_name : `${u.display_name} (مغادر)`,
+      }));
+    if (capable.some((u) => u.status !== 'active')) {
+      opts.push({ value: '__inactive__', label: 'كل المغادرين' });
+    }
+    return opts;
+  }, [isAdmin, allUsers]);
+
+  // Select every currently-loaded lead (respects the active filter) — one click
+  // to grab an entire departed agent's book for bulk reassignment.
+  const selectAllVisible = useCallback(() => {
+    setSelectedIds(new Set((leads ?? []).map((l) => l.id)));
+  }, [leads]);
 
   // Drop handler — fired by PipelineBoard after a cross-column drop (desktop
   // drag) AND from the mobile MobileStageSheet via the same onChangeStage
@@ -248,9 +287,14 @@ export function PipelineClient() {
           )}
           {canBulk &&
             (selectionMode ? (
-              <Button variant="outline" onClick={exitSelection}>
-                <X className="size-4 me-2" /> إنهاء التحديد
-              </Button>
+              <>
+                <Button variant="outline" onClick={selectAllVisible} disabled={!leads?.length}>
+                  <CheckSquare className="size-4 me-2" /> تحديد الكل ({leads?.length ?? 0})
+                </Button>
+                <Button variant="outline" onClick={exitSelection}>
+                  <X className="size-4 me-2" /> إنهاء التحديد
+                </Button>
+              </>
             ) : (
               <Button variant="outline" onClick={() => setSelectionMode(true)}>
                 <CheckSquare className="size-4 me-2" /> تحديد متعدد
