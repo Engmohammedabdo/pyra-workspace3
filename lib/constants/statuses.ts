@@ -368,6 +368,9 @@ export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
 // Stage 5 (`contract_signed`) is a transit stage — leads parked here are
 // awaiting Manager approval before becoming `closed_won`.
 export const PIPELINE_STAGE_IDS = {
+  // "ريشفل" — reassignment/handover holding column (migration 031). Leading
+  // column; leads parked here are being handed from one rep to another.
+  RESHUFFLE:       'stg_reshuffle',
   NEW_INQUIRY:     'stg_new_inquiry',
   DISCOVERY_CALL:  'stg_discovery_call',
   PROPOSAL_SENT:   'stg_proposal_sent',
@@ -380,6 +383,7 @@ export const PIPELINE_STAGE_IDS = {
 export type PipelineStageId = typeof PIPELINE_STAGE_IDS[keyof typeof PIPELINE_STAGE_IDS];
 
 export const PIPELINE_STAGE_LABELS_AR: Record<PipelineStageId, string> = {
+  stg_reshuffle:       'ريشفل',
   stg_new_inquiry:     'استفسار جديد',
   stg_discovery_call:  'مكالمة استكشافية',
   stg_proposal_sent:   'تم إرسال العرض',
@@ -390,6 +394,7 @@ export const PIPELINE_STAGE_LABELS_AR: Record<PipelineStageId, string> = {
 };
 
 export const PIPELINE_STAGE_ORDER: PipelineStageId[] = [
+  'stg_reshuffle',
   'stg_new_inquiry',
   'stg_discovery_call',
   'stg_proposal_sent',
@@ -405,6 +410,7 @@ export const PIPELINE_STAGE_ORDER: PipelineStageId[] = [
  * `win_probability_overridden = true`.
  */
 export const STAGE_DEFAULT_WIN_PROBABILITY: Record<PipelineStageId, number> = {
+  stg_reshuffle:       5,
   stg_new_inquiry:     10,
   stg_discovery_call:  25,
   stg_proposal_sent:   50,
@@ -416,6 +422,7 @@ export const STAGE_DEFAULT_WIN_PROBABILITY: Record<PipelineStageId, number> = {
 
 /** Stages where the lead is "in pipeline" (not yet finalised). */
 export const PIPELINE_ACTIVE_STAGES: PipelineStageId[] = [
+  'stg_reshuffle',
   'stg_new_inquiry',
   'stg_discovery_call',
   'stg_proposal_sent',

@@ -22,6 +22,7 @@
  * at the call site.
  */
 export const ACCENT_DOT: Record<string, string> = {
+  violet:  'bg-violet-500',
   sky:     'bg-sky-500',
   indigo:  'bg-indigo-500',
   amber:   'bg-amber-500',

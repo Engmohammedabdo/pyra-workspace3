@@ -31,6 +31,7 @@ import { cn } from '@/lib/utils/cn';
 import type { PipelineStageId } from '@/lib/constants/statuses';
 
 const STAGE_BAR_COLOR: Record<PipelineStageId, string> = {
+  stg_reshuffle:       'bg-violet-500',
   stg_new_inquiry:     'bg-sky-500',
   stg_discovery_call:  'bg-indigo-500',
   stg_proposal_sent:   'bg-amber-500',

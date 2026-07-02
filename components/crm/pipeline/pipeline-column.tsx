@@ -29,6 +29,7 @@ interface PipelineColumnProps {
 }
 
 const HEADER_TONE: Record<string, string> = {
+  violet:  'border-t-violet-500',
   sky:     'border-t-sky-500',
   indigo:  'border-t-indigo-500',
   amber:   'border-t-amber-500',
@@ -39,6 +40,7 @@ const HEADER_TONE: Record<string, string> = {
 };
 
 const COUNT_TONE: Record<string, string> = {
+  violet:  'bg-violet-500/10 text-violet-700 dark:text-violet-300',
   sky:     'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   indigo:  'bg-indigo-500/10 text-indigo-700 dark:text-indigo-300',
   amber:   'bg-amber-500/10 text-amber-700 dark:text-amber-300',
@@ -49,6 +51,7 @@ const COUNT_TONE: Record<string, string> = {
 };
 
 const OVER_TINT: Record<string, string> = {
+  violet:  'bg-violet-500/10 ring-2 ring-violet-300 dark:ring-violet-700/60',
   sky:     'bg-sky-500/10 ring-2 ring-sky-300 dark:ring-sky-700/60',
   indigo:  'bg-indigo-500/10 ring-2 ring-indigo-300 dark:ring-indigo-700/60',
   amber:   'bg-amber-500/10 ring-2 ring-amber-300 dark:ring-amber-700/60',
