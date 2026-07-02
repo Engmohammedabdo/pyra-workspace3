@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useClients } from '@/hooks/useClients';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ interface LineItem { description: string; quantity: number; rate: number; amount
 
 export default function CreateRecurringInvoicePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState({ title: '', client_id: '', contract_id: '', billing_cycle: 'monthly', next_generation_date: '', currency: 'AED', auto_send: false });
   const [items, setItems] = useState<LineItem[]>([{ description: '', quantity: 1, rate: 0, amount: 0 }]);
   const { data: clients = [] } = useClients({ pageSize: '100' });
@@ -41,6 +42,8 @@ export default function CreateRecurringInvoicePage() {
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/finance/recurring-invoices', 'POST', data),
     onSuccess: () => {
+      // List page uses useRecurringInvoices → ['recurring-invoices', params]
+      queryClient.invalidateQueries({ queryKey: ['recurring-invoices'] });
       toast.success('تم إنشاء الفاتورة المتكررة بنجاح');
       router.push('/dashboard/finance/recurring');
     },

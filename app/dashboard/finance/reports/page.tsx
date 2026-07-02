@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ArrowRight, FileText } from 'lucide-react';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { PnlTab } from '@/components/dashboard/finance-reports/PnlTab';
+import { CashflowTab } from '@/components/dashboard/finance-reports/CashflowTab';
 import { VatTab } from '@/components/dashboard/finance-reports/VatTab';
 import { ClientProfitabilityTab } from '@/components/dashboard/finance-reports/ClientProfitabilityTab';
 import { ProjectProfitabilityTab } from '@/components/dashboard/finance-reports/ProjectProfitabilityTab';
@@ -36,12 +37,14 @@ export default function FinanceReportsPage() {
       <Tabs defaultValue="pnl" dir="rtl">
         <TabsList className="w-full justify-start flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="pnl" className="text-xs sm:text-sm">الأرباح والخسائر</TabsTrigger>
+          <TabsTrigger value="cashflow" className="text-xs sm:text-sm">التدفق النقدي</TabsTrigger>
           <TabsTrigger value="vat" className="text-xs sm:text-sm">الضريبة</TabsTrigger>
           <TabsTrigger value="clients" className="text-xs sm:text-sm">ربحية العملاء</TabsTrigger>
           <TabsTrigger value="projects" className="text-xs sm:text-sm">ربحية المشاريع</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pnl"><PnlTab /></TabsContent>
+        <TabsContent value="cashflow"><CashflowTab /></TabsContent>
         <TabsContent value="vat"><VatTab /></TabsContent>
         <TabsContent value="clients"><ClientProfitabilityTab /></TabsContent>
         <TabsContent value="projects"><ProjectProfitabilityTab /></TabsContent>

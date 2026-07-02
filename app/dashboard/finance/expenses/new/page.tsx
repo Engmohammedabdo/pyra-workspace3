@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
@@ -30,6 +30,7 @@ const PAYMENT_METHODS = [
 
 export default function NewExpensePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects({ pageSize: '100' });
   const [form, setForm] = useState({
     description: '', amount: '', currency: 'AED', vat_rate: '0',
@@ -50,6 +51,7 @@ export default function NewExpensePage() {
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/finance/expenses', 'POST', data),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['expenses'] });
       toast.success('تم إضافة المصروف');
       router.push('/dashboard/finance/expenses');
     },

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInvoices, useRevenueSummary } from '@/hooks/useInvoices';
+import { useInvoicesPaged, useRevenueSummary } from '@/hooks/useInvoices';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -94,18 +94,21 @@ export default function InvoicesClient() {
   // to scope the list to a single customer (server-side filter in /api/invoices).
   const clientIdFilter = searchParams.get('client_id')?.trim() || undefined;
 
-  // React Query hooks
-  const { data: invoices = [], isLoading: loading } = useInvoices({
+  // React Query hooks — paged variant reads meta.total so pagination works
+  // (F-PAGINATION: total was never populated → invoices beyond the newest
+  // page were unreachable from this list)
+  const { data: paged, isLoading: loading } = useInvoicesPaged({
     status: statusFilter !== 'all' ? statusFilter : undefined,
     search: debouncedSearch || undefined,
     client_id: clientIdFilter,
     page: String(page),
     limit: String(PAGE_SIZE),
-  }) as unknown as { data: Invoice[]; isLoading: boolean };
+  });
+  const invoices = (paged?.invoices ?? []) as Invoice[];
+  const total = paged?.total ?? 0;
 
   const { data: revenueSummary } = useRevenueSummary() as unknown as { data: RevenueSummary | undefined };
   const revenue = revenueSummary ?? null;
-  const [total, setTotal] = useState(0);
 
 
   /* ── sort state ── */

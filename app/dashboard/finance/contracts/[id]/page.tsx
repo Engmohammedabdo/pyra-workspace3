@@ -148,13 +148,33 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   };
 
   const handleMarkComplete = async (m: any) => {
-    await fetch(`/api/finance/contracts/${id}/milestones/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed' }) });
+    try {
+      const res = await fetch(`/api/finance/contracts/${id}/milestones/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed' }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) {
+        toast.error(j.error || 'فشل في تحديث المرحلة');
+      } else {
+        toast.success('تم تحديث المرحلة');
+      }
+    } catch {
+      toast.error('حدث خطأ في الاتصال');
+    }
     fetchMilestones();
   };
 
   const handleGenerateInvoice = async (m: any) => {
     setGeneratingInvoice(m.id);
-    await fetch(`/api/finance/contracts/${id}/milestones/${m.id}/generate-invoice`, { method: 'POST' });
+    try {
+      const res = await fetch(`/api/finance/contracts/${id}/milestones/${m.id}/generate-invoice`, { method: 'POST' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) {
+        toast.error(j.error || 'فشل في توليد الفاتورة');
+      } else {
+        toast.success('تم توليد الفاتورة');
+      }
+    } catch {
+      toast.error('حدث خطأ في الاتصال');
+    }
     fetchMilestones();
     setGeneratingInvoice(null);
   };
@@ -166,7 +186,17 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
 
   const confirmDeleteMilestone = async () => {
     if (!deleteMilestoneTarget) return;
-    await fetch(`/api/finance/contracts/${id}/milestones/${deleteMilestoneTarget.id}`, { method: 'DELETE' });
+    try {
+      const res = await fetch(`/api/finance/contracts/${id}/milestones/${deleteMilestoneTarget.id}`, { method: 'DELETE' });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok || j.error) {
+        toast.error(j.error || 'فشل في حذف المرحلة');
+      } else {
+        toast.success('تم حذف المرحلة');
+      }
+    } catch {
+      toast.error('حدث خطأ في الاتصال');
+    }
     fetchMilestones();
     setShowDeleteMilestoneDialog(false);
     setDeleteMilestoneTarget(null);
@@ -192,7 +222,18 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
           loading={billingLoading} data={billingHistory} currency={form.currency} status={form.status}
           onGenerateInvoice={async () => {
              setGeneratingRetainerInvoice(true);
-             await fetch(`/api/finance/contracts/${id}/generate-invoice`, { method: 'POST' });
+             try {
+               const res = await fetch(`/api/finance/contracts/${id}/generate-invoice`, { method: 'POST' });
+               const j = await res.json().catch(() => ({}));
+               if (!res.ok || j.error) {
+                 // 409 duplicate-period guard returns a specific Arabic message — surface it verbatim
+                 toast.error(j.error || 'فشل في توليد الفاتورة');
+               } else {
+                 toast.success('تم توليد الفاتورة');
+               }
+             } catch {
+               toast.error('حدث خطأ في الاتصال');
+             }
              fetchBillingHistory();
              setGeneratingRetainerInvoice(false);
           }}

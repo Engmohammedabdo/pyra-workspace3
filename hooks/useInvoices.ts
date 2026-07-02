@@ -70,6 +70,30 @@ export function useInvoices(params?: Record<string, string | undefined>) {
   });
 }
 
+/**
+ * قائمة الفواتير مع الترقيم (total من meta).
+ * fetchAPI يجرّد الـ meta — الترقيم يحتاج الغلاف الكامل، لذلك يقرأ
+ * الاستجابة الخام (الاستثناء الموثّق للحصول على meta).
+ * Finance audit 2026-07-02 (F-PAGINATION): total لم يكن يُقرأ أبداً
+ * فكانت الفواتير الأقدم من صفحة واحدة غير قابلة للوصول من القائمة.
+ */
+export function useInvoicesPaged(params?: Record<string, string | undefined>) {
+  const qs = buildQueryString(params);
+  return useQuery<{ invoices: Invoice[]; total: number }>({
+    queryKey: ['invoices', 'paged', params],
+    queryFn: async () => {
+      const res = await fetch(`/api/invoices${qs}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      return {
+        invoices: (json.data || []) as Invoice[],
+        total: Number(json.meta?.total ?? (json.data || []).length),
+      };
+    },
+    staleTime: 30_000,
+  });
+}
+
 /** فاتورة واحدة بالـ ID */
 export function useInvoice(id: string | undefined) {
   return useQuery<Invoice>({

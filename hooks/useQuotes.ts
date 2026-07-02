@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchAPI, mutateAPI, buildQueryString } from './api-helpers';
+import { fetchAPI, mutateAPI } from './api-helpers';
 
 // ============================================================
 // Types
@@ -41,26 +41,10 @@ export interface Quote {
 // ============================================================
 // Hooks: Queries
 // ============================================================
-
-/** قائمة العروض مع فلترة اختيارية */
-export function useQuotes(params?: Record<string, string | undefined>) {
-  const qs = buildQueryString(params);
-  return useQuery<Quote[]>({
-    queryKey: ['quotes', params],
-    queryFn: () => fetchAPI(`/api/dashboard/quotes${qs}`),
-    staleTime: 30_000,
-  });
-}
-
-/** عرض واحد بالـ ID */
-export function useQuote(id: string | undefined) {
-  return useQuery<Quote>({
-    queryKey: ['quotes', id],
-    queryFn: () => fetchAPI(`/api/dashboard/quotes/${id}`),
-    enabled: !!id,
-    staleTime: 30_000,
-  });
-}
+// NOTE (finance audit 2026-07-02 cleanup): the dead useQuotes/useQuote/
+// useCreateQuote hooks were removed — they pointed at /api/dashboard/quotes
+// which never existed (guaranteed 404) and had zero consumers. The real
+// quotes endpoint is /api/quotes; useLeadQuotes below is the live consumer.
 
 /**
  * Quotes linked to a specific lead — powers the Lead Detail "Deals" tab quotes
@@ -86,18 +70,7 @@ export function useLeadQuotes(leadId: string | undefined) {
 // Hooks: Mutations
 // ============================================================
 
-/** إنشاء عرض جديد */
-export function useCreateQuote() {
-  const queryClient = useQueryClient();
-  return useMutation<Quote, Error, Partial<Quote>>({
-    mutationFn: (data) => mutateAPI('/api/dashboard/quotes', 'POST', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['quotes'] });
-    },
-  });
-}
-
-/** تعديل عرض موجود */
+/** تعديل عرض موجود (يستخدم مسار /api/quotes الحقيقي) */
 export function useUpdateQuote() {
   const queryClient = useQueryClient();
   return useMutation<Quote, Error, { id: string; data: Partial<Quote> }>({

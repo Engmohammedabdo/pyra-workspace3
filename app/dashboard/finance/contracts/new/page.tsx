@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -28,6 +28,7 @@ const CONTRACT_TYPES = [
 
 export default function NewContractPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: clients = [] } = useClients({ pageSize: '100' });
   const { data: allProjects = [] } = useProjects({ pageSize: '100' });
   const [form, setForm] = useState({
@@ -44,6 +45,9 @@ export default function NewContractPage() {
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI<{ id?: string }>('/api/finance/contracts', 'POST', data),
     onSuccess: (data) => {
+      // Live contract caches: ['contracts-list'] (recurring/new picker) + ['contracts', ...] (CRM move-stage modal)
+      queryClient.invalidateQueries({ queryKey: ['contracts-list'] });
+      queryClient.invalidateQueries({ queryKey: ['contracts'] });
       toast.success('تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل');
       router.push(`/dashboard/finance/contracts/${(data as any).id || ''}`);
     },

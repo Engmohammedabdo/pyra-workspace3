@@ -107,7 +107,7 @@ export default function InvoiceDetailPage() {
   const handleSaveEdit = async () => {
     setSavingEdit(true);
     try {
-      await fetch(`/api/invoices/${id}`, {
+      const res = await fetch(`/api/invoices/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -121,6 +121,11 @@ export default function InvoiceDetailPage() {
           items: editItems.filter(i => i.description.trim()).map(i => ({ description: i.description.trim(), quantity: i.quantity, rate: i.rate })),
         }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.error) {
+        toast.error(json.error || 'فشل حفظ التعديلات');
+        return;
+      }
       toast.success('تم حفظ التعديلات');
       setEditing(false);
       fetchInvoice();

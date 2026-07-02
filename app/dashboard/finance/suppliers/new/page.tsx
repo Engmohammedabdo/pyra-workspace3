@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 
 export default function NewSupplierPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
@@ -32,6 +33,8 @@ export default function NewSupplierPage() {
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI<{ id?: string }>('/api/dashboard/suppliers', 'POST', data),
     onSuccess: (data) => {
+      // Supplier dropdown caches (expenses/new, expenses/[id], purchase-orders/new) use ['suppliers']
+      queryClient.invalidateQueries({ queryKey: ['suppliers'] });
       toast.success('تم إنشاء المورد');
       router.push(`/dashboard/finance/suppliers/${(data as any).id}`);
     },

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, use } from 'react';
-import { useQuery as useQueryRQ } from '@tanstack/react-query';
+import { useQuery as useQueryRQ, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useExpense } from '@/hooks/useExpenses';
@@ -33,6 +33,7 @@ const PAYMENT_METHODS = [
 export default function EditExpensePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects({ pageSize: '100' });
   const [saving, setSaving] = useState(false);
   const [formReady, setFormReady] = useState(false);
@@ -94,10 +95,14 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
         }),
       });
       if (res.ok) {
+        // Match useExpenses.ts keys: list = ['expenses', params], single = ['expenses', id]
+        queryClient.invalidateQueries({ queryKey: ['expenses'] });
+        queryClient.invalidateQueries({ queryKey: ['expenses', id] });
         toast.success('تم تحديث المصروف');
         router.push('/dashboard/finance/expenses');
       } else {
-        toast.error('فشل في التحديث');
+        const json = await res.json().catch(() => ({}));
+        toast.error(json.error || 'فشل في التحديث');
       }
     } catch {
       toast.error('فشل في التحديث');
