@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 
 interface StatementEntry {
   date: string;
-  type: 'invoice' | 'payment' | 'stripe_payment';
+  type: 'invoice' | 'payment' | 'refund';
   description: string;
   reference: string;
   debit: number;
@@ -66,6 +66,8 @@ export function StatementTable({ entries }: StatementTableProps) {
                     <div className="flex items-center gap-2">
                       {entry.type === 'invoice' ? (
                         <ArrowUpCircle className="h-4 w-4 text-red-500 shrink-0" />
+                      ) : entry.type === 'refund' ? (
+                        <ArrowUpCircle className="h-4 w-4 text-amber-500 shrink-0" />
                       ) : (
                         <ArrowDownCircle className="h-4 w-4 text-emerald-500 shrink-0" />
                       )}

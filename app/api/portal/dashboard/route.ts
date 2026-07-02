@@ -125,11 +125,17 @@ export async function GET() {
     }
 
     // ── Financial summary (invoices) ──────────────────
-    const { data: clientInvoices } = await supabase
+    // Finance audit 2026-07-02 (F-PORTAL-DASH): the previous select used a
+    // non-existent column (total_amount → real name is `total`) with the
+    // error unchecked, so this summary was permanently zeros for every
+    // client. Cancelled invoices are excluded (they are not receivables),
+    // and "remaining" reads amount_due (the clamped source of truth).
+    const { data: clientInvoices, error: invSumErr } = await supabase
       .from('pyra_invoices')
-      .select('total_amount, amount_paid, status')
+      .select('total, amount_paid, amount_due, status')
       .eq('client_id', client.id)
-      .neq('status', 'draft');
+      .not('status', 'in', '(draft,cancelled)');
+    if (invSumErr) console.error('Portal dashboard financial summary error:', invSumErr);
 
     const financialSummary = {
       totalInvoiced: 0,
@@ -139,16 +145,18 @@ export async function GET() {
       pendingCount: 0,
     };
 
+    const OUTSTANDING = ['sent', 'partially_paid', 'overdue'];
     for (const inv of clientInvoices || []) {
-      const total = Number(inv.total_amount) || 0;
-      const paid = Number(inv.amount_paid) || 0;
-      financialSummary.totalInvoiced += total;
-      financialSummary.totalPaid += paid;
-      financialSummary.totalRemaining += total - paid;
-      if (inv.status === 'pending' || inv.status === 'sent' || inv.status === 'overdue') {
+      financialSummary.totalInvoiced += Number(inv.total) || 0;
+      financialSummary.totalPaid += Number(inv.amount_paid) || 0;
+      financialSummary.totalRemaining += Number(inv.amount_due) || 0;
+      if (OUTSTANDING.includes(inv.status)) {
         financialSummary.pendingCount++;
       }
     }
+    financialSummary.totalInvoiced = Math.round(financialSummary.totalInvoiced * 100) / 100;
+    financialSummary.totalPaid = Math.round(financialSummary.totalPaid * 100) / 100;
+    financialSummary.totalRemaining = Math.round(financialSummary.totalRemaining * 100) / 100;
 
     // ── Project progress (approved / total files) ─────
     // If project status is "completed" → progress = 100%

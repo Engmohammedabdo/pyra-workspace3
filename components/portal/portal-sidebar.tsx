@@ -19,6 +19,7 @@ import {
   HelpCircle,
   Wallet,
   RefreshCw,
+  ReceiptText,
 } from 'lucide-react';
 
 const portalNavItems = [
@@ -56,6 +57,12 @@ const portalNavItems = [
     href: '/portal/invoices',
     label: 'الفواتير',
     icon: Receipt,
+    badgeKey: null as 'notifications' | null,
+  },
+  {
+    href: '/portal/credit-notes',
+    label: 'الإشعارات الدائنة',
+    icon: ReceiptText,
     badgeKey: null as 'notifications' | null,
   },
   {

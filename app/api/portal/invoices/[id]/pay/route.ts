@@ -12,6 +12,24 @@ import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { getStripeClient } from '@/lib/stripe';
 
+// Simple in-memory rate limiter — a client double-clicking "ادفع الآن" (or
+// two open tabs) must not mint unlimited live Stripe sessions each for the
+// full amount_due (finance audit 2026-07-02, F-10). Mirrors the dashboard
+// create-checkout limiter; keyed on the portal client id.
+const payRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+function checkPayRate(key: string, maxPerMinute = 5): boolean {
+  const now = Date.now();
+  const entry = payRateLimit.get(key);
+  if (!entry || now > entry.resetAt) {
+    payRateLimit.set(key, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.count >= maxPerMinute) return false;
+  entry.count++;
+  return true;
+}
+
 // Simple retry helper for Stripe API failures
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -39,6 +57,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     if (!client) return apiUnauthorized();
 
     const { id } = await context.params;
+
+    if (!checkPayRate(client.id)) {
+      return apiError('تم تجاوز عدد محاولات الدفع المسموح. حاول بعد دقيقة.', 429);
+    }
+
     const supabase = createServiceRoleClient();
 
     // 2. Fetch invoice — must belong to this client

@@ -82,10 +82,10 @@ export default function PortalRecurringInvoicesPage() {
                             <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                             <Badge variant="outline" className="text-xs">{cycleLabel}</Badge>
                           </div>
-                          {ri.contract_title && (
+                          {(ri.title || ri.contract_title) && (
                             <p className="text-sm font-medium mt-2 flex items-center gap-1.5">
                               <FileSignature className="h-3.5 w-3.5 text-muted-foreground" />
-                              {ri.contract_title}
+                              {ri.title || ri.contract_title}
                             </p>
                           )}
                           {ri.project_name && (

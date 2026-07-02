@@ -12,7 +12,7 @@ import { UnbilledObligations } from '@/components/portal/statement/UnbilledOblig
 
 interface StatementEntry {
   date: string;
-  type: 'invoice' | 'payment' | 'stripe_payment';
+  type: 'invoice' | 'payment' | 'refund';
   description: string;
   reference: string;
   debit: number;

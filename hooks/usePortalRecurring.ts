@@ -5,11 +5,11 @@ import { fetchAPI } from './api-helpers';
 
 export interface RecurringInvoice {
   id: string;
+  title: string | null;
   status: string;
   billing_cycle: string;
   next_generation_date: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  last_generated_at: string | null;
   contract_id: string | null;
   total: number;
   currency: string;

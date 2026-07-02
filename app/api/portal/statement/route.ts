@@ -18,11 +18,13 @@ export async function GET(req: Request) {
     const to = url.searchParams.get('to');
 
     // ── Invoices ──
+    // Cancelled invoices are excluded — they are not receivables and must
+    // not appear as debits on a client statement.
     let invoiceQuery = supabase
       .from('pyra_invoices')
       .select('id, invoice_number, status, issue_date, due_date, total, amount_paid, amount_due, currency, project_name')
       .eq('client_id', client.id)
-      .neq('status', 'draft')
+      .not('status', 'in', '(draft,cancelled)')
       .order('issue_date', { ascending: false });
 
     if (from) invoiceQuery = invoiceQuery.gte('issue_date', from);
@@ -39,13 +41,14 @@ export async function GET(req: Request) {
       amount: number;
       payment_date: string;
       method: string;
+      reference: string | null;
       created_at: string;
     }[] = [];
 
     if (invoiceIds.length > 0) {
       let payQuery = supabase
         .from('pyra_payments')
-        .select('id, invoice_id, amount, payment_date, method, created_at')
+        .select('id, invoice_id, amount, payment_date, method, reference, created_at')
         .in('invoice_id', invoiceIds)
         .order('payment_date', { ascending: false });
 
@@ -56,18 +59,16 @@ export async function GET(req: Request) {
       payments = (data || []) as typeof payments;
     }
 
-    // ── Stripe payments ──
-    const { data: stripePayments } = await supabase
-      .from('pyra_stripe_payments')
-      .select('id, invoice_id, amount, currency, status, stripe_session_id, created_at')
-      .eq('client_id', client.id)
-      .eq('status', 'completed')
-      .order('created_at', { ascending: false });
+    // NOTE (finance audit 2026-07-02, F-STMT-DBL): pyra_stripe_payments rows
+    // are intentionally NOT ledger entries. The Stripe webhook always books
+    // the settled money into pyra_payments (method 'online') — the ledger's
+    // single source of truth for money received is pyra_payments, so adding
+    // stripe session rows double-credited every online payment.
 
     // ── Build statement entries (chronological) ──
     interface StatementEntry {
       date: string;
-      type: 'invoice' | 'payment' | 'stripe_payment';
+      type: 'invoice' | 'payment' | 'refund';
       description: string;
       reference: string;
       debit: number;
@@ -76,6 +77,17 @@ export async function GET(req: Request) {
       invoice_id?: string;
       currency: string;
     }
+
+    const METHOD_LABELS: Record<string, string> = {
+      bank_transfer: 'تحويل بنكي',
+      cash: 'نقدي',
+      cheque: 'شيك',
+      stripe: 'دفع إلكتروني',
+      online: 'دفع إلكتروني',
+      credit_note: 'إشعار دائن (استرداد)',
+      refund: 'استرداد',
+      dispute_lost: 'نزاع بنكي',
+    };
 
     const entries: StatementEntry[] = [];
 
@@ -94,46 +106,27 @@ export async function GET(req: Request) {
       });
     }
 
-    // Add payments as credits
+    // Add payments as credits. NEGATIVE payments (credit-note refunds,
+    // Stripe refunds, lost disputes) are money returned to the client —
+    // proper ledger presentation puts them in the DEBIT column as a positive
+    // amount with a clear label, never as a "negative credit".
     for (const pay of payments) {
       const inv = (invoices || []).find((i) => i.id === pay.invoice_id);
-      const methodLabel = pay.method === 'bank_transfer' ? 'تحويل بنكي'
-        : pay.method === 'cash' ? 'نقدي'
-        : pay.method === 'cheque' ? 'شيك'
-        : pay.method === 'stripe' ? 'Stripe'
-        : pay.method || 'دفعة';
+      const methodLabel = METHOD_LABELS[pay.method] || pay.method || 'دفعة';
+      const amount = Number(pay.amount) || 0;
+      const isRefund = amount < 0;
+      const refText = pay.method === 'credit_note' && pay.reference ? ` ${pay.reference}` : '';
       entries.push({
         date: pay.payment_date,
-        type: 'payment',
-        description: `${methodLabel} — ${inv?.invoice_number || ''}`,
-        reference: inv?.invoice_number || '',
-        debit: 0,
-        credit: Number(pay.amount) || 0,
+        type: isRefund ? 'refund' : 'payment',
+        description: `${methodLabel}${refText} — ${inv?.invoice_number || ''}`,
+        reference: (pay.method === 'credit_note' && pay.reference) || inv?.invoice_number || '',
+        debit: isRefund ? Math.abs(amount) : 0,
+        credit: isRefund ? 0 : amount,
         balance: 0,
         invoice_id: pay.invoice_id,
         currency: inv?.currency || 'AED',
       });
-    }
-
-    // Add stripe payments as credits (only if not already in payments)
-    for (const sp of stripePayments || []) {
-      const alreadyInPayments = payments.some(
-        (p) => p.invoice_id === sp.invoice_id && p.method === 'stripe'
-      );
-      if (!alreadyInPayments) {
-        const inv = (invoices || []).find((i) => i.id === sp.invoice_id);
-        entries.push({
-          date: sp.created_at?.split('T')[0] || '',
-          type: 'stripe_payment',
-          description: `Stripe — ${inv?.invoice_number || ''}`,
-          reference: inv?.invoice_number || '',
-          debit: 0,
-          credit: Number(sp.amount) || 0,
-          balance: 0,
-          invoice_id: sp.invoice_id,
-          currency: sp.currency || 'AED',
-        });
-      }
     }
 
     // Sort by date ascending
@@ -202,7 +195,9 @@ export async function GET(req: Request) {
     // ── Summary ──
     const totalInvoiced = (invoices || []).reduce((s, i) => s + (Number(i.total) || 0), 0);
     const totalPaid = (invoices || []).reduce((s, i) => s + (Number(i.amount_paid) || 0), 0);
-    const totalRemaining = totalInvoiced - totalPaid;
+    // amount_due is the clamped per-invoice source of truth — keeps the
+    // summary consistent with what each invoice row shows.
+    const totalRemaining = (invoices || []).reduce((s, i) => s + (Number(i.amount_due) || 0), 0);
 
     const overdueInvoices = (invoices || []).filter((i) => i.status === 'overdue');
     const overdueAmount = overdueInvoices.reduce((s, i) => s + (Number(i.amount_due) || 0), 0);

@@ -2,10 +2,17 @@ import { getPortalSession } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiUnauthorized, apiServerError } from '@/lib/api/response';
 
+type RecurringItem = { description?: string; quantity?: number; rate?: number };
+
 /**
  * GET /api/portal/recurring-invoices
- * List recurring invoices belonging to the client.
- * Shows schedule, next generation date, and linked invoices count.
+ * List recurring-invoice schedules belonging to the client.
+ *
+ * Finance audit 2026-07-02 (F-PORTAL-REC): the previous select referenced
+ * columns that do not exist on pyra_recurring_invoices (start_date, end_date,
+ * total) — PostgREST 42703 → the portal page silently showed empty forever.
+ * The per-cycle amount is DERIVED from the items jsonb (sum of qty × rate),
+ * and the generated-invoice count is resolved via the linked contract.
  */
 export async function GET() {
   try {
@@ -14,20 +21,20 @@ export async function GET() {
 
     const supabase = createServiceRoleClient();
 
-    // Fetch recurring invoices for this client
     const { data: recurring, error } = await supabase
       .from('pyra_recurring_invoices')
-      .select('id, status, billing_cycle, next_generation_date, start_date, end_date, contract_id, total, currency, created_at')
+      .select('id, title, status, billing_cycle, next_generation_date, last_generated_at, contract_id, items, currency, created_at')
       .eq('client_id', client.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Enrich with contract name and generated invoice count
+    // Enrich with contract/project names and generated invoice count
     const enriched = [];
     for (const ri of recurring || []) {
       let contract_title: string | null = null;
       let project_name: string | null = null;
+      let generatedCount = 0;
 
       if (ri.contract_id) {
         const { data: contract } = await supabase
@@ -46,20 +53,37 @@ export async function GET() {
             project_name = project?.name || null;
           }
         }
+
+        // Generated invoices carry the contract link (there is no
+        // recurring_invoice_id column on pyra_invoices)
+        const { count } = await supabase
+          .from('pyra_invoices')
+          .select('id', { count: 'exact', head: true })
+          .eq('contract_id', ri.contract_id)
+          .neq('status', 'draft');
+        generatedCount = count || 0;
       }
 
-      // Count generated invoices
-      const { count: invoiceCount } = await supabase
-        .from('pyra_invoices')
-        .select('id', { count: 'exact', head: true })
-        .eq('recurring_invoice_id', ri.id)
-        .neq('status', 'draft');
+      // Per-cycle amount = sum of template items (qty × rate)
+      const itemsArr: RecurringItem[] = Array.isArray(ri.items) ? ri.items : [];
+      const total = Math.round(
+        itemsArr.reduce((sum, it) => sum + (Number(it.quantity) || 1) * (Number(it.rate) || 0), 0) * 100
+      ) / 100;
 
       enriched.push({
-        ...ri,
+        id: ri.id,
+        title: ri.title,
+        status: ri.status,
+        billing_cycle: ri.billing_cycle,
+        next_generation_date: ri.next_generation_date,
+        last_generated_at: ri.last_generated_at,
+        contract_id: ri.contract_id,
+        currency: ri.currency,
+        created_at: ri.created_at,
+        total,
         contract_title,
         project_name,
-        generated_count: invoiceCount || 0,
+        generated_count: generatedCount,
       });
     }
 

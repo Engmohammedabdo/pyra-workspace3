@@ -42,6 +42,12 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return apiForbidden();
     }
 
+    // Internal-only statuses must never be openable by the client — a draft
+    // or pending-approval quote may still be re-priced or rejected internally.
+    if (quote.status === QUOTE_STATUS.DRAFT || quote.status === QUOTE_STATUS.PENDING_APPROVAL) {
+      return apiNotFound('عرض السعر غير موجود');
+    }
+
     // Auto-mark as viewed on first access
     if (quote.status === QUOTE_STATUS.SENT && !quote.viewed_at) {
       const now = new Date().toISOString();

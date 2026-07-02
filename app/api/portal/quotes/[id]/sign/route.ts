@@ -11,7 +11,13 @@ import {
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { notifyQuoteSigned } from '@/lib/email/notify';
+import { notify } from '@/lib/notifications/notify';
 import { QUOTE_STATUS } from '@/lib/constants/statuses';
+import { dubaiDayKey } from '@/lib/utils/format';
+
+// Signature payloads are data-URIs — cap size so a client cannot persist
+// megabytes of arbitrary text per quote (finance audit 2026-07-02, F-12).
+const MAX_SIGNATURE_LENGTH = 500_000; // ~500 KB
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -30,6 +36,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { signature_data, signed_by } = body;
 
     if (!signature_data) return apiValidationError('التوقيع مطلوب');
+    if (typeof signature_data !== 'string' || signature_data.length > MAX_SIGNATURE_LENGTH) {
+      return apiValidationError('بيانات التوقيع غير صالحة أو كبيرة جداً');
+    }
     if (!signed_by?.trim()) return apiValidationError('اسم الموقع مطلوب');
 
     const supabase = createServiceRoleClient();
@@ -45,8 +54,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return apiForbidden('ليس لديك صلاحية لتوقيع هذا العرض');
     }
 
-    // Block signing expired quotes
-    if (quote.expiry_date && new Date(quote.expiry_date) < new Date(new Date().toISOString().split('T')[0])) {
+    // Block signing expired quotes (Dubai calendar day, not UTC)
+    if (quote.expiry_date && quote.expiry_date < dubaiDayKey()) {
       return apiValidationError('عرض السعر منتهي الصلاحية ولا يمكن توقيعه');
     }
 
@@ -62,6 +71,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const now = new Date().toISOString();
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
 
+    // Conditional update — two concurrent sign requests both pass the status
+    // guard above; the .in('status') filter lets exactly one win instead of
+    // the second silently overwriting the first signature.
     const { data: updated, error } = await supabase
       .from('pyra_quotes')
       .update({
@@ -73,12 +85,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
         updated_at: now,
       })
       .eq('id', id)
+      .in('status', [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED])
       .select('id, quote_number, status, signed_by, signed_at')
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Quote sign error:', error);
       return apiServerError();
+    }
+    if (!updated) {
+      return apiValidationError('عرض السعر موقع بالفعل');
     }
 
     // Notify via activity log
@@ -104,18 +120,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
     }
 
-    // In-app notification for the creating agent
+    // In-app notification for the creating agent. Finance audit 2026-07-02
+    // (F-SIGN-NOTIF): the previous direct insert used a non-existent `link`
+    // column (real name: target_path) and failed silently on EVERY signature
+    // — exactly the failure class the central notify() helper eliminates.
     if (quote.created_by) {
-      try {
-        await supabase.from('pyra_notifications').insert({
-          id: generateId('notif'),
-          recipient_username: quote.created_by,
-          type: 'quote_signed',
-          title: 'تم توقيع عرض السعر',
-          message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signed_by.trim()}`,
-          link: `/dashboard/quotes/${id}`,
-        });
-      } catch { /* non-critical */ }
+      await notify(supabase, {
+        to: quote.created_by,
+        type: 'quote_signed',
+        title: 'تم توقيع عرض السعر',
+        message: `تم توقيع عرض السعر ${quote.quote_number} بواسطة ${signed_by.trim()}`,
+        link: `/dashboard/quotes/${id}`,
+        entity: { type: 'quote', id },
+      });
     }
 
     return apiSuccess(updated);

@@ -30,7 +30,11 @@ export async function GET(request: NextRequest) {
         { count: 'exact' }
       )
       .eq('client_id', session.id)
-      .neq('status', 'draft');
+      // Drafts AND pending-approval quotes are internal documents — a quote
+      // awaiting internal sales-manager approval may still be re-priced or
+      // rejected and must not be visible to the client (finance audit
+      // 2026-07-02, F-7).
+      .not('status', 'in', '(draft,pending_approval)');
 
     if (status && status !== 'all') {
       query = query.eq('status', status);

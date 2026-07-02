@@ -20,6 +20,7 @@ import {
   FileText,
   FileSignature,
   Receipt,
+  ReceiptText,
   RefreshCw,
   Wallet,
   Bell,
@@ -59,6 +60,11 @@ const portalNavItems = [
     href: '/portal/invoices',
     label: 'الفواتير',
     icon: Receipt,
+  },
+  {
+    href: '/portal/credit-notes',
+    label: 'الإشعارات الدائنة',
+    icon: ReceiptText,
   },
   {
     href: '/portal/recurring',
