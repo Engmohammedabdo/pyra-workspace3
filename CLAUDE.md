@@ -4089,3 +4089,116 @@ was explicitly DEFERRED by the user — do NOT treat its absence as a bug. Plans
 - Evaluations: KPI PATCH stricter type validation on optional fields.
 - UAE legal compliance (deferred by decision): end-of-service gratuity engine,
   WPS/SIF bank-file export, HR CSV/PDF exports, YTD/annual payroll summary.
+
+## CRM Audit Remediation — Locked Decisions (2026-07-02)
+
+A comprehensive CRM audit (14 parallel finders → adversarial per-finding
+verification → 48 confirmed findings) followed by a 4-batch fix effort merged to
+`main` (`6aa8f79` Batch 1, `ac32e00` Batch 2, `bbd86a0` Batch 3+4). **Do NOT
+re-litigate.** Full audit report (48 findings + remediation roadmap) at
+`docs/CRM-AUDIT-2026-07-02.md`.
+
+### 1. Lead soft-archive is the feature behind `leads.delete` (migration 030)
+`pyra_sales_leads.archived_at` + `archived_by` (nullable) is a SOFT archive —
+NOT a hard delete. `DELETE /api/crm/leads/[id]` (gate `leads.delete` +
+`canAccessLead`; admin OR owner) sets/clears them; body `{ unarchive: true }`
+restores. `GET /api/crm/leads` hides archived by default (`archived_at IS NULL`);
+`?include_archived=true` shows both, `?archived=only` shows just archived. UI is
+the lead-header archive/un-archive button + AlertDialog confirm + "مؤرشف" badge;
+`useArchiveLead({ id, unarchive? })`. Archive is effectively admin-only in v1
+(only admin holds `leads.delete` via `*`). Do NOT convert this to a hard delete.
+
+### 2. `assigned_to` on create is gated by `leads.assign` (not just `leads.create`)
+POST `/api/crm/leads` AND POST `/api/crm/follow-ups`: a caller-supplied
+`assigned_to` that differs from the creator requires `leads.assign` AND the
+target must pass `isAssignableUser` (exists + `status='active'`). Mirrors the
+PATCH reassignment gate — closes the arbitrary-assignment / orphaning hole.
+`isAssignableUser` lives in `lib/auth/lead-scope.ts` — use it, don't re-inline.
+
+### 3. Reopen a closed_won lead → clear conversion state, KEEP the client link
+`move-stage` reopen branch resets `is_converted=false`, `converted_at=null`,
+`win_probability_overridden=false`, and recomputes `win_probability` from the
+target stage — but does NOT touch `client_id` (the `pyra_clients` row/link is
+preserved; user's locked choice). Without this the reopened deal stayed a
+100%-won customer forever and froze win_probability recompute on every future move.
+
+### 4. convert-to-customer: coalesce company + fatal-rollback on link failure
+`company: lead.company || contactName` (pyra_clients.company is NOT NULL; a B2C
+lead can be company-less → was a 500 that permanently blocked conversion). A
+failed `lead.client_id` UPDATE is now FATAL: roll back the just-created client
+row (+ Auth user) and 500, so a retry works cleanly (the old soft-warn left an
+orphan client that made every retry 409). convert-to-customer + portal-access
+also enforce own-lead scope on top of `leads.manage`.
+
+### 5. Multi-currency: per-currency for actual money, dominant-label for projections
+"Never sum across currencies." `formatCurrencyMap(map, fallbackCurrency)` in
+`lib/utils/format.ts` renders one figure per currency. The **dossier** returns
+`ltv_by_currency` / `mrr_by_currency` + a dominant `currency` (was hardcoded
+'AED'); customer stat-strip + contracts-tab render per-currency. The **dashboard
+kpis/funnel** (projections from `expected_value`) return a dominant `currency`
+derived from the scoped leads and the UI labels with it instead of 'AED' — a
+lighter fix because all production data is AED today (verified 2026-07-02: 221
+leads / 3 contracts / 23 invoices, all AED). v1.1: full per-currency dashboard
+maps once mixed-currency pipelines exist.
+
+### 6. Dossier revenue = ALL invoices (contract-linked + standalone)
+`/api/crm/customers/[lead_id]/dossier` unions invoices by `contract_id IN (...)`
+OR `client_id = lead.client_id` (DB-deduped). LTV = sum of ALL payments; payment
+health uses the full invoice set — a client paying only standalone invoices no
+longer reads 0-revenue / at-risk. Health-score **recency** uses the true
+most-recent activity (a dedicated `limit(1)` query with NO 30-day floor) so the
+30-90d / >90d buckets are reachable — the windowed engagement query can't surface
+an activity older than its 30-day window.
+
+### 7. `is_converted IS NOT TRUE`, not `= false` (NULL-safe)
+deals-at-risk, ai-insights, and lead-idle-check filter `.not('is_converted','is',
+true)` — a bare `.eq('is_converted', false)` drops legacy NULL rows (migrations
+010/011 treat NULL as not-converted), silently hiding active leads from the
+surfaces. lead-idle-check also includes NULL-`stage_id` leads via
+`.or('stage_id.is.null,stage_id.not.in.(...)')` and fails CLOSED on swallowed
+activity/dedup/notif SELECT errors (was emitting false idle warnings).
+
+### 8. Overdue follow-ups are a live not-done state
+The check-due cron flips due-past `pending` → `overdue`. The CRM follow-ups list
+default ("قيد الانتظار") now surfaces `pending`+`overdue` (they were vanishing);
+an "متأخرة" chip narrows to overdue; overdue rows stay completable;
+`next_follow_up` recompute includes overdue. Do NOT filter follow-ups on
+`status='pending'` alone anywhere user-facing.
+
+### 9. Dubai-day everywhere (Phase 15.1 lock re-applied)
+activity-timeline day-dividers, contract-milestones overdue badge, ai-insights
+"today" window, and the idle-summary entity id all use `dubaiDayKey()` — never a
+raw `.toISOString().slice(0,10)` for a "today in Dubai" comparison.
+
+### 10. Legacy `/api/dashboard/sales/*` routes stay (WhatsApp chat still uses them)
+The WhatsApp chat create-lead + schedule-followup dialogs are LIVE and still hit
+`/api/dashboard/sales/leads` + `/follow-ups`. Their `void <supabase-builder>`
+lazy-thenables (activity / audit / notification / `next_follow_up` / score never
+persisted) were fixed IN PLACE (await + `notify()` + `logActivity()`), NOT
+migrated — decision to stop the data loss without touching the chat UI. The
+orphaned legacy `/convert` route was fixed to not-always-500 (dropped the
+non-existent `notes` column + added the NOT NULL client fields).
+
+### 11. Attachment integrity + storage-path secrecy
+Attachment GET/POST strip `storage_path` (private-bucket path never leaves the
+server). DELETE deletes the DB row FIRST, then best-effort storage remove (a
+failed remove leaves a harmless orphan file, not a broken row → broken image
+cell). move-stage contract/invoice attachment is scoped to the lead/client
+(rejects a foreign "signed proof").
+
+### Deferred (documented, NOT done)
+- **Pipeline keyboard-drag a11y** — a `KeyboardSensor` needs `closestCenter`
+  collision, which conflicts with the LOCKED `pointerWithin` kanban invariant
+  (Phase 7). Needs a dedicated approved design (or a focusable desktop
+  stage-picker that doesn't touch the drag machinery). Do NOT add a KeyboardSensor
+  to the existing `pointerWithin` board.
+- **Full per-currency dashboard maps** — deferred until mixed-currency pipelines
+  exist (all-AED today).
+
+### CRM Audit v1.1 backlog
+- Team-performance per-agent scoping — only needed if `crm_reports.team_view` is
+  ever granted to a non-admin (admin-only today).
+- Lead-list `activity_count` server-side grouped count if activity volume grows
+  past a page's worth (verified 2026-07-02: no `db-max-rows` cap, <1k rows).
+- Legacy `/api/dashboard/sales/*` full deprecation once the WhatsApp chat dialogs
+  migrate to `/api/crm/*`.
