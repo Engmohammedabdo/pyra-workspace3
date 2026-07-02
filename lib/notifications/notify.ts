@@ -83,6 +83,11 @@ export type NotificationType =
   | 'dispute_created'
   | 'dispute_closed'
   | 'payment_failed'
+  // Finance daily cron (admin-facing, internal-only — Batch 3)
+  | 'invoice_draft_generated'
+  | 'contract_expiring'
+  // Quote signing (portal → agent bell)
+  | 'quote_signed'
   // Generic
   | 'comment_reply'
   | 'mention'
