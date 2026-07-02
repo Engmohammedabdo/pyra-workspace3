@@ -69,7 +69,11 @@ export async function POST(_request: NextRequest) {
       const isOverdue = new Date(fu.due_at) < now;
       notifications.push({
         id: generateId('notif'),
-        username: fu.assigned_to,
+        // Real column is recipient_username — the previous `username` key made
+        // the whole batch insert fail the NOT NULL constraint (swallowed by the
+        // try/catch), so NO bell notification ever fired for a due/overdue
+        // follow-up through this cron.
+        recipient_username: fu.assigned_to,
         type: 'follow_up_due',
         title: isOverdue ? '⚠️ متابعة متأخرة' : '🔔 متابعة مستحقة اليوم',
         message: fu.title || 'متابعة بدون عنوان',

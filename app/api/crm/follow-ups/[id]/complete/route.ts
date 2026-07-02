@@ -43,8 +43,12 @@ export async function POST(
       return apiServerError();
     }
     if (!followUp) return apiNotFound('المتابعة غير موجودة');
-    if (followUp.status !== 'pending') {
-      return apiValidationError('المتابعة ليست قيد الانتظار');
+    // 'overdue' is a live not-done state (the check-due cron flips due-past
+    // pending → overdue). It MUST stay completable — otherwise the row can never
+    // be closed via the UI (the list shows a complete button) and overdue counts
+    // + next_follow_up inflate forever.
+    if (followUp.status !== 'pending' && followUp.status !== 'overdue') {
+      return apiValidationError('المتابعة تم إكمالها أو إلغاؤها بالفعل');
     }
 
     // Caller must own the follow-up OR have access to the parent lead
@@ -68,11 +72,18 @@ export async function POST(
       .from('pyra_sales_follow_ups')
       .update({ status: 'completed', completed_at: completedAt })
       .eq('id', id)
+      // Compare-and-swap: only close a still-open follow-up. A concurrent
+      // complete (double-click / two devices) matches 0 rows → idempotent no-op
+      // instead of re-processing an already-completed row.
+      .in('status', ['pending', 'overdue'])
       .select('*')
-      .single();
-    if (updErr || !updated) {
-      console.error('POST follow-up complete update error:', updErr?.message);
+      .maybeSingle();
+    if (updErr) {
+      console.error('POST follow-up complete update error:', updErr.message);
       return apiServerError();
+    }
+    if (!updated) {
+      return apiValidationError('المتابعة تم إكمالها بالفعل');
     }
 
     // .then() required — Supabase query builder is lazy; bare `void <builder>`
@@ -96,7 +107,7 @@ export async function POST(
       .from('pyra_sales_follow_ups')
       .select('due_at')
       .eq('lead_id', followUp.lead_id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'overdue'])
       .order('due_at', { ascending: true })
       .limit(1);
     void supabase

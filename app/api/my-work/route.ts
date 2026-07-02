@@ -253,7 +253,9 @@ export async function GET() {
       .from('pyra_sales_leads')
       .select('id, name, stage_id, last_contact_at, phone')
       .eq('assigned_to', username)
-      .eq('is_converted', false)
+      // IS NOT TRUE catches both false and legacy NULL rows (a bare .eq(false)
+      // silently hides legacy leads that deals-at-risk/idle-check DO count).
+      .not('is_converted', 'is', true)
       .order('last_contact_at', { ascending: true, nullsFirst: true })
       .limit(10);
 
@@ -271,7 +273,10 @@ export async function GET() {
       .from('pyra_sales_follow_ups')
       .select('id, title, due_at, lead_id, status')
       .eq('assigned_to', username)
-      .eq('status', 'pending')
+      // Include 'overdue' — the check-due cron flips due-past pending → overdue,
+      // and a bare status='pending' dropped them from the home inbox entirely
+      // (agent believed they were clear while follow-ups were overdue+invisible).
+      .in('status', ['pending', 'overdue'])
       .lte('due_at', new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString())
       .order('due_at', { ascending: true })
       .limit(10);
