@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiError,
   apiNotFound,
   apiForbidden,
   apiServerError,
@@ -86,11 +87,19 @@ export async function POST(
         updated_at: approvedAt,
       })
       .eq('id', leadId)
+      // Compare-and-swap: only approve a lead STILL in contract_signed. A
+      // concurrent approve/reject/move that changed the stage → 0 rows → 409,
+      // so a double-approve or approve-vs-reject race can't blend two terminal
+      // states (e.g. is_converted=true sitting in the Negotiation column).
+      .eq('stage_id', PIPELINE_STAGE_IDS.CONTRACT_SIGNED)
       .select('*')
-      .single();
-    if (updErr || !lead) {
-      console.error('approve update error:', updErr?.message);
-      return apiServerError(`فشل اعتماد الـ Lead${updErr?.message ? ': ' + updErr.message : ''}`);
+      .maybeSingle();
+    if (updErr) {
+      console.error('approve update error:', updErr.message);
+      return apiServerError(`فشل اعتماد الـ Lead: ${updErr.message}`);
+    }
+    if (!lead) {
+      return apiError('تغيّرت حالة الـ Lead — حدّث الصفحة وحاول مرة أخرى', 409);
     }
 
     // Activity row — fire-and-forget but with .then() so it actually executes.

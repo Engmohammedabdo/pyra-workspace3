@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
+  apiError,
   apiNotFound,
   apiForbidden,
   apiServerError,
@@ -86,6 +87,12 @@ export async function POST(
     const updates: Record<string, unknown> = {
       stage_id: PIPELINE_STAGE_IDS.NEGOTIATION,
       updated_at: new Date().toISOString(),
+      // Defensive: a rejected deal must NOT carry conversion state. Normally a
+      // contract_signed lead isn't converted yet, but if a racing approve set
+      // these, reject clears them so a "customer" can never survive in the
+      // Negotiation column (the CAS below also blocks that race).
+      is_converted: false,
+      converted_at: null,
     };
     if (!leadBefore.win_probability_overridden) {
       updates.win_probability = STAGE_DEFAULT_WIN_PROBABILITY[PIPELINE_STAGE_IDS.NEGOTIATION];
@@ -95,11 +102,16 @@ export async function POST(
       .from('pyra_sales_leads')
       .update(updates)
       .eq('id', leadId)
+      // Compare-and-swap: only reject a lead STILL in contract_signed.
+      .eq('stage_id', PIPELINE_STAGE_IDS.CONTRACT_SIGNED)
       .select('*')
-      .single();
-    if (updErr || !lead) {
-      console.error('reject update error:', updErr?.message);
-      return apiServerError(`فشل رفض الـ Lead${updErr?.message ? ': ' + updErr.message : ''}`);
+      .maybeSingle();
+    if (updErr) {
+      console.error('reject update error:', updErr.message);
+      return apiServerError(`فشل رفض الـ Lead: ${updErr.message}`);
+    }
+    if (!lead) {
+      return apiError('تغيّرت حالة الـ Lead — حدّث الصفحة وحاول مرة أخرى', 409);
     }
 
     const rejectedAt = new Date().toISOString();

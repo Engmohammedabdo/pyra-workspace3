@@ -101,7 +101,18 @@ export async function POST(request: NextRequest) {
       return apiServerError();
     }
 
-    const allLeads = ((leadData ?? []) as unknown as LeadRow[]).filter((l) => l.assigned_to);
+    const ownedLeads = ((leadData ?? []) as unknown as LeadRow[]).filter((l) => l.assigned_to);
+    // Only process leads owned by ACTIVE agents. A stranded lead on a departed
+    // agent would otherwise generate idle_warnings + a daily grouped summary
+    // delivered to a dead inbox nobody reads (that's the mechanism that kept the
+    // orphaned-pipeline problem silent). The admin re-homes those via the
+    // pipeline "المغادرين" filter instead.
+    const { data: activeUsers } = await supabase
+      .from('pyra_users')
+      .select('username')
+      .eq('status', 'active');
+    const activeSet = new Set((activeUsers ?? []).map((u) => u.username));
+    const allLeads = ownedLeads.filter((l) => activeSet.has(l.assigned_to));
     const leadsChecked = allLeads.length;
     if (leadsChecked === 0) {
       return apiSuccess({

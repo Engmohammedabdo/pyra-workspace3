@@ -169,22 +169,50 @@ export async function POST(request: NextRequest) {
       (r) => r.lead_id && r.assigned_to,
     );
 
+    // Active-agent set — skip reminders for follow-ups stranded on departed
+    // agents (a WhatsApp reminder to a dead account's routing is pointless). The
+    // row is left un-flipped so the reminder fires once the admin reassigns it.
+    const { data: activeUsers } = await supabase
+      .from('pyra_users')
+      .select('username')
+      .eq('status', 'active');
+    const activeSet = new Set((activeUsers ?? []).map((u) => u.username));
+
     let sent = 0;
     let skippedNoSetting = 0;
     let skippedInstanceOffline = 0;
     let skippedNoPhone = 0;
+    let skippedInactiveAgent = 0;
+    let skippedArchived = 0;
     const errors: ProcessError[] = [];
 
     // ── Sequential per-row processing ──
     for (const row of rows) {
       try {
-        // Lead lookup (name + phone for the message body)
+        // Skip follow-ups stranded on a departed agent — leave the flag
+        // un-flipped so the reminder fires once the admin reassigns it.
+        if (!activeSet.has(row.assigned_to)) {
+          skippedInactiveAgent++;
+          continue;
+        }
+
+        // Lead lookup (name + phone for the message body; archived_at to skip
+        // reminders on soft-archived leads).
         const { data: leadData } = await supabase
           .from('pyra_sales_leads')
-          .select('id, name, phone')
+          .select('id, name, phone, archived_at')
           .eq('id', row.lead_id)
           .maybeSingle();
         const lead = leadData as LeadRow | null;
+        if ((leadData as { archived_at?: string | null } | null)?.archived_at) {
+          // Archived lead → no reminder. Flip the flag so it stops re-processing.
+          await supabase
+            .from('pyra_sales_follow_ups')
+            .update({ whatsapp_reminder_sent: true })
+            .eq('id', row.id);
+          skippedArchived++;
+          continue;
+        }
         if (!lead) {
           errors.push({ follow_up_id: row.id, reason: 'lead not found' });
           // Still flip the flag — the row is orphaned and re-trying every
@@ -322,6 +350,8 @@ export async function POST(request: NextRequest) {
       skipped_no_setting: skippedNoSetting,
       skipped_instance_offline: skippedInstanceOffline,
       skipped_no_phone: skippedNoPhone,
+      skipped_inactive_agent: skippedInactiveAgent,
+      skipped_archived: skippedArchived,
       errors,
     });
   } catch (err) {
