@@ -7,7 +7,8 @@ import {
   apiForbidden,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { canAccessLead } from '@/lib/auth/lead-scope';
+import { canAccessLead, isAssignableUser } from '@/lib/auth/lead-scope';
+import { hasPermission } from '@/lib/auth/rbac';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ACTIVITY_ACTIONS } from '@/lib/api/activity';
 import { notify } from '@/lib/notifications/notify';
@@ -129,14 +130,37 @@ export async function POST(request: NextRequest) {
       return apiValidationError('lead_id و title و due_at مطلوبة');
     }
 
+    // Validate due_at unconditionally (up front) — it goes into a NOT NULL
+    // timestamptz column. Previously it was only checked inside the branch that
+    // runs when reminder_at is absent, so a valid reminder_at + garbage due_at
+    // slipped past app validation and surfaced the raw Postgres error as a 500.
+    const dueParsed = new Date(dueAt);
+    if (isNaN(dueParsed.getTime())) {
+      return apiValidationError('due_at غير صالح — يجب أن يكون تاريخ ISO');
+    }
+    const dueAtIso = dueParsed.toISOString();
+
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, leadId);
     if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
 
-    const assignedTo =
-      (typeof body.assigned_to === 'string' && body.assigned_to.trim()) ||
-      auth.pyraUser.username;
+    // assigned_to gate: assigning a follow-up to someone else is a manager/admin
+    // action — require leads.assign and validate the target is a real, ACTIVE
+    // user (mirrors the leads POST gate; otherwise the follow-up is orphaned).
+    let assignedTo = auth.pyraUser.username;
+    const requestedAssignee =
+      typeof body.assigned_to === 'string' ? body.assigned_to.trim() : '';
+    if (requestedAssignee && requestedAssignee !== auth.pyraUser.username) {
+      if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.assign')) {
+        return apiForbidden('تحتاج صلاحية "إسناد / نقل ملكية الـ Lead" لإسناد المتابعة لمستخدم آخر');
+      }
+      const assignable = await isAssignableUser(supabase, requestedAssignee);
+      if (!assignable) {
+        return apiValidationError('المستخدم المحدد للإسناد غير موجود أو غير نشط');
+      }
+      assignedTo = requestedAssignee;
+    }
     const notes = typeof body.notes === 'string' ? body.notes.trim() || null : null;
 
     // Phase 11 (migration 013 + commit 2): reminder_at + send_whatsapp_reminder
@@ -156,11 +180,8 @@ export async function POST(request: NextRequest) {
       }
       reminderAt = parsed.toISOString();
     } else {
-      const due = new Date(dueAt);
-      if (isNaN(due.getTime())) {
-        return apiValidationError('due_at غير صالح — يجب أن يكون تاريخ ISO');
-      }
-      reminderAt = new Date(due.getTime() - 30 * 60 * 1000).toISOString();
+      // due_at already validated above (dueParsed) — default reminder = due − 30m.
+      reminderAt = new Date(dueParsed.getTime() - 30 * 60 * 1000).toISOString();
     }
     const sendWhatsappReminder =
       typeof body.send_whatsapp_reminder === 'boolean'
@@ -174,7 +195,7 @@ export async function POST(request: NextRequest) {
         id: insertId,
         lead_id: leadId,
         assigned_to: assignedTo,
-        due_at: dueAt,
+        due_at: dueAtIso,
         reminder_at: reminderAt,
         send_whatsapp_reminder: sendWhatsappReminder,
         title,

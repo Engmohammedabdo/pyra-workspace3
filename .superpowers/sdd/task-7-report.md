@@ -188,3 +188,79 @@ pnpm test hr-overview-helpers  → 1 file, 10 tests — all PASS ✓
 pnpm run check (tsc --noEmit)  → 0 errors ✓
 pnpm build                     → compiled successfully, 0 errors ✓
 ```
+
+---
+
+# Task 7 Report (Employee Onboarding sprint): `/api/hr/onboarding` Route
+
+## Status: COMPLETE
+
+## Commit
+`3b5b247` — `feat(onboarding): create + list route (wizard backend)`
+Branch: `feat/employee-onboarding` (pushed).
+
+## TypeScript check
+`pnpm run check` → **zero errors** (no output).
+
+## What was built
+**File:** `app/api/hr/onboarding/route.ts` (565 lines)
+
+### GET `/api/hr/onboarding`
+- Gate: `hr.manage` → service-role client.
+- Returns `pyra_onboarding` rows (recent-first, limit 100) + two bulk joins:
+  - `employee_display_name` from `pyra_users` (single `IN` query)
+  - `task_progress: { done, total }` from `pyra_onboarding_tasks` (single `IN` query, no N+1)
+- `logError` in outer catch.
+
+### POST `/api/hr/onboarding`
+Full 10-step flow:
+1. `hr.manage` gate + JSON body validation (required: username, password, nameEn, nameAr, titleEn, startDate, basic).
+2. Service-role client created after gate.
+3. `createEmployeeUser` — role from `isSales`, salary = monthly total (basic+housing+transport+communication+other), hire_date, dob, dept, manager all mapped.
+4. Insert `pyra_onboarding` — `generateId('onb')`, status `in_progress`, full `offer_data` snapshot (incl. refNo, year, date via `dubaiDayKey()`), `assets`, `started_by`.
+5. Read `company_name` from `pyra_settings` (service-role, fallback `'PyramediaX'`).
+6. Generate 3 PDFs via `loadServerPdfFonts()` + `loadServerDefaultLogo()` + dynamic `import()` (avoids client-reference proxy — CLAUDE.md lock):
+   - Offer letter, NDA, Asset handover
+   - Each blob → `Buffer.from(await blob.arrayBuffer())`
+7. `storeGeneratedDocument` × 3 — types `dt_offer_letter` / `dt_nda` / `dt_asset_handover`. Per-store failures logged but non-fatal.
+8. Seed `DEFAULT_ONBOARDING_TASKS` into `pyra_onboarding_tasks` (non-fatal on error).
+9. `logActivity` — `${ENTITY_TYPES.USER}_${ACTIVITY_ACTIONS.CREATE}` + `metadata.source = 'onboarding_created'` (Phase 11.5 constants lock). `notify` welcome to new employee (best-effort void+catch).
+10. Return 201 — `{ id, employee_username, documents: [{ type_id, label, doc_id }] }`. `storage_path` never returned.
+
+**Cleanup on PDF failure:** `logError` + delete `pyra_onboarding` row (tasks cascade via FK) + `apiServerError` with Arabic partial-success message. User row stays per backup-rollback pattern.
+
+## Concerns
+- **Partial PDF success** — if 1 of 3 `storeGeneratedDocument` calls fails, route returns 201 with only successful docs. Per brief ("best-effort").
+- **Welcome emoji** `🎉` in notify message — non-blocking, consistent with other notify sites in codebase.
+
+---
+
+# Task 7 Report (onboarding review fix subagent)
+
+## Status: COMPLETE
+
+## Commit
+SHA: `77081b5`
+Subject: `fix(onboarding): seed sales-agent leave balances; status const; all-docs-fail cleanup`
+Branch: `feat/employee-onboarding`
+
+## TypeScript check + tests
+`pnpm run check` → **zero errors** (tsc --noEmit clean).
+`pnpm test` → **14 files, 79 tests — all pass**.
+
+## Fixes applied
+
+### Fix 1 (Important) — `lib/hr/create-employee.ts`
+Changed `if (role === 'employee')` → `if (role === 'employee' || role === 'sales_agent')` on the leave-balance seeding block (both v1 `pyra_leave_balances` insert and v2 `pyra_leave_balances_v2` block). Updated the JSDoc comment on line 14 to match.
+
+### Fix 2 (Minor) — `app/api/hr/onboarding/route.ts`
+Added `ONBOARDING_STATUS` to the existing import from `@/lib/constants/onboarding`. Replaced hardcoded `status: 'in_progress'` with `status: ONBOARDING_STATUS.IN_PROGRESS`.
+
+### Fix 3 (Minor) — `app/api/hr/onboarding/route.ts`
+Removed the dead `let pdfFailed = false` declaration, the `pdfFailed = true` assignment inside the `catch` block, and the unreachable `if (pdfFailed)` guard block. Control flow verified: the `catch` block ends with `return apiServerError(...)`, so the guard was provably unreachable.
+
+### Fix 4 (Important) — `app/api/hr/onboarding/route.ts`
+Added "Step 7: All-docs-fail guard" after the PDF `try/catch` block. If `storedDocuments.length === 0` (all three `storeGeneratedDocument` calls failed non-fatally), the guard calls `logError`, deletes the `pyra_onboarding` row (tasks cascade), and returns `apiServerError('فشل في إنشاء مستندات التعيين')`. Partial success (1–2 docs) falls through to task seeding unchanged.
+
+## Concerns
+None. All fixes are strictly scoped — only `lib/hr/create-employee.ts` and `app/api/hr/onboarding/route.ts` were modified.

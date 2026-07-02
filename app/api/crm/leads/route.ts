@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
-import { getLeadScopeFilter } from '@/lib/auth/lead-scope';
+import { getLeadScopeFilter, isAssignableUser } from '@/lib/auth/lead-scope';
+import { hasPermission } from '@/lib/auth/rbac';
 import { escapeLike, escapePostgrestValue } from '@/lib/utils/path';
 import { generateId } from '@/lib/utils/id';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
@@ -191,9 +192,23 @@ export async function POST(request: NextRequest) {
         : null;
     const winProbability = explicitWinProb ?? STAGE_DEFAULT_WIN_PROBABILITY[stageId];
 
-    const assignedTo =
-      (typeof body.assigned_to === 'string' && body.assigned_to.trim()) ||
-      auth.pyraUser.username;
+    // assigned_to gate: creating leads for yourself is free (leads.create), but
+    // assigning a NEW lead to another user is a manager/admin action — require
+    // leads.assign (mirrors the PATCH reassignment gate) and validate the target
+    // is a real, ACTIVE user so we never orphan the lead under a ghost account.
+    let assignedTo = auth.pyraUser.username;
+    const requestedAssignee =
+      typeof body.assigned_to === 'string' ? body.assigned_to.trim() : '';
+    if (requestedAssignee && requestedAssignee !== auth.pyraUser.username) {
+      if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.assign')) {
+        return apiForbidden('تحتاج صلاحية "إسناد / نقل ملكية الـ Lead" لإسناده لمستخدم آخر');
+      }
+      const assignable = await isAssignableUser(supabase, requestedAssignee);
+      if (!assignable) {
+        return apiValidationError('المستخدم المحدد للإسناد غير موجود أو غير نشط');
+      }
+      assignedTo = requestedAssignee;
+    }
 
     const insertId = generateId('sl');
 

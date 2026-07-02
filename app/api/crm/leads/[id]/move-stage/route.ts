@@ -112,7 +112,7 @@ export async function POST(
     // Fetch the lead — need from_stage, assigned_to, override flag, current win prob.
     const { data: leadBefore, error: fetchErr } = await supabase
       .from('pyra_sales_leads')
-      .select('id, name, stage_id, assigned_to, win_probability, win_probability_overridden, lost_reason, is_converted')
+      .select('id, name, stage_id, assigned_to, client_id, win_probability, win_probability_overridden, lost_reason, is_converted')
       .eq('id', id)
       .maybeSingle();
     if (fetchErr) {
@@ -155,22 +155,36 @@ export async function POST(
       }
       attachment = body.attachment;
 
-      // Verify the attachment exists + fetch a human-readable label.
+      // Verify the attachment exists, belongs to this lead/client, and fetch a
+      // human-readable label. Scope check prevents an agent who owns THIS lead
+      // from passing another client's contract/invoice id as the "signed proof".
       if (attachment.type === 'contract') {
         const { data: contract } = await supabase
           .from('pyra_contracts')
-          .select('id, title, total_value, currency')
+          .select('id, title, total_value, currency, lead_id, client_id')
           .eq('id', attachment.id)
           .maybeSingle();
         if (!contract) return apiValidationError('العقد المختار غير موجود');
+        // Reject a contract positively linked to a DIFFERENT lead or client.
+        // A pre-conversion lead has no client_id yet, so in that case we can
+        // only reject on a foreign lead_id (never on a legitimately-unlinked one).
+        const contractForeign =
+          (!!contract.lead_id && contract.lead_id !== id) ||
+          (!!leadBefore.client_id && !!contract.client_id && contract.client_id !== leadBefore.client_id);
+        if (contractForeign) return apiValidationError('العقد المختار لا يخص هذا الـ Lead');
         attachmentLabel = contract.title ?? `Contract ${contract.id}`;
       } else {
         const { data: invoice } = await supabase
           .from('pyra_invoices')
-          .select('id, invoice_number, total')
+          .select('id, invoice_number, total, client_id')
           .eq('id', attachment.id)
           .maybeSingle();
         if (!invoice) return apiValidationError('الفاتورة المختارة غير موجودة');
+        // Reject an invoice belonging to a different client (enforceable only
+        // once the lead is linked to a client).
+        if (leadBefore.client_id && invoice.client_id && invoice.client_id !== leadBefore.client_id) {
+          return apiValidationError('الفاتورة المختارة لا تخص هذا الـ Lead');
+        }
         attachmentLabel = invoice.invoice_number
           ? `فاتورة #${invoice.invoice_number}`
           : `فاتورة ${invoice.id}`;
@@ -194,6 +208,20 @@ export async function POST(
       updates.win_probability = STAGE_DEFAULT_WIN_PROBABILITY[toStageTyped];
     }
     if (lostReason !== null) updates.lost_reason = lostReason;
+
+    // Reopen: clear conversion/forecast state so the deal stops counting as a
+    // won customer. The approve flow set is_converted=true, converted_at, and
+    // win_probability_overridden=true (=100) — without this reset the lead
+    // keeps showing in /dashboard/crm/customers at 100% win probability and the
+    // override flag stays stuck true, freezing win_probability recompute on
+    // every future move. The client_id link is INTENTIONALLY preserved (decision:
+    // don't destroy the pyra_clients record on reopen).
+    if (isReopen) {
+      updates.is_converted = false;
+      updates.converted_at = null;
+      updates.win_probability_overridden = false;
+      updates.win_probability = STAGE_DEFAULT_WIN_PROBABILITY[toStageTyped];
+    }
 
     const { data: lead, error: updErr } = await supabase
       .from('pyra_sales_leads')

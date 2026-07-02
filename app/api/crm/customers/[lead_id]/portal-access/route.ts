@@ -5,6 +5,7 @@ import {
   apiNotFound,
   apiValidationError,
   apiServerError,
+  apiForbidden,
 } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logActivity, ACTIVITY_ACTIONS } from '@/lib/api/activity';
@@ -61,7 +62,7 @@ export async function PATCH(
     // ── State: load lead + verify client linkage ──
     const { data: lead, error: leadError } = await supabase
       .from('pyra_sales_leads')
-      .select('id, client_id')
+      .select('id, client_id, assigned_to')
       .eq('id', leadId)
       .maybeSingle();
 
@@ -70,6 +71,13 @@ export async function PATCH(
       return apiServerError();
     }
     if (!lead) return apiNotFound('العميل المحتمل غير موجود');
+    // Scope (defense-in-depth on top of leads.manage): a non-admin holder of
+    // leads.manage may only toggle portal access on leads assigned to them —
+    // mirrors canAccessLead so this route can't cross-scope like the list
+    // endpoints refuse to.
+    if (auth.pyraUser.role !== 'admin' && lead.assigned_to !== auth.pyraUser.username) {
+      return apiForbidden('يمكنك فقط إدارة وصول البورتال للعملاء المسند إليك');
+    }
     if (!lead.client_id) {
       return apiValidationError(
         'العميل لم يُحوّل بعد إلى عميل دائم — استخدم convert-to-customer أولاً',

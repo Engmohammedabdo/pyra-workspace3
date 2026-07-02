@@ -3,12 +3,15 @@
 /**
  * Invoices tab — v1 deep-link to existing /dashboard/finance/invoices?client_id=X.
  *
- * Per PRD §04 line 218: "Deferred — empty state, link to
- * /dashboard/finance/invoices?client_id=...". The contracts tab (Step D)
- * already shows the per-contract billing-history mini-grid; the standalone
- * invoices view at /dashboard/finance/invoices is the right place to
- * see ALL invoices for this client across all sources (CRM-linked
- * contracts + ad-hoc invoices + recurring invoices etc).
+ * Per PRD §04 line 218: "Deferred — empty state, link to the invoices list
+ * filtered by client_id". The contracts tab (Step D) already shows the
+ * per-contract billing-history mini-grid; the standalone invoices view at
+ * /dashboard/invoices is the right place to see ALL invoices for this client
+ * across all sources (CRM-linked contracts + ad-hoc invoices + recurring etc).
+ *
+ * NOTE: the canonical invoices route is /dashboard/invoices (NOT
+ * /dashboard/finance/invoices — that path does not exist and 404s). The
+ * list reads ?client_id= to scope to this customer.
  */
 
 import { Card } from '@/components/ui/card';
@@ -45,7 +48,7 @@ export function CustomerInvoicesTab({ customer }: Props) {
             variant: 'secondary',
             icon: ExternalLink,
             onClick: () => {
-              window.location.href = `/dashboard/finance/invoices?client_id=${customer.client_id}`;
+              window.location.href = `/dashboard/invoices?client_id=${customer.client_id}`;
             },
           },
         ]}

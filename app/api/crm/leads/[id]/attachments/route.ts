@@ -149,12 +149,17 @@ export async function GET(
     // Generate a short-lived SIGNED URL per row at read time (bucket is private).
     // Field stays `public_url` so the viewer is unchanged — it just holds a
     // time-limited signed URL now. Fresh per GET; the viewer refetches on error.
-    const attachments: PyraLeadAttachment[] = await Promise.all(
+    //
+    // storage_path is the internal private-bucket path and MUST NOT leave the
+    // server (Gap #3 / HR Documents Vault invariant) — strip it from every row;
+    // the client only consumes public_url.
+    const attachments: Array<Omit<PyraLeadAttachment, 'storage_path'>> = await Promise.all(
       (data ?? []).map(async (row) => {
         const { data: urlData } = await supabase.storage
           .from(LEAD_ATTACH_BUCKET)
           .createSignedUrl(row.storage_path, SIGNED_URL_TTL);
-        return { ...(row as PyraLeadAttachment), public_url: urlData?.signedUrl ?? '' };
+        const { storage_path: _omit, ...safe } = row as PyraLeadAttachment;
+        return { ...safe, public_url: urlData?.signedUrl ?? '' };
       }),
     );
 
@@ -445,8 +450,10 @@ export async function POST(
       request.headers.get('x-forwarded-for') ?? undefined,
     );
 
+    // Strip storage_path before returning (never leaks the private bucket path).
+    const { storage_path: _omitInserted, ...safeInserted } = inserted as PyraLeadAttachment;
     return apiSuccess(
-      { attachment: { ...(inserted as PyraLeadAttachment), public_url: publicUrl }, public_url: publicUrl },
+      { attachment: { ...safeInserted, public_url: publicUrl }, public_url: publicUrl },
       undefined,
       201,
     );

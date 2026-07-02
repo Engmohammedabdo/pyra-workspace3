@@ -99,6 +99,14 @@ export async function POST(
     }
     if (!lead) return apiNotFound('العميل المحتمل غير موجود');
 
+    // Scope (defense-in-depth on top of leads.manage): a non-admin holder of
+    // leads.manage may only convert leads assigned to them — mirrors
+    // canAccessLead so this cross-entity mutation can't act on another agent's
+    // lead that the actor can't even view in the scoped list/detail endpoints.
+    if (auth.pyraUser.role !== 'admin' && lead.assigned_to !== auth.pyraUser.username) {
+      return apiError('يمكنك فقط تحويل العملاء المحتملين المسند إليك', 403);
+    }
+
     // ── State: must be approved closed_won ──
     if (
       lead.stage_id !== PIPELINE_STAGE_IDS.CLOSED_WON ||
@@ -160,7 +168,7 @@ export async function POST(
         email_confirm: true,
         user_metadata: {
           role: 'client',
-          company: lead.company,
+          company: lead.company || contactName,
           display_name: contactName,
         },
       });
@@ -183,7 +191,10 @@ export async function POST(
         name: contactName,
         email,
         phone: lead.phone || null,
-        company: lead.company,
+        // pyra_clients.company is NOT NULL, but a B2C lead can have a null
+        // company — coalesce to the contact/lead name so company-less leads
+        // still convert instead of hitting a NOT NULL violation → 500.
+        company: lead.company || contactName,
         // Lead has no `address` column — leave as null. Future v1.1 may
         // accept address in convert-to-customer body or sync from a
         // first invoice's billing address.
@@ -219,8 +230,31 @@ export async function POST(
 
     if (linkError) {
       console.error('convert-to-customer: lead.client_id update error:', linkError.message);
-      // Soft-warn — client was created but lead link failed. Not fatal;
-      // admin can re-trigger and idempotency will return the existing client.
+      logError({
+        error: linkError,
+        request,
+        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+        metadata: { lead_id: leadId, client_id: newClientId, action: 'convert-to-customer', stage: 'lead_link' },
+      });
+      // Fatal — roll back the just-created client row (+ Auth user) so the lead
+      // is NOT left in a stuck state. If we left the client while the lead
+      // stayed unlinked, the idempotency short-circuit (needs lead.client_id)
+      // would be skipped on retry and the duplicate-email check would 409 on
+      // the client we just made — conversion would be permanently impossible
+      // via the UI. Rolling back lets a retry succeed cleanly.
+      const { error: rbErr } = await supabase
+        .from('pyra_clients')
+        .delete()
+        .eq('id', newClientId);
+      if (rbErr) {
+        console.error('convert-to-customer: rollback pyra_clients delete error:', rbErr.message);
+      }
+      if (authUserId) {
+        await supabase.auth.admin.deleteUser(authUserId).catch((e) =>
+          console.error('convert-to-customer: rollback auth.admin.deleteUser error:', e),
+        );
+      }
+      return apiError('فشل ربط العميل بالسجل — تم التراجع، حاول مرة أخرى', 500);
     }
 
     // ── Lead timeline activity (visible in activity tab) ──

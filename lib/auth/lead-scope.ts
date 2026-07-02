@@ -53,3 +53,26 @@ export function getLeadScopeFilter(
   if (role === 'admin') return null;
   return { column: 'assigned_to', value: username };
 }
+
+/**
+ * True if `username` names an existing, ACTIVE pyra_user — i.e. a lead or
+ * follow-up can safely be assigned to them without orphaning it under a ghost
+ * or departed account (a non-existent / inactive assignee would hide the record
+ * from every non-admin scope forever).
+ *
+ * Combine with a `leads.assign` permission gate on the caller BEFORE honoring a
+ * caller-supplied `assigned_to` that differs from the caller's own username.
+ */
+export async function isAssignableUser(
+  supabase: SupabaseClient,
+  username: string,
+): Promise<boolean> {
+  if (!username) return false;
+  const { data, error } = await supabase
+    .from('pyra_users')
+    .select('status')
+    .eq('username', username)
+    .maybeSingle();
+  if (error || !data) return false;
+  return data.status === 'active';
+}

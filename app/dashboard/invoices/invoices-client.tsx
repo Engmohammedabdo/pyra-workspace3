@@ -90,10 +90,15 @@ export default function InvoicesClient() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
 
+  // Deep-link filter: CRM customer page → "فتح صفحة الفواتير" passes ?client_id=
+  // to scope the list to a single customer (server-side filter in /api/invoices).
+  const clientIdFilter = searchParams.get('client_id')?.trim() || undefined;
+
   // React Query hooks
   const { data: invoices = [], isLoading: loading } = useInvoices({
     status: statusFilter !== 'all' ? statusFilter : undefined,
     search: debouncedSearch || undefined,
+    client_id: clientIdFilter,
     page: String(page),
     limit: String(PAGE_SIZE),
   }) as unknown as { data: Invoice[]; isLoading: boolean };
