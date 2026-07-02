@@ -123,6 +123,7 @@ export async function GET(req: NextRequest) {
     if (projectId) summaryQuery = summaryQuery.eq('project_id', projectId);
     if (from) summaryQuery = summaryQuery.gte('expense_date', from);
     if (to) summaryQuery = summaryQuery.lte('expense_date', to);
+    if (status && status !== 'all') summaryQuery = summaryQuery.eq('status', status);
     if (!scope.isAdmin) summaryQuery = summaryQuery.in('project_id', scope.projectIds);
     const { data: allExpenses } = await summaryQuery;
 

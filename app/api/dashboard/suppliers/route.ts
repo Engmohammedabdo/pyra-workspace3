@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/finance/suppliers/${id}`,
       details: { name: name.trim() },
-    });
+    }).then(({ error: e }) => { if (e) console.error('Activity log error:', e.message); });
 
     return apiSuccess(data);
   } catch (e: unknown) {

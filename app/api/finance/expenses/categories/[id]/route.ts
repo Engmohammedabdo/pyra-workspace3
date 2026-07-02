@@ -6,7 +6,7 @@ import { EXPENSE_CATEGORY_FIELDS } from '@/lib/supabase/fields';
 import { logActivity } from '@/lib/api/activity';
 
 // Allowed fields for category update
-const ALLOWED_FIELDS = new Set(['name', 'name_en', 'color', 'icon', 'sort_order']);
+const ALLOWED_FIELDS = new Set(['name', 'name_ar', 'color', 'icon', 'sort_order']);
 
 export async function PATCH(
   req: NextRequest,

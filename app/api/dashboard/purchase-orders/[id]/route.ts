@@ -127,7 +127,7 @@ export async function PATCH(
       display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/finance/purchase-orders/${id}`,
       details: { from: existing.status, to: status },
-    });
+    }).then(({ error: e }) => { if (e) console.error('Activity log error:', e.message); });
 
     return apiSuccess(data);
   } catch (e: unknown) {
@@ -171,7 +171,7 @@ export async function DELETE(
       display_name: auth.pyraUser.display_name,
       target_path: '/dashboard/finance/purchase-orders',
       details: {},
-    });
+    }).then(({ error: e }) => { if (e) console.error('Activity log error:', e.message); });
 
     return apiSuccess({ message: 'تم حذف أمر الشراء' });
   } catch (e: unknown) {

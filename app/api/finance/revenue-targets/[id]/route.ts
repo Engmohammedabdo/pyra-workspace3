@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { REVENUE_TARGET_FIELDS } from '@/lib/supabase/fields';
@@ -22,14 +22,23 @@ export async function PATCH(
 
     // Validate period dates if both provided
     if (body.period_start && body.period_end && body.period_start >= body.period_end) {
-      return apiNotFound('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return apiValidationError('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
     }
 
-    body.updated_at = new Date().toISOString();
+    // Whitelist allowed fields
+    const ALLOWED_FIELDS = ['period_type', 'period_start', 'period_end', 'target_amount', 'currency', 'notes'];
+    const updates: Record<string, unknown> = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (key in body) updates[key] = body[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      return apiValidationError('لا توجد حقول للتحديث');
+    }
+    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('pyra_revenue_targets')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .select(REVENUE_TARGET_FIELDS)
       .single();

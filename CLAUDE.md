@@ -483,6 +483,98 @@ Table `pyra_business_entities` — select trade license per invoice/quote. Entit
 - Aging report uses `due_date` (not issue_date) — standard accounting practice
 - Invoices auto-marked overdue when `due_date < today`
 
+## Finance Remediation — Locked Decisions (2026-07-03)
+
+Closure of the finance-audit remediation (audit: `docs/FINANCE-AUDIT-2026-07-02.md`
+— point-in-time findings + Implementation Status delta table at its top; 7 batches,
+each independently reviewed/built/shipped). **Do NOT re-litigate.**
+
+### 1. Derived counters, never increments — `amount_billed` pattern
+`pyra_contracts.amount_billed` is ALWAYS recomputed from actual linked invoices
+via `recalcContractBilled()` in `lib/finance/contract-billing.ts` (direct
+`contract_id` + milestone-linked, cancelled excluded). Called on invoice
+create/PATCH-items/DELETE and all three generators. **NEVER reintroduce
+read-modify-write increments** — the increment pattern drifted production by
+97,000 AED (reconstructed to the dirham in the audit). Same doctrine as
+`amount_collected` (re-sum of payments).
+
+### 2. Multi-currency: payments convert at their INVOICE's currency
+`pyra_payments` has NO currency column. Every cross-invoice payment aggregate
+goes through `lib/finance/payment-currency.ts` (`getInvoiceCurrencyMap` +
+`sumPaymentsAED`) — which **fails LOUD** on lookup errors (a silent AED fallback
+would produce plausible wrong numbers). Invoice `amount_due` aggregates convert
+via `toAED(due, invoice.currency)`. Revenue-target `actual_revenue` is ALWAYS
+AED (UI must not label it with the target's currency); progress ratio converts
+the target to AED too.
+
+### 3. Business decisions (Abdou, do NOT undo silently)
+- **VAT rate stays 0** — company not VAT-registered. The VAT report math is
+  fixed (signed refunds — no `Math.abs` on payments) for whenever registration
+  happens.
+- **Late-penalty feature REMOVED** (not disabled). If ever needed again, build
+  it as a separate invoice line item — NEVER mutate invoice total/amount_due.
+- **Client-facing automation OFF**: `send-reminders` requires
+  `pyra_settings.dunning_enabled === 'true'` (explicit opt-in; default off) and
+  is NOT wired to any cron. Recurring templates keep `auto_send=false`.
+  Internal-only automation is fine.
+- **Subscriptions module SUNSET** (commit `8f553aa`) — recurring costs are
+  regular expenses (`ec_subscriptions` category + `is_recurring`).
+  `pyra_subscriptions` table data kept (historical, no UI). Cards page is now
+  orphaned — removal candidate.
+- **Batch 5 (RBAC/scoping) DEFERRED** — no non-admin finance role planned. The
+  `c_`/`cl_` namespace mismatch + `Number(NaN)` contract-scope checks stay as
+  documented latent issues until an accountant role is actually needed.
+
+### 4. The daily finance cycle — `/api/cron/finance-daily`
+ONE cron endpoint (Phase D §7 pattern: `getExternalAuth` + `cron.finance-daily`
+or `*`), scheduled daily 08:30 Dubai via n8n workflow **PyraFinance_Cron**
+(`tWRE4tlQCX5xRzNK`; API key `ak_j9VWKq51JM7cNjJz` — the scoped cron key, NOT
+wildcard). Four jobs, each in its own try/catch: mark-overdue, recurring
+generation (DRAFTS + admin notify), quote expiry, contract-expiring alerts
+(7-day dedup via `pyra_notifications.entity_id`). New finance automation goes
+INTO this route as a new job — don't create parallel finance cron endpoints.
+The recurring engine lives in `lib/finance/recurring-generation.ts` (single
+source of truth for the manual button AND the cron; contract `vat_rate`
+priority incl. explicit 0; items/advance failures roll the invoice back).
+
+### 5. Money-write discipline (patterns now enforced in the core)
+- Invoice PATCH uses a strict field whitelist (`ALLOWED_PATCH_FIELDS` in
+  `app/api/invoices/[id]/route.ts`) — money state (total/subtotal/tax/amount_*)
+  is DERIVED; identity fields (client_id/currency/invoice_number/created_by/
+  contract_id) immutable via PATCH. Recurring/cards/targets PATCH have their
+  own whitelists. **No raw `.update(body)` on finance tables.**
+- Credit notes: `applied` is TERMINAL (transition map) — reversing requires a
+  dedicated un-apply that reverses the payment. Apply claims the CN via a
+  conditional update (optimistic lock) BEFORE the money write, re-validates
+  the cap after the claim, and rolls the claim back on payment-insert failure.
+- Payments POST rolls the payment row back if the invoice recompute fails
+  (no false-success 201). Payments are otherwise append-only by design —
+  corrections via credit note / refund only.
+- Stripe webhook: `charge.refunded` books the refund DELTA vs recorded rows
+  (Stripe's `amount_refunded` is CUMULATIVE) — replay-idempotent; dispute-lost
+  insert idempotent by `dispute_<id>` reference; admin alerts resolve REAL
+  active admins via `notifyMany` (a literal 'admin' user does not exist);
+  `payment_intent_data.metadata` is set in BOTH checkout routes.
+- Portal statement ledger: `pyra_payments` is the ONLY money source
+  (`pyra_stripe_payments` rows are session records, never ledger entries);
+  refunds present as DEBIT with Arabic labels, never negative credits.
+
+### 6. Etmam ground truth (data repaired 2026-07-03, audit-logged)
+Contract switched quarterly→monthly at 13,000/month. INV-0005 corrected
+20,000→13,000 (paid, due 0 — the 7,000 was refunded via CN-0001, which IS the
+refund record); INV-0002 linked to the Brand Identity contract. All 3 contracts
+reconcile billed=collected. Recurring template `ri_5d699ff769df52e5` generates
+monthly drafts on the 25th. Future bulk invoice entry: Abdou will hand over
+paid invoices; enter them excluding what already exists (match by amount+date+client).
+
+### Finance v1.1 backlog
+See the audit doc's Implementation Status "Still open" list — highlights:
+migrate ~20 raw-fetch finance pages onto the existing hook layer; page gates +
+`usePermission` action gating; `pyra_payments.currency` column (schema fix
+superseding the invoice-join pattern); Stripe refund unique index; commission
+currency + refund reversal; docs drift (DATABASE-SCHEMA quotes/payroll/
+business_entities, ARCHITECTURE.md, PORTAL-GAPS.md).
+
 ## Environment Validation (`lib/env.ts`)
 Zod schema validates all env vars at import time. Required: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`. Optional: Stripe, Evolution API.
 

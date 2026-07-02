@@ -168,7 +168,7 @@ export async function POST(req: NextRequest) {
       display_name: auth.pyraUser.display_name,
       target_path: `/dashboard/finance/purchase-orders/${poId}`,
       details: { po_number: poNumber, supplier_name: supplierName, total },
-    });
+    }).then(({ error: e }) => { if (e) console.error('Activity log error:', e.message); });
 
     return apiSuccess({ id: poId, po_number: poNumber });
   } catch (e: unknown) {

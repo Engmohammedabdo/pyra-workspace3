@@ -167,6 +167,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check if expense approval is required from settings (mirror dashboard behavior).
+    // No notifyApprovers here — external context has no session actor.
+    const { data: approvalSetting } = await supabase
+      .from('pyra_settings')
+      .select('value')
+      .eq('key', 'expense_approval_required')
+      .maybeSingle();
+
+    const approvalRequired = approvalSetting?.value === 'true';
+    const expenseStatus = approvalRequired ? 'pending' : 'approved';
+
     const { data, error } = await supabase
       .from('pyra_expenses')
       .insert({
@@ -184,6 +195,7 @@ export async function POST(req: NextRequest) {
         supplier_id: supplier_id,
         project_id: project_id || null,
         notes: notes ? `${notes}${source ? ` [${source}]` : ''}` : (source ? `[${source}]` : null),
+        status: expenseStatus,
         created_by: 'api',
       })
       .select(EXPENSE_FIELDS)

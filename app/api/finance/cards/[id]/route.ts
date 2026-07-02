@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
+import { apiSuccess, apiError, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { CARD_FIELDS } from '@/lib/supabase/fields';
@@ -42,19 +42,29 @@ export async function PATCH(
   try {
     const body = await req.json();
 
+    // Whitelist allowed fields
+    const ALLOWED_FIELDS = ['card_name', 'bank_name', 'last_four', 'card_type', 'expiry_month', 'expiry_year', 'is_default', 'notes'];
+    const updates: Record<string, unknown> = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (key in body) updates[key] = body[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      return apiValidationError('لا توجد حقول للتحديث');
+    }
+
     // If setting as default, unset other defaults
-    if (body.is_default) {
+    if (updates.is_default) {
       await supabase
         .from('pyra_cards')
         .update({ is_default: false })
         .neq('id', id);
     }
 
-    body.updated_at = new Date().toISOString();
+    updates.updated_at = new Date().toISOString();
 
     const { data, error } = await supabase
       .from('pyra_cards')
-      .update(body)
+      .update(updates)
       .eq('id', id)
       .select(CARD_FIELDS)
       .single();

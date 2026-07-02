@@ -1,5 +1,28 @@
 # Finance Module Audit — 2026-07-02
 
+## ⚡ Implementation Status (delta layer — updated 2026-07-03)
+
+The remediation shipped across 7 batches on 2026-07-03. Findings below are the
+point-in-time record and are NOT edited; this table is the source of truth for
+what is closed. Locked decisions recorded in CLAUDE.md § "Finance Remediation".
+
+| Batch | Commit | Shipped |
+|---|---|---|
+| 1 — Money integrity | `f6e610d` | amount_billed derived (recalcContractBilled) + duplicate-period guard; Stripe refund delta+idempotency, dispute idempotency, PI metadata, real-admin notifications, AED fallback; invoice PATCH whitelist + items backup-rollback + due clamp; payments rollback-on-recompute-failure; CN transition map + optimistic-lock apply + post-claim cap re-check; VAT signed refunds; cashflow category_id; approved-only expense aggregates (8 sites) |
+| Data repairs | (pg/query, audited rows) | INV-0005 → 13,000/paid/due-0; INV-0002 linked to Brand Identity contract; amount_billed recomputed (143k→39k, 4k); contract description quarterly→monthly; 0 overdue invoices system-wide; all 3 contracts billed=collected |
+| Subscriptions sunset | `8f553aa` | Module removed by decision — recurring costs are regular expenses (ec_subscriptions); D3/D8 + F-SUBS-VOID + finance-home dead buttons all closed by removal |
+| 2 — Portal | `d109070` | F-PORTAL-REC, F-PORTAL-DASH, F-STMT-DBL (+refund-as-debit ledger presentation + Arabic labels), F-SIGN-NOTIF via notify(), pending_approval hidden (list+detail), sign race + 500KB cap + Dubai expiry, pay rate-limit, NEW portal credit-notes surface (parity) |
+| 3 — Automation | `ffa8112` | /api/cron/finance-daily (4 internal jobs, Phase D §7 auth) + n8n PyraFinance_Cron (tWRE4tlQCX5xRzNK, daily 08:30 Dubai, ACTIVE, key ak_j9VWKq51JM7cNjJz + cron.finance-daily); recurring engine extracted to lib/finance/recurring-generation.ts (F-REC-VAT fixed, rollbacks, dubaiDayKey); Etmam recurring template ri_5d699ff769df52e5 (drafts, 25th); live test: 15 stale quotes expired, 0 errors. Client-facing sends stay OFF (dunning_enabled gate; send-reminders unwired by decision) |
+| 4 — Multi-currency | `f693c8c` | lib/finance/payment-currency.ts (fail-loud); F-REV-SUM (scoping+AED+Dubai month); dashboard MTD/YTD/chart/outstanding/overdue; cashflow; client+project profitability; revenue targets (AED ratio + card label); supplier totals (all approved rows); dashboard client statement (AED + drafts excluded from receivables + billable-only paid) |
+| 6 — UI | see git log 2026-07-03 | F-PAGINATION (useInvoicesPaged + meta.total); invoice-edit false-success; contract-detail silent money actions (409 message surfaced); expenses/[id] + 4 new/ pages cache invalidation; dead useQuotes/useQuote/useCreateQuote removed; NEW cashflow tab in reports (the report previously had NO UI consumer — why its 500 went unnoticed) |
+| 7 — Hygiene | see git log 2026-07-03 | 6 inert `void supabase` audit inserts fixed (PO/supplier); mass-assignment whitelists (recurring/cards/targets PATCH); categories name_ar editable (phantom name_en); expenses summary honors status filter; external expenses honor approval setting; orphan check-alerts route deleted (superseded by finance-daily) |
+
+**Deliberately NOT done (decisions):** late-penalty feature REMOVED not fixed; client-facing reminders stay off (dunning_enabled must be explicitly 'true'); VAT rate stays 0 (not VAT-registered); Batch 5 (RBAC/scoping incl. c_/cl_ namespace + Number(NaN) contract scope) DEFERRED — no non-admin finance role planned.
+
+**Still open (backlog):** the ~20 raw-fetch finance pages migration onto the existing hook layer; server page gates (28 pages) + usePermission action gating; commission currency + refund reversal; CN/PO number-generation unique-constraint retry; approved-expense edits without re-approval; PO dangling supplier_id; milestone PATCH invariants; recurring maybeSingle multi-row + currency sync + multi-item clobber; payments append-only (no edit/delete endpoint — confirm intentional); docs drift (DATABASE-SCHEMA quotes/payroll/business_entities, ARCHITECTURE.md, PORTAL-GAPS.md); Stripe refund concurrent-delivery race (needs unique index); pyra_payments currency column (schema-level fix superseding the invoice-join pattern).
+
+---
+
 **Method:** 6 parallel domain auditors (invoices/payments/Stripe · contracts/recurring/subscriptions · expenses/CN/PO/reports · dashboard UI/hooks · portal/external · docs sweep) + live-DB integrity forensics (20 SQL checks) + n8n cron inventory + **12-finding adversarial verification pass** (all 12 CONFIRMED; severities refined).
 **Scope:** everything reachable from `/dashboard/finance`, `/dashboard/invoices`, `/dashboard/quotes`, portal finance surfaces, `/api/finance/**`, `/api/invoices/**`, `/api/quotes/**`, `/api/dashboard/{credit-notes,purchase-orders,suppliers}/**`, `/api/stripe/**`, `/api/portal/**` (finance), `/api/external/**` (finance).
 **Status column:** ✅ = adversarially verified or verified against live DB; ◐ = single-auditor finding (code-cited, not re-verified).
