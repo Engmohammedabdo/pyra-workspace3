@@ -36,7 +36,8 @@ import { useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { GitBranch, Plus, CheckSquare, X } from 'lucide-react';
+import Link from 'next/link';
+import { GitBranch, Plus, CheckSquare, X, Archive } from 'lucide-react';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { usePermission } from '@/hooks/usePermission';
 import { usePipelineStages } from '@/hooks/usePipelineStages';
@@ -238,6 +239,13 @@ export function PipelineClient() {
           </p>
         </div>
         <div className="flex gap-2">
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <Link href="/dashboard/crm/leads/archived">
+                <Archive className="size-4 me-2" /> الأرشيف
+              </Link>
+            </Button>
+          )}
           {canBulk &&
             (selectionMode ? (
               <Button variant="outline" onClick={exitSelection}>

@@ -955,6 +955,20 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['leads', 'عملاء محتملين', 'kanban', 'pipeline', 'مبيعات', 'lifecycle', 'تحويل', 'closed won', 'تأهيل', 'إعادة إسناد', 'تغيير المسؤول'],
   },
+  '/dashboard/crm/leads/archived': {
+    href: '/dashboard/crm/leads/archived',
+    description: 'أرشيف الـ Leads',
+    descriptionEn: 'Archived (soft-deleted) leads',
+    goal: 'الـ Leads المؤرشفة مخفية من خط المبيعات والقوائم لكن مش محذوفة نهائياً. من هنا تقدر تراجعها وتسترجع أي واحد. الأرشفة نفسها تتم من زر "أرشفة" في صفحة تفاصيل الـ Lead.',
+    tips: [
+      'الأرشفة (admin أو صاحب صلاحية leads.delete): من صفحة تفاصيل الـ Lead → صف إجراءات الإدارة → زر "أرشفة" → تأكيد',
+      'الـ Lead المؤرشف يختفي فوراً من خط المبيعات والقوائم (بدون حذف نهائي) — تقدر تسترجعه في أي وقت',
+      'الاسترجاع: من هذه الصفحة اضغط زر "استرجاع" بجانب الـ Lead → يرجع للبايبلاين طبيعي',
+      'كل صف يوضّح تاريخ الأرشفة ومين اللي أرشفه؛ اضغط على الاسم لفتح تفاصيل الـ Lead',
+      'الوكيل يرى الـ Leads المؤرشفة الخاصة به فقط (أمن صارم عبر السكوب)؛ الـ admin يرى الكل',
+    ],
+    keywords: ['أرشيف', 'مؤرشف', 'archive', 'archived', 'استرجاع', 'restore', 'leads', 'soft delete', 'حذف'],
+  },
   '/dashboard/calendar': {
     href: '/dashboard/calendar',
     description: 'تقويم موحَّد لكل أعمالك',
