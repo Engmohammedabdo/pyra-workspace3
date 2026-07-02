@@ -623,8 +623,6 @@ const AVAILABLE_PERMISSIONS = [
   { value: 'invoices:read', label: 'invoices:read' },
   { value: 'invoices:create', label: 'invoices:create' },
   { value: 'invoices:send', label: 'invoices:send' },
-  { value: 'subscriptions:read', label: 'subscriptions:read' },
-  { value: 'subscriptions:create', label: 'subscriptions:create' },
   { value: 'alerts:read', label: 'alerts:read' },
   { value: 'payments:read', label: 'payments:read' },
 ];

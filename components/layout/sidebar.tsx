@@ -42,7 +42,6 @@ import {
   Webhook,
   Wallet,
   ArrowDownCircle,
-  RefreshCw,
   CreditCard,
   FileSignature,
   Repeat,
@@ -213,7 +212,6 @@ const navGroups: NavGroup[] = [
     items: [
       { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, permission: 'finance.view' },
       { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, permission: 'finance.view' },
-      { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', labelEn: 'Subscriptions', icon: RefreshCw, permission: 'finance.view' },
       { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, permission: 'finance.view' },
       { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, permission: 'finance.view' },
       { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, permission: 'finance.view' },

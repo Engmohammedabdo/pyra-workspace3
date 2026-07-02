@@ -1,24 +1,18 @@
 'use client';
 
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FinanceSummaryCards } from '@/components/dashboard/finance-overview/FinanceSummaryCards';
-import { FinanceSubscriptions } from '@/components/dashboard/finance-overview/FinanceSubscriptions';
 import { RevenueExpenseChart } from '@/components/finance/RevenueExpenseChart';
 import { ExpenseBarChart } from '@/components/finance/ExpenseBarChart';
 import { Wallet, TrendingUp, DollarSign, Receipt, ChevronLeft } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
-import { toast } from 'sonner';
 import Link from 'next/link';
 
 export default function FinanceDashboardPage() {
-  const [approvingId, setApprovingId] = useState<string | null>(null);
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-
   const { data, isLoading: loading } = useQuery({
     queryKey: ['finance-dashboard'],
     queryFn: () => fetchAPI<any>('/api/finance/dashboard'),
@@ -42,7 +36,6 @@ export default function FinanceDashboardPage() {
       )}
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><TrendingUp className="h-5 w-5" /> الإيرادات مقابل المصاريف</CardTitle></CardHeader><CardContent><RevenueExpenseChart data={data.monthly_chart} /></CardContent></Card>
       <Card><CardHeader><CardTitle className="flex items-center gap-2"><DollarSign className="h-5 w-5" /> وين راحت الفلوس؟</CardTitle></CardHeader><CardContent><ExpenseBarChart data={data.expense_pie} /></CardContent></Card>
-      <FinanceSubscriptions {...{ dueSubscriptions: data.due_subscriptions, upcomingRenewals: data.upcoming_renewals, summary: data.summary, onApprove: (s: any) => console.log('approve', s.id), onReject: (s: any) => console.log('reject', s.id), approvingId, rejectingId }} />
     </div>
   );
 }

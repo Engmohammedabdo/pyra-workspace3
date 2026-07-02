@@ -481,18 +481,6 @@ export const MODULE_GUIDES: Record<string, ModuleGuide> = {
     ],
     keywords: ['كشف حساب', 'statement', 'عميل', 'رصيد', 'مالي'],
   },
-  '/dashboard/finance/subscriptions': {
-    href: '/dashboard/finance/subscriptions',
-    description: 'تتبع الاشتراكات الشهرية والسنوية',
-    descriptionEn: 'Track monthly and annual subscriptions',
-    goal: 'تابع جميع اشتراكات الشركة (برامج، خدمات، أدوات) مع تواريخ التجديد والتكلفة.',
-    tips: [
-      'أضف اشتراك جديد مع تاريخ البدء ودورة التجديد',
-      'النظام ينبهك قبل تجديد الاشتراك',
-      'تابع إجمالي تكلفة الاشتراكات الشهرية والسنوية',
-    ],
-    keywords: ['subscriptions', 'اشتراكات', 'تجديد', 'SaaS'],
-  },
   '/dashboard/finance/cards': {
     href: '/dashboard/finance/cards',
     description: 'إدارة بطاقات الدفع والشركة',

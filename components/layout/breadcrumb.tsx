@@ -26,7 +26,6 @@ const routeLabels: Record<string, string> = {
   finance: 'الإدارة المالية',
   expenses: 'المصاريف',
   contracts: 'العقود',
-  subscriptions: 'الاشتراكات',
   cards: 'البطاقات',
   recurring: 'الفواتير المتكررة',
   targets: 'أهداف الإيرادات',

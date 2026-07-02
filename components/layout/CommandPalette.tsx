@@ -27,7 +27,6 @@ import {
   HardDrive,
   Wallet,
   ArrowDownCircle,
-  RefreshCw,
   CreditCard,
   FileSignature,
   Repeat,
@@ -108,7 +107,6 @@ const HR_ITEMS: NavItem[] = [
 const FINANCE_ITEMS: NavItem[] = [
   { label: 'الإدارة المالية', path: '/dashboard/finance', icon: Wallet, keywords: 'finance مالية إدارة محاسبة' },
   { label: 'المصاريف', path: '/dashboard/finance/expenses', icon: ArrowDownCircle, keywords: 'expenses مصاريف نفقات' },
-  { label: 'الاشتراكات', path: '/dashboard/finance/subscriptions', icon: RefreshCw, keywords: 'subscriptions اشتراكات' },
   { label: 'البطاقات', path: '/dashboard/finance/cards', icon: CreditCard, keywords: 'cards بطاقات' },
   { label: 'العقود', path: '/dashboard/finance/contracts', icon: FileSignature, keywords: 'contracts عقود' },
   { label: 'الفواتير المتكررة', path: '/dashboard/finance/recurring', icon: Repeat, keywords: 'recurring invoices فواتير متكررة' },

@@ -26,7 +26,6 @@ import {
   Monitor,
   Wallet,
   ArrowDownCircle,
-  RefreshCw,
   CreditCard,
   FileSignature,
   Repeat,
@@ -156,7 +155,6 @@ const mobileNavGroups: MobileNavGroup[] = [
     items: [
       { href: '/dashboard/finance', label: 'الإدارة المالية', icon: Wallet, permission: 'finance.view' },
       { href: '/dashboard/finance/expenses', label: 'المصاريف', icon: ArrowDownCircle, permission: 'finance.view' },
-      { href: '/dashboard/finance/subscriptions', label: 'الاشتراكات', icon: RefreshCw, permission: 'finance.view' },
       { href: '/dashboard/finance/cards', label: 'البطاقات', icon: CreditCard, permission: 'finance.view' },
       { href: '/dashboard/finance/contracts', label: 'العقود', icon: FileSignature, permission: 'finance.view' },
       { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', icon: Repeat, permission: 'finance.view' },

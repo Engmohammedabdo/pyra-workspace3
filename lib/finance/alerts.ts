@@ -29,33 +29,12 @@ export async function getFinanceAlerts(): Promise<AlertsResult> {
   const supabase = createServiceRoleClient();
   const alerts: Alert[] = [];
   const today = new Date().toISOString().split('T')[0];
-  const in7Days = new Date();
-  in7Days.setDate(in7Days.getDate() + 7);
-  const in7DaysStr = in7Days.toISOString().split('T')[0];
   const in30Days = new Date();
   in30Days.setDate(in30Days.getDate() + 30);
   const in30DaysStr = in30Days.toISOString().split('T')[0];
 
-  // ─── 1. Subscription Renewals (next 7 days) ───
-  const { data: renewals } = await supabase
-    .from('pyra_subscriptions')
-    .select('id, name, cost, currency, next_renewal_date')
-    .eq('status', 'active')
-    .gte('next_renewal_date', today)
-    .lte('next_renewal_date', in7DaysStr);
-
-  if (renewals && renewals.length > 0) {
-    for (const sub of renewals) {
-      alerts.push({
-        type: 'subscription_renewal',
-        severity: 'warning',
-        title: 'تجديد اشتراك قادم',
-        message: `الاشتراك "${sub.name}" سيتجدد في ${sub.next_renewal_date} بقيمة ${Number(sub.cost).toFixed(2)} ${sub.currency}`,
-        target_path: `/dashboard/finance/subscriptions/${sub.id}`,
-        data: { subscription_id: sub.id, name: sub.name, cost: sub.cost, renewal_date: sub.next_renewal_date },
-      });
-    }
-  }
+  // (Subscription-renewal alerts removed 2026-07-03 — subscriptions module
+  // sunset by decision; recurring costs are tracked as regular expenses.)
 
   // ─── 2. Overdue Invoices ───
   const { data: overdueInvoices, count: overdueCount } = await supabase

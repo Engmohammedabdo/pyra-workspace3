@@ -126,7 +126,6 @@ const SECTIONS = [
       '/dashboard/finance/expenses',
       '/dashboard/finance/expenses/categories',
       '/dashboard/finance/client-statement',
-      '/dashboard/finance/subscriptions',
       '/dashboard/finance/cards',
       '/dashboard/finance/contracts',
       '/dashboard/finance/credit-notes',
