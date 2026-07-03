@@ -74,6 +74,10 @@ export function useNotifications(): UseNotificationsReturn {
       await fetch(`/api/notifications/${id}`, { method: 'PATCH' });
       setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
       setUnreadCount(prev => Math.max(0, prev - 1));
+      // Mirror the local read into the ref so the next poll's increase-detection uses the post-read baseline
+      if (prevUnreadRef.current !== null) {
+        prevUnreadRef.current = Math.max(0, prevUnreadRef.current - 1);
+      }
     } catch {
       // silently fail
     }
@@ -84,6 +88,8 @@ export function useNotifications(): UseNotificationsReturn {
       await fetch('/api/notifications/read-all', { method: 'POST' });
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
+      // Mirror the local read into the ref so the next poll's increase-detection uses the post-read baseline
+      prevUnreadRef.current = 0;
     } catch {
       // silently fail
     }
