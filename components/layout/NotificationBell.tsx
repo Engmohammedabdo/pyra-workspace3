@@ -1,18 +1,22 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Bell, Check, CheckCheck, ExternalLink } from 'lucide-react';
+import { Bell, Check, CheckCheck, ExternalLink, Volume2, VolumeX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { useNotifications } from '@/hooks/useNotifications';
+import { useNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
 import { useRealtime } from '@/hooks/useRealtime';
 import { formatRelativeDate } from '@/lib/utils/format';
+import {
+  isNotificationSoundEnabled,
+  setNotificationSoundEnabled,
+} from '@/lib/utils/notification-sound';
 
 /** Resolve legacy target_path (raw project ID) to a dashboard route */
 function resolveTargetLink(type: string, targetPath: string): string | null {
@@ -51,6 +55,13 @@ export function NotificationBell({ username }: NotificationBellProps) {
 
   useRealtime({ username, onNewNotification: handleNewNotification });
 
+  const [soundOn, setSoundOn] = useState(() => isNotificationSoundEnabled());
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setNotificationSoundEnabled(next);
+  };
+
   const handleNotificationClick = (notification: { id: string; type: string; target_path: string; is_read: boolean }) => {
     if (!notification.is_read) {
       markRead(notification.id);
@@ -68,7 +79,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
   };
 
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => { if (open) requestNotificationPermission(); }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className="relative" title="الإشعارات" aria-label="الإشعارات">
           <Bell className="h-4 w-4" />
@@ -86,17 +97,29 @@ export function NotificationBell({ username }: NotificationBellProps) {
         {/* Header */}
         <div className="flex items-center justify-between border-b p-3">
           <h4 className="text-sm font-semibold">الإشعارات</h4>
-          {unreadCount > 0 && (
+          <div className="flex items-center gap-1">
             <Button
               variant="ghost"
-              size="sm"
-              className="h-auto px-2 py-1 text-xs text-muted-foreground"
-              onClick={markAllRead}
+              size="icon"
+              className="h-7 w-7"
+              onClick={toggleSound}
+              title={soundOn ? 'كتم صوت الإشعارات' : 'تفعيل صوت الإشعارات'}
+              aria-label={soundOn ? 'كتم صوت الإشعارات' : 'تفعيل صوت الإشعارات'}
             >
-              <CheckCheck className="me-1 h-3 w-3" />
-              تعليم الكل كمقروء
+              {soundOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />}
             </Button>
-          )}
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-auto px-2 py-1 text-xs text-muted-foreground"
+                onClick={markAllRead}
+              >
+                <CheckCheck className="me-1 h-3 w-3" />
+                تعليم الكل كمقروء
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Notification List */}

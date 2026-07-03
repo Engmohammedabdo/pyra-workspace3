@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { playNotificationSound } from '@/lib/utils/notification-sound';
 
 // ── Types ──
 
@@ -31,6 +32,7 @@ export function useNotifications(): UseNotificationsReturn {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const prevUnreadRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -38,7 +40,20 @@ export function useNotifications(): UseNotificationsReturn {
       const json = await res.json();
       if (json.data) {
         setNotifications(json.data);
-        setUnreadCount(json.meta?.unread_count ?? json.data.filter((n: Notification) => !n.is_read).length);
+        const newCount =
+          json.meta?.unread_count ??
+          json.data.filter((n: Notification) => !n.is_read).length;
+        setUnreadCount(newCount);
+
+        // Loud alert on NEW unread (skip the very first load)
+        if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
+          playNotificationSound();
+          const newest = json.data.find((n: Notification) => !n.is_read);
+          if (newest) {
+            showDesktopNotification(newest.title, newest.message || '', 'pyra-dashboard');
+          }
+        }
+        prevUnreadRef.current = newCount;
       }
     } catch {
       // silently fail
@@ -193,7 +208,7 @@ export function requestNotificationPermission(): Promise<NotificationPermission>
 }
 
 /** Show a desktop notification if permission is granted */
-function showDesktopNotification(title: string, body: string) {
+function showDesktopNotification(title: string, body: string, tag = 'pyra-portal') {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
   if (Notification.permission !== 'granted') return;
   // Don't show if the page is focused
@@ -204,7 +219,7 @@ function showDesktopNotification(title: string, body: string) {
       body,
       icon: '/icons/icon-192.svg',
       badge: '/icons/icon-192.svg',
-      tag: 'pyra-portal',
+      tag,
       dir: 'rtl',
       lang: 'ar',
       requireInteraction: false,
