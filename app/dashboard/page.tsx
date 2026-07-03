@@ -42,6 +42,7 @@ import { QuickAction } from '@/components/dashboard/home/QuickAction';
 import { LeaveBar } from '@/components/dashboard/home/LeaveBar';
 import { MyWorkInbox } from '@/components/dashboard/MyWorkInbox';
 import { MyCalendarWidget } from '@/components/dashboard/MyCalendarWidget';
+import { EmployeeQuickPanel } from '@/components/dashboard/EmployeeQuickPanel';
 
 interface DashboardData {
   total_files?: number;
@@ -152,6 +153,8 @@ export default function DashboardPage() {
         <MyWorkInbox />
         <MyCalendarWidget />
       </motion.div>
+
+      {!isAdmin && <motion.div variants={itemMotion}><EmployeeQuickPanel /></motion.div>}
 
       {isAdmin && <motion.div variants={itemMotion}><SmartAlerts /></motion.div>}
       {isAdmin && <motion.div variants={itemMotion}><KpiGrid /></motion.div>}
