@@ -1,0 +1,174 @@
+<title>دليل الموظف — بورد الإنتاج | Pyra Workspace</title>
+<style>
+  :root{
+    --ink:#1c1917; --muted:#78716c; --faint:#a8a29e;
+    --line:#e7e5e4; --panel:#fafaf9; --ground:#ffffff;
+    --brand:#ea580c; --brand-soft:#ffedd5;
+    --amber:#d97706; --amber-soft:#fef3c7;
+    --emerald:#059669; --emerald-soft:#d1fae5;
+    --green:#16a34a; --green-soft:#dcfce7;
+    --red:#dc2626; --red-soft:#fee2e2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;
+    line-height:1.9; font-size:16px;
+  }
+  .page{max-width:760px; margin:0 auto; padding:48px 28px 80px}
+  .cover{border-bottom:3px solid var(--brand); padding-bottom:28px; margin-bottom:40px}
+  .cover .org{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; letter-spacing:.08em}
+  .cover .dot{width:10px;height:10px;border-radius:50%;background:var(--brand);display:inline-block}
+  .cover h1{font-size:34px; font-weight:800; margin:14px 0 6px; line-height:1.4; text-wrap:balance}
+  .cover .sub{color:var(--muted); font-size:17px; margin:0}
+  .cover .meta{margin-top:18px; display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--faint)}
+  section{margin-bottom:44px}
+  h2{font-size:22px; font-weight:800; margin:0 0 4px; display:flex; align-items:baseline; gap:12px}
+  h2 .no{color:var(--brand); font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+  .lead{color:var(--muted); margin:0 0 18px; font-size:15px}
+  p{margin:0 0 12px}
+  .flow{display:flex; align-items:stretch; margin:18px 0; overflow-x:auto; padding-bottom:6px}
+  .flow .col{flex:1; min-width:96px; text-align:center; padding:12px 6px; border:1.5px solid var(--line); border-radius:10px; background:var(--panel); position:relative}
+  .flow .col + .col{margin-inline-start:22px}
+  .flow .col + .col::before{content:"←"; position:absolute; inset-inline-start:-20px; top:50%; transform:translateY(-50%); color:var(--faint); font-size:15px}
+  .flow .col b{display:block; font-size:13.5px; margin-bottom:2px}
+  .flow .col span{font-size:11px; color:var(--muted); display:block; line-height:1.5}
+  .flow .col.gate{border-color:var(--amber)}
+  .flow .col.done{border-color:var(--green)}
+  ol.steps{list-style:none; counter-reset:s; padding:0; margin:14px 0}
+  ol.steps>li{counter-increment:s; display:flex; gap:14px; padding:13px 0; border-bottom:1px dashed var(--line)}
+  ol.steps>li:last-child{border-bottom:none}
+  ol.steps>li::before{
+    content:counter(s); flex:none; width:28px; height:28px; border-radius:50%;
+    background:var(--brand); color:#fff; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center; margin-top:4px;
+    font-variant-numeric:tabular-nums;
+  }
+  ol.steps b{font-weight:700}
+  ol.steps .d{color:var(--muted); font-size:14.5px; display:block; margin-top:2px}
+  .btn{display:inline-block; padding:2px 12px; border-radius:7px; font-size:13.5px; font-weight:700; color:#fff; white-space:nowrap; vertical-align:middle}
+  .btn.review{background:var(--amber)} .btn.deliver{background:var(--green)} .btn.next{background:var(--emerald)}
+  .path{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:1px 9px; font-size:13.5px; white-space:nowrap}
+  .callout{border-radius:10px; padding:14px 18px; margin:16px 0; font-size:15px; border:1.5px solid}
+  .callout b:first-child{display:block; margin-bottom:4px; font-size:14px}
+  .callout.rule{background:var(--brand-soft); border-color:#fdba74}
+  .callout.warn{background:var(--amber-soft); border-color:#fcd34d}
+  .callout.ok{background:var(--emerald-soft); border-color:#6ee7b7}
+  .twrap{overflow-x:auto; margin:14px 0}
+  table{border-collapse:collapse; width:100%; font-size:14.5px}
+  th{background:var(--panel); text-align:start; font-size:13px; color:var(--muted)}
+  th,td{border:1px solid var(--line); padding:9px 12px; vertical-align:top}
+  td .m{color:var(--muted); font-size:13px}
+  .faq dt{font-weight:700; margin-top:16px}
+  .faq dd{margin:4px 0 0; color:var(--muted); font-size:15px}
+  .foot{margin-top:56px; padding-top:16px; border-top:1.5px solid var(--line); color:var(--faint); font-size:12.5px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap}
+  @media print{
+    body{font-size:13px}
+    .page{max-width:none; padding:0 4mm}
+    section{break-inside:avoid-page}
+    a{color:inherit; text-decoration:none}
+  }
+</style>
+
+<div class="page" dir="rtl" lang="ar">
+
+  <header class="cover">
+    <div class="org"><span class="dot"></span> PYRAMEDIA X — Pyra Workspace</div>
+    <h1>دليلك للشغل على بورد الإنتاج</h1>
+    <p class="sub">كل حاجة هتحتاجها من أول ما التاسك يوصلك لحد التسليم النهائي — للمونتير والجرافيك ديزاينر</p>
+    <div class="meta"><span>الإصدار 1.0 — يوليو 2026</span><span>workspace.pyramedia.cloud</span></div>
+  </header>
+
+  <section>
+    <h2><span class="no">١</span> إيه اللي اتغير؟ (باختصار جداً)</h2>
+    <p class="lead">نفس شغلك بالظبط — Drive وframe.io زي ما هما. الجديد بس: بدل ما تبعت اللينكات على الواتساب، هتحطها في النظام بضغطة زرار. النتيجة: محدش هيسألك «وصلت لفين؟» تاني، وشغلك ومجهودك كله متسجل باسمك.</p>
+    <div class="flow">
+      <div class="col"><b>جديد</b><span>التاسك وصلك</span></div>
+      <div class="col"><b>قيد التنفيذ</b><span>إنت شغال</span></div>
+      <div class="col gate"><b>جاهز للمراجعة</b><span>رفعت نسخة</span></div>
+      <div class="col gate"><b>معتمد</b><span>محمد وافق</span></div>
+      <div class="col done"><b>تم التسليم</b><span>الفاينل على Drive</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="no">٢</span> أول مرة تدخل (مرة واحدة بس)</h2>
+    <ol class="steps">
+      <li><div><b>ادخل على</b> <span class="path">workspace.pyramedia.cloud</span> بحسابك.</div></li>
+      <li><div><b>اضغط على جرس الإشعارات فوق</b> — المتصفح هيسألك «السماح بالإشعارات؟» ← <b>اختار سماح.</b><span class="d">كده هيجيلك تنبيه ورنة حتى لو الموقع مش مفتوح قدامك في التاب. جوه الجرس فيه زرار سماعة لو حابب تكتم الصوت مؤقتاً.</span></div></li>
+      <li><div><b>خلي الموقع مفتوح في تاب ثابت</b> طول اليوم — ده مصدر شغلك وإشعاراتك.</div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="no">٣</span> أول حاجة كل يوم: سجّل حضورك</h2>
+    <ol class="steps">
+      <li><div><b>أول ما تبدأ دوامك:</b> من القائمة الجانبية افتح <span class="path">الحضور</span> واضغط <b>تسجيل حضور</b>.</div></li>
+      <li><div><b>آخر اليوم:</b> نفس الصفحة ← <b>تسجيل انصراف</b>.</div></li>
+    </ol>
+    <div class="callout warn"><b>خد بالك</b>لو معاد دوامك بدأ وعدّى ربع ساعة من غير ما تسجل، هيجيلك تذكير أوتوماتيك (إشعار + واتساب). التأخير بيتحسب أوتوماتيك وبيظهر في تقرير آخر الشهر — فسجّل أول ما تقعد.</div>
+  </section>
+
+  <section>
+    <h2><span class="no">٤</span> الشغل بيوصلك إزاي؟</h2>
+    <p>لما محمد يعملك تاسك جديد هيجيلك <b>إشعار بصوت + رسالة واتساب</b> فيها اسم الشغلانة والديدلاين. تلاقي التاسك في مكانين:</p>
+    <ol class="steps">
+      <li><div><span class="path">مهامي</span> — <b>دي صفحتك الأساسية.</b> كل تاسكاتك مرتبة: المتأخر، النهارده، الأسبوع ده.</div></li>
+      <li><div><span class="path">لوحات العمل ← الإنتاج</span> — البورد الكامل لو حابب تشوف الصورة الكبيرة.</div></li>
+    </ol>
+    <p>افتح التاسك — هتلاقي في <b>الوصف</b>: لينك الخام على Drive + المطلوب بالظبط. ولو فيه حاجة مش واضحة، اكتب سؤالك في <b>التعليقات</b> جوه التاسك (استخدم @ للمنشن) — أحسن من الواتساب لأنه بيفضل متسجل جنب الشغل نفسه.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">٥</span> خطوات الشغلانة من الأول للآخر</h2>
+    <ol class="steps">
+      <li><div><b>ابدأ الشغل:</b> انقل الكارت من «جديد» لـ«قيد التنفيذ»<span class="d">بالسحب بالماوس، أو افتح التاسك واضغط <span class="btn next">نقل للتالي</span>. النقلة دي بتقول لمحمد «أنا بدأت» — ووقتها بيتسجل.</span></div></li>
+      <li><div><b>اشتغل عادي</b> على البريمير/الفوتوشوب — وارفع النسخة الأولى على <b>frame.io</b> (فيديو) أو <b>Drive</b> (تصميم) وانسخ اللينك.</div></li>
+      <li><div><b>افتح التاسك واضغط</b> <span class="btn review">رفع للمراجعة 👀</span><span class="d">الصق اللينك في الخانة (لازم يبدأ بـ https://) + ملاحظة اختيارية لو حابب توضح حاجة ← تأكيد. الكارت هينتقل «جاهز للمراجعة» ومحمد هيوصله إشعار فوري بالرابط.</span></div></li>
+      <li><div><b>استنى قرار المراجعة</b> — هتشوف في التاسك علامة «⏳ في انتظار مراجعة الأدمن».<span class="d">مش محتاج تبعت رسالة ولا تفكّر حد — الإشعار وصله بصوت.</span></div></li>
+      <li><div><b>لو جالك «مطلوب تعديل»:</b><span class="d">هيجيلك إشعار + واتساب فيه ملخص المطلوب، والكارت هيرجع «قيد التنفيذ». التفاصيل الدقيقة هتلاقيها كالعادة كومنتات على frame.io + الملخص في تعليقات التاسك. عدّل وارفع النسخة الجديدة بنفس زرار <span class="btn review">رفع للمراجعة 👀</span> — هتتحسب «جولة ٢» وهكذا.</span></div></li>
+      <li><div><b>لو جالك «تمت الموافقة ✅»:</b><span class="d">ارفع الفاينل بجودة التسليم على <b>فولدر الفاينل في Drive</b> زي المتفق، وبعدها في التاسك اضغط <span class="btn deliver">تسليم نهائي 📦</span> والصق لينك الفاينل ← الكارت يقفل في «تم التسليم» 🎉 والشغلانة بتتحسب لك في تقرير الشهر.</span></div></li>
+    </ol>
+    <div class="callout rule"><b>مهم — السحب مقفول على أعمدة المراجعة والتسليم</b>لو جربت تسحب الكارت بالماوس لـ«جاهز للمراجعة» أو «تم التسليم» النظام هيرفض — لأن النقلات دي لازم يكون معاها لينك. استخدم الزرارين اللي فوق وخلاص.</div>
+  </section>
+
+  <section>
+    <h2><span class="no">٦</span> الديدلاين بيتحسب إزاي؟ (في صالحك)</h2>
+    <div class="callout ok"><b>القاعدة</b>التزامك بيتقاس على <b>أول مرة ترفع نسخة للمراجعة</b> — مش على التسليم النهائي. يعني لو رفعت أول نسخة قبل الديدلاين، إنت ملتزم ✓ حتى لو المراجعة والتعديلات خدت وقت بعدها — وقت مراجعة محمد بيتحسب عليه هو مش عليك.</div>
+    <p>ولو حاسس إنك مش هتلحق الديدلاين — <b>قول لمحمد بدري</b> (تعليق على التاسك أو واتساب). تأجيل متكلم فيه أحسن ألف مرة من تأخير ساكت. وهيجيلك تذكير أوتوماتيك قبل الموعد بيوم وفي يوم التسليم.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">٧</span> أرقامك — «إنتاجيتي هذا الشهر»</h2>
+    <p class="lead">فوق في صفحة «مهامي» فيه كارت صغير بيعرض أرقامك أنت بس — نفس الأرقام اللي محمد بيشوفها آخر الشهر. مفيش مفاجآت.</p>
+    <div class="twrap"><table>
+      <tr><th>الرقم</th><th>يعني إيه</th></tr>
+      <tr><td><b>تسليمات</b></td><td>كام شغلانة سلمتها نهائي الشهر ده</td></tr>
+      <tr><td><b>الالتزام</b></td><td>نسبة الشغل اللي رفعت أول نسخته قبل الديدلاين</td></tr>
+      <tr><td><b>جولات تعديل</b></td><td>متوسط مرات التعديل لكل شغلانة <span class="m">— أقل = أحسن</span></td></tr>
+      <tr><td><b>سرعة أول نسخة</b></td><td>متوسط الأيام من استلام التاسك لأول رفع</td></tr>
+      <tr><td><b>متأخرة بلا رفع</b></td><td>مهام عدّى معادها ولسه مرفعتش أي نسخة <span class="m">— خليها صفر دايماً</span></td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2><span class="no">٨</span> مشاكل شائعة وحلها</h2>
+    <dl class="faq">
+      <dt>مش لاقي زرار «رفع للمراجعة»؟</dt>
+      <dd>اتأكد إن الكارت في عمود «قيد التنفيذ» الأول — الزرار بيظهر جوه التاسك لما تكون المرحلة الجاية هي المراجعة.</dd>
+      <dt>النظام رفض اللينك؟</dt>
+      <dd>اللينك لازم يبدأ بـ https:// — انسخه كامل من شريط العنوان أو من زرار Share في frame.io/Drive.</dd>
+      <dt>مش بتجيلي رنة؟</dt>
+      <dd>افتح الجرس واتأكد إن السماعة مفتوحة، وإنك سمحت بإشعارات المتصفح. الصوت بيبدأ يشتغل بعد أول ضغطة في الصفحة (قاعدة متصفحات).</dd>
+      <dt>نسيت أسجل حضور الصبح؟</dt>
+      <dd>سجّل أول ما تفتكر وابعت لمحمد يظبط اليوم يدوياً لو محتاج — بس متخليهاش عادة، التذكير بيجيلك ربع ساعة بعد معادك.</dd>
+      <dt>عندي ملاحظة على البريف أو المطلوب مش واضح؟</dt>
+      <dd>اكتب سؤالك في تعليقات التاسك (بيوصل إشعار لمحمد فوراً) — كده السؤال والرد بيفضلوا متسجلين جنب الشغل.</dd>
+    </dl>
+  </section>
+
+  <footer class="foot">
+    <span>Pyra Workspace — دليل الموظف، بورد الإنتاج</span>
+    <span>للطباعة PDF: اضغط Ctrl+P واختار «حفظ كـ PDF»</span>
+  </footer>
+</div>

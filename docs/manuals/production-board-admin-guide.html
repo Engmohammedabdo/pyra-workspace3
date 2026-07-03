@@ -1,0 +1,196 @@
+<title>دليل الأدمن — بورد الإنتاج | Pyra Workspace</title>
+<style>
+  :root{
+    --ink:#1c1917; --muted:#78716c; --faint:#a8a29e;
+    --line:#e7e5e4; --panel:#fafaf9; --ground:#ffffff;
+    --brand:#ea580c; --brand-soft:#ffedd5;
+    --amber:#d97706; --amber-soft:#fef3c7;
+    --emerald:#059669; --emerald-soft:#d1fae5;
+    --green:#16a34a; --green-soft:#dcfce7;
+    --red:#dc2626; --red-soft:#fee2e2;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;
+    line-height:1.9; font-size:16px;
+  }
+  .page{max-width:760px; margin:0 auto; padding:48px 28px 80px}
+  /* ── Cover ── */
+  .cover{border-bottom:3px solid var(--brand); padding-bottom:28px; margin-bottom:40px}
+  .cover .org{display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; letter-spacing:.08em}
+  .cover .dot{width:10px;height:10px;border-radius:50%;background:var(--brand);display:inline-block}
+  .cover h1{font-size:34px; font-weight:800; margin:14px 0 6px; line-height:1.4; text-wrap:balance}
+  .cover .sub{color:var(--muted); font-size:17px; margin:0}
+  .cover .meta{margin-top:18px; display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--faint)}
+  /* ── Sections ── */
+  section{margin-bottom:44px}
+  h2{font-size:22px; font-weight:800; margin:0 0 4px; display:flex; align-items:baseline; gap:12px}
+  h2 .no{color:var(--brand); font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
+  .lead{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{font-size:16.5px; font-weight:700; margin:22px 0 8px}
+  p{margin:0 0 12px}
+  /* ── Flow diagram ── */
+  .flow{display:flex; align-items:stretch; gap:0; margin:18px 0; overflow-x:auto; padding-bottom:6px}
+  .flow .col{flex:1; min-width:96px; text-align:center; padding:12px 6px; border:1.5px solid var(--line); border-radius:10px; background:var(--panel); position:relative}
+  .flow .col + .col{margin-inline-start:22px}
+  .flow .col + .col::before{content:"←"; position:absolute; inset-inline-start:-20px; top:50%; transform:translateY(-50%); color:var(--faint); font-size:15px}
+  .flow .col b{display:block; font-size:13.5px; margin-bottom:2px}
+  .flow .col span{font-size:11px; color:var(--muted); display:block; line-height:1.5}
+  .flow .col.gate{border-color:var(--amber)}
+  .flow .col.done{border-color:var(--green)}
+  /* ── Steps ── */
+  ol.steps{list-style:none; counter-reset:s; padding:0; margin:14px 0}
+  ol.steps>li{counter-increment:s; display:flex; gap:14px; padding:13px 0; border-bottom:1px dashed var(--line)}
+  ol.steps>li:last-child{border-bottom:none}
+  ol.steps>li::before{
+    content:counter(s); flex:none; width:28px; height:28px; border-radius:50%;
+    background:var(--brand); color:#fff; font-weight:700; font-size:14px;
+    display:flex; align-items:center; justify-content:center; margin-top:4px;
+    font-variant-numeric:tabular-nums;
+  }
+  ol.steps b{font-weight:700}
+  ol.steps .d{color:var(--muted); font-size:14.5px; display:block; margin-top:2px}
+  /* ── UI chips: replicas of the real buttons ── */
+  .btn{display:inline-block; padding:2px 12px; border-radius:7px; font-size:13.5px; font-weight:700; color:#fff; white-space:nowrap; vertical-align:middle}
+  .btn.review{background:var(--amber)} .btn.approve{background:var(--emerald)}
+  .btn.reject{background:transparent; color:var(--red); border:1.5px solid var(--red)}
+  .btn.deliver{background:var(--green)} .btn.next{background:var(--emerald)}
+  .path{background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:1px 9px; font-size:13.5px; white-space:nowrap}
+  /* ── Callouts ── */
+  .callout{border-radius:10px; padding:14px 18px; margin:16px 0; font-size:15px; border:1.5px solid}
+  .callout b:first-child{display:block; margin-bottom:4px; font-size:14px}
+  .callout.rule{background:var(--brand-soft); border-color:#fdba74}
+  .callout.warn{background:var(--amber-soft); border-color:#fcd34d}
+  .callout.ok{background:var(--emerald-soft); border-color:#6ee7b7}
+  /* ── Tables ── */
+  .twrap{overflow-x:auto; margin:14px 0}
+  table{border-collapse:collapse; width:100%; font-size:14.5px}
+  th{background:var(--panel); text-align:start; font-size:13px; color:var(--muted); letter-spacing:.03em}
+  th,td{border:1px solid var(--line); padding:9px 12px; vertical-align:top}
+  td .m{color:var(--muted); font-size:13px}
+  /* ── FAQ ── */
+  .faq dt{font-weight:700; margin-top:16px}
+  .faq dd{margin:4px 0 0; color:var(--muted); font-size:15px}
+  /* ── Footer ── */
+  .foot{margin-top:56px; padding-top:16px; border-top:1.5px solid var(--line); color:var(--faint); font-size:12.5px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap}
+  /* ── Print ── */
+  @media print{
+    body{font-size:13px}
+    .page{max-width:none; padding:0 4mm}
+    section{break-inside:avoid-page}
+    .cover{margin-bottom:24px}
+    a{color:inherit; text-decoration:none}
+  }
+</style>
+
+<div class="page" dir="rtl" lang="ar">
+
+  <header class="cover">
+    <div class="org"><span class="dot"></span> PYRAMEDIA X — Pyra Workspace</div>
+    <h1>دليل الأدمن: بورد الإنتاج ومتابعة الشغل الريموت</h1>
+    <p class="sub">إزاي تدير شغل المونتاج والتصميم من أول التاسك لحد التقرير الشهري — نسخة محمد (الأدمن)</p>
+    <div class="meta"><span>الإصدار 1.0 — يوليو 2026</span><span>workspace.pyramedia.cloud</span></div>
+  </header>
+
+  <section>
+    <h2><span class="no">١</span> الفكرة في دقيقة</h2>
+    <p class="lead">كل شغلانة (فيديو أو تصميم) هي كارت على بورد «الإنتاج» بيمشي في خمس مراحل — وكل نقلة بتتسجل بوقتها أوتوماتيك، ومنها بيطلع تقرير آخر الشهر.</p>
+    <div class="flow">
+      <div class="col"><b>جديد</b><span>إنت بتعمل التاسك هنا</span></div>
+      <div class="col"><b>قيد التنفيذ</b><span>الموظف شغال</span></div>
+      <div class="col gate"><b>جاهز للمراجعة</b><span>نسخة مرفوعة بلينك</span></div>
+      <div class="col gate"><b>معتمد</b><span>بعد موافقتك</span></div>
+      <div class="col done"><b>تم التسليم</b><span>الفاينل على Drive</span></div>
+    </div>
+    <p>الملفات نفسها <b>مش بتترفع على النظام أبداً</b> — الفيديوهات على Google Drive وframe.io زي ما إنتوا متعودين. النظام بيمسك اللينكات والمواعيد والقرارات بس.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">٢</span> تجهيز أول مرة (٥ دقايق — مرة واحدة)</h2>
+    <ol class="steps">
+      <li><div><b>فعّل إشعارات المتصفح والصوت.</b><span class="d">اضغط على جرس الإشعارات فوق — المتصفح هيسألك «السماح بالإشعارات؟» اختار سماح. جوه قائمة الجرس فيه زرار سماعة لكتم/تفعيل صوت الرنة.</span></div></li>
+      <li><div><b>ضيف أرقام واتساب الموظفين.</b><span class="d">من <span class="path">الإعدادات ← إعدادات واتساب المندوبين</span> ضيف صف لكل موظف: اختار الـ instance المتصل + رقم الواتساب الشخصي بتاعه (أرقام بس من غير +) وفعّل الصف. من غير الخطوة دي الإشعارات بتشتغل جوه النظام فقط.</span></div></li>
+      <li><div><b>راجع مواعيد الدوام.</b><span class="d">من <span class="path">الموارد البشرية ← جداول العمل</span> — جدول «دوام الإنتاج — مصر» متظبط مبدئياً ١٠ص–٦م بتوقيت مصر (اتنين لسبت). عدّله لو المواعيد الفعلية مختلفة. <b>مهم:</b> المواعيد بتتسجل بتوقيت الإمارات (+ساعتين عن مصر).</span></div></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2><span class="no">٣</span> إنشاء شغلانة جديدة</h2>
+    <ol class="steps">
+      <li><div><b>ارفع الخام على Google Drive</b> زي المعتاد وانسخ اللينك.</span></div></li>
+      <li><div><b>افتح البورد:</b> <span class="path">لوحات العمل ← الإنتاج</span> واضغط «+ إضافة مهمة» في عمود «جديد».</span></div></li>
+      <li><div><b>اكتب البيانات:</b><span class="d">عنوان واضح (مثلاً: «ريلز عرض عقار المارينا — للعميل X») + <b>الموعد النهائي (إجباري — من غيره مفيش قياس التزام)</b> + المسؤول (وائل أو عبدالرحمن) + الأولوية.</span></div></li>
+      <li><div><b>حط لينك الخام + البريف في وصف التاسك</b><span class="d">افتح التاسك واكتب في الوصف: لينك الدرايف + المطلوب بالظبط (المدة، المقاس، النبرة، مرجع لو فيه). كل ما البريف أوضح، قلّت جولات التعديل.</span></div></li>
+    </ol>
+    <div class="callout ok"><b>اللي بيحصل بعدها أوتوماتيك</b>الموظف يوصله إشعار فوري (وواتساب لو مفعّل) — والتاسك يظهر عنده في «مهامي». هو ينقل الكارت لـ«قيد التنفيذ» ويبدأ.</div>
+  </section>
+
+  <section>
+    <h2><span class="no">٤</span> المراجعة والاعتماد — شغلك الأساسي</h2>
+    <p class="lead">لما الموظف يخلص نسخة، بيضغط «رفع للمراجعة» ويحط لينك frame.io — هنا دورك:</p>
+    <ol class="steps">
+      <li><div><b>هيجيلك إشعار بصوت:</b> «نسخة جاهزة للمراجعة» (+ واتساب فيه اللينك مباشرة).</span></div></li>
+      <li><div><b>افتح التاسك</b> — هتلاقي لينك النسخة في المرفقات باسم «نسخة للمراجعة — جولة ١».<span class="d">راجع الفيديو على frame.io واكتب ملاحظاتك التفصيلية هناك زي عادتك (على الثواني والفريمات).</span></div></li>
+      <li><div><b>ارجع للتاسك وخد القرار</b> من لوحة «قرار المراجعة»:<span class="d" style="margin-top:8px">
+        <span class="btn approve">اعتماد ✓</span> — الكارت ينتقل لـ«معتمد» والموظف يوصله إشعار «ارفع الفاينل».<br><br>
+        <span class="btn reject">طلب تعديل</span> — لازم تكتب <b>ملخص المطلوب</b> (سطر أو اتنين — التفاصيل على frame.io). الكارت يرجع «قيد التنفيذ»، والملاحظة بتتسجل كتعليق على التاسك، والموظف يوصله إشعار + واتساب.</span></div></li>
+      <li><div><b>لما يرفع نسخة معدلة</b> هتتحسب «جولة ٢» أوتوماتيك — وهكذا لحد الاعتماد.</span></div></li>
+      <li><div><b>بعد التسليم النهائي</b> (الموظف بيضغط <span class="btn deliver">تسليم نهائي 📦</span> بلينك فولدر الفاينل على Drive) — يجيلك إشعار والكارت يقفل في «تم التسليم».</span></div></li>
+    </ol>
+    <div class="callout rule"><b>قاعدة مقفولة</b>ممنوع سحب الكروت بالماوس لأعمدة «جاهز للمراجعة / معتمد / تم التسليم» — النظام هيرفض ويقولك استخدم الأزرار. السبب: الأزرار هي اللي بتضمن إن اللينك موجود والوقت متسجل. السحب مسموح بس بين «جديد» و«قيد التنفيذ».</div>
+  </section>
+
+  <section>
+    <h2><span class="no">٥</span> التذكيرات الأوتوماتيك — بتشتغل من غيرك</h2>
+    <div class="twrap"><table>
+      <tr><th>التذكير</th><th>إمتى</th><th>لمين</th></tr>
+      <tr><td>موعد التسليم بكرة / النهارده</td><td>يومياً ٩ص بتوقيت الإمارات</td><td>الموظف المسؤول (إشعار + واتساب)</td></tr>
+      <tr><td>مهمة عدّى معادها ولسه مرفعتش</td><td>يومياً ٩ص</td><td>الموظف <b>+ إنت</b></td></tr>
+      <tr><td>معاد الدوام بدأ ومفيش تسجيل حضور</td><td>بعد معاد الدوام بربع ساعة (فحص كل نص ساعة)</td><td>الموظف (إشعار + واتساب) — مرة واحدة في اليوم</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2><span class="no">٦</span> تقرير الإنتاجية الشهري — تقييم آخر الشهر</h2>
+    <p class="lead">من <span class="path">الموارد البشرية ← تقرير الإنتاجية</span> — اختار الشهر وشوف لكل موظف:</p>
+    <div class="twrap"><table>
+      <tr><th>الرقم</th><th>معناه</th></tr>
+      <tr><td><b>تسليمات مكتملة</b></td><td>كام شغلانة وصلت «تم التسليم» خلال الشهر</td></tr>
+      <tr><td><b>الالتزام بالمواعيد</b></td><td>نسبة الشغل اللي <b>أول نسخة مراجعة</b> منه اترفعت قبل الديدلاين <span class="m">— بيتقاس على أول رفع مش الفاينل، عشان وقت مراجعتك ميتحسبش على الموظف</span></td></tr>
+      <tr><td><b>متوسط التأخير</b></td><td>الشغل اللي اتأخر، اتأخر كام يوم في المتوسط</td></tr>
+      <tr><td><b>جولات التعديل</b></td><td>متوسط عدد مرات «طلب تعديل» لكل تسليم <span class="m">— بيخلص من أول مرة ولا شغله بيترجعله؟</span></td></tr>
+      <tr><td><b>سرعة أول نسخة</b></td><td>متوسط الأيام من إنشاء التاسك لأول رفع للمراجعة</td></tr>
+      <tr><td><b>انتظار مراجعتك</b></td><td><b>رقمك إنت:</b> متوسط الوقت من رفع النسخة لحد قرارك <span class="m">— لو عالي، الشغل واقف عندك مش عنده</span></td></tr>
+      <tr><td><b>متأخرة ولم تُرفع</b></td><td>مهام عدّى معادها من غير أي نسخة — <b>أول حاجة تسأل عنها</b></td></tr>
+      <tr><td><b>الدوام</b></td><td>حضور / تأخير / غياب / ساعات — من نظام الحضور</td></tr>
+    </table></div>
+    <p>اضغط «تفاصيل المهام» تحت أي موظف تشوف كل شغلانة ورحلتها كاملة — كل رقم في الكروت تقدر تتبع مصدره. والموظف نفسه بيشوف أرقامه الشخصية على صفحة «مهامي» — الشفافية دي مقصودة.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">٧</span> الحضور</h2>
+    <p>الموظف بيسجل حضور وانصراف يومياً من صفحة «الحضور» عنده — والتأخير بيتحسب أوتوماتيك مقارنة بمعاد جدول دوامه. إنت تشوف حضور أي موظف من صفحة الحضور (فلتر بالاسم) أو ملخصه الشهري جوه تقرير الإنتاجية. لو محتاج تصحح يوم يدوياً، فيه زرار تعديل إداري في صفحة الحضور.</p>
+  </section>
+
+  <section>
+    <h2><span class="no">٨</span> أسئلة بتتكرر</h2>
+    <dl class="faq">
+      <dt>عايز أضيف موظف ريموت جديد على النظام؟</dt>
+      <dd>ضيفه عضو في بورد «الإنتاج» (إعدادات البورد ← الأعضاء) + اعمله جدول دوام من جداول العمل + ضيف رقم واتسابه في الإعدادات. خلاص — كل حاجة تانية أوتوماتيك.</dd>
+      <dt>طلبت تعديل بالغلط أو عايز أرجّع مهمة اتعتمدت؟</dt>
+      <dd>بعد الاعتماد الكارت في «معتمد» — تقدر ترجعه «قيد التنفيذ» بطلب تعديل جديد من نفس اللوحة لو النسخة اتفتحت تاني. القرارات كلها بتفضل متسجلة في تايم لاين التاسك.</dd>
+      <dt>الديدلاين اتغير (العميل أجّل مثلاً)؟</dt>
+      <dd>افتح التاسك وعدّل الموعد النهائي عادي — القياس هيتحسب على الموعد الجديد.</dd>
+      <dt>الموظف بيقول مش شايف البورد؟</dt>
+      <dd>اتأكد إنه عضو في البورد (إعدادات البورد ← الأعضاء) وإن حسابه Active.</dd>
+      <dt>الرنة مش شغالة؟</dt>
+      <dd>افتح الجرس واتأكد إن السماعة مش مكتومة، وإن المتصفح واخد إذن الإشعارات (أول ضغطة على الجرس بيسأل). الصوت بيشتغل بعد أول تفاعل مع الصفحة — دي قاعدة متصفحات عامة.</dd>
+    </dl>
+  </section>
+
+  <footer class="foot">
+    <span>Pyra Workspace — دليل الأدمن، بورد الإنتاج</span>
+    <span>للطباعة PDF: اضغط Ctrl+P واختار «حفظ كـ PDF»</span>
+  </footer>
+</div>
