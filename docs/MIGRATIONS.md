@@ -435,7 +435,22 @@ Requirements:
 - `pg_dump` available on PATH. Verify with `pg_dump --version`.
   - macOS: `brew install libpq && brew link --force libpq` (provides `pg_dump` without the full Postgres server)
   - Linux: `apt install postgresql-client` (or distro equivalent)
-  - **Windows:** install [PostgreSQL for Windows](https://www.postgresql.org/download/windows/) (the Windows installer includes `pg_dump.exe`). Add `C:\Program Files\PostgreSQL\<version>\bin` to PATH. Use **Git Bash** as the shell — not PowerShell — when running `pnpm db:backup`. The script uses POSIX shell features (set -euo pipefail, pipes, mkdir -p) that work in Git Bash.
+  - **Windows (preferred — portable, no admin rights, no server):** extract the `pgsql/bin` folder from the [EDB binaries zip](https://www.enterprisedb.com/download-postgresql-binaries) to `%LOCALAPPDATA%\Programs\pgsql\bin`, then add that folder to the **user** PATH. One-shot setup (Git Bash):
+
+    ```bash
+    curl -sS -o /tmp/pg-binaries.zip \
+      "https://get.enterprisedb.com/postgresql/postgresql-17.5-1-windows-x64-binaries.zip"
+    mkdir -p "$(cygpath -u "$LOCALAPPDATA")/Programs"
+    /c/Windows/System32/tar.exe -xf /tmp/pg-binaries.zip \
+      -C "$LOCALAPPDATA/Programs" "pgsql/bin"   # bsdtar reads zip + supports path filtering
+    powershell -NoProfile -Command \
+      '[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";" + $env:LOCALAPPDATA + "\Programs\pgsql\bin", "User")'
+    rm /tmp/pg-binaries.zip
+    ```
+
+    The client's major version must be **≥ the server's** (production is PG 15.8 — any 15/16/17 client works). `scripts/db-backup.sh` also probes `%LOCALAPPDATA%\Programs\pgsql\bin` and `C:\Program Files\PostgreSQL\<ver>\bin` automatically when `pg_dump` isn't on PATH, so shells opened before the PATH change still work. Done on Abdou's machine 2026-07-03 (pg_dump 17.5).
+  - **Windows (alternative):** install [PostgreSQL for Windows](https://www.postgresql.org/download/windows/) (the Windows installer includes `pg_dump.exe` but also the full server + a Windows service, and needs admin rights). Add `C:\Program Files\PostgreSQL\<version>\bin` to PATH.
+  - Either way, use **Git Bash** as the shell — not PowerShell — when running `pnpm db:backup`. The script uses POSIX shell features (set -euo pipefail, pipes, mkdir -p) that work in Git Bash.
 - `gzip` available — bundled with Git Bash on Windows; comes with macOS and Linux by default.
 
 The TypeScript scripts (`db-record-migration.ts`, `db-check-drift.ts`) run via `tsx` and are fully cross-platform (no shell-specific code).
