@@ -106,6 +106,7 @@ interface TaskDetail {
   priority: string;
   due_date?: string;
   start_date?: string;
+  stage_entered_at?: string | null;
   estimated_hours?: number;
   actual_hours?: number;
   cover_image?: string;
@@ -669,7 +670,8 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 </h2>
               )}
 
-              {/* Column subtitle */}
+              {/* Column subtitle + time-in-stage */}
+              <div className="flex items-center gap-2 flex-wrap">
               <Popover>
                 <PopoverTrigger asChild>
                   <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
@@ -694,6 +696,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   ))}
                 </PopoverContent>
               </Popover>
+              {task.stage_entered_at && (
+                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" aria-hidden />
+                  في المرحلة دي منذ {timeAgo(task.stage_entered_at)}
+                </span>
+              )}
+              </div>
 
               {/* Labels bar */}
               {taskLabels.length > 0 && (

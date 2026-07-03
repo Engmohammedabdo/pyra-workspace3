@@ -5,6 +5,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
+import { notifyMany } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
 // =============================================================
 // GET /api/boards/[id]/tasks
@@ -137,6 +139,30 @@ export async function POST(
         const uname = typeof a === 'string' ? a : a.username;
         if (uname) invalidateScopeCache(uname);
       });
+
+      // Notify + WhatsApp each assignee (2026-07-03 fix: creation inserted
+      // assignees SILENTLY — only later additions via /assignees notified)
+      const assigneeNames: string[] = assignees
+        .map((a: any) => (typeof a === 'string' ? a : a?.username))
+        .filter(Boolean);
+      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
+
+      await notifyMany(supabase, assigneeNames, {
+        type: 'task_assigned',
+        title: `📌 مهمة جديدة: ${title}`,
+        message: `عيّنك ${auth.pyraUser.display_name} على مهمة جديدة${due_date ? ` — الموعد النهائي ${due_date}` : ''}`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+      for (const uname of assigneeNames) {
+        if (uname === auth.pyraUser.username) continue;
+        await sendWhatsAppToUser(
+          supabase,
+          uname,
+          `📌 مهمة جديدة اتعينت عليك: ${title}\nالموعد النهائي: ${due_date || 'غير محدد'}\n${APP_URL}${taskLink}`,
+        );
+      }
     }
 
     logActivity(
