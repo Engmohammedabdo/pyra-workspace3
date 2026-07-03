@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
+import { notifyMany } from '@/lib/notifications/notify';
 
 // =============================================================
 // POST /api/tasks/[id]/move
@@ -84,12 +85,14 @@ export async function POST(
     // Pipeline gated columns must go through /advance (link gates) or
     // /approve (admin gate) — a raw drag-move would bypass required links
     // and the approval permission (remote-production-tracking).
+    let targetCol: { id: string; name: string; column_type: string | null; requires_approval: boolean } | null = null;
     if (isCrossColumn && isPipelineBoard) {
-      const { data: targetCol } = await supabase
+      const { data: fetchedTargetCol } = await supabase
         .from('pyra_board_columns')
-        .select('id, column_type, requires_approval')
+        .select('id, name, column_type, requires_approval')
         .eq('id', column_id)
         .single();
+      targetCol = fetchedTargetCol;
       if (
         targetCol &&
         (targetCol.column_type === 'review' ||
@@ -160,6 +163,29 @@ export async function POST(
         moved_by: auth.pyraUser.username,
       });
       if (histError) console.error('[move] stage history insert failed:', histError.message);
+
+      // Admins are blind to drag-moves otherwise (button-advances only
+      // notify assignees) — alert active admins on every pipeline stage
+      // move so they see e.g. «جديد → قيد التنفيذ». notifyMany auto-skips
+      // the actor (from.username), so an admin dragging their own task
+      // doesn't self-notify.
+      if (targetCol) {
+        const { data: adminRows } = await supabase
+          .from('pyra_users')
+          .select('username')
+          .eq('role', 'admin')
+          .eq('status', 'active');
+        const adminNames = (adminRows || []).map(a => a.username);
+
+        await notifyMany(supabase, adminNames, {
+          type: 'task_stage_advanced',
+          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
+          message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`,
+          link: `/dashboard/boards/${data.board_id}?task=${id}`,
+          entity: { type: 'task', id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+      }
     }
 
     // If cross-column, compact the source column positions

@@ -170,6 +170,42 @@ export function useRealtimeProjects(onProjectChange?: () => void) {
 }
 
 /**
+ * Subscribe to task changes on ONE board (INSERT/UPDATE/DELETE on
+ * pyra_tasks filtered by board_id). The callback is debounced by the
+ * caller-supplied delay because a single drag-move UPDATEs many sibling
+ * rows (position compaction) — one refetch per burst, not per row.
+ */
+export function useRealtimeBoardTasks(boardId: string | null, onChange?: () => void, debounceMs = 600) {
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const callbackRef = useRef(onChange);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { callbackRef.current = onChange; }, [onChange]);
+
+  useEffect(() => {
+    if (!boardId) return;
+    const supabase = createBrowserSupabaseClient();
+    const channel = supabase
+      .channel(`board-tasks:${boardId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'pyra_tasks', filter: `board_id=eq.${boardId}` },
+        () => {
+          if (timerRef.current) clearTimeout(timerRef.current);
+          timerRef.current = setTimeout(() => { callbackRef.current?.(); }, debounceMs);
+        }
+      )
+      .subscribe();
+    channelRef.current = channel;
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+  }, [boardId, debounceMs]);
+}
+
+/**
  * Subscribe to comment changes for a specific project.
  */
 export function useRealtimeComments(projectId: string | null, onNewComment?: () => void) {

@@ -74,6 +74,7 @@ import { BoardToolbar, applyFilters, EMPTY_FILTERS, type BoardFilters, type View
 import { BoardListView } from '@/components/boards/board-list-view';
 import { BoardCalendarView } from '@/components/boards/board-calendar-view';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { useRealtimeBoardTasks } from '@/hooks/useRealtime';
 
 // ============================================================
 // Types
@@ -1575,16 +1576,18 @@ export default function BoardViewClient({
     if (board?.view_mode === 'pipeline') setCurrentViewMode('pipeline');
   }, [board?.view_mode]);
 
-  // ── Realtime subscription ──
+  // ── Realtime: live task changes on this board (debounced — a single
+  // drag-move UPDATEs many sibling rows during position compaction) ──
+  useRealtimeBoardTasks(boardId, fetchBoard);
+
+  // ── Realtime: comment changes (no board_id filter available on this
+  // table, so this stays a plain subscription rather than the board-scoped
+  // hook above) ──
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
     const channel = supabase
-      .channel(`board-${boardId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pyra_tasks', filter: `board_id=eq.${boardId}` }, () => {
-        fetchBoard();
-      })
+      .channel(`board-comments:${boardId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pyra_task_comments' }, () => {
-        // Refresh when comments change (no board_id filter available)
         fetchBoard();
       })
       .subscribe();

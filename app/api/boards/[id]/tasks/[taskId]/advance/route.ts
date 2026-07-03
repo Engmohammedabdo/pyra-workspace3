@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     // Fetch task
     const { data: task } = await supabase
       .from('pyra_tasks')
-      .select('id, column_id, board_id, stage_entered_at')
+      .select('id, title, column_id, board_id, stage_entered_at')
       .eq('id', taskId)
       .eq('board_id', boardId)
       .single();
@@ -180,6 +180,28 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       entity: { type: 'task', id: taskId },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
     });
+
+    // Admins are blind to plain advances otherwise (only assignees are
+    // notified above) — alert active admins too, EXCEPT when the target
+    // column is 'review' or 'delivery' (those already get their own
+    // dedicated admin alert blocks below — adding admins here too would
+    // double-notify on those two column types).
+    if (nextCol.column_type !== 'review' && nextCol.column_type !== 'delivery') {
+      const { data: adminRowsForAdvance } = await supabase
+        .from('pyra_users')
+        .select('username')
+        .eq('role', 'admin')
+        .eq('status', 'active');
+
+      await notifyMany(supabase, (adminRowsForAdvance || []).map(a => a.username), {
+        type: 'task_stage_advanced',
+        title: `📌 «${task.title}» انتقلت إلى ${nextCol.name}`,
+        message: `${auth.pyraUser.display_name} نقل المهمة إلى "${nextCol.name}"`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+    }
 
     // Entering review → alert active admins (the reviewers) loudly
     if (nextCol.column_type === 'review') {
