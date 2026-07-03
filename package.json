@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "db:backup": "bash scripts/db-backup.sh",
     "db:record": "npx tsx scripts/db-record-migration.ts",
-    "db:check-drift": "npx tsx scripts/db-check-drift.ts"
+    "db:check-drift": "npx tsx scripts/db-check-drift.ts",
+    "db:query": "npx tsx scripts/db-query.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

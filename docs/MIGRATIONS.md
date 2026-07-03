@@ -440,6 +440,30 @@ Requirements:
 
 The TypeScript scripts (`db-record-migration.ts`, `db-check-drift.ts`) run via `tsx` and are fully cross-platform (no shell-specific code).
 
+### 14.1 Arabic / non-ASCII SQL — the mojibake rule (2026-07-03)
+
+**Never put Arabic (or any non-ASCII) inline on a command line on Windows.**
+PowerShell/cmd (and some pipelines) transcode arguments through legacy code
+pages, silently replacing each Arabic character with a literal `?` (or Ø/Ù
+mojibake) **before** the bytes reach the server — nothing errors, and the
+original text is unrecoverable. This is exactly how the seed rows of
+`pyra_leave_types`, `pyra_evaluation_criteria`, and `pyra_work_schedules`
+were corrupted at insert time (repaired 2026-07-03).
+
+Locked procedure for ANY manual statement containing Arabic:
+
+1. Write the SQL to a **UTF-8 `.sql` file** (the Write tool / VS Code default).
+2. Run it via the canonical runner: `pnpm db:query path/to/statement.sql`
+   (`scripts/db-query.ts` reads the file as UTF-8 and posts with
+   `charset=utf-8`; it **rejects** inline non-ASCII with instructions).
+3. **Re-read the affected rows afterwards** and confirm the Arabic glyphs
+   render — verification after write is mandatory, not optional.
+
+Corruption sweep (rerun after any suspicious historical write): check
+`*_ar` / `title` / `label` columns with
+`WHERE col LIKE '%?%' OR col ~ '[À-ÿ�]'` — an ASCII `?` never legitimately
+appears in Arabic text (the Arabic question mark is `؟` U+061F).
+
 ---
 
 ## 15. Operations

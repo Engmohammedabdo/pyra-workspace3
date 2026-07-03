@@ -628,11 +628,35 @@ Safe (no dark: needed): `bg-{c}-500/10`, `text-{c}-500`, CSS vars (`bg-muted`, `
 
 ## DB Migrations (Run directly — never ask user)
 
+**Canonical runner — `pnpm db:query` (UTF-8-safe):**
+
+```bash
+pnpm db:query "SELECT ..."          # inline allowed for ASCII-ONLY SQL
+pnpm db:query path/to/statement.sql # REQUIRED for any SQL containing Arabic
+```
+
+⚠️ **Arabic (any non-ASCII) MUST go through a UTF-8 .sql file — NEVER inline
+on a command line.** Windows shells (PowerShell/cmd, some pipelines) transcode
+through legacy code pages, silently replacing each Arabic char with a literal
+`?` (or Ø/Ù mojibake) BEFORE it reaches the DB — nothing errors, the original
+text is unrecoverable. This corrupted the seed rows of `pyra_leave_types`,
+`pyra_evaluation_criteria`, and `pyra_work_schedules` (repaired 2026-07-03).
+`scripts/db-query.ts` ENFORCES this: inline non-ASCII is rejected with
+instructions. **After any manual write containing Arabic, re-read the affected
+rows and confirm the glyphs render** (the script reminds you).
+
+Corruption sweep (rerun after any suspicious manual write): check the
+`*_ar`/`title`/`label` columns for `LIKE '%?%' OR col ~ '[À-ÿ�]'` — ASCII `?`
+never legitimately appears in Arabic text (the Arabic question mark is `؟`).
+
+Raw curl fallback (only when pnpm is unavailable; ASCII-only inline, Arabic
+via `--data-binary @file.json` with a UTF-8 file):
+
 ```bash
 curl -X POST "https://pyraworkspacedb.pyramedia.cloud/pg/query" \
-  -H "Content-Type: application/json" \
+  -H "Content-Type: application/json; charset=utf-8" \
   -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-  -d '{"query": "YOUR SQL HERE"}'
+  -d '{"query": "ASCII-ONLY SQL HERE"}'
 ```
 
 ## Deployment
