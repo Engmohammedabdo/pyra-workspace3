@@ -61,27 +61,51 @@ export async function POST(
       }
     }
 
-    // Calculate completion % for pipeline boards
-    // Use TARGET board (not source) for cross-board moves
-    let completionPct: number | undefined;
+    // Fetch board pipeline flag once (used by guard, history, and completion %)
+    const effectiveBoardId = target_board_id || currentTask.board_id;
+    let isPipelineBoard = false;
     if (isCrossColumn) {
-      const effectiveBoardId = target_board_id || currentTask.board_id;
       const { data: board } = await supabase
         .from('pyra_boards')
         .select('is_pipeline')
         .eq('id', effectiveBoardId)
         .single();
-      if (board?.is_pipeline) {
-        const { data: allCols } = await supabase
-          .from('pyra_board_columns')
-          .select('id, position')
-          .eq('board_id', effectiveBoardId)
-          .order('position');
-        if (allCols) {
-          const colIdx = allCols.findIndex(c => c.id === column_id);
-          if (colIdx >= 0) {
-            completionPct = Math.round(((colIdx + 1) / allCols.length) * 100);
-          }
+      isPipelineBoard = board?.is_pipeline === true;
+    }
+
+    // Pipeline gated columns must go through /advance (link gates) or
+    // /approve (admin gate) — a raw drag-move would bypass required links
+    // and the approval permission (remote-production-tracking).
+    if (isCrossColumn && isPipelineBoard) {
+      const { data: targetCol } = await supabase
+        .from('pyra_board_columns')
+        .select('id, column_type, requires_approval')
+        .eq('id', column_id)
+        .single();
+      if (
+        targetCol &&
+        (targetCol.column_type === 'review' ||
+          targetCol.column_type === 'delivery' ||
+          targetCol.requires_approval)
+      ) {
+        return apiValidationError(
+          'هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)'
+        );
+      }
+    }
+
+    // Calculate completion % for pipeline boards
+    let completionPct: number | undefined;
+    if (isCrossColumn && isPipelineBoard) {
+      const { data: allCols } = await supabase
+        .from('pyra_board_columns')
+        .select('id, position')
+        .eq('board_id', effectiveBoardId)
+        .order('position');
+      if (allCols) {
+        const colIdx = allCols.findIndex(c => c.id === column_id);
+        if (colIdx >= 0) {
+          completionPct = Math.round(((colIdx + 1) / allCols.length) * 100);
         }
       }
     }
@@ -115,6 +139,20 @@ export async function POST(
       .single();
 
     if (error) return apiServerError(error.message);
+
+    // Record stage history on pipeline boards so drag moves are visible to
+    // the productivity metrics (advance/approve already record their own)
+    if (isCrossColumn && isPipelineBoard) {
+      const { error: histError } = await supabase.from('pyra_task_stage_history').insert({
+        id: generateId('sh'),
+        task_id: id,
+        board_id: effectiveBoardId,
+        from_column_id: currentTask.column_id,
+        to_column_id: column_id,
+        moved_by: auth.pyraUser.username,
+      });
+      if (histError) console.error('[move] stage history insert failed:', histError.message);
+    }
 
     // If cross-column, compact the source column positions
     if (isCrossColumn) {
