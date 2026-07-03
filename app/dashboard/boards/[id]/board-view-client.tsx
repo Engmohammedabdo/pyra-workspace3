@@ -508,6 +508,10 @@ function TaskDetailDialog({
   const [advancing, setAdvancing] = useState(false);
   const [rejectNote, setRejectNote] = useState('');
   const [showReject, setShowReject] = useState(false);
+  const [linkDialog, setLinkDialog] = useState<null | 'review' | 'delivery'>(null);
+  const [actionLink, setActionLink] = useState('');
+  const [actionNote, setActionNote] = useState('');
+  const canApprove = hasPermission(session.pyraUser.rolePermissions, 'boards.manage');
 
   const canManage = hasPermission(
     session.pyraUser.rolePermissions,
@@ -607,6 +611,42 @@ function TaskDetailDialog({
       onClose();
     } catch { toast.error('حدث خطأ'); }
     finally { setAdvancing(false); }
+  };
+
+  const handleAdvanceWithLink = async (kind: 'review' | 'delivery') => {
+    if (!board) return;
+    const link = actionLink.trim();
+    if (!/^https:\/\/.+/i.test(link)) {
+      toast.error('الصق رابط صحيح يبدأ بـ https:// (frame.io أو Google Drive)');
+      return;
+    }
+    setAdvancing(true);
+    try {
+      const res = await fetch(`/api/boards/${board.id}/tasks/${task.id}/advance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          kind === 'review'
+            ? { review_link: link, note: actionNote.trim() }
+            : { delivery_link: link }
+        ),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'فشل في نقل المهمة');
+        return;
+      }
+      toast.success(kind === 'review' ? 'تم رفع النسخة للمراجعة ✓' : 'تم تسجيل التسليم النهائي ✓');
+      setLinkDialog(null);
+      setActionLink('');
+      setActionNote('');
+      onUpdate();
+      onClose();
+    } catch {
+      toast.error('حدث خطأ');
+    } finally {
+      setAdvancing(false);
+    }
   };
 
   // ── Save title/description ──
@@ -1372,50 +1412,92 @@ function TaskDetailDialog({
               )}
             </div>
 
-            {/* ── Pipeline Actions ── */}
-            {board?.is_pipeline && nextCol && !isLastStage && canManage && (
-              <div className="pt-3 border-t">
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
-                  <GitBranch className="h-4 w-4 text-emerald-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                      المرحلة التالية: <strong>{nextCol.name}</strong>
-                      {needsApproval && ' (تتطلب موافقة)'}
-                    </p>
-                  </div>
-                  <div className="flex gap-1.5 shrink-0">
-                    {showReject ? (
-                      <div className="flex items-center gap-1.5">
-                        <Input
-                          value={rejectNote}
-                          onChange={e => setRejectNote(e.target.value)}
-                          placeholder="سبب الرفض..."
-                          className="h-8 text-xs w-32"
-                        />
-                        <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing} onClick={handleReject}>
-                          رفض
+            {/* ── Pipeline Actions (role-aware, link-gated) ── */}
+            {board?.is_pipeline && nextCol && !isLastStage && (
+              <div className="pt-3 border-t space-y-2">
+                {/* Submit for review — needs a review link */}
+                {nextCol.column_type === 'review' && canManage && (
+                  linkDialog === 'review' ? (
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 space-y-2">
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-300">رابط النسخة (frame.io أو Google Drive)</p>
+                      <Input value={actionLink} onChange={e => setActionLink(e.target.value)} placeholder="https://f.io/..." className="h-8 text-xs" dir="ltr" />
+                      <Input value={actionNote} onChange={e => setActionNote(e.target.value)} placeholder="ملاحظة اختيارية..." className="h-8 text-xs" />
+                      <div className="flex gap-1.5">
+                        <Button size="sm" className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white" disabled={advancing || !actionLink.trim()} onClick={() => handleAdvanceWithLink('review')}>
+                          {advancing ? 'جاري...' : 'رفع للمراجعة 👀'}
                         </Button>
-                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowReject(false)}>
-                          إلغاء
-                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setLinkDialog(null)}>إلغاء</Button>
                       </div>
-                    ) : (
-                      <>
-                        <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>
-                          رفض
+                    </div>
+                  ) : (
+                    <Button size="sm" className="h-9 text-xs w-full bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setLinkDialog('review')}>
+                      👀 رفع للمراجعة
+                    </Button>
+                  )
+                )}
+
+                {/* Approval gate — admin approves/rejects; employee sees waiting state */}
+                {nextCol.requires_approval && (
+                  canApprove ? (
+                    <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                      <GitBranch className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-emerald-700 dark:text-emerald-300">قرار المراجعة — راجع الرابط في المرفقات أولاً</p>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        {showReject ? (
+                          <div className="flex items-center gap-1.5">
+                            <Input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="ملخص التعديلات المطلوبة (إجباري)..." className="h-8 text-xs w-44" />
+                            <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing || !rejectNote.trim()} onClick={handleReject}>طلب تعديل ✗</Button>
+                            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setShowReject(false)}>إلغاء</Button>
+                          </div>
+                        ) : (
+                          <>
+                            <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>طلب تعديل</Button>
+                            <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleAdvance}>
+                              {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : 'اعتماد ✓'}
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-center">
+                      <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">⏳ في انتظار مراجعة الأدمن</p>
+                    </div>
+                  )
+                )}
+
+                {/* Final delivery — needs the final Drive link */}
+                {nextCol.column_type === 'delivery' && canManage && (
+                  linkDialog === 'delivery' ? (
+                    <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 space-y-2">
+                      <p className="text-xs font-medium text-green-800 dark:text-green-300">رابط الفاينل على Google Drive (فولدر التسليمات)</p>
+                      <Input value={actionLink} onChange={e => setActionLink(e.target.value)} placeholder="https://drive.google.com/..." className="h-8 text-xs" dir="ltr" />
+                      <div className="flex gap-1.5">
+                        <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" disabled={advancing || !actionLink.trim()} onClick={() => handleAdvanceWithLink('delivery')}>
+                          {advancing ? 'جاري...' : 'تسليم نهائي 📦'}
                         </Button>
-                        <Button
-                          size="sm"
-                          className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white"
-                          disabled={advancing}
-                          onClick={handleAdvance}
-                        >
-                          {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : needsApproval ? 'موافقة ونقل' : 'نقل للتالي'}
-                        </Button>
-                      </>
-                    )}
+                        <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setLinkDialog(null)}>إلغاء</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button size="sm" className="h-9 text-xs w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => setLinkDialog('delivery')}>
+                      📦 تسليم نهائي
+                    </Button>
+                  )
+                )}
+
+                {/* Generic advance for untyped, non-gated columns */}
+                {!nextCol.requires_approval && nextCol.column_type !== 'review' && nextCol.column_type !== 'delivery' && canManage && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                    <GitBranch className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <p className="flex-1 text-xs text-emerald-700 dark:text-emerald-300">المرحلة التالية: <strong>{nextCol.name}</strong></p>
+                    <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleAdvance}>
+                      {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : 'نقل للتالي'}
+                    </Button>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -1677,6 +1759,21 @@ export default function BoardViewClient({
       task.position === targetPosition
     ) {
       return;
+    }
+
+    // Pipeline gated columns must go through the task action buttons —
+    // the server rejects raw moves into them (see /api/tasks/[id]/move guard)
+    if (board?.is_pipeline && task.column_id !== targetColumnId) {
+      const targetCol = columns.find((c) => c.id === targetColumnId);
+      if (
+        targetCol &&
+        (targetCol.column_type === 'review' ||
+          targetCol.column_type === 'delivery' ||
+          targetCol.requires_approval)
+      ) {
+        toast.info('هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)');
+        return;
+      }
     }
 
     // Optimistic update
