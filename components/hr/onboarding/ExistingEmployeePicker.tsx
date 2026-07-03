@@ -22,9 +22,11 @@ interface Props {
   /** Currently selected username ('' = none). */
   value: string;
   onSelect: (user: User) => void;
+  /** True while the users list is still fetching — shows a loading row instead of the misleading empty-state. */
+  loading?: boolean;
 }
 
-export function ExistingEmployeePicker({ users, value, onSelect }: Props) {
+export function ExistingEmployeePicker({ users, value, onSelect, loading }: Props) {
   const eligible = users.filter(
     (u) =>
       u.status === 'active' &&
@@ -48,7 +50,12 @@ export function ExistingEmployeePicker({ users, value, onSelect }: Props) {
           <SelectValue placeholder="اختر الموظف" />
         </SelectTrigger>
         <SelectContent>
-          {eligible.length === 0 && (
+          {loading && eligible.length === 0 && (
+            <SelectItem value="__loading__" disabled>
+              جاري التحميل...
+            </SelectItem>
+          )}
+          {!loading && eligible.length === 0 && (
             <SelectItem value="__none__" disabled>
               لا يوجد موظفون نشطون
             </SelectItem>

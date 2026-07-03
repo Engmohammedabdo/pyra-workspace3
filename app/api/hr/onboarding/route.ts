@@ -319,12 +319,22 @@ export async function POST(request: NextRequest) {
 
     if (isExisting) {
       // ── Existing-employee mode: account untouched (no create / reactivate) ──
-      const { data: existingUser } = await supabase
+      const { data: existingUser, error: lookupError } = await supabase
         .from('pyra_users')
         .select('username, status, onboarding_id, salary_currency')
         .eq('username', cleanUsername)
         .maybeSingle();
 
+      if (lookupError) {
+        // Transient DB error must NOT masquerade as "employee not found"
+        logError({
+          error: lookupError,
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: { action: 'onboarding_existing_lookup', username: cleanUsername },
+        });
+        return apiServerError();
+      }
       if (!existingUser) {
         return apiError('الموظف غير موجود', 404);
       }
@@ -336,6 +346,15 @@ export async function POST(request: NextRequest) {
       }
       if (existingUser.onboarding_id) {
         return apiError('لدى الموظف سجل onboarding بالفعل', 409);
+      }
+      // Fail-loud multi-currency doctrine: the offer letter documents the salary,
+      // which is denominated in the employee's payroll currency — a mismatch would
+      // produce an HR document contradicting the payroll record.
+      if (existingUser.salary_currency && cleanCurrency !== existingUser.salary_currency) {
+        return apiError(
+          `عملة العرض (${cleanCurrency}) لا تطابق عملة راتب الموظف (${existingUser.salary_currency})`,
+          422,
+        );
       }
 
       employeeUsername = String(existingUser.username);
@@ -433,7 +452,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 4b: Link pyra_users.onboarding_id → this onboarding row ─────────
-    // Defensive: log on failure but don't abort — user + onboarding row exist.
+    // New-hire: log on failure but don't abort — user + onboarding row exist.
+    // Existing mode: the link IS the duplicate-guard key (the 409 check reads
+    // pyra_users.onboarding_id), so a silent link failure would allow duplicate
+    // records + hide the users-page badge — roll back and fail loud instead.
     {
       const { error: linkError } = await supabase
         .from('pyra_users')
@@ -452,7 +474,24 @@ export async function POST(request: NextRequest) {
           },
         });
         console.error('[hr/onboarding POST] onboarding_id link error:', linkError.message);
-        // Non-fatal: continue
+        if (isExisting) {
+          // Rollback is safe here: nothing else exists yet in this mode
+          // (no user creation, no tasks, no documents).
+          const { error: rollbackErr } = await supabase
+            .from('pyra_onboarding')
+            .delete()
+            .eq('id', onboardingId);
+          if (rollbackErr) {
+            logError({
+              error: rollbackErr,
+              request,
+              user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+              metadata: { source: 'onboarding_link_rollback', onboarding_id: onboardingId },
+            });
+          }
+          return apiServerError('فشل ربط سجل الـ onboarding بالموظف — لم يتم إنشاء أي شيء، أعد المحاولة');
+        }
+        // New-hire path: non-fatal, continue
       }
     }
 
@@ -625,16 +664,35 @@ export async function POST(request: NextRequest) {
       // Best-effort cleanup: delete onboarding row + tasks (user stays) and
       // un-link pyra_users.onboarding_id so a retry isn't blocked by a
       // dangling reference (existing-employee mode 409s on onboarding_id).
-      try {
+      // supabase-js never throws — check the { error } returns explicitly so a
+      // failed cleanup (phantom row → inexplicable 409 on retry) is visible.
+      {
         // Tasks cascade-delete on onboarding delete (ON DELETE CASCADE)
-        await supabase.from('pyra_onboarding').delete().eq('id', onboardingId);
-        await supabase
+        const { error: delErr } = await supabase
+          .from('pyra_onboarding')
+          .delete()
+          .eq('id', onboardingId);
+        if (delErr) {
+          logError({
+            error: delErr,
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_cleanup_delete', onboarding_id: onboardingId },
+          });
+        }
+        const { error: unlinkErr } = await supabase
           .from('pyra_users')
           .update({ onboarding_id: null })
           .eq('username', employeeUsername)
           .eq('onboarding_id', onboardingId);
-      } catch (cleanupErr) {
-        console.error('[hr/onboarding POST] cleanup error:', cleanupErr);
+        if (unlinkErr) {
+          logError({
+            error: unlinkErr,
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_cleanup_unlink', onboarding_id: onboardingId },
+          });
+        }
       }
 
       return apiServerError(
@@ -661,15 +719,32 @@ export async function POST(request: NextRequest) {
           requested_docs:    [...docsToGenerate],
         },
       });
-      try {
-        await supabase.from('pyra_onboarding').delete().eq('id', onboardingId);
-        await supabase
+      {
+        const { error: delErr } = await supabase
+          .from('pyra_onboarding')
+          .delete()
+          .eq('id', onboardingId);
+        if (delErr) {
+          logError({
+            error: delErr,
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_cleanup_delete_all_fail', onboarding_id: onboardingId },
+          });
+        }
+        const { error: unlinkErr } = await supabase
           .from('pyra_users')
           .update({ onboarding_id: null })
           .eq('username', employeeUsername)
           .eq('onboarding_id', onboardingId);
-      } catch (cleanupErr) {
-        console.error('[hr/onboarding POST] cleanup (all-docs-fail) error:', cleanupErr);
+        if (unlinkErr) {
+          logError({
+            error: unlinkErr,
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_cleanup_unlink_all_fail', onboarding_id: onboardingId },
+          });
+        }
       }
       return apiServerError('فشل في إنشاء مستندات التعيين');
     }

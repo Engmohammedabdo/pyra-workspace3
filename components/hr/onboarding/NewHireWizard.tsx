@@ -102,7 +102,7 @@ export function NewHireWizard({ open, onClose }: Props) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<CreateOnboardingInput>(defaultForm);
 
-  const { data: usersData = [] } = useUsers();
+  const { data: usersData = [], isLoading: usersLoading } = useUsers();
   const createOnboarding = useCreateOnboarding();
 
   function patch(update: Partial<CreateOnboardingInput>) {
@@ -118,6 +118,10 @@ export function NewHireWizard({ open, onClose }: Props) {
 
   function handlePickEmployee(user: User) {
     setForm(prefillFromUser(user));
+    // Re-picking replaces the whole form — restart the steps so the admin
+    // re-walks (and re-validates) the prefilled data instead of continuing
+    // mid-wizard on top of a silently swapped employee.
+    setStep(0);
   }
 
   function handleClose() {
@@ -218,6 +222,7 @@ export function NewHireWizard({ open, onClose }: Props) {
             users={usersData}
             value={form.username}
             onSelect={handlePickEmployee}
+            loading={usersLoading}
           />
         )}
 
