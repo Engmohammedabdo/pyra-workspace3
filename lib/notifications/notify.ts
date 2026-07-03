@@ -31,9 +31,18 @@ export type NotificationType =
   // Task lifecycle
   | 'task_assigned'
   | 'task_due_soon'
+  | 'task_overdue'
   | 'task_status_changed'
   | 'task_comment'
   | 'task_mention'
+  // Production pipeline (2026-07-03 remote-production-tracking)
+  | 'task_submitted_for_review'
+  | 'task_stage_advanced'
+  | 'task_approved'
+  | 'task_revision_requested'
+  | 'task_delivered'
+  // Attendance
+  | 'attendance_checkin_reminder'
   // Sales
   | 'lead_assigned'
   | 'lead_transferred'

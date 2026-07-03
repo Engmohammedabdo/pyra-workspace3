@@ -4,6 +4,8 @@ import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/l
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import { notifyMany } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 
@@ -107,29 +109,24 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       }
     }
 
-    // Create notification for assignees
+    // Notify assignees (fixed 2026-07-03: was a direct insert with wrong
+    // column names `username`/`link` — silently failed; see notify() docblock)
     const { data: assignees } = await supabase
       .from('pyra_task_assignees')
       .select('username')
       .eq('task_id', taskId);
 
-    if (assignees) {
-      const notifs = assignees
-        .filter(a => a.username !== auth.pyraUser.username)
-        .map(a => ({
-          id: generateId('ntf'),
-          username: a.username,
-          type: 'task_stage_advanced',
-          title: `مهمة انتقلت لمرحلة: ${nextCol.name}`,
-          message: `المهمة انتقلت من المرحلة السابقة إلى "${nextCol.name}"`,
-          link: `/dashboard/boards/${boardId}`,
-          is_read: false,
-        }));
+    const assigneeNames = (assignees || []).map(a => a.username);
+    const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
 
-      if (notifs.length > 0) {
-        await supabase.from('pyra_notifications').insert(notifs);
-      }
-    }
+    await notifyMany(supabase, assigneeNames, {
+      type: 'task_stage_advanced',
+      title: `مهمة انتقلت لمرحلة: ${nextCol.name}`,
+      message: `المهمة انتقلت إلى "${nextCol.name}"`,
+      link: taskLink,
+      entity: { type: 'task', id: taskId },
+      from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+    });
 
     // Log activity
     await supabase.from('pyra_task_activity').insert({

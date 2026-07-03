@@ -4,6 +4,8 @@ import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/l
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import { notifyMany } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 
@@ -24,6 +26,10 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     if (!action || !['approve', 'reject'].includes(action)) {
       return apiValidationError('يجب تحديد الإجراء: approve أو reject');
+    }
+
+    if (action === 'reject' && !note.trim()) {
+      return apiValidationError('ملاحظة التعديل مطلوبة — اكتب ملخص المطلوب تغييره');
     }
 
     const supabase = await createServerSupabaseClient();
@@ -97,27 +103,28 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         }
       }
 
-      // Notify assignees
       const { data: assignees } = await supabase
         .from('pyra_task_assignees')
         .select('username')
         .eq('task_id', taskId);
+      const assigneeNames = (assignees || []).map(a => a.username);
+      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
 
-      if (assignees) {
-        const notifs = assignees
-          .filter(a => a.username !== auth.pyraUser.username)
-          .map(a => ({
-            id: generateId('ntf'),
-            username: a.username,
-            type: 'task_approved',
-            title: `تمت الموافقة: ${task.title}`,
-            message: `تمت الموافقة على المهمة وانتقلت إلى "${nextCol.name}"${note ? ` — ${note}` : ''}`,
-            link: `/dashboard/boards/${boardId}`,
-            is_read: false,
-          }));
-        if (notifs.length > 0) {
-          await supabase.from('pyra_notifications').insert(notifs);
-        }
+      const isDelivery = nextCol.is_done_column === true;
+      await notifyMany(supabase, assigneeNames, {
+        type: 'task_approved',
+        title: `✅ تمت الموافقة: ${task.title}`,
+        message: isDelivery
+          ? `تمت الموافقة والمهمة اكتملت${note ? ` — ${note}` : ''}`
+          : `تمت الموافقة — ${nextCol.name === 'معتمد' ? 'ارفع التسليم النهائي على Drive' : `انتقلت إلى "${nextCol.name}"`}${note ? ` — ${note}` : ''}`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+      for (const u of assigneeNames) {
+        if (u === auth.pyraUser.username) continue;
+        await sendWhatsAppToUser(supabase, u,
+          `✅ تمت الموافقة على: ${task.title}\n${isDelivery ? 'المهمة اكتملت' : 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد'}\n${APP_URL}${taskLink}`);
       }
 
       // Activity log
@@ -163,27 +170,25 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         });
       }
 
-      // Notify — rejection
       const { data: assignees } = await supabase
         .from('pyra_task_assignees')
         .select('username')
         .eq('task_id', taskId);
+      const assigneeNames = (assignees || []).map(a => a.username);
+      const taskLink = `/dashboard/boards/${boardId}?task=${taskId}`;
 
-      if (assignees) {
-        const notifs = assignees
-          .filter(a => a.username !== auth.pyraUser.username)
-          .map(a => ({
-            id: generateId('ntf'),
-            username: a.username,
-            type: 'task_revision_requested',
-            title: `مطلوب تعديل: ${task.title}`,
-            message: `تم رفض المهمة وإرجاعها${note ? ` — السبب: ${note}` : ''}`,
-            link: `/dashboard/boards/${boardId}`,
-            is_read: false,
-          }));
-        if (notifs.length > 0) {
-          await supabase.from('pyra_notifications').insert(notifs);
-        }
+      await notifyMany(supabase, assigneeNames, {
+        type: 'task_revision_requested',
+        title: `✏️ مطلوب تعديل: ${task.title}`,
+        message: `رجعت المهمة للتنفيذ — ${note}`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+      for (const u of assigneeNames) {
+        if (u === auth.pyraUser.username) continue;
+        await sendWhatsAppToUser(supabase, u,
+          `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`);
       }
 
       // Comment with rejection note

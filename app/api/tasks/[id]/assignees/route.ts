@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { invalidateScopeCache } from '@/lib/auth/scope';
 import { logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
 // =============================================================
 // GET /api/tasks/[id]/assignees
@@ -96,7 +97,7 @@ export async function POST(
     // by wrong column names `username`/`link` and silently failed)
     const { data: taskInfo } = await supabase
       .from('pyra_tasks')
-      .select('title, board_id')
+      .select('title, board_id, due_date')
       .eq('id', id)
       .single();
 
@@ -109,6 +110,11 @@ export async function POST(
         entity: { type: 'task', id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
+
+      for (const assignedUsername of newUsernames) {
+        await sendWhatsAppToUser(supabase, assignedUsername,
+          `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`);
+      }
     }
 
     logActivity(
