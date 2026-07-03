@@ -19,12 +19,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     if (isApiError(auth)) return auth;
 
     const { id: boardId, taskId } = await ctx.params;
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const isHttpsUrl = (v: unknown): v is string =>
+      typeof v === 'string' && /^https:\/\/.+/i.test(v.trim());
     const supabase = await createServerSupabaseClient();
 
     // Fetch board + columns
     const { data: board } = await supabase
       .from('pyra_boards')
-      .select('id, is_pipeline, auto_advance, pyra_board_columns(id, name, position, is_done_column, requires_approval, default_assignee)')
+      .select('id, is_pipeline, auto_advance, pyra_board_columns(id, name, position, is_done_column, requires_approval, default_assignee, column_type)')
       .eq('id', boardId)
       .single();
 
@@ -44,6 +47,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const columns = ((board.pyra_board_columns as Array<{
       id: string; name: string; position: number;
       is_done_column: boolean; requires_approval: boolean; default_assignee: string | null;
+      column_type: string | null;
     }>) || []).sort((a, b) => a.position - b.position);
 
     const currentIdx = columns.findIndex(c => c.id === task.column_id);
@@ -55,6 +59,35 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     // Check if next stage requires approval
     if (nextCol.requires_approval) {
       return apiValidationError('المرحلة التالية تتطلب موافقة. استخدم endpoint الموافقة.');
+    }
+
+    // ── Gated columns: link requirements (remote-production-tracking) ──
+    let attachmentToCreate: { name: string; url: string } | null = null;
+
+    if (nextCol.column_type === 'review') {
+      if (!isHttpsUrl(body.review_link)) {
+        return apiValidationError('رابط المراجعة (frame.io أو Google Drive) مطلوب لرفع المهمة للمراجعة');
+      }
+      // round number = prior entries into the review column + 1 (derived, never stored)
+      const { count } = await supabase
+        .from('pyra_task_stage_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('task_id', taskId)
+        .eq('to_column_id', nextCol.id);
+      attachmentToCreate = {
+        name: `نسخة للمراجعة — جولة ${(count || 0) + 1}`,
+        url: (body.review_link as string).trim(),
+      };
+    }
+
+    if (nextCol.column_type === 'delivery') {
+      if (!isHttpsUrl(body.delivery_link)) {
+        return apiValidationError('رابط التسليم النهائي على Google Drive مطلوب لإغلاق المهمة');
+      }
+      attachmentToCreate = {
+        name: 'التسليم النهائي',
+        url: (body.delivery_link as string).trim(),
+      };
     }
 
     // Calculate time in current stage
@@ -76,6 +109,17 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('id', taskId);
 
     if (moveError) return apiServerError(moveError.message);
+
+    if (attachmentToCreate) {
+      const { error: attError } = await supabase.from('pyra_task_attachments').insert({
+        id: generateId('att'),
+        task_id: taskId,
+        file_name: attachmentToCreate.name,
+        file_url: attachmentToCreate.url,
+        uploaded_by: auth.pyraUser.username,
+      });
+      if (attError) console.error('[advance] attachment insert failed:', attError.message);
+    }
 
     // Record stage history
     await supabase.from('pyra_task_stage_history').insert({
@@ -127,6 +171,47 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       entity: { type: 'task', id: taskId },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
     });
+
+    // Entering review → alert active admins (the reviewers) loudly
+    if (nextCol.column_type === 'review') {
+      const { data: adminRows } = await supabase
+        .from('pyra_users')
+        .select('username')
+        .eq('role', 'admin')
+        .eq('status', 'active');
+      const adminNames = (adminRows || []).map(a => a.username);
+
+      await notifyMany(supabase, adminNames, {
+        type: 'task_submitted_for_review',
+        title: `👀 نسخة جاهزة للمراجعة`,
+        message: `${auth.pyraUser.display_name} رفع نسخة للمراجعة${body.note ? ` — ${String(body.note).slice(0, 200)}` : ''}`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+      for (const admin of adminNames) {
+        if (admin === auth.pyraUser.username) continue;
+        await sendWhatsAppToUser(supabase, admin,
+          `👀 نسخة جاهزة للمراجعة من ${auth.pyraUser.display_name}\nالرابط: ${attachmentToCreate?.url}\n${APP_URL}${taskLink}`);
+      }
+    }
+
+    // Entering delivery → alert admins the task closed
+    if (nextCol.column_type === 'delivery') {
+      const { data: adminRows } = await supabase
+        .from('pyra_users')
+        .select('username')
+        .eq('role', 'admin')
+        .eq('status', 'active');
+      await notifyMany(supabase, (adminRows || []).map(a => a.username), {
+        type: 'task_delivered',
+        title: `📦 تم التسليم النهائي`,
+        message: `${auth.pyraUser.display_name} سلّم المهمة نهائياً — الفاينل على Drive`,
+        link: taskLink,
+        entity: { type: 'task', id: taskId },
+        from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+      });
+    }
 
     // Log activity
     await supabase.from('pyra_task_activity').insert({
