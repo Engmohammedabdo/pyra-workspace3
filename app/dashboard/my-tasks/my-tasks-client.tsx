@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
+import { MyProductivityCard } from '@/components/dashboard/MyProductivityCard';
 import { toast } from 'sonner';
 import {
   CheckSquare, Search, Calendar, Briefcase, AlertCircle, Clock,
@@ -114,6 +115,8 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           </div>
         </div>
       </div>
+
+      <MyProductivityCard />
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
