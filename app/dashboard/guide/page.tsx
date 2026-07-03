@@ -84,6 +84,7 @@ const SECTIONS = [
     bgColor: 'bg-indigo-500/10',
     hrefs: [
       '/dashboard/hr',
+      '/dashboard/hr/productivity',
       '/dashboard/approvals',
       '/dashboard/leave/settings',
       '/dashboard/hr/leave-balances',

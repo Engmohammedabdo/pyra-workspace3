@@ -177,6 +177,7 @@ const navGroups: NavGroup[] = [
     description: 'نظرة إدارية على الحضور والإجازات والرواتب والوثائق والتقييمات',
     items: [
       { href: '/dashboard/hr', label: 'نظرة عامة', labelEn: 'HR Overview', icon: LayoutDashboard, permission: 'hr.view' },
+      { href: '/dashboard/hr/productivity', label: 'تقرير الإنتاجية', labelEn: 'Productivity', icon: BarChart3, permission: 'hr.view' },
       { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.approve', badgeKey: 'team_approvals' },
       { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
       { href: '/dashboard/hr/leave-balances', label: 'أرصدة الإجازات', labelEn: 'Leave Balances', icon: CalendarDays, permission: 'leave.manage' },
