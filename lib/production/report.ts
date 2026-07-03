@@ -2,6 +2,7 @@
 // service-role client AFTER their own permission gate (hr.view / productivity.view).
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 import {
   buildTaskJourney,
   summarizeEmployee,
@@ -155,7 +156,7 @@ export async function computeProductivity(
     const user = users?.find((u) => u.username === username);
     const workDays =
       ((schedules || []).find((s) => s.id === user?.work_schedule_id)
-        ?.work_days as number[]) || [0, 1, 2, 3, 4];
+        ?.work_days as number[]) || [...DEFAULT_WORK_DAYS];
     const presentDays = rows.filter((r) => r.status === 'present').length;
     const lateDays = rows.filter((r) => r.status === 'late').length;
     const expected = countExpectedWorkDays(workDays, monthKey, todayKey);
