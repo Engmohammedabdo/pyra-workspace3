@@ -5,7 +5,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
-import { prepareRtl, drawRtlParagraph, enableRtlPassthrough } from './arabic';
+import { prepareRtl, drawRtlParagraph, drawLatinWithArabic, enableRtlPassthrough } from './arabic';
 import { CURRENCY_LABELS_AR } from '@/lib/constants/auth';
 
 // ============================================================
@@ -556,7 +556,9 @@ export async function generateAssetHandoverPDF(
   doc.setTextColor(...DARK);
   for (const field of enSigFields) {
     y = ensureSpace(doc, y, 10);
-    doc.text(field, MARGIN, y);
+    // Bilingual line (EN prefix + Arabic label + value) — the Arabic part MUST
+    // be drawn in Amiri; helvetica renders it as þ-mojibake.
+    drawLatinWithArabic(doc, field, MARGIN, y);
     doc.setDrawColor(...BORDER);
     doc.setLineWidth(0.2);
     doc.line(MARGIN, y + 2, PAGE_W - MARGIN, y + 2);

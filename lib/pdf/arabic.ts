@@ -52,6 +52,47 @@ export function prepareRtl(_doc: jsPDF, text: string): string {
   return bidi.getReorderedString(shaped, levels);
 }
 
+const ARABIC_RE = /[؀-ۿݐ-ݿࢠ-ࣿﭐ-﷿ﹰ-﻿]/;
+
+/** True when the string contains any Arabic-script character. */
+export function hasArabic(text: string): boolean {
+  return ARABIC_RE.test(text);
+}
+
+/**
+ * Draw a left-aligned line that MAY contain Arabic while a LATIN font
+ * (helvetica) is active — e.g. `Employee Name / اسم الموظف: value` or
+ * `Name: ${name}` where the name can be Arabic.
+ *
+ * Standard-14 Latin fonts cannot render Arabic codepoints: they come out as
+ * þ-mojibake (each U+06xx/U+FExx char drawn as two Latin-1 glyphs). This
+ * helper splits at the FIRST Arabic character: the ASCII prefix keeps the
+ * caller's current font; the remainder is drawn in Amiri through the
+ * reshape+bidi pipeline, positioned right after the prefix. The caller's
+ * font is restored afterwards.
+ *
+ * Pure-ASCII input is drawn as-is (zero behaviour change).
+ */
+export function drawLatinWithArabic(doc: jsPDF, text: string, x: number, y: number): void {
+  if (!text) return;
+  if (!hasArabic(text)) {
+    doc.text(text, x, y);
+    return;
+  }
+  const prev = doc.getFont();
+  const idx = text.search(ARABIC_RE);
+  const prefix = text.slice(0, idx);
+  const rest = text.slice(idx);
+  let cx = x;
+  if (prefix) {
+    doc.text(prefix, cx, y);
+    cx += doc.getTextWidth(prefix);
+  }
+  doc.setFont('Amiri', prev.fontStyle === 'bold' ? 'bold' : 'normal');
+  doc.text(prepareRtl(doc, rest), cx, y);
+  doc.setFont(prev.fontName, prev.fontStyle);
+}
+
 interface ParaOpts {
   x: number;          // right edge for RTL (align right)
   y: number;

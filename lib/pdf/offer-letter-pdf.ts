@@ -5,7 +5,7 @@
 
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
-import { prepareRtl, drawRtlParagraph, drawBilingualClause, enableRtlPassthrough } from './arabic';
+import { prepareRtl, drawRtlParagraph, drawBilingualClause, drawLatinWithArabic, enableRtlPassthrough } from './arabic';
 import { CURRENCY_LABELS_AR } from '@/lib/constants/auth';
 
 // ============================================================
@@ -120,7 +120,9 @@ function drawInfoLine(doc: jsPDF, leftText: string, rightAr: string, y: number):
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...DARK);
-  doc.text(leftText, MARGIN, y);
+  // Dynamic values (name/title/department) can be Arabic — helvetica would
+  // render them as þ-mojibake, so route through the mixed-text helper.
+  drawLatinWithArabic(doc, leftText, MARGIN, y);
   if (rightAr) {
     doc.setFont('Amiri', 'normal');
     doc.text(prepareRtl(doc,rightAr), PAGE_W - MARGIN, y, { align: 'right' });
@@ -577,7 +579,8 @@ export async function generateOfferLetterPDF(
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         doc.setTextColor(...DARK);
-        doc.text(`${idx + 1}. ${clause.title}`, MARGIN, y);
+        // Custom-clause titles are admin free text — often Arabic.
+        drawLatinWithArabic(doc, `${idx + 1}. ${clause.title}`, MARGIN, y);
         y += 5.5;
       } else {
         // Just the number prefix
@@ -658,17 +661,17 @@ export async function generateOfferLetterPDF(
   doc.setFontSize(8.5);
   doc.setTextColor(...GRAY);
 
-  // Company signature block
-  doc.text(data.signatoryName, MARGIN + 3, y + 18);
-  doc.text(data.signatoryTitle, MARGIN + 3, y + 24);
+  // Company signature block — signatory name/title are free text (often Arabic)
+  drawLatinWithArabic(doc, data.signatoryName, MARGIN + 3, y + 18);
+  drawLatinWithArabic(doc, data.signatoryTitle, MARGIN + 3, y + 24);
   doc.setDrawColor(150, 150, 150);
   doc.setLineWidth(0.3);
   doc.line(MARGIN + 3, y + 32, MARGIN + sigColW - 3, y + 32);
   doc.text('Signature', MARGIN + 3, y + 36);
   doc.text('Date: ____/____/____', MARGIN + 3, y + 41);
 
-  // Employee signature block
-  doc.text(`Name: ${data.nameEn}`, MARGIN + sigColW + 7, y + 14);
+  // Employee signature block — nameEn prefills from display_name (can be Arabic)
+  drawLatinWithArabic(doc, `Name: ${data.nameEn}`, MARGIN + sigColW + 7, y + 14);
   doc.text(`Passport: ${data.passport}`, MARGIN + sigColW + 7, y + 20);
   doc.line(MARGIN + sigColW + 7, y + 32, PAGE_W - MARGIN - 3, y + 32);
   doc.text('Signature', MARGIN + sigColW + 7, y + 36);
