@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
@@ -18,6 +19,11 @@ export async function GET(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
@@ -49,6 +55,11 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const { content } = await req.json();
     if (!content || !content.trim()) {
       return apiValidationError('محتوى التعليق مطلوب');
@@ -260,6 +271,11 @@ export async function DELETE(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const commentId = req.nextUrl.searchParams.get('commentId');
     if (!commentId) return apiValidationError('commentId مطلوب');
 

@@ -36,9 +36,24 @@ function onTimeTone(pct: number | null): 'default' | 'good' | 'warn' | 'bad' {
   return 'bad';
 }
 
-function EmployeeCard({ emp }: { emp: EmployeeReport }) {
+function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
   const [open, setOpen] = useState(false);
   const m = emp.metrics;
+
+  // Drill-down must reconcile with the month-filtered KPI cards: show only
+  // journeys whose delivery OR first-submission lands in the selected month.
+  // When viewing the CURRENT month, also keep not-yet-submitted open work so
+  // in-flight tasks stay visible. Month key derived the same way the metrics
+  // engine buckets (dubaiDayKey → YYYY-MM) so past months reconcile exactly.
+  const isCurrentMonth = month === dubaiDayKey().slice(0, 7);
+  const monthOf = (iso: string) => dubaiDayKey(new Date(iso)).slice(0, 7);
+  const visibleTasks = emp.tasks.filter((t) => {
+    if (t.delivered_at && monthOf(t.delivered_at) === month) return true;
+    if (t.first_submitted_at && monthOf(t.first_submitted_at) === month) return true;
+    if (isCurrentMonth && !t.first_submitted_at && !t.delivered_at) return true;
+    return false;
+  });
+
   return (
     <Card className="p-4 space-y-3">
       <div className="flex items-center justify-between">
@@ -65,7 +80,7 @@ function EmployeeCard({ emp }: { emp: EmployeeReport }) {
         aria-expanded={open}
       >
         <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} aria-hidden />
-        تفاصيل المهام ({emp.tasks.length})
+        تفاصيل المهام ({visibleTasks.length})
       </button>
 
       {open && (
@@ -82,15 +97,15 @@ function EmployeeCard({ emp }: { emp: EmployeeReport }) {
               </tr>
             </thead>
             <tbody>
-              {emp.tasks.map((t) => (
+              {visibleTasks.map((t) => (
                 <tr key={t.task_id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
                   <td className="p-2 font-medium">{t.title}</td>
                   <td className="p-2">{t.due_date ? formatDate(t.due_date) : '—'}</td>
                   <td className="p-2">{t.first_submitted_at ? formatDate(t.first_submitted_at) : '—'}</td>
                   <td className="p-2">
                     {t.on_time === null ? <span className="text-muted-foreground">—</span>
-                      : t.on_time ? <Badge className="bg-emerald-500/10 text-emerald-600 border-0">في الموعد</Badge>
-                      : <Badge className="bg-red-500/10 text-red-600 border-0">متأخر {t.delay_days} يوم</Badge>}
+                      : t.on_time ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">في الموعد</Badge>
+                      : <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">متأخر {t.delay_days} يوم</Badge>}
                   </td>
                   <td className="p-2">{t.review_rounds}</td>
                   <td className="p-2">{t.delivered_at ? formatDate(t.delivered_at) : <span className="text-muted-foreground">لم يُسلم</span>}</td>
@@ -141,7 +156,7 @@ export function ProductivityClient() {
           description="لا توجد مهام على لوحة الإنتاج لهذا الشهر بعد"
         />
       ) : (
-        data.employees.map((emp) => <EmployeeCard key={emp.username} emp={emp} />)
+        data.employees.map((emp) => <EmployeeCard key={emp.username} emp={emp} month={month} />)
       )}
 
       <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">

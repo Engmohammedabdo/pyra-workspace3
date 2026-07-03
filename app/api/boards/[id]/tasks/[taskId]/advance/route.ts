@@ -1,9 +1,11 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { checkBoardScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
@@ -19,6 +21,13 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     if (isApiError(auth)) return auth;
 
     const { id: boardId, taskId } = await ctx.params;
+
+    // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
+    // users, so permission alone doesn't prove board access.
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const isHttpsUrl = (v: unknown): v is string =>
       typeof v === 'string' && /^https:\/\/.+/i.test(v.trim());
@@ -238,6 +247,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     return apiSuccess({ advanced: true, to_column: nextCol.id, completion_percentage: completionPct });
 
   } catch (err) {
+    logError({ error: err, request: req, metadata: { action: 'task_advance' } });
     console.error('[POST /api/boards/[id]/tasks/[taskId]/advance] error:', err);
     return apiServerError();
   }

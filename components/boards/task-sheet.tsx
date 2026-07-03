@@ -421,9 +421,15 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const moveToColumn = async (colId: string) => {
-    await mutateAPI(`/api/tasks/${task.id}/move`, 'POST', { column_id: colId, position: 0 });
-    fetchTask();
-    onUpdate();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/move`, 'POST', { column_id: colId, position: 0 });
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      // Surface the server's Arabic guidance (e.g. gated-column 422 telling
+      // the user to use the review/approve/deliver button instead).
+      toast.error(e instanceof Error && e.message ? e.message : 'فشل نقل المهمة');
+    }
   };
 
   // ── Pipeline: Advance / Approve / Reject ──

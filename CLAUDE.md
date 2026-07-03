@@ -4424,15 +4424,25 @@ Columns with `column_type` `review`/`delivery` AND `requires_approval=true`
 cannot be entered via a raw drag-and-drop column move. The move route
 validates the transition and rejects it unless it comes through the
 advance/approve action path — this is enforced server-side (not just hidden in
-the UI), so a raw `PATCH` move-column call against a gated column is rejected
-regardless of client behavior.
+the UI), so a raw `POST /api/tasks/[id]/move` column move against a gated column
+is rejected (422) regardless of client behavior.
 
 ### 5. `boards.view` / `tasks.view` / `tasks.create` / `productivity.view` now in `BASE_EMPLOYEE`
-Every internal user (not just board members) can view boards/tasks, create
-tasks, and see their own productivity stats — these four permissions moved
-into `BASE_EMPLOYEE` so remote production staff get self-service access
-without needing a dedicated role. Follows the existing `BASE_EMPLOYEE`
-philosophy: `*.view`/`*.create` for OWN-scope self-service, never `*.manage`.
+These four permissions moved into `BASE_EMPLOYEE` so remote production staff get
+self-service access without needing a dedicated role. Follows the existing
+`BASE_EMPLOYEE` philosophy: `*.view`/`*.create` for OWN-scope self-service,
+never `*.manage`.
+
+**Permission is NOT the whole gate — board scope still applies.** The list
+endpoints scope non-admins to their MEMBER boards (via `resolveUserScope` →
+`scope.boardIds`), so an employee only sees boards/tasks they can actually
+reach. The task sub-resource routes (`/api/tasks/[id]/move`, `/assignees`,
+`/comments`, and `/boards/[id]/tasks/[taskId]/advance`) additionally enforce
+board scope via the shared `checkTaskScope` / `checkBoardScope` helpers in
+`lib/auth/task-scope.ts` (admin bypass preserved; a non-member gets 403
+«لا تملك صلاحية الوصول لهذه المهمة»). Granting the permission in
+`BASE_EMPLOYEE` did NOT open task endpoints to non-members — the scope check
+is the second half of the gate and must stay on every task sub-resource route.
 
 ### 6. Pipeline notifications migrated to `notify()`
 The pipeline's notification inserts previously wrote `pyra_notifications`

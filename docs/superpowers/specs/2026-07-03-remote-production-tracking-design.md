@@ -172,8 +172,10 @@ Each phase: code → `pnpm run check` → `pnpm build` → commit → push (auto
 - Whether the generic drag `move` route writes stage history on pipeline boards.
   **FINDING: it did NOT** — the plain drag `move` route was silently skipping the
   `pyra_task_stage_history` insert, so drag-moves on a pipeline board left no
-  metrics trail. **Fixed in Task 4** (the move route now writes stage history on
-  every move, pipeline or not).
+  metrics trail. **Fixed in Task 4** (the move route now writes stage history only
+  for CROSS-COLUMN moves on PIPELINE boards — same-column reorders and
+  non-pipeline boards are excluded, since neither is a metrics-relevant stage
+  transition).
 - Current pipeline UI coverage in `board-view-client.tsx` (how much of advance/approve is already surfaced).
   **FINDING: the pipeline action UI (advance/approve/reject buttons) existed but
   was admin-only and un-gated** (no `column_type`/`requires_approval` enforcement

@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/l
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
@@ -121,10 +122,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
+      const approveWaLine = isDelivery
+        ? 'المهمة اكتملت'
+        : nextCol.name === 'معتمد'
+          ? 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد'
+          : `انتقلت إلى "${nextCol.name}"`;
       for (const u of assigneeNames) {
         if (u === auth.pyraUser.username) continue;
         await sendWhatsAppToUser(supabase, u,
-          `✅ تمت الموافقة على: ${task.title}\n${isDelivery ? 'المهمة اكتملت' : 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد'}\n${APP_URL}${taskLink}`);
+          `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`);
       }
 
       // Activity log
@@ -224,6 +230,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     }
 
   } catch (err) {
+    logError({ error: err, request: req, metadata: { action: 'task_approve' } });
     console.error('[POST /api/boards/[id]/tasks/[taskId]/approve] error:', err);
     return apiServerError();
   }

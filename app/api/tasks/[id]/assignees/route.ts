@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { invalidateScopeCache } from '@/lib/auth/scope';
+import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
@@ -21,6 +22,11 @@ export async function GET(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
@@ -51,6 +57,11 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const { usernames } = await req.json();
     if (!usernames || !Array.isArray(usernames) || usernames.length === 0) {
       return apiValidationError('usernames مطلوب (مصفوفة)');
@@ -112,6 +123,7 @@ export async function POST(
       });
 
       for (const assignedUsername of newUsernames) {
+        if (assignedUsername === auth.pyraUser.username) continue; // don't WhatsApp yourself
         await sendWhatsAppToUser(supabase, assignedUsername,
           `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`);
       }
@@ -146,6 +158,11 @@ export async function DELETE(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const username = req.nextUrl.searchParams.get('username');
     if (!username) return apiValidationError('username مطلوب');
 
