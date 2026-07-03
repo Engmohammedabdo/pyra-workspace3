@@ -877,7 +877,7 @@ function TaskDetailDialog({
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle className="text-start">
             {editingTitle ? (
@@ -1515,7 +1515,10 @@ export default function BoardViewClient({
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskPriority, setNewTaskPriority] = useState('medium');
   const [newTaskDueDate, setNewTaskDueDate] = useState('');
-  const [newTaskAssignees, setNewTaskAssignees] = useState('');
+  const [newTaskAssignees, setNewTaskAssignees] = useState<string[]>([]);
+  const [boardUsers, setBoardUsers] = useState<
+    { username: string; display_name: string; status?: string; role?: string }[]
+  >([]);
 
   const canCreate = hasPermission(
     session.pyraUser.rolePermissions,
@@ -1554,6 +1557,18 @@ export default function BoardViewClient({
   useEffect(() => {
     fetchBoard();
   }, [fetchBoard]);
+
+  // Fetch active users once for the create-task assignee picker
+  useEffect(() => {
+    fetch('/api/users/lite')
+      .then((res) => res.json())
+      .then((json) => {
+        const users: { username: string; display_name: string; status?: string; role?: string }[] =
+          json?.data || [];
+        setBoardUsers(users.filter((u) => u.status === 'active'));
+      })
+      .catch(() => {});
+  }, []);
 
   // Set view mode from board config
   useEffect(() => {
@@ -1730,12 +1745,7 @@ export default function BoardViewClient({
         priority: newTaskPriority,
       };
       if (newTaskDueDate) body.due_date = newTaskDueDate;
-      if (newTaskAssignees.trim()) {
-        body.assignees = newTaskAssignees
-          .split(',')
-          .map((s) => s.trim())
-          .filter(Boolean);
-      }
+      if (newTaskAssignees.length) body.assignees = newTaskAssignees;
 
       const res = await fetch(`/api/boards/${boardId}/tasks`, {
         method: 'POST',
@@ -1747,7 +1757,7 @@ export default function BoardViewClient({
         setNewTaskTitle('');
         setNewTaskPriority('medium');
         setNewTaskDueDate('');
-        setNewTaskAssignees('');
+        setNewTaskAssignees([]);
         setShowAddTask(false);
         fetchBoard();
       } else {
@@ -1764,7 +1774,7 @@ export default function BoardViewClient({
     setNewTaskTitle('');
     setNewTaskPriority('medium');
     setNewTaskDueDate('');
-    setNewTaskAssignees('');
+    setNewTaskAssignees([]);
     setShowAddTask(true);
   };
 
@@ -1967,7 +1977,7 @@ export default function BoardViewClient({
 
       {/* Enhanced Add Task Dialog */}
       <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>إضافة مهمة جديدة</DialogTitle>
           </DialogHeader>
@@ -2012,14 +2022,46 @@ export default function BoardViewClient({
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">
-                المعيّنون (أسماء مستخدمين مفصولة بفاصلة)
-              </label>
-              <Input
-                value={newTaskAssignees}
-                onChange={(e) => setNewTaskAssignees(e.target.value)}
-                placeholder="مثال: ahmed, sara, ali"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">الأعضاء المسؤولون</label>
+                {newTaskAssignees.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    تم اختيار {newTaskAssignees.length}
+                  </span>
+                )}
+              </div>
+              <div className="max-h-40 overflow-y-auto rounded-md border border-border/50 divide-y divide-border/30">
+                {boardUsers.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-3">
+                    لا يوجد مستخدمون نشطون
+                  </p>
+                ) : (
+                  boardUsers.map((u) => {
+                    const checked = newTaskAssignees.includes(u.username);
+                    return (
+                      <label
+                        key={u.username}
+                        className="flex items-center gap-2 px-2.5 py-1.5 text-sm cursor-pointer hover:bg-muted/50 transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setNewTaskAssignees((prev) =>
+                              checked
+                                ? prev.filter((x) => x !== u.username)
+                                : [...prev, u.username]
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-border accent-orange-500"
+                        />
+                        <span className="flex-1">{u.display_name}</span>
+                        <span className="text-xs text-muted-foreground">{u.username}</span>
+                      </label>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             <Button
@@ -2046,7 +2088,7 @@ export default function BoardViewClient({
 
       {/* Board Settings Dialog */}
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>إعدادات اللوحة</DialogTitle>
           </DialogHeader>

@@ -276,7 +276,8 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   if (loading || !task) {
     return (
       <Sheet open onOpenChange={onClose}>
-        <SheetContent side="left" className="w-full sm:max-w-3xl p-0">
+        <SheetContent side="left" className="w-full sm:max-w-3xl p-0" aria-describedby={undefined}>
+          <SheetTitle className="sr-only">تحميل المهمة</SheetTitle>
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
           </div>
@@ -627,14 +628,16 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   const filteredUsers = allUsers.filter(u =>
     !assignees.some(a => a.username === u.username) &&
-    (u.display_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
-     u.username.toLowerCase().includes(assigneeSearch.toLowerCase()))
-  ).slice(0, 8);
+    (!assigneeSearch ||
+      u.display_name.toLowerCase().includes(assigneeSearch.toLowerCase()) ||
+      u.username.toLowerCase().includes(assigneeSearch.toLowerCase()))
+  ).slice(0, 20);
 
   // ── Render ──
   return (
     <Sheet open onOpenChange={onClose}>
-      <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden">
+      <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden" aria-describedby={undefined}>
+        <SheetTitle className="sr-only">تفاصيل المهمة</SheetTitle>
         {/* Cover image */}
         {task.cover_image && (
           <div className="h-32 w-full overflow-hidden">
@@ -1018,53 +1021,72 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             <div className="space-y-1">
 
               {/* Assignees */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarBtn icon={Users} label="الأعضاء" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-2">
-                  <Input
-                    value={assigneeSearch}
-                    onChange={e => setAssigneeSearch(e.target.value)}
-                    placeholder="بحث عن عضو..."
-                    className="h-8 text-xs mb-2"
-                  />
-                  {/* Current assignees */}
-                  {assignees.map(a => (
-                    <div key={a.username} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted text-xs">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-5 w-5">
-                          <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(a.username))}>
-                            {a.username.slice(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        {a.username}
-                      </div>
-                      <button onClick={() => removeAssignee(a.username)} className="text-red-400 hover:text-red-500">
-                        <X className="h-3 w-3" />
-                      </button>
+              <div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <SidebarBtn icon={Users} label="الأعضاء / تعيين" />
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-56 p-2">
+                    <Input
+                      value={assigneeSearch}
+                      onChange={e => setAssigneeSearch(e.target.value)}
+                      placeholder="بحث عن عضو..."
+                      className="h-8 text-xs mb-2"
+                    />
+                    {/* Current assignees */}
+                    {assignees.map(a => {
+                      const matched = allUsers.find(u => u.username === a.username);
+                      const label = matched?.display_name || a.username;
+                      return (
+                        <div key={a.username} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted text-xs">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-5 w-5">
+                              <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(a.username))}>
+                                {a.username.slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            {label}
+                          </div>
+                          <button onClick={() => removeAssignee(a.username)} className="text-red-400 hover:text-red-500">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                    {assignees.length > 0 && filteredUsers.length > 0 && (
+                      <div className="border-t border-border/30 my-1.5" />
+                    )}
+                    {/* Pickable list — always visible, filtered by search when typed */}
+                    <div className="max-h-48 overflow-y-auto">
+                      {filteredUsers.map(u => (
+                        <button
+                          key={u.username}
+                          onClick={() => addAssignee(u.username)}
+                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
+                        >
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
+                              {u.username.slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p>{u.display_name}</p>
+                            <p className="text-[10px] text-muted-foreground">{u.username}</p>
+                          </div>
+                        </button>
+                      ))}
+                      {filteredUsers.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-2">لا يوجد مستخدمون</p>
+                      )}
                     </div>
-                  ))}
-                  {/* Search results */}
-                  {assigneeSearch && filteredUsers.map(u => (
-                    <button
-                      key={u.username}
-                      onClick={() => addAssignee(u.username)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
-                    >
-                      <Avatar className="h-5 w-5">
-                        <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
-                          {u.username.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p>{u.display_name}</p>
-                        <p className="text-[10px] text-muted-foreground">{u.username}</p>
-                      </div>
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
+                  </PopoverContent>
+                </Popover>
+                {assignees.length === 0 && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 ps-3 -mt-1 mb-1">
+                    لم يُعيَّن أحد
+                  </p>
+                )}
+              </div>
 
               {/* Labels */}
               <Popover>
