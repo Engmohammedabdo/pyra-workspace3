@@ -1,9 +1,24 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Bell, Check, CheckCheck, ExternalLink, Volume2, VolumeX } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Bell,
+  CheckCheck,
+  Volume2,
+  VolumeX,
+  Eye,
+  CheckCircle2,
+  PencilLine,
+  AlarmClock,
+  CheckSquare,
+  Clock,
+  Briefcase,
+  MessageSquare,
+  type LucideIcon,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -12,7 +27,7 @@ import {
 } from '@/components/ui/popover';
 import { useNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
 import { useRealtime } from '@/hooks/useRealtime';
-import { formatRelativeDate } from '@/lib/utils/format';
+import { formatRelativeDate, dubaiDayKey } from '@/lib/utils/format';
 import {
   isNotificationSoundEnabled,
   setNotificationSoundEnabled,
@@ -37,6 +52,78 @@ function resolveTargetLink(type: string, targetPath: string): string | null {
     return '/dashboard/permissions';
   }
   return '/dashboard/notifications';
+}
+
+/** Per-type icon + color chip, resolved via prefix matching so 40+ types collapse to ~8 groups */
+function typeVisual(type: string): { icon: LucideIcon; classes: string } {
+  if (type.startsWith('task_submitted') || type === 'file_approval_requested') {
+    return { icon: Eye, classes: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' };
+  }
+  if (type.startsWith('task_approved')) {
+    return { icon: CheckCircle2, classes: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' };
+  }
+  if (type.startsWith('task_revision_requested')) {
+    return { icon: PencilLine, classes: 'bg-red-500/10 text-red-600 dark:text-red-400' };
+  }
+  if (type.startsWith('task_overdue') || type.startsWith('task_due_soon')) {
+    return { icon: AlarmClock, classes: 'bg-orange-500/10 text-orange-600 dark:text-orange-400' };
+  }
+  if (type.startsWith('task')) {
+    return { icon: CheckSquare, classes: 'bg-blue-500/10 text-blue-600 dark:text-blue-400' };
+  }
+  if (type.startsWith('attendance')) {
+    return { icon: Clock, classes: 'bg-violet-500/10 text-violet-600 dark:text-violet-400' };
+  }
+  if (
+    type.startsWith('leave') ||
+    type.startsWith('expense') ||
+    type.startsWith('timesheet') ||
+    type.startsWith('payroll') ||
+    type.startsWith('evaluation') ||
+    type.startsWith('document')
+  ) {
+    return { icon: Briefcase, classes: 'bg-sky-500/10 text-sky-600 dark:text-sky-400' };
+  }
+  if (
+    type.startsWith('lead') ||
+    type.startsWith('whatsapp') ||
+    type.startsWith('follow_up') ||
+    type.startsWith('quote')
+  ) {
+    return { icon: MessageSquare, classes: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' };
+  }
+  return { icon: Bell, classes: 'bg-muted text-muted-foreground' };
+}
+
+interface NotificationItem {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  source_display_name: string;
+  target_path: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+/** Group notifications by Dubai day into labeled buckets: اليوم / أمس / date */
+function groupByDay(items: NotificationItem[]) {
+  const todayKey = dubaiDayKey();
+  const yesterdayKey = dubaiDayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+  const groups = items.reduce<{ label: string; items: NotificationItem[] }[]>((acc, n) => {
+    const key = dubaiDayKey(new Date(n.created_at));
+    const label = key === todayKey ? 'اليوم' : key === yesterdayKey ? 'أمس' : key;
+    const last = acc[acc.length - 1];
+    if (last && last.label === label) {
+      last.items.push(n);
+    } else {
+      acc.push({ label, items: [n] });
+    }
+    return acc;
+  }, []);
+
+  return groups;
 }
 
 interface NotificationBellProps {
@@ -78,6 +165,8 @@ export function NotificationBell({ username }: NotificationBellProps) {
     }
   };
 
+  const groups = useMemo(() => groupByDay(notifications), [notifications]);
+
   return (
     <Popover onOpenChange={(open) => { if (open) requestNotificationPermission(); }}>
       <PopoverTrigger asChild>
@@ -93,7 +182,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end" sideOffset={8}>
+      <PopoverContent className="w-96 max-w-[calc(100vw-2rem)] p-0" align="end" sideOffset={8}>
         {/* Header */}
         <div className="flex items-center justify-between border-b p-3">
           <h4 className="text-sm font-semibold">الإشعارات</h4>
@@ -123,47 +212,65 @@ export function NotificationBell({ username }: NotificationBellProps) {
         </div>
 
         {/* Notification List */}
-        <div className="max-h-80 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto">
           {loading ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">
-              جاري التحميل...
+            <div className="space-y-0">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-start gap-3 border-b p-3 last:border-b-0">
+                  <Skeleton className="h-8 w-8 flex-shrink-0 rounded-lg" />
+                  <div className="min-w-0 flex-1 space-y-2 pt-0.5">
+                    <Skeleton className="h-3 w-2/3" />
+                    <Skeleton className="h-3 w-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : notifications.length === 0 ? (
             <EmptyState icon={Bell} title="لا توجد إشعارات" className="py-4" />
           ) : (
-            notifications.map((n) => (
-              <button
-                key={n.id}
-                onClick={() => handleNotificationClick(n)}
-                className="flex w-full items-start gap-3 border-b p-3 text-start transition-colors hover:bg-muted/50 last:border-b-0"
-              >
-                {/* Read indicator */}
-                <div className="mt-1.5 flex-shrink-0">
-                  {n.is_read ? (
-                    <Check className="h-3 w-3 text-muted-foreground/50" />
-                  ) : (
-                    <span className="block h-2 w-2 rounded-full bg-orange-500" />
-                  )}
+            groups.map((group) => (
+              <div key={group.label}>
+                <div className="px-3 pt-2 text-[10px] font-medium text-muted-foreground">
+                  {group.label}
                 </div>
+                {group.items.map((n) => {
+                  const { icon: Icon, classes } = typeVisual(n.type);
+                  return (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNotificationClick(n)}
+                      className={`flex w-full items-start gap-3 border-b p-3 text-start transition-colors hover:bg-muted/50 last:border-b-0 ${
+                        n.is_read ? 'opacity-75' : 'bg-orange-50/60 dark:bg-orange-950/20'
+                      }`}
+                    >
+                      {/* Type icon chip */}
+                      <div
+                        className={`flex size-8 flex-shrink-0 items-center justify-center rounded-lg ${classes}`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
 
-                {/* Content */}
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-tight">{n.title}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
-                    {n.message}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <span>{n.source_display_name}</span>
-                    <span>·</span>
-                    <span>{formatRelativeDate(n.created_at)}</span>
-                  </div>
-                </div>
-
-                {/* Link indicator */}
-                {n.target_path && (
-                  <ExternalLink className="mt-1.5 h-3 w-3 flex-shrink-0 text-muted-foreground/50" />
-                )}
-              </button>
+                      {/* Content */}
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm leading-tight ${n.is_read ? 'font-medium' : 'font-semibold'}`}>
+                          {n.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-muted-foreground line-clamp-2">
+                          {n.message}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <span>{n.source_display_name}</span>
+                          <span>·</span>
+                          <span>{formatRelativeDate(n.created_at)}</span>
+                          {!n.is_read && (
+                            <span className="ms-1 inline-block size-1.5 flex-shrink-0 rounded-full bg-orange-500" />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             ))
           )}
         </div>
