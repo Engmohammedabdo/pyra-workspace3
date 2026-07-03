@@ -63,6 +63,18 @@ describe('buildTaskJourney', () => {
     const events = [ev('OTHER', 'col_prod_wip', 'col_prod_review', '2026-07-05T10:00:00Z')];
     expect(buildTaskJourney(TASK, events).first_submitted_at).toBeNull();
   });
+
+  it('consumes each decision once — consecutive review entries do not double-bind one decision', () => {
+    const events = [
+      ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-05T10:00:00Z'),
+      ev('t1', 'col_prod_wip', 'col_prod_review', '2026-07-05T12:00:00Z'), // duplicate entry, no leave between
+      ev('t1', 'col_prod_review', 'col_prod_wip', '2026-07-06T10:00:00Z'), // single decision
+    ];
+    const j = buildTaskJourney(TASK, events);
+    expect(j.review_rounds).toBe(2);           // entries still counted
+    expect(j.review_wait_hours).toHaveLength(1); // ONE wait, not two
+    expect(j.review_wait_hours[0]).toBe(24);     // paired to the FIRST unconsumed entry
+  });
 });
 
 describe('summarizeEmployee', () => {

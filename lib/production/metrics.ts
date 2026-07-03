@@ -75,15 +75,22 @@ export function buildTaskJourney(
   const delivered = mine.find((e) => e.to_column_id === task.done_column_id)?.created_at ?? null;
 
   const waits: number[] = [];
+  let searchFrom = 0;
   for (const entry of reviewEntries) {
-    const decision = mine.find(
-      (e) => e.from_column_id === task.review_column_id && e.created_at > entry.created_at,
-    );
-    if (decision) {
-      waits.push(
-        Math.round(((Date.parse(decision.created_at) - Date.parse(entry.created_at)) / HOUR) * 10) / 10,
-      );
+    const entryIdx = mine.indexOf(entry);
+    const startIdx = Math.max(entryIdx + 1, searchFrom);
+    let decisionIdx = -1;
+    for (let i = startIdx; i < mine.length; i++) {
+      if (mine[i].from_column_id === task.review_column_id) {
+        decisionIdx = i;
+        break;
+      }
     }
+    if (decisionIdx === -1) continue;
+    searchFrom = decisionIdx + 1;
+    waits.push(
+      Math.round(((Date.parse(mine[decisionIdx].created_at) - Date.parse(entry.created_at)) / HOUR) * 10) / 10,
+    );
   }
 
   let onTime: boolean | null = null;
@@ -109,7 +116,7 @@ export function buildTaskJourney(
     on_time: onTime,
     delay_days: delayDays,
     days_to_first_submission: firstSubmitted
-      ? Math.round(((Date.parse(firstSubmitted) - Date.parse(task.created_at)) / DAY) * 10) / 10
+      ? Math.max(0, Math.round(((Date.parse(firstSubmitted) - Date.parse(task.created_at)) / DAY) * 10) / 10)
       : null,
   };
 }
