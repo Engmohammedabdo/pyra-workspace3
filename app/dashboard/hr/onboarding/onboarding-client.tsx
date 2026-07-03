@@ -30,7 +30,11 @@ const STATUS_CLASS: Record<string, string> = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 function ProgressBar({ done, total }: { done: number; total: number }) {
-  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  // Existing-employee records have no checklist — show a dash instead of 0/0
+  if (total === 0) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+  const pct = Math.round((done / total) * 100);
   return (
     <div className="flex items-center gap-2">
       <span className="text-sm font-medium tabular-nums">

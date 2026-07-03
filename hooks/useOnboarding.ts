@@ -48,7 +48,8 @@ export interface CreateOnboardingInput {
   phone?: string;
   email?: string;
   username: string;
-  password: string;
+  /** Required for new hires; omitted in existing-employee mode (account untouched). */
+  password?: string;
   // position
   titleEn: string;
   titleAr: string;
@@ -69,6 +70,13 @@ export interface CreateOnboardingInput {
   other: number;
   commissionRate?: number;
   monthlyTarget?: number;
+  /** ISO 4217 salary currency (SALARY_CURRENCIES) — default 'AED'. */
+  currency?: string;
+  // existing-employee mode
+  /** When true, the API adopts an existing ACTIVE user instead of creating one. */
+  existing_employee?: boolean;
+  /** Documents subset to generate (existing mode only) — default all three. */
+  documents?: string[];
   // custom + assets
   customClauses: Array<{ title?: string; body: string }>;
   assets: Array<{

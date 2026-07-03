@@ -286,7 +286,7 @@ export interface OfferData {
   deptAr: string;
   reportsTo: string | null;
   isSales: boolean;
-  // Compensation components (AED)
+  // Compensation components — denominated in `currency` below (default AED)
   basic: number;
   housing: number;
   transport: number;
@@ -294,6 +294,8 @@ export interface OfferData {
   other: number;
   commissionRate?: number;
   monthlyTarget?: number;
+  /** ISO 4217 currency code governing all compensation amounts (default 'AED'). */
+  currency?: string;
   // Contract extras
   customClauses: Array<{ title?: string; body: string }>;
   // Signatory

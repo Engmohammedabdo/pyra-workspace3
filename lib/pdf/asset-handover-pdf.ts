@@ -6,6 +6,7 @@
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
 import { prepareRtl, drawRtlParagraph, enableRtlPassthrough } from './arabic';
+import { CURRENCY_LABELS_AR } from '@/lib/constants/auth';
 
 // ============================================================
 // Employee Asset Custody & Handover Form — PyramediaX
@@ -21,6 +22,8 @@ export interface AssetHandoverData {
   username: string;
   handoverDate: string;
   handoverPlace?: string;
+  /** ISO 4217 currency code for asset values (default 'AED'). */
+  currency?: string;
   assets: Array<{
     type: string;
     description: string;
@@ -202,16 +205,17 @@ export async function generateAssetHandoverPDF(
   y = ensureSpace(doc, y, 20);
 
   // Column widths (total = CONTENT_W)
-  // م | نوع العهدة | الوصف/الموديل | الرقم التسلسلي/IMEI | الحالة | القيمة (درهم) | ملاحظات
+  // م | نوع العهدة | الوصف/الموديل | الرقم التسلسلي/IMEI | الحالة | القيمة (بعملة data.currency) | ملاحظات
   const colWidths = [8, 22, 38, 32, 24, 22, 36]; // sum = 182 = CONTENT_W (14*2 = 28, PAGE_W=210)
   // Adjust: CONTENT_W = 210 - 28 = 182
+  const cur = data.currency || 'AED';
   const colHeaders = [
     'م',
     'نوع العهدة',
     'الوصف / الموديل',
     'الرقم التسلسلي / IMEI',
     'الحالة عند التسليم',
-    'القيمة (درهم)',
+    `القيمة (${CURRENCY_LABELS_AR[cur] ?? cur})`,
     'ملاحظات / ملحقات',
   ];
 

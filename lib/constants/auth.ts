@@ -38,6 +38,18 @@ export const PAYMENT_TYPES    = ['monthly_salary', 'hourly', 'per_task', 'commis
 export const SALARY_CURRENCIES = ['AED', 'EGP', 'USD', 'SAR'] as const;
 
 /**
+ * Arabic display labels for the salary currencies. Shared by the onboarding
+ * PDFs (offer letter / asset handover) + wizard UI. Fallback to the raw code
+ * for anything not in the map: `CURRENCY_LABELS_AR[cur] ?? cur`.
+ */
+export const CURRENCY_LABELS_AR: Record<string, string> = {
+  AED: 'درهم إماراتي',
+  EGP: 'جنيه مصري',
+  USD: 'دولار أمريكي',
+  SAR: 'ريال سعودي',
+};
+
+/**
  * Default working days for a NEW work schedule. Day numbering is 0=Sunday ..
  * 6=Saturday (JS getDay + pyra_work_schedules.work_days). Pyramedia's weekend
  * is Sunday only, so the default work week is Monday–Saturday = [1,2,3,4,5,6].

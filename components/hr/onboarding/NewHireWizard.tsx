@@ -12,8 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useCreateOnboarding, type CreateOnboardingInput } from '@/hooks/useOnboarding';
-import { useUsers } from '@/hooks/useUsers';
-import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
+import { useUsers, type User } from '@/hooks/useUsers';
 import {
   StepPersonal,
   StepPosition,
@@ -21,46 +20,13 @@ import {
   StepClauses,
   StepReview,
 } from './WizardSteps';
-
-// ────────────────────────────────────────────────────────────────────────────
-// Default form data
-// ────────────────────────────────────────────────────────────────────────────
-
-function defaultForm(): CreateOnboardingInput {
-  return {
-    nameEn: '',
-    nameAr: '',
-    nationality: '',
-    passport: '',
-    idNumber: '',
-    dateOfBirth: undefined,
-    phone: undefined,
-    email: undefined,
-    username: '',
-    password: '',
-    titleEn: '',
-    titleAr: '',
-    deptEn: '',
-    deptAr: '',
-    reportsTo: '',
-    startDate: '',
-    isSales: false,
-    employment_type: 'full_time',
-    work_location: 'onsite',
-    basic: 0,
-    housing: 0,
-    transport: 0,
-    communication: 0,
-    other: 0,
-    commissionRate: undefined,
-    monthlyTarget: undefined,
-    customClauses: [],
-    assets: [],
-    signatoryName: '',
-    signatoryTitle: '',
-    notes: undefined,
-  };
-}
+import { ExistingEmployeePicker } from './ExistingEmployeePicker';
+import {
+  defaultForm,
+  prefillFromUser,
+  validateStep,
+  type WizardMode,
+} from './wizard-helpers';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Step metadata
@@ -122,37 +88,6 @@ function Stepper({ current }: { current: number }) {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Validation per step
-// ────────────────────────────────────────────────────────────────────────────
-
-function validateStep(step: number, data: CreateOnboardingInput): string | null {
-  switch (step) {
-    case 0:
-      if (!data.nameEn.trim()) return 'الاسم بالإنجليزية مطلوب';
-      if (!data.nameAr.trim()) return 'الاسم بالعربية مطلوب';
-      if (!data.username.trim()) return 'اسم المستخدم مطلوب';
-      if (!data.password.trim() || data.password.length < PASSWORD_MIN_LENGTH)
-        return `كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`;
-      return null;
-    case 1:
-      if (!data.titleEn.trim()) return 'المسمى الوظيفي مطلوب';
-      if (!data.startDate) return 'تاريخ الالتحاق مطلوب';
-      return null;
-    case 2:
-      if (data.basic <= 0) return 'الراتب الأساسي يجب أن يكون أكبر من صفر';
-      return null;
-    case 3:
-      return null; // clauses + assets are optional
-    case 4:
-      if (!data.signatoryName.trim()) return 'اسم الموقّع مطلوب';
-      if (!data.signatoryTitle.trim()) return 'منصب الموقّع مطلوب';
-      return null;
-    default:
-      return null;
-  }
-}
-
-// ────────────────────────────────────────────────────────────────────────────
 // Main component
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -163,6 +98,7 @@ interface Props {
 
 export function NewHireWizard({ open, onClose }: Props) {
   const router = useRouter();
+  const [mode, setMode] = useState<WizardMode>('new');
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<CreateOnboardingInput>(defaultForm);
 
@@ -173,14 +109,26 @@ export function NewHireWizard({ open, onClose }: Props) {
     setForm((prev) => ({ ...prev, ...update }));
   }
 
+  function switchMode(next: WizardMode) {
+    if (next === mode) return;
+    setMode(next);
+    setStep(0);
+    setForm(defaultForm());
+  }
+
+  function handlePickEmployee(user: User) {
+    setForm(prefillFromUser(user));
+  }
+
   function handleClose() {
+    setMode('new');
     setStep(0);
     setForm(defaultForm());
     onClose();
   }
 
   function handleNext() {
-    const err = validateStep(step, form);
+    const err = validateStep(step, form, mode);
     if (err) {
       toast.error(err);
       return;
@@ -193,15 +141,29 @@ export function NewHireWizard({ open, onClose }: Props) {
   }
 
   async function handleSubmit() {
-    const err = validateStep(step, form);
+    const err = validateStep(step, form, mode);
     if (err) {
       toast.error(err);
       return;
     }
 
+    const isExisting = mode === 'existing';
+    const payload: CreateOnboardingInput = {
+      ...form,
+      // Only honored by the API in existing mode; omit otherwise for a clean body
+      existing_employee: isExisting ? true : undefined,
+      documents: isExisting ? form.documents : undefined,
+      // Existing mode never touches the account — never send a password
+      password: isExisting ? undefined : form.password,
+    };
+
     try {
-      const result = await createOnboarding.mutateAsync(form);
-      toast.success('تم إنشاء سجل التعيين بنجاح 🎉');
+      const result = await createOnboarding.mutateAsync(payload);
+      toast.success(
+        isExisting
+          ? 'تم توليد المستندات وربطها بسجل الموظف 🎉'
+          : 'تم إنشاء سجل التعيين بنجاح 🎉',
+      );
       handleClose();
       router.push(`/dashboard/hr/onboarding/${result.id}`);
     } catch (e) {
@@ -217,19 +179,58 @@ export function NewHireWizard({ open, onClose }: Props) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>تعيين موظف جديد</DialogTitle>
+          <DialogTitle>
+            {mode === 'existing' ? 'توليد مستندات لموظف حالي' : 'تعيين موظف جديد'}
+          </DialogTitle>
         </DialogHeader>
+
+        {/* Mode toggle */}
+        <div className="grid grid-cols-2 gap-2" role="group" aria-label="نوع التعيين">
+          <Button
+            type="button"
+            variant={mode === 'new' ? 'default' : 'outline'}
+            className={cn(
+              'h-11',
+              mode === 'new' && 'bg-orange-500 hover:bg-orange-600 text-white',
+            )}
+            onClick={() => switchMode('new')}
+            disabled={isPending}
+          >
+            موظف جديد
+          </Button>
+          <Button
+            type="button"
+            variant={mode === 'existing' ? 'default' : 'outline'}
+            className={cn(
+              'h-11',
+              mode === 'existing' && 'bg-orange-500 hover:bg-orange-600 text-white',
+            )}
+            onClick={() => switchMode('existing')}
+            disabled={isPending}
+          >
+            موظف حالي
+          </Button>
+        </div>
+
+        {/* Existing-employee picker (prefills the form on selection) */}
+        {mode === 'existing' && (
+          <ExistingEmployeePicker
+            users={usersData}
+            value={form.username}
+            onSelect={handlePickEmployee}
+          />
+        )}
 
         <Stepper current={step} />
 
         <div className="min-h-[300px] py-2">
-          {step === 0 && <StepPersonal data={form} onChange={patch} />}
+          {step === 0 && <StepPersonal data={form} onChange={patch} mode={mode} />}
           {step === 1 && (
             <StepPosition data={form} onChange={patch} allUsers={usersData} />
           )}
           {step === 2 && <StepCompensation data={form} onChange={patch} />}
           {step === 3 && <StepClauses data={form} onChange={patch} />}
-          {step === 4 && <StepReview data={form} onChange={patch} />}
+          {step === 4 && <StepReview data={form} onChange={patch} mode={mode} />}
         </div>
 
         {/* Footer */}
@@ -249,7 +250,11 @@ export function NewHireWizard({ open, onClose }: Props) {
               onClick={handleSubmit}
               disabled={isPending}
             >
-              {isPending ? 'جاري التعيين...' : 'إتمام التعيين'}
+              {isPending
+                ? 'جاري التنفيذ...'
+                : mode === 'existing'
+                ? 'توليد المستندات'
+                : 'إتمام التعيين'}
             </Button>
           ) : (
             <Button

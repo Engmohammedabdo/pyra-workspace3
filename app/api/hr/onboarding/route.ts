@@ -18,14 +18,27 @@ import {
   loadServerDefaultLogo,
 } from '@/lib/pdf/pdf-assets-server';
 import { DEFAULT_ONBOARDING_TASKS, ONBOARDING_STATUS } from '@/lib/constants/onboarding';
+import { SALARY_CURRENCIES } from '@/lib/constants/auth';
 import { dubaiDayKey } from '@/lib/utils/format';
+
+/** Documents the POST can generate — URL-segment keys matching the regenerate route. */
+const ONBOARDING_DOC_KEYS = ['offer_letter', 'nda', 'asset_handover'] as const;
+type OnboardingDocKey = (typeof ONBOARDING_DOC_KEYS)[number];
 
 // ─────────────────────────────────────────────────────────────────────────────
 // /api/hr/onboarding
 //
 // GET  — list onboarding records (recent first, limit 100) with employee
 //         display_name + task progress {done, total}
-// POST — create new hire: user + onboarding row + 3 PDFs + checklist tasks
+// POST — two modes:
+//   • new hire (default): user + onboarding row + 3 PDFs + checklist tasks
+//   • existing_employee=true: account UNTOUCHED (no create/reactivate, no
+//     password) — validates the ACTIVE user has no onboarding_id, inserts a
+//     COMPLETED onboarding row, generates only the selected `documents`
+//     subset (offer_letter | nda | asset_handover), NO task seeding, NO
+//     welcome notification.
+// `currency` (SALARY_CURRENCIES, default AED) governs offer_data + PDF labels
+// and is passed as salary_currency to createEmployeeUser on the new-hire path.
 //
 // Both gated: hr.manage (admin-only, service-role AFTER the gate)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,12 +186,54 @@ export async function POST(request: NextRequest) {
       signatoryName,
       signatoryTitle,
       notes,
+      // existing-employee mode + currency
+      existing_employee,
+      documents,
+      currency,
     } = body;
+
+    const isExisting = existing_employee === true;
+
+    // ── Currency validation ───────────────────────────────────────────────────
+    // Explicitly provided but invalid → 422 (never silently default a bad value).
+    if (currency !== undefined && currency !== null) {
+      if (
+        typeof currency !== 'string' ||
+        !(SALARY_CURRENCIES as readonly string[]).includes(currency)
+      ) {
+        return apiValidationError(
+          `عملة غير صالحة — القيم المقبولة: ${SALARY_CURRENCIES.join(', ')}`,
+        );
+      }
+    }
+    const cleanCurrency =
+      typeof currency === 'string' && currency ? currency : 'AED';
+
+    // ── Documents selection (existing-employee mode only) ────────────────────
+    // New-hire path always generates all three regardless of the field.
+    let docsToGenerate: Set<OnboardingDocKey> = new Set(ONBOARDING_DOC_KEYS);
+    if (isExisting && documents !== undefined && documents !== null) {
+      if (
+        !Array.isArray(documents) ||
+        documents.some(
+          (d) => !(ONBOARDING_DOC_KEYS as readonly string[]).includes(String(d)),
+        )
+      ) {
+        return apiValidationError(
+          `قائمة الوثائق غير صالحة — القيم المقبولة: ${ONBOARDING_DOC_KEYS.join(', ')}`,
+        );
+      }
+      if (documents.length === 0) {
+        return apiValidationError('اختر وثيقة واحدة على الأقل');
+      }
+      docsToGenerate = new Set(documents as OnboardingDocKey[]);
+    }
 
     // ── Required-field validation ─────────────────────────────────────────────
     const missing: string[] = [];
     if (!username || typeof username !== 'string' || !String(username).trim()) missing.push('username');
-    if (!password || typeof password !== 'string' || !String(password).trim()) missing.push('password');
+    // Existing employees keep their account untouched — no password needed.
+    if (!isExisting && (!password || typeof password !== 'string' || !String(password).trim())) missing.push('password');
     if (!nameEn  || typeof nameEn  !== 'string' || !String(nameEn).trim())  missing.push('nameEn');
     if (!nameAr  || typeof nameAr  !== 'string' || !String(nameAr).trim())  missing.push('nameAr');
     if (!titleEn || typeof titleEn !== 'string' || !String(titleEn).trim()) missing.push('titleEn');
@@ -191,7 +246,8 @@ export async function POST(request: NextRequest) {
 
     // Safe casts for validated primitives
     const cleanUsername = String(username).trim().toLowerCase();
-    const cleanPassword = String(password).trim();
+    const cleanPassword =
+      password && typeof password === 'string' ? String(password).trim() : '';
     const cleanNameEn   = String(nameEn).trim();
     const cleanNameAr   = String(nameAr).trim();
     const cleanTitleEn  = String(titleEn).trim();
@@ -257,31 +313,57 @@ export async function POST(request: NextRequest) {
       commission_rate:  isSalesBool && commissionRate !== undefined
         ? Number(commissionRate)
         : null,
+      salary_currency:  cleanCurrency,
       salary_breakdown: salaryBreakdown,
     } as const;
 
-    const { data: existingU } = await supabase
-      .from('pyra_users')
-      .select('username, status')
-      .eq('username', cleanUsername)
-      .single();
+    if (isExisting) {
+      // ── Existing-employee mode: account untouched (no create / reactivate) ──
+      const { data: existingUser } = await supabase
+        .from('pyra_users')
+        .select('username, status, onboarding_id, salary_currency')
+        .eq('username', cleanUsername)
+        .maybeSingle();
 
-    let createResult;
-    if (existingU) {
-      if (existingU.status === 'active') {
-        return apiError('اسم المستخدم مستخدم بالفعل لموظف نشط', 409);
+      if (!existingUser) {
+        return apiError('الموظف غير موجود', 404);
       }
-      // Re-hire: reactivate the existing account with updated details
-      createResult = await reactivateEmployeeUser(supabase, employeeInput);
+      if (existingUser.status !== 'active') {
+        return apiError(
+          'الموظف غير نشط — استخدم مسار التعيين الجديد لإعادة التفعيل',
+          409,
+        );
+      }
+      if (existingUser.onboarding_id) {
+        return apiError('لدى الموظف سجل onboarding بالفعل', 409);
+      }
+
+      employeeUsername = String(existingUser.username);
     } else {
-      createResult = await createEmployeeUser(supabase, employeeInput);
-    }
+      // ── New-hire path: create (or re-hire-reactivate) the employee user ─────
+      const { data: existingU } = await supabase
+        .from('pyra_users')
+        .select('username, status')
+        .eq('username', cleanUsername)
+        .single();
 
-    if (!createResult.ok) {
-      return apiError(createResult.error, createResult.status);
-    }
+      let createResult;
+      if (existingU) {
+        if (existingU.status === 'active') {
+          return apiError('اسم المستخدم مستخدم بالفعل لموظف نشط', 409);
+        }
+        // Re-hire: reactivate the existing account with updated details
+        createResult = await reactivateEmployeeUser(supabase, employeeInput);
+      } else {
+        createResult = await createEmployeeUser(supabase, employeeInput);
+      }
 
-    employeeUsername = createResult.user.username;
+      if (!createResult.ok) {
+        return apiError(createResult.error, createResult.status);
+      }
+
+      employeeUsername = createResult.user.username;
+    }
 
     // ── Step 4: Insert pyra_onboarding row ───────────────────────────────────
     onboardingId = generateId('onb');
@@ -309,6 +391,7 @@ export async function POST(request: NextRequest) {
       other:       otherNum,
       commissionRate: commissionRate !== undefined ? Number(commissionRate) : undefined,
       monthlyTarget:  monthlyTarget  !== undefined ? Number(monthlyTarget)  : undefined,
+      currency:       cleanCurrency,
       customClauses:  cleanCustomClauses,
       signatoryName:  signatoryName  ? String(signatoryName).trim()  : '',
       signatoryTitle: signatoryTitle ? String(signatoryTitle).trim() : '',
@@ -318,12 +401,17 @@ export async function POST(request: NextRequest) {
       date:  dubaiDayKey(),
     };
 
+    // Existing employees get a COMPLETED record immediately — the generated
+    // documents are the deliverable; there is no checklist to work through.
     const { error: onbInsertError } = await supabase
       .from('pyra_onboarding')
       .insert({
         id:               onboardingId,
         employee_username: employeeUsername,
-        status:            ONBOARDING_STATUS.IN_PROGRESS,
+        status:            isExisting
+          ? ONBOARDING_STATUS.COMPLETED
+          : ONBOARDING_STATUS.IN_PROGRESS,
+        ...(isExisting ? { completed_at: new Date().toISOString() } : {}),
         offer_data:        offerData,
         assets:            cleanAssets,
         started_by:        auth.pyraUser.username,
@@ -376,7 +464,8 @@ export async function POST(request: NextRequest) {
       .single();
     const companyName = settingRow?.value || 'PyramediaX';
 
-    // ── Step 6: Generate 3 PDFs ───────────────────────────────────────────────
+    // ── Step 6: Generate the requested PDFs ───────────────────────────────────
+    // New hires always get all 3; existing employees get the selected subset.
     const storedDocuments: Array<{ type_id: string; label: string; doc_id: string }> = [];
 
     try {
@@ -392,124 +481,132 @@ export async function POST(request: NextRequest) {
       const year     = cleanStartDate.slice(0, 4);
 
       // ── Offer Letter ──────────────────────────────────────────────────────
-      const { generateOfferLetterPDF } = await import('@/lib/pdf/offer-letter-pdf');
-      const offerBlob = await generateOfferLetterPDF(
-        {
-          refNo,
-          year,
-          date:          todayIso,
-          startDate:     cleanStartDate,
-          nameEn:        cleanNameEn,
-          nationality:   nationality  ? String(nationality).trim()  : '',
-          passport:      passport     ? String(passport).trim()     : '',
-          idNumber:      idNumber     ? String(idNumber).trim()     : '',
-          titleEn:       cleanTitleEn,
-          titleAr:       cleanTitleAr,
-          deptEn:        cleanDeptEn,
-          deptAr:        cleanDeptAr,
-          reportsTo:     cleanReportsTo ?? '',
-          isSales:       isSalesBool,
-          basic:         basicNum,
-          housing:       housingNum,
-          transport:     transportNum,
-          communication: commNum,
-          other:         otherNum,
-          commissionRate: commissionRate !== undefined ? Number(commissionRate) : undefined,
-          monthlyTarget:  monthlyTarget  !== undefined ? Number(monthlyTarget)  : undefined,
-          customClauses:  cleanCustomClauses,
-          signatoryName:  signatoryName  ? String(signatoryName).trim()  : '',
-          signatoryTitle: signatoryTitle ? String(signatoryTitle).trim() : '',
-          companyName,
-        },
-        pdfOpts,
-      );
-      const offerBuffer = Buffer.from(await offerBlob.arrayBuffer());
+      if (docsToGenerate.has('offer_letter')) {
+        const { generateOfferLetterPDF } = await import('@/lib/pdf/offer-letter-pdf');
+        const offerBlob = await generateOfferLetterPDF(
+          {
+            refNo,
+            year,
+            date:          todayIso,
+            startDate:     cleanStartDate,
+            nameEn:        cleanNameEn,
+            nationality:   nationality  ? String(nationality).trim()  : '',
+            passport:      passport     ? String(passport).trim()     : '',
+            idNumber:      idNumber     ? String(idNumber).trim()     : '',
+            titleEn:       cleanTitleEn,
+            titleAr:       cleanTitleAr,
+            deptEn:        cleanDeptEn,
+            deptAr:        cleanDeptAr,
+            reportsTo:     cleanReportsTo ?? '',
+            isSales:       isSalesBool,
+            basic:         basicNum,
+            housing:       housingNum,
+            transport:     transportNum,
+            communication: commNum,
+            other:         otherNum,
+            commissionRate: commissionRate !== undefined ? Number(commissionRate) : undefined,
+            monthlyTarget:  monthlyTarget  !== undefined ? Number(monthlyTarget)  : undefined,
+            currency:       cleanCurrency,
+            customClauses:  cleanCustomClauses,
+            signatoryName:  signatoryName  ? String(signatoryName).trim()  : '',
+            signatoryTitle: signatoryTitle ? String(signatoryTitle).trim() : '',
+            companyName,
+          },
+          pdfOpts,
+        );
+        const offerBuffer = Buffer.from(await offerBlob.arrayBuffer());
 
-      const offerStoreResult = await storeGeneratedDocument(supabase, {
-        employeeUsername: employeeUsername,
-        typeId:      'dt_offer_letter',
-        label:       `عرض عمل — ${cleanNameAr}`,
-        pdf:         offerBuffer,
-        uploadedBy:  auth.pyraUser.username,
-      });
-      if (offerStoreResult.ok) {
-        storedDocuments.push({ type_id: 'dt_offer_letter', label: `عرض عمل — ${cleanNameAr}`, doc_id: offerStoreResult.doc_id });
-      } else {
-        logError({
-          error: new Error(offerStoreResult.error),
-          request,
-          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-          metadata: { source: 'onboarding_store_offer_letter', employee_username: employeeUsername },
+        const offerStoreResult = await storeGeneratedDocument(supabase, {
+          employeeUsername: employeeUsername,
+          typeId:      'dt_offer_letter',
+          label:       `عرض عمل — ${cleanNameAr}`,
+          pdf:         offerBuffer,
+          uploadedBy:  auth.pyraUser.username,
         });
+        if (offerStoreResult.ok) {
+          storedDocuments.push({ type_id: 'dt_offer_letter', label: `عرض عمل — ${cleanNameAr}`, doc_id: offerStoreResult.doc_id });
+        } else {
+          logError({
+            error: new Error(offerStoreResult.error),
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_store_offer_letter', employee_username: employeeUsername },
+          });
+        }
       }
 
       // ── NDA ────────────────────────────────────────────────────────────────
-      const { generateNdaPDF } = await import('@/lib/pdf/nda-pdf');
-      const ndaBlob = await generateNdaPDF(
-        {
-          date:        todayIso,
-          nameAr:      cleanNameAr,
-          idNumber:    idNumber ? String(idNumber).trim() : '',
-          nationality: nationality ? String(nationality).trim() : '',
-          jobTitle:    cleanTitleAr || cleanTitleEn,
-          address:     undefined,
-          companyName,
-        },
-        pdfOpts,
-      );
-      const ndaBuffer = Buffer.from(await ndaBlob.arrayBuffer());
+      if (docsToGenerate.has('nda')) {
+        const { generateNdaPDF } = await import('@/lib/pdf/nda-pdf');
+        const ndaBlob = await generateNdaPDF(
+          {
+            date:        todayIso,
+            nameAr:      cleanNameAr,
+            idNumber:    idNumber ? String(idNumber).trim() : '',
+            nationality: nationality ? String(nationality).trim() : '',
+            jobTitle:    cleanTitleAr || cleanTitleEn,
+            address:     undefined,
+            companyName,
+          },
+          pdfOpts,
+        );
+        const ndaBuffer = Buffer.from(await ndaBlob.arrayBuffer());
 
-      const ndaStoreResult = await storeGeneratedDocument(supabase, {
-        employeeUsername: employeeUsername,
-        typeId:      'dt_nda',
-        label:       `اتفاقية سرية — ${cleanNameAr}`,
-        pdf:         ndaBuffer,
-        uploadedBy:  auth.pyraUser.username,
-      });
-      if (ndaStoreResult.ok) {
-        storedDocuments.push({ type_id: 'dt_nda', label: `اتفاقية سرية — ${cleanNameAr}`, doc_id: ndaStoreResult.doc_id });
-      } else {
-        logError({
-          error: new Error(ndaStoreResult.error),
-          request,
-          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-          metadata: { source: 'onboarding_store_nda', employee_username: employeeUsername },
+        const ndaStoreResult = await storeGeneratedDocument(supabase, {
+          employeeUsername: employeeUsername,
+          typeId:      'dt_nda',
+          label:       `اتفاقية سرية — ${cleanNameAr}`,
+          pdf:         ndaBuffer,
+          uploadedBy:  auth.pyraUser.username,
         });
+        if (ndaStoreResult.ok) {
+          storedDocuments.push({ type_id: 'dt_nda', label: `اتفاقية سرية — ${cleanNameAr}`, doc_id: ndaStoreResult.doc_id });
+        } else {
+          logError({
+            error: new Error(ndaStoreResult.error),
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_store_nda', employee_username: employeeUsername },
+          });
+        }
       }
 
       // ── Asset Handover ─────────────────────────────────────────────────────
-      const { generateAssetHandoverPDF } = await import('@/lib/pdf/asset-handover-pdf');
-      const assetBlob = await generateAssetHandoverPDF(
-        {
-          employeeName: cleanNameAr || cleanNameEn,
-          jobTitle:     cleanTitleAr || cleanTitleEn,
-          department:   cleanDeptAr  || cleanDeptEn,
-          idNumber:     idNumber ? String(idNumber).trim() : '',
-          username:     employeeUsername,
-          handoverDate: cleanStartDate,
-          assets:       cleanAssets,
-          companyName,
-        },
-        pdfOpts,
-      );
-      const assetBuffer = Buffer.from(await assetBlob.arrayBuffer());
+      if (docsToGenerate.has('asset_handover')) {
+        const { generateAssetHandoverPDF } = await import('@/lib/pdf/asset-handover-pdf');
+        const assetBlob = await generateAssetHandoverPDF(
+          {
+            employeeName: cleanNameAr || cleanNameEn,
+            jobTitle:     cleanTitleAr || cleanTitleEn,
+            department:   cleanDeptAr  || cleanDeptEn,
+            idNumber:     idNumber ? String(idNumber).trim() : '',
+            username:     employeeUsername,
+            handoverDate: cleanStartDate,
+            currency:     cleanCurrency,
+            assets:       cleanAssets,
+            companyName,
+          },
+          pdfOpts,
+        );
+        const assetBuffer = Buffer.from(await assetBlob.arrayBuffer());
 
-      const assetStoreResult = await storeGeneratedDocument(supabase, {
-        employeeUsername: employeeUsername,
-        typeId:      'dt_asset_handover',
-        label:       `نموذج تسليم عهدة — ${cleanNameAr}`,
-        pdf:         assetBuffer,
-        uploadedBy:  auth.pyraUser.username,
-      });
-      if (assetStoreResult.ok) {
-        storedDocuments.push({ type_id: 'dt_asset_handover', label: `نموذج تسليم عهدة — ${cleanNameAr}`, doc_id: assetStoreResult.doc_id });
-      } else {
-        logError({
-          error: new Error(assetStoreResult.error),
-          request,
-          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-          metadata: { source: 'onboarding_store_asset_handover', employee_username: employeeUsername },
+        const assetStoreResult = await storeGeneratedDocument(supabase, {
+          employeeUsername: employeeUsername,
+          typeId:      'dt_asset_handover',
+          label:       `نموذج تسليم عهدة — ${cleanNameAr}`,
+          pdf:         assetBuffer,
+          uploadedBy:  auth.pyraUser.username,
         });
+        if (assetStoreResult.ok) {
+          storedDocuments.push({ type_id: 'dt_asset_handover', label: `نموذج تسليم عهدة — ${cleanNameAr}`, doc_id: assetStoreResult.doc_id });
+        } else {
+          logError({
+            error: new Error(assetStoreResult.error),
+            request,
+            user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+            metadata: { source: 'onboarding_store_asset_handover', employee_username: employeeUsername },
+          });
+        }
       }
     } catch (pdfErr) {
       // PDF generation / storage failure — best-effort cleanup then partial-success error
@@ -525,68 +622,88 @@ export async function POST(request: NextRequest) {
       });
       console.error('[hr/onboarding POST] PDF/storage error:', pdfErr);
 
-      // Best-effort cleanup: delete onboarding row + tasks (user stays)
+      // Best-effort cleanup: delete onboarding row + tasks (user stays) and
+      // un-link pyra_users.onboarding_id so a retry isn't blocked by a
+      // dangling reference (existing-employee mode 409s on onboarding_id).
       try {
         // Tasks cascade-delete on onboarding delete (ON DELETE CASCADE)
         await supabase.from('pyra_onboarding').delete().eq('id', onboardingId);
+        await supabase
+          .from('pyra_users')
+          .update({ onboarding_id: null })
+          .eq('username', employeeUsername)
+          .eq('onboarding_id', onboardingId);
       } catch (cleanupErr) {
         console.error('[hr/onboarding POST] cleanup error:', cleanupErr);
       }
 
       return apiServerError(
-        'تم إنشاء المستخدم لكن فشل توليد المستندات. المستخدم مُنشأ — يُرجى رفع المستندات يدوياً عبر صفحة إدارة الموظفين.',
+        isExisting
+          ? 'فشل توليد المستندات — لم يتم إنشاء سجل التعيين. حاول مرة أخرى.'
+          : 'تم إنشاء المستخدم لكن فشل توليد المستندات. المستخدم مُنشأ — يُرجى رفع المستندات يدوياً عبر صفحة إدارة الموظفين.',
       );
     }
 
     // ── Step 7: All-docs-fail guard ───────────────────────────────────────────
-    // If every single document store failed (not just a partial failure), treat
-    // as fatal: delete the onboarding row (tasks cascade) and return error.
-    // Partial success (1–2 docs) falls through to the checklist-seed step.
+    // If every REQUESTED document store failed (docsToGenerate is never empty —
+    // validated above), treat as fatal: delete the onboarding row (tasks
+    // cascade), un-link pyra_users.onboarding_id, and return error.
+    // Partial success (some of the requested docs) falls through.
     if (storedDocuments.length === 0) {
       logError({
-        error: new Error('All document stores failed'),
+        error: new Error('All requested document stores failed'),
         request,
         user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
         metadata: {
           source:            'onboarding_all_docs_failed',
           employee_username: employeeUsername,
           onboarding_id:     onboardingId,
+          requested_docs:    [...docsToGenerate],
         },
       });
       try {
         await supabase.from('pyra_onboarding').delete().eq('id', onboardingId);
+        await supabase
+          .from('pyra_users')
+          .update({ onboarding_id: null })
+          .eq('username', employeeUsername)
+          .eq('onboarding_id', onboardingId);
       } catch (cleanupErr) {
         console.error('[hr/onboarding POST] cleanup (all-docs-fail) error:', cleanupErr);
       }
       return apiServerError('فشل في إنشاء مستندات التعيين');
     }
 
-    // ── Step 8: Seed onboarding checklist tasks ───────────────────────────────
-    const taskRows = DEFAULT_ONBOARDING_TASKS.map((title_ar, index) => ({
-      id:            generateId('obt'),
-      onboarding_id: onboardingId as string,
-      title_ar,
-      sort_order:    index,
-      is_done:       false,
-    }));
+    // ── Step 8: Seed onboarding checklist tasks (new hires only) ──────────────
+    // Existing employees get a COMPLETED record — a checklist is meaningless
+    // for someone already working, so seeding is skipped entirely.
+    if (!isExisting) {
+      const taskRows = DEFAULT_ONBOARDING_TASKS.map((title_ar, index) => ({
+        id:            generateId('obt'),
+        onboarding_id: onboardingId as string,
+        title_ar,
+        sort_order:    index,
+        is_done:       false,
+      }));
 
-    const { error: tasksInsertError } = await supabase
-      .from('pyra_onboarding_tasks')
-      .insert(taskRows);
+      const { error: tasksInsertError } = await supabase
+        .from('pyra_onboarding_tasks')
+        .insert(taskRows);
 
-    if (tasksInsertError) {
-      // Non-fatal — log and continue (tasks can be inserted manually)
-      logError({
-        error: tasksInsertError,
-        request,
-        user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
-        metadata: {
-          source:            'onboarding_tasks_seed',
-          employee_username: employeeUsername,
-          onboarding_id:     onboardingId,
-        },
-      });
-      console.error('[hr/onboarding POST] tasks seed error:', tasksInsertError.message);
+      if (tasksInsertError) {
+        // Non-fatal — log and continue (tasks can be inserted manually)
+        logError({
+          error: tasksInsertError,
+          request,
+          user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
+          metadata: {
+            source:            'onboarding_tasks_seed',
+            employee_username: employeeUsername,
+            onboarding_id:     onboardingId,
+          },
+        });
+        console.error('[hr/onboarding POST] tasks seed error:', tasksInsertError.message);
+      }
     }
 
     // ── Step 9: Activity log + notifications ──────────────────────────────────
@@ -597,7 +714,9 @@ export async function POST(request: NextRequest) {
       `${ENTITY_TYPES.USER}_${ACTIVITY_ACTIONS.CREATE}`,
       '/dashboard/hr/onboarding',
       {
-        source:            'onboarding_created',
+        source:            isExisting
+          ? 'onboarding_existing_employee'
+          : 'onboarding_created',
         onboarding_id:     onboardingId,
         employee_username: employeeUsername,
         documents_stored:  storedDocuments.length,
@@ -605,20 +724,24 @@ export async function POST(request: NextRequest) {
       request.headers.get('x-forwarded-for') ?? undefined,
     );
 
-    // Welcome notification to the new employee (best-effort, fire-and-forget)
-    void notify(supabase, {
-      to:    employeeUsername,
-      type:  'system',
-      title: 'مرحباً بك في Pyra Workspace! 🎉',
-      message: `نرحب بك في ${companyName}. تم إعداد حسابك بنجاح.`,
-      link:  '/dashboard',
-      from: {
-        username:    auth.pyraUser.username,
-        displayName: auth.pyraUser.display_name,
-      },
-    }).catch((notifyErr) =>
-      console.error('[hr/onboarding POST] welcome notify error:', notifyErr),
-    );
+    // Welcome notification to the new employee (best-effort, fire-and-forget).
+    // Skipped in existing-employee mode — they've been working for weeks; a
+    // welcome ping would be noise.
+    if (!isExisting) {
+      void notify(supabase, {
+        to:    employeeUsername,
+        type:  'system',
+        title: 'مرحباً بك في Pyra Workspace! 🎉',
+        message: `نرحب بك في ${companyName}. تم إعداد حسابك بنجاح.`,
+        link:  '/dashboard',
+        from: {
+          username:    auth.pyraUser.username,
+          displayName: auth.pyraUser.display_name,
+        },
+      }).catch((notifyErr) =>
+        console.error('[hr/onboarding POST] welcome notify error:', notifyErr),
+      );
+    }
 
     // ── Step 10: Return success ───────────────────────────────────────────────
     return apiSuccess(

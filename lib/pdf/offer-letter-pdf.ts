@@ -6,6 +6,7 @@
 import jsPDF from 'jspdf';
 import { registerArabicFont } from './pdf-fonts';
 import { prepareRtl, drawRtlParagraph, drawBilingualClause, enableRtlPassthrough } from './arabic';
+import { CURRENCY_LABELS_AR } from '@/lib/constants/auth';
 
 // ============================================================
 // Offer Letter PDF — PyramediaX
@@ -36,6 +37,8 @@ export interface OfferLetterData {
   other: number;
   commissionRate?: number;
   monthlyTarget?: number;
+  /** ISO 4217 currency code for all amounts (default 'AED'). */
+  currency?: string;
   customClauses: Array<{ title?: string; body: string }>;
   signatoryName: string;
   signatoryTitle: string;
@@ -273,6 +276,9 @@ export async function generateOfferLetterPDF(
 
   const snum = (key: SectionKey): number => sections.indexOf(key) + 1;
 
+  // Currency code governing all amounts (defaults to AED for legacy offer_data)
+  const cur = data.currency || 'AED';
+
   // Monthly / annual totals
   const monthly = data.basic + data.housing + data.transport + data.communication + data.other;
   const annual = monthly * 12;
@@ -339,8 +345,8 @@ export async function generateOfferLetterPDF(
   doc.text(prepareRtl(doc,'البند'), col1 - 3, y + 5.5, { align: 'right' });
   // Amount columns — Latin only, helvetica
   doc.setFont('helvetica', 'bold');
-  doc.text('Monthly (AED)', col1 + 3, y + 5.5);
-  doc.text('Annual (AED)', col2, y + 5.5, { align: 'right' });
+  doc.text(`Monthly (${cur})`, col1 + 3, y + 5.5);
+  doc.text(`Annual (${cur})`, col2, y + 5.5, { align: 'right' });
   y += rowH;
 
   // Compensation rows
@@ -414,8 +420,8 @@ export async function generateOfferLetterPDF(
       'الاستثناءات: لا تشمل العمولة إيرادات خدمات المطبوعات. تشمل فقط إيرادات خدمات التسويق وحلول الذكاء الاصطناعي والخدمات الرقمية.',
       y);
     y = drawClause(doc,
-      `d) Monthly Sales Target: AED ${fmt(target)}`,
-      `الهدف البيعي الشهري: ${fmt(target)} درهم إماراتي`,
+      `d) Monthly Sales Target: ${cur} ${fmt(target)}`,
+      `الهدف البيعي الشهري: ${fmt(target)} ${CURRENCY_LABELS_AR[cur] ?? cur}`,
       y);
     y = drawClause(doc,
       'e) Probation Period Compensation: Commission is earned solely on closed and collected sales. Should the Employee not close any sales deal during the three (3) month probation period, the Employee shall be entitled to the fixed basic salary only for that period, with no commission.',

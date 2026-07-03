@@ -3,6 +3,7 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { CreateOnboardingInput } from '@/hooks/useOnboarding';
+import type { WizardMode } from './wizard-helpers';
 
 type FormData = CreateOnboardingInput;
 type OnChange = (patch: Partial<FormData>) => void;
@@ -30,9 +31,12 @@ export function Field({
 export function StepPersonal({
   data,
   onChange,
+  mode = 'new',
 }: {
   data: FormData;
   onChange: OnChange;
+  /** Existing mode hides account fields — username comes from the picker. */
+  mode?: WizardMode;
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
@@ -99,25 +103,29 @@ export function StepPersonal({
           placeholder="employee@example.com"
         />
       </Field>
-      <Field label="اسم المستخدم (username)" required>
-        <Input
-          className="h-11"
-          value={data.username}
-          onChange={(e) => onChange({ username: e.target.value })}
-          placeholder="firstname.lastname"
-          dir="ltr"
-        />
-      </Field>
-      <Field label="كلمة المرور" required>
-        <Input
-          type="password"
-          className="h-11"
-          value={data.password}
-          onChange={(e) => onChange({ password: e.target.value })}
-          placeholder="8+ أحرف"
-          dir="ltr"
-        />
-      </Field>
+      {mode === 'new' && (
+        <>
+          <Field label="اسم المستخدم (username)" required>
+            <Input
+              className="h-11"
+              value={data.username}
+              onChange={(e) => onChange({ username: e.target.value })}
+              placeholder="firstname.lastname"
+              dir="ltr"
+            />
+          </Field>
+          <Field label="كلمة المرور" required>
+            <Input
+              type="password"
+              className="h-11"
+              value={data.password ?? ''}
+              onChange={(e) => onChange({ password: e.target.value })}
+              placeholder="8+ أحرف"
+              dir="ltr"
+            />
+          </Field>
+        </>
+      )}
     </div>
   );
 }
