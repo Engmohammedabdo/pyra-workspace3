@@ -186,25 +186,25 @@ export default function UsersClient() {
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/users', 'POST', data),
     onSuccess: () => { setShowCreateDialog(false); resetFormData(); toast.success('تم إنشاء المستخدم بنجاح'); invalidate(); },
-    onError: () => toast.error('حدث خطأ'),
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
   });
 
   const editMutation = useMutation({
     mutationFn: ({ username, data }: { username: string; data: object }) => mutateAPI(`/api/users/${username}`, 'PATCH', data),
     onSuccess: () => { setShowEditDialog(false); toast.success('تم تحديث المستخدم'); invalidate(); },
-    onError: () => toast.error('حدث خطأ'),
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
   });
 
   const passwordMutation = useMutation({
     mutationFn: ({ username, password }: { username: string; password: string }) => mutateAPI(`/api/users/${username}/password`, 'POST', { password }),
     onSuccess: () => { setShowPasswordDialog(false); setNewPassword(''); toast.success('تم تغيير كلمة المرور'); },
-    onError: () => toast.error('حدث خطأ'),
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (username: string) => mutateAPI(`/api/users/${username}`, 'DELETE'),
     onSuccess: () => { setShowDeleteDialog(false); toast.success('تم حذف المستخدم'); invalidate(); },
-    onError: () => toast.error('حدث خطأ'),
+    onError: (e: unknown) => toast.error(e instanceof Error && e.message ? e.message : 'حدث خطأ'),
   });
 
   const saving = createMutation.isPending || editMutation.isPending || passwordMutation.isPending || deleteMutation.isPending;

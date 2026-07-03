@@ -114,8 +114,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (!['admin', 'employee', 'sales_agent'].includes(body.role)) {
         return apiValidationError('الدور يجب أن يكون admin أو employee أو sales_agent');
       }
-      // Prevent admin from changing their own role (could lock themselves out)
-      if (username === auth.pyraUser.username) {
+      // Prevent admin from CHANGING their own role (could lock themselves out).
+      // The edit dialog always sends the full form incl. an unchanged role —
+      // only block when the value actually differs (2026-07-03 fix: the old
+      // presence-check 400'd EVERY self-edit, e.g. adding your own phone).
+      if (username === auth.pyraUser.username && body.role !== existingUser.role) {
         return apiError('لا يمكنك تغيير دورك الخاص', 400);
       }
       // Prevent demoting the last admin
