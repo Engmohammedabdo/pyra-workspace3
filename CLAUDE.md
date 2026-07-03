@@ -296,6 +296,15 @@ lib/constants/statuses.ts → Centralized status constants (17 entity types)
 lib/config/module-guide.ts → Guide data for every page
 eslint.config.mjs         → ESLint guard rails (raw fetch warning, RTL class warning)
 types/database.ts         → All TypeScript types
+app/api/hr/productivity/     → Admin productivity report (hr.view gate + service role; metrics derived from pyra_task_stage_history)
+app/api/my-productivity/     → Employee own-scope current-month production stats (productivity.view)
+app/api/cron/task-deadline-reminders/    → Daily pipeline-task deadline reminders (in-app + WhatsApp; per-task/day dedup)
+app/api/cron/attendance-checkin-reminder/ → Check-in reminder for users with personal work schedules (15-min grace)
+lib/production/metrics.ts    → Pure journey/summary metrics (unit-tested in __tests__/production-metrics.test.ts)
+lib/production/report.ts     → computeProductivity() server aggregation (boards → tasks → stage history → attendance)
+lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA via pyra_agent_whatsapp_settings routing
+lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
+hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
 ```
 
 ### Page Structure Pattern
@@ -4379,3 +4388,85 @@ hosts. Now uses `dubaiDayKey()` + explicit `+04:00` bounds with a half-open
 itself was otherwise correct (no zeroing/double-unwrap). `TeamWorkloadChart`
 migrated `useState/useEffect` → React Query (`['dashboard','team-workload']`,
 `staleTime 60_000`).
+
+## Remote Production Tracking — Locked Decisions (2026-07-03)
+
+These are **intentional, documented design choices** locked during the Remote
+Production Tracking implementation (production KPIs for a remote video/content
+team — pipeline boards → task stage journeys → productivity metrics). **Do NOT
+re-litigate.** Full design at
+`docs/superpowers/specs/2026-07-03-remote-production-tracking-design.md`.
+
+### 1. On-time = first review submission
+A task counts "on time" based on the FIRST time it was submitted for review
+(entered a `column_type='review'` column), not the final approval/delivery
+timestamp. Rework cycles after that first submission don't retroactively make
+an on-time task late — the deadline discipline being measured is "did the
+producer submit before the deadline," not "did the whole approval chain finish
+before the deadline."
+
+### 2. Metrics are derived from stage history only — no counters
+`lib/production/metrics.ts` / `lib/production/report.ts` compute ALL
+productivity numbers (on-time rate, average cycle time, rework count, stage
+durations) by replaying `pyra_task_stage_history` rows — there is NO
+incremented counter column anywhere. Same doctrine as the Finance Remediation
+`amount_billed` pattern: derive, never accumulate. This keeps the metrics
+recomputable/backfillable and immune to increment-drift bugs.
+
+### 3. Files stay on Drive/frame.io — links only, no uploads
+The pipeline does not become a file-storage system. Tasks carry a
+review/delivery LINK (Google Drive, frame.io, etc.) — no file upload UI, no
+new storage bucket. This keeps the workspace out of large-media hosting and
+matches the team's existing external-tool habits.
+
+### 4. Gated columns enforce advance/approve server-side — raw moves rejected
+Columns with `column_type` `review`/`delivery` AND `requires_approval=true`
+cannot be entered via a raw drag-and-drop column move. The move route
+validates the transition and rejects it unless it comes through the
+advance/approve action path — this is enforced server-side (not just hidden in
+the UI), so a raw `PATCH` move-column call against a gated column is rejected
+regardless of client behavior.
+
+### 5. `boards.view` / `tasks.view` / `tasks.create` / `productivity.view` now in `BASE_EMPLOYEE`
+Every internal user (not just board members) can view boards/tasks, create
+tasks, and see their own productivity stats — these four permissions moved
+into `BASE_EMPLOYEE` so remote production staff get self-service access
+without needing a dedicated role. Follows the existing `BASE_EMPLOYEE`
+philosophy: `*.view`/`*.create` for OWN-scope self-service, never `*.manage`.
+
+### 6. Pipeline notifications migrated to `notify()`
+The pipeline's notification inserts previously wrote `pyra_notifications`
+directly with the wrong column names — the inserts silently failed (same class
+of bug the central `notify()` helper was built to prevent; see "Notifications
+— Central Helper" above). All pipeline notification call sites now go through
+`notify()`/`notifyMany()`.
+
+### 7. frame.io API integration deferred (v1.1)
+Direct frame.io API integration (webhooks, in-app review embeds) is deferred —
+the available frame.io account is a personal account, not a company/team
+account, so the API surface needed for webhooks isn't available yet. v1 uses
+plain links; revisit if/when a company frame.io account exists.
+
+### 8. Attendance `absent_days` fallback uses `DEFAULT_WORK_DAYS` (Mon–Sat)
+The productivity report's `absent_days` fallback computation uses
+`DEFAULT_WORK_DAYS` (`lib/constants/auth.ts`, Pyramedia's Mon–Sat work week)
+for its default working-day calendar — NOT the legacy Sun–Thu assumption. The
+Sun–Thu fallback must not come back (see Batch C's weekend-days lock above:
+Pyramedia's weekend is Sunday only).
+
+### Implementation notes (discovered during execution — record accurately)
+
+- **The pipeline action UI lives in `components/boards/task-sheet.tsx`** (the
+  LIVE task dialog actually rendered by the board view). `TaskDetailDialog`
+  inside `board-view-client.tsx` is **dead code — never rendered**. A review
+  cycle caught an attempt to add the new pipeline actions (advance/approve/
+  reject) to `TaskDetailDialog` instead of `task-sheet.tsx`; do NOT put new
+  task-dialog features there. A cleanup chip to remove the dead component is
+  pending — do not treat its continued presence as a signal that it's in use.
+- **The per-card «مطلوب تعديل» badge from the design spec §4.1 was
+  consciously replaced** by the mandatory reject-note comment
+  (`❌ مطلوب تعديل: …`) + a loud notification. A per-card badge would require a
+  per-card activity lookup on every board render (N+1-shaped cost across the
+  whole board); the comment + notification gives the same signal without that
+  cost. Revisit as a v1.1 item if the comment-only signal proves insufficient
+  in practice.

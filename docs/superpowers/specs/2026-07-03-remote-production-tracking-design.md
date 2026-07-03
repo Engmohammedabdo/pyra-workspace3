@@ -167,9 +167,38 @@ Each phase: code → `pnpm run check` → `pnpm build` → commit → push (auto
 ## 9. Open items to verify during planning (not user decisions)
 
 - `pyra_task_stage_history` exact columns (`created_at` presence) — metrics depend on it.
+  **FINDING: confirmed ✓** — `created_at` exists on `pyra_task_stage_history`; the
+  metrics lib reads it directly, no migration needed.
 - Whether the generic drag `move` route writes stage history on pipeline boards.
+  **FINDING: it did NOT** — the plain drag `move` route was silently skipping the
+  `pyra_task_stage_history` insert, so drag-moves on a pipeline board left no
+  metrics trail. **Fixed in Task 4** (the move route now writes stage history on
+  every move, pipeline or not).
 - Current pipeline UI coverage in `board-view-client.tsx` (how much of advance/approve is already surfaced).
+  **FINDING: the pipeline action UI (advance/approve/reject buttons) existed but
+  was admin-only and un-gated** (no `column_type`/`requires_approval` enforcement
+  in the UI layer), **AND it targeted `TaskDetailDialog` inside
+  `board-view-client.tsx` — a dead component that is never rendered** by the live
+  board view. The real, live task dialog is `components/boards/task-sheet.tsx`.
+  **Reworked in Task 11**: the pipeline actions (submit-for-review, approve,
+  reject, deliver) were rebuilt directly in `task-sheet.tsx` with proper
+  role/column-type gating; `TaskDetailDialog` was left untouched (dead-code
+  cleanup is a separate pending chip, not part of this feature).
 - Confirm the wrong-column notification inserts in advance/approve (migrate regardless).
+  **FINDING: confirmed** — both routes inserted directly into
+  `pyra_notifications` using the legacy wrong column names (`username`, `link`),
+  which silently failed per the existing CLAUDE.md notifications lock.
+  **Fixed in Task 2** — both routes migrated to `notify()`.
+
+**Conscious deviation from §4.1 (recorded, not a gap):** the per-card
+«مطلوب تعديل» badge described in §4.1 was NOT built as a per-card visual badge.
+It was replaced by the mandatory reject-note comment (`❌ مطلوب تعديل: …`,
+enforced server-side as a required field on reject) plus a loud notification to
+the employee. A real per-card badge would require an activity/stage-history
+lookup on every card render across the whole board (N+1-shaped cost); the
+comment + notification gives the same "this needs rework" signal without that
+cost. Revisit as a v1.1 item if the comment-only signal proves insufficient in
+practice.
 
 ## 10. v1.1 backlog
 
