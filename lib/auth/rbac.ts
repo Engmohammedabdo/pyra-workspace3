@@ -145,6 +145,9 @@ export const PERMISSIONS = {
   HR_VIEW: 'hr.view',
   HR_MANAGE: 'hr.manage',
 
+  // Productivity (own-scope monthly stats; admin report is gated by hr.view)
+  PRODUCTIVITY_VIEW: 'productivity.view',
+
   // Employee Documents
   DOCUMENTS_VIEW: 'documents.view',
   DOCUMENTS_MANAGE: 'documents.manage',
@@ -563,6 +566,7 @@ export const PERMISSION_MODULES: PermissionModule[] = [
       { key: 'tasks.view', label: 'View Tasks', labelAr: 'عرض المهام' },
       { key: 'tasks.create', label: 'Create Tasks', labelAr: 'إنشاء مهام' },
       { key: 'tasks.manage', label: 'Manage Tasks', labelAr: 'إدارة المهام' },
+      { key: 'productivity.view', label: 'View Own Productivity', labelAr: 'عرض إنتاجيتي' },
     ],
   },
   {
@@ -811,6 +815,13 @@ const BASE_EMPLOYEE: string[] = [
   'evaluations.view',   // see own evaluations
   'overtime.view',      // see own overtime
   'documents.view',     // see own uploaded documents
+  // Boards/tasks self-service — production employees work from their member
+  // boards (board list API scopes non-admins to member boards; verified
+  // app/api/boards/route.ts:36-41)
+  'boards.view',
+  'tasks.view',
+  'tasks.create',
+  'productivity.view',  // own monthly production stats (my-tasks card)
 ];
 
 /** Role-specific permissions added ON TOP of BASE_EMPLOYEE */
