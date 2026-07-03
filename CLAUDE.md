@@ -302,7 +302,7 @@ app/api/cron/task-deadline-reminders/    → Daily pipeline-task deadline remind
 app/api/cron/attendance-checkin-reminder/ → Check-in reminder for users with personal work schedules (15-min grace)
 lib/production/metrics.ts    → Pure journey/summary metrics (unit-tested in __tests__/production-metrics.test.ts)
 lib/production/report.ts     → computeProductivity() server aggregation (boards → tasks → stage history → attendance)
-lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA via pyra_agent_whatsapp_settings routing
+lib/notifications/whatsapp.ts → sendWhatsAppToUser() — user-level WA: profile phone by default, agent_whatsapp_settings row as admin override
 lib/utils/notification-sound.ts → Web Audio chime + mute persistence (dashboard bell)
 hooks/useProductivity.ts     → useProductivityReport(month) + useMyProductivity()
 ```
