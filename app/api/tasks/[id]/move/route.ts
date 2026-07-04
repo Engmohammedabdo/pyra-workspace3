@@ -103,6 +103,26 @@ export async function POST(
           'هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)'
         );
       }
+
+      // Also block a raw drag OUT of a review/approved/approval-gated source
+      // column — that path is used to record a "decided" transition (approve/
+      // reject) and a raw exit would write a phantom decided-round stage_history
+      // row that corrupts productivity metrics.
+      const { data: sourceCol } = await supabase
+        .from('pyra_board_columns')
+        .select('id, column_type, requires_approval')
+        .eq('id', currentTask.column_id)
+        .single();
+      if (
+        sourceCol &&
+        (sourceCol.column_type === 'review' ||
+          sourceCol.column_type === 'approved' ||
+          sourceCol.requires_approval)
+      ) {
+        return apiValidationError(
+          'للخروج من مرحلة المراجعة/الاعتماد استخدم أزرار «اعتماد» أو «طلب تعديل» من المهمة'
+        );
+      }
     }
 
     // Calculate completion % for pipeline boards
@@ -181,6 +201,25 @@ export async function POST(
           type: 'task_stage_advanced',
           title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
           message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`,
+          link: `/dashboard/boards/${data.board_id}?task=${id}`,
+          entity: { type: 'task', id },
+          from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
+        });
+
+        // Raw drag-moves also silently skipped assignees (only button-driven
+        // /advance and /approve notified them) — notify the task's assignees
+        // too, matching the advance route's pattern. notifyMany auto-skips
+        // the actor and dedups within this one call.
+        const { data: assigneeRows } = await supabase
+          .from('pyra_task_assignees')
+          .select('username')
+          .eq('task_id', id);
+        const assigneeNames = (assigneeRows || []).map(a => a.username);
+
+        await notifyMany(supabase, assigneeNames, {
+          type: 'task_stage_advanced',
+          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
+          message: `انتقلت المهمة إلى "${targetCol.name}"`,
           link: `/dashboard/boards/${data.board_id}?task=${id}`,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

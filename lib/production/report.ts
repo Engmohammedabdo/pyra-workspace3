@@ -25,11 +25,17 @@ export interface EmployeeReport {
   tasks: TaskJourney[];
 }
 
-/** Expected work days in the month UP TO todayKey, given a schedule's work_days. */
+/**
+ * Expected work days in the month UP TO todayKey, given a schedule's work_days.
+ * `hireDateKey` (YYYY-MM-DD), when provided, excludes days before the employee
+ * was hired — same pro-ration doctrine as `hireProrationFactor` in
+ * lib/payroll/calculate-item.ts (don't count pre-hire days as absences).
+ */
 function countExpectedWorkDays(
   workDays: number[],
   monthKey: string,
   todayKey: string,
+  hireDateKey?: string | null,
 ): number {
   const [y, m] = monthKey.split('-').map(Number);
   const lastDay = new Date(y, m, 0).getDate();
@@ -37,6 +43,7 @@ function countExpectedWorkDays(
   for (let d = 1; d <= lastDay; d++) {
     const dateStr = `${monthKey}-${String(d).padStart(2, '0')}`;
     if (dateStr > todayKey) break;
+    if (hireDateKey && dateStr < hireDateKey) continue;
     const dow = new Date(y, m - 1, d).getDay(); // 0=Sunday
     if (workDays.includes(dow)) expected++;
   }
@@ -77,7 +84,8 @@ export async function computeProductivity(
   const { data: tasks } = await supabase
     .from('pyra_tasks')
     .select('id, title, board_id, due_date, created_at, pyra_task_assignees(username)')
-    .in('board_id', [...boardCols.keys()]);
+    .in('board_id', [...boardCols.keys()])
+    .eq('is_archived', false);
 
   const taskInputs: ProductionTaskInput[] = [];
   for (const t of tasks || []) {
@@ -125,7 +133,7 @@ export async function computeProductivity(
   // 5. display names + schedules + month attendance
   const { data: users } = await supabase
     .from('pyra_users')
-    .select('username, display_name, work_schedule_id')
+    .select('username, display_name, work_schedule_id, hire_date')
     .in('username', userList);
 
   const scheduleIds = [
@@ -159,7 +167,8 @@ export async function computeProductivity(
         ?.work_days as number[]) || [...DEFAULT_WORK_DAYS];
     const presentDays = rows.filter((r) => r.status === 'present').length;
     const lateDays = rows.filter((r) => r.status === 'late').length;
-    const expected = countExpectedWorkDays(workDays, monthKey, todayKey);
+    const hireDateKey = user?.hire_date ? String(user.hire_date).slice(0, 10) : null;
+    const expected = countExpectedWorkDays(workDays, monthKey, todayKey, hireDateKey);
     return {
       username,
       display_name: user?.display_name || username,

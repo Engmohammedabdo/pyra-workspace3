@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     // Get columns
     const { data: cols } = await supabase
       .from('pyra_board_columns')
-      .select('id, name, position, is_done_column, requires_approval, default_assignee')
+      .select('id, name, position, column_type, is_done_column, requires_approval, default_assignee')
       .eq('board_id', boardId)
       .order('position');
 
@@ -57,9 +57,17 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const currentIdx = cols.findIndex(c => c.id === task.column_id);
     if (currentIdx >= cols.length - 1) return apiValidationError('المهمة في المرحلة الأخيرة');
 
+    const currentCol = cols[currentIdx];
     const nextCol = cols[currentIdx + 1];
 
     if (action === 'approve') {
+      // Only makes sense when advancing INTO an approval-gated column —
+      // otherwise this endpoint would let an admin skip a task straight
+      // past a stage with no real approval gate, writing a phantom
+      // stage_history row that corrupts productivity metrics.
+      if (nextCol.requires_approval !== true) {
+        return apiValidationError('هذا الإجراء مخصص لاعتماد مرحلة تتطلب موافقة فقط');
+      }
       // Move to next column
       const completionPct = Math.round(((currentIdx + 2) / cols.length) * 100);
 
@@ -153,6 +161,14 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
       return apiSuccess({ approved: true, to_column: nextCol.id });
     } else {
+      // Reject only applies when the task is actually pending review/approval —
+      // either it's sitting in the review column, or the next column is itself
+      // approval-gated (admin rejecting before it even entered review would be
+      // a no-op transition otherwise).
+      if (currentCol.column_type !== 'review' && nextCol.requires_approval !== true) {
+        return apiValidationError('لا يوجد إجراء مراجعة معلّق على هذه المهمة');
+      }
+
       // Reject — send back to previous column if exists, otherwise keep in place
       const prevCol = currentIdx > 0 ? cols[currentIdx - 1] : null;
 
