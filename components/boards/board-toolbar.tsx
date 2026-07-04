@@ -152,7 +152,7 @@ export function BoardToolbar({
   const clearFilters = () => onFiltersChange(EMPTY_FILTERS);
 
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="sticky top-0 z-20 flex items-center gap-2 flex-wrap bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2">
       {/* Search */}
       <div className="relative">
         <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -306,12 +306,14 @@ export function BoardToolbar({
         {taskCount} مهمة · {columnCount} {isPipeline ? 'مراحل' : 'أعمدة'}
       </span>
 
-      {/* View toggle */}
-      <div className="flex items-center border border-border rounded-lg overflow-hidden">
+      {/* View toggle — segmented control */}
+      <div className="flex items-center gap-0.5 rounded-lg bg-muted p-0.5">
         <button
           onClick={() => onViewModeChange('kanban')}
-          className={cn('px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors',
-            viewMode === 'kanban' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : 'hover:bg-muted text-muted-foreground'
+          className={cn('h-7 px-2.5 rounded-md text-xs flex items-center gap-1 transition-colors',
+            viewMode === 'kanban'
+              ? 'bg-background shadow-sm text-orange-600 dark:text-orange-400 font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
@@ -320,8 +322,10 @@ export function BoardToolbar({
         {isPipeline && (
           <button
             onClick={() => onViewModeChange('pipeline')}
-            className={cn('px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors border-s border-border',
-              viewMode === 'pipeline' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'hover:bg-muted text-muted-foreground'
+            className={cn('h-7 px-2.5 rounded-md text-xs flex items-center gap-1 transition-colors',
+              viewMode === 'pipeline'
+                ? 'bg-background shadow-sm text-orange-600 dark:text-orange-400 font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             )}
           >
             <GitBranch className="h-3.5 w-3.5" />
@@ -330,8 +334,10 @@ export function BoardToolbar({
         )}
         <button
           onClick={() => onViewModeChange('list')}
-          className={cn('px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors border-s border-border',
-            viewMode === 'list' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : 'hover:bg-muted text-muted-foreground'
+          className={cn('h-7 px-2.5 rounded-md text-xs flex items-center gap-1 transition-colors',
+            viewMode === 'list'
+              ? 'bg-background shadow-sm text-orange-600 dark:text-orange-400 font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <List className="h-3.5 w-3.5" />
@@ -339,8 +345,10 @@ export function BoardToolbar({
         </button>
         <button
           onClick={() => onViewModeChange('calendar')}
-          className={cn('px-2.5 py-1.5 text-xs flex items-center gap-1 transition-colors border-s border-border',
-            viewMode === 'calendar' ? 'bg-orange-500/10 text-orange-600 dark:text-orange-400' : 'hover:bg-muted text-muted-foreground'
+          className={cn('h-7 px-2.5 rounded-md text-xs flex items-center gap-1 transition-colors',
+            viewMode === 'calendar'
+              ? 'bg-background shadow-sm text-orange-600 dark:text-orange-400 font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           <CalendarClock className="h-3.5 w-3.5" />

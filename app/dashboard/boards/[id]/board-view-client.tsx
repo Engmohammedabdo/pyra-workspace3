@@ -41,6 +41,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
+import { cn } from '@/lib/utils/cn';
 import {
   Plus,
   ArrowRight,
@@ -64,6 +65,7 @@ import {
   ChevronUp,
   ChevronDown,
   Loader2,
+  Flag,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
@@ -112,6 +114,7 @@ interface Task {
     content: string;
     created_at: string;
   }[];
+  completion_percentage?: number;
 }
 
 interface Column {
@@ -180,11 +183,50 @@ const LABEL_BG_COLORS: Record<string, string> = {
   indigo: 'bg-indigo-500',
 };
 
+// Stage accent — the board's unifying visual language. Derived from
+// column_type first (pipeline stages), falling back to column.color.
+function stageAccent(column: Column): { top: string; bar: string } {
+  if (column.column_type === 'backlog') {
+    return { top: 'border-t-zinc-400 dark:border-t-zinc-500', bar: 'bg-zinc-400' };
+  }
+  if (column.column_type === 'in_progress') {
+    return { top: 'border-t-blue-500', bar: 'bg-blue-500' };
+  }
+  if (column.column_type === 'review') {
+    return { top: 'border-t-amber-500', bar: 'bg-amber-500' };
+  }
+  if (column.column_type === 'approved') {
+    return { top: 'border-t-emerald-500', bar: 'bg-emerald-500' };
+  }
+  if (column.column_type === 'delivery' || column.is_done_column) {
+    return { top: 'border-t-green-600', bar: 'bg-green-600' };
+  }
+  return { top: 'border-t-orange-400', bar: 'bg-orange-400' };
+}
+
+// Per-user avatar color — deterministic hash → palette (mirrors task-sheet.tsx)
+function getAvatarColor(str: string) {
+  const colors = ['bg-orange-500', 'bg-emerald-500', 'bg-blue-500', 'bg-purple-500', 'bg-rose-500', 'bg-cyan-500'];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
 // ============================================================
 // TaskCard Component
 // ============================================================
 
-function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
+function TaskCard({
+  task,
+  onClick,
+  accent,
+  isPipeline,
+}: {
+  task: Task;
+  onClick: () => void;
+  accent?: { bar: string };
+  isPipeline?: boolean;
+}) {
   const {
     attributes,
     listeners,
@@ -219,9 +261,10 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="group">
       <Card
-        className={`cursor-pointer hover:shadow-md transition-shadow border-s-4 ${
-          PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
-        }`}
+        className={cn(
+          'cursor-pointer transition-all hover:shadow-md hover:-translate-y-px hover:border-orange-300/60 dark:hover:border-orange-700/40',
+          isOverdue && 'ring-1 ring-red-300 dark:ring-red-800/50'
+        )}
         onClick={onClick}
       >
         <CardContent className="p-3 space-y-2">
@@ -251,7 +294,7 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
             </button>
             <div className="flex-1 min-w-0">
               {task.task_number && (
-                <span className="text-[10px] text-muted-foreground/50 font-mono">#{task.task_number}</span>
+                <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">#{task.task_number}</span>
               )}
               <p className="text-sm font-medium line-clamp-2">{task.title}</p>
             </div>
@@ -259,9 +302,21 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
 
           {/* Meta row */}
           <div className="flex items-center gap-2 flex-wrap text-[10px] text-muted-foreground">
+            {(task.priority === 'urgent' || task.priority === 'high') && (
+              <span
+                className={cn(
+                  'flex items-center gap-0.5',
+                  task.priority === 'urgent'
+                    ? 'text-red-500 dark:text-red-400'
+                    : 'text-orange-500 dark:text-orange-400'
+                )}
+              >
+                <Flag className="h-3 w-3" />
+              </span>
+            )}
             {task.due_date && (
               <span
-                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md ${dueBadgeColor}`}
+                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md tabular-nums ${dueBadgeColor}`}
               >
                 <Calendar className="h-3 w-3" />
                 {new Date(task.due_date).toLocaleDateString('ar-EG', {
@@ -271,13 +326,13 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
               </span>
             )}
             {checklist.length > 0 && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-0.5 tabular-nums">
                 <CheckSquare className="h-3 w-3" />
                 {checked}/{checklist.length}
               </span>
             )}
             {comments.length > 0 && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-0.5 tabular-nums">
                 <MessageSquare className="h-3 w-3" />
                 {comments.length}
               </span>
@@ -286,19 +341,29 @@ function TaskCard({ task, onClick }: { task: Task; onClick: () => void }) {
 
           {/* Assignees */}
           {assignees.length > 0 && (
-            <div className="flex items-center gap-1 justify-end">
+            <div className="flex items-center justify-end -space-x-1.5 rtl:space-x-reverse">
               {assignees.slice(0, 3).map((a, i) => (
-                <Avatar key={i} className="h-5 w-5 border">
-                  <AvatarFallback className="text-[8px] bg-orange-500/10 text-orange-600">
+                <Avatar key={i} className="h-5 w-5 ring-2 ring-background border-0">
+                  <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(a.username))}>
                     {a.username.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
               ))}
               {assignees.length > 3 && (
-                <span className="text-[10px] text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground tabular-nums ms-1">
                   +{assignees.length - 3}
                 </span>
               )}
+            </div>
+          )}
+
+          {/* Stage progress ribbon */}
+          {isPipeline && typeof task.completion_percentage === 'number' && (
+            <div className="h-1 -mx-3 -mb-3 mt-2 rounded-b-xl bg-border/30 overflow-hidden">
+              <div
+                className={cn('h-full transition-all', accent?.bar || 'bg-orange-400')}
+                style={{ width: `${Math.min(100, Math.max(0, task.completion_percentage))}%` }}
+              />
             </div>
           )}
         </CardContent>
@@ -323,6 +388,7 @@ function DroppableColumn({
   onQuickAddSubmit,
   onQuickAddCancel,
   canCreate,
+  isPipeline,
 }: {
   column: Column;
   tasks: Task[];
@@ -335,6 +401,7 @@ function DroppableColumn({
   onQuickAddSubmit?: (colId: string) => void;
   onQuickAddCancel?: () => void;
   canCreate?: boolean;
+  isPipeline?: boolean;
 }) {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.id });
   const { attributes, listeners, setNodeRef: setSortRef, transform, transition } = useSortable({ id: `col-${column.id}` });
@@ -345,16 +412,19 @@ function DroppableColumn({
     setSortRef(el);
   };
   const isQuickAdding = quickAddCol === column.id;
+  const accent = stageAccent(column);
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex-shrink-0 w-[300px] snap-start rounded-xl p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors ${
+      className={cn(
+        'flex-shrink-0 w-[85vw] max-w-[320px] sm:w-[300px] snap-start rounded-xl border border-border/40 border-t-2 p-3 flex flex-col max-h-[calc(100vh-260px)] transition-colors',
+        accent.top,
         isOver
           ? 'bg-orange-500/10 ring-2 ring-orange-500/30'
-          : 'bg-muted/50'
-      }`}
+          : 'bg-muted/30 dark:bg-muted/20'
+      )}
     >
       {/* Column Header */}
       <div className="flex items-center justify-between mb-3">
@@ -367,10 +437,10 @@ function DroppableColumn({
               COLUMN_COLORS[column.color] || COLUMN_COLORS.gray
             }`}
           />
-          <h3 className="text-sm font-semibold">{column.name}</h3>
+          <h3 className="text-[13px] font-bold">{column.name}</h3>
           <Badge
             variant="secondary"
-            className="text-[10px] h-5 min-w-5 flex items-center justify-center rounded-full"
+            className="text-[10px] h-5 min-w-5 flex items-center justify-center rounded-full font-semibold tabular-nums"
           >
             {tasks.length}
           </Badge>
@@ -402,11 +472,13 @@ function DroppableColumn({
                 key={task.id}
                 task={task}
                 onClick={() => onTaskClick(task)}
+                accent={accent}
+                isPipeline={isPipeline}
               />
             ))}
             {tasks.length === 0 && !isQuickAdding && (
               <div className="text-center text-xs text-muted-foreground py-8 border-2 border-dashed rounded-lg">
-                اسحب مهمة هنا
+                اسحب مهمة هنا أو اضغط +
               </div>
             )}
           </div>
@@ -1929,6 +2001,7 @@ export default function BoardViewClient({
                   onQuickAddSubmit={quickAddTask}
                   onQuickAddCancel={() => { setQuickAddCol(null); setQuickAddTitle(''); }}
                   canCreate={canCreate}
+                  isPipeline={!!board?.is_pipeline}
                 />
               );
             })}
