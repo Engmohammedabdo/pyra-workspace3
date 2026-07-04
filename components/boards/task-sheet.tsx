@@ -1033,7 +1033,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         )}
 
         {/* ═══ FIXED HEADER (title + journey stay while scrolling) ═══ */}
-        <div className="px-5 pt-4 pb-3 border-b border-border/50 shrink-0" dir="rtl">
+        <div className="px-6 pt-5 pb-4 border-b border-border/50 shrink-0" dir="rtl">
           {/* Title — inline editable */}
           {editingTitle ? (
             <Input
@@ -1042,11 +1042,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               onChange={e => setEditTitle(e.target.value)}
               onBlur={saveTitle}
               onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { setEditTitle(task.title); setEditingTitle(false); } }}
-              className="text-xl font-bold border-orange-300 focus:ring-orange-500/30"
+              className="text-lg sm:text-xl font-bold border-orange-300 focus:ring-orange-500/30 pe-10"
             />
           ) : (
             <h2
-              className="text-xl font-bold cursor-pointer hover:text-orange-500 transition-colors group"
+              className="text-lg sm:text-xl font-bold leading-snug pe-10 cursor-pointer hover:text-orange-500 transition-colors group"
               onClick={() => canEdit && setEditingTitle(true)}
             >
               {task.title}
@@ -1096,16 +1096,16 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
         <div className="flex flex-1 min-h-0 flex-col md:flex-row" dir="rtl">
           {/* ═══ MOBILE ACTION BAR (md:hidden) ═══ */}
-          <div className="flex md:hidden gap-1 overflow-x-auto px-3 py-2 border-b border-border/40 shrink-0">
+          <div className="flex md:hidden gap-1.5 overflow-x-auto px-4 py-2.5 border-b border-border/40 shrink-0">
             {renderActions(true)}
           </div>
 
           {/* ═══ MAIN CONTENT ═══ */}
           <ScrollArea className="flex-1 min-w-0">
-            <div className="p-5 space-y-0">
+            <div className="px-6 py-5 divide-y divide-border/30">
               {/* ── Pipeline Actions (role-aware, link-gated) — first thing the user sees ── */}
               {board.is_pipeline && (nextCol || isLastStage) && (
-                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+                <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                   {renderPipelineActions()}
                   {isLastStage && (
                     <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
@@ -1117,7 +1117,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
               {/* ── Labels / Assignees / Dates / Priority ── */}
               {(taskLabels.length > 0 || assignees.length > 0 || task.start_date || task.due_date || task.priority) && (
-                <div className="space-y-3 pb-5 border-b border-border/30 last:border-0">
+                <div className="space-y-3 py-5 first:pt-0 last:pb-0">
                   {/* Labels bar */}
                   {taskLabels.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -1132,7 +1132,6 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   {/* Assignee avatars */}
                   {assignees.length > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-muted-foreground me-1">الأعضاء:</span>
                       {assignees.map(a => (
                         <TooltipProvider key={a.username}>
                           <Tooltip>
@@ -1165,15 +1164,17 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">متأخر</span>}
                       </div>
                     )}
-                    <Badge variant="outline" className="text-[10px]">
-                      {PRIORITIES.find(p => p.key === task.priority)?.label || 'متوسط'}
-                    </Badge>
+                    {(task.priority === 'urgent' || task.priority === 'high') && (
+                      <Badge variant="outline" className={cn('text-[10px]', task.priority === 'urgent' ? 'border-red-300 text-red-600 dark:border-red-800/50 dark:text-red-400' : 'border-orange-300 text-orange-600 dark:border-orange-800/50 dark:text-orange-400')}>
+                        {PRIORITIES.find(p => p.key === task.priority)?.label}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               )}
 
               {/* ── Description ── */}
-              <div className="space-y-1 pb-5 border-b border-border/30 last:border-0">
+              <div className="space-y-1 py-5 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
                   الوصف
@@ -1236,7 +1237,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               </div>
 
               {/* ── Checklist ── */}
-              <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+              <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <CheckSquare className="h-3.5 w-3.5" />
@@ -1300,7 +1301,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
               {/* ── Attachments ── */}
               {attachments.length > 0 && (
-                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+                <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <Paperclip className="h-3.5 w-3.5" />
                     المرفقات <span className="tabular-nums text-muted-foreground/60">({attachments.length})</span>
@@ -1342,7 +1343,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               )}
 
               {/* ── Comments ── */}
-              <div className="space-y-3 pb-5 border-b border-border/30 last:border-0">
+              <div className="space-y-3 py-5 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                   <MessageSquare className="h-3.5 w-3.5" />
                   التعليقات <span className="tabular-nums text-muted-foreground/60">({comments.length})</span>
@@ -1409,7 +1410,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
               {/* ── Activity ── */}
               {activities.length > 0 && (
-                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+                <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <History className="h-3.5 w-3.5" />
                     سجل النشاط
@@ -1432,8 +1433,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
           </ScrollArea>
 
           {/* ═══ DESKTOP SIDEBAR (actions) ═══ */}
-          <div className="hidden md:flex md:flex-col w-[200px] shrink-0 border-s border-border/50 bg-muted/20 p-3 overflow-y-auto">
-            <p className="text-[10px] font-semibold text-muted-foreground mb-3 tracking-wide">إجراءات</p>
+          <div className="hidden md:flex md:flex-col w-[200px] shrink-0 border-s border-border/50 bg-muted/20 p-4 overflow-y-auto">
             <div className="space-y-1">
               {renderActions(false)}
             </div>
