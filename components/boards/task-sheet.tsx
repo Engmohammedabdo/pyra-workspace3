@@ -194,6 +194,34 @@ function getAvatarColor(str: string) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// Stage journey stepper — pipeline boards only (signature visual)
+// ═══════════════════════════════════════════════════════════
+
+function StageStepper({ columns, currentColumnId }: { columns: Column[]; currentColumnId: string }) {
+  const sorted = [...columns].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  const currentIdx = sorted.findIndex(c => c.id === currentColumnId);
+  const accent = (c: Column, i: number) => {
+    if (i > currentIdx) return 'bg-border';
+    const t = c.column_type;
+    if (t === 'review') return 'bg-amber-500';
+    if (t === 'approved') return 'bg-emerald-500';
+    if (t === 'delivery' || c.is_done_column) return 'bg-green-600';
+    if (t === 'in_progress') return 'bg-blue-500';
+    return 'bg-zinc-400 dark:bg-zinc-500';
+  };
+  return (
+    <div className="flex items-center gap-1 mt-2" aria-label="مراحل المهمة">
+      {sorted.map((c, i) => (
+        <div key={c.id} className="flex-1 flex flex-col gap-1 min-w-0">
+          <div className={cn('h-1.5 rounded-full transition-colors', accent(c, i), i === currentIdx && 'ring-2 ring-offset-1 ring-orange-400/60 dark:ring-offset-background')} />
+          <span className={cn('text-[9px] truncate text-center', i === currentIdx ? 'text-foreground font-semibold' : 'text-muted-foreground/60')}>{c.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════
 // Main Component
 // ═══════════════════════════════════════════════════════════
 
@@ -634,131 +662,447 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       u.username.toLowerCase().includes(assigneeSearch.toLowerCase()))
   ).slice(0, 20);
 
+  // ── Extracted action list (shared by desktop sidebar + mobile action bar) ──
+  // Same Popover-wrapped triggers, restyled per breakpoint via `compact`.
+  // Only one breakpoint is visible at a time, so mounting both is safe —
+  // shared state (assigneeSearch, confirmDelete, etc.) reads consistently.
+  const renderActions = (compact: boolean) => {
+    return (
+      <>
+        {/* Assignees */}
+        <div>
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={Users} label="الأعضاء / تعيين" compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-2">
+              <Input
+                value={assigneeSearch}
+                onChange={e => setAssigneeSearch(e.target.value)}
+                placeholder="بحث عن عضو..."
+                className="h-8 text-xs mb-2"
+              />
+              {/* Current assignees */}
+              {assignees.map(a => {
+                const matched = allUsers.find(u => u.username === a.username);
+                const label = matched?.display_name || a.username;
+                return (
+                  <div key={a.username} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted text-xs">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(a.username))}>
+                          {a.username.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      {label}
+                    </div>
+                    <button onClick={() => removeAssignee(a.username)} className="text-red-400 hover:text-red-500">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                );
+              })}
+              {assignees.length > 0 && filteredUsers.length > 0 && (
+                <div className="border-t border-border/30 my-1.5" />
+              )}
+              {/* Pickable list — always visible, filtered by search when typed */}
+              <div className="max-h-48 overflow-y-auto">
+                {filteredUsers.map(u => (
+                  <button
+                    key={u.username}
+                    onClick={() => addAssignee(u.username)}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
+                  >
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
+                        {u.username.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p>{u.display_name}</p>
+                      <p className="text-[10px] text-muted-foreground">{u.username}</p>
+                    </div>
+                  </button>
+                ))}
+                {filteredUsers.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">لا يوجد مستخدمون</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          {!compact && assignees.length === 0 && (
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 ps-3 -mt-1 mb-1">
+              لم يُعيَّن أحد
+            </p>
+          )}
+        </div>
+
+        {/* Labels */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <SidebarBtn icon={Tag} label="التصنيفات" compact={compact} />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-48 p-2">
+            {labels.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-2">لا توجد تصنيفات</p>
+            ) : labels.map(l => {
+              const active = taskLabels.some(tl => tl.label_id === l.id);
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => toggleLabel(l.id)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-start transition-colors',
+                    active ? 'bg-orange-500/10' : 'hover:bg-muted'
+                  )}
+                >
+                  <div className={cn('w-3 h-3 rounded-sm', LABEL_COLOR_MAP[l.color] || 'bg-gray-500')} />
+                  <span className="flex-1">{l.name}</span>
+                  {active && <Check className="h-3 w-3 text-orange-500" />}
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
+
+        {/* Start date */}
+        <SidebarDateBtn
+          icon={CalendarDays}
+          label="تاريخ البداية"
+          value={task.start_date || ''}
+          onChange={v => saveField('start_date', v || null)}
+          compact={compact}
+        />
+
+        {/* Due date */}
+        <SidebarDateBtn
+          icon={CalendarClock}
+          label="تاريخ الاستحقاق"
+          value={task.due_date || ''}
+          onChange={v => saveField('due_date', v || null)}
+          isOverdue={!!isOverdue}
+          compact={compact}
+        />
+
+        {/* Priority */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <SidebarBtn icon={Flag} label="الأولوية" compact={compact} />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-40 p-1">
+            {PRIORITIES.map(p => (
+              <button
+                key={p.key}
+                onClick={() => saveField('priority', p.key)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
+                  task.priority === p.key && 'bg-orange-500/10'
+                )}
+              >
+                <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
+                {p.label}
+                {task.priority === p.key && <Check className="h-3 w-3 ms-auto text-orange-500" />}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+
+        {/* Hours */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <SidebarBtn icon={Clock} label="الساعات" badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} compact={compact} />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-48 p-3 space-y-2">
+            <div>
+              <label className="text-[10px] text-muted-foreground">المقدرة</label>
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                defaultValue={task.estimated_hours || ''}
+                onBlur={e => saveField('estimated_hours', Number(e.target.value) || null)}
+                className="h-8 text-xs"
+                dir="ltr"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-muted-foreground">الفعلية</label>
+              <Input
+                type="number"
+                min={0}
+                step={0.5}
+                defaultValue={task.actual_hours || ''}
+                onBlur={e => saveField('actual_hours', Number(e.target.value) || null)}
+                className="h-8 text-xs"
+                dir="ltr"
+              />
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Attachment */}
+        {compact ? (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
+          >
+            <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{uploading ? 'جاري الرفع...' : 'إضافة مرفق'}</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
+          >
+            <Paperclip className="h-4 w-4 text-muted-foreground" />
+            <span>{uploading ? 'جاري الرفع...' : 'إضافة مرفق'}</span>
+          </button>
+        )}
+
+        {/* Cover image */}
+        {attachments.some(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)) && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={Image} label="صورة غلاف" compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-2">
+              {task.cover_image && (
+                <button
+                  onClick={() => saveField('cover_image', null)}
+                  className="w-full text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded px-2 py-1 mb-1"
+                >
+                  إزالة الغلاف
+                </button>
+              )}
+              {attachments.filter(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)).map(a => (
+                <button
+                  key={a.id}
+                  onClick={() => saveField('cover_image', a.file_url)}
+                  className="w-full rounded overflow-hidden mb-1 hover:ring-2 ring-orange-500 transition-all"
+                >
+                  <img src={a.file_url} alt="" className="w-full h-16 object-cover" />
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Divider (desktop only — the mobile bar is a single horizontal row) */}
+        {!compact && <div className="border-t border-border/30 my-2" />}
+
+        {/* Move */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <SidebarBtn icon={ArrowRightLeft} label="نقل إلى قائمة" compact={compact} />
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-44 p-1">
+            {columns.map(col => (
+              <button
+                key={col.id}
+                onClick={() => moveToColumn(col.id)}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
+                  col.id === task.column_id && 'bg-orange-500/10'
+                )}
+              >
+                {col.name}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+
+        {/* Move to another board */}
+        {canEdit && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <SidebarBtn icon={FolderOpen} label="نقل إلى لوحة أخرى" compact={compact} />
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-56 p-2">
+              <p className="text-[10px] text-muted-foreground mb-2">اختر اللوحة والقائمة</p>
+              <MoveToBoardPicker
+                currentBoardId={board.id}
+                taskId={task.id}
+                onMoved={() => { onUpdate(); onClose(); toast.success('تم نقل المهمة'); }}
+              />
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Copy/Duplicate */}
+        {canEdit && (
+          compact ? (
+            <button
+              onClick={async () => {
+                try {
+                  await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
+                  toast.success('تم نسخ المهمة');
+                  onUpdate();
+                } catch { toast.error('فشل نسخ المهمة'); }
+              }}
+              className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
+            >
+              <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span>نسخ المهمة</span>
+            </button>
+          ) : (
+            <button
+              onClick={async () => {
+                try {
+                  await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
+                  toast.success('تم نسخ المهمة');
+                  onUpdate();
+                } catch { toast.error('فشل نسخ المهمة'); }
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
+            >
+              <Copy className="h-4 w-4 text-muted-foreground" />
+              <span>نسخ المهمة</span>
+            </button>
+          )
+        )}
+
+        {/* Archive */}
+        {compact ? (
+          <button
+            onClick={archiveTask}
+            className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
+          >
+            <Archive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>أرشفة</span>
+          </button>
+        ) : (
+          <button
+            onClick={archiveTask}
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
+          >
+            <Archive className="h-4 w-4 text-muted-foreground" />
+            <span>أرشفة</span>
+          </button>
+        )}
+
+        {/* Delete */}
+        {canDelete && (
+          confirmDelete ? (
+            <div className={cn(
+              'p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 space-y-1.5',
+              compact && 'shrink-0'
+            )}>
+              <p className="text-[10px] text-red-600 dark:text-red-400">حذف نهائي؟</p>
+              <div className="flex gap-1">
+                <Button size="sm" variant="destructive" className="h-6 text-[10px] flex-1" onClick={deleteTask}>حذف</Button>
+                <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1" onClick={() => setConfirmDelete(false)}>إلغاء</Button>
+              </div>
+            </div>
+          ) : compact ? (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>حذف</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span>حذف</span>
+            </button>
+          )
+        )}
+      </>
+    );
+  };
+
   // ── Render ──
   return (
     <Sheet open onOpenChange={onClose}>
-      <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden" aria-describedby={undefined}>
+      <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
         <SheetTitle className="sr-only">تفاصيل المهمة</SheetTitle>
         {/* Cover image */}
         {task.cover_image && (
-          <div className="h-32 w-full overflow-hidden">
+          <div className="h-32 w-full overflow-hidden shrink-0">
             <img src={task.cover_image} alt="" className="w-full h-full object-cover" />
           </div>
         )}
 
-        <div className="flex h-full" dir="rtl">
-          {/* ═══ MAIN CONTENT (70%) ═══ */}
-          <ScrollArea className="flex-1 min-w-0">
-            <div className="p-5 space-y-5">
-              {/* Title — inline editable */}
-              {editingTitle ? (
-                <Input
-                  autoFocus
-                  value={editTitle}
-                  onChange={e => setEditTitle(e.target.value)}
-                  onBlur={saveTitle}
-                  onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { setEditTitle(task.title); setEditingTitle(false); } }}
-                  className="text-xl font-bold border-orange-300 focus:ring-orange-500/30"
-                />
-              ) : (
-                <h2
-                  className="text-xl font-bold cursor-pointer hover:text-orange-500 transition-colors group"
-                  onClick={() => canEdit && setEditingTitle(true)}
+        {/* ═══ FIXED HEADER (title + journey stay while scrolling) ═══ */}
+        <div className="px-5 pt-4 pb-3 border-b border-border/50 shrink-0" dir="rtl">
+          {/* Title — inline editable */}
+          {editingTitle ? (
+            <Input
+              autoFocus
+              value={editTitle}
+              onChange={e => setEditTitle(e.target.value)}
+              onBlur={saveTitle}
+              onKeyDown={e => { if (e.key === 'Enter') saveTitle(); if (e.key === 'Escape') { setEditTitle(task.title); setEditingTitle(false); } }}
+              className="text-xl font-bold border-orange-300 focus:ring-orange-500/30"
+            />
+          ) : (
+            <h2
+              className="text-xl font-bold cursor-pointer hover:text-orange-500 transition-colors group"
+              onClick={() => canEdit && setEditingTitle(true)}
+            >
+              {task.title}
+              {canEdit && <Pencil className="inline h-3.5 w-3.5 ms-2 opacity-0 group-hover:opacity-50" />}
+            </h2>
+          )}
+
+          {/* Stage journey stepper — pipeline boards only */}
+          {board.is_pipeline && columns.length > 1 && (
+            <StageStepper columns={columns} currentColumnId={task.column_id} />
+          )}
+
+          {/* Column subtitle + time-in-stage */}
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
+                في قائمة: <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-48 p-1">
+              {columns.map(col => (
+                <button
+                  key={col.id}
+                  onClick={() => moveToColumn(col.id)}
+                  className={cn(
+                    'w-full text-start px-3 py-1.5 text-sm rounded-md hover:bg-muted transition-colors flex items-center gap-2',
+                    col.id === task.column_id && 'bg-orange-500/10 text-orange-600'
+                  )}
                 >
-                  {task.title}
-                  {canEdit && <Pencil className="inline h-3.5 w-3.5 ms-2 opacity-0 group-hover:opacity-50" />}
-                </h2>
-              )}
+                  <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}-500`)} />
+                  {col.name}
+                  {col.id === task.column_id && <Check className="h-3.5 w-3.5 ms-auto" />}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+          {task.stage_entered_at && (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" aria-hidden />
+              في المرحلة دي منذ {timeAgo(task.stage_entered_at)}
+            </span>
+          )}
+          </div>
+        </div>
 
-              {/* Column subtitle + time-in-stage */}
-              <div className="flex items-center gap-2 flex-wrap">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                    في قائمة: <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
-                    <ChevronDown className="h-3 w-3" />
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-48 p-1">
-                  {columns.map(col => (
-                    <button
-                      key={col.id}
-                      onClick={() => moveToColumn(col.id)}
-                      className={cn(
-                        'w-full text-start px-3 py-1.5 text-sm rounded-md hover:bg-muted transition-colors flex items-center gap-2',
-                        col.id === task.column_id && 'bg-orange-500/10 text-orange-600'
-                      )}
-                    >
-                      <div className={cn('w-2 h-2 rounded-full', `bg-${col.color}-500`)} />
-                      {col.name}
-                      {col.id === task.column_id && <Check className="h-3.5 w-3.5 ms-auto" />}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              {task.stage_entered_at && (
-                <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Clock className="h-3 w-3" aria-hidden />
-                  في المرحلة دي منذ {timeAgo(task.stage_entered_at)}
-                </span>
-              )}
-              </div>
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row" dir="rtl">
+          {/* ═══ MOBILE ACTION BAR (md:hidden) ═══ */}
+          <div className="flex md:hidden gap-1 overflow-x-auto px-3 py-2 border-b border-border/40 shrink-0">
+            {renderActions(true)}
+          </div>
 
-              {/* Labels bar */}
-              {taskLabels.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {taskLabels.map(l => (
-                    <Badge key={l.label_id} className={cn('text-[11px] border-0', LABEL_BG_MAP[l.pyra_board_labels.color] || LABEL_BG_MAP.gray)}>
-                      {l.pyra_board_labels.name}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* Assignee avatars */}
-              {assignees.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground me-1">الأعضاء:</span>
-                  {assignees.map(a => (
-                    <TooltipProvider key={a.username}>
-                      <Tooltip>
-                        <TooltipTrigger>
-                          <Avatar className="h-7 w-7 border-2 border-background">
-                            <AvatarFallback className={cn('text-[10px] text-white', getAvatarColor(a.username))}>
-                              {a.username.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent>{a.username}</TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ))}
-                </div>
-              )}
-
-              {/* Dates + Priority row */}
-              <div className="flex flex-wrap gap-3 text-xs">
-                {task.start_date && (
-                  <div className="flex items-center gap-1 text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" />
-                    البداية: {new Date(task.start_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
-                  </div>
-                )}
-                {task.due_date && (
-                  <div className={cn('flex items-center gap-1', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
-                    <CalendarClock className="h-3.5 w-3.5" />
-                    الاستحقاق: {new Date(task.due_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
-                    {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">متأخر</span>}
-                  </div>
-                )}
-                <Badge variant="outline" className="text-[10px]">
-                  {PRIORITIES.find(p => p.key === task.priority)?.label || 'متوسط'}
-                </Badge>
-              </div>
-
-              {/* ── Pipeline Actions (role-aware, link-gated) ── */}
+          {/* ═══ MAIN CONTENT ═══ */}
+          <ScrollArea className="flex-1 min-w-0">
+            <div className="p-5 space-y-0">
+              {/* ── Pipeline Actions (role-aware, link-gated) — first thing the user sees ── */}
               {board.is_pipeline && (nextCol || isLastStage) && (
-                <div className="space-y-2">
+                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
                   {renderPipelineActions()}
                   {isLastStage && (
                     <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
@@ -768,9 +1112,69 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 </div>
               )}
 
+              {/* ── Labels / Assignees / Dates / Priority ── */}
+              {(taskLabels.length > 0 || assignees.length > 0 || task.start_date || task.due_date || task.priority) && (
+                <div className="space-y-3 pb-5 border-b border-border/30 last:border-0">
+                  {/* Labels bar */}
+                  {taskLabels.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {taskLabels.map(l => (
+                        <Badge key={l.label_id} className={cn('text-[11px] border-0', LABEL_BG_MAP[l.pyra_board_labels.color] || LABEL_BG_MAP.gray)}>
+                          {l.pyra_board_labels.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Assignee avatars */}
+                  {assignees.length > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-muted-foreground me-1">الأعضاء:</span>
+                      {assignees.map(a => (
+                        <TooltipProvider key={a.username}>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Avatar className="h-7 w-7 border-2 border-background">
+                                <AvatarFallback className={cn('text-[10px] text-white', getAvatarColor(a.username))}>
+                                  {a.username.slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent>{a.username}</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Dates + Priority row */}
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {task.start_date && (
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        البداية: {new Date(task.start_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+                      </div>
+                    )}
+                    {task.due_date && (
+                      <div className={cn('flex items-center gap-1', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        الاستحقاق: {new Date(task.due_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+                        {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">متأخر</span>}
+                      </div>
+                    )}
+                    <Badge variant="outline" className="text-[10px]">
+                      {PRIORITIES.find(p => p.key === task.priority)?.label || 'متوسط'}
+                    </Badge>
+                  </div>
+                </div>
+              )}
+
               {/* ── Description ── */}
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">الوصف</label>
+              <div className="space-y-1 pb-5 border-b border-border/30 last:border-0">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  الوصف
+                </div>
                 {editingDesc ? (
                   <div className="space-y-1">
                     {/* Phase 14.3 P1 fix B — placeholder + hint
@@ -829,12 +1233,12 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               </div>
 
               {/* ── Checklist ── */}
-              <div className="space-y-2">
+              <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <CheckSquare className="h-3.5 w-3.5" />
-                    قائمة المراجعة {checkTotal > 0 && `(${checkDone}/${checkTotal})`}
-                  </label>
+                    قائمة المراجعة {checkTotal > 0 && <span className="tabular-nums text-muted-foreground/60">({checkDone}/{checkTotal})</span>}
+                  </div>
                   {canEdit && (
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setShowCheckInput(true)}>
                       <Plus className="h-3 w-3 me-1" /> إضافة
@@ -893,11 +1297,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
               {/* ── Attachments ── */}
               {attachments.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <Paperclip className="h-3.5 w-3.5" />
-                    المرفقات ({attachments.length})
-                  </label>
+                    المرفقات <span className="tabular-nums text-muted-foreground/60">({attachments.length})</span>
+                  </div>
                   <div className="space-y-1.5">
                     {attachments.map(att => {
                       const isImage = /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(att.file_name);
@@ -935,11 +1339,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               )}
 
               {/* ── Comments ── */}
-              <div className="space-y-3">
-                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <div className="space-y-3 pb-5 border-b border-border/30 last:border-0">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                   <MessageSquare className="h-3.5 w-3.5" />
-                  التعليقات ({comments.length})
-                </label>
+                  التعليقات <span className="tabular-nums text-muted-foreground/60">({comments.length})</span>
+                </div>
 
                 {/* Add comment */}
                 {canEdit && (
@@ -1002,11 +1406,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
               {/* ── Activity ── */}
               {activities.length > 0 && (
-                <div className="space-y-2 pt-3 border-t border-border/30">
-                  <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                <div className="space-y-2 pb-5 border-b border-border/30 last:border-0">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <History className="h-3.5 w-3.5" />
                     سجل النشاط
-                  </label>
+                  </div>
                   <div className="space-y-1">
                     {activities.slice(0, 15).map(act => (
                       <div key={act.id} className="flex items-start gap-2 text-[11px] py-0.5">
@@ -1024,306 +1428,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             </div>
           </ScrollArea>
 
-          {/* ═══ LEFT SIDEBAR (actions) ═══ */}
-          <div className="w-[200px] shrink-0 border-s border-border/50 bg-muted/20 p-3 overflow-y-auto">
+          {/* ═══ DESKTOP SIDEBAR (actions) ═══ */}
+          <div className="hidden md:flex md:flex-col w-[200px] shrink-0 border-s border-border/50 bg-muted/20 p-3 overflow-y-auto">
             <p className="text-[10px] font-semibold text-muted-foreground mb-3 tracking-wide">إجراءات</p>
             <div className="space-y-1">
-
-              {/* Assignees */}
-              <div>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <SidebarBtn icon={Users} label="الأعضاء / تعيين" />
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-56 p-2">
-                    <Input
-                      value={assigneeSearch}
-                      onChange={e => setAssigneeSearch(e.target.value)}
-                      placeholder="بحث عن عضو..."
-                      className="h-8 text-xs mb-2"
-                    />
-                    {/* Current assignees */}
-                    {assignees.map(a => {
-                      const matched = allUsers.find(u => u.username === a.username);
-                      const label = matched?.display_name || a.username;
-                      return (
-                        <div key={a.username} className="flex items-center justify-between px-2 py-1 rounded hover:bg-muted text-xs">
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-5 w-5">
-                              <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(a.username))}>
-                                {a.username.slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            {label}
-                          </div>
-                          <button onClick={() => removeAssignee(a.username)} className="text-red-400 hover:text-red-500">
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      );
-                    })}
-                    {assignees.length > 0 && filteredUsers.length > 0 && (
-                      <div className="border-t border-border/30 my-1.5" />
-                    )}
-                    {/* Pickable list — always visible, filtered by search when typed */}
-                    <div className="max-h-48 overflow-y-auto">
-                      {filteredUsers.map(u => (
-                        <button
-                          key={u.username}
-                          onClick={() => addAssignee(u.username)}
-                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted text-xs text-start"
-                        >
-                          <Avatar className="h-5 w-5">
-                            <AvatarFallback className={cn('text-[8px] text-white', getAvatarColor(u.username))}>
-                              {u.username.slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p>{u.display_name}</p>
-                            <p className="text-[10px] text-muted-foreground">{u.username}</p>
-                          </div>
-                        </button>
-                      ))}
-                      {filteredUsers.length === 0 && (
-                        <p className="text-xs text-muted-foreground text-center py-2">لا يوجد مستخدمون</p>
-                      )}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-                {assignees.length === 0 && (
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 ps-3 -mt-1 mb-1">
-                    لم يُعيَّن أحد
-                  </p>
-                )}
-              </div>
-
-              {/* Labels */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarBtn icon={Tag} label="التصنيفات" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-48 p-2">
-                  {labels.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-2">لا توجد تصنيفات</p>
-                  ) : labels.map(l => {
-                    const active = taskLabels.some(tl => tl.label_id === l.id);
-                    return (
-                      <button
-                        key={l.id}
-                        onClick={() => toggleLabel(l.id)}
-                        className={cn(
-                          'w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-start transition-colors',
-                          active ? 'bg-orange-500/10' : 'hover:bg-muted'
-                        )}
-                      >
-                        <div className={cn('w-3 h-3 rounded-sm', LABEL_COLOR_MAP[l.color] || 'bg-gray-500')} />
-                        <span className="flex-1">{l.name}</span>
-                        {active && <Check className="h-3 w-3 text-orange-500" />}
-                      </button>
-                    );
-                  })}
-                </PopoverContent>
-              </Popover>
-
-              {/* Start date */}
-              <SidebarDateBtn
-                icon={CalendarDays}
-                label="تاريخ البداية"
-                value={task.start_date || ''}
-                onChange={v => saveField('start_date', v || null)}
-              />
-
-              {/* Due date */}
-              <SidebarDateBtn
-                icon={CalendarClock}
-                label="تاريخ الاستحقاق"
-                value={task.due_date || ''}
-                onChange={v => saveField('due_date', v || null)}
-                isOverdue={!!isOverdue}
-              />
-
-              {/* Priority */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarBtn icon={Flag} label="الأولوية" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-40 p-1">
-                  {PRIORITIES.map(p => (
-                    <button
-                      key={p.key}
-                      onClick={() => saveField('priority', p.key)}
-                      className={cn(
-                        'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
-                        task.priority === p.key && 'bg-orange-500/10'
-                      )}
-                    >
-                      <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
-                      {p.label}
-                      {task.priority === p.key && <Check className="h-3 w-3 ms-auto text-orange-500" />}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-
-              {/* Hours */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarBtn icon={Clock} label="الساعات" badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-48 p-3 space-y-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground">المقدرة</label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      defaultValue={task.estimated_hours || ''}
-                      onBlur={e => saveField('estimated_hours', Number(e.target.value) || null)}
-                      className="h-8 text-xs"
-                      dir="ltr"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground">الفعلية</label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      defaultValue={task.actual_hours || ''}
-                      onBlur={e => saveField('actual_hours', Number(e.target.value) || null)}
-                      className="h-8 text-xs"
-                      dir="ltr"
-                    />
-                  </div>
-                </PopoverContent>
-              </Popover>
-
-              {/* Attachment */}
-              <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
-              >
-                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                <span>{uploading ? 'جاري الرفع...' : 'إضافة مرفق'}</span>
-              </button>
-
-              {/* Cover image */}
-              {attachments.some(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)) && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <SidebarBtn icon={Image} label="صورة غلاف" />
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-48 p-2">
-                    {task.cover_image && (
-                      <button
-                        onClick={() => saveField('cover_image', null)}
-                        className="w-full text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded px-2 py-1 mb-1"
-                      >
-                        إزالة الغلاف
-                      </button>
-                    )}
-                    {attachments.filter(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)).map(a => (
-                      <button
-                        key={a.id}
-                        onClick={() => saveField('cover_image', a.file_url)}
-                        className="w-full rounded overflow-hidden mb-1 hover:ring-2 ring-orange-500 transition-all"
-                      >
-                        <img src={a.file_url} alt="" className="w-full h-16 object-cover" />
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              )}
-
-              {/* Divider */}
-              <div className="border-t border-border/30 my-2" />
-
-              {/* Move */}
-              <Popover>
-                <PopoverTrigger asChild>
-                  <SidebarBtn icon={ArrowRightLeft} label="نقل إلى قائمة" />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-44 p-1">
-                  {columns.map(col => (
-                    <button
-                      key={col.id}
-                      onClick={() => moveToColumn(col.id)}
-                      className={cn(
-                        'w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted',
-                        col.id === task.column_id && 'bg-orange-500/10'
-                      )}
-                    >
-                      {col.name}
-                    </button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-
-              {/* Move to another board */}
-              {canEdit && (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <SidebarBtn icon={FolderOpen} label="نقل إلى لوحة أخرى" />
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-56 p-2">
-                    <p className="text-[10px] text-muted-foreground mb-2">اختر اللوحة والقائمة</p>
-                    <MoveToBoardPicker
-                      currentBoardId={board.id}
-                      taskId={task.id}
-                      onMoved={() => { onUpdate(); onClose(); toast.success('تم نقل المهمة'); }}
-                    />
-                  </PopoverContent>
-                </Popover>
-              )}
-
-              {/* Copy/Duplicate */}
-              {canEdit && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
-                      toast.success('تم نسخ المهمة');
-                      onUpdate();
-                    } catch { toast.error('فشل نسخ المهمة'); }
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
-                >
-                  <Copy className="h-4 w-4 text-muted-foreground" />
-                  <span>نسخ المهمة</span>
-                </button>
-              )}
-
-              {/* Archive */}
-              <button
-                onClick={archiveTask}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
-              >
-                <Archive className="h-4 w-4 text-muted-foreground" />
-                <span>أرشفة</span>
-              </button>
-
-              {/* Delete */}
-              {canDelete && (
-                confirmDelete ? (
-                  <div className="p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 space-y-1.5">
-                    <p className="text-[10px] text-red-600 dark:text-red-400">حذف نهائي؟</p>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="destructive" className="h-6 text-[10px] flex-1" onClick={deleteTask}>حذف</Button>
-                      <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1" onClick={() => setConfirmDelete(false)}>إلغاء</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>حذف</span>
-                  </button>
-                )
-              )}
+              {renderActions(false)}
             </div>
           </div>
         </div>
@@ -1336,9 +1445,21 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 // Sub-components
 // ═══════════════════════════════════════════════════════════
 
-function SidebarBtn({ icon: Icon, label, badge, onClick }: {
-  icon: React.ElementType; label: string; badge?: string; onClick?: () => void;
+function SidebarBtn({ icon: Icon, label, badge, onClick, compact }: {
+  icon: React.ElementType; label: string; badge?: string; onClick?: () => void; compact?: boolean;
 }) {
+  if (compact) {
+    return (
+      <button
+        onClick={onClick}
+        className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
+      >
+        <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <span>{label}</span>
+        {badge && <span className="text-[10px] text-muted-foreground">{badge}</span>}
+      </button>
+    );
+  }
   return (
     <button
       onClick={onClick}
@@ -1351,20 +1472,31 @@ function SidebarBtn({ icon: Icon, label, badge, onClick }: {
   );
 }
 
-function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue }: {
-  icon: React.ElementType; label: string; value: string; onChange: (v: string) => void; isOverdue?: boolean;
+function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact }: {
+  icon: React.ElementType; label: string; value: string; onChange: (v: string) => void; isOverdue?: boolean; compact?: boolean;
 }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className={cn(
-          'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors',
-          isOverdue && 'text-red-500'
-        )}>
-          <Icon className="h-4 w-4 text-muted-foreground" />
-          <span className="flex-1">{label}</span>
-          {value && <span className="text-[10px]">{new Date(value).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span>}
-        </button>
+        {compact ? (
+          <button className={cn(
+            'h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0',
+            isOverdue && 'text-red-500'
+          )}>
+            <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <span>{label}</span>
+            {value && <span className="text-[10px]">{new Date(value).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span>}
+          </button>
+        ) : (
+          <button className={cn(
+            'w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors',
+            isOverdue && 'text-red-500'
+          )}>
+            <Icon className="h-4 w-4 text-muted-foreground" />
+            <span className="flex-1">{label}</span>
+            {value && <span className="text-[10px]">{new Date(value).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span>}
+          </button>
+        )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto p-3">
         <input
