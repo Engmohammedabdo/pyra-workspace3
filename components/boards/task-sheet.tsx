@@ -1088,7 +1088,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
           {task.stage_entered_at && (
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" aria-hidden />
-              في المرحلة دي منذ {timeAgo(task.stage_entered_at)}
+              في المرحلة دي {timeAgo(task.stage_entered_at)}
             </span>
           )}
           </div>
@@ -1321,8 +1321,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{att.file_name}</p>
                             <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                              <span>{formatFileSize(att.file_size)}</span>
-                              <span>·</span>
+                              {/* link-type attachments (frame.io / Drive) have no size — hide the 0 B noise */}
+                              {(att.file_size ?? 0) > 0 && (
+                                <>
+                                  <span>{formatFileSize(att.file_size)}</span>
+                                  <span>·</span>
+                                </>
+                              )}
                               <span>{timeAgo(att.created_at)}</span>
                               {att.review_status === 'approved' && (
                                 <Badge className="text-[8px] h-3.5 bg-green-500/10 text-green-600 border-0">موافق</Badge>
@@ -1422,7 +1427,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         <div className="text-muted-foreground">
                           <span className="font-medium text-foreground">{act.display_name}</span>
                           {' '}{ACTION_LABELS[act.action] || act.action}
-                          <span className="ms-1.5 text-muted-foreground/50">{timeAgo(act.created_at)}</span>
+                          <span className="ms-1.5 text-muted-foreground/50">&middot; {timeAgo(act.created_at)}</span>
                         </div>
                       </div>
                     ))}

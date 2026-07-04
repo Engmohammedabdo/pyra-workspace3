@@ -10,6 +10,10 @@ const ScrollArea = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <ScrollAreaPrimitive.Root
     ref={ref}
+    // Radix defaults to dir="ltr"; this app is RTL everywhere — without this
+    // the viewport/scrollbar geometry shifts and CLIPS the inline-start
+    // (right) edge of the content. Callers may still override via props.
+    dir="rtl"
     className={cn("relative overflow-hidden", className)}
     {...props}
   >
