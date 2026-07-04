@@ -348,28 +348,40 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const addAssignee = async (username: string) => {
-    await mutateAPI(`/api/tasks/${task.id}/assignees`, 'POST', { usernames: [username] });
-    setAssigneeSearch('');
-    fetchTask();
-    onUpdate();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/assignees`, 'POST', { usernames: [username] });
+      setAssigneeSearch('');
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تعديل الأعضاء');
+    }
   };
 
   const removeAssignee = async (username: string) => {
-    await mutateAPI(`/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`, 'DELETE');
-    fetchTask();
-    onUpdate();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/assignees?username=${encodeURIComponent(username)}`, 'DELETE');
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تعديل الأعضاء');
+    }
   };
 
   const toggleLabel = async (labelId: string) => {
-    const has = taskLabels.some(l => l.label_id === labelId);
-    if (has) {
-      // Remove — direct DB call via task label junction
-      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _remove_label: labelId });
-    } else {
-      await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _add_label: labelId });
+    try {
+      const has = taskLabels.some(l => l.label_id === labelId);
+      if (has) {
+        // Remove — direct DB call via task label junction
+        await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _remove_label: labelId });
+      } else {
+        await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { _add_label: labelId });
+      }
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تحديث التصنيف');
     }
-    fetchTask();
-    onUpdate();
   };
 
   const addComment = async () => {
@@ -384,8 +396,12 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const deleteComment = async (commentId: string) => {
-    await mutateAPI(`/api/tasks/${task.id}/comments?commentId=${commentId}`, 'DELETE');
-    fetchTask();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/comments?commentId=${commentId}`, 'DELETE');
+      fetchTask();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر حذف التعليق');
+    }
   };
 
   const addChecklistItem = async () => {
@@ -398,15 +414,23 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   };
 
   const toggleCheckItem = async (itemId: string, currentChecked: boolean) => {
-    await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'PATCH', { is_checked: !currentChecked });
-    fetchTask();
-    onUpdate();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'PATCH', { is_checked: !currentChecked });
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تحديث المهمة');
+    }
   };
 
   const deleteCheckItem = async (itemId: string) => {
-    await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'DELETE');
-    fetchTask();
-    onUpdate();
+    try {
+      await mutateAPI(`/api/tasks/${task.id}/checklist?itemId=${itemId}`, 'DELETE');
+      fetchTask();
+      onUpdate();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر حذف المهمة');
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {

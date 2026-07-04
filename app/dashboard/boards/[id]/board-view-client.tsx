@@ -67,7 +67,7 @@ import {
   Loader2,
   Flag,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { AuthSession } from '@/lib/auth/guards';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
@@ -1564,11 +1564,16 @@ export default function BoardViewClient({
   session: AuthSession;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const taskParam = searchParams.get('task');
   const [board, setBoard] = useState<Board | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  // Tracks which ?task= deep-link id we've already auto-opened, so a manual
+  // close of the sheet doesn't get immediately reopened by this effect.
+  const autoOpenedTaskRef = useRef<string | null>(null);
 
   // Settings dialog state
   const [showSettings, setShowSettings] = useState(false);
@@ -1647,6 +1652,19 @@ export default function BoardViewClient({
   useEffect(() => {
     if (board?.view_mode === 'pipeline') setCurrentViewMode('pipeline');
   }, [board?.view_mode]);
+
+  // ── Deep-link: ?task={id} auto-opens the TaskSheet (notification links
+  // point here). Only auto-opens once per taskParam — a manual close by the
+  // user must not immediately reopen the sheet. ──
+  useEffect(() => {
+    if (!taskParam) return;
+    if (loading) return;
+    if (autoOpenedTaskRef.current === taskParam) return;
+    const found = tasks.find((t) => t.id === taskParam);
+    if (!found) return; // task not on this board (archived/other board) — no-op
+    autoOpenedTaskRef.current = taskParam;
+    setSelectedTask(found);
+  }, [taskParam, tasks, loading]);
 
   // ── Realtime: live task changes on this board (debounced — a single
   // drag-move UPDATEs many sibling rows during position compaction) ──
