@@ -26,6 +26,7 @@
   h2{font-size:22px; font-weight:800; margin:0 0 4px; display:flex; align-items:baseline; gap:12px}
   h2 .no{color:var(--brand); font-size:15px; font-weight:700; font-variant-numeric:tabular-nums}
   .lead{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{font-size:16px; font-weight:700; margin:22px 0 8px; color:var(--ink)}
   p{margin:0 0 12px}
   .flow{display:flex; align-items:stretch; margin:18px 0; overflow-x:auto; padding-bottom:6px}
   .flow .col{flex:1; min-width:96px; text-align:center; padding:12px 6px; border:1.5px solid var(--line); border-radius:10px; background:var(--panel); position:relative}
@@ -102,12 +103,25 @@
   </section>
 
   <section>
-    <h2><span class="no">٣</span> أول حاجة كل يوم: سجّل حضورك</h2>
+    <h2><span class="no">٣</span> الحضور والانصراف — إزاي تسجّل وإزاي بيتحسب</h2>
+
+    <h3>أ. طريقة التسجيل</h3>
     <ol class="steps">
-      <li><div><b>أول ما تبدأ دوامك:</b> من <b>الصفحة الرئيسية</b> مباشرة اضغط <b>تسجيل حضور</b> (أو من صفحة <span class="path">الحضور</span> في القائمة الجانبية) — الاتنين نفس الشيء.</div></li>
-      <li><div><b>آخر اليوم:</b> اضغط <b>تسجيل انصراف</b> من نفس الكارت.</div></li>
+      <li><div><b>أول ما تبدأ دوامك:</b> من <b>الصفحة الرئيسية</b> مباشرة اضغط <span class="btn deliver">تسجيل حضور</span> — هيبدأ عدّاد بيعدّ ساعات شغلك لايف. (أو من صفحة <span class="path">الحضور</span> في القائمة الجانبية — الاتنين نفس الشيء.)</div></li>
+      <li><div><b>آخر اليوم قبل ما تقفل:</b> اضغط <span class="btn review">تسجيل انصراف</span> من نفس الكارت — هنا بيتقفل حساب ساعات اليوم.</div></li>
     </ol>
-    <div class="callout warn"><b>خد بالك</b>لو معاد دوامك بدأ وعدّى ربع ساعة من غير ما تسجل، هيجيلك تذكير أوتوماتيك (إشعار + واتساب). التأخير بيتحسب أوتوماتيك وبيظهر في تقرير آخر الشهر — فسجّل أول ما تقعد.</div>
+    <div class="callout warn"><b>مهم</b>لو نسيت الانصراف، ساعات اليوم مش هتتحسب صح — خلي الانصراف عادة زي الحضور. ولو نسيت الحضور الصبح وعدّى 11:15، هيجيلك تذكير أوتوماتيك (إشعار + واتساب).</div>
+
+    <h3>ب. إزاي النظام بيحسب دوامك</h3>
+    <div class="twrap"><table>
+      <tr><th>البند</th><th>القاعدة</th></tr>
+      <tr><td><b>أيام العمل</b></td><td>من <b>الاثنين للسبت</b>. <b>الأحد إجازة رسمية</b> — مفيش حضور متوقع فيه، ومش بيتحسب غياب أبداً.</td></tr>
+      <tr><td><b>مواعيد الدوام</b></td><td><b>11:00 صباحاً – 7:00 مساءً</b> بتوقيت الإمارات (9 ص – 5 م بتوقيت مصر).</td></tr>
+      <tr><td><b>التأخير</b></td><td>سجّل حضورك في معادك <b>11:00</b>. أي تسجيل <b>بعد 11:00</b> بيتسجّل «متأخر» في اليوم ده. <span class="m">(ربع الساعة السماح هي بس معاد التذكير لو نسيت — مش معناها إن الدخول لحد 11:15 يعدّي على إنه في المعاد.)</span></td></tr>
+      <tr><td><b>ساعات الشغل</b></td><td>بتتحسب أوتوماتيك = وقت <b>الانصراف</b> ناقص وقت <b>الحضور</b>. عشان كده الانصراف مهم.</td></tr>
+      <tr><td><b>الغياب</b></td><td>أي يوم عمل (اثنين–سبت) يعدّي من غير ما تسجّل حضور بيتحسب <b>غياب</b>. الأحد مايتحسبش.</td></tr>
+    </table></div>
+    <div class="callout ok"><b>كل ده بيظهر في تقرير آخر الشهر</b>أيام الحضور + أيام التأخير + أيام الغياب + إجمالي الساعات — لكل موظف. فالتزامك بالمواعيد والتسجيل اليومي بيبان في التقرير جنب إنتاجيتك.</div>
   </section>
 
   <section>
