@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { checkBoardScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
@@ -17,6 +18,11 @@ export async function GET(
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
+
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+    }
+
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from('pyra_board_labels')

@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError, apiError } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { resolveUserScope, invalidateScopeCache } from '@/lib/auth/scope';
+import { checkBoardScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
@@ -64,6 +65,13 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
+
+    // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
+    // users, so permission alone doesn't prove board access.
+    if (!(await checkBoardScope(boardId, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+    }
+
     const body = await req.json();
     const { title, column_id, description, priority, due_date, start_date, estimated_hours, assignees } = body;
 
@@ -72,16 +80,27 @@ export async function POST(
 
     const supabase = await createServerSupabaseClient();
 
-    // Verify column belongs to this board
+    // Verify column belongs to this board (also fetch gating flags —
+    // creation must not bypass the pipeline link/approval workflow)
     const { data: column, error: colError } = await supabase
       .from('pyra_board_columns')
-      .select('id')
+      .select('id, column_type, requires_approval')
       .eq('id', column_id)
       .eq('board_id', boardId)
       .single();
 
     if (colError || !column) {
       return apiValidationError('العمود المحدد لا ينتمي لهذه اللوحة');
+    }
+
+    if (
+      column.column_type === 'review' ||
+      column.column_type === 'delivery' ||
+      column.requires_approval === true
+    ) {
+      return apiValidationError(
+        'لا يمكن إنشاء مهمة مباشرة في عمود مقيّد (مراجعة/تسليم) — أنشئها في «جديد» أو «قيد التنفيذ»'
+      );
     }
 
     const taskId = generateId('tk');

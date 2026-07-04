@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiNotFound } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { checkTaskScope, checkBoardScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 
 // =============================================================
@@ -19,6 +20,13 @@ export async function POST(
     if (isApiError(auth)) return auth;
 
     const { id } = await params;
+
+    // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
+    // users, so permission alone doesn't prove board access.
+    if (!(await checkTaskScope(id, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const body = await req.json().catch(() => ({}));
     const supabase = await createServerSupabaseClient();
 
@@ -33,6 +41,13 @@ export async function POST(
 
     const targetBoardId = body.target_board_id || original.board_id;
     const targetColumnId = body.target_column_id || original.column_id;
+
+    // Cross-board duplicate: also verify access to the destination board
+    if (targetBoardId !== original.board_id) {
+      if (!(await checkBoardScope(targetBoardId, auth))) {
+        return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+      }
+    }
 
     // Get next task_number
     const { data: maxNum } = await supabase

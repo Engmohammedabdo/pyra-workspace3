@@ -1,8 +1,9 @@
 import { NextRequest } from 'next/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
-import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
+import { apiSuccess, apiServerError, apiValidationError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
+import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 
 type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
@@ -17,6 +18,11 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
     if (isApiError(auth)) return auth;
 
     const { taskId } = await ctx.params;
+
+    if (!(await checkTaskScope(taskId, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
@@ -45,10 +51,21 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     if (isApiError(auth)) return auth;
 
     const { id: boardId, taskId } = await ctx.params;
+
+    if (!(await checkTaskScope(taskId, auth))) {
+      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+    }
+
     const body = await req.json();
     const { file_name, file_url, file_size, storage_path } = body;
 
     if (!file_name || !file_url) return apiValidationError('اسم الملف والرابط مطلوبان');
+
+    // https-only guard — closes stored-XSS via javascript: URLs rendered
+    // as <a href>/<img src> in the task-sheet attachment list.
+    if (!/^https:\/\/.+/i.test(String(file_url).trim())) {
+      return apiValidationError('رابط المرفق يجب أن يبدأ بـ https://');
+    }
 
     const supabase = await createServerSupabaseClient();
 
