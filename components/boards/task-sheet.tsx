@@ -1022,6 +1022,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     <Sheet open onOpenChange={onClose}>
       <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
         <SheetTitle className="sr-only">تفاصيل المهمة</SheetTitle>
+        {/* Single hidden file input — mounted ONCE outside renderActions (which
+            renders twice, mobile+desktop); both «إضافة مرفق» buttons click it */}
+        <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
         {/* Cover image */}
         {task.cover_image && (
           <div className="h-32 w-full overflow-hidden shrink-0">
