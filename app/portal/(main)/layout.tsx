@@ -5,6 +5,7 @@ import { PortalTopbar } from '@/components/portal/portal-topbar';
 import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 import { PortalBrandingWrapper } from '@/components/portal/PortalBrandingWrapper';
 import { PageTransition } from '@/components/layout/page-transition';
+import { LocaleSync } from '@/components/layout/locale-sync';
 
 export default async function PortalMainLayout({
   children,
@@ -19,6 +20,7 @@ export default async function PortalMainLayout({
 
   return (
     <PortalBrandingWrapper>
+      <LocaleSync dbLocale={client.preferred_language} />
       <div className="min-h-screen bg-background">
         <PortalSidebar />
         <div className="lg:ps-[240px] transition-all duration-300">

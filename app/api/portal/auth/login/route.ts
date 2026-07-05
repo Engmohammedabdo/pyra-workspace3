@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
@@ -11,6 +12,7 @@ import {
 import { loginLimiter, accountLockoutLimiter, getClientIp } from '@/lib/utils/rate-limit';
 import { generateId } from '@/lib/utils/id';
 import bcrypt from 'bcryptjs';
+import { DEFAULT_LOCALE, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, isLocale } from '@/lib/i18n/config';
 
 /** Record portal login attempt (fire-and-forget) */
 function recordPortalLoginAttempt(
@@ -187,6 +189,20 @@ export async function POST(request: NextRequest) {
       .select(CLIENT_SAFE_FIELDS)
       .eq('id', client.id)
       .single();
+
+    // i18n Phase 0 — locale cookie mirrors the client's stored preference.
+    const localeStore = await cookies();
+    localeStore.set(
+      LOCALE_COOKIE,
+      isLocale(safeClient?.preferred_language) ? safeClient.preferred_language : DEFAULT_LOCALE,
+      {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        path: '/',
+      },
+    );
 
     return apiSuccess({
       authenticated: true,

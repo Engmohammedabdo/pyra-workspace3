@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { getPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import {
@@ -8,6 +9,7 @@ import {
   apiServerError,
 } from '@/lib/api/response';
 import { generateId } from '@/lib/utils/id';
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, isLocale } from '@/lib/i18n/config';
 
 /**
  * GET /api/portal/profile
@@ -73,6 +75,14 @@ export async function PATCH(request: NextRequest) {
       updates.phone = phone?.trim() || null;
     }
 
+    // preferred_language — self-service (i18n Phase 0). Strictly 'ar'|'en'.
+    if (body.preferred_language !== undefined) {
+      if (!isLocale(body.preferred_language)) {
+        return apiValidationError('قيمة اللغة غير صالحة');
+      }
+      updates.preferred_language = body.preferred_language;
+    }
+
     if (email !== undefined) {
       const normalizedEmail = email.trim().toLowerCase();
 
@@ -136,6 +146,18 @@ export async function PATCH(request: NextRequest) {
     if (updateError) {
       console.error('PATCH /api/portal/profile — update error:', updateError);
       return apiServerError();
+    }
+
+    // Refresh the locale cookie so the very next request renders in the new language
+    if (typeof updates.preferred_language === 'string') {
+      const cookieStore = await cookies();
+      cookieStore.set(LOCALE_COOKIE, updates.preferred_language, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        path: '/',
+      });
     }
 
     // ── Log profile update activity ──────────────────
