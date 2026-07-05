@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
+import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
 // =============================================================
 // POST /api/tasks/[id]/move
@@ -197,14 +198,27 @@ export async function POST(
           .eq('status', 'active');
         const adminNames = (adminRows || []).map(a => a.username);
 
+        const adminTaskLink = `/dashboard/boards/${data.board_id}?task=${id}`;
         await notifyMany(supabase, adminNames, {
           type: 'task_stage_advanced',
           title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
           message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`,
-          link: `/dashboard/boards/${data.board_id}?task=${id}`,
+          link: adminTaskLink,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
         });
+
+        // WhatsApp the admins too (not just in-app) — the admin wants a push
+        // on WhatsApp when an employee moves a task, e.g. «جديد → قيد التنفيذ».
+        // Skip the actor so an admin dragging their own card isn't messaged.
+        for (const admin of adminNames) {
+          if (admin === auth.pyraUser.username) continue;
+          await sendWhatsAppToUser(
+            supabase,
+            admin,
+            `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`,
+          );
+        }
 
         // Raw drag-moves also silently skipped assignees (only button-driven
         // /advance and /approve notified them) — notify the task's assignees
