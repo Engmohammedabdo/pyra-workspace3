@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
+import { LocaleSelect } from '@/components/layout/locale-switcher';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -237,6 +238,7 @@ export default function ProfileClient({ session }: ProfileClientProps) {
                   <label className="text-sm font-medium">رقم الهاتف</label>
                   <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+971 50 000 0000" dir="ltr" />
                 </div>
+                <LocaleSelect endpoint="/api/profile" />
                 <div className="space-y-2">
                   <label className="text-sm font-medium">المسمى الوظيفي</label>
                   <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="مثال: مصمم جرافيك" />

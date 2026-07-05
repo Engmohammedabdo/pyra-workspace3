@@ -1,5 +1,6 @@
 'use client';
 
+import { useId } from 'react';
 import { Languages } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
@@ -77,16 +78,17 @@ export function LocaleSelect({ endpoint }: { endpoint: LocaleEndpoint }) {
   const locale = useLocale();
   const t = useTranslations('common');
   const mutation = useChangeLocale(endpoint);
+  const id = useId();
 
   return (
     <div className="space-y-2">
-      <label className="text-sm font-medium">{t('language.label')}</label>
+      <label htmlFor={id} className="text-sm font-medium">{t('language.label')}</label>
       <Select
         value={locale}
         onValueChange={(v) => v !== locale && mutation.mutate(v as Locale)}
         disabled={mutation.isPending}
       >
-        <SelectTrigger>
+        <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

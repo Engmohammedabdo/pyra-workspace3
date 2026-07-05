@@ -21,7 +21,8 @@ export function LocaleSync({ dbLocale }: { dbLocale: string | null | undefined }
     if (synced.current) return;
     if (!isLocale(dbLocale) || dbLocale === active) return;
     synced.current = true;
-    document.cookie = `${LOCALE_COOKIE}=${dbLocale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax`;
+    const secure = window.location.protocol === 'https:' ? '; secure' : '';
+    document.cookie = `${LOCALE_COOKIE}=${dbLocale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; samesite=lax${secure}`;
     router.refresh();
   }, [dbLocale, active, router]);
 

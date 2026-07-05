@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormLabel } from '@/components/ui/form-label';
 import { Label } from '@/components/ui/label';
+import { LocaleSelect } from '@/components/layout/locale-switcher';
 import { User, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -67,6 +68,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
               <Label htmlFor="profile-phone">رقم الهاتف</Label>
               <Input id="profile-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} dir="ltr" className="text-start" />
             </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <LocaleSelect endpoint="/api/portal/profile" />
           </div>
           <div className="flex justify-end pt-2">
             <Button type="submit" disabled={saving} className="gap-2 bg-portal hover:bg-portal-secondary text-white">

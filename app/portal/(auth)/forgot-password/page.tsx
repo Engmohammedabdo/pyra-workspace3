@@ -12,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { LocaleToggleAnon } from '@/components/layout/locale-toggle-anon';
 import { Loader2, ArrowRight, Mail, CheckCircle2, Building2 } from 'lucide-react';
 
 export default function PortalForgotPasswordPage() {
@@ -51,6 +52,9 @@ export default function PortalForgotPasswordPage() {
     <div className="w-full max-w-md">
       <Card className="shadow-xl dark:shadow-black/25">
         <CardHeader className="space-y-3 pt-8 pb-4 px-8 text-center">
+          <div className="flex justify-end">
+            <LocaleToggleAnon />
+          </div>
           {/* Logo */}
           <div className="mx-auto mb-2">
             <div className="inline-flex items-center gap-1.5 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">

@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { LocaleToggleAnon } from '@/components/layout/locale-toggle-anon';
 import { Loader2, LogIn, Eye, EyeOff, Building2, AlertCircle } from 'lucide-react';
 
 export default function PortalLoginPage() {
@@ -100,6 +101,9 @@ export default function PortalLoginPage() {
       {/* Form Side */}
       <Card className="border-0 rounded-none lg:rounded-none shadow-none animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
         <CardHeader className="space-y-3 pt-12 pb-6 px-8 lg:px-12">
+          <div className="flex justify-end">
+            <LocaleToggleAnon />
+          </div>
           {/* Mobile logo */}
           <div className="lg:hidden text-center mb-4">
             <h2 className="text-2xl font-bold text-portal">PYRAMEDIA X</h2>
