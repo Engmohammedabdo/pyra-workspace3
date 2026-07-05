@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && npx tsx scripts/i18n-check.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:backup": "bash scripts/db-backup.sh",

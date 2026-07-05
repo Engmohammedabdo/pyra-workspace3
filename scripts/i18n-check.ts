@@ -35,6 +35,7 @@ const MIGRATED_PATHS: string[] = [
   'components/ui/error-boundary.tsx',
   'components/ui/error-card.tsx',
   'components/ui/mention-textarea.tsx',
+  'components/ui/scroll-area.tsx',
   'components/portal/portal-nav-config.ts',
   'components/portal/portal-sidebar.tsx',
   'components/portal/portal-mobile-nav.tsx',
@@ -93,7 +94,15 @@ function main(): void {
   let failed = false;
 
   for (const path of MIGRATED_PATHS) {
-    for (const file of collectSourceFiles(path)) {
+    const files = collectSourceFiles(path);
+    if (files.length === 0) {
+      // A typo'd manifest entry must fail LOUD — silently scanning nothing
+      // permanently disables coverage for that path (final-review finding).
+      console.error(`MANIFEST PATH MISSING/EMPTY  ${path}`);
+      failed = true;
+      continue;
+    }
+    for (const file of files) {
       const hits = scanSource(readFileSync(file, 'utf8'));
       for (const line of hits) {
         console.error(`ARABIC LITERAL  ${relative(ROOT, file)}:${line}`);
