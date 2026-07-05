@@ -27,6 +27,8 @@
     "leadTask": { "pending": "معلّقة", "in_progress": "قيد التنفيذ", "completed": "مكتملة", "cancelled": "ملغية" },
     "leadTaskPriority": { "low": "منخفضة", "medium": "متوسطة", "high": "عالية", "urgent": "عاجلة" },
     "calendarEventSource": { "task": "مهمة", "follow_up": "متابعة", "meeting": "اجتماع" },
-    "attendance": { "present": "حاضر", "absent": "غائب", "late": "متأخر", "early_leave": "انصراف مبكر", "holiday": "إجازة رسمية", "weekend": "عطلة" }
+    "attendance": { "present": "حاضر", "absent": "غائب", "late": "متأخر", "early_leave": "انصراف مبكر", "holiday": "إجازة رسمية", "weekend": "عطلة" },
+    "taskPriority": { "urgent": "عاجل", "high": "مرتفع", "medium": "متوسط", "low": "منخفض" },
+    "leaveType": { "annual": "سنوية", "sick": "مرضية", "personal": "شخصية", "unpaid": "بدون راتب", "emergency": "طارئة" }
   }
 }

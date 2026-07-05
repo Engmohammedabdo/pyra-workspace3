@@ -1,0 +1,13 @@
+{
+  "api": {
+    "common": {
+      "noAccessTask": "لا تملك صلاحية الوصول لهذه المهمة",
+      "noAccessBoard": "لا تملك صلاحية الوصول لهذه اللوحة",
+      "noAccessBoard403": "ليس لديك صلاحية الوصول إلى هذه اللوحة",
+      "taskNotFound": "المهمة غير موجودة",
+      "boardNotFound": "اللوحة غير موجودة",
+      "usernameRequired": "username مطلوب",
+      "titleRequired": "عنوان المهمة مطلوب"
+    }
+  }
+}

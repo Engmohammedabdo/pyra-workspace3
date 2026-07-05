@@ -27,6 +27,8 @@
     "leadTask": { "pending": "Pending", "in_progress": "In Progress", "completed": "Completed", "cancelled": "Cancelled" },
     "leadTaskPriority": { "low": "Low", "medium": "Medium", "high": "High", "urgent": "Urgent" },
     "calendarEventSource": { "task": "Task", "follow_up": "Follow-up", "meeting": "Meeting" },
-    "attendance": { "present": "Present", "absent": "Absent", "late": "Late", "early_leave": "Early Leave", "holiday": "Public Holiday", "weekend": "Weekend" }
+    "attendance": { "present": "Present", "absent": "Absent", "late": "Late", "early_leave": "Early Leave", "holiday": "Public Holiday", "weekend": "Weekend" },
+    "taskPriority": { "urgent": "Urgent", "high": "High", "medium": "Medium", "low": "Low" },
+    "leaveType": { "annual": "Annual", "sick": "Sick", "personal": "Personal", "unpaid": "Unpaid", "emergency": "Emergency" }
   }
 }

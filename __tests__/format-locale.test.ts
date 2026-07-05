@@ -38,6 +38,28 @@ describe('locale-aware formatting', () => {
     expect(formatTaskDueDate('2026-01-16', today).label).toBe('غداً');
   });
 
+  it('formatTaskDueDate returns structural `kind` for every branch (en)', () => {
+    const today = new Date('2026-01-15T10:00:00Z');
+    expect(formatTaskDueDate(null, today, 'en').kind).toBe('none');
+    expect(formatTaskDueDate('not-a-date', today, 'en').kind).toBe('none');
+    expect(formatTaskDueDate('2026-01-12', today, 'en').kind).toBe('overdue');
+    expect(formatTaskDueDate('2026-01-15', today, 'en').kind).toBe('today');
+    expect(formatTaskDueDate('2026-01-16', today, 'en').kind).toBe('tomorrow');
+    expect(formatTaskDueDate('2026-01-18', today, 'en').kind).toBe('upcoming');
+    expect(formatTaskDueDate('2026-02-01', today, 'en').kind).toBe('date');
+  });
+
+  it('formatTaskDueDate returns structural `kind` for every branch (ar)', () => {
+    const today = new Date('2026-01-15T10:00:00Z');
+    expect(formatTaskDueDate(null, today, 'ar').kind).toBe('none');
+    expect(formatTaskDueDate('not-a-date', today, 'ar').kind).toBe('none');
+    expect(formatTaskDueDate('2026-01-12', today, 'ar').kind).toBe('overdue');
+    expect(formatTaskDueDate('2026-01-15', today, 'ar').kind).toBe('today');
+    expect(formatTaskDueDate('2026-01-16', today, 'ar').kind).toBe('tomorrow');
+    expect(formatTaskDueDate('2026-01-18', today, 'ar').kind).toBe('upcoming');
+    expect(formatTaskDueDate('2026-02-01', today, 'ar').kind).toBe('date');
+  });
+
   it('formatTime en uses Latin digits', () => {
     expect(formatTime('2026-01-15T10:00:00Z', 'en')).toMatch(/\d/);
   });

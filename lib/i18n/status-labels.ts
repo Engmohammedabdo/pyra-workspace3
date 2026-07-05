@@ -8,7 +8,8 @@ export type StatusEntity =
   | 'employeePayment' | 'evaluation' | 'contentPipeline' | 'followUp'
   | 'client' | 'lead' | 'pipelineStage' | 'leadType' | 'leadDealType'
   | 'leadBillingCycle' | 'leadActivity' | 'conversation' | 'conversationPriority'
-  | 'leadTask' | 'leadTaskPriority' | 'calendarEventSource' | 'attendance';
+  | 'leadTask' | 'leadTaskPriority' | 'calendarEventSource' | 'attendance'
+  | 'taskPriority' | 'leaveType';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

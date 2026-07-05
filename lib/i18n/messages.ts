@@ -4,9 +4,13 @@ import type { Locale } from './config';
  * One entry per messages/<locale>/<name>.json file. Each file holds exactly
  * ONE top-level namespace (its own name) — files merge with a shallow spread,
  * so splitting a namespace across two files would silently drop keys.
- * Grows per phase: Phase 1 adds 'nav', 'auth', 'statuses'.
+ * Grows per phase: Phase 1 adds 'nav', 'auth', 'statuses'. Phase 2 adds
+ * 'mywork', 'boards', 'calendar', 'api'.
  */
-export const NAMESPACE_FILES = ['common', 'nav', 'auth', 'statuses'] as const;
+export const NAMESPACE_FILES = [
+  'common', 'nav', 'auth', 'statuses',
+  'mywork', 'boards', 'calendar', 'api',
+] as const;
 
 type Messages = Record<string, unknown>;
 

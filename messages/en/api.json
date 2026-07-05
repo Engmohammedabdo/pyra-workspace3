@@ -1,0 +1,13 @@
+{
+  "api": {
+    "common": {
+      "noAccessTask": "You do not have access to this task",
+      "noAccessBoard": "You do not have access to this board",
+      "noAccessBoard403": "You do not have access to this board",
+      "taskNotFound": "Task not found",
+      "boardNotFound": "Board not found",
+      "usernameRequired": "username is required",
+      "titleRequired": "Task title is required"
+    }
+  }
+}

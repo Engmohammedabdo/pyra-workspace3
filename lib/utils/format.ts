@@ -137,6 +137,13 @@ export interface TaskDueDateFormatted {
   tone: string;
   /** True for overdue dates — caller can also apply `font-bold` etc. */
   isOverdue: boolean;
+  /**
+   * Structural bucket the label was derived from — lets callers branch on
+   * behavior (e.g. relative-vs-absolute grouping) without sniffing the
+   * rendered Arabic/English label text. Added Phase 2 Task 1; label/tone/
+   * isOverdue semantics are unchanged.
+   */
+  kind: 'none' | 'overdue' | 'today' | 'tomorrow' | 'upcoming' | 'date';
 }
 
 /**
@@ -176,6 +183,7 @@ export function formatTaskDueDate(
       label: L.none,
       tone: 'bg-muted text-muted-foreground',
       isOverdue: false,
+      kind: 'none',
     };
   }
   const d = typeof due === 'string' ? new Date(due) : due;
@@ -184,6 +192,7 @@ export function formatTaskDueDate(
       label: L.none,
       tone: 'bg-muted text-muted-foreground',
       isOverdue: false,
+      kind: 'none',
     };
   }
   const diff = differenceInCalendarDays(d, today);
@@ -193,6 +202,7 @@ export function formatTaskDueDate(
       label: L.overdue(abs),
       tone: 'bg-red-500/10 text-red-700 dark:text-red-400 font-bold',
       isOverdue: true,
+      kind: 'overdue',
     };
   }
   if (diff === 0) {
@@ -200,6 +210,7 @@ export function formatTaskDueDate(
       label: L.today,
       tone: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
       isOverdue: false,
+      kind: 'today',
     };
   }
   if (diff === 1) {
@@ -207,6 +218,7 @@ export function formatTaskDueDate(
       label: L.tomorrow,
       tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
       isOverdue: false,
+      kind: 'tomorrow',
     };
   }
   if (diff <= 7) {
@@ -214,11 +226,13 @@ export function formatTaskDueDate(
       label: L.upcoming(diff),
       tone: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
       isOverdue: false,
+      kind: 'upcoming',
     };
   }
   return {
     label: format(d, 'dd MMM', { locale: getDateFnsLocale(locale) }),
     tone: 'bg-muted text-muted-foreground',
     isOverdue: false,
+    kind: 'date',
   };
 }

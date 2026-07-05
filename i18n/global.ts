@@ -2,8 +2,13 @@ import type common from '../messages/ar/common.json';
 import type nav from '../messages/ar/nav.json';
 import type auth from '../messages/ar/auth.json';
 import type statuses from '../messages/ar/statuses.json';
+import type mywork from '../messages/ar/mywork.json';
+import type boards from '../messages/ar/boards.json';
+import type calendar from '../messages/ar/calendar.json';
+import type api from '../messages/ar/api.json';
 
-type Messages = typeof common & typeof nav & typeof auth & typeof statuses;
+type Messages = typeof common & typeof nav & typeof auth & typeof statuses
+  & typeof mywork & typeof boards & typeof calendar & typeof api;
 
 declare module 'next-intl' {
   interface AppConfig {
