@@ -21,6 +21,7 @@ import {
 import { Bell, LogOut, User, Sun, Moon, BellRing } from 'lucide-react';
 import { PortalMobileNav } from '@/components/portal/portal-mobile-nav';
 import { PortalCommandSearch } from '@/components/portal/portal-command-search';
+import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 import { Breadcrumb } from '@/components/layout/breadcrumb';
 import { usePortalNotifications, requestNotificationPermission } from '@/hooks/useNotifications';
 import { useBranding } from '@/components/portal/BrandingProvider';
@@ -92,6 +93,8 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
         <div className="ms-auto flex items-center gap-1.5">
           {/* Global Search */}
           <PortalCommandSearch />
+
+          <LocaleSwitcher endpoint="/api/portal/profile" />
 
           {/* Desktop Push Toggle */}
           {mounted && 'Notification' in window && (

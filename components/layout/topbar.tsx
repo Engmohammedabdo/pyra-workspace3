@@ -25,6 +25,7 @@ import { MobileNav } from '@/components/layout/mobile-nav';
 import { NotificationBell } from '@/components/layout/NotificationBell';
 import { CommandPalette, SearchTrigger } from '@/components/layout/CommandPalette';
 import { PageGuide } from '@/components/ui/page-guide';
+import { LocaleSwitcher } from '@/components/layout/locale-switcher';
 
 interface TopbarProps {
   user: {
@@ -73,6 +74,8 @@ export function Topbar({ user }: TopbarProps) {
 
         {/* Notifications */}
         <NotificationBell username={user.username} />
+
+        <LocaleSwitcher endpoint="/api/profile" />
 
         {/* Theme Toggle */}
         <Tooltip>
