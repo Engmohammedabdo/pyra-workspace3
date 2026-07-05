@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from '@/components/ui/sheet';
@@ -18,6 +19,9 @@ import { hasPermission } from '@/lib/auth/rbac';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { MentionTextarea } from '@/components/ui/mention-textarea';
 import { renderTextWithMentions } from '@/lib/utils/mentions';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dubaiDayKey } from '@/lib/utils/format';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import {
   Users, Tag, CalendarDays, CalendarClock, Flag, Clock, Paperclip, Image,
   FolderOpen, ArrowRightLeft, Archive, Trash2, Plus, Check, X, Send, Copy,
@@ -134,12 +138,12 @@ interface TaskSheetProps {
 // Constants
 // ═══════════════════════════════════════════════════════════
 
-const PRIORITIES = [
-  { key: 'urgent', label: 'عاجل', color: 'bg-red-500' },
-  { key: 'high', label: 'مرتفع', color: 'bg-orange-500' },
-  { key: 'medium', label: 'متوسط', color: 'bg-blue-500' },
-  { key: 'low', label: 'منخفض', color: 'bg-gray-400' },
-];
+const PRIORITY_KEYS = [
+  { key: 'urgent', color: 'bg-red-500' },
+  { key: 'high', color: 'bg-orange-500' },
+  { key: 'medium', color: 'bg-blue-500' },
+  { key: 'low', color: 'bg-gray-400' },
+] as const;
 
 const LABEL_COLORS = ['red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'indigo', 'gray'];
 
@@ -161,23 +165,36 @@ const LABEL_BG_MAP: Record<string, string> = {
   gray: 'bg-gray-500/15 text-gray-700 dark:text-gray-300',
 };
 
-const ACTION_LABELS: Record<string, string> = {
-  created: 'أنشأ المهمة', moved: 'نقل المهمة', assignee_added: 'أضاف عضو',
-  assignee_removed: 'أزال عضو', comment_added: 'أضاف تعليق', checklist_added: 'أضاف عنصر',
-  stage_advanced: 'نقل للمرحلة التالية', stage_approved: 'وافق', stage_rejected: 'رفض',
-  file_uploaded: 'رفع ملف', file_approved: 'وافق على ملف', file_revision_requested: 'طلب تعديل',
-};
+// Activity-log verbs — keys match `pyra_task_activity.action` DB values:
+// created, moved, assignee_added, assignee_removed, comment_added,
+// checklist_added, stage_advanced, stage_approved, stage_rejected,
+// file_uploaded, file_approved, file_revision_requested. Rendered via a
+// locale-aware accessor (below) that falls back to the raw key when a value
+// has no matching catalog entry — same unknown-safe contract the old
+// `ACTION_LABELS[act.action] || act.action` lookup had.
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'الآن';
-  if (mins < 60) return `منذ ${mins} د`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `منذ ${hrs} س`;
-  const days = Math.floor(hrs / 24);
-  if (days < 30) return `منذ ${days} ي`;
-  return new Date(dateStr).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' });
+/** Locale-aware activity-verb lookup, falls back to the raw key (unknown-safe). */
+function useActionLabel(): (action: string) => string {
+  const t = useTranslations('boards.sheet.activity');
+  return (action: string) =>
+    t.has(action as Parameters<typeof t>[0]) ? t(action as Parameters<typeof t>[0]) : action;
+}
+
+/** Locale-aware compact relative-time label (preserves the current compact forms verbatim). */
+function useTimeAgo() {
+  const t = useTranslations('boards.timeAgo');
+  const locale = useLocale() as Locale;
+  return (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t('now');
+    if (mins < 60) return t('minutes', { n: mins });
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return t('hours', { n: hrs });
+    const days = Math.floor(hrs / 24);
+    if (days < 30) return t('days', { n: days });
+    return new Date(dateStr).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' });
+  };
 }
 
 function formatFileSize(bytes: number) {
@@ -198,19 +215,20 @@ function getAvatarColor(str: string) {
 // ═══════════════════════════════════════════════════════════
 
 function StageStepper({ columns, currentColumnId }: { columns: Column[]; currentColumnId: string }) {
+  const t = useTranslations('boards.sheet');
   const sorted = [...columns].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
   const currentIdx = sorted.findIndex(c => c.id === currentColumnId);
   const accent = (c: Column, i: number) => {
     if (i > currentIdx) return 'bg-border';
-    const t = c.column_type;
-    if (t === 'review') return 'bg-amber-500';
-    if (t === 'approved') return 'bg-emerald-500';
-    if (t === 'delivery' || c.is_done_column) return 'bg-green-600';
-    if (t === 'in_progress') return 'bg-blue-500';
+    const colType = c.column_type;
+    if (colType === 'review') return 'bg-amber-500';
+    if (colType === 'approved') return 'bg-emerald-500';
+    if (colType === 'delivery' || c.is_done_column) return 'bg-green-600';
+    if (colType === 'in_progress') return 'bg-blue-500';
     return 'bg-zinc-400 dark:bg-zinc-500';
   };
   return (
-    <div className="flex items-center gap-1 mt-2" aria-label="مراحل المهمة">
+    <div className="flex items-center gap-1 mt-2" aria-label={t('stageStepperAria')}>
       {sorted.map((c, i) => (
         <div key={c.id} className="flex-1 flex flex-col gap-1 min-w-0">
           <div className={cn('h-1.5 rounded-full transition-colors', accent(c, i), i === currentIdx && 'ring-2 ring-offset-1 ring-orange-400/60 dark:ring-offset-background')} />
@@ -226,6 +244,11 @@ function StageStepper({ columns, currentColumnId }: { columns: Column[]; current
 // ═══════════════════════════════════════════════════════════
 
 export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskSheetProps) {
+  const t = useTranslations('boards.sheet');
+  const locale = useLocale() as Locale;
+  const priorityLabel = useStatusLabels('taskPriority');
+  const actionLabel = useActionLabel();
+  const timeAgo = useTimeAgo();
   const [task, setTask] = useState<TaskDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -289,7 +312,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         setEditTitle(data.title);
         setEditDesc(data.description || '');
       }
-    } catch { toast.error('فشل تحميل المهمة'); }
+    } catch { toast.error(t('errors.loadFailed')); }
     finally { setLoading(false); }
   }, [taskId]);
 
@@ -306,7 +329,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     return (
       <Sheet open onOpenChange={onClose}>
         <SheetContent side="left" className="w-full sm:max-w-3xl p-0" aria-describedby={undefined}>
-          <SheetTitle className="sr-only">تحميل المهمة</SheetTitle>
+          <SheetTitle className="sr-only">{t('loadingTitle')}</SheetTitle>
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
           </div>
@@ -324,7 +347,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   const activities = (task.pyra_task_activity || []).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   const checkDone = checklist.filter(c => c.is_checked).length;
   const checkTotal = checklist.length;
-  const isOverdue = task.due_date && task.due_date < new Date().toISOString().split('T')[0] && !currentCol?.is_done_column;
+  const isOverdue = task.due_date && task.due_date < dubaiDayKey() && !currentCol?.is_done_column;
 
   // ── API Calls ──
   const saveField = async (field: string, value: unknown) => {
@@ -333,7 +356,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       await mutateAPI(`/api/tasks/${task.id}`, 'PATCH', { [field]: value });
       fetchTask();
       onUpdate();
-    } catch { toast.error('فشل الحفظ'); }
+    } catch { toast.error(t('errors.saveFailed')); }
     finally { setSaving(false); }
   };
 
@@ -354,7 +377,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       fetchTask();
       onUpdate();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تعديل الأعضاء');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.assigneeFailed'));
     }
   };
 
@@ -364,7 +387,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       fetchTask();
       onUpdate();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تعديل الأعضاء');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.assigneeFailed'));
     }
   };
 
@@ -380,7 +403,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       fetchTask();
       onUpdate();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تحديث التصنيف');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.labelFailed'));
     }
   };
 
@@ -391,7 +414,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       await mutateAPI(`/api/tasks/${task.id}/comments`, 'POST', { content: commentText });
       setCommentText('');
       fetchTask();
-    } catch { toast.error('فشل إرسال التعليق'); }
+    } catch { toast.error(t('errors.commentSendFailed')); }
     finally { setSendingComment(false); }
   };
 
@@ -400,7 +423,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       await mutateAPI(`/api/tasks/${task.id}/comments?commentId=${commentId}`, 'DELETE');
       fetchTask();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر حذف التعليق');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.commentDeleteFailed'));
     }
   };
 
@@ -419,7 +442,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       fetchTask();
       onUpdate();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر تحديث المهمة');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.checklistUpdateFailed'));
     }
   };
 
@@ -429,7 +452,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       fetchTask();
       onUpdate();
     } catch (e) {
-      toast.error(e instanceof Error && e.message ? e.message : 'تعذّر حذف المهمة');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.checklistDeleteFailed'));
     }
   };
 
@@ -468,9 +491,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         file_name: file.name, file_url: fileUrl, file_size: file.size, storage_path: urlData.storagePath,
       });
 
-      toast.success('تم رفع الملف');
+      toast.success(t('toasts.fileUploaded'));
       fetchTask();
-    } catch { toast.error('فشل رفع الملف'); }
+    } catch { toast.error(t('errors.fileUploadFailed')); }
     finally { setUploading(false); e.target.value = ''; }
   };
 
@@ -482,7 +505,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     } catch (e) {
       // Surface the server's Arabic guidance (e.g. gated-column 422 telling
       // the user to use the review/approve/deliver button instead).
-      toast.error(e instanceof Error && e.message ? e.message : 'فشل نقل المهمة');
+      toast.error(e instanceof Error && e.message ? e.message : t('errors.moveFailed'));
     }
   };
 
@@ -496,18 +519,18 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         body: JSON.stringify({}),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'فشل في نقل المهمة'); return; }
-      toast.success('تم نقل المهمة للمرحلة التالية');
+      if (!res.ok) { toast.error(json.error || t('errors.moveFailed')); return; }
+      toast.success(t('toasts.advanced'));
       fetchTask();
       onUpdate();
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('errors.generic')); }
     finally { setAdvancing(false); }
   };
 
   const handleAdvanceWithLink = async (kind: 'review' | 'delivery') => {
     const link = actionLink.trim();
     if (!/^https:\/\/.+/i.test(link)) {
-      toast.error('الصق رابط صحيح يبدأ بـ https:// (frame.io أو Google Drive)');
+      toast.error(t('errors.invalidLink'));
       return;
     }
     setAdvancing(true);
@@ -522,14 +545,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         ),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'فشل في نقل المهمة'); return; }
-      toast.success(kind === 'review' ? 'تم رفع النسخة للمراجعة ✓' : 'تم تسجيل التسليم النهائي ✓');
+      if (!res.ok) { toast.error(json.error || t('errors.moveFailed')); return; }
+      toast.success(kind === 'review' ? t('toasts.reviewSubmitted') : t('toasts.deliverySubmitted'));
       setLinkDialog(null);
       setActionLink('');
       setActionNote('');
       fetchTask();
       onUpdate();
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('errors.generic')); }
     finally { setAdvancing(false); }
   };
 
@@ -542,11 +565,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         body: JSON.stringify({ action: 'approve' }),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'فشل في الاعتماد'); return; }
-      toast.success('تم اعتماد المهمة ونقلها ✓');
+      if (!res.ok) { toast.error(json.error || t('errors.approveFailed')); return; }
+      toast.success(t('toasts.approved'));
       fetchTask();
       onUpdate();
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('errors.generic')); }
     finally { setAdvancing(false); }
   };
 
@@ -560,13 +583,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         body: JSON.stringify({ action: 'reject', note: rejectNote }),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'فشل في طلب التعديل'); return; }
-      toast.success('تم طلب التعديل وإرجاع المهمة');
+      if (!res.ok) { toast.error(json.error || t('errors.rejectFailed')); return; }
+      toast.success(t('toasts.rejected'));
       setShowReject(false);
       setRejectNote('');
       fetchTask();
       onUpdate();
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('errors.generic')); }
     finally { setAdvancing(false); }
   };
 
@@ -580,7 +603,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       if (!canApprove) {
         return (
           <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-center">
-            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">⏳ في انتظار مراجعة الأدمن</p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">{t('pipeline.waitingAdminReview')}</p>
           </div>
         );
       }
@@ -588,20 +611,20 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
           <ArrowRightLeft className="h-4 w-4 text-emerald-500 shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-emerald-700 dark:text-emerald-300">قرار المراجعة — راجع الرابط في المرفقات أولاً</p>
+            <p className="text-xs text-emerald-700 dark:text-emerald-300">{t('pipeline.reviewDecision')}</p>
           </div>
           <div className="flex gap-1.5 shrink-0">
             {showReject ? (
               <div className="flex items-center gap-1.5">
-                <Input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder="ملخص التعديلات المطلوبة (إجباري)..." className="h-8 text-xs w-44" />
-                <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing || !rejectNote.trim()} onClick={handleReject}>طلب تعديل ✗</Button>
-                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReject(false); setRejectNote(''); }}>إلغاء</Button>
+                <Input value={rejectNote} onChange={e => setRejectNote(e.target.value)} placeholder={t('pipeline.rejectNotePlaceholder')} className="h-8 text-xs w-44" />
+                <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={advancing || !rejectNote.trim()} onClick={handleReject}>{t('pipeline.requestChangesConfirm')}</Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setShowReject(false); setRejectNote(''); }}>{t('cancel')}</Button>
               </div>
             ) : (
               <>
-                <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>طلب تعديل</Button>
+                <Button size="sm" variant="ghost" className="h-8 text-xs text-red-500" onClick={() => setShowReject(true)}>{t('pipeline.requestChanges')}</Button>
                 <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleApprove}>
-                  {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : 'اعتماد ✓'}
+                  {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('pipeline.working')}</> : t('pipeline.approve')}
                 </Button>
               </>
             )}
@@ -614,19 +637,19 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     if (nextCol.column_type === 'review' && canManage) {
       return linkDialog === 'review' ? (
         <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 space-y-2">
-          <p className="text-xs font-medium text-amber-800 dark:text-amber-300">رابط النسخة (frame.io أو Google Drive)</p>
+          <p className="text-xs font-medium text-amber-800 dark:text-amber-300">{t('pipeline.reviewLinkLabel')}</p>
           <Input value={actionLink} onChange={e => setActionLink(e.target.value)} placeholder="https://f.io/..." className="h-8 text-xs" dir="ltr" />
-          <Input value={actionNote} onChange={e => setActionNote(e.target.value)} placeholder="ملاحظة اختيارية..." className="h-8 text-xs" />
+          <Input value={actionNote} onChange={e => setActionNote(e.target.value)} placeholder={t('pipeline.optionalNotePlaceholder')} className="h-8 text-xs" />
           <div className="flex gap-1.5">
             <Button size="sm" className="h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white" disabled={advancing || !actionLink.trim()} onClick={() => handleAdvanceWithLink('review')}>
-              {advancing ? 'جاري...' : 'رفع للمراجعة 👀'}
+              {advancing ? t('pipeline.working') : t('pipeline.submitReview')}
             </Button>
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setLinkDialog(null); setActionLink(''); setActionNote(''); }}>إلغاء</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setLinkDialog(null); setActionLink(''); setActionNote(''); }}>{t('cancel')}</Button>
           </div>
         </div>
       ) : (
         <Button size="sm" className="h-11 text-xs w-full bg-amber-500 hover:bg-amber-600 text-white" onClick={() => setLinkDialog('review')}>
-          👀 رفع للمراجعة
+          {t('pipeline.submitReviewButton')}
         </Button>
       );
     }
@@ -635,18 +658,18 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
     if (nextCol.column_type === 'delivery' && canManage) {
       return linkDialog === 'delivery' ? (
         <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 space-y-2">
-          <p className="text-xs font-medium text-green-800 dark:text-green-300">رابط الفاينل على Google Drive (فولدر التسليمات)</p>
+          <p className="text-xs font-medium text-green-800 dark:text-green-300">{t('pipeline.deliveryLinkLabel')}</p>
           <Input value={actionLink} onChange={e => setActionLink(e.target.value)} placeholder="https://drive.google.com/..." className="h-8 text-xs" dir="ltr" />
           <div className="flex gap-1.5">
             <Button size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700 text-white" disabled={advancing || !actionLink.trim()} onClick={() => handleAdvanceWithLink('delivery')}>
-              {advancing ? 'جاري...' : 'تسليم نهائي 📦'}
+              {advancing ? t('pipeline.working') : t('pipeline.finalDelivery')}
             </Button>
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setLinkDialog(null); setActionLink(''); setActionNote(''); }}>إلغاء</Button>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setLinkDialog(null); setActionLink(''); setActionNote(''); }}>{t('cancel')}</Button>
           </div>
         </div>
       ) : (
         <Button size="sm" className="h-11 text-xs w-full bg-green-600 hover:bg-green-700 text-white" onClick={() => setLinkDialog('delivery')}>
-          📦 تسليم نهائي
+          {t('pipeline.finalDeliveryButton')}
         </Button>
       );
     }
@@ -656,9 +679,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
       return (
         <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
           <ArrowRightLeft className="h-4 w-4 text-emerald-500 shrink-0" />
-          <p className="flex-1 text-xs text-emerald-700 dark:text-emerald-300">المرحلة التالية: <strong>{nextCol.name}</strong></p>
+          <p className="flex-1 text-xs text-emerald-700 dark:text-emerald-300">
+            {t.rich('pipeline.nextStage', { name: nextCol.name, strong: (chunks) => <strong>{chunks}</strong> })}
+          </p>
           <Button size="sm" className="h-8 text-xs bg-emerald-500 hover:bg-emerald-600 text-white" disabled={advancing} onClick={handleAdvance}>
-            {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري...</> : 'نقل للتالي'}
+            {advancing ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('pipeline.working')}</> : t('pipeline.advance')}
           </Button>
         </div>
       );
@@ -674,7 +699,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 
   const deleteTask = async () => {
     await mutateAPI(`/api/tasks/${task.id}`, 'DELETE');
-    toast.success('تم حذف المهمة');
+    toast.success(t('toasts.taskDeleted'));
     onUpdate();
     onClose();
   };
@@ -697,13 +722,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         <div>
           <Popover>
             <PopoverTrigger asChild>
-              <SidebarBtn icon={Users} label="الأعضاء / تعيين" compact={compact} />
+              <SidebarBtn icon={Users} label={t('sidebar.assignees')} compact={compact} />
             </PopoverTrigger>
             <PopoverContent align="start" className="w-56 p-2">
               <Input
                 value={assigneeSearch}
                 onChange={e => setAssigneeSearch(e.target.value)}
-                placeholder="بحث عن عضو..."
+                placeholder={t('sidebar.searchMemberPlaceholder')}
                 className="h-8 text-xs mb-2"
               />
               {/* Current assignees */}
@@ -749,14 +774,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   </button>
                 ))}
                 {filteredUsers.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-2">لا يوجد مستخدمون</p>
+                  <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noUsers')}</p>
                 )}
               </div>
             </PopoverContent>
           </Popover>
           {!compact && assignees.length === 0 && (
             <p className="text-[10px] text-amber-600 dark:text-amber-400 ps-3 -mt-1 mb-1">
-              لم يُعيَّن أحد
+              {t('sidebar.noneAssigned')}
             </p>
           )}
         </div>
@@ -764,11 +789,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Labels */}
         <Popover>
           <PopoverTrigger asChild>
-            <SidebarBtn icon={Tag} label="التصنيفات" compact={compact} />
+            <SidebarBtn icon={Tag} label={t('sidebar.labels')} compact={compact} />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-48 p-2">
             {labels.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-2">لا توجد تصنيفات</p>
+              <p className="text-xs text-muted-foreground text-center py-2">{t('sidebar.noLabels')}</p>
             ) : labels.map(l => {
               const active = taskLabels.some(tl => tl.label_id === l.id);
               return (
@@ -792,7 +817,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Start date */}
         <SidebarDateBtn
           icon={CalendarDays}
-          label="تاريخ البداية"
+          label={t('sidebar.startDate')}
           value={task.start_date || ''}
           onChange={v => saveField('start_date', v || null)}
           compact={compact}
@@ -801,7 +826,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Due date */}
         <SidebarDateBtn
           icon={CalendarClock}
-          label="تاريخ الاستحقاق"
+          label={t('sidebar.dueDate')}
           value={task.due_date || ''}
           onChange={v => saveField('due_date', v || null)}
           isOverdue={!!isOverdue}
@@ -811,10 +836,10 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Priority */}
         <Popover>
           <PopoverTrigger asChild>
-            <SidebarBtn icon={Flag} label="الأولوية" compact={compact} />
+            <SidebarBtn icon={Flag} label={t('sidebar.priority')} compact={compact} />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-40 p-1">
-            {PRIORITIES.map(p => (
+            {PRIORITY_KEYS.map(p => (
               <button
                 key={p.key}
                 onClick={() => saveField('priority', p.key)}
@@ -824,7 +849,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 )}
               >
                 <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
-                {p.label}
+                {priorityLabel(p.key)}
                 {task.priority === p.key && <Check className="h-3 w-3 ms-auto text-orange-500" />}
               </button>
             ))}
@@ -834,11 +859,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Hours */}
         <Popover>
           <PopoverTrigger asChild>
-            <SidebarBtn icon={Clock} label="الساعات" badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} compact={compact} />
+            <SidebarBtn icon={Clock} label={t('sidebar.hours')} badge={task.estimated_hours ? `${task.actual_hours || 0}/${task.estimated_hours}` : undefined} compact={compact} />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-48 p-3 space-y-2">
             <div>
-              <label className="text-[10px] text-muted-foreground">المقدرة</label>
+              <label className="text-[10px] text-muted-foreground">{t('sidebar.estimatedHours')}</label>
               <Input
                 type="number"
                 min={0}
@@ -850,7 +875,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               />
             </div>
             <div>
-              <label className="text-[10px] text-muted-foreground">الفعلية</label>
+              <label className="text-[10px] text-muted-foreground">{t('sidebar.actualHours')}</label>
               <Input
                 type="number"
                 min={0}
@@ -872,7 +897,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
           >
             <Paperclip className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span>{uploading ? 'جاري الرفع...' : 'إضافة مرفق'}</span>
+            <span>{uploading ? t('sidebar.uploading') : t('sidebar.addAttachment')}</span>
           </button>
         ) : (
           <button
@@ -881,7 +906,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
           >
             <Paperclip className="h-4 w-4 text-muted-foreground" />
-            <span>{uploading ? 'جاري الرفع...' : 'إضافة مرفق'}</span>
+            <span>{uploading ? t('sidebar.uploading') : t('sidebar.addAttachment')}</span>
           </button>
         )}
 
@@ -889,7 +914,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {attachments.some(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)) && (
           <Popover>
             <PopoverTrigger asChild>
-              <SidebarBtn icon={Image} label="صورة غلاف" compact={compact} />
+              <SidebarBtn icon={Image} label={t('sidebar.coverImage')} compact={compact} />
             </PopoverTrigger>
             <PopoverContent align="start" className="w-48 p-2">
               {task.cover_image && (
@@ -897,7 +922,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   onClick={() => saveField('cover_image', null)}
                   className="w-full text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded px-2 py-1 mb-1"
                 >
-                  إزالة الغلاف
+                  {t('sidebar.removeCover')}
                 </button>
               )}
               {attachments.filter(a => /\.(jpg|jpeg|png|gif|webp)$/i.test(a.file_name)).map(a => (
@@ -919,7 +944,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {/* Move */}
         <Popover>
           <PopoverTrigger asChild>
-            <SidebarBtn icon={ArrowRightLeft} label="نقل إلى قائمة" compact={compact} />
+            <SidebarBtn icon={ArrowRightLeft} label={t('sidebar.moveToColumn')} compact={compact} />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-44 p-1">
             {columns.map(col => (
@@ -941,14 +966,14 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         {canEdit && (
           <Popover>
             <PopoverTrigger asChild>
-              <SidebarBtn icon={FolderOpen} label="نقل إلى لوحة أخرى" compact={compact} />
+              <SidebarBtn icon={FolderOpen} label={t('sidebar.moveToBoard')} compact={compact} />
             </PopoverTrigger>
             <PopoverContent align="start" className="w-56 p-2">
-              <p className="text-[10px] text-muted-foreground mb-2">اختر اللوحة والقائمة</p>
+              <p className="text-[10px] text-muted-foreground mb-2">{t('sidebar.chooseBoardAndColumn')}</p>
               <MoveToBoardPicker
                 currentBoardId={board.id}
                 taskId={task.id}
-                onMoved={() => { onUpdate(); onClose(); toast.success('تم نقل المهمة'); }}
+                onMoved={() => { onUpdate(); onClose(); toast.success(t('toasts.taskMoved')); }}
               />
             </PopoverContent>
           </Popover>
@@ -961,28 +986,28 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               onClick={async () => {
                 try {
                   await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
-                  toast.success('تم نسخ المهمة');
+                  toast.success(t('toasts.taskDuplicated'));
                   onUpdate();
-                } catch { toast.error('فشل نسخ المهمة'); }
+                } catch { toast.error(t('errors.duplicateFailed')); }
               }}
               className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
             >
               <Copy className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span>نسخ المهمة</span>
+              <span>{t('sidebar.duplicateTask')}</span>
             </button>
           ) : (
             <button
               onClick={async () => {
                 try {
                   await mutateAPI(`/api/tasks/${task.id}/duplicate`, 'POST', {});
-                  toast.success('تم نسخ المهمة');
+                  toast.success(t('toasts.taskDuplicated'));
                   onUpdate();
-                } catch { toast.error('فشل نسخ المهمة'); }
+                } catch { toast.error(t('errors.duplicateFailed')); }
               }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
             >
               <Copy className="h-4 w-4 text-muted-foreground" />
-              <span>نسخ المهمة</span>
+              <span>{t('sidebar.duplicateTask')}</span>
             </button>
           )
         )}
@@ -994,7 +1019,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
           >
             <Archive className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span>أرشفة</span>
+            <span>{t('sidebar.archive')}</span>
           </button>
         ) : (
           <button
@@ -1002,7 +1027,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
           >
             <Archive className="h-4 w-4 text-muted-foreground" />
-            <span>أرشفة</span>
+            <span>{t('sidebar.archive')}</span>
           </button>
         )}
 
@@ -1013,10 +1038,10 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               'p-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 space-y-1.5',
               compact && 'shrink-0'
             )}>
-              <p className="text-[10px] text-red-600 dark:text-red-400">حذف نهائي؟</p>
+              <p className="text-[10px] text-red-600 dark:text-red-400">{t('sidebar.deletePermanentConfirm')}</p>
               <div className="flex gap-1">
-                <Button size="sm" variant="destructive" className="h-6 text-[10px] flex-1" onClick={deleteTask}>حذف</Button>
-                <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1" onClick={() => setConfirmDelete(false)}>إلغاء</Button>
+                <Button size="sm" variant="destructive" className="h-6 text-[10px] flex-1" onClick={deleteTask}>{t('sidebar.delete')}</Button>
+                <Button size="sm" variant="ghost" className="h-6 text-[10px] flex-1" onClick={() => setConfirmDelete(false)}>{t('cancel')}</Button>
               </div>
             </div>
           ) : compact ? (
@@ -1025,7 +1050,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors shrink-0"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>حذف</span>
+              <span>{t('sidebar.delete')}</span>
             </button>
           ) : (
             <button
@@ -1033,7 +1058,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
             >
               <Trash2 className="h-4 w-4" />
-              <span>حذف</span>
+              <span>{t('sidebar.delete')}</span>
             </button>
           )
         )}
@@ -1045,9 +1070,9 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
   return (
     <Sheet open onOpenChange={onClose}>
       <SheetContent side="left" className="w-full sm:max-w-3xl p-0 overflow-hidden flex flex-col" aria-describedby={undefined}>
-        <SheetTitle className="sr-only">تفاصيل المهمة</SheetTitle>
+        <SheetTitle className="sr-only">{t('detailsTitle')}</SheetTitle>
         {/* Single hidden file input — mounted ONCE outside renderActions (which
-            renders twice, mobile+desktop); both «إضافة مرفق» buttons click it */}
+            renders twice, mobile+desktop); both "add attachment" buttons click it */}
         <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileUpload} />
         {/* Cover image */}
         {task.cover_image && (
@@ -1057,7 +1082,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
         )}
 
         {/* ═══ FIXED HEADER (title + journey stay while scrolling) ═══ */}
-        <div className="px-6 pt-5 pb-4 border-b border-border/50 shrink-0" dir="rtl">
+        <div className="px-6 pt-5 pb-4 border-b border-border/50 shrink-0" dir={dirFor(locale)}>
           {/* Title — inline editable */}
           {editingTitle ? (
             <Input
@@ -1088,7 +1113,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
           <Popover>
             <PopoverTrigger asChild>
               <button className="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1">
-                في قائمة: <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
+                {t('inColumn')} <Badge variant="outline" className="text-[10px] cursor-pointer">{currentCol?.name || '—'}</Badge>
                 <ChevronDown className="h-3 w-3" />
               </button>
             </PopoverTrigger>
@@ -1112,13 +1137,13 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
           {task.stage_entered_at && (
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
               <Clock className="h-3 w-3" aria-hidden />
-              في المرحلة دي {timeAgo(task.stage_entered_at)}
+              {t('stageTimeAgo', { time: timeAgo(task.stage_entered_at) })}
             </span>
           )}
           </div>
         </div>
 
-        <div className="flex flex-1 min-h-0 flex-col md:flex-row" dir="rtl">
+        <div className="flex flex-1 min-h-0 flex-col md:flex-row" dir={dirFor(locale)}>
           {/* ═══ MOBILE ACTION BAR (md:hidden) ═══ */}
           <div className="flex md:hidden gap-1.5 overflow-x-auto px-4 py-2.5 border-b border-border/40 shrink-0">
             {renderActions(true)}
@@ -1133,7 +1158,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                   {renderPipelineActions()}
                   {isLastStage && (
                     <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 text-center">
-                      <p className="text-xs text-green-700 dark:text-green-300 font-medium">✅ هذه المهمة في المرحلة الأخيرة — مكتملة</p>
+                      <p className="text-xs text-green-700 dark:text-green-300 font-medium">{t('pipeline.lastStageBanner')}</p>
                     </div>
                   )}
                 </div>
@@ -1178,19 +1203,19 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                     {task.start_date && (
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <CalendarDays className="h-3.5 w-3.5" />
-                        البداية: {new Date(task.start_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
+                        {t('meta.startDate', { date: new Date(task.start_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' }) })}
                       </div>
                     )}
                     {task.due_date && (
                       <div className={cn('flex items-center gap-1', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
                         <CalendarClock className="h-3.5 w-3.5" />
-                        الاستحقاق: {new Date(task.due_date).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}
-                        {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">متأخر</span>}
+                        {t('meta.dueDate', { date: new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' }) })}
+                        {isOverdue && <span className="text-[10px] bg-red-500/10 px-1 rounded">{t('meta.overdue')}</span>}
                       </div>
                     )}
                     {(task.priority === 'urgent' || task.priority === 'high') && (
                       <Badge variant="outline" className={cn('text-[10px]', task.priority === 'urgent' ? 'border-red-300 text-red-600 dark:border-red-800/50 dark:text-red-400' : 'border-orange-300 text-orange-600 dark:border-orange-800/50 dark:text-orange-400')}>
-                        {PRIORITIES.find(p => p.key === task.priority)?.label}
+                        {priorityLabel(task.priority)}
                       </Badge>
                     )}
                   </div>
@@ -1201,7 +1226,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               <div className="space-y-1 py-5 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                   <FileText className="h-3.5 w-3.5" />
-                  الوصف
+                  {t('meta.description')}
                 </div>
                 {editingDesc ? (
                   <div className="space-y-1">
@@ -1223,7 +1248,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       onBlur={saveDescription}
                       rows={5}
                       className="text-sm"
-                      placeholder="أضف وصف للمهمة..."
+                      placeholder={t('meta.descriptionPlaceholder')}
                     />
                   </div>
                 ) : (
@@ -1255,7 +1280,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       <div className="text-sm whitespace-pre-wrap break-words leading-relaxed">
                         {task.description}
                       </div>
-                    ) : 'اضغط لإضافة وصف...'}
+                    ) : t('meta.emptyDescriptionCta')}
                   </div>
                 )}
               </div>
@@ -1265,11 +1290,11 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <CheckSquare className="h-3.5 w-3.5" />
-                    قائمة المراجعة {checkTotal > 0 && <span className="tabular-nums text-muted-foreground/60">({checkDone}/{checkTotal})</span>}
+                    {t('checklist.title')} {checkTotal > 0 && <span className="tabular-nums text-muted-foreground/60">({checkDone}/{checkTotal})</span>}
                   </div>
                   {canEdit && (
                     <Button size="sm" variant="ghost" className="h-6 text-[10px]" onClick={() => setShowCheckInput(true)}>
-                      <Plus className="h-3 w-3 me-1" /> إضافة
+                      <Plus className="h-3 w-3 me-1" /> {t('checklist.add')}
                     </Button>
                   )}
                 </div>
@@ -1313,7 +1338,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                       value={newCheckItem}
                       onChange={e => setNewCheckItem(e.target.value)}
                       onKeyDown={e => { if (e.key === 'Enter') addChecklistItem(); if (e.key === 'Escape') { setShowCheckInput(false); setNewCheckItem(''); } }}
-                      placeholder="عنصر جديد..."
+                      placeholder={t('checklist.newItemPlaceholder')}
                       className="h-8 text-sm"
                     />
                     <Button size="sm" className="h-8" onClick={addChecklistItem}>
@@ -1328,7 +1353,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <Paperclip className="h-3.5 w-3.5" />
-                    المرفقات <span className="tabular-nums text-muted-foreground/60">({attachments.length})</span>
+                    {t('attachments.title')} <span className="tabular-nums text-muted-foreground/60">({attachments.length})</span>
                   </div>
                   <div className="space-y-1.5">
                     {attachments.map(att => {
@@ -1354,10 +1379,10 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                               )}
                               <span>{timeAgo(att.created_at)}</span>
                               {att.review_status === 'approved' && (
-                                <Badge className="text-[8px] h-3.5 bg-green-500/10 text-green-600 border-0">موافق</Badge>
+                                <Badge className="text-[8px] h-3.5 bg-green-500/10 text-green-600 border-0">{t('review.approved')}</Badge>
                               )}
                               {att.review_status === 'revision_requested' && (
-                                <Badge className="text-[8px] h-3.5 bg-red-500/10 text-red-600 border-0">تعديل</Badge>
+                                <Badge className="text-[8px] h-3.5 bg-red-500/10 text-red-600 border-0">{t('review.revision')}</Badge>
                               )}
                             </div>
                           </div>
@@ -1375,7 +1400,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
               <div className="space-y-3 py-5 first:pt-0 last:pb-0">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                   <MessageSquare className="h-3.5 w-3.5" />
-                  التعليقات <span className="tabular-nums text-muted-foreground/60">({comments.length})</span>
+                  {t('comments.title')} <span className="tabular-nums text-muted-foreground/60">({comments.length})</span>
                 </div>
 
                 {/* Add comment */}
@@ -1391,7 +1416,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         value={commentText}
                         onChange={setCommentText}
                         taskId={task.id}
-                        placeholder="اكتب تعليق... استخدم @ للإشارة"
+                        placeholder={t('comments.placeholder')}
                         rows={2}
                         className="text-sm"
                       />
@@ -1402,7 +1427,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         onClick={addComment}
                       >
                         <Send className="h-3 w-3 me-1" />
-                        {sendingComment ? 'إرسال...' : 'تعليق'}
+                        {sendingComment ? t('comments.sending') : t('comments.submit')}
                       </Button>
                     </div>
                   </div>
@@ -1442,7 +1467,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                 <div className="space-y-2 py-5 first:pt-0 last:pb-0">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground">
                     <History className="h-3.5 w-3.5" />
-                    سجل النشاط
+                    {t('activityLog')}
                   </div>
                   <div className="space-y-1">
                     {activities.slice(0, 15).map(act => (
@@ -1450,7 +1475,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
                         <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30 mt-1.5 shrink-0" />
                         <div className="text-muted-foreground">
                           <span className="font-medium text-foreground">{act.display_name}</span>
-                          {' '}{ACTION_LABELS[act.action] || act.action}
+                          {' '}{actionLabel(act.action)}
                           <span className="ms-1.5 text-muted-foreground/50">&middot; {timeAgo(act.created_at)}</span>
                         </div>
                       </div>
@@ -1507,6 +1532,11 @@ function SidebarBtn({ icon: Icon, label, badge, onClick, compact }: {
 function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact }: {
   icon: React.ElementType; label: string; value: string; onChange: (v: string) => void; isOverdue?: boolean; compact?: boolean;
 }) {
+  const t = useTranslations('boards.sheet');
+  const locale = useLocale() as Locale;
+  const formattedValue = value
+    ? new Date(value).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { day: 'numeric', month: 'short' })
+    : '';
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -1517,7 +1547,7 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact
           )}>
             <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <span>{label}</span>
-            {value && <span className="text-[10px]">{new Date(value).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span>}
+            {value && <span className="text-[10px]">{formattedValue}</span>}
           </button>
         ) : (
           <button className={cn(
@@ -1526,7 +1556,7 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact
           )}>
             <Icon className="h-4 w-4 text-muted-foreground" />
             <span className="flex-1">{label}</span>
-            {value && <span className="text-[10px]">{new Date(value).toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' })}</span>}
+            {value && <span className="text-[10px]">{formattedValue}</span>}
           </button>
         )}
       </PopoverTrigger>
@@ -1539,7 +1569,7 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact
         />
         {value && (
           <button onClick={() => onChange('')} className="text-[10px] text-red-500 mt-1 block">
-            إزالة التاريخ
+            {t('sidebar.clearDate')}
           </button>
         )}
       </PopoverContent>
@@ -1551,6 +1581,7 @@ function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact
 function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
   currentBoardId: string; taskId: string; onMoved: () => void;
 }) {
+  const t = useTranslations('boards.sheet');
   const [boards, setBoards] = useState<Array<{ id: string; name: string; pyra_board_columns?: Array<{ id: string; name: string }> }>>([]);
   const [selectedBoard, setSelectedBoard] = useState('');
   const [selectedCol, setSelectedCol] = useState('');
@@ -1570,7 +1601,7 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
     try {
       await mutateAPI(`/api/tasks/${taskId}/move`, 'POST', { column_id: selectedCol, target_board_id: selectedBoard, position: 0 });
       onMoved();
-    } catch { toast.error('فشل نقل المهمة'); }
+    } catch { toast.error(t('errors.moveFailed')); }
     finally { setMoving(false); }
   };
 
@@ -1581,7 +1612,7 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
         onChange={e => { setSelectedBoard(e.target.value); setSelectedCol(''); }}
         className="w-full h-8 text-xs bg-transparent border border-border rounded px-2"
       >
-        <option value="">اختر لوحة...</option>
+        <option value="">{t('sidebar.chooseBoard')}</option>
         {boards.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
       </select>
       {selectedBoard && (
@@ -1590,13 +1621,13 @@ function MoveToBoardPicker({ currentBoardId, taskId, onMoved }: {
           onChange={e => setSelectedCol(e.target.value)}
           className="w-full h-8 text-xs bg-transparent border border-border rounded px-2"
         >
-          <option value="">اختر قائمة...</option>
+          <option value="">{t('sidebar.chooseColumn')}</option>
           {selectedBoardCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
       {selectedCol && (
         <Button size="sm" className="w-full h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white" disabled={moving} onClick={handleMove}>
-          {moving ? 'جاري النقل...' : 'نقل'}
+          {moving ? t('sidebar.moving') : t('sidebar.move')}
         </Button>
       )}
     </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +12,9 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { toast } from 'sonner';
 import { EmptyState } from '@/components/ui/empty-state';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dubaiDayKey } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import {
   ChevronUp, ChevronDown, ArrowRightLeft, Flag, Archive, Check, CheckSquare, ClipboardList,
 } from 'lucide-react';
@@ -57,10 +61,6 @@ const PRIORITY_BADGE: Record<string, string> = {
   low: 'bg-gray-500/10 text-gray-600 dark:text-gray-400',
 };
 
-const PRIORITY_LABEL: Record<string, string> = {
-  urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض',
-};
-
 const LABEL_BG: Record<string, string> = {
   red: 'bg-red-500/15 text-red-700 dark:text-red-300',
   orange: 'bg-orange-500/15 text-orange-700 dark:text-orange-300',
@@ -83,12 +83,15 @@ const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, 
 // ═══════════════════════════════════════════════════════════
 
 export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, canEdit }: BoardListViewProps) {
+  const t = useTranslations('boards.listView');
+  const locale = useLocale() as Locale;
+  const priorityLabel = useStatusLabels('taskPriority');
   const [sortKey, setSortKey] = useState<SortKey>('column');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState('');
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = dubaiDayKey();
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -100,11 +103,11 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
   const sorted = [...tasks].sort((a, b) => {
     let cmp = 0;
     switch (sortKey) {
-      case 'title': cmp = a.title.localeCompare(b.title, 'ar'); break;
+      case 'title': cmp = a.title.localeCompare(b.title, locale); break;
       case 'column': {
         const ca = colMap.get(a.column_id);
         const cb = colMap.get(b.column_id);
-        cmp = (ca?.name || '').localeCompare(cb?.name || '', 'ar');
+        cmp = (ca?.name || '').localeCompare(cb?.name || '', locale);
         break;
       }
       case 'priority': cmp = (PRIORITY_ORDER[a.priority] ?? 2) - (PRIORITY_ORDER[b.priority] ?? 2); break;
@@ -135,18 +138,18 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
       for (const id of ids) {
         await mutateAPI(`/api/tasks/${id}/move`, 'POST', { column_id: colId, position: 0 });
       }
-      toast.success(`تم نقل ${ids.length} مهمة`);
+      toast.success(t('toasts.moved', { count: ids.length }));
     } else if (action.startsWith('priority:')) {
       const pri = action.replace('priority:', '');
       for (const id of ids) {
         await mutateAPI(`/api/tasks/${id}`, 'PATCH', { priority: pri });
       }
-      toast.success(`تم تغيير أولوية ${ids.length} مهمة`);
+      toast.success(t('toasts.priorityChanged', { count: ids.length }));
     } else if (action === 'archive') {
       for (const id of ids) {
         await mutateAPI(`/api/tasks/${id}`, 'PATCH', { is_archived: true });
       }
-      toast.success(`تم أرشفة ${ids.length} مهمة`);
+      toast.success(t('toasts.archived', { count: ids.length }));
     }
 
     setSelected(new Set());
@@ -165,11 +168,11 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
       {selected.size > 0 && canEdit && (
         <div className="flex items-center gap-3 p-2.5 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800">
           <Badge className="bg-orange-500 text-white">{selected.size}</Badge>
-          <span className="text-xs">محدد</span>
+          <span className="text-xs">{t('selected')}</span>
 
           <Select value={bulkAction} onValueChange={v => { setBulkAction(v); handleBulkAction(v); }}>
             <SelectTrigger className="h-7 w-36 text-xs">
-              <SelectValue placeholder="نقل إلى..." />
+              <SelectValue placeholder={t('moveToPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {columns.map(c => (
@@ -180,21 +183,21 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
 
           <Select value="" onValueChange={v => handleBulkAction(v)}>
             <SelectTrigger className="h-7 w-28 text-xs">
-              <SelectValue placeholder="أولوية..." />
+              <SelectValue placeholder={t('priorityPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              {Object.entries(PRIORITY_LABEL).map(([k, v]) => (
-                <SelectItem key={k} value={`priority:${k}`} className="text-xs">{v}</SelectItem>
+              {(['urgent', 'high', 'medium', 'low'] as const).map(k => (
+                <SelectItem key={k} value={`priority:${k}`} className="text-xs">{priorityLabel(k)}</SelectItem>
               ))}
             </SelectContent>
           </Select>
 
           <Button size="sm" variant="ghost" className="h-7 text-xs text-red-500" onClick={() => handleBulkAction('archive')}>
-            <Archive className="h-3 w-3 me-1" /> أرشفة
+            <Archive className="h-3 w-3 me-1" /> {t('archive')}
           </Button>
 
           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSelected(new Set())}>
-            إلغاء
+            {t('cancel')}
           </Button>
         </div>
       )}
@@ -216,20 +219,20 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
                   </th>
                 )}
                 <th className="text-start p-2.5 cursor-pointer hover:text-foreground text-muted-foreground text-xs font-medium" onClick={() => toggleSort('title')}>
-                  <span className="flex items-center gap-1">العنوان <SortIcon k="title" /></span>
+                  <span className="flex items-center gap-1">{t('headers.title')} <SortIcon k="title" /></span>
                 </th>
                 <th className="text-start p-2.5 cursor-pointer hover:text-foreground text-muted-foreground text-xs font-medium w-32" onClick={() => toggleSort('column')}>
-                  <span className="flex items-center gap-1">القائمة <SortIcon k="column" /></span>
+                  <span className="flex items-center gap-1">{t('headers.column')} <SortIcon k="column" /></span>
                 </th>
-                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-28">الأعضاء</th>
+                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-28">{t('headers.assignees')}</th>
                 <th className="text-start p-2.5 cursor-pointer hover:text-foreground text-muted-foreground text-xs font-medium w-24" onClick={() => toggleSort('priority')}>
-                  <span className="flex items-center gap-1">الأولوية <SortIcon k="priority" /></span>
+                  <span className="flex items-center gap-1">{t('headers.priority')} <SortIcon k="priority" /></span>
                 </th>
                 <th className="text-start p-2.5 cursor-pointer hover:text-foreground text-muted-foreground text-xs font-medium w-28" onClick={() => toggleSort('due_date')}>
-                  <span className="flex items-center gap-1">الاستحقاق <SortIcon k="due_date" /></span>
+                  <span className="flex items-center gap-1">{t('headers.due')} <SortIcon k="due_date" /></span>
                 </th>
-                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-24">التصنيفات</th>
-                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-16">قائمة</th>
+                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-24">{t('headers.labels')}</th>
+                <th className="text-start p-2.5 text-muted-foreground text-xs font-medium w-16">{t('headers.checklist')}</th>
               </tr>
             </thead>
             <tbody>
@@ -274,13 +277,13 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
                     </td>
                     <td className="p-2.5">
                       <Badge className={cn('text-[10px] border-0', PRIORITY_BADGE[task.priority])}>
-                        {PRIORITY_LABEL[task.priority]}
+                        {priorityLabel(task.priority)}
                       </Badge>
                     </td>
                     <td className="p-2.5">
                       {task.due_date ? (
                         <span className={cn('text-xs', isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground')}>
-                          {new Date(task.due_date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                          {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
                         </span>
                       ) : <span className="text-xs text-muted-foreground/30">—</span>}
                     </td>
@@ -307,7 +310,7 @@ export function BoardListView({ tasks, columns, boardId, onTaskClick, onUpdate, 
             </tbody>
           </table>
           {sorted.length === 0 && (
-            <EmptyState icon={ClipboardList} title="لا توجد مهام مطابقة" className="py-8" />
+            <EmptyState icon={ClipboardList} title={t('emptyTitle')} className="py-8" />
           )}
         </div>
       </div>

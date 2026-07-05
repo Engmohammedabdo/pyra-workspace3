@@ -899,7 +899,7 @@ export default function BoardViewClient({
   const labelList = (board.pyra_board_labels as Array<{ id: string; name: string; color: string }>) || [];
 
   // Apply filters
-  const filteredTasks = applyFilters(tasks, filters);
+  const filteredTasks = applyFilters(tasks, filters, locale);
 
   return (
     <div className="p-6 space-y-4">

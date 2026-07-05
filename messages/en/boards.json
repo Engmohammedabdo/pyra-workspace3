@@ -127,6 +127,195 @@
         "newLabelPlaceholder": "New label...",
         "add": "Add"
       }
+    },
+    "calView": {
+      "nextMonth": "Next month",
+      "prevMonth": "Previous month",
+      "today": "Today",
+      "overflow": "{count, plural, one {+#} other {+#}}",
+      "noDate": "{count, plural, one {No date (#)} other {No date (#)}}"
+    },
+    "listView": {
+      "toasts": {
+        "moved": "{count, plural, one {# task moved} other {# tasks moved}}",
+        "priorityChanged": "{count, plural, one {Priority changed for # task} other {Priority changed for # tasks}}",
+        "archived": "{count, plural, one {# task archived} other {# tasks archived}}"
+      },
+      "selected": "selected",
+      "moveToPlaceholder": "Move to...",
+      "priorityPlaceholder": "Priority...",
+      "archive": "Archive",
+      "cancel": "Cancel",
+      "headers": {
+        "title": "Title",
+        "column": "List",
+        "assignees": "Assignees",
+        "priority": "Priority",
+        "due": "Due",
+        "labels": "Labels",
+        "checklist": "Checklist"
+      },
+      "emptyTitle": "No matching tasks"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search...",
+      "assignees": "Assignees",
+      "labels": "Labels",
+      "priority": "Priority",
+      "dueDate": "Due date",
+      "sortLabel": "Sort",
+      "dueFilters": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "week": "This week",
+        "none": "No date"
+      },
+      "sort": {
+        "position": "Default",
+        "newest": "Newest",
+        "oldest": "Oldest",
+        "priority": "Priority",
+        "due_date": "Due date",
+        "title": "Name"
+      },
+      "clearFilters": "{count, plural, one {Clear (#)} other {Clear (#)}}",
+      "stats": "{taskCount, plural, one {# task} other {# tasks}} · {columnCount, plural, one {# {mode, select, pipeline {stage} other {column}}} other {# {mode, select, pipeline {stages} other {columns}}}}",
+      "viewKanban": "Kanban",
+      "viewPipeline": "Pipeline",
+      "viewList": "List",
+      "viewCalendar": "Calendar"
+    },
+    "timeAgo": {
+      "now": "now",
+      "minutes": "{n}m ago",
+      "hours": "{n}h ago",
+      "days": "{n}d ago"
+    },
+    "sheet": {
+      "loadingTitle": "Loading task",
+      "detailsTitle": "Task details",
+      "stageStepperAria": "Task stages",
+      "inColumn": "In list:",
+      "stageTimeAgo": "In this stage {time}",
+      "activityLog": "Activity log",
+      "cancel": "Cancel",
+      "activity": {
+        "created": "Created the task",
+        "moved": "Moved the task",
+        "assignee_added": "Added a member",
+        "assignee_removed": "Removed a member",
+        "comment_added": "Added a comment",
+        "checklist_added": "Added an item",
+        "stage_advanced": "Advanced to the next stage",
+        "stage_approved": "Approved",
+        "stage_rejected": "Rejected",
+        "file_uploaded": "Uploaded a file",
+        "file_approved": "Approved a file",
+        "file_revision_requested": "Requested changes"
+      },
+      "pipeline": {
+        "waitingAdminReview": "⏳ Awaiting admin review",
+        "reviewDecision": "Review decision — check the link in attachments first",
+        "rejectNotePlaceholder": "Summary of required changes (required)...",
+        "requestChangesConfirm": "Request Changes ✗",
+        "requestChanges": "Request changes",
+        "working": "Working...",
+        "approve": "Approve ✓",
+        "reviewLinkLabel": "Version link (frame.io or Google Drive)",
+        "optionalNotePlaceholder": "Optional note...",
+        "submitReview": "Submit for Review 👀",
+        "submitReviewButton": "👀 Submit for Review",
+        "deliveryLinkLabel": "Final link on Google Drive (deliverables folder)",
+        "finalDelivery": "Final Delivery 📦",
+        "finalDeliveryButton": "📦 Final Delivery",
+        "nextStage": "Next stage: <strong>{name}</strong>",
+        "advance": "Move to next",
+        "lastStageBanner": "✅ This task is in the final stage — completed"
+      },
+      "toasts": {
+        "fileUploaded": "File uploaded",
+        "advanced": "Task moved to the next stage",
+        "reviewSubmitted": "Version submitted for review ✓",
+        "deliverySubmitted": "Final delivery recorded ✓",
+        "approved": "Task approved and moved ✓",
+        "rejected": "Changes requested and task returned",
+        "taskDeleted": "Task deleted",
+        "taskMoved": "Task moved",
+        "taskDuplicated": "Task duplicated"
+      },
+      "errors": {
+        "saveFailed": "Save failed",
+        "assigneeFailed": "Could not update members",
+        "labelFailed": "Could not update label",
+        "commentSendFailed": "Failed to send comment",
+        "commentDeleteFailed": "Could not delete comment",
+        "checklistUpdateFailed": "Could not update task",
+        "checklistDeleteFailed": "Could not delete task",
+        "fileUploadFailed": "File upload failed",
+        "moveFailed": "Failed to move task",
+        "generic": "An error occurred",
+        "invalidLink": "Paste a valid link starting with https:// (frame.io or Google Drive)",
+        "approveFailed": "Approval failed",
+        "rejectFailed": "Failed to request changes",
+        "duplicateFailed": "Failed to duplicate task",
+        "loadFailed": "Failed to load task"
+      },
+      "sidebar": {
+        "assignees": "Members / Assign",
+        "searchMemberPlaceholder": "Search for a member...",
+        "noUsers": "No users found",
+        "noneAssigned": "No one assigned",
+        "labels": "Labels",
+        "noLabels": "No labels",
+        "startDate": "Start date",
+        "dueDate": "Due date",
+        "priority": "Priority",
+        "hours": "Hours",
+        "estimatedHours": "Estimated",
+        "actualHours": "Actual",
+        "uploading": "Uploading...",
+        "addAttachment": "Add attachment",
+        "coverImage": "Cover image",
+        "removeCover": "Remove cover",
+        "moveToColumn": "Move to list",
+        "moveToBoard": "Move to another board",
+        "chooseBoardAndColumn": "Choose the board and list",
+        "duplicateTask": "Duplicate task",
+        "archive": "Archive",
+        "deletePermanentConfirm": "Delete permanently?",
+        "delete": "Delete",
+        "clearDate": "Clear date",
+        "chooseBoard": "Choose a board...",
+        "chooseColumn": "Choose a list...",
+        "moving": "Moving...",
+        "move": "Move"
+      },
+      "meta": {
+        "startDate": "Start: {date}",
+        "dueDate": "Due: {date}",
+        "overdue": "Overdue",
+        "description": "Description",
+        "descriptionPlaceholder": "Add a task description...",
+        "emptyDescriptionCta": "Click to add a description..."
+      },
+      "checklist": {
+        "title": "Checklist",
+        "add": "Add",
+        "newItemPlaceholder": "New item..."
+      },
+      "attachments": {
+        "title": "Attachments"
+      },
+      "review": {
+        "approved": "Approved",
+        "revision": "Revision"
+      },
+      "comments": {
+        "title": "Comments",
+        "placeholder": "Write a comment... use @ to mention",
+        "sending": "Sending...",
+        "submit": "Comment"
+      }
     }
   }
 }

@@ -127,6 +127,195 @@
         "newLabelPlaceholder": "تصنيف جديد...",
         "add": "إضافة"
       }
+    },
+    "calView": {
+      "nextMonth": "الشهر التالي",
+      "prevMonth": "الشهر السابق",
+      "today": "اليوم",
+      "overflow": "{count, plural, other {+#}}",
+      "noDate": "{count, plural, other {بدون تاريخ (#)}}"
+    },
+    "listView": {
+      "toasts": {
+        "moved": "{count, plural, other {تم نقل # مهمة}}",
+        "priorityChanged": "{count, plural, other {تم تغيير أولوية # مهمة}}",
+        "archived": "{count, plural, other {تم أرشفة # مهمة}}"
+      },
+      "selected": "محدد",
+      "moveToPlaceholder": "نقل إلى...",
+      "priorityPlaceholder": "أولوية...",
+      "archive": "أرشفة",
+      "cancel": "إلغاء",
+      "headers": {
+        "title": "العنوان",
+        "column": "القائمة",
+        "assignees": "الأعضاء",
+        "priority": "الأولوية",
+        "due": "الاستحقاق",
+        "labels": "التصنيفات",
+        "checklist": "قائمة"
+      },
+      "emptyTitle": "لا توجد مهام مطابقة"
+    },
+    "toolbar": {
+      "searchPlaceholder": "بحث...",
+      "assignees": "الأعضاء",
+      "labels": "التصنيفات",
+      "priority": "الأولوية",
+      "dueDate": "التاريخ",
+      "sortLabel": "ترتيب",
+      "dueFilters": {
+        "overdue": "متأخرة",
+        "today": "اليوم",
+        "week": "هذا الأسبوع",
+        "none": "بدون تاريخ"
+      },
+      "sort": {
+        "position": "الافتراضي",
+        "newest": "الأحدث",
+        "oldest": "الأقدم",
+        "priority": "الأولوية",
+        "due_date": "تاريخ التسليم",
+        "title": "الاسم"
+      },
+      "clearFilters": "{count, plural, other {مسح (#)}}",
+      "stats": "{taskCount, plural, other {# مهمة}} · {columnCount} {mode, select, pipeline {مراحل} other {أعمدة}}",
+      "viewKanban": "كانبان",
+      "viewPipeline": "Pipeline",
+      "viewList": "قائمة",
+      "viewCalendar": "تقويم"
+    },
+    "timeAgo": {
+      "now": "الآن",
+      "minutes": "منذ {n} د",
+      "hours": "منذ {n} س",
+      "days": "منذ {n} ي"
+    },
+    "sheet": {
+      "loadingTitle": "تحميل المهمة",
+      "detailsTitle": "تفاصيل المهمة",
+      "stageStepperAria": "مراحل المهمة",
+      "inColumn": "في قائمة:",
+      "stageTimeAgo": "في المرحلة دي {time}",
+      "activityLog": "سجل النشاط",
+      "cancel": "إلغاء",
+      "activity": {
+        "created": "أنشأ المهمة",
+        "moved": "نقل المهمة",
+        "assignee_added": "أضاف عضو",
+        "assignee_removed": "أزال عضو",
+        "comment_added": "أضاف تعليق",
+        "checklist_added": "أضاف عنصر",
+        "stage_advanced": "نقل للمرحلة التالية",
+        "stage_approved": "وافق",
+        "stage_rejected": "رفض",
+        "file_uploaded": "رفع ملف",
+        "file_approved": "وافق على ملف",
+        "file_revision_requested": "طلب تعديل"
+      },
+      "pipeline": {
+        "waitingAdminReview": "⏳ في انتظار مراجعة الأدمن",
+        "reviewDecision": "قرار المراجعة — راجع الرابط في المرفقات أولاً",
+        "rejectNotePlaceholder": "ملخص التعديلات المطلوبة (إجباري)...",
+        "requestChangesConfirm": "طلب تعديل ✗",
+        "requestChanges": "طلب تعديل",
+        "working": "جاري...",
+        "approve": "اعتماد ✓",
+        "reviewLinkLabel": "رابط النسخة (frame.io أو Google Drive)",
+        "optionalNotePlaceholder": "ملاحظة اختيارية...",
+        "submitReview": "رفع للمراجعة 👀",
+        "submitReviewButton": "👀 رفع للمراجعة",
+        "deliveryLinkLabel": "رابط الفاينل على Google Drive (فولدر التسليمات)",
+        "finalDelivery": "تسليم نهائي 📦",
+        "finalDeliveryButton": "📦 تسليم نهائي",
+        "nextStage": "المرحلة التالية: <strong>{name}</strong>",
+        "advance": "نقل للتالي",
+        "lastStageBanner": "✅ هذه المهمة في المرحلة الأخيرة — مكتملة"
+      },
+      "toasts": {
+        "fileUploaded": "تم رفع الملف",
+        "advanced": "تم نقل المهمة للمرحلة التالية",
+        "reviewSubmitted": "تم رفع النسخة للمراجعة ✓",
+        "deliverySubmitted": "تم تسجيل التسليم النهائي ✓",
+        "approved": "تم اعتماد المهمة ونقلها ✓",
+        "rejected": "تم طلب التعديل وإرجاع المهمة",
+        "taskDeleted": "تم حذف المهمة",
+        "taskMoved": "تم نقل المهمة",
+        "taskDuplicated": "تم نسخ المهمة"
+      },
+      "errors": {
+        "saveFailed": "فشل الحفظ",
+        "assigneeFailed": "تعذّر تعديل الأعضاء",
+        "labelFailed": "تعذّر تحديث التصنيف",
+        "commentSendFailed": "فشل إرسال التعليق",
+        "commentDeleteFailed": "تعذّر حذف التعليق",
+        "checklistUpdateFailed": "تعذّر تحديث المهمة",
+        "checklistDeleteFailed": "تعذّر حذف المهمة",
+        "fileUploadFailed": "فشل رفع الملف",
+        "moveFailed": "فشل نقل المهمة",
+        "generic": "حدث خطأ",
+        "invalidLink": "الصق رابط صحيح يبدأ بـ https:// (frame.io أو Google Drive)",
+        "approveFailed": "فشل في الاعتماد",
+        "rejectFailed": "فشل في طلب التعديل",
+        "duplicateFailed": "فشل نسخ المهمة",
+        "loadFailed": "فشل تحميل المهمة"
+      },
+      "sidebar": {
+        "assignees": "الأعضاء / تعيين",
+        "searchMemberPlaceholder": "بحث عن عضو...",
+        "noUsers": "لا يوجد مستخدمون",
+        "noneAssigned": "لم يُعيَّن أحد",
+        "labels": "التصنيفات",
+        "noLabels": "لا توجد تصنيفات",
+        "startDate": "تاريخ البداية",
+        "dueDate": "تاريخ الاستحقاق",
+        "priority": "الأولوية",
+        "hours": "الساعات",
+        "estimatedHours": "المقدرة",
+        "actualHours": "الفعلية",
+        "uploading": "جاري الرفع...",
+        "addAttachment": "إضافة مرفق",
+        "coverImage": "صورة غلاف",
+        "removeCover": "إزالة الغلاف",
+        "moveToColumn": "نقل إلى قائمة",
+        "moveToBoard": "نقل إلى لوحة أخرى",
+        "chooseBoardAndColumn": "اختر اللوحة والقائمة",
+        "duplicateTask": "نسخ المهمة",
+        "archive": "أرشفة",
+        "deletePermanentConfirm": "حذف نهائي؟",
+        "delete": "حذف",
+        "clearDate": "إزالة التاريخ",
+        "chooseBoard": "اختر لوحة...",
+        "chooseColumn": "اختر قائمة...",
+        "moving": "جاري النقل...",
+        "move": "نقل"
+      },
+      "meta": {
+        "startDate": "البداية: {date}",
+        "dueDate": "الاستحقاق: {date}",
+        "overdue": "متأخر",
+        "description": "الوصف",
+        "descriptionPlaceholder": "أضف وصف للمهمة...",
+        "emptyDescriptionCta": "اضغط لإضافة وصف..."
+      },
+      "checklist": {
+        "title": "قائمة المراجعة",
+        "add": "إضافة",
+        "newItemPlaceholder": "عنصر جديد..."
+      },
+      "attachments": {
+        "title": "المرفقات"
+      },
+      "review": {
+        "approved": "موافق",
+        "revision": "تعديل"
+      },
+      "comments": {
+        "title": "التعليقات",
+        "placeholder": "اكتب تعليق... استخدم @ للإشارة",
+        "sending": "إرسال...",
+        "submit": "تعليق"
+      }
     }
   }
 }

@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
+import { dubaiDayKey } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import { ChevronRight, ChevronLeft, CalendarDays } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════
@@ -25,7 +28,12 @@ interface BoardCalendarViewProps {
   defaultColumnId: string;
 }
 
-const DAYS_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+// Sunday-first order — matches the reuse of the `calendar.dayNames` keyed
+// object established in Task 4 (components/calendar/calendar-month-view.tsx).
+// Keys are a plain tuple rather than reading a JSON array: a top-level
+// `string[]` value poisons next-intl's global `NestedKeyOf<Messages>` type
+// inference for the WHOLE `calendar` namespace — verified in Task 4.
+const DAY_NAME_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 const PRIORITY_DOTS: Record<string, string> = {
   urgent: 'bg-red-500',
@@ -37,6 +45,10 @@ const PRIORITY_DOTS: Record<string, string> = {
 // ═══════════════════════════════════════════════════════════
 
 export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColumnId }: BoardCalendarViewProps) {
+  const t = useTranslations('boards.calView');
+  const tCalendar = useTranslations('calendar');
+  const locale = useLocale() as Locale;
+  const dayNames = DAY_NAME_KEYS.map((key) => tCalendar(`dayNames.${key}`));
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const year = currentDate.getFullYear();
@@ -64,29 +76,29 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
   }, [tasks]);
 
   const noDateTasks = tasks.filter(t => !t.due_date);
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = dubaiDayKey();
 
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
 
-  const monthName = currentDate.toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' });
+  const monthName = currentDate.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'long', year: 'numeric' });
 
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth} aria-label="الشهر التالي">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={nextMonth} aria-label={t('nextMonth')}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           <h3 className="text-sm font-bold min-w-[120px] text-center">{monthName}</h3>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth} aria-label="الشهر السابق">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={prevMonth} aria-label={t('prevMonth')}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={goToday}>
-          اليوم
+          {t('today')}
         </Button>
       </div>
 
@@ -95,8 +107,8 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
         <div className="flex-1">
           {/* Day headers */}
           <div className="grid grid-cols-7 gap-px mb-1">
-            {DAYS_AR.map(d => (
-              <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-1">
+            {dayNames.map((d, i) => (
+              <div key={DAY_NAME_KEYS[i]} className="text-center text-[10px] font-medium text-muted-foreground py-1">
                 {d}
               </div>
             ))}
@@ -149,7 +161,7 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
                       </button>
                     ))}
                     {dayTasks.length > 3 && (
-                      <p className="text-[8px] text-muted-foreground/50 text-center">+{dayTasks.length - 3}</p>
+                      <p className="text-[8px] text-muted-foreground/50 text-center">{t('overflow', { count: dayTasks.length - 3 })}</p>
                     )}
                   </div>
                 </div>
@@ -163,7 +175,7 @@ export function BoardCalendarView({ tasks, onTaskClick, onQuickAdd, defaultColum
           <div className="w-44 shrink-0">
             <div className="flex items-center gap-1.5 mb-2">
               <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-[10px] font-medium text-muted-foreground">بدون تاريخ ({noDateTasks.length})</span>
+              <span className="text-[10px] font-medium text-muted-foreground">{t('noDate', { count: noDateTasks.length })}</span>
             </div>
             <div className="space-y-1 max-h-[500px] overflow-y-auto">
               {noDateTasks.map(t => (

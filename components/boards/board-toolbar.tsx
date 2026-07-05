@@ -1,11 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils/cn';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dubaiDayKey } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import {
   Search, Filter, LayoutGrid, List, GitBranch, Users, Tag, Flag, CalendarClock, X, ArrowUpDown,
 } from 'lucide-react';
@@ -49,19 +53,19 @@ interface BoardToolbarProps {
 // Constants
 // ═══════════════════════════════════════════════════════════
 
-const PRIORITIES = [
-  { key: 'urgent', label: 'عاجل', color: 'bg-red-500' },
-  { key: 'high', label: 'مرتفع', color: 'bg-orange-500' },
-  { key: 'medium', label: 'متوسط', color: 'bg-blue-500' },
-  { key: 'low', label: 'منخفض', color: 'bg-gray-400' },
-];
+const PRIORITY_KEYS = [
+  { key: 'urgent', color: 'bg-red-500' },
+  { key: 'high', color: 'bg-orange-500' },
+  { key: 'medium', color: 'bg-blue-500' },
+  { key: 'low', color: 'bg-gray-400' },
+] as const;
 
-const DUE_FILTERS = [
-  { key: 'overdue', label: 'متأخرة', color: 'text-red-500' },
-  { key: 'today', label: 'اليوم', color: 'text-blue-500' },
-  { key: 'week', label: 'هذا الأسبوع', color: 'text-green-500' },
-  { key: 'none', label: 'بدون تاريخ', color: 'text-gray-400' },
-];
+const DUE_FILTER_KEYS = [
+  { key: 'overdue', color: 'text-red-500' },
+  { key: 'today', color: 'text-blue-500' },
+  { key: 'week', color: 'text-green-500' },
+  { key: 'none', color: 'text-gray-400' },
+] as const;
 
 const LABEL_DOT: Record<string, string> = {
   red: 'bg-red-500', orange: 'bg-orange-500', yellow: 'bg-yellow-500',
@@ -82,10 +86,11 @@ export function applyFilters<T extends {
   pyra_task_labels?: { label_id?: string }[];
 }>(
   tasks: T[],
-  filters: BoardFilters
+  filters: BoardFilters,
+  locale: string = 'ar'
 ): T[] {
-  const today = new Date().toISOString().split('T')[0];
-  const weekEnd = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+  const today = dubaiDayKey();
+  const weekEnd = dubaiDayKey(new Date(Date.now() + 7 * 86400000));
 
   const filtered = tasks.filter(t => {
     // Search
@@ -118,7 +123,7 @@ export function applyFilters<T extends {
         case 'oldest': return (a.created_at || '').localeCompare(b.created_at || '');
         case 'priority': return (PRIORITY_SORT[a.priority] ?? 2) - (PRIORITY_SORT[b.priority] ?? 2);
         case 'due_date': return (a.due_date || '9999').localeCompare(b.due_date || '9999');
-        case 'title': return a.title.localeCompare(b.title, 'ar');
+        case 'title': return a.title.localeCompare(b.title, locale);
         default: return 0;
       }
     });
@@ -135,6 +140,11 @@ export function BoardToolbar({
   taskCount, columnCount, isPipeline, viewMode, onViewModeChange,
   filters, onFiltersChange, assigneeList, labelList, onSettingsClick, canManage,
 }: BoardToolbarProps) {
+  const t = useTranslations('boards.toolbar');
+  const locale = useLocale() as Locale;
+  const priorityLabel = useStatusLabels('taskPriority');
+  const dueFilterLabel = useTranslations('boards.toolbar.dueFilters');
+  const sortLabel = useTranslations('boards.toolbar.sort');
   const activeFilterCount =
     filters.assignees.length + filters.labels.length + filters.priorities.length +
     (filters.dueDateFilter ? 1 : 0);
@@ -159,7 +169,7 @@ export function BoardToolbar({
         <Input
           value={filters.search}
           onChange={e => updateFilter('search', e.target.value)}
-          placeholder="بحث..."
+          placeholder={t('searchPlaceholder')}
           className="h-8 w-44 ps-8 text-xs"
         />
         {filters.search && (
@@ -174,7 +184,7 @@ export function BoardToolbar({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.assignees.length > 0 && 'border-orange-400 bg-orange-500/5')}>
             <Users className="h-3.5 w-3.5" />
-            الأعضاء
+            {t('assignees')}
             {filters.assignees.length > 0 && <Badge className="h-4 w-4 p-0 text-[9px] bg-orange-500 text-white justify-center">{filters.assignees.length}</Badge>}
           </Button>
         </PopoverTrigger>
@@ -200,7 +210,7 @@ export function BoardToolbar({
           <PopoverTrigger asChild>
             <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.labels.length > 0 && 'border-orange-400 bg-orange-500/5')}>
               <Tag className="h-3.5 w-3.5" />
-              التصنيفات
+              {t('labels')}
               {filters.labels.length > 0 && <Badge className="h-4 w-4 p-0 text-[9px] bg-orange-500 text-white justify-center">{filters.labels.length}</Badge>}
             </Button>
           </PopoverTrigger>
@@ -224,18 +234,18 @@ export function BoardToolbar({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.priorities.length > 0 && 'border-orange-400 bg-orange-500/5')}>
             <Flag className="h-3.5 w-3.5" />
-            الأولوية
+            {t('priority')}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-36 p-1">
-          {PRIORITIES.map(p => (
+          {PRIORITY_KEYS.map(p => (
             <button
               key={p.key}
               onClick={() => toggleArrayFilter('priorities', p.key)}
               className={cn('w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted', filters.priorities.includes(p.key) && 'bg-orange-500/10')}
             >
               <div className={cn('w-2.5 h-2.5 rounded-full', p.color)} />
-              {p.label}
+              {priorityLabel(p.key)}
             </button>
           ))}
         </PopoverContent>
@@ -246,18 +256,18 @@ export function BoardToolbar({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.dueDateFilter && 'border-orange-400 bg-orange-500/5')}>
             <CalendarClock className="h-3.5 w-3.5" />
-            التاريخ
+            {t('dueDate')}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-36 p-1">
-          {DUE_FILTERS.map(d => (
+          {DUE_FILTER_KEYS.map(d => (
             <button
               key={d.key}
               onClick={() => updateFilter('dueDateFilter', filters.dueDateFilter === d.key ? '' : d.key as BoardFilters['dueDateFilter'])}
               className={cn('w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted', filters.dueDateFilter === d.key && 'bg-orange-500/10')}
             >
               <span className={d.color}>●</span>
-              {d.label}
+              {dueFilterLabel(d.key)}
             </button>
           ))}
         </PopoverContent>
@@ -268,24 +278,17 @@ export function BoardToolbar({
         <PopoverTrigger asChild>
           <Button variant="outline" size="sm" className={cn('h-8 text-xs gap-1', filters.sortBy !== 'position' && 'border-orange-400 bg-orange-500/5')}>
             <ArrowUpDown className="h-3.5 w-3.5" />
-            ترتيب
+            {t('sortLabel')}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-36 p-1">
-          {([
-            { key: 'position', label: 'الافتراضي' },
-            { key: 'newest', label: 'الأحدث' },
-            { key: 'oldest', label: 'الأقدم' },
-            { key: 'priority', label: 'الأولوية' },
-            { key: 'due_date', label: 'تاريخ التسليم' },
-            { key: 'title', label: 'الاسم' },
-          ] as const).map(s => (
+          {(['position', 'newest', 'oldest', 'priority', 'due_date', 'title'] as const).map(s => (
             <button
-              key={s.key}
-              onClick={() => updateFilter('sortBy', s.key)}
-              className={cn('w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted', filters.sortBy === s.key && 'bg-orange-500/10')}
+              key={s}
+              onClick={() => updateFilter('sortBy', s)}
+              className={cn('w-full flex items-center gap-2 px-3 py-1.5 rounded text-xs text-start hover:bg-muted', filters.sortBy === s && 'bg-orange-500/10')}
             >
-              {s.label}
+              {sortLabel(s)}
             </button>
           ))}
         </PopoverContent>
@@ -294,7 +297,7 @@ export function BoardToolbar({
       {/* Clear filters */}
       {activeFilterCount > 0 && (
         <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground" onClick={clearFilters}>
-          <X className="h-3 w-3 me-1" /> مسح ({activeFilterCount})
+          <X className="h-3 w-3 me-1" /> {t('clearFilters', { count: activeFilterCount })}
         </Button>
       )}
 
@@ -303,7 +306,7 @@ export function BoardToolbar({
 
       {/* Stats */}
       <span className="text-xs text-muted-foreground hidden sm:inline">
-        {taskCount} مهمة · {columnCount} {isPipeline ? 'مراحل' : 'أعمدة'}
+        {t('stats', { taskCount, columnCount, mode: isPipeline ? 'pipeline' : 'kanban' })}
       </span>
 
       {/* View toggle — segmented control */}
@@ -317,7 +320,7 @@ export function BoardToolbar({
           )}
         >
           <LayoutGrid className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">كانبان</span>
+          <span className="hidden sm:inline">{t('viewKanban')}</span>
         </button>
         {isPipeline && (
           <button
@@ -329,7 +332,7 @@ export function BoardToolbar({
             )}
           >
             <GitBranch className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Pipeline</span>
+            <span className="hidden sm:inline">{t('viewPipeline')}</span>
           </button>
         )}
         <button
@@ -341,7 +344,7 @@ export function BoardToolbar({
           )}
         >
           <List className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">قائمة</span>
+          <span className="hidden sm:inline">{t('viewList')}</span>
         </button>
         <button
           onClick={() => onViewModeChange('calendar')}
@@ -352,7 +355,7 @@ export function BoardToolbar({
           )}
         >
           <CalendarClock className="h-3.5 w-3.5" />
-          <span className="hidden sm:inline">تقويم</span>
+          <span className="hidden sm:inline">{t('viewCalendar')}</span>
         </button>
       </div>
     </div>
