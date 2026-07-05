@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   DndContext,
   DragEndEvent,
@@ -75,6 +76,7 @@ import { BoardListView } from '@/components/boards/board-list-view';
 import { BoardCalendarView } from '@/components/boards/board-calendar-view';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useRealtimeBoardTasks } from '@/hooks/useRealtime';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 // ============================================================
 // Types
@@ -150,13 +152,6 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: 'border-s-gray-400',
 };
 
-const PRIORITY_LABELS: Record<string, string> = {
-  urgent: 'عاجل',
-  high: 'مرتفع',
-  medium: 'متوسط',
-  low: 'منخفض',
-};
-
 const COLUMN_COLORS: Record<string, string> = {
   gray: 'bg-gray-500',
   blue: 'bg-blue-500',
@@ -225,6 +220,7 @@ function TaskCard({
   accent?: { bar: string };
   isPipeline?: boolean;
 }) {
+  const locale = useLocale();
   const {
     attributes,
     listeners,
@@ -317,7 +313,7 @@ function TaskCard({
                 className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-md tabular-nums ${dueBadgeColor}`}
               >
                 <Calendar className="h-3 w-3" />
-                {new Date(task.due_date).toLocaleDateString('ar-EG', {
+                {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
                   month: 'short',
                   day: 'numeric',
                 })}
@@ -401,6 +397,7 @@ function DroppableColumn({
   canCreate?: boolean;
   isPipeline?: boolean;
 }) {
+  const t = useTranslations('boards.view.column');
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: column.id });
   const { attributes, listeners, setNodeRef: setSortRef, transform, transition } = useSortable({ id: `col-${column.id}` });
   const style = { transform: CSS.Translate.toString(transform), transition };
@@ -476,7 +473,7 @@ function DroppableColumn({
             ))}
             {tasks.length === 0 && !isQuickAdding && (
               <div className="text-center text-xs text-muted-foreground py-8 border-2 border-dashed rounded-lg">
-                اسحب مهمة هنا أو اضغط +
+                {t('emptyDropzone')}
               </div>
             )}
           </div>
@@ -494,12 +491,12 @@ function DroppableColumn({
               if (e.key === 'Enter') onQuickAddSubmit?.(column.id);
               if (e.key === 'Escape') onQuickAddCancel?.();
             }}
-            placeholder="عنوان المهمة..."
+            placeholder={t('quickAddPlaceholder')}
             className="h-8 text-sm"
           />
           <div className="flex gap-1">
             <Button size="sm" className="h-7 text-xs bg-orange-500 hover:bg-orange-600 text-white flex-1" onClick={() => onQuickAddSubmit?.(column.id)}>
-              إضافة
+              {t('quickAddSubmit')}
             </Button>
             <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onQuickAddCancel}>
               <X className="h-3 w-3" />
@@ -511,7 +508,7 @@ function DroppableColumn({
           onClick={() => onQuickAddStart?.(column.id)}
           className="mt-2 w-full text-xs text-muted-foreground/50 hover:text-muted-foreground py-1.5 border border-dashed border-border/30 rounded-lg hover:border-orange-300 transition-colors flex items-center justify-center gap-1"
         >
-          <Plus className="h-3 w-3" /> إضافة مهمة
+          <Plus className="h-3 w-3" /> {t('addTaskFooter')}
         </button>
       ) : null}
     </div>
@@ -529,6 +526,10 @@ export default function BoardViewClient({
   boardId: string;
   session: AuthSession;
 }) {
+  const t = useTranslations('boards.view');
+  const tNav = useTranslations('nav');
+  const locale = useLocale();
+  const priorityLabel = useStatusLabels('taskPriority');
   const router = useRouter();
   const searchParams = useSearchParams();
   const taskParam = searchParams.get('task');
@@ -583,16 +584,16 @@ export default function BoardViewClient({
         const { data } = await boardRes.json();
         setBoard(data);
       } else {
-        toast.error('فشل تحميل اللوحة');
+        toast.error(t('toasts.loadBoardFailed'));
       }
       if (tasksRes.ok) {
         const { data } = await tasksRes.json();
         setTasks(data || []);
       } else {
-        toast.error('فشل تحميل المهام');
+        toast.error(t('toasts.loadTasksFailed'));
       }
     } catch {
-      toast.error('حدث خطأ في الاتصال');
+      toast.error(t('toasts.connectionError'));
     } finally {
       setLoading(false);
     }
@@ -661,12 +662,12 @@ export default function BoardViewClient({
         body: JSON.stringify({ title: quickAddTitle.trim(), column_id: columnId }),
       });
       if (res.ok) {
-        toast.success('تم إضافة المهمة');
+        toast.success(t('toasts.taskAdded'));
         setQuickAddTitle('');
         setQuickAddCol(null);
         fetchBoard();
       }
-    } catch { toast.error('فشل إضافة المهمة'); }
+    } catch { toast.error(t('toasts.taskAddFailed')); }
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -706,9 +707,9 @@ export default function BoardViewClient({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ columns: payload }),
         });
-        toast.success('تم إعادة ترتيب الأعمدة');
+        toast.success(t('toasts.columnsReordered'));
       } catch {
-        toast.error('فشل حفظ الترتيب');
+        toast.error(t('toasts.columnsSaveFailed'));
         fetchBoard();
       }
       return;
@@ -763,7 +764,7 @@ export default function BoardViewClient({
           targetCol.column_type === 'delivery' ||
           targetCol.requires_approval)
       ) {
-        toast.info('هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)');
+        toast.info(t('toasts.gatedColumnBlocked'));
         return;
       }
     }
@@ -788,9 +789,9 @@ export default function BoardViewClient({
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success('تم نقل المهمة');
+      toast.success(t('toasts.taskMoved'));
     } catch {
-      toast.error('فشل نقل المهمة');
+      toast.error(t('toasts.taskMoveFailed'));
       fetchBoard(); // Revert on error
     }
   };
@@ -812,7 +813,7 @@ export default function BoardViewClient({
         body: JSON.stringify(body),
       });
       if (res.ok) {
-        toast.success('تم إضافة المهمة');
+        toast.success(t('toasts.taskAdded'));
         setNewTaskTitle('');
         setNewTaskPriority('medium');
         setNewTaskDueDate('');
@@ -821,10 +822,10 @@ export default function BoardViewClient({
         fetchBoard();
       } else {
         const err = await res.json();
-        toast.error(err.error || 'فشل إضافة المهمة');
+        toast.error(err.error || t('toasts.taskAddFailed'));
       }
     } catch {
-      toast.error('فشل إضافة المهمة');
+      toast.error(t('toasts.taskAddFailed'));
     }
   };
 
@@ -854,9 +855,9 @@ export default function BoardViewClient({
   if (!board) {
     return (
       <div className="p-6 flex flex-col items-center justify-center py-20 text-center">
-        <h2 className="text-lg font-semibold">اللوحة غير موجودة</h2>
+        <h2 className="text-lg font-semibold">{t('notFound.title')}</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          قد يكون تم حذفها أو لا تملك صلاحية الوصول
+          {t('notFound.description')}
         </p>
         <Button
           variant="outline"
@@ -864,7 +865,7 @@ export default function BoardViewClient({
           onClick={() => router.push('/dashboard/boards')}
         >
           <ArrowRight className="h-4 w-4 me-2" />
-          الرجوع للوحات
+          {t('notFound.backButton')}
         </Button>
       </div>
     );
@@ -879,11 +880,11 @@ export default function BoardViewClient({
         body: JSON.stringify(updates),
       });
       if (!res.ok) throw new Error();
-      toast.success('تم حفظ الإعدادات');
+      toast.success(t('toasts.settingsSaved'));
       fetchBoard();
       setShowSettings(false);
     } catch {
-      toast.error('فشل حفظ الإعدادات');
+      toast.error(t('toasts.settingsSaveFailed'));
     } finally {
       setSavingSettings(false);
     }
@@ -904,7 +905,7 @@ export default function BoardViewClient({
     <div className="p-6 space-y-4">
       {/* Board Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/boards')} aria-label="رجوع">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/boards')} aria-label={tNav('breadcrumb.back')}>
           <ArrowRight className="h-5 w-5" />
         </Button>
         <div className="flex-1 min-w-0">
@@ -1004,14 +1005,13 @@ export default function BoardViewClient({
                   <p className="text-sm font-medium">{activeTask.title}</p>
                   <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
                     <Badge variant="outline" className="text-[9px] h-4">
-                      {PRIORITY_LABELS[activeTask.priority] ||
-                        PRIORITY_LABELS.medium}
+                      {priorityLabel(activeTask.priority || 'medium')}
                     </Badge>
                     {activeTask.due_date && (
                       <span className="flex items-center gap-0.5">
                         <Calendar className="h-3 w-3" />
                         {new Date(activeTask.due_date).toLocaleDateString(
-                          'ar-EG',
+                          locale === 'ar' ? 'ar-EG' : 'en-GB',
                           { month: 'short', day: 'numeric' }
                         )}
                       </span>
@@ -1039,15 +1039,15 @@ export default function BoardViewClient({
       <Dialog open={showAddTask} onOpenChange={setShowAddTask}>
         <DialogContent aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>إضافة مهمة جديدة</DialogTitle>
+            <DialogTitle>{t('addTask.dialogTitle')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <label className="text-sm font-medium">عنوان المهمة</label>
+              <label className="text-sm font-medium">{t('addTask.titleLabel')}</label>
               <Input
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
-                placeholder="عنوان المهمة..."
+                placeholder={t('addTask.titlePlaceholder')}
                 onKeyDown={(e) => e.key === 'Enter' && addTask()}
                 autoFocus
               />
@@ -1055,7 +1055,7 @@ export default function BoardViewClient({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
-                <label className="text-sm font-medium">الأولوية</label>
+                <label className="text-sm font-medium">{t('addTask.priorityLabel')}</label>
                 <Select
                   value={newTaskPriority}
                   onValueChange={setNewTaskPriority}
@@ -1064,15 +1064,15 @@ export default function BoardViewClient({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="urgent">عاجل</SelectItem>
-                    <SelectItem value="high">مرتفع</SelectItem>
-                    <SelectItem value="medium">متوسط</SelectItem>
-                    <SelectItem value="low">منخفض</SelectItem>
+                    <SelectItem value="urgent">{priorityLabel('urgent')}</SelectItem>
+                    <SelectItem value="high">{priorityLabel('high')}</SelectItem>
+                    <SelectItem value="medium">{priorityLabel('medium')}</SelectItem>
+                    <SelectItem value="low">{priorityLabel('low')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">تاريخ التسليم</label>
+                <label className="text-sm font-medium">{t('addTask.dueDateLabel')}</label>
                 <Input
                   type="date"
                   value={newTaskDueDate}
@@ -1083,17 +1083,17 @@ export default function BoardViewClient({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">الأعضاء المسؤولون</label>
+                <label className="text-sm font-medium">{t('addTask.assigneesLabel')}</label>
                 {newTaskAssignees.length > 0 && (
                   <span className="text-xs text-muted-foreground">
-                    تم اختيار {newTaskAssignees.length}
+                    {t('addTask.assigneesSelected', { count: newTaskAssignees.length })}
                   </span>
                 )}
               </div>
               <div className="max-h-40 overflow-y-auto rounded-md border border-border/50 divide-y divide-border/30">
                 {boardUsers.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-3">
-                    لا يوجد مستخدمون نشطون
+                    {t('addTask.noActiveUsers')}
                   </p>
                 ) : (
                   boardUsers.map((u) => {
@@ -1129,7 +1129,7 @@ export default function BoardViewClient({
               disabled={!newTaskTitle.trim()}
               className="w-full bg-orange-500 hover:bg-orange-600 text-white"
             >
-              إضافة
+              {t('addTask.submit')}
             </Button>
           </div>
         </DialogContent>
@@ -1150,7 +1150,7 @@ export default function BoardViewClient({
       <Dialog open={showSettings} onOpenChange={setShowSettings}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>إعدادات اللوحة</DialogTitle>
+            <DialogTitle>{t('settingsDialogTitle')}</DialogTitle>
           </DialogHeader>
           <BoardSettingsForm
             board={board}
@@ -1195,6 +1195,8 @@ function PipelineView({
   onAddTask: (columnId: string) => void;
   onTaskClick: (task: Task) => void;
 }) {
+  const t = useTranslations('boards.view.pipeline');
+  const locale = useLocale();
   const totalTasks = tasks.length;
   const doneTasks = tasks.filter(t => {
     const col = columns.find(c => c.id === t.column_id);
@@ -1207,7 +1209,7 @@ function PipelineView({
       {/* Overall Progress Bar */}
       <div className="bg-card/50 border border-border/60 rounded-xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">التقدم الكلي</span>
+          <span className="text-sm font-medium">{t('overallProgress')}</span>
           <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{progressPercent}%</span>
         </div>
         <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
@@ -1217,8 +1219,8 @@ function PipelineView({
           />
         </div>
         <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
-          <span>{doneTasks} مكتمل من {totalTasks}</span>
-          <span>{columns.length} مراحل</span>
+          <span>{t('doneOfTotal', { done: doneTasks, total: totalTasks })}</span>
+          <span>{t('stageCount', { count: columns.length })}</span>
         </div>
       </div>
 
@@ -1239,7 +1241,7 @@ function PipelineView({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className={`w-2.5 h-2.5 rounded-full ${STAGE_DOT_COLORS[col.color] || STAGE_DOT_COLORS.gray}`} />
-                      <span className="text-sm font-semibold" dir="rtl">{col.name}</span>
+                      <span className="text-sm font-semibold" dir={locale === 'ar' ? 'rtl' : undefined}>{col.name}</span>
                     </div>
                     <Badge variant="secondary" className="text-[10px] h-5">
                       {stageTasks.length}
@@ -1248,7 +1250,7 @@ function PipelineView({
                   {col.requires_approval && (
                     <div className="mt-1 text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
-                      يتطلب موافقة
+                      {t('requiresApproval')}
                     </div>
                   )}
                 </div>
@@ -1262,14 +1264,14 @@ function PipelineView({
                       className={`w-full text-start p-2.5 rounded-lg border border-border/50 bg-card hover:border-emerald-400/60 transition-colors cursor-pointer border-s-4 ${
                         PRIORITY_COLORS[task.priority] || PRIORITY_COLORS.medium
                       }`}
-                      dir="rtl"
+                      dir={locale === 'ar' ? 'rtl' : undefined}
                     >
                       <p className="text-sm font-medium line-clamp-2">{task.title}</p>
                       <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
                         {task.due_date && (
                           <span className="flex items-center gap-0.5">
                             <Calendar className="h-3 w-3" />
-                            {new Date(task.due_date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                            {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
                           </span>
                         )}
                         {(task.pyra_task_assignees?.length ?? 0) > 0 && (
@@ -1292,7 +1294,7 @@ function PipelineView({
                     className="w-full p-2 rounded-lg border border-dashed border-border/50 text-muted-foreground/50 hover:border-emerald-400/60 hover:text-emerald-500 transition-colors text-xs flex items-center justify-center gap-1"
                   >
                     <Plus className="h-3 w-3" />
-                    <span dir="rtl">إضافة مهمة</span>
+                    <span dir={locale === 'ar' ? 'rtl' : undefined}>{t('addTask')}</span>
                   </button>
                 </div>
               </div>
@@ -1326,6 +1328,7 @@ function BoardSettingsForm({
   onSave: (updates: Record<string, unknown>) => void;
   onUpdate: () => void;
 }) {
+  const t = useTranslations('boards.settings');
   // General
   const [name, setName] = useState(board.name);
   const [description, setDescription] = useState(board.description || '');
@@ -1363,8 +1366,8 @@ function BoardSettingsForm({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newColName.trim(), color: newColColor, position: cols.length }),
     });
-    if (res.ok) { toast.success('تم إضافة العمود'); setNewColName(''); onUpdate(); const { data } = await res.json(); setCols(prev => [...prev, data]); }
-    else toast.error('فشل إضافة العمود');
+    if (res.ok) { toast.success(t('toasts.columnAdded')); setNewColName(''); onUpdate(); const { data } = await res.json(); setCols(prev => [...prev, data]); }
+    else toast.error(t('toasts.columnAddFailed'));
   };
 
   const saveColumns = async () => {
@@ -1373,15 +1376,15 @@ function BoardSettingsForm({
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ columns: payload }),
     });
-    if (res.ok) { toast.success('تم حفظ الأعمدة'); onUpdate(); }
-    else toast.error('فشل حفظ الأعمدة');
+    if (res.ok) { toast.success(t('toasts.columnsSaved')); onUpdate(); }
+    else toast.error(t('toasts.columnsSaveFailed'));
   };
 
   const deleteColumn = async (colId: string) => {
     const res = await fetch(`/api/boards/${boardId}/columns?columnId=${colId}`, { method: 'DELETE' });
     const json = await res.json();
-    if (res.ok) { toast.success('تم حذف العمود'); setCols(prev => prev.filter(c => c.id !== colId)); onUpdate(); }
-    else toast.error(json.error || 'فشل حذف العمود');
+    if (res.ok) { toast.success(t('toasts.columnDeleted')); setCols(prev => prev.filter(c => c.id !== colId)); onUpdate(); }
+    else toast.error(json.error || t('toasts.columnDeleteFailed'));
   };
 
   const moveCol = (idx: number, dir: -1 | 1) => {
@@ -1399,55 +1402,55 @@ function BoardSettingsForm({
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newLblName.trim(), color: newLblColor }),
     });
-    if (res.ok) { toast.success('تم إضافة التصنيف'); setNewLblName(''); const { data } = await res.json(); setLbls(prev => [...prev, data]); onUpdate(); }
-    else toast.error('فشل إضافة التصنيف');
+    if (res.ok) { toast.success(t('toasts.labelAdded')); setNewLblName(''); const { data } = await res.json(); setLbls(prev => [...prev, data]); onUpdate(); }
+    else toast.error(t('toasts.labelAddFailed'));
   };
 
   const deleteLabel = async (labelId: string) => {
     const res = await fetch(`/api/boards/${boardId}/labels?labelId=${labelId}`, { method: 'DELETE' });
-    if (res.ok) { toast.success('تم حذف التصنيف'); setLbls(prev => prev.filter(l => l.id !== labelId)); onUpdate(); }
-    else toast.error('فشل حذف التصنيف');
+    if (res.ok) { toast.success(t('toasts.labelDeleted')); setLbls(prev => prev.filter(l => l.id !== labelId)); onUpdate(); }
+    else toast.error(t('toasts.labelDeleteFailed'));
   };
 
   return (
     <Tabs defaultValue="general" className="mt-2">
       <TabsList className="w-full">
-        <TabsTrigger value="general" className="flex-1 text-xs">عام</TabsTrigger>
-        <TabsTrigger value="columns" className="flex-1 text-xs">الأعمدة ({cols.length})</TabsTrigger>
-        <TabsTrigger value="labels" className="flex-1 text-xs">التصنيفات ({lbls.length})</TabsTrigger>
+        <TabsTrigger value="general" className="flex-1 text-xs">{t('tabs.general')}</TabsTrigger>
+        <TabsTrigger value="columns" className="flex-1 text-xs">{t('tabs.columns', { count: cols.length })}</TabsTrigger>
+        <TabsTrigger value="labels" className="flex-1 text-xs">{t('tabs.labels', { count: lbls.length })}</TabsTrigger>
       </TabsList>
 
       {/* ── General ── */}
       <TabsContent value="general" className="space-y-4 mt-3">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">اسم اللوحة</label>
+          <label className="text-sm font-medium">{t('general.nameLabel')}</label>
           <Input value={name} onChange={e => setName(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">الوصف</label>
-          <Input value={description} onChange={e => setDescription(e.target.value)} placeholder="وصف مختصر..." />
+          <label className="text-sm font-medium">{t('general.descLabel')}</label>
+          <Input value={description} onChange={e => setDescription(e.target.value)} placeholder={t('general.descPlaceholder')} />
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">نوع العرض</label>
+          <label className="text-sm font-medium">{t('general.viewModeLabel')}</label>
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => { setViewMode('kanban'); setIsPipeline(false); }} className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${viewMode === 'kanban' ? 'border-orange-500 bg-orange-500/10' : 'border-border hover:border-orange-300'}`}>
-              <LayoutGrid className="h-4 w-4 text-orange-500" /><div><p className="text-sm font-medium">كانبان</p></div>
+              <LayoutGrid className="h-4 w-4 text-orange-500" /><div><p className="text-sm font-medium">{t('general.kanbanTitle')}</p></div>
             </button>
             <button onClick={() => { setViewMode('pipeline'); setIsPipeline(true); }} className={`p-2.5 rounded-lg border text-start transition-colors flex items-center gap-2 ${viewMode === 'pipeline' ? 'border-emerald-500 bg-emerald-500/10' : 'border-border hover:border-emerald-300'}`}>
-              <GitBranch className="h-4 w-4 text-emerald-500" /><div><p className="text-sm font-medium">Pipeline</p></div>
+              <GitBranch className="h-4 w-4 text-emerald-500" /><div><p className="text-sm font-medium">{t('general.pipelineTitle')}</p></div>
             </button>
           </div>
         </div>
         {isPipeline && (
           <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30">
-            <div><p className="text-sm font-medium">انتقال تلقائي</p><p className="text-[10px] text-muted-foreground">المهمة تنتقل تلقائياً بعد الإكمال</p></div>
+            <div><p className="text-sm font-medium">{t('general.autoAdvanceTitle')}</p><p className="text-[10px] text-muted-foreground">{t('general.autoAdvanceDesc')}</p></div>
             <button onClick={() => setAutoAdvance(!autoAdvance)} className={`w-10 h-5 rounded-full transition-colors relative ${autoAdvance ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}>
               <div className={`w-4 h-4 rounded-full bg-white dark:bg-gray-200 absolute top-0.5 transition-all ${autoAdvance ? 'start-5' : 'start-0.5'}`} />
             </button>
           </div>
         )}
         <Button onClick={handleSaveGeneral} disabled={saving || !name.trim()} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
-          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}
+          {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('general.saving')}</> : t('general.save')}
         </Button>
       </TabsContent>
 
@@ -1471,14 +1474,14 @@ function BoardSettingsForm({
         </div>
         {/* Add column */}
         <div className="flex items-center gap-2">
-          <Input value={newColName} onChange={e => setNewColName(e.target.value)} placeholder="عمود جديد..." className="h-8 text-xs flex-1"
+          <Input value={newColName} onChange={e => setNewColName(e.target.value)} placeholder={t('columns.newColumnPlaceholder')} className="h-8 text-xs flex-1"
             onKeyDown={e => { if (e.key === 'Enter') addColumn(); }} />
           <select value={newColColor} onChange={e => setNewColColor(e.target.value)} className="h-8 text-[10px] bg-transparent border border-border rounded px-1">
             {COL_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <Button size="sm" className="h-8 text-xs" onClick={addColumn}><Plus className="h-3 w-3 me-1" /> إضافة</Button>
+          <Button size="sm" className="h-8 text-xs" onClick={addColumn}><Plus className="h-3 w-3 me-1" /> {t('columns.add')}</Button>
         </div>
-        <Button onClick={saveColumns} className="w-full bg-orange-500 hover:bg-orange-600 text-white text-xs">حفظ ترتيب الأعمدة</Button>
+        <Button onClick={saveColumns} className="w-full bg-orange-500 hover:bg-orange-600 text-white text-xs">{t('columns.saveOrder')}</Button>
       </TabsContent>
 
       {/* ── Labels ── */}
@@ -1493,12 +1496,12 @@ function BoardSettingsForm({
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Input value={newLblName} onChange={e => setNewLblName(e.target.value)} placeholder="تصنيف جديد..." className="h-8 text-xs flex-1"
+          <Input value={newLblName} onChange={e => setNewLblName(e.target.value)} placeholder={t('labels.newLabelPlaceholder')} className="h-8 text-xs flex-1"
             onKeyDown={e => { if (e.key === 'Enter') addLabel(); }} />
           <select value={newLblColor} onChange={e => setNewLblColor(e.target.value)} className="h-8 text-[10px] bg-transparent border border-border rounded px-1">
             {COL_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-          <Button size="sm" className="h-8 text-xs" onClick={addLabel}><Plus className="h-3 w-3 me-1" /> إضافة</Button>
+          <Button size="sm" className="h-8 text-xs" onClick={addLabel}><Plus className="h-3 w-3 me-1" /> {t('labels.add')}</Button>
         </div>
       </TabsContent>
     </Tabs>

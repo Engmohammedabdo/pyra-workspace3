@@ -41,6 +41,92 @@
         "columnsCountKanban": "{count, plural, other {# أعمدة}}",
         "columnsCountPipeline": "{count, plural, other {# مراحل}}"
       }
+    },
+    "view": {
+      "column": {
+        "emptyDropzone": "اسحب مهمة هنا أو اضغط +",
+        "quickAddPlaceholder": "عنوان المهمة...",
+        "quickAddSubmit": "إضافة",
+        "addTaskFooter": "إضافة مهمة"
+      },
+      "toasts": {
+        "loadBoardFailed": "فشل تحميل اللوحة",
+        "loadTasksFailed": "فشل تحميل المهام",
+        "connectionError": "حدث خطأ في الاتصال",
+        "taskAdded": "تم إضافة المهمة",
+        "taskAddFailed": "فشل إضافة المهمة",
+        "columnsReordered": "تم إعادة ترتيب الأعمدة",
+        "columnsSaveFailed": "فشل حفظ الترتيب",
+        "gatedColumnBlocked": "هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)",
+        "taskMoved": "تم نقل المهمة",
+        "taskMoveFailed": "فشل نقل المهمة",
+        "settingsSaved": "تم حفظ الإعدادات",
+        "settingsSaveFailed": "فشل حفظ الإعدادات"
+      },
+      "notFound": {
+        "title": "اللوحة غير موجودة",
+        "description": "قد يكون تم حذفها أو لا تملك صلاحية الوصول",
+        "backButton": "الرجوع للوحات"
+      },
+      "addTask": {
+        "dialogTitle": "إضافة مهمة جديدة",
+        "titleLabel": "عنوان المهمة",
+        "titlePlaceholder": "عنوان المهمة...",
+        "priorityLabel": "الأولوية",
+        "dueDateLabel": "تاريخ التسليم",
+        "assigneesLabel": "الأعضاء المسؤولون",
+        "assigneesSelected": "{count, plural, other {تم اختيار #}}",
+        "noActiveUsers": "لا يوجد مستخدمون نشطون",
+        "submit": "إضافة"
+      },
+      "settingsDialogTitle": "إعدادات اللوحة",
+      "pipeline": {
+        "overallProgress": "التقدم الكلي",
+        "doneOfTotal": "{done} مكتمل من {total}",
+        "stageCount": "{count, plural, other {# مراحل}}",
+        "requiresApproval": "يتطلب موافقة",
+        "addTask": "إضافة مهمة"
+      }
+    },
+    "settings": {
+      "toasts": {
+        "columnAdded": "تم إضافة العمود",
+        "columnAddFailed": "فشل إضافة العمود",
+        "columnsSaved": "تم حفظ الأعمدة",
+        "columnsSaveFailed": "فشل حفظ الأعمدة",
+        "columnDeleted": "تم حذف العمود",
+        "columnDeleteFailed": "فشل حذف العمود",
+        "labelAdded": "تم إضافة التصنيف",
+        "labelAddFailed": "فشل إضافة التصنيف",
+        "labelDeleted": "تم حذف التصنيف",
+        "labelDeleteFailed": "فشل حذف التصنيف"
+      },
+      "tabs": {
+        "general": "عام",
+        "columns": "{count, plural, other {الأعمدة (#)}}",
+        "labels": "{count, plural, other {التصنيفات (#)}}"
+      },
+      "general": {
+        "nameLabel": "اسم اللوحة",
+        "descLabel": "الوصف",
+        "descPlaceholder": "وصف مختصر...",
+        "viewModeLabel": "نوع العرض",
+        "kanbanTitle": "كانبان",
+        "pipelineTitle": "Pipeline",
+        "autoAdvanceTitle": "انتقال تلقائي",
+        "autoAdvanceDesc": "المهمة تنتقل تلقائياً بعد الإكمال",
+        "saving": "جاري الحفظ...",
+        "save": "حفظ"
+      },
+      "columns": {
+        "newColumnPlaceholder": "عمود جديد...",
+        "add": "إضافة",
+        "saveOrder": "حفظ ترتيب الأعمدة"
+      },
+      "labels": {
+        "newLabelPlaceholder": "تصنيف جديد...",
+        "add": "إضافة"
+      }
     }
   }
 }

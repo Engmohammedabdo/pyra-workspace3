@@ -41,6 +41,92 @@
         "columnsCountKanban": "{count, plural, one {# column} other {# columns}}",
         "columnsCountPipeline": "{count, plural, one {# stage} other {# stages}}"
       }
+    },
+    "view": {
+      "column": {
+        "emptyDropzone": "Drag a task here or press +",
+        "quickAddPlaceholder": "Task title...",
+        "quickAddSubmit": "Add",
+        "addTaskFooter": "Add task"
+      },
+      "toasts": {
+        "loadBoardFailed": "Failed to load board",
+        "loadTasksFailed": "Failed to load tasks",
+        "connectionError": "A connection error occurred",
+        "taskAdded": "Task added",
+        "taskAddFailed": "Failed to add task",
+        "columnsReordered": "Columns reordered",
+        "columnsSaveFailed": "Failed to save order",
+        "gatedColumnBlocked": "This column has a dedicated action — open the task and use the button (Submit for Review / Approve / Final Delivery)",
+        "taskMoved": "Task moved",
+        "taskMoveFailed": "Failed to move task",
+        "settingsSaved": "Settings saved",
+        "settingsSaveFailed": "Failed to save settings"
+      },
+      "notFound": {
+        "title": "Board not found",
+        "description": "It may have been deleted, or you don't have access to it",
+        "backButton": "Back to boards"
+      },
+      "addTask": {
+        "dialogTitle": "Add a new task",
+        "titleLabel": "Task title",
+        "titlePlaceholder": "Task title...",
+        "priorityLabel": "Priority",
+        "dueDateLabel": "Due date",
+        "assigneesLabel": "Assignees",
+        "assigneesSelected": "{count, plural, one {# selected} other {# selected}}",
+        "noActiveUsers": "No active users",
+        "submit": "Add"
+      },
+      "settingsDialogTitle": "Board settings",
+      "pipeline": {
+        "overallProgress": "Overall progress",
+        "doneOfTotal": "{done} of {total} done",
+        "stageCount": "{count, plural, one {# stage} other {# stages}}",
+        "requiresApproval": "Requires approval",
+        "addTask": "Add task"
+      }
+    },
+    "settings": {
+      "toasts": {
+        "columnAdded": "Column added",
+        "columnAddFailed": "Failed to add column",
+        "columnsSaved": "Columns saved",
+        "columnsSaveFailed": "Failed to save columns",
+        "columnDeleted": "Column deleted",
+        "columnDeleteFailed": "Failed to delete column",
+        "labelAdded": "Label added",
+        "labelAddFailed": "Failed to add label",
+        "labelDeleted": "Label deleted",
+        "labelDeleteFailed": "Failed to delete label"
+      },
+      "tabs": {
+        "general": "General",
+        "columns": "{count, plural, one {Columns (#)} other {Columns (#)}}",
+        "labels": "{count, plural, one {Labels (#)} other {Labels (#)}}"
+      },
+      "general": {
+        "nameLabel": "Board name",
+        "descLabel": "Description",
+        "descPlaceholder": "Short description...",
+        "viewModeLabel": "View type",
+        "kanbanTitle": "Kanban",
+        "pipelineTitle": "Pipeline",
+        "autoAdvanceTitle": "Auto-advance",
+        "autoAdvanceDesc": "The task automatically moves forward on completion",
+        "saving": "Saving...",
+        "save": "Save"
+      },
+      "columns": {
+        "newColumnPlaceholder": "New column...",
+        "add": "Add",
+        "saveOrder": "Save column order"
+      },
+      "labels": {
+        "newLabelPlaceholder": "New label...",
+        "add": "Add"
+      }
     }
   }
 }
