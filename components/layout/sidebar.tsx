@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils/cn';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -16,67 +17,14 @@ import {
 import { hasPermission } from '@/lib/auth/rbac';
 import { MODULE_GUIDES } from '@/lib/config/module-guide';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
+import { NAV_GROUPS, ALL_NAV_ITEMS, type NavItemConfig } from './nav-config';
 import {
-  LayoutDashboard,
-  FolderOpen,
-  Users,
-  Building2,
-  Briefcase,
-  FileText,
-  Activity,
-  Trash2,
-  Settings,
-  Bell,
-  Shield,
-  MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  Monitor,
-  KeyRound,
-  Star,
-  ScrollText,
-  Receipt,
-  BarChart3,
-  Zap,
-  BookOpen,
-  Webhook,
-  Wallet,
-  ArrowDownCircle,
-  CreditCard,
-  FileSignature,
-  Repeat,
-  Target,
-  PieChart,
   ChevronDown,
   HelpCircle,
-  HardDrive,
-  UserCircle,
-  CheckSquare,
-  Clock,
-  Kanban,
-  Megaphone,
-  Contact,
-  CalendarOff,
-  CalendarClock,
-  Timer,
-  Banknote,
-  Network,
-  Clapperboard,
-  Award,
-  Settings2,
   Pin,
   PinOff,
-  TrendingUp,
-  MessageCircle,
-  CheckCircle,
-  ShieldCheck,
-  FileCheck,
-  Truck,
-  ShoppingCart,
-  ClipboardCheck,
-  Bug,
-  UserPlus,
-  CalendarDays,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -88,178 +36,6 @@ interface SidebarProps {
   };
 }
 
-interface NavItem {
-  href: string;
-  label: string;
-  labelEn: string;
-  icon: React.ComponentType<{ className?: string }>;
-  permission?: string;
-  badgeKey?: 'notifications' | 'overdue_invoices' | 'pending_approvals' | 'unassigned_conversations' | 'team_approvals' | 'follow_ups_pending' | 'crm_pending_approvals';
-}
-
-interface NavGroup {
-  title: string;
-  titleEn: string;
-  description?: string;
-  items: NavItem[];
-}
-
-// ═══════════════════════════════════════════════
-//  9 Well-organized Groups (max 7 items each)
-//  Split for clarity: العمل→2, الإدارة→3
-// ═══════════════════════════════════════════════
-const navGroups: NavGroup[] = [
-  {
-    title: 'الرئيسية',
-    titleEn: 'Main',
-    description: 'لوحة التحكم والإشعارات ومهامك الشخصية',
-    items: [
-      { href: '/dashboard', label: 'الرئيسية', labelEn: 'Dashboard', icon: LayoutDashboard },
-      { href: '/dashboard/notifications', label: 'الإشعارات', labelEn: 'Notifications', icon: Bell, permission: 'notifications.view', badgeKey: 'notifications' },
-      { href: '/dashboard/profile', label: 'ملفي الشخصي', labelEn: 'My Profile', icon: UserCircle },
-      { href: '/dashboard/my-tasks', label: 'مهامي', labelEn: 'My Tasks', icon: CheckSquare },
-      // Phase 15.1 Commit 5 — calendar lands in الرئيسية group so it's
-      // discoverable next to my-tasks (both surfaces show "my work"
-      // across the system).
-      { href: '/dashboard/calendar', label: 'التقويم', labelEn: 'Calendar', icon: CalendarClock, permission: 'calendar.view' },
-    ],
-  },
-  {
-    title: 'الأعمال',
-    titleEn: 'Business',
-    description: 'إدارة المشاريع والعملاء والفواتير وعروض الأسعار',
-    items: [
-      { href: '/dashboard/projects', label: 'المشاريع', labelEn: 'Projects', icon: Briefcase, permission: 'projects.view' },
-      { href: '/dashboard/clients', label: 'العملاء', labelEn: 'Clients', icon: Building2, permission: 'clients.view' },
-      { href: '/dashboard/quotes', label: 'عروض الأسعار', labelEn: 'Quotes', icon: FileText, permission: 'quotes.view' },
-      { href: '/dashboard/quotes/analytics', label: 'تحليلات العروض', labelEn: 'Quote Analytics', icon: BarChart3, permission: 'quotes.view' },
-      { href: '/dashboard/invoices', label: 'الفواتير', labelEn: 'Invoices', icon: Receipt, permission: 'invoices.view', badgeKey: 'overdue_invoices' },
-      { href: '/dashboard/boards', label: 'لوحات العمل', labelEn: 'Boards', icon: Kanban, permission: 'boards.view' },
-    ],
-  },
-  {
-    title: 'المحتوى والملفات',
-    titleEn: 'Content & Files',
-    description: 'مراجعات المحتوى والملفات والتخزين',
-    items: [
-      { href: '/dashboard/script-reviews', label: 'مراجعات السكريبتات', labelEn: 'Script Reviews', icon: ScrollText, permission: 'script_reviews.view' },
-      { href: '/dashboard/content-pipeline', label: 'خط الإنتاج', labelEn: 'Content Pipeline', icon: Clapperboard, permission: 'script_reviews.view' },
-      { href: '/dashboard/files', label: 'الملفات', labelEn: 'Files', icon: FolderOpen, permission: 'files.view' },
-      { href: '/dashboard/favorites', label: 'المفضلة', labelEn: 'Favorites', icon: Star, permission: 'favorites.view' },
-      { href: '/dashboard/reviews', label: 'المراجعات', labelEn: 'Reviews', icon: MessageSquare, permission: 'reviews.view' },
-      { href: '/dashboard/trash', label: 'المحذوفات', labelEn: 'Trash', icon: Trash2, permission: 'trash.view' },
-      { href: '/dashboard/storage', label: 'التخزين', labelEn: 'Storage', icon: HardDrive, permission: 'files.view' },
-    ],
-  },
-  {
-    title: 'CRM',
-    titleEn: 'CRM',
-    description: 'إدارة العملاء المحتملين، خط المبيعات، WhatsApp، والمتابعات',
-    items: [
-      { href: '/dashboard/crm',                       label: 'لوحة المبيعات',  labelEn: 'Sales Dashboard',     icon: TrendingUp,    permission: 'leads.view' },
-      { href: '/dashboard/crm/pipeline',              label: 'خط المبيعات',    labelEn: 'Pipeline',            icon: Kanban,        permission: 'leads.view' },
-      { href: '/dashboard/crm/customers',             label: 'العملاء',        labelEn: 'Customers',           icon: Users,         permission: 'leads.view' },
-      { href: '/dashboard/sales/chat',                label: 'محادثات واتساب', labelEn: 'WhatsApp Chat',       icon: MessageCircle, permission: 'sales_whatsapp.view',         badgeKey: 'unassigned_conversations' },
-      { href: '/dashboard/sales/whatsapp-analytics',  label: 'تحليلات واتساب', labelEn: 'WhatsApp Analytics',  icon: PieChart,      permission: 'sales_whatsapp.view' },
-      { href: '/dashboard/sales/whatsapp-campaigns',  label: 'حملات الرسائل',  labelEn: 'Campaigns',           icon: Megaphone,     permission: 'sales_whatsapp.manage' },
-      { href: '/dashboard/crm/follow-ups',            label: 'المتابعات',      labelEn: 'Follow-ups',          icon: Clock,         permission: 'follow_ups.view',             badgeKey: 'follow_ups_pending' },
-      { href: '/dashboard/crm/approvals',             label: 'اعتمادات تنتظرك', labelEn: 'Closed-Won Approvals', icon: ShieldCheck,   permission: 'leads.approve',               badgeKey: 'crm_pending_approvals' },
-      { href: '/dashboard/sales/approvals',           label: 'موافقات العروض', labelEn: 'Quote Approvals',     icon: CheckCircle,   permission: 'quote_approvals.view',        badgeKey: 'pending_approvals' },
-      { href: '/dashboard/sales/settings',            label: 'الإعدادات',      labelEn: 'Sales Settings',      icon: Settings2,     permission: 'sales_pipeline.manage' },
-    ],
-  },
-  {
-    // Admin-only HR aggregate pages — gated by admin-level permissions (hr.view, hr.manage,
-    // leave.approve, documents.manage, payroll.manage, evaluations.manage).
-    // Employees with only BASE_EMPLOYEE perms will not see any item in this group.
-    title: 'الموارد البشرية',
-    titleEn: 'HR',
-    description: 'نظرة إدارية على الحضور والإجازات والرواتب والوثائق والتقييمات',
-    items: [
-      { href: '/dashboard/hr', label: 'نظرة عامة', labelEn: 'HR Overview', icon: LayoutDashboard, permission: 'hr.view' },
-      { href: '/dashboard/hr/productivity', label: 'تقرير الإنتاجية', labelEn: 'Productivity', icon: BarChart3, permission: 'hr.view' },
-      { href: '/dashboard/approvals', label: 'الموافقات', labelEn: 'Approvals', icon: ClipboardCheck, permission: 'leave.approve', badgeKey: 'team_approvals' },
-      { href: '/dashboard/leave/settings', label: 'إعدادات الإجازات', labelEn: 'Leave Settings', icon: Settings2, permission: 'leave.manage' },
-      { href: '/dashboard/hr/leave-balances', label: 'أرصدة الإجازات', labelEn: 'Leave Balances', icon: CalendarDays, permission: 'leave.manage' },
-      { href: '/dashboard/evaluations/settings', label: 'إعدادات التقييم', labelEn: 'Evaluation Settings', icon: Settings2, permission: 'evaluations.manage' },
-      { href: '/dashboard/hr/documents', label: 'وثائق الموظفين', labelEn: 'Employee Documents', icon: FileText, permission: 'documents.manage' },
-      { href: '/dashboard/hr/documents/settings', label: 'أنواع الوثائق', labelEn: 'Document Types', icon: Settings2, permission: 'documents.manage' },
-      { href: '/dashboard/hr/onboarding', label: 'تعيين موظفين', labelEn: 'Onboarding', icon: UserPlus, permission: 'hr.manage' },
-      { href: '/dashboard/hr/work-schedules', label: 'جداول العمل', labelEn: 'Work Schedules', icon: Clock, permission: 'attendance.manage' },
-    ],
-  },
-  {
-    // Self-service HR pages — all gated by BASE_EMPLOYEE permissions so every
-    // internal user (employee, sales_agent, admin) sees this group.
-    title: 'الخدمة الذاتية',
-    titleEn: 'Self-Service',
-    description: 'مهامي الشخصية: حضور، إجازات، رواتب، وثائق، ودليل الفريق',
-    items: [
-      { href: '/dashboard/timesheet', label: 'ساعات العمل', labelEn: 'Timesheet', icon: Clock, permission: 'timesheet.view' },
-      { href: '/dashboard/attendance', label: 'الحضور', labelEn: 'Attendance', icon: Timer, permission: 'attendance.view' },
-      { href: '/dashboard/leave', label: 'الإجازات', labelEn: 'Leave', icon: CalendarOff, permission: 'leave.view' },
-      { href: '/dashboard/my-payslips', label: 'راتبي', labelEn: 'My Payslip', icon: Receipt, permission: 'payroll.view' },
-      { href: '/dashboard/evaluations', label: 'تقييم الأداء', labelEn: 'Evaluations', icon: Award, permission: 'evaluations.view' },
-      { href: '/dashboard/my-documents', label: 'وثائقي', labelEn: 'My Documents', icon: FileText, permission: 'documents.view' },
-      { href: '/dashboard/directory', label: 'دليل الفريق', labelEn: 'Directory', icon: Contact, permission: 'directory.view' },
-      { href: '/dashboard/announcements', label: 'الإعلانات', labelEn: 'Announcements', icon: Megaphone, permission: 'announcements.view' },
-      { href: '/dashboard/org-chart', label: 'الهيكل التنظيمي', labelEn: 'Org Chart', icon: Network, permission: 'directory.view' },
-    ],
-  },
-  {
-    title: 'المالية',
-    titleEn: 'Finance',
-    description: 'المصاريف والعقود والاشتراكات والتقارير المالية',
-    items: [
-      { href: '/dashboard/finance', label: 'الإدارة المالية', labelEn: 'Finance', icon: Wallet, permission: 'finance.view' },
-      { href: '/dashboard/finance/expenses', label: 'المصاريف', labelEn: 'Expenses', icon: ArrowDownCircle, permission: 'finance.view' },
-      { href: '/dashboard/finance/cards', label: 'البطاقات', labelEn: 'Cards', icon: CreditCard, permission: 'finance.view' },
-      { href: '/dashboard/finance/contracts', label: 'العقود', labelEn: 'Contracts', icon: FileSignature, permission: 'finance.view' },
-      { href: '/dashboard/finance/recurring', label: 'الفواتير المتكررة', labelEn: 'Recurring Invoices', icon: Repeat, permission: 'finance.view' },
-      { href: '/dashboard/finance/credit-notes', label: 'إشعارات دائنة', labelEn: 'Credit Notes', icon: FileCheck, permission: 'finance.view' },
-      { href: '/dashboard/finance/suppliers', label: 'الموردين', labelEn: 'Suppliers', icon: Truck, permission: 'finance.view' },
-      { href: '/dashboard/finance/purchase-orders', label: 'أوامر الشراء', labelEn: 'Purchase Orders', icon: ShoppingCart, permission: 'finance.view' },
-      { href: '/dashboard/finance/reports', label: 'التقارير المالية', labelEn: 'Financial Reports', icon: PieChart, permission: 'finance.view' },
-      { href: '/dashboard/finance/targets', label: 'أهداف الإيرادات', labelEn: 'Revenue Targets', icon: Target, permission: 'finance.view' },
-      { href: '/dashboard/payroll', label: 'الرواتب', labelEn: 'Payroll', icon: Banknote, permission: 'payroll.manage' },
-    ],
-  },
-  {
-    title: 'إدارة الفريق',
-    titleEn: 'Team Management',
-    description: 'إدارة المستخدمين وتوزيع الأدوار والصلاحيات',
-    items: [
-      { href: '/dashboard/users', label: 'المستخدمون', labelEn: 'Users', icon: Users, permission: 'users.view' },
-      { href: '/dashboard/teams', label: 'الفرق', labelEn: 'Teams', icon: Building2, permission: 'teams.view' },
-      { href: '/dashboard/roles', label: 'الأدوار', labelEn: 'Roles', icon: Shield, permission: 'roles.view' },
-      { href: '/dashboard/permissions', label: 'الصلاحيات', labelEn: 'Permissions', icon: KeyRound, permission: 'users.manage' },
-    ],
-  },
-  {
-    title: 'الأدوات',
-    titleEn: 'Tools',
-    description: 'إعدادات النظام والأتمتة وقاعدة المعرفة والتكاملات',
-    items: [
-      { href: '/dashboard/settings', label: 'الإعدادات', labelEn: 'Settings', icon: Settings, permission: 'settings.view' },
-      { href: '/dashboard/reports', label: 'التقارير', labelEn: 'Reports', icon: BarChart3, permission: 'reports.view' },
-      { href: '/dashboard/automations', label: 'الأتمتة', labelEn: 'Automations', icon: Zap, permission: 'automations.view' },
-      { href: '/dashboard/knowledge-base', label: 'قاعدة المعرفة', labelEn: 'Knowledge Base', icon: BookOpen, permission: 'knowledge_base.view' },
-      { href: '/dashboard/integrations', label: 'التكاملات', labelEn: 'Integrations', icon: Webhook, permission: 'integrations.view' },
-    ],
-  },
-  {
-    title: 'الأمان والمراقبة',
-    titleEn: 'Security',
-    description: 'سجلات الدخول والنشاط والجلسات النشطة',
-    items: [
-      { href: '/dashboard/activity', label: 'سجل النشاط', labelEn: 'Activity', icon: Activity, permission: 'activity.view' },
-      { href: '/dashboard/login-history', label: 'سجل الدخول', labelEn: 'Login History', icon: KeyRound, permission: 'sessions.view' },
-      { href: '/dashboard/sessions', label: 'الجلسات', labelEn: 'Sessions', icon: Monitor, permission: 'sessions.view' },
-      { href: '/dashboard/admin/error-logs', label: 'سجل الأخطاء', labelEn: 'Error Logs', icon: Bug, permission: 'error_logs.view' },
-    ],
-  },
-];
-
 // ═══════════════════════════════════════════════
 //  localStorage helpers
 // ═══════════════════════════════════════════════
@@ -268,7 +44,7 @@ const FAVORITES_KEY = 'pyra-sidebar-favorites';
 
 // Old group names from previous layouts — trigger migration to clear stale localStorage
 const OLD_GROUP_NAMES = ['General', 'Personal', 'File Management', 'Workflow', 'Team', 'System', 'Work', 'Admin'];
-const NEW_GROUP_NAMES = navGroups.map(g => g.titleEn);
+const NEW_GROUP_NAMES = NAV_GROUPS.map(g => g.storageKey);
 
 function loadCollapsedGroups(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -303,13 +79,11 @@ function saveFavorites(favs: string[]) {
   try { localStorage.setItem(FAVORITES_KEY, JSON.stringify(favs)); } catch {}
 }
 
-// All nav items flat — used for favorite pins lookup
-const ALL_NAV_ITEMS: NavItem[] = navGroups.flatMap(g => g.items);
-
 // ═══════════════════════════════════════════════
 //  Sidebar Component
 // ═══════════════════════════════════════════════
 export function Sidebar({ user }: SidebarProps) {
+  const t = useTranslations('nav');
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -333,15 +107,15 @@ export function Sidebar({ user }: SidebarProps) {
 
   // Auto-expand the group containing the active page
   useEffect(() => {
-    const activeGroup = navGroups.find(g =>
+    const activeGroup = NAV_GROUPS.find(g =>
       g.items.some(item =>
         pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
       )
     );
-    if (activeGroup && collapsedGroups.has(activeGroup.titleEn)) {
+    if (activeGroup && collapsedGroups.has(activeGroup.storageKey)) {
       setCollapsedGroups(prev => {
         const next = new Set(prev);
-        next.delete(activeGroup.titleEn);
+        next.delete(activeGroup.storageKey);
         saveCollapsedGroups(next);
         return next;
       });
@@ -372,17 +146,17 @@ export function Sidebar({ user }: SidebarProps) {
   // Compute favorite items (only those the user has permission for)
   const favoriteItems = favorites
     .map(href => ALL_NAV_ITEMS.find(n => n.href === href))
-    .filter((item): item is NavItem =>
+    .filter((item): item is NavItemConfig =>
       !!item && (!item.permission || hasPermission(userPerms, item.permission))
     );
 
-  const getBadgeCount = (item: NavItem): number => {
+  const getBadgeCount = (item: NavItemConfig): number => {
     if (!item.badgeKey) return 0;
     return badges[item.badgeKey] ?? 0;
   };
 
   // ── Render a single nav item ──
-  const renderNavItem = (item: NavItem, showFavToggle: boolean) => {
+  const renderNavItem = (item: NavItemConfig, showFavToggle: boolean) => {
     const isActive = pathname === item.href ||
       (item.href !== '/dashboard' && pathname.startsWith(item.href));
     const Icon = item.icon;
@@ -411,7 +185,7 @@ export function Sidebar({ user }: SidebarProps) {
 
         {!collapsed && (
           <>
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{t(`items.${item.key}`)}</span>
 
             {/* Badge count */}
             {badgeCount > 0 && (
@@ -439,7 +213,7 @@ export function Sidebar({ user }: SidebarProps) {
                     ? 'opacity-60 hover:opacity-100 text-orange-500'
                     : 'opacity-0 group-hover/item:opacity-60 hover:!opacity-100 text-muted-foreground'
                 )}
-                aria-label={isFav ? 'إزالة من المثبّتات' : 'تثبيت'}
+                aria-label={isFav ? t('sidebar.unpin') : t('sidebar.pin')}
               >
                 {isFav ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
               </button>
@@ -458,7 +232,7 @@ export function Sidebar({ user }: SidebarProps) {
           side="left"
           className="max-w-[220px] text-end"
         >
-          {collapsed && <p className="font-semibold text-xs">{item.label}</p>}
+          {collapsed && <p className="font-semibold text-xs">{t(`items.${item.key}`)}</p>}
           {guideDesc && (
             <p className={cn(
               'text-[11px] leading-relaxed',
@@ -469,7 +243,7 @@ export function Sidebar({ user }: SidebarProps) {
           )}
           {collapsed && badgeCount > 0 && (
             <p className="text-[10px] text-orange-500 mt-0.5 font-medium">
-              {badgeCount} جديد
+              {t('sidebar.badgeNew', { count: badgeCount })}
             </p>
           )}
         </TooltipContent>
@@ -480,7 +254,7 @@ export function Sidebar({ user }: SidebarProps) {
   return (
     <TooltipProvider delayDuration={0}>
       <aside
-        aria-label="القائمة الجانبية الرئيسية"
+        aria-label={t('sidebar.mainNavAria')}
         className={cn(
           'fixed inset-y-0 start-0 z-40 flex flex-col border-e bg-sidebar transition-all duration-300 hidden lg:flex',
           collapsed ? 'w-[72px]' : 'w-[280px]'
@@ -515,7 +289,7 @@ export function Sidebar({ user }: SidebarProps) {
                 {!collapsed && (
                   <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold text-orange-500/80 uppercase tracking-wider">
                     <Pin className="h-3 w-3" />
-                    <span>المثبّتات</span>
+                    <span>{t('sidebar.pinned')}</span>
                   </div>
                 )}
                 {collapsed && <div className="my-1 mx-2 border-t border-orange-500/30" />}
@@ -526,33 +300,31 @@ export function Sidebar({ user }: SidebarProps) {
             )}
 
             {/* ── Nav Groups ── */}
-            {navGroups.map((group) => {
+            {NAV_GROUPS.map((group) => {
               const visibleItems = group.items.filter(item => !item.permission || hasPermission(userPerms, item.permission));
               if (visibleItems.length === 0) return null;
 
-              const isGroupCollapsed = collapsedGroups.has(group.titleEn);
+              const isGroupCollapsed = collapsedGroups.has(group.storageKey);
 
               return (
-                <div key={group.titleEn} className="mb-3">
+                <div key={group.storageKey} className="mb-3">
                   {!collapsed && (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
-                          onClick={() => toggleGroup(group.titleEn)}
+                          onClick={() => toggleGroup(group.storageKey)}
                           className="flex items-center justify-between w-full px-3 py-1.5 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider hover:text-muted-foreground transition-colors group/section"
                         >
-                          <span>{group.title}</span>
+                          <span>{t(`groups.${group.key}.title`)}</span>
                           <ChevronDown className={cn(
                             'h-3 w-3 opacity-0 group-hover/section:opacity-100 transition-all duration-200',
                             isGroupCollapsed && '-rotate-90'
                           )} />
                         </button>
                       </TooltipTrigger>
-                      {group.description && (
-                        <TooltipContent side="left" className="max-w-[200px] text-end">
-                          <p className="text-[11px] leading-relaxed">{group.description}</p>
-                        </TooltipContent>
-                      )}
+                      <TooltipContent side="left" className="max-w-[200px] text-end">
+                        <p className="text-[11px] leading-relaxed">{t(`groups.${group.key}.description`)}</p>
+                      </TooltipContent>
                     </Tooltip>
                   )}
                   {collapsed && <div className="my-1 mx-2 border-t border-border/40" />}
@@ -589,11 +361,11 @@ export function Sidebar({ user }: SidebarProps) {
                 )}
               >
                 <HelpCircle className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="text-xs">دليل الاستخدام</span>}
+                {!collapsed && <span className="text-xs">{t('sidebar.guide')}</span>}
               </Link>
             </TooltipTrigger>
             <TooltipContent side="left" className="font-medium text-xs">
-              {collapsed ? 'دليل الاستخدام' : 'شرح جميع وحدات النظام ونصائح الاستخدام'}
+              {collapsed ? t('sidebar.guide') : t('sidebar.guideHint')}
             </TooltipContent>
           </Tooltip>
 
@@ -602,14 +374,14 @@ export function Sidebar({ user }: SidebarProps) {
             size="sm"
             className={cn('w-full', collapsed && 'px-2')}
             onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? 'توسيع القائمة' : 'طي القائمة'}
+            aria-label={collapsed ? t('sidebar.expand') : t('sidebar.collapse')}
           >
             {collapsed ? (
               <PanelLeftOpen className="h-4 w-4" />
             ) : (
               <>
                 <PanelLeftClose className="h-4 w-4" />
-                <span className="ms-2">طي القائمة</span>
+                <span className="ms-2">{t('sidebar.collapse')}</span>
               </>
             )}
           </Button>
