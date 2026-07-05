@@ -1,29 +1,33 @@
 "use client"
 
 import * as React from "react"
+import { useLocale } from 'next-intl';
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 import { cn } from "@/lib/utils/cn"
 
 const ScrollArea = React.forwardRef<
   React.ComponentRef<typeof ScrollAreaPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
->(({ className, children, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    // Radix defaults to dir="ltr"; this app is RTL everywhere — without this
-    // the viewport/scrollbar geometry shifts and CLIPS the inline-start
-    // (right) edge of the content. Callers may still override via props.
-    dir="rtl"
-    className={cn("relative overflow-hidden", className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-    <ScrollBar />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-))
+>(({ className, children, ...props }, ref) => {
+  // Radix defaults to dir="ltr"; without an explicit dir the viewport/scrollbar
+  // geometry shifts and CLIPS the inline-start edge in RTL. Follow the active
+  // locale; callers may still override via props.
+  const locale = useLocale();
+  return (
+    <ScrollAreaPrimitive.Root
+      ref={ref}
+      dir={locale === 'ar' ? 'rtl' : 'ltr'}
+      className={cn("relative overflow-hidden", className)}
+      {...props}
+    >
+      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
+})
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
 
 const ScrollBar = React.forwardRef<

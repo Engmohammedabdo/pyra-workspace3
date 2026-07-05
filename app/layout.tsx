@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Cairo, JetBrains_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
+import { getLocale } from 'next-intl/server';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from 'sonner';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import './globals.css';
 
 const cairo = Cairo({
@@ -59,13 +61,16 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = (await getLocale()) as Locale;
+  const dir = dirFor(locale);
+
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html lang={locale} dir={dir} suppressHydrationWarning>
       <head>
         <meta name="theme-color" content="#f97316" />
       </head>
@@ -86,7 +91,7 @@ export default function RootLayout({
               position="top-center"
               richColors
               closeButton
-              dir="rtl"
+              dir={dir}
             />
           </ThemeProvider>
         </NextIntlClientProvider>
