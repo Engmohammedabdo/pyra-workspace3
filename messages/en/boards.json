@@ -1,3 +1,46 @@
 {
-  "boards": {}
+  "boards": {
+    "meta": {
+      "list": "Boards | Pyra Workspace",
+      "board": "Board | Pyra Workspace"
+    },
+    "list": {
+      "toasts": {
+        "starAdded": "Board added to favorites",
+        "starRemoved": "Board removed from favorites",
+        "starFailed": "Failed",
+        "createSuccess": "Board created successfully",
+        "createFailed": "Failed to create board"
+      },
+      "header": {
+        "title": "Boards",
+        "count": "{count, plural, one {# board} other {# boards}}"
+      },
+      "create": {
+        "trigger": "New Board",
+        "dialogTitle": "Create a new board",
+        "nameLabel": "Board name",
+        "namePlaceholder": "e.g. Design Tasks",
+        "descLabel": "Description (optional)",
+        "descPlaceholder": "Short description...",
+        "viewModeLabel": "View type",
+        "kanbanTitle": "Kanban",
+        "kanbanDesc": "Flexible drag-and-drop columns",
+        "pipelineTitle": "Pipeline",
+        "pipelineDesc": "Sequential stages with progress tracking",
+        "templateLabel": "Choose a template",
+        "submitting": "Creating...",
+        "submit": "Create board"
+      },
+      "empty": {
+        "title": "No boards yet",
+        "description": "Create a new board to start organizing tasks",
+        "actionLabel": "New Board"
+      },
+      "card": {
+        "columnsCountKanban": "{count, plural, one {# column} other {# columns}}",
+        "columnsCountPipeline": "{count, plural, one {# stage} other {# stages}}"
+      }
+    }
+  }
 }

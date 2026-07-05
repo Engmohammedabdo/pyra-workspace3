@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,8 @@ interface BoardsClientProps {
 }
 
 export default function BoardsClient({ session }: BoardsClientProps) {
+  const t = useTranslations('boards.list');
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const { data: boardsData, isLoading: loading } = useBoards();
   const boards: Board[] = (boardsData as Board[] | undefined) || [];
@@ -64,12 +67,12 @@ export default function BoardsClient({ session }: BoardsClientProps) {
       const json = await res.json();
       if (json.data?.starred) {
         setStarredIds(prev => new Set([...prev, boardId]));
-        toast.success('تم إضافة اللوحة للمفضلة');
+        toast.success(t('toasts.starAdded'));
       } else {
         setStarredIds(prev => { const n = new Set(prev); n.delete(boardId); return n; });
-        toast.success('تم إزالة اللوحة من المفضلة');
+        toast.success(t('toasts.starRemoved'));
       }
-    } catch { toast.error('فشل'); }
+    } catch { toast.error(t('toasts.starFailed')); }
   };
 
 
@@ -90,13 +93,13 @@ export default function BoardsClient({ session }: BoardsClientProps) {
         view_mode: viewMode,
         is_pipeline: viewMode === 'pipeline',
       } as Parameters<typeof createBoardMutation.mutateAsync>[0]);
-      toast.success('تم إنشاء اللوحة بنجاح');
+      toast.success(t('toasts.createSuccess'));
       setShowCreate(false);
       setNewName('');
       setNewDesc('');
       setSelectedTemplate('general');
     } catch {
-      toast.error('فشل إنشاء اللوحة');
+      toast.error(t('toasts.createFailed'));
     }
   };
   const creating = createBoardMutation.isPending;
@@ -118,41 +121,41 @@ export default function BoardsClient({ session }: BoardsClientProps) {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{'\u0644\u0648\u062D\u0627\u062A \u0627\u0644\u0639\u0645\u0644'}</h1>
-          <p className="text-sm text-muted-foreground">{boards.length} {'\u0644\u0648\u062D\u0629'}</p>
+          <h1 className="text-2xl font-bold">{t('header.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('header.count', { count: boards.length })}</p>
         </div>
         {canManage && (
           <Dialog open={showCreate} onOpenChange={setShowCreate}>
             <DialogTrigger asChild>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                 <Plus className="h-4 w-4 me-2" />
-                {'\u0644\u0648\u062D\u0629 \u062C\u062F\u064A\u062F\u0629'}
+                {t('create.trigger')}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{'\u0625\u0646\u0634\u0627\u0621 \u0644\u0648\u062D\u0629 \u0639\u0645\u0644 \u062C\u062F\u064A\u062F\u0629'}</DialogTitle>
+                <DialogTitle>{t('create.dialogTitle')}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">{'\u0627\u0633\u0645 \u0627\u0644\u0644\u0648\u062D\u0629'}</label>
+                  <label className="text-sm font-medium">{t('create.nameLabel')}</label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder={'\u0645\u062B\u0627\u0644: \u0645\u0647\u0627\u0645 \u0627\u0644\u062A\u0635\u0645\u064A\u0645'}
+                    placeholder={t('create.namePlaceholder')}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">{'\u0627\u0644\u0648\u0635\u0641 (\u0627\u062E\u062A\u064A\u0627\u0631\u064A)'}</label>
+                  <label className="text-sm font-medium">{t('create.descLabel')}</label>
                   <Input
                     value={newDesc}
                     onChange={(e) => setNewDesc(e.target.value)}
-                    placeholder={'\u0648\u0635\u0641 \u0645\u062E\u062A\u0635\u0631...'}
+                    placeholder={t('create.descPlaceholder')}
                   />
                 </div>
                 {/* View Mode */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">نوع العرض</label>
+                  <label className="text-sm font-medium">{t('create.viewModeLabel')}</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setViewMode('kanban')}
@@ -164,8 +167,8 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                     >
                       <LayoutGrid className="h-5 w-5 text-orange-500" />
                       <div>
-                        <p className="text-sm font-medium">كانبان</p>
-                        <p className="text-[10px] text-muted-foreground">أعمدة مرنة بسحب وإفلات</p>
+                        <p className="text-sm font-medium">{t('create.kanbanTitle')}</p>
+                        <p className="text-[10px] text-muted-foreground">{t('create.kanbanDesc')}</p>
                       </div>
                     </button>
                     <button
@@ -178,31 +181,31 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                     >
                       <GitBranch className="h-5 w-5 text-emerald-500" />
                       <div>
-                        <p className="text-sm font-medium">Pipeline</p>
-                        <p className="text-[10px] text-muted-foreground">مراحل تسلسلية مع متابعة التقدم</p>
+                        <p className="text-sm font-medium">{t('create.pipelineTitle')}</p>
+                        <p className="text-[10px] text-muted-foreground">{t('create.pipelineDesc')}</p>
                       </div>
                     </button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">{'\u0627\u062E\u062A\u0631 \u0642\u0627\u0644\u0628'}</label>
+                  <label className="text-sm font-medium">{t('create.templateLabel')}</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {BOARD_TEMPLATES.map((t) => {
-                      const Icon = TEMPLATE_ICONS[t.icon] || Layout;
+                    {BOARD_TEMPLATES.map((tpl) => {
+                      const Icon = TEMPLATE_ICONS[tpl.icon] || Layout;
                       return (
                         <button
-                          key={t.key}
-                          onClick={() => setSelectedTemplate(t.key)}
+                          key={tpl.key}
+                          onClick={() => setSelectedTemplate(tpl.key)}
                           className={`p-3 rounded-lg border text-start transition-colors ${
-                            selectedTemplate === t.key
+                            selectedTemplate === tpl.key
                               ? 'border-orange-500 bg-orange-500/10'
                               : 'border-border hover:border-orange-300'
                           }`}
                         >
                           <Icon className="h-5 w-5 mb-1 text-orange-500" />
-                          <p className="text-sm font-medium">{t.nameAr}</p>
-                          <p className="text-[10px] text-muted-foreground">{t.descriptionAr}</p>
+                          <p className="text-sm font-medium">{locale === 'ar' ? tpl.nameAr : tpl.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{locale === 'ar' ? tpl.descriptionAr : tpl.description}</p>
                         </button>
                       );
                     })}
@@ -213,7 +216,7 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                   disabled={creating || !newName.trim()}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                 >
-                  {creating ? '\u062C\u0627\u0631\u064A \u0627\u0644\u0625\u0646\u0634\u0627\u0621...' : '\u0625\u0646\u0634\u0627\u0621 \u0627\u0644\u0644\u0648\u062D\u0629'}
+                  {creating ? t('create.submitting') : t('create.submit')}
                 </Button>
               </div>
             </DialogContent>
@@ -224,9 +227,9 @@ export default function BoardsClient({ session }: BoardsClientProps) {
       {boards.length === 0 ? (
         <EmptyState
           icon={Kanban}
-          title={'\u0644\u0627 \u062A\u0648\u062C\u062F \u0644\u0648\u062D\u0627\u062A \u0639\u0645\u0644'}
-          description={'\u0623\u0646\u0634\u0626 \u0644\u0648\u062D\u0629 \u0639\u0645\u0644 \u062C\u062F\u064A\u062F\u0629 \u0644\u0628\u062F\u0621 \u062A\u0646\u0638\u064A\u0645 \u0627\u0644\u0645\u0647\u0627\u0645'}
-          actionLabel={canManage ? '\u0644\u0648\u062D\u0629 \u062C\u062F\u064A\u062F\u0629' : undefined}
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={canManage ? t('empty.actionLabel') : undefined}
           onAction={canManage ? () => setShowCreate(true) : undefined}
         />
       ) : (
@@ -273,7 +276,9 @@ export default function BoardsClient({ session }: BoardsClientProps) {
                     )}
                     {board.pyra_board_columns && (
                       <Badge variant="outline" className="text-[10px]">
-                        {board.pyra_board_columns.length} {board.is_pipeline ? 'مراحل' : '\u0623\u0639\u0645\u062F\u0629'}
+                        {board.is_pipeline
+                          ? t('card.columnsCountPipeline', { count: board.pyra_board_columns.length })
+                          : t('card.columnsCountKanban', { count: board.pyra_board_columns.length })}
                       </Badge>
                     )}
                   </div>

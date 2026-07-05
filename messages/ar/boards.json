@@ -1,3 +1,46 @@
 {
-  "boards": {}
+  "boards": {
+    "meta": {
+      "list": "لوحات العمل | Pyra Workspace",
+      "board": "لوحة العمل | Pyra Workspace"
+    },
+    "list": {
+      "toasts": {
+        "starAdded": "تم إضافة اللوحة للمفضلة",
+        "starRemoved": "تم إزالة اللوحة من المفضلة",
+        "starFailed": "فشل",
+        "createSuccess": "تم إنشاء اللوحة بنجاح",
+        "createFailed": "فشل إنشاء اللوحة"
+      },
+      "header": {
+        "title": "لوحات العمل",
+        "count": "{count, plural, other {# لوحة}}"
+      },
+      "create": {
+        "trigger": "لوحة جديدة",
+        "dialogTitle": "إنشاء لوحة عمل جديدة",
+        "nameLabel": "اسم اللوحة",
+        "namePlaceholder": "مثال: مهام التصميم",
+        "descLabel": "الوصف (اختياري)",
+        "descPlaceholder": "وصف مختصر...",
+        "viewModeLabel": "نوع العرض",
+        "kanbanTitle": "كانبان",
+        "kanbanDesc": "أعمدة مرنة بسحب وإفلات",
+        "pipelineTitle": "Pipeline",
+        "pipelineDesc": "مراحل تسلسلية مع متابعة التقدم",
+        "templateLabel": "اختر قالب",
+        "submitting": "جاري الإنشاء...",
+        "submit": "إنشاء اللوحة"
+      },
+      "empty": {
+        "title": "لا توجد لوحات عمل",
+        "description": "أنشئ لوحة عمل جديدة لبدء تنظيم المهام",
+        "actionLabel": "لوحة جديدة"
+      },
+      "card": {
+        "columnsCountKanban": "{count, plural, other {# أعمدة}}",
+        "columnsCountPipeline": "{count, plural, other {# مراحل}}"
+      }
+    }
+  }
 }
