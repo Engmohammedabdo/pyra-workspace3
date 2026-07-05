@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,7 @@ import { LocaleToggleAnon } from '@/components/layout/locale-toggle-anon';
 import { Loader2, LogIn, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
+  const t = useTranslations('auth.login');
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get('redirect') || '/dashboard';
@@ -35,11 +37,11 @@ export default function LoginPage() {
 
       if (authError) {
         if (authError.message.includes('Invalid login credentials')) {
-          setError('البريد الإلكتروني أو كلمة المرور غير صحيحة');
+          setError(t('invalidCredentials'));
         } else if (authError.message.includes('Email not confirmed')) {
-          setError('لم يتم تأكيد البريد الإلكتروني');
+          setError(t('emailNotConfirmed'));
         } else {
-          setError(authError.message);
+          setError(t('unexpected'));
         }
         return;
       }
@@ -47,7 +49,7 @@ export default function LoginPage() {
       router.push(redirectTo);
       router.refresh();
     } catch {
-      setError('حدث خطأ غير متوقع. حاول مرة أخرى.');
+      setError(t('unexpected'));
     } finally {
       setLoading(false);
     }
@@ -73,7 +75,7 @@ export default function LoginPage() {
           </div>
           <div className="w-16 h-[2px] bg-white/60 mx-auto" />
           <p className="text-orange-50/80 text-sm max-w-[250px] leading-relaxed">
-            منصة إدارة الملفات والمشاريع الذكية
+            {t('tagline')}
           </p>
           <p className="text-orange-100/50 text-xs">
             v3.0
@@ -93,16 +95,16 @@ export default function LoginPage() {
             <p className="text-xs text-muted-foreground">FOR AI SOLUTIONS</p>
           </div>
           <CardTitle className="text-2xl font-bold">
-            تسجيل الدخول
+            {t('title')}
           </CardTitle>
           <CardDescription>
-            أدخل بياناتك للوصول إلى لوحة التحكم
+            {t('dashboardSubtitle')}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-8 lg:px-12 pb-12">
           <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+              <Label htmlFor="email">{t('email')}</Label>
               <Input
                 id="email"
                 type="email"
@@ -117,7 +119,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
+              <Label htmlFor="password">{t('password')}</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -156,12 +158,12 @@ export default function LoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  جاري تسجيل الدخول...
+                  {t('submitting')}
                 </>
               ) : (
                 <>
                   <LogIn className="h-4 w-4" />
-                  تسجيل الدخول
+                  {t('submit')}
                 </>
               )}
             </Button>
