@@ -480,6 +480,39 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 ```
 Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
+## i18n — Bilingual AR/EN (Phases 0–1 shipped)
+
+next-intl WITHOUT locale routing — URLs never change. Locale = `pyra_locale`
+cookie (cache) ← `pyra_users.preferred_language` / `pyra_clients.preferred_language`
+(source of truth, migration 035). `<html lang dir>` + Toaster are dynamic in
+`app/layout.tsx`. Switchers: topbar `LocaleSwitcher`, profile `LocaleSelect`,
+pre-auth `LocaleToggleAnon`; `LocaleSync` heals cookie↔DB drift in both authed
+layouts.
+
+**Rules (do NOT regress):**
+- Messages live in `messages/{ar,en}/<namespace>.json` — ONE top-level
+  namespace per file. Loader `lib/i18n/messages.ts` deep-merges EN OVER AR:
+  a missing EN key renders Arabic — never a raw key. AR strings are extracted
+  VERBATIM from code, never re-authored.
+- Client components: `useTranslations`; server pages + route handlers:
+  `getTranslations` (cookie-resolved — pass an explicit locale only for
+  recipient-language rendering or cron/webhook contexts).
+- Status labels: new/migrated modules use `useStatusLabels(entity)` from
+  `lib/i18n/status-labels.ts` — the legacy `*_STATUS_LABELS` Arabic maps remain
+  ONLY for not-yet-migrated modules.
+- Nav lives in `components/layout/nav-config.ts` + `messages/*/nav.json`
+  (sidebar, mobile-nav, palette, breadcrumb all consume it — never re-inline
+  a label list).
+- `pnpm i18n:check` gates hardcoded Arabic in migrated paths (manifest inside
+  `scripts/i18n-check.ts` — append every newly migrated path). Escape hatch:
+  `// i18n-exempt: <reason>`.
+- Adding a translated module (Phases 2+): create `messages/{ar,en}/<mod>.json`,
+  register in `NAMESPACE_FILES` + `i18n/global.ts`, swap the module's UI +
+  API strings, extend MIGRATED_PATHS, QA both locales.
+- Dates: `formatDate/formatRelativeDate/formatTime/formatTaskDueDate` take a
+  trailing `locale` param (default `'ar'`). Currency/number formatting is
+  locale-stable (`en-AE`) by design — do not localize digits in money.
+
 ## Business Entities (Multi-License)
 Table `pyra_business_entities` — select trade license per invoice/quote. Entity logo and company name appear in PDF.
 - API: `/api/settings/business-entities` (CRUD)

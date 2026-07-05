@@ -14,10 +14,34 @@ const ROOT = process.cwd();
 const MIGRATED_PATHS: string[] = [
   'i18n',
   'lib/i18n',
+  'scripts/i18n-check.ts',
+  // Phase 0
   'components/layout/locale-switcher.tsx',
   'components/layout/locale-sync.tsx',
   'components/layout/locale-toggle-anon.tsx',
-  'scripts/i18n-check.ts',
+  // Phase 1 — app shell
+  'components/layout/nav-config.ts',
+  'components/layout/sidebar.tsx',
+  'components/layout/mobile-nav.tsx',
+  'components/layout/topbar.tsx',
+  'components/layout/breadcrumb.tsx',
+  'components/layout/CommandPalette.tsx',
+  'components/layout/NotificationBell.tsx',
+  'components/ui/page-guide.tsx',
+  'components/ui/data-table.tsx',
+  'components/ui/pagination.tsx',
+  'components/ui/search-input.tsx',
+  'components/ui/sheet.tsx',
+  'components/ui/error-boundary.tsx',
+  'components/ui/error-card.tsx',
+  'components/ui/mention-textarea.tsx',
+  'components/portal/portal-nav-config.ts',
+  'components/portal/portal-sidebar.tsx',
+  'components/portal/portal-mobile-nav.tsx',
+  'components/portal/portal-topbar.tsx',
+  'app/(auth)/login/page.tsx',
+  'app/portal/(auth)',
+  'app/api/portal/auth',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text
