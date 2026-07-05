@@ -1,0 +1,11 @@
+{
+  "common": {
+    "language": {
+      "label": "اللغة",
+      "ar": "العربية",
+      "en": "English",
+      "switchTo": "التبديل إلى {language}",
+      "updateFailed": "تعذر تغيير اللغة — حاول مرة أخرى"
+    }
+  }
+}

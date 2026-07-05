@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Cairo, JetBrains_Mono } from 'next/font/google';
+import { NextIntlClientProvider } from 'next-intl';
 import { ThemeProvider } from '@/components/providers/theme-provider';
 import { QueryProvider } from '@/components/providers/query-provider';
 import { Toaster } from 'sonner';
@@ -71,22 +72,24 @@ export default function RootLayout({
       <body
         className={`${cairo.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <QueryProvider>
-            {children}
-          </QueryProvider>
-          <Toaster
-            position="top-center"
-            richColors
-            closeButton
-            dir="rtl"
-          />
-        </ThemeProvider>
+        <NextIntlClientProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="light"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <QueryProvider>
+              {children}
+            </QueryProvider>
+            <Toaster
+              position="top-center"
+              richColors
+              closeButton
+              dir="rtl"
+            />
+          </ThemeProvider>
+        </NextIntlClientProvider>
         <script
           dangerouslySetInnerHTML={{
             __html: `
