@@ -1,11 +1,12 @@
 {
   "common": {
-    "language": {
-      "label": "اللغة",
-      "ar": "العربية",
-      "en": "English",
-      "switchTo": "التبديل إلى {language}",
-      "updateFailed": "تعذر تغيير اللغة — حاول مرة أخرى"
-    }
+    "language": { "label": "اللغة", "ar": "العربية", "en": "English", "switchTo": "التبديل إلى {language}", "updateFailed": "تعذر تغيير اللغة — حاول مرة أخرى" },
+    "actions": { "save": "حفظ", "cancel": "إلغاء", "confirm": "تأكيد", "close": "إغلاق", "retry": "إعادة المحاولة", "search": "بحث...", "clearSearch": "مسح البحث" },
+    "table": { "selectedCount": "{count} محدد", "clearSelection": "إلغاء التحديد", "selectAll": "تحديد الكل", "selectRow": "تحديد الصف" },
+    "pagination": { "prev": "الصفحة السابقة", "next": "الصفحة التالية", "pageOf": "صفحة {page} من {totalPages}" },
+    "errors": { "unexpected": "حدث خطأ غير متوقع", "sectionLoad": "عذراً، حدث خطأ أثناء تحميل هذا القسم. يرجى المحاولة مرة أخرى.", "loadFailed": "فشل في تحميل البيانات", "serverConnection": "حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.", "checkInternet": "تحقق من اتصال الإنترنت" },
+    "mentions": { "loading": "جاري تحميل الأعضاء...", "noMatch": "لا يوجد أعضاء مطابقين", "teamMembers": "أعضاء الفريق" },
+    "guide": { "aria": "دليل الاستخدام", "help": "مساعدة", "title": "دليل الاستخدام", "goal": "الهدف", "tips": "نصائح الاستخدام", "viewAll": "عرض دليل جميع الوحدات" },
+    "srClose": "إغلاق"
   }
 }

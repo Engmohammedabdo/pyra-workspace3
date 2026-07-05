@@ -1,11 +1,12 @@
 {
   "common": {
-    "language": {
-      "label": "Language",
-      "ar": "العربية",
-      "en": "English",
-      "switchTo": "Switch to {language}",
-      "updateFailed": "Could not change language — please try again"
-    }
+    "language": { "label": "Language", "ar": "العربية", "en": "English", "switchTo": "Switch to {language}", "updateFailed": "Could not change language — please try again" },
+    "actions": { "save": "Save", "cancel": "Cancel", "confirm": "Confirm", "close": "Close", "retry": "Try Again", "search": "Search...", "clearSearch": "Clear search" },
+    "table": { "selectedCount": "{count} selected", "clearSelection": "Clear selection", "selectAll": "Select all", "selectRow": "Select row" },
+    "pagination": { "prev": "Previous page", "next": "Next page", "pageOf": "Page {page} of {totalPages}" },
+    "errors": { "unexpected": "An unexpected error occurred", "sectionLoad": "Sorry, something went wrong loading this section. Please try again.", "loadFailed": "Failed to load data", "serverConnection": "A server connection error occurred. Please try again.", "checkInternet": "Check your internet connection" },
+    "mentions": { "loading": "Loading members...", "noMatch": "No matching members", "teamMembers": "Team members" },
+    "guide": { "aria": "User guide", "help": "Help", "title": "User Guide", "goal": "Goal", "tips": "Usage tips", "viewAll": "View all module guides" },
+    "srClose": "Close"
   }
 }

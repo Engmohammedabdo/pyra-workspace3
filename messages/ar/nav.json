@@ -1,0 +1,70 @@
+{
+  "nav": {
+    "groups": {
+      "main":        { "title": "الرئيسية", "description": "لوحة التحكم والإشعارات ومهامك الشخصية" },
+      "business":    { "title": "الأعمال", "description": "إدارة المشاريع والعملاء والفواتير وعروض الأسعار" },
+      "content":     { "title": "المحتوى والملفات", "description": "مراجعات المحتوى والملفات والتخزين" },
+      "crm":         { "title": "CRM", "description": "إدارة العملاء المحتملين، خط المبيعات، WhatsApp، والمتابعات" },
+      "hr":          { "title": "الموارد البشرية", "description": "نظرة إدارية على الحضور والإجازات والرواتب والوثائق والتقييمات" },
+      "selfService": { "title": "الخدمة الذاتية", "description": "مهامي الشخصية: حضور، إجازات، رواتب، وثائق، ودليل الفريق" },
+      "finance":     { "title": "المالية", "description": "المصاريف والعقود والاشتراكات والتقارير المالية" },
+      "team":        { "title": "إدارة الفريق", "description": "إدارة المستخدمين وتوزيع الأدوار والصلاحيات" },
+      "tools":       { "title": "الأدوات", "description": "إعدادات النظام والأتمتة وقاعدة المعرفة والتكاملات" },
+      "security":    { "title": "الأمان والمراقبة", "description": "سجلات الدخول والنشاط والجلسات النشطة" }
+    },
+    "items": {
+      "dashboard": "الرئيسية", "notifications": "الإشعارات", "profile": "ملفي الشخصي", "myTasks": "مهامي", "calendar": "التقويم",
+      "projects": "المشاريع", "clients": "العملاء", "quotes": "عروض الأسعار", "quotesAnalytics": "تحليلات العروض", "invoices": "الفواتير", "boards": "لوحات العمل",
+      "scriptReviews": "مراجعات السكريبتات", "contentPipeline": "خط الإنتاج", "files": "الملفات", "favorites": "المفضلة", "reviews": "المراجعات", "trash": "المحذوفات", "storage": "التخزين",
+      "crmDashboard": "لوحة المبيعات", "pipeline": "خط المبيعات", "customers": "العملاء", "whatsappChat": "محادثات واتساب", "whatsappAnalytics": "تحليلات واتساب", "whatsappCampaigns": "حملات الرسائل", "followUps": "المتابعات", "crmApprovals": "اعتمادات تنتظرك", "quoteApprovals": "موافقات العروض", "salesSettings": "الإعدادات",
+      "hrOverview": "نظرة عامة", "productivity": "تقرير الإنتاجية", "teamApprovals": "الموافقات", "leaveSettings": "إعدادات الإجازات", "leaveBalances": "أرصدة الإجازات", "evaluationSettings": "إعدادات التقييم", "hrDocuments": "وثائق الموظفين", "documentTypes": "أنواع الوثائق", "onboarding": "تعيين موظفين", "workSchedules": "جداول العمل",
+      "timesheet": "ساعات العمل", "attendance": "الحضور", "leave": "الإجازات", "myPayslips": "راتبي", "evaluations": "تقييم الأداء", "myDocuments": "وثائقي", "directory": "دليل الفريق", "announcements": "الإعلانات", "orgChart": "الهيكل التنظيمي",
+      "financeHome": "الإدارة المالية", "expenses": "المصاريف", "cards": "البطاقات", "contracts": "العقود", "recurring": "الفواتير المتكررة", "creditNotes": "إشعارات دائنة", "suppliers": "الموردين", "purchaseOrders": "أوامر الشراء", "financeReports": "التقارير المالية", "revenueTargets": "أهداف الإيرادات", "payroll": "الرواتب",
+      "users": "المستخدمون", "teams": "الفرق", "roles": "الأدوار", "permissions": "الصلاحيات",
+      "settings": "الإعدادات", "reports": "التقارير", "automations": "الأتمتة", "knowledgeBase": "قاعدة المعرفة", "integrations": "التكاملات",
+      "activityLog": "سجل النشاط", "loginHistory": "سجل الدخول", "sessions": "الجلسات", "errorLogs": "سجل الأخطاء"
+    },
+    "portal": {
+      "items": {
+        "home": "الرئيسية", "projects": "المشاريع", "files": "الملفات", "quotes": "عروض الأسعار", "contracts": "العقود", "invoices": "الفواتير", "creditNotes": "الإشعارات الدائنة", "recurring": "الفواتير المتكررة", "statement": "كشف الحساب", "scripts": "السكريبتات", "help": "مركز المساعدة", "notifications": "الإشعارات", "profile": "الملف الشخصي"
+      },
+      "clientPortal": "بوابة العملاء", "sidebarAria": "قائمة بوابة العملاء", "menuSr": "القائمة",
+      "pushEnabled": "إشعارات سطح المكتب مفعّلة", "pushEnable": "تفعيل إشعارات سطح المكتب"
+    },
+    "sidebar": {
+      "pinned": "المثبّتات", "pin": "تثبيت", "unpin": "إزالة من المثبّتات",
+      "badgeNew": "{count} جديد", "mainNavAria": "القائمة الجانبية الرئيسية",
+      "guide": "دليل الاستخدام", "guideHint": "شرح جميع وحدات النظام ونصائح الاستخدام",
+      "collapse": "طي القائمة", "expand": "توسيع القائمة"
+    },
+    "topbar": {
+      "toggleTheme": "تبديل الوضع", "lightMode": "الوضع النهاري", "darkMode": "الوضع الليلي",
+      "userMenu": "قائمة المستخدم", "profile": "الملف الشخصي", "logout": "تسجيل الخروج",
+      "roleAdmin": "مسؤول", "roleEmployee": "موظف"
+    },
+    "breadcrumb": { "navAria": "التنقل", "back": "رجوع" },
+    "palette": {
+      "searchAria": "البحث", "placeholder": "ابحث عن صفحة أو إجراء...", "noResults": "لا توجد نتائج",
+      "quickActions": "إجراءات سريعة", "recent": "تمت زيارتها مؤخراً",
+      "groupWork": "العمل", "groupHr": "الموارد البشرية", "groupFinance": "المالية", "groupAdmin": "الإدارة",
+      "searchButton": "بحث...",
+      "actions": { "newInvoice": "فاتورة جديدة", "newQuote": "عرض سعر جديد", "newClient": "عميل جديد", "newProject": "مشروع جديد" },
+      "items": {
+        "dashboard": "لوحة التحكم", "projects": "المشاريع", "clients": "العملاء", "quotes": "عروض الأسعار", "invoices": "الفواتير", "boards": "لوحات العمل", "scripts": "السكريبتات", "contentPipeline": "خط الإنتاج", "files": "الملفات", "favorites": "المفضلة", "reviews": "المراجعات", "trash": "سلة المحذوفات", "storage": "التخزين", "notifications": "الإشعارات",
+        "attendance": "الحضور والانصراف", "leave": "الإجازات", "payroll": "الرواتب", "myPayslip": "كشف راتبي", "timesheet": "ساعات العمل", "evaluations": "تقييم الأداء", "directory": "دليل الفريق", "announcements": "الإعلانات", "orgChart": "الهيكل التنظيمي",
+        "financeHome": "الإدارة المالية", "expenses": "المصاريف", "cards": "البطاقات", "contracts": "العقود", "recurring": "الفواتير المتكررة", "financeReports": "التقارير المالية", "revenueTargets": "أهداف الإيرادات", "financeAlerts": "التنبيهات المالية",
+        "settings": "الإعدادات", "users": "المستخدمون", "teams": "الفرق", "roles": "الأدوار", "permissions": "الصلاحيات", "automations": "الأتمتة", "knowledgeBase": "قاعدة المعرفة", "integrations": "التكاملات", "activityLog": "سجل النشاط", "loginHistory": "سجل الدخول", "sessions": "الجلسات", "reports": "التقارير"
+      }
+    },
+    "bell": {
+      "title": "الإشعارات", "today": "اليوم", "yesterday": "أمس",
+      "muteSound": "كتم صوت الإشعارات", "unmuteSound": "تفعيل صوت الإشعارات",
+      "markAllRead": "تعليم الكل كمقروء", "empty": "لا توجد إشعارات", "viewAll": "عرض كل الإشعارات",
+      "unreadAria": "{count} إشعار جديد"
+    },
+    "segments": {
+      "dashboard": "الرئيسية", "files": "الملفات", "users": "المستخدمون", "teams": "الفرق", "permissions": "الصلاحيات", "quotes": "عروض الأسعار", "invoices": "الفواتير", "notifications": "الإشعارات", "activity": "النشاط", "trash": "المحذوفات", "settings": "الإعدادات", "clients": "العملاء", "projects": "المشاريع", "reviews": "المراجعات", "finance": "الإدارة المالية", "expenses": "المصاريف", "contracts": "العقود", "cards": "البطاقات", "recurring": "الفواتير المتكررة", "targets": "أهداف الإيرادات", "statements": "البيانات المالية", "favorites": "المفضلة", "script-reviews": "مراجعات السكريبتات", "knowledge-base": "قاعدة المعرفة", "login-history": "سجل الدخول", "sessions": "الجلسات", "integrations": "التكاملات", "reports": "التقارير", "new": "جديد", "boards": "لوحات العمل", "roles": "الأدوار", "automations": "الأتمتة", "attendance": "الحضور", "leave": "الإجازات", "payroll": "الرواتب", "evaluations": "التقييمات", "directory": "الدليل", "announcements": "الإعلانات", "timesheet": "ساعات العمل", "org-chart": "الهيكل التنظيمي", "content-pipeline": "خط الإنتاج", "my-payslips": "كشف الراتب", "my-tasks": "مهامي", "storage": "التخزين", "guide": "الدليل الإرشادي", "portal": "البوابة", "help": "مركز المساعدة", "scripts": "السكريبتات", "profile": "الملف الشخصي",
+      "crm": "CRM", "sales": "المبيعات", "pipeline": "خط المبيعات", "customers": "العملاء", "follow-ups": "المتابعات", "approvals": "الموافقات", "hr": "الموارد البشرية", "my-documents": "وثائقي", "calendar": "التقويم", "onboarding": "تعيين موظفين", "work-schedules": "جداول العمل", "leave-balances": "أرصدة الإجازات", "chat": "محادثات واتساب", "whatsapp-analytics": "تحليلات واتساب", "whatsapp-campaigns": "حملات الرسائل", "credit-notes": "الإشعارات الدائنة", "suppliers": "الموردين", "purchase-orders": "أوامر الشراء", "admin": "الإدارة", "error-logs": "سجل الأخطاء", "documents": "الوثائق", "productivity": "تقرير الإنتاجية", "analytics": "التحليلات"
+    }
+  }
+}

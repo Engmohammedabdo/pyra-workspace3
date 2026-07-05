@@ -6,7 +6,7 @@ import type { Locale } from './config';
  * so splitting a namespace across two files would silently drop keys.
  * Grows per phase: Phase 1 adds 'nav', 'auth', 'statuses'.
  */
-export const NAMESPACE_FILES = ['common', 'statuses'] as const;
+export const NAMESPACE_FILES = ['common', 'nav', 'auth', 'statuses'] as const;
 
 type Messages = Record<string, unknown>;
 
