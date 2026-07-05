@@ -1,0 +1,32 @@
+{
+  "statuses": {
+    "invoice": { "draft": "مسودة", "sent": "مرسلة", "partially_paid": "مدفوعة جزئياً", "paid": "مدفوعة", "overdue": "متأخرة", "cancelled": "ملغية" },
+    "quote": { "draft": "مسودة", "pending_approval": "بانتظار الموافقة", "sent": "مرسل", "viewed": "تم العرض", "signed": "موقّع", "invoiced": "تم الفوترة", "rejected": "مرفوض", "expired": "منتهي", "cancelled": "ملغي" },
+    "contract": { "draft": "مسودة", "active": "نشط", "completed": "مكتمل", "cancelled": "ملغي" },
+    "expense": { "pending": "بانتظار الموافقة", "approved": "معتمد", "rejected": "مرفوض" },
+    "leave": { "pending": "بانتظار الموافقة", "approved": "موافق عليه", "rejected": "مرفوض" },
+    "payroll": { "draft": "مسودة", "calculated": "محسوب", "approved": "معتمد", "paid": "مدفوع" },
+    "po": { "draft": "مسودة", "sent": "مرسل", "acknowledged": "تم الاستلام", "received": "تم التوريد", "invoiced": "تم الفوترة", "cancelled": "ملغي" },
+    "creditNote": { "draft": "مسودة", "issued": "صادر", "applied": "مطبّق", "cancelled": "ملغي" },
+    "subscription": { "active": "نشط", "cancelled": "ملغي", "expired": "منتهي" },
+    "paymentMethod": { "bank_transfer": "تحويل بنكي", "cash": "نقدي", "cheque": "شيك", "credit_card": "بطاقة ائتمان", "online": "دفع إلكتروني", "stripe": "Stripe", "credit_note": "إشعار دائن (رد)", "refund": "استرداد", "other": "أخرى" },
+    "billingCycle": { "weekly": "أسبوعي", "monthly": "شهري", "quarterly": "ربع سنوي", "yearly": "سنوي" },
+    "employeePayment": { "pending": "بانتظار الموافقة", "approved": "معتمد", "paid": "مدفوع", "rejected": "مرفوض" },
+    "evaluation": { "draft": "مسودة", "in_progress": "جاري التقييم", "completed": "مكتمل" },
+    "contentPipeline": { "pending": "بانتظار البدء", "in_progress": "قيد التنفيذ", "review": "قيد المراجعة", "approved": "معتمد", "published": "منشور" },
+    "followUp": { "pending": "بانتظار التنفيذ", "completed": "مكتمل", "overdue": "متأخر", "cancelled": "ملغي" },
+    "client": { "active": "نشط", "inactive": "غير نشط" },
+    "lead": { "new": "جديد", "contacted": "تم التواصل", "qualified": "مؤهل", "proposal": "عرض سعر", "negotiation": "تفاوض", "won": "تم الكسب", "lost": "خسارة" },
+    "pipelineStage": { "stg_reshuffle": "ريشفل", "stg_new_inquiry": "استفسار جديد", "stg_discovery_call": "مكالمة استكشافية", "stg_proposal_sent": "تم إرسال العرض", "stg_negotiation": "تفاوض", "stg_contract_signed": "تم توقيع العقد", "stg_closed_won": "فوز بالصفقة", "stg_closed_lost": "خسارة" },
+    "leadType": { "b2b": "شركة (B2B)", "b2c": "فرد (B2C)" },
+    "leadDealType": { "web_design": "تصميم موقع", "social_media_retainer": "إدارة سوشيال (Retainer)", "branding": "هوية بصرية", "payer_ai": "Payer AI", "video_production": "إنتاج فيديو", "performance_ads": "حملات إعلانية", "hybrid_package": "باقة مدمجة", "other": "غير ذلك" },
+    "leadBillingCycle": { "one_time": "مرة واحدة", "monthly": "شهري", "quarterly": "ربع سنوي", "annual": "سنوي" },
+    "leadActivity": { "lead_created": "تم إنشاء الـ Lead", "stage_change": "انتقلت المرحلة", "note": "ملاحظة", "call_logged": "تم تسجيل مكالمة", "meeting_scheduled": "اجتماع محدد", "whatsapp_inbound": "رسالة واتساب واردة", "whatsapp_outbound": "رسالة واتساب صادرة", "email_sent": "تم إرسال إيميل", "file_attached": "تم إرفاق ملف", "field_updated": "تحديث حقل", "assignment_changed": "تغيير المسؤول", "closed_won_pending": "بانتظار اعتماد Closed Won", "closed_won_approved": "تم اعتماد Closed Won", "closed_won_rejected": "تم رفض Closed Won", "follow_up_created": "متابعة جديدة", "follow_up_completed": "تم تنفيذ المتابعة", "follow_up_overdue": "متابعة متأخرة", "idle_warning": "تنبيه — Lead بدون نشاط" },
+    "conversation": { "open": "مفتوحة", "pending": "بانتظار الرد", "resolved": "محلولة" },
+    "conversationPriority": { "low": "منخفضة", "normal": "عادية", "high": "عالية", "urgent": "عاجلة" },
+    "leadTask": { "pending": "معلّقة", "in_progress": "قيد التنفيذ", "completed": "مكتملة", "cancelled": "ملغية" },
+    "leadTaskPriority": { "low": "منخفضة", "medium": "متوسطة", "high": "عالية", "urgent": "عاجلة" },
+    "calendarEventSource": { "task": "مهمة", "follow_up": "متابعة", "meeting": "اجتماع" },
+    "attendance": { "present": "حاضر", "absent": "غائب", "late": "متأخر", "early_leave": "انصراف مبكر", "holiday": "إجازة رسمية", "weekend": "عطلة" }
+  }
+}

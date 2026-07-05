@@ -1,7 +1,8 @@
 import type common from '../messages/ar/common.json';
+import type statuses from '../messages/ar/statuses.json';
 
 // Phase 1 extends this intersection: typeof common & typeof nav & typeof auth & typeof statuses
-type Messages = typeof common;
+type Messages = typeof common & typeof statuses;
 
 declare module 'next-intl' {
   interface AppConfig {

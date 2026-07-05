@@ -1,0 +1,32 @@
+{
+  "statuses": {
+    "invoice": { "draft": "Draft", "sent": "Sent", "partially_paid": "Partially Paid", "paid": "Paid", "overdue": "Overdue", "cancelled": "Cancelled" },
+    "quote": { "draft": "Draft", "pending_approval": "Pending Approval", "sent": "Sent", "viewed": "Viewed", "signed": "Signed", "invoiced": "Invoiced", "rejected": "Rejected", "expired": "Expired", "cancelled": "Cancelled" },
+    "contract": { "draft": "Draft", "active": "Active", "completed": "Completed", "cancelled": "Cancelled" },
+    "expense": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected" },
+    "leave": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected" },
+    "payroll": { "draft": "Draft", "calculated": "Calculated", "approved": "Approved", "paid": "Paid" },
+    "po": { "draft": "Draft", "sent": "Sent", "acknowledged": "Acknowledged", "received": "Received", "invoiced": "Invoiced", "cancelled": "Cancelled" },
+    "creditNote": { "draft": "Draft", "issued": "Issued", "applied": "Applied", "cancelled": "Cancelled" },
+    "subscription": { "active": "Active", "cancelled": "Cancelled", "expired": "Expired" },
+    "paymentMethod": { "bank_transfer": "Bank Transfer", "cash": "Cash", "cheque": "Cheque", "credit_card": "Credit Card", "online": "Online Payment", "stripe": "Stripe", "credit_note": "Credit Note (Refund)", "refund": "Refund", "other": "Other" },
+    "billingCycle": { "weekly": "Weekly", "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly" },
+    "employeePayment": { "pending": "Pending Approval", "approved": "Approved", "paid": "Paid", "rejected": "Rejected" },
+    "evaluation": { "draft": "Draft", "in_progress": "In Progress", "completed": "Completed" },
+    "contentPipeline": { "pending": "Not Started", "in_progress": "In Progress", "review": "In Review", "approved": "Approved", "published": "Published" },
+    "followUp": { "pending": "Pending", "completed": "Completed", "overdue": "Overdue", "cancelled": "Cancelled" },
+    "client": { "active": "Active", "inactive": "Inactive" },
+    "lead": { "new": "New", "contacted": "Contacted", "qualified": "Qualified", "proposal": "Proposal", "negotiation": "Negotiation", "won": "Won", "lost": "Lost" },
+    "pipelineStage": { "stg_reshuffle": "Reshuffle", "stg_new_inquiry": "New Inquiry", "stg_discovery_call": "Discovery Call", "stg_proposal_sent": "Proposal Sent", "stg_negotiation": "Negotiation", "stg_contract_signed": "Contract Signed", "stg_closed_won": "Closed Won", "stg_closed_lost": "Closed Lost" },
+    "leadType": { "b2b": "Company (B2B)", "b2c": "Individual (B2C)" },
+    "leadDealType": { "web_design": "Web Design", "social_media_retainer": "Social Media (Retainer)", "branding": "Branding", "payer_ai": "Payer AI", "video_production": "Video Production", "performance_ads": "Performance Ads", "hybrid_package": "Hybrid Package", "other": "Other" },
+    "leadBillingCycle": { "one_time": "One-time", "monthly": "Monthly", "quarterly": "Quarterly", "annual": "Annual" },
+    "leadActivity": { "lead_created": "Lead created", "stage_change": "Stage changed", "note": "Note", "call_logged": "Call logged", "meeting_scheduled": "Meeting scheduled", "whatsapp_inbound": "WhatsApp message received", "whatsapp_outbound": "WhatsApp message sent", "email_sent": "Email sent", "file_attached": "File attached", "field_updated": "Field updated", "assignment_changed": "Owner changed", "closed_won_pending": "Awaiting Closed-Won approval", "closed_won_approved": "Closed Won approved", "closed_won_rejected": "Closed Won rejected", "follow_up_created": "Follow-up created", "follow_up_completed": "Follow-up completed", "follow_up_overdue": "Follow-up overdue", "idle_warning": "Alert — idle lead" },
+    "conversation": { "open": "Open", "pending": "Awaiting Reply", "resolved": "Resolved" },
+    "conversationPriority": { "low": "Low", "normal": "Normal", "high": "High", "urgent": "Urgent" },
+    "leadTask": { "pending": "Pending", "in_progress": "In Progress", "completed": "Completed", "cancelled": "Cancelled" },
+    "leadTaskPriority": { "low": "Low", "medium": "Medium", "high": "High", "urgent": "Urgent" },
+    "calendarEventSource": { "task": "Task", "follow_up": "Follow-up", "meeting": "Meeting" },
+    "attendance": { "present": "Present", "absent": "Absent", "late": "Late", "early_leave": "Early Leave", "holiday": "Public Holiday", "weekend": "Weekend" }
+  }
+}
