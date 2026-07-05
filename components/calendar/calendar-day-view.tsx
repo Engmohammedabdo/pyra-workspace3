@@ -12,7 +12,7 @@
  *   - All timed events snap to their starting hour row
  *   - Event at 14:30 → renders in the 14:00 row
  *   - Time prefix in the pill shows the actual HH:MM for clarity
- *   - Stacked vertically within a row; limit 3 + "+N أكثر" overflow
+ *   - Stacked vertically within a row; limit 3 + a "+N more" overflow link
  *   - v1.1 backlog: minute-precision + side-by-side overlapping layout
  *
  * Reused by week view via the bucketByHour helper.
@@ -20,6 +20,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { CalendarEventPill } from './calendar-event-pill';
 import { cn } from '@/lib/utils/cn';
 import { dubaiDayKey } from '@/lib/utils/format';
@@ -63,6 +64,7 @@ export function bucketByHour(events: CalendarEvent[]): {
 const MAX_VISIBLE_PER_HOUR = 3;
 
 export function CalendarDayView({ dateKey, events, today }: CalendarDayViewProps) {
+  const t = useTranslations('calendar');
   // Filter events to just the target day (caller usually provides only
   // that day's events, but be defensive — week-view shares one query).
   const dayEvents = useMemo(
@@ -88,7 +90,7 @@ export function CalendarDayView({ dateKey, events, today }: CalendarDayViewProps
               : 'bg-muted/30 border-border',
           )}
         >
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">طول اليوم</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{t('dayView.allDay')}</p>
           <div className="space-y-1">
             {allDay.map((ev) => (
               <CalendarEventPill key={ev.id} event={ev} variant="full" />
@@ -125,7 +127,7 @@ export function CalendarDayView({ dateKey, events, today }: CalendarDayViewProps
                         href={`/dashboard/calendar?view=day&date=${dateKey}`}
                         className="block text-[10px] text-orange-600 dark:text-orange-400 hover:underline pt-0.5"
                       >
-                        + {overflow} أكثر
+                        {t('dayView.overflow', { count: overflow })}
                       </Link>
                     )}
                   </>

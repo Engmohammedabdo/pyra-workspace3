@@ -125,7 +125,13 @@ function InboxRow({
 
 function formatDueDate(
   dueDate: string | null,
-  t: ReturnType<typeof useTranslations>,
+  // Scoped to the 'mywork.inbox' namespace (the only caller's `t`) rather
+  // than the unscoped `ReturnType<typeof useTranslations>` — the unscoped
+  // form forces TS to resolve a translator type across the ENTIRE global
+  // Messages tree, which tips into "type instantiation is excessively deep"
+  // once enough namespaces/keys accumulate (surfaced by Phase 2 Task 4
+  // filling in the calendar catalog).
+  t: ReturnType<typeof useTranslations<'mywork.inbox'>>,
 ): { label: string; urgent: boolean } {
   if (!dueDate) return { label: '', urgent: false };
   // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).

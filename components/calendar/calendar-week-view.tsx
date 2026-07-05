@@ -22,10 +22,12 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { startOfWeek, addDays, format, isSameDay } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { useTranslations, useLocale } from 'next-intl';
 import { CalendarEventPill } from './calendar-event-pill';
 import { bucketByHour } from './calendar-day-view';
 import { cn } from '@/lib/utils/cn';
+import { getDateFnsLocale } from '@/lib/i18n/date-locale';
+import type { Locale } from '@/lib/i18n/config';
 import type { CalendarEvent } from '@/types/database';
 
 interface CalendarWeekViewProps {
@@ -38,6 +40,10 @@ interface CalendarWeekViewProps {
 const MAX_VISIBLE_PER_HOUR = 2; // tighter than day view since columns are narrow
 
 export function CalendarWeekView({ currentDate, events, today }: CalendarWeekViewProps) {
+  const t = useTranslations('calendar');
+  const locale = useLocale() as Locale;
+  const dateFnsLocale = getDateFnsLocale(locale);
+
   // ar locale defaults to Saturday-start (6). Use weekStartsOn: 0 (Sunday)
   // to match GCC working-week convention (Sun-Thu = workdays in UAE).
   const weekStart = useMemo(
@@ -76,8 +82,8 @@ export function CalendarWeekView({ currentDate, events, today }: CalendarWeekVie
                   isToday && 'bg-orange-50/30 text-orange-700 dark:bg-orange-950/30 dark:text-orange-400',
                 )}
               >
-                <div>{format(day, 'EEE', { locale: ar })}</div>
-                <div className="tabular-nums text-sm">{format(day, 'd', { locale: ar })}</div>
+                <div>{format(day, 'EEE', { locale: dateFnsLocale })}</div>
+                <div className="tabular-nums text-sm">{format(day, 'd', { locale: dateFnsLocale })}</div>
               </Link>
             );
           })}
@@ -85,7 +91,7 @@ export function CalendarWeekView({ currentDate, events, today }: CalendarWeekVie
 
         {/* All-day row */}
         <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border bg-muted/10 min-h-[28px]">
-          <div className="px-2 py-1 text-[9px] text-muted-foreground text-center uppercase tracking-wider">طول اليوم</div>
+          <div className="px-2 py-1 text-[9px] text-muted-foreground text-center uppercase tracking-wider">{t('weekView.allDay')}</div>
           {dayBuckets.map((db) => {
             const isToday = isSameDay(db.day, today);
             return (
@@ -136,7 +142,7 @@ export function CalendarWeekView({ currentDate, events, today }: CalendarWeekVie
                         href={`/dashboard/calendar?view=day&date=${db.key}`}
                         className="block text-[9px] text-orange-600 dark:text-orange-400 hover:underline"
                       >
-                        +{overflow}
+                        {t('weekView.overflow', { count: overflow })}
                       </Link>
                     )}
                   </div>

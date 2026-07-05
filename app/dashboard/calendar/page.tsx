@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import { CalendarClient } from './calendar-client';
 
@@ -11,9 +12,10 @@ import { CalendarClient } from './calendar-client';
  * Default view: month (desktop) / agenda (mobile, detected client-side
  * via matchMedia in calendar-client.tsx).
  */
-export const metadata = {
-  title: 'التقويم — Pyra Workspace',
-};
+export async function generateMetadata() {
+  const t = await getTranslations('calendar');
+  return { title: t('meta.title') };
+}
 
 export default async function CalendarPage() {
   await requirePermission('calendar.view');

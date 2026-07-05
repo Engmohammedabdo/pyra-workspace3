@@ -4,9 +4,9 @@
  * Phase 15.1 Commit 5 — Calendar toolbar.
  *
  * Three rows of controls:
- *   1. View switcher tabs (4 buttons): شهر / أسبوع / يوم / جدول الأعمال
- *   2. Date navigation: prev / current-window-label / next / "اليوم"
- *   3. Type filter chips: مهام / متابعات / اجتماعات (multi-select)
+ *   1. View switcher tabs (4 buttons): Month / Week / Day / Agenda
+ *   2. Date navigation: prev / current-window-label / next / "Today"
+ *   3. Type filter chips: Tasks / Follow-ups / Meetings (multi-select)
  *
  * Touch targets: h-11 per Phase 10 mobile standard.
  *
@@ -19,23 +19,16 @@
 
 import { ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
-import {
-  CALENDAR_EVENT_SOURCE_LABELS_AR,
-  CALENDAR_EVENT_TONES,
-} from '@/lib/constants/statuses';
+import { CALENDAR_EVENT_TONES } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { getDateFnsLocale } from '@/lib/i18n/date-locale';
+import type { Locale } from '@/lib/i18n/config';
 import type { CalendarEventSource } from '@/types/database';
 
 export type CalendarView = 'month' | 'week' | 'day' | 'agenda';
-
-const VIEW_LABELS: Record<CalendarView, string> = {
-  month: 'شهر',
-  week: 'أسبوع',
-  day: 'يوم',
-  agenda: 'جدول الأعمال',
-};
 
 const ALL_SOURCES: CalendarEventSource[] = ['task', 'follow_up', 'meeting'];
 
@@ -49,19 +42,20 @@ interface CalendarToolbarProps {
 }
 
 /** Window label shown between prev/next nav buttons. */
-function windowLabel(view: CalendarView, currentDate: Date): string {
+function windowLabel(view: CalendarView, currentDate: Date, locale: Locale): string {
+  const dateFnsLocale = getDateFnsLocale(locale);
   switch (view) {
     case 'month':
-      return format(currentDate, 'MMMM yyyy', { locale: ar });
+      return format(currentDate, 'MMMM yyyy', { locale: dateFnsLocale });
     case 'week': {
       const start = startOfWeek(currentDate, { weekStartsOn: 0 });
       const end = endOfWeek(currentDate, { weekStartsOn: 0 });
-      return `${format(start, 'd', { locale: ar })} – ${format(end, 'd MMMM yyyy', { locale: ar })}`;
+      return `${format(start, 'd', { locale: dateFnsLocale })} – ${format(end, 'd MMMM yyyy', { locale: dateFnsLocale })}`;
     }
     case 'day':
-      return format(currentDate, 'EEEE · d MMMM yyyy', { locale: ar });
+      return format(currentDate, 'EEEE · d MMMM yyyy', { locale: dateFnsLocale });
     case 'agenda':
-      return format(currentDate, 'd MMMM yyyy', { locale: ar });
+      return format(currentDate, 'd MMMM yyyy', { locale: dateFnsLocale });
   }
 }
 
@@ -94,14 +88,19 @@ export function CalendarToolbar({
   onDateChange,
   onTypesChange,
 }: CalendarToolbarProps) {
+  const t = useTranslations('calendar');
+  const locale = useLocale() as Locale;
+  const sourceLabel = useStatusLabels('calendarEventSource');
   const typeSet = new Set(selectedTypes);
 
-  function toggleType(t: CalendarEventSource) {
+  const VIEW_ORDER: CalendarView[] = ['month', 'week', 'day', 'agenda'];
+
+  function toggleType(source: CalendarEventSource) {
     const next = new Set(typeSet);
-    if (next.has(t)) {
-      next.delete(t);
+    if (next.has(source)) {
+      next.delete(source);
     } else {
-      next.add(t);
+      next.add(source);
     }
     // Don't allow zero-selection (forces at least one type)
     if (next.size === 0) return;
@@ -113,7 +112,7 @@ export function CalendarToolbar({
       {/* Row 1: View switcher */}
       <div className="flex flex-wrap items-center gap-1.5 border-b border-border pb-3">
         <div className="inline-flex rounded-lg border border-border overflow-hidden">
-          {(Object.keys(VIEW_LABELS) as CalendarView[]).map((v) => {
+          {VIEW_ORDER.map((v) => {
             const isActive = v === view;
             return (
               <button
@@ -128,7 +127,7 @@ export function CalendarToolbar({
                 )}
                 aria-pressed={isActive}
               >
-                {VIEW_LABELS[v]}
+                {t(`views.${v}`)}
               </button>
             );
           })}
@@ -144,7 +143,7 @@ export function CalendarToolbar({
             size="sm"
             onClick={() => onDateChange(stepDate(view, currentDate, -1))}
             className="h-11 w-11 p-0"
-            aria-label="السابق"
+            aria-label={t('toolbar.prev')}
           >
             <ChevronLeft className="size-4 rtl:rotate-180" aria-hidden />
           </Button>
@@ -154,7 +153,7 @@ export function CalendarToolbar({
             size="sm"
             onClick={() => onDateChange(stepDate(view, currentDate, 1))}
             className="h-11 w-11 p-0"
-            aria-label="التالي"
+            aria-label={t('toolbar.next')}
           >
             <ChevronRight className="size-4 rtl:rotate-180" aria-hidden />
           </Button>
@@ -165,33 +164,33 @@ export function CalendarToolbar({
             onClick={() => onDateChange(new Date())}
             className="h-11 px-3 ms-1"
           >
-            اليوم
+            {t('toolbar.today')}
           </Button>
         </div>
         <h2 className="text-base font-semibold text-foreground tabular-nums">
-          {windowLabel(view, currentDate)}
+          {windowLabel(view, currentDate, locale)}
         </h2>
       </div>
 
       {/* Row 3: Type filter chips */}
       <div className="flex flex-wrap items-center gap-1.5">
-        {ALL_SOURCES.map((t) => {
-          const isActive = typeSet.has(t);
+        {ALL_SOURCES.map((source) => {
+          const isActive = typeSet.has(source);
           return (
             <button
-              key={t}
+              key={source}
               type="button"
-              onClick={() => toggleType(t)}
+              onClick={() => toggleType(source)}
               className={cn(
                 'h-9 inline-flex items-center gap-1.5 rounded-full px-3 text-xs font-medium border transition-colors',
                 isActive
-                  ? CALENDAR_EVENT_TONES[t]
+                  ? CALENDAR_EVENT_TONES[source]
                   : 'bg-muted/30 text-muted-foreground border-border opacity-50 hover:opacity-100',
               )}
               aria-pressed={isActive}
             >
               {isActive && <Check className="size-3" aria-hidden />}
-              {CALENDAR_EVENT_SOURCE_LABELS_AR[t]}
+              {sourceLabel(source)}
             </button>
           );
         })}

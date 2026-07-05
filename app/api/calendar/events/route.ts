@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import {
   requireApiPermission,
   isApiError,
@@ -73,6 +74,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 export async function GET(request: NextRequest) {
   let authForLogging: ApiAuthResult | null = null;
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('calendar.view');
     if (isApiError(auth)) return auth;
@@ -84,24 +86,24 @@ export async function GET(request: NextRequest) {
     const fromStr = sp.get('from')?.trim() ?? '';
     const toStr = sp.get('to')?.trim() ?? '';
     if (!fromStr || !toStr) {
-      return apiValidationError('المعاملات from و to مطلوبتان (بصيغة YYYY-MM-DD)');
+      return apiValidationError(t('calendar.fromToRequired'));
     }
     if (!DATE_RE.test(fromStr) || !DATE_RE.test(toStr)) {
-      return apiValidationError('from و to يجب أن يكونا بصيغة YYYY-MM-DD');
+      return apiValidationError(t('calendar.fromToInvalidFormat'));
     }
     const fromDate = new Date(`${fromStr}T00:00:00${CALENDAR_TIMEZONE_OFFSET}`);
     const toDate = new Date(`${toStr}T23:59:59${CALENDAR_TIMEZONE_OFFSET}`);
     if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      return apiValidationError('from أو to تاريخ غير صحيح');
+      return apiValidationError(t('calendar.fromToInvalidDate'));
     }
     if (fromDate > toDate) {
-      return apiValidationError('from يجب أن يسبق to');
+      return apiValidationError(t('calendar.fromBeforeTo'));
     }
     const diffMs = toDate.getTime() - fromDate.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
     if (diffDays > CALENDAR_MAX_WINDOW_DAYS) {
       return apiValidationError(
-        `نطاق التاريخ كبير جداً (الحد الأقصى ${CALENDAR_MAX_WINDOW_DAYS} يوم). ${diffDays} يوم تم طلبهم.`,
+        t('calendar.windowTooLarge', { max: CALENDAR_MAX_WINDOW_DAYS, requested: diffDays }),
       );
     }
 
@@ -119,9 +121,7 @@ export async function GET(request: NextRequest) {
         SOURCE_SET.has(s as CalendarEventSource),
       );
       if (valid.length === 0) {
-        return apiValidationError(
-          'types يجب أن يحتوي على واحد أو أكثر من: task, follow_up, meeting',
-        );
+        return apiValidationError(t('calendar.typesInvalid'));
       }
       types = valid;
     }
@@ -314,7 +314,7 @@ export async function GET(request: NextRequest) {
     }
 
     for (const f of followUps) {
-      const title = f.title?.trim() || f.notes?.trim()?.slice(0, 80) || 'متابعة';
+      const title = f.title?.trim() || f.notes?.trim()?.slice(0, 80) || t('calendar.followUpFallbackTitle');
       events.push({
         id: `follow_up:${f.id}`,
         source: 'follow_up',
@@ -342,11 +342,13 @@ export async function GET(request: NextRequest) {
     for (const m of meetings) {
       const md = readMetaString(m.metadata, 'meeting_date');
       if (!md) continue; // defensive — should be filtered above already
-      // Q4-4: first 80 chars of description, fallback "اجتماع - {location}"
+      // Q4-4: first 80 chars of description, fallback "Meeting - {location}"
       const location = readMetaString(m.metadata, 'location');
       let title = (m.description ?? '').trim().slice(0, 80);
       if (!title) {
-        title = location ? `اجتماع - ${location}` : 'اجتماع';
+        title = location
+          ? t('calendar.meetingFallbackTitleWithLocation', { location })
+          : t('calendar.meetingFallbackTitle');
       }
       events.push({
         id: `meeting:${m.id}`,

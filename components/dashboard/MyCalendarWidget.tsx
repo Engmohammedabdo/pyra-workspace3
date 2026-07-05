@@ -5,9 +5,9 @@
  *
  * Compact 7-day preview of the user's calendar events, sourced from the
  * unified API shipped in Commit 4. Three sections:
- *   - متأخرة (overdue): events with start < today (not yet done)
- *   - اليوم (today): events on today
- *   - هذا الأسبوع (this week): events from today+1 to today+6
+ *   - Overdue: events with start < today (not yet done)
+ *   - Today: events on today
+ *   - This week: events from today+1 to today+6
  *
  * Section headers are clickable buttons (LOCK 1) — click → calendar with
  * the matching view + date. Footer link → full calendar page.
@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { format, addDays } from 'date-fns';
+import { useTranslations } from 'next-intl';
 import {
   CalendarClock,
   CalendarCheck,
@@ -103,6 +104,7 @@ function categorize(events: CalendarEvent[], todayKey: string): CategorizedEvent
 }
 
 export function MyCalendarWidget() {
+  const t = useTranslations('calendar.widget');
   // LOCK Q6-1 — hide widget entirely for users without calendar.view
   const hasCalendarView = usePermission('calendar.view');
   const query = useMyCalendarWindow(hasCalendarView);
@@ -125,13 +127,13 @@ export function MyCalendarWidget() {
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-orange-500/15">
             <CalendarClock className="h-4 w-4 text-white" aria-hidden />
           </div>
-          <h2 className="font-bold text-sm">تقويمي</h2>
+          <h2 className="font-bold text-sm">{t('title')}</h2>
         </div>
         <Link
           href="/dashboard/calendar"
           className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 flex items-center gap-1 font-medium"
         >
-          عرض الكل <ArrowLeft className="h-3 w-3 rtl:rotate-180" aria-hidden />
+          {t('viewAll')} <ArrowLeft className="h-3 w-3 rtl:rotate-180" aria-hidden />
         </Link>
       </div>
 
@@ -146,7 +148,7 @@ export function MyCalendarWidget() {
         ) : (
           <>
             <Section
-              title="متأخرة"
+              title={t('sections.overdue')}
               icon={AlertTriangle}
               tone="destructive"
               count={overdue.length}
@@ -154,7 +156,7 @@ export function MyCalendarWidget() {
               href={`/dashboard/calendar?view=agenda&date=${todayKey}`}
             />
             <Section
-              title="اليوم"
+              title={t('sections.today')}
               icon={CalendarIcon}
               tone="primary"
               count={today.length}
@@ -162,7 +164,7 @@ export function MyCalendarWidget() {
               href={`/dashboard/calendar?view=day&date=${todayKey}`}
             />
             <Section
-              title="هذا الأسبوع"
+              title={t('sections.thisWeek')}
               icon={CalendarClock}
               tone="muted"
               count={thisWeek.length}
@@ -186,7 +188,7 @@ interface SectionProps {
   count: number;
   events: CalendarEvent[];
   href: string;
-  /** Limit visible events; show "+N أخرى" overflow link when exceeded. */
+  /** Limit visible events; show an overflow link when exceeded. */
   maxPreview?: number;
 }
 
@@ -202,6 +204,7 @@ const TONE_BADGE: Record<SectionProps['tone'], string> = {
 };
 
 function Section({ title, icon: Icon, tone, count, events, href, maxPreview }: SectionProps) {
+  const t = useTranslations('calendar.widget');
   if (count === 0) return null;
   const visible = maxPreview ? events.slice(0, maxPreview) : events;
   const overflow = events.length - visible.length;
@@ -213,7 +216,7 @@ function Section({ title, icon: Icon, tone, count, events, href, maxPreview }: S
           'group flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors',
           'cursor-pointer',
         )}
-        aria-label={`افتح التقويم على ${title}`}
+        aria-label={t('openSectionAria', { section: title })}
       >
         <div className="flex items-center gap-2">
           <Icon className={cn('h-4 w-4', TONE_HEADER[tone])} aria-hidden />
@@ -241,7 +244,7 @@ function Section({ title, icon: Icon, tone, count, events, href, maxPreview }: S
             href={href}
             className="block text-[11px] text-orange-600 dark:text-orange-400 hover:underline px-2"
           >
-            + {overflow} أخرى
+            {t('overflow', { count: overflow })}
           </Link>
         )}
       </div>
@@ -260,31 +263,33 @@ function WidgetSkeleton() {
 }
 
 function EmptyMini() {
+  const t = useTranslations('calendar.widget');
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 gap-2">
       <CalendarCheck className="h-10 w-10 text-muted-foreground/40" aria-hidden />
-      <p className="text-sm font-medium">لا أحداث قادمة</p>
+      <p className="text-sm font-medium">{t('empty.title')}</p>
       <Link
         href="/dashboard/calendar"
         className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
       >
-        افتح التقويم
+        {t('empty.cta')}
       </Link>
     </div>
   );
 }
 
 function ErrorMini({ onRetry }: { onRetry: () => void }) {
+  const t = useTranslations('calendar.widget');
   return (
     <div className="flex flex-col items-center justify-center text-center py-8 gap-2">
       <AlertTriangle className="h-8 w-8 text-red-500" aria-hidden />
-      <p className="text-sm font-medium text-foreground">فشل تحميل الأحداث</p>
+      <p className="text-sm font-medium text-foreground">{t('error.title')}</p>
       <button
         type="button"
         onClick={onRetry}
         className="text-xs text-orange-600 dark:text-orange-400 hover:underline"
       >
-        إعادة المحاولة
+        {t('error.retry')}
       </button>
     </div>
   );

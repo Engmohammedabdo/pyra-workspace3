@@ -1,3 +1,78 @@
 {
-  "calendar": {}
+  "calendar": {
+    "meta": {
+      "title": "Calendar — Pyra Workspace"
+    },
+    "page": {
+      "title": "Calendar",
+      "subtitle": "Your tasks, follow-ups, and meetings in one unified view",
+      "windowTooLarge": "Date range too large (max {max} days)",
+      "loadError": "Failed to load calendar events",
+      "error": {
+        "title": "Something went wrong",
+        "retry": "Retry"
+      },
+      "empty": {
+        "title": "No events in this range",
+        "description": "Add a task or follow-up, or log a meeting from the Leads pages",
+        "addTask": "+ Add task",
+        "addFollowUp": "+ Add follow-up",
+        "logMeeting": "+ Log meeting"
+      }
+    },
+    "dayNames": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "views": {
+      "month": "Month",
+      "week": "Week",
+      "day": "Day",
+      "agenda": "Agenda"
+    },
+    "toolbar": {
+      "prev": "Previous",
+      "next": "Next",
+      "today": "Today"
+    },
+    "monthView": {
+      "viewDay": "View day {date}",
+      "overflow": "+ {count} more"
+    },
+    "weekView": {
+      "allDay": "All day",
+      "overflow": "+{count}"
+    },
+    "dayView": {
+      "allDay": "All day",
+      "overflow": "+ {count} more"
+    },
+    "agenda": {
+      "eventCount": "({count})"
+    },
+    "widget": {
+      "title": "My Calendar",
+      "viewAll": "View all",
+      "sections": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "thisWeek": "This Week"
+      },
+      "openSectionAria": "Open calendar on {section}",
+      "overflow": "+ {count} more",
+      "empty": {
+        "title": "No upcoming events",
+        "cta": "Open calendar"
+      },
+      "error": {
+        "title": "Failed to load events",
+        "retry": "Retry"
+      }
+    }
+  }
 }

@@ -8,6 +8,17 @@
       "boardNotFound": "اللوحة غير موجودة",
       "usernameRequired": "username مطلوب",
       "titleRequired": "عنوان المهمة مطلوب"
+    },
+    "calendar": {
+      "fromToRequired": "المعاملات from و to مطلوبتان (بصيغة YYYY-MM-DD)",
+      "fromToInvalidFormat": "from و to يجب أن يكونا بصيغة YYYY-MM-DD",
+      "fromToInvalidDate": "from أو to تاريخ غير صحيح",
+      "fromBeforeTo": "from يجب أن يسبق to",
+      "windowTooLarge": "نطاق التاريخ كبير جداً (الحد الأقصى {max} يوم). {requested} يوم تم طلبهم.",
+      "typesInvalid": "types يجب أن يحتوي على واحد أو أكثر من: task, follow_up, meeting",
+      "followUpFallbackTitle": "متابعة",
+      "meetingFallbackTitleWithLocation": "اجتماع - {location}",
+      "meetingFallbackTitle": "اجتماع"
     }
   }
 }

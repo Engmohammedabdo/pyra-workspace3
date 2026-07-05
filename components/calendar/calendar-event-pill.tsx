@@ -21,6 +21,7 @@ import Link from 'next/link';
 import { ClipboardList, Clock, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { CALENDAR_EVENT_TONES } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { CalendarEvent, CalendarEventSource } from '@/types/database';
 
 const SOURCE_ICONS: Record<CalendarEventSource, React.ComponentType<{ className?: string }>> = {
@@ -65,6 +66,7 @@ function formatTime(iso: string): string {
 }
 
 export function CalendarEventPill({ event, variant = 'compact', className }: CalendarEventPillProps) {
+  const sourceLabel = useStatusLabels('calendarEventSource');
   const tone = CALENDAR_EVENT_TONES[event.source];
   const Icon = SOURCE_ICONS[event.source];
   const href = buildHref(event);
@@ -86,7 +88,7 @@ export function CalendarEventPill({ event, variant = 'compact', className }: Cal
           className,
         )}
         title={`${event.title}${event.lead_name ? ` · ${event.lead_name}` : ''}${time ? ` · ${time}` : ''}`}
-        aria-label={`${event.title} — ${event.source}`}
+        aria-label={`${event.title} — ${sourceLabel(event.source)}`}
       >
         <span className="inline-flex items-center gap-1 truncate w-full">
           <Icon className="size-2.5 shrink-0" aria-hidden />
@@ -108,7 +110,7 @@ export function CalendarEventPill({ event, variant = 'compact', className }: Cal
         'hover:saturate-150 hover:shadow-sm',
         className,
       )}
-      aria-label={`${event.title} — ${event.source}`}
+      aria-label={`${event.title} — ${sourceLabel(event.source)}`}
     >
       <div className="flex items-start gap-2">
         <Icon className="size-3.5 shrink-0 mt-0.5" aria-hidden />

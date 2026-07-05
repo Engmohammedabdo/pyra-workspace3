@@ -25,6 +25,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import {
   startOfWeek, endOfWeek, startOfMonth, endOfMonth,
   format, addDays,
@@ -103,6 +104,7 @@ function computeWindow(view: CalendarView, currentDate: Date): { from: string; t
 }
 
 export function CalendarClient({ defaultView = 'month' }: CalendarClientProps) {
+  const t = useTranslations('calendar');
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -187,10 +189,10 @@ export function CalendarClient({ defaultView = 'month' }: CalendarClientProps) {
   // (shouldn't happen since we control the window math, but defense in depth)
   useEffect(() => {
     if (eventsQuery.error instanceof ApiError && eventsQuery.error.status === 422) {
-      toast.error(`نطاق التاريخ كبير جداً (الحد الأقصى ${CALENDAR_MAX_WINDOW_DAYS} يوم)`);
+      toast.error(t('page.windowTooLarge', { max: CALENDAR_MAX_WINDOW_DAYS }));
       updateUrl({ date: today });
     }
-  }, [eventsQuery.error, updateUrl, today]);
+  }, [eventsQuery.error, updateUrl, today, t]);
 
   // ── Filter events client-side by selectedTypes for live toggle responsiveness.
   // Server also filters via ?types= so this is redundant when types matches the
@@ -204,9 +206,9 @@ export function CalendarClient({ defaultView = 'month' }: CalendarClientProps) {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-bold">التقويم</h1>
+        <h1 className="text-2xl font-bold">{t('page.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          مهامك ومتابعاتك واجتماعاتك في عرض موحَّد
+          {t('page.subtitle')}
         </p>
       </div>
 
@@ -216,7 +218,7 @@ export function CalendarClient({ defaultView = 'month' }: CalendarClientProps) {
         selectedTypes={selectedTypes}
         onViewChange={(v) => updateUrl({ view: v })}
         onDateChange={(d) => updateUrl({ date: d })}
-        onTypesChange={(t) => updateUrl({ types: t })}
+        onTypesChange={(types) => updateUrl({ types })}
       />
 
       {eventsQuery.isLoading ? (
@@ -226,7 +228,7 @@ export function CalendarClient({ defaultView = 'month' }: CalendarClientProps) {
           message={
             eventsQuery.error instanceof Error
               ? eventsQuery.error.message
-              : 'فشل تحميل أحداث التقويم'
+              : t('page.loadError')
           }
           onRetry={() => void eventsQuery.refetch()}
         />
@@ -293,43 +295,45 @@ function CalendarSkeleton({ view }: { view: CalendarView }) {
 }
 
 function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const t = useTranslations('calendar');
   return (
     <Card className="p-8 flex flex-col items-center gap-3 text-center">
       <AlertCircle className="size-10 text-red-500" aria-hidden />
-      <p className="text-sm font-medium text-foreground">حدث خطأ</p>
+      <p className="text-sm font-medium text-foreground">{t('page.error.title')}</p>
       <p className="text-xs text-muted-foreground max-w-sm">{message}</p>
       <Button variant="outline" size="sm" onClick={onRetry} className="h-11 mt-2">
-        إعادة المحاولة
+        {t('page.error.retry')}
       </Button>
     </Card>
   );
 }
 
 function EmptyStateInline() {
+  const t = useTranslations('calendar');
   return (
     <Card className="p-6 space-y-3 text-center">
       <CalendarPlus className="size-10 text-muted-foreground/40 mx-auto" aria-hidden />
-      <p className="text-sm font-medium">لا أحداث في هذا النطاق</p>
+      <p className="text-sm font-medium">{t('page.empty.title')}</p>
       <p className="text-xs text-muted-foreground">
-        أضف مهمة أو متابعة أو سجِّل اجتماعاً من صفحات الـ Leads
+        {t('page.empty.description')}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
         <Button asChild variant="outline" size="sm" className="h-11">
           <Link href="/dashboard/crm/pipeline">
             <ClipboardList className="size-3.5 me-1.5" aria-hidden />
-            + إضافة مهمة
+            {t('page.empty.addTask')}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="h-11">
           <Link href="/dashboard/crm/follow-ups">
             <Clock className="size-3.5 me-1.5" aria-hidden />
-            + إضافة متابعة
+            {t('page.empty.addFollowUp')}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm" className="h-11">
           <Link href="/dashboard/crm/pipeline">
             <CalendarClock className="size-3.5 me-1.5" aria-hidden />
-            + سجل اجتماع
+            {t('page.empty.logMeeting')}
           </Link>
         </Button>
       </div>

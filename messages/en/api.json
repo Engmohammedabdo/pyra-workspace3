@@ -8,6 +8,17 @@
       "boardNotFound": "Board not found",
       "usernameRequired": "username is required",
       "titleRequired": "Task title is required"
+    },
+    "calendar": {
+      "fromToRequired": "The from and to parameters are required (in YYYY-MM-DD format)",
+      "fromToInvalidFormat": "from and to must be in YYYY-MM-DD format",
+      "fromToInvalidDate": "from or to is an invalid date",
+      "fromBeforeTo": "from must be before to",
+      "windowTooLarge": "Date range too large (max {max} days). {requested} days were requested.",
+      "typesInvalid": "types must contain one or more of: task, follow_up, meeting",
+      "followUpFallbackTitle": "Follow-up",
+      "meetingFallbackTitleWithLocation": "Meeting - {location}",
+      "meetingFallbackTitle": "Meeting"
     }
   }
 }

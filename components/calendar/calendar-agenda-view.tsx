@@ -6,7 +6,7 @@
  * Linear list grouped by date with section headers. Best UX for narrow
  * screens (Q5-1 default on mobile) and long-range scanning.
  *
- * Section header label uses formatTaskDueDate semantics (اليوم / غداً /
+ * Section header label uses formatTaskDueDate semantics (Today / Tomorrow /
  * "DD MMM") for friendly relative dates. Within-section sort matches API
  * (start ASC + tiebreakers).
  *
@@ -15,9 +15,11 @@
 
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { ar } from 'date-fns/locale';
+import { useTranslations, useLocale } from 'next-intl';
 import { CalendarEventPill } from './calendar-event-pill';
 import { formatTaskDueDate, dubaiDayKey } from '@/lib/utils/format';
+import { getDateFnsLocale } from '@/lib/i18n/date-locale';
+import type { Locale } from '@/lib/i18n/config';
 import type { CalendarEvent } from '@/types/database';
 
 interface CalendarAgendaViewProps {
@@ -29,15 +31,16 @@ interface CalendarAgendaViewProps {
 interface DateGroup {
   /** YYYY-MM-DD key for grouping */
   key: string;
-  /** Friendly label: اليوم / غداً / "DD MMM YYYY" */
+  /** Friendly label: Today / Tomorrow / "DD MMM YYYY" */
   label: string;
   events: CalendarEvent[];
 }
 
 /** Group events by their day component (in Dubai TZ, derived from the
  *  Dubai-offset ISO string we get from the API). */
-function groupByDay(events: CalendarEvent[]): DateGroup[] {
+function groupByDay(events: CalendarEvent[], locale: Locale): DateGroup[] {
   const today = new Date();
+  const dateFnsLocale = getDateFnsLocale(locale);
   const map = new Map<string, CalendarEvent[]>();
   for (const ev of events) {
     // "2026-05-16T15:30:00+04:00" → "2026-05-16"
@@ -50,21 +53,27 @@ function groupByDay(events: CalendarEvent[]): DateGroup[] {
   const sortedKeys = Array.from(map.keys()).sort();
   return sortedKeys.map((key) => {
     const day = new Date(`${key}T12:00:00+04:00`); // noon Dubai → safe day identity
-    const due = formatTaskDueDate(key, today);
+    const due = formatTaskDueDate(key, today, locale);
     // Use the formatter's label when it's a relative-friendly term;
     // for non-friendly (the "DD MMM" fallback), prefer a fuller
     // "DD MMM YYYY · weekday" header for the agenda's reading flow.
-    const isRelative =
-      due.label === 'اليوم' || due.label === 'غداً' || due.label.startsWith('بعد ') || due.label.startsWith('متأخر');
+    // Structural check (Phase 2 Task 4) — replaces the former AR-label
+    // string-sniff (`due.label === '<Today (AR)>' || ...`), which broke
+    // once formatTaskDueDate became locale-aware. `kind` is locale-independent:
+    // 'today' | 'tomorrow' | 'upcoming' | 'overdue' are all relative-friendly;
+    // 'date' (and 'none') fall back to the fuller weekday header.
+    const isRelative = due.kind !== 'date' && due.kind !== 'none';
     const label = isRelative
       ? due.label
-      : format(day, 'EEEE · dd MMMM yyyy', { locale: ar });
+      : format(day, 'EEEE · dd MMMM yyyy', { locale: dateFnsLocale });
     return { key, label, events: map.get(key) ?? [] };
   });
 }
 
 export function CalendarAgendaView({ events, today: _today }: CalendarAgendaViewProps) {
-  const groups = useMemo(() => groupByDay(events), [events]);
+  const t = useTranslations('calendar');
+  const locale = useLocale() as Locale;
+  const groups = useMemo(() => groupByDay(events, locale), [events, locale]);
 
   // Detect "today" group for styling — Dubai-day, NOT UTC-day (Reviewer
   // HIGH 1 fix). `.toISOString().slice(0,10)` would mis-attribute the
@@ -92,7 +101,7 @@ export function CalendarAgendaView({ events, today: _today }: CalendarAgendaView
             >
               <span>{g.label}</span>
               <span className="text-[10px] font-normal text-muted-foreground tabular-nums">
-                ({g.events.length})
+                {t('agenda.eventCount', { count: g.events.length })}
               </span>
             </header>
             <div className="space-y-1.5">

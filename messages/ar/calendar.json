@@ -1,3 +1,78 @@
 {
-  "calendar": {}
+  "calendar": {
+    "meta": {
+      "title": "التقويم — Pyra Workspace"
+    },
+    "page": {
+      "title": "التقويم",
+      "subtitle": "مهامك ومتابعاتك واجتماعاتك في عرض موحَّد",
+      "windowTooLarge": "نطاق التاريخ كبير جداً (الحد الأقصى {max} يوم)",
+      "loadError": "فشل تحميل أحداث التقويم",
+      "error": {
+        "title": "حدث خطأ",
+        "retry": "إعادة المحاولة"
+      },
+      "empty": {
+        "title": "لا أحداث في هذا النطاق",
+        "description": "أضف مهمة أو متابعة أو سجِّل اجتماعاً من صفحات الـ Leads",
+        "addTask": "+ إضافة مهمة",
+        "addFollowUp": "+ إضافة متابعة",
+        "logMeeting": "+ سجل اجتماع"
+      }
+    },
+    "dayNames": {
+      "sun": "أحد",
+      "mon": "إثنين",
+      "tue": "ثلاثاء",
+      "wed": "أربعاء",
+      "thu": "خميس",
+      "fri": "جمعة",
+      "sat": "سبت"
+    },
+    "views": {
+      "month": "شهر",
+      "week": "أسبوع",
+      "day": "يوم",
+      "agenda": "جدول الأعمال"
+    },
+    "toolbar": {
+      "prev": "السابق",
+      "next": "التالي",
+      "today": "اليوم"
+    },
+    "monthView": {
+      "viewDay": "عرض يوم {date}",
+      "overflow": "+ {count} أكثر"
+    },
+    "weekView": {
+      "allDay": "طول اليوم",
+      "overflow": "+{count}"
+    },
+    "dayView": {
+      "allDay": "طول اليوم",
+      "overflow": "+ {count} أكثر"
+    },
+    "agenda": {
+      "eventCount": "({count})"
+    },
+    "widget": {
+      "title": "تقويمي",
+      "viewAll": "عرض الكل",
+      "sections": {
+        "overdue": "متأخرة",
+        "today": "اليوم",
+        "thisWeek": "هذا الأسبوع"
+      },
+      "openSectionAria": "افتح التقويم على {section}",
+      "overflow": "+ {count} أخرى",
+      "empty": {
+        "title": "لا أحداث قادمة",
+        "cta": "افتح التقويم"
+      },
+      "error": {
+        "title": "فشل تحميل الأحداث",
+        "retry": "إعادة المحاولة"
+      }
+    }
+  }
 }
