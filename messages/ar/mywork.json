@@ -1,3 +1,46 @@
 {
-  "mywork": {}
+  "mywork": {
+    "inbox": {
+      "viewAll": "عرض الكل",
+      "dueDate": {
+        "overdueDays": "{count, plural, other {متأخر # يوم}}",
+        "today": "اليوم",
+        "inDays": "{count, plural, other {بعد # يوم}}"
+      },
+      "error": {
+        "title": "تعذّر تحميل صندوق الشغل",
+        "description": "حاول التحديث مرة أخرى"
+      },
+      "empty": {
+        "title": "مفيش شغل مستنيك دلوقتي 🎉",
+        "description": "كل المهام والموافقات والمحادثات اللي تخصك مكتملة"
+      },
+      "sections": {
+        "tasks": {
+          "title": "مهامي"
+        },
+        "approvals": {
+          "title": "مستني موافقتك",
+          "reviewMeta": "مراجعة",
+          "leaveTitle": "إجازة {type} — {name}",
+          "leaveSubtitle": "{days, plural, other {# يوم}} • من {startDate}",
+          "expenseTitle": "مصروف — {currency} {amount}",
+          "expenseSubtitleFrom": "من {name}",
+          "timesheetTitle": "جدول ساعات — {name}",
+          "timesheetSubtitle": "{startDate} → {endDate} ({hours, plural, other {# ساعة}})"
+        },
+        "conversations": {
+          "title": "محادثات جديدة"
+        },
+        "leads": {
+          "title": "عملائي",
+          "lastContact": "آخر تواصل {relative}",
+          "noContact": "بدون تواصل"
+        },
+        "followUps": {
+          "title": "متابعات اليوم"
+        }
+      }
+    }
+  }
 }

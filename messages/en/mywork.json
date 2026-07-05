@@ -1,3 +1,46 @@
 {
-  "mywork": {}
+  "mywork": {
+    "inbox": {
+      "viewAll": "View all",
+      "dueDate": {
+        "overdueDays": "{count, plural, one {Overdue # day} other {Overdue # days}}",
+        "today": "Today",
+        "inDays": "{count, plural, one {In # day} other {In # days}}"
+      },
+      "error": {
+        "title": "Couldn't load your work inbox",
+        "description": "Try refreshing the page"
+      },
+      "empty": {
+        "title": "Nothing waiting for you right now 🎉",
+        "description": "All your tasks, approvals, and conversations are up to date"
+      },
+      "sections": {
+        "tasks": {
+          "title": "My Tasks"
+        },
+        "approvals": {
+          "title": "Waiting on your approval",
+          "reviewMeta": "Review",
+          "leaveTitle": "{type} Leave — {name}",
+          "leaveSubtitle": "{days, plural, one {# day} other {# days}} • from {startDate}",
+          "expenseTitle": "Expense — {currency} {amount}",
+          "expenseSubtitleFrom": "From {name}",
+          "timesheetTitle": "Timesheet — {name}",
+          "timesheetSubtitle": "{startDate} → {endDate} ({hours, plural, one {# hour} other {# hours}})"
+        },
+        "conversations": {
+          "title": "New conversations"
+        },
+        "leads": {
+          "title": "My Clients",
+          "lastContact": "Last contact {relative}",
+          "noContact": "No contact yet"
+        },
+        "followUps": {
+          "title": "Today's follow-ups"
+        }
+      }
+    }
+  }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { useMyWork } from '@/hooks/useMyWork';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,15 +21,8 @@ import {
   Inbox,
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
-import { formatRelativeDate } from '@/lib/utils/format';
-
-const LEAVE_TYPE_LABELS: Record<string, string> = {
-  annual: 'سنوية',
-  sick: 'مرضية',
-  personal: 'شخصية',
-  unpaid: 'بدون راتب',
-  emergency: 'طارئة',
-};
+import { formatRelativeDate, dubaiDayKey } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface SectionHeaderProps {
   icon: React.ComponentType<{ className?: string }>;
@@ -40,6 +34,7 @@ interface SectionHeaderProps {
 }
 
 function SectionHeader({ icon: Icon, title, count, href, gradient, urgent }: SectionHeaderProps) {
+  const t = useTranslations('mywork.inbox');
   return (
     <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
       <div className="flex items-center gap-3">
@@ -66,7 +61,7 @@ function SectionHeader({ icon: Icon, title, count, href, gradient, urgent }: Sec
           href={href}
           className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 flex items-center gap-1 font-medium"
         >
-          عرض الكل <ArrowLeft className="h-3 w-3" />
+          {t('viewAll')} <ArrowLeft className="h-3 w-3" />
         </Link>
       )}
     </div>
@@ -128,24 +123,31 @@ function InboxRow({
   );
 }
 
-function formatDueDate(dueDate: string | null): { label: string; urgent: boolean } {
+function formatDueDate(
+  dueDate: string | null,
+  t: ReturnType<typeof useTranslations>,
+): { label: string; urgent: boolean } {
   if (!dueDate) return { label: '', urgent: false };
-  const today = new Date().toISOString().split('T')[0];
+  // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
+  const today = dubaiDayKey();
   if (dueDate < today) {
     const daysAgo = Math.floor(
       (Date.now() - new Date(dueDate).getTime()) / (1000 * 60 * 60 * 24)
     );
-    return { label: `متأخر ${daysAgo} يوم`, urgent: true };
+    return { label: t('dueDate.overdueDays', { count: daysAgo }), urgent: true };
   }
-  if (dueDate === today) return { label: 'اليوم', urgent: true };
+  if (dueDate === today) return { label: t('dueDate.today'), urgent: true };
   const days = Math.ceil(
     (new Date(dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
   );
-  return { label: `بعد ${days} يوم`, urgent: false };
+  return { label: t('dueDate.inDays', { count: days }), urgent: false };
 }
 
 export function MyWorkInbox() {
   const { data, isLoading } = useMyWork();
+  const t = useTranslations('mywork.inbox');
+  const locale = useLocale();
+  const leaveTypeLabel = useStatusLabels('leaveType');
 
   if (isLoading) {
     return (
@@ -161,8 +163,8 @@ export function MyWorkInbox() {
       <Card className="overflow-hidden">
         <EmptyState
           icon={Inbox}
-          title="تعذّر تحميل صندوق الشغل"
-          description="حاول التحديث مرة أخرى"
+          title={t('error.title')}
+          description={t('error.description')}
         />
       </Card>
     );
@@ -181,8 +183,8 @@ export function MyWorkInbox() {
       <Card className="overflow-hidden">
         <EmptyState
           icon={CheckSquare}
-          title="مفيش شغل مستنيك دلوقتي 🎉"
-          description="كل المهام والموافقات والمحادثات اللي تخصك مكتملة"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </Card>
     );
@@ -195,7 +197,7 @@ export function MyWorkInbox() {
         <Card className="overflow-hidden">
           <SectionHeader
             icon={CheckSquare}
-            title="مهامي"
+            title={t('sections.tasks.title')}
             count={data.counts.tasks_total}
             href="/dashboard/my-tasks"
             gradient={
@@ -206,20 +208,20 @@ export function MyWorkInbox() {
             urgent={data.tasks.overdue.length > 0}
           />
           <div className="p-3 space-y-2">
-            {tasksAll.slice(0, 6).map((t) => {
-              const due = formatDueDate(t.due_date);
+            {tasksAll.slice(0, 6).map((task) => {
+              const due = formatDueDate(task.due_date, t);
               return (
                 <InboxRow
-                  key={t.id}
+                  key={task.id}
                   icon={due.urgent ? AlertTriangle : CheckSquare}
                   iconClass={
                     due.urgent
                       ? 'bg-gradient-to-br from-red-500 to-rose-600'
                       : 'bg-gradient-to-br from-emerald-500 to-teal-600'
                   }
-                  href={`/dashboard/boards/${t.board_id}?task=${t.id}`}
-                  title={t.title}
-                  subtitle={`${t.board_name} • ${t.column_name}`}
+                  href={`/dashboard/boards/${task.board_id}?task=${task.id}`}
+                  title={task.title}
+                  subtitle={`${task.board_name} • ${task.column_name}`}
                   meta={due.label || null}
                   urgent={due.urgent}
                 />
@@ -234,7 +236,7 @@ export function MyWorkInbox() {
         <Card className="overflow-hidden">
           <SectionHeader
             icon={ClipboardCheck}
-            title="مستني موافقتك"
+            title={t('sections.approvals.title')}
             count={data.approvals_waiting.total}
             href="/dashboard/approvals"
             gradient="from-orange-500 to-amber-600"
@@ -247,9 +249,15 @@ export function MyWorkInbox() {
                 icon={Calendar}
                 iconClass="bg-gradient-to-br from-blue-500 to-indigo-600"
                 href="/dashboard/approvals"
-                title={`إجازة ${LEAVE_TYPE_LABELS[l.type] || l.type} — ${l.display_name}`}
-                subtitle={`${l.days_count} يوم • من ${l.start_date}`}
-                meta="مراجعة"
+                title={t('sections.approvals.leaveTitle', {
+                  type: leaveTypeLabel(l.type),
+                  name: l.display_name,
+                })}
+                subtitle={t('sections.approvals.leaveSubtitle', {
+                  days: l.days_count,
+                  startDate: l.start_date,
+                })}
+                meta={t('sections.approvals.reviewMeta')}
               />
             ))}
             {data.approvals_waiting.expense.slice(0, 3).map((e) => (
@@ -258,20 +266,31 @@ export function MyWorkInbox() {
                 icon={Receipt}
                 iconClass="bg-gradient-to-br from-violet-500 to-purple-600"
                 href="/dashboard/approvals"
-                title={`مصروف — ${e.currency} ${e.amount}`}
-                subtitle={e.description || e.vendor || `من ${e.submitted_by}`}
-                meta="مراجعة"
+                title={t('sections.approvals.expenseTitle', {
+                  currency: e.currency,
+                  amount: e.amount,
+                })}
+                subtitle={
+                  e.description ||
+                  e.vendor ||
+                  t('sections.approvals.expenseSubtitleFrom', { name: e.submitted_by })
+                }
+                meta={t('sections.approvals.reviewMeta')}
               />
             ))}
-            {data.approvals_waiting.timesheet.slice(0, 2).map((t) => (
+            {data.approvals_waiting.timesheet.slice(0, 2).map((ts) => (
               <InboxRow
-                key={t.id}
+                key={ts.id}
                 icon={Clock}
                 iconClass="bg-gradient-to-br from-cyan-500 to-blue-600"
                 href="/dashboard/approvals"
-                title={`جدول ساعات — ${t.display_name}`}
-                subtitle={`${t.period_start} → ${t.period_end} (${t.total_hours ?? 0} ساعة)`}
-                meta="مراجعة"
+                title={t('sections.approvals.timesheetTitle', { name: ts.display_name })}
+                subtitle={t('sections.approvals.timesheetSubtitle', {
+                  startDate: ts.period_start,
+                  endDate: ts.period_end,
+                  hours: ts.total_hours ?? 0,
+                })}
+                meta={t('sections.approvals.reviewMeta')}
               />
             ))}
           </div>
@@ -283,7 +302,7 @@ export function MyWorkInbox() {
         <Card className="overflow-hidden">
           <SectionHeader
             icon={MessageSquare}
-            title="محادثات جديدة"
+            title={t('sections.conversations.title')}
             count={data.counts.conversations_unread}
             href="/dashboard/sales/chat"
             gradient="from-green-500 to-emerald-600"
@@ -297,7 +316,7 @@ export function MyWorkInbox() {
                 href={`/dashboard/sales/chat?conversation=${c.id}`}
                 title={c.contact_name || c.contact_phone}
                 subtitle={c.contact_phone}
-                meta={c.last_message_at ? formatRelativeDate(c.last_message_at) : null}
+                meta={c.last_message_at ? formatRelativeDate(c.last_message_at, locale) : null}
               />
             ))}
           </div>
@@ -309,7 +328,7 @@ export function MyWorkInbox() {
         <Card className="overflow-hidden">
           <SectionHeader
             icon={Users}
-            title="عملائي"
+            title={t('sections.leads.title')}
             count={data.counts.leads_action}
             href="/dashboard/crm/pipeline"
             gradient="from-indigo-500 to-blue-600"
@@ -325,8 +344,10 @@ export function MyWorkInbox() {
                 subtitle={l.phone || ''}
                 meta={
                   l.last_contact_at
-                    ? `آخر تواصل ${formatRelativeDate(l.last_contact_at)}`
-                    : 'بدون تواصل'
+                    ? t('sections.leads.lastContact', {
+                        relative: formatRelativeDate(l.last_contact_at, locale),
+                      })
+                    : t('sections.leads.noContact')
                 }
               />
             ))}
@@ -339,7 +360,7 @@ export function MyWorkInbox() {
         <Card className="overflow-hidden">
           <SectionHeader
             icon={Phone}
-            title="متابعات اليوم"
+            title={t('sections.followUps.title')}
             count={data.counts.follow_ups_due}
             href="/dashboard/crm/follow-ups"
             gradient="from-pink-500 to-rose-600"
@@ -358,7 +379,7 @@ export function MyWorkInbox() {
                 }
                 title={f.title}
                 subtitle={f.lead_name || ''}
-                meta={formatRelativeDate(f.due_at)}
+                meta={formatRelativeDate(f.due_at, locale)}
                 urgent
               />
             ))}
