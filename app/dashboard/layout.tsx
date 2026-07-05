@@ -4,6 +4,7 @@ import { Topbar } from '@/components/layout/topbar';
 import { ErrorBoundaryWrapper } from '@/components/error-boundary-wrapper';
 import { PageTransition } from '@/components/layout/page-transition';
 import { BreadcrumbProvider } from '@/components/layout/breadcrumb-context';
+import { LocaleSync } from '@/components/layout/locale-sync';
 
 export default async function DashboardLayout({
   children,
@@ -21,6 +22,7 @@ export default async function DashboardLayout({
 
   return (
     <BreadcrumbProvider>
+      <LocaleSync dbLocale={session.pyraUser.preferred_language} />
       <div className="min-h-screen bg-background">
         <Sidebar user={layoutUser} />
         <div className="lg:ps-[var(--sidebar-width,280px)] transition-all duration-300">

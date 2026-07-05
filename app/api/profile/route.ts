@@ -1,8 +1,10 @@
 import { NextRequest } from 'next/server';
+import { cookies } from 'next/headers';
 import { getApiAuth } from '@/lib/api/auth';
 import { apiSuccess, apiUnauthorized, apiValidationError, apiServerError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, isLocale } from '@/lib/i18n/config';
 
 // =============================================================
 // GET /api/profile — Get current user profile
@@ -93,6 +95,14 @@ export async function PATCH(request: NextRequest) {
       updates.bank_details = body.bank_details ?? null;
     }
 
+    // preferred_language — self-service (i18n Phase 0). Strictly 'ar'|'en'.
+    if (body.preferred_language !== undefined) {
+      if (!isLocale(body.preferred_language)) {
+        return apiValidationError('قيمة اللغة غير صالحة');
+      }
+      updates.preferred_language = body.preferred_language;
+    }
+
     updates.updated_at = new Date().toISOString();
 
     const supabase = await createServerSupabaseClient();
@@ -101,7 +111,7 @@ export async function PATCH(request: NextRequest) {
       .from('pyra_users')
       .update(updates)
       .eq('username', auth.pyraUser.username)
-      .select('id, username, display_name, email, phone, job_title, bio, avatar_url, bank_details')
+      .select('id, username, display_name, email, phone, job_title, bio, avatar_url, bank_details, preferred_language')
       .single();
 
     if (error) {
@@ -118,6 +128,18 @@ export async function PATCH(request: NextRequest) {
       { updated_fields: Object.keys(updates).filter((k) => k !== 'updated_at'), source: 'self_edit' },
       request.headers.get('x-forwarded-for') ?? undefined,
     );
+
+    // Refresh the locale cookie so the very next request renders in the new language
+    if (typeof updates.preferred_language === 'string') {
+      const cookieStore = await cookies();
+      cookieStore.set(LOCALE_COOKIE, updates.preferred_language, {
+        httpOnly: false, // pre-auth toggle writes this cookie via document.cookie
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: LOCALE_COOKIE_MAX_AGE,
+        path: '/',
+      });
+    }
 
     return apiSuccess(data);
   } catch (err) {

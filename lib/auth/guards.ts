@@ -16,6 +16,8 @@ export interface AuthSession {
     permissions: Record<string, unknown>;
     rolePermissions: string[];
     role_name_ar: string;
+    role_name: string | null;
+    preferred_language: 'ar' | 'en';
     role_color: string;
     role_icon: string;
     created_at: string;
@@ -56,6 +58,8 @@ async function loadUserWithRole(supabase: ReturnType<typeof import('@/lib/supaba
     permissions: pyraUser.permissions || {},
     rolePermissions,
     role_name_ar: role?.name_ar ?? (pyraUser.role === 'admin' ? 'مسؤول' : 'موظف'),
+    role_name: role?.name ?? null,
+    preferred_language: pyraUser.preferred_language === 'en' ? 'en' as const : 'ar' as const,
     role_color: role?.color ?? 'gray',
     role_icon: role?.icon ?? 'Shield',
     created_at: pyraUser.created_at,
