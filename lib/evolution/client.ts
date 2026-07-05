@@ -19,6 +19,11 @@ import type {
   EvoGroupInvite,
 } from './types';
 
+// A hanging Evolution instance must never stall a caller indefinitely —
+// requests abort after this window and surface as a normal thrown error
+// (all sends are best-effort; callers already tolerate rejection).
+const REQUEST_TIMEOUT_MS = 8000;
+
 class EvolutionClient {
   private baseUrl: string;
   private apiKey: string;
@@ -41,6 +46,7 @@ class EvolutionClient {
         apikey: this.apiKey,
       },
       body: body ? JSON.stringify(body) : undefined,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
