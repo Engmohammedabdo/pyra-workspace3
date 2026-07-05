@@ -103,7 +103,9 @@ export async function PATCH(request: NextRequest) {
       updates.preferred_language = body.preferred_language;
     }
 
-    updates.updated_at = new Date().toISOString();
+    // NOTE: pyra_users has NO updated_at column — writing one here 500'd every
+    // profile PATCH (discovered 2026-07-05 via the language switcher; the bug
+    // predates i18n and silently broke Batch B self-service edits too).
 
     const supabase = await createServerSupabaseClient();
 
@@ -116,7 +118,7 @@ export async function PATCH(request: NextRequest) {
 
     if (error) {
       console.error('Profile update error:', error);
-      return apiServerError('فشل في تحديث الملف الشخصي');
+      return apiServerError('فشل في تحديث الملف الشخصي', error, request);
     }
 
     // Audit self-edits (contact / bank details) so HR can see who changed what
@@ -144,6 +146,6 @@ export async function PATCH(request: NextRequest) {
     return apiSuccess(data);
   } catch (err) {
     console.error('Profile PATCH error:', err);
-    return apiServerError();
+    return apiServerError(undefined, err, request);
   }
 }
