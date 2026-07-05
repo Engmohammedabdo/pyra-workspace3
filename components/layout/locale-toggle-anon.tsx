@@ -29,7 +29,7 @@ export function LocaleToggleAnon({ className }: { className?: string }) {
       }}
     >
       <Languages className="h-4 w-4 me-1.5" />
-      {next === 'en' ? 'English' : 'العربية'}
+      {next === 'en' ? 'English' : 'العربية'}{/* i18n-exempt: language endonym label, not translatable content */}
     </Button>
   );
 }
