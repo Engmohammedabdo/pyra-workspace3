@@ -41,6 +41,41 @@
           "title": "Today's follow-ups"
         }
       }
+    },
+    "tasks": {
+      "title": "My Tasks",
+      "activeCount": "{count, plural, one {# active task} other {# active tasks}}",
+      "overdueCount": "· {count, plural, one {# overdue} other {# overdue}}",
+      "searchPlaceholder": "Search tasks...",
+      "groupBy": {
+        "date": "Date",
+        "board": "Board",
+        "priority": "Priority",
+        "project": "Project"
+      },
+      "stats": {
+        "total": "Total Tasks",
+        "overdue": "Overdue",
+        "today": "Today",
+        "week": "This Week"
+      },
+      "pipelineProgress": "Pipeline Progress",
+      "pipelineCompleted": "{completed} of {total} tasks completed",
+      "empty": {
+        "title": "No tasks",
+        "description": "No tasks have been assigned to you yet"
+      },
+      "sections": {
+        "overdue": "Overdue",
+        "today": "Today",
+        "week": "This Week",
+        "upcoming": "Upcoming",
+        "done": "Done"
+      },
+      "noBoard": "No board",
+      "noProject": "No project",
+      "leadTaskBadge": "Lead",
+      "leadBoard": "Lead Tasks"
     }
   }
 }

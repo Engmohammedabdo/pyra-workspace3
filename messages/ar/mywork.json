@@ -41,6 +41,41 @@
           "title": "متابعات اليوم"
         }
       }
+    },
+    "tasks": {
+      "title": "مهامي",
+      "activeCount": "{count, plural, other {# مهمة نشطة}}",
+      "overdueCount": "· {count, plural, other {# متأخرة}}",
+      "searchPlaceholder": "بحث في المهام...",
+      "groupBy": {
+        "date": "تاريخ",
+        "board": "لوحة",
+        "priority": "أولوية",
+        "project": "مشروع"
+      },
+      "stats": {
+        "total": "إجمالي المهام",
+        "overdue": "متأخرة",
+        "today": "اليوم",
+        "week": "هذا الأسبوع"
+      },
+      "pipelineProgress": "تقدم الـ Pipeline",
+      "pipelineCompleted": "{completed} من {total} مهام مكتملة",
+      "empty": {
+        "title": "لا توجد مهام",
+        "description": "لم يتم تعيين أي مهام لك بعد"
+      },
+      "sections": {
+        "overdue": "متأخرة",
+        "today": "اليوم",
+        "week": "هذا الأسبوع",
+        "upcoming": "قادمة",
+        "done": "مكتملة"
+      },
+      "noBoard": "بدون لوحة",
+      "noProject": "بدون مشروع",
+      "leadTaskBadge": "عميل محتمل",
+      "leadBoard": "مهام Lead"
     }
   }
 }

@@ -110,7 +110,7 @@ export async function GET() {
         board_id: null,
         pyra_boards: {
           id: null,
-          name: 'مهام Lead',
+          name: 'مهام Lead', // i18n-exempt: legacy stub — client derives label from _source
           project_id: null,
           view_mode: 'list',
           is_pipeline: false,

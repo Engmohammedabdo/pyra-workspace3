@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations, useLocale } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,15 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
-import { Button } from '@/components/ui/button';
 import { MyProductivityCard } from '@/components/dashboard/MyProductivityCard';
-import { toast } from 'sonner';
 import {
   CheckSquare, Search, Calendar, Briefcase, AlertCircle, Clock,
-  ArrowRight, CheckCircle, Circle, GitBranch, ChevronLeft, Loader2,
+  ArrowRight, CheckCircle, Circle, GitBranch,
   StickyNote, User,
 } from 'lucide-react';
 import type { AuthSession } from '@/lib/auth/guards';
+import { dubaiDayKey } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 const PRIORITY_STYLES: Record<string, string> = {
   urgent: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-800',
@@ -25,11 +26,13 @@ const PRIORITY_STYLES: Record<string, string> = {
   medium: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800',
   low: 'bg-gray-500/10 text-gray-600 border-gray-200 dark:border-gray-800',
 };
-const PRIORITY_LABELS: Record<string, string> = { urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض' };
 
 interface MyTasksClientProps { session: AuthSession; }
 
 export default function MyTasksClient({ session }: MyTasksClientProps) {
+  const t = useTranslations('mywork.tasks');
+  const locale = useLocale();
+  const priorityLabel = useStatusLabels('taskPriority');
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'overdue' | 'today' | 'week'>('all');
   const [groupBy, setGroupBy] = useState<'date' | 'board' | 'priority' | 'project'>('date');
@@ -40,22 +43,22 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
     staleTime: 30_000,
   });
 
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-  const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+  // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
+  const today = dubaiDayKey();
+  const weekEnd = dubaiDayKey(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
 
   const categorized = useMemo(() => {
     let filtered = tasks;
     if (search.trim()) {
       const q = search.toLowerCase();
-      filtered = filtered.filter(t => t.title.toLowerCase().includes(q));
+      filtered = filtered.filter(task => task.title.toLowerCase().includes(q));
     }
 
-    const overdue = filtered.filter(t => t.due_date && t.due_date < today && !t.pyra_board_columns?.is_done_column);
-    const todayTasks = filtered.filter(t => t.due_date === today && !t.pyra_board_columns?.is_done_column);
-    const thisWeek = filtered.filter(t => t.due_date && t.due_date > today && t.due_date <= weekEnd && !t.pyra_board_columns?.is_done_column);
-    const upcoming = filtered.filter(t => !t.due_date || (t.due_date > weekEnd && !t.pyra_board_columns?.is_done_column));
-    const done = filtered.filter(t => t.pyra_board_columns?.is_done_column);
+    const overdue = filtered.filter(task => task.due_date && task.due_date < today && !task.pyra_board_columns?.is_done_column);
+    const todayTasks = filtered.filter(task => task.due_date === today && !task.pyra_board_columns?.is_done_column);
+    const thisWeek = filtered.filter(task => task.due_date && task.due_date > today && task.due_date <= weekEnd && !task.pyra_board_columns?.is_done_column);
+    const upcoming = filtered.filter(task => !task.due_date || (task.due_date > weekEnd && !task.pyra_board_columns?.is_done_column));
+    const done = filtered.filter(task => task.pyra_board_columns?.is_done_column);
 
     if (filter === 'overdue') return { overdue, todayTasks: [], thisWeek: [], upcoming: [], done: [] };
     if (filter === 'today') return { overdue: [], todayTasks, thisWeek: [], upcoming: [], done: [] };
@@ -63,8 +66,8 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
     return { overdue, todayTasks, thisWeek, upcoming, done };
   }, [tasks, search, filter, today, weekEnd]);
 
-  const overdueCount = tasks.filter(t => t.due_date && t.due_date < today && !t.pyra_board_columns?.is_done_column).length;
-  const activeCount = tasks.filter(t => !t.pyra_board_columns?.is_done_column).length;
+  const overdueCount = tasks.filter(task => task.due_date && task.due_date < today && !task.pyra_board_columns?.is_done_column).length;
+  const activeCount = tasks.filter(task => !task.pyra_board_columns?.is_done_column).length;
 
   if (loading) {
     return (
@@ -83,24 +86,24 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">مهامي</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {activeCount} مهمة نشطة
-            {overdueCount > 0 && <span className="text-red-500 ms-2">· {overdueCount} متأخرة</span>}
+            {t('activeCount', { count: activeCount })}
+            {overdueCount > 0 && <span className="text-red-500 ms-2">{t('overdueCount', { count: overdueCount })}</span>}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative w-48">
             <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="بحث في المهام..." className="ps-10 h-9" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t('searchPlaceholder')} className="ps-10 h-9" />
           </div>
           {/* Group by toggle */}
           <div className="flex items-center border border-border rounded-lg overflow-hidden">
             {([
-              { key: 'date', label: 'تاريخ' },
-              { key: 'board', label: 'لوحة' },
-              { key: 'priority', label: 'أولوية' },
-              { key: 'project', label: 'مشروع' },
+              { key: 'date', label: t('groupBy.date') },
+              { key: 'board', label: t('groupBy.board') },
+              { key: 'priority', label: t('groupBy.priority') },
+              { key: 'project', label: t('groupBy.project') },
             ] as const).map(g => (
               <button
                 key={g.key}
@@ -124,7 +127,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           <Card className={filter === 'all' ? 'border-orange-500' : ''}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-orange-500/10 flex items-center justify-center"><CheckSquare className="h-5 w-5 text-orange-500" /></div>
-              <div><p className="text-2xl font-bold">{tasks.length}</p><p className="text-xs text-muted-foreground">إجمالي المهام</p></div>
+              <div><p className="text-2xl font-bold">{tasks.length}</p><p className="text-xs text-muted-foreground">{t('stats.total')}</p></div>
             </CardContent>
           </Card>
         </button>
@@ -132,7 +135,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           <Card className={filter === 'overdue' ? 'border-red-500' : ''}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-red-500/10 flex items-center justify-center"><AlertCircle className="h-5 w-5 text-red-500" /></div>
-              <div><p className="text-2xl font-bold">{overdueCount}</p><p className="text-xs text-muted-foreground">متأخرة</p></div>
+              <div><p className="text-2xl font-bold">{overdueCount}</p><p className="text-xs text-muted-foreground">{t('stats.overdue')}</p></div>
             </CardContent>
           </Card>
         </button>
@@ -140,7 +143,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           <Card className={filter === 'today' ? 'border-blue-500' : ''}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center"><Calendar className="h-5 w-5 text-blue-500" /></div>
-              <div><p className="text-2xl font-bold">{categorized.todayTasks.length}</p><p className="text-xs text-muted-foreground">اليوم</p></div>
+              <div><p className="text-2xl font-bold">{categorized.todayTasks.length}</p><p className="text-xs text-muted-foreground">{t('stats.today')}</p></div>
             </CardContent>
           </Card>
         </button>
@@ -148,7 +151,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
           <Card className={filter === 'week' ? 'border-green-500' : ''}>
             <CardContent className="p-4 flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-green-500/10 flex items-center justify-center"><Clock className="h-5 w-5 text-green-500" /></div>
-              <div><p className="text-2xl font-bold">{categorized.thisWeek.length}</p><p className="text-xs text-muted-foreground">هذا الأسبوع</p></div>
+              <div><p className="text-2xl font-bold">{categorized.thisWeek.length}</p><p className="text-xs text-muted-foreground">{t('stats.week')}</p></div>
             </CardContent>
           </Card>
         </button>
@@ -156,25 +159,25 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
 
       {/* Pipeline Progress (for pipeline boards) */}
       {(() => {
-        const pipelineTasks = tasks.filter(t => t.pyra_boards?.is_pipeline);
+        const pipelineTasks = tasks.filter(pt => pt.pyra_boards?.is_pipeline);
         if (pipelineTasks.length === 0) return null;
         // Group by board
         const boardMap = new Map<string, { name: string; projectName: string | null; tasks: typeof pipelineTasks }>();
-        pipelineTasks.forEach(t => {
-          const bId = t.board_id;
+        pipelineTasks.forEach(pt => {
+          const bId = pt.board_id;
           if (!boardMap.has(bId)) {
-            boardMap.set(bId, { name: t.pyra_boards?.name || '', projectName: t.pyra_boards?.pyra_projects?.name || null, tasks: [] });
+            boardMap.set(bId, { name: pt.pyra_boards?.name || '', projectName: pt.pyra_boards?.pyra_projects?.name || null, tasks: [] });
           }
-          boardMap.get(bId)!.tasks.push(t);
+          boardMap.get(bId)!.tasks.push(pt);
         });
         return (
           <div className="space-y-3">
             <h2 className="text-sm font-semibold flex items-center gap-2">
               <GitBranch className="h-4 w-4 text-emerald-500" aria-hidden="true" />
-              تقدم الـ Pipeline
+              {t('pipelineProgress')}
             </h2>
             {Array.from(boardMap.entries()).map(([bId, info]) => {
-              const completed = info.tasks.filter(t => t.completion_percentage >= 100 || t.pyra_board_columns?.is_done_column).length;
+              const completed = info.tasks.filter(pt => pt.completion_percentage >= 100 || pt.pyra_board_columns?.is_done_column).length;
               const pct = info.tasks.length > 0 ? Math.round((completed / info.tasks.length) * 100) : 0;
               return (
                 <Link key={bId} href={`/dashboard/boards/${bId}`}>
@@ -190,7 +193,7 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
                       <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                         <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                       </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">{completed} من {info.tasks.length} مهام مكتملة</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">{t('pipelineCompleted', { completed, total: info.tasks.length })}</p>
                     </CardContent>
                   </Card>
                 </Link>
@@ -202,14 +205,14 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
 
       {/* Task Sections */}
       {tasks.length === 0 ? (
-        <EmptyState icon={CheckSquare} title="لا توجد مهام" description="لم يتم تعيين أي مهام لك بعد" />
+        <EmptyState icon={CheckSquare} title={t('empty.title')} description={t('empty.description')} />
       ) : groupBy === 'date' ? (
         <div className="space-y-6">
-          <TaskSection title="متأخرة" icon={AlertCircle} color="text-red-500" tasks={categorized.overdue} />
-          <TaskSection title="اليوم" icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} />
-          <TaskSection title="هذا الأسبوع" icon={Clock} color="text-green-500" tasks={categorized.thisWeek} />
-          <TaskSection title="قادمة" icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} />
-          <TaskSection title="مكتملة" icon={CheckCircle} color="text-green-600 dark:text-green-400" tasks={categorized.done} collapsed />
+          <TaskSection title={t('sections.overdue')} icon={AlertCircle} color="text-red-500" tasks={categorized.overdue} />
+          <TaskSection title={t('sections.today')} icon={Calendar} color="text-blue-500" tasks={categorized.todayTasks} />
+          <TaskSection title={t('sections.week')} icon={Clock} color="text-green-500" tasks={categorized.thisWeek} />
+          <TaskSection title={t('sections.upcoming')} icon={ArrowRight} color="text-gray-500" tasks={categorized.upcoming} />
+          <TaskSection title={t('sections.done')} icon={CheckCircle} color="text-green-600 dark:text-green-400" tasks={categorized.done} collapsed />
         </div>
       ) : (
         <div className="space-y-6">
@@ -217,26 +220,25 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
             let filtered = tasks;
             if (search.trim()) {
               const q = search.toLowerCase();
-              filtered = filtered.filter((t: { title: string }) => t.title.toLowerCase().includes(q));
+              filtered = filtered.filter((task: { title: string }) => task.title.toLowerCase().includes(q));
             }
             // Group tasks
             const groups = new Map<string, { title: string; tasks: typeof filtered }>();
-            filtered.forEach(t => {
+            filtered.forEach(task => {
               let key = '';
               let title = '';
               if (groupBy === 'board') {
-                key = t.board_id || 'unknown';
-                title = t.pyra_boards?.name || 'بدون لوحة';
+                key = task.board_id || 'unknown';
+                title = task.pyra_boards?.name || t('noBoard');
               } else if (groupBy === 'priority') {
-                key = t.priority || 'medium';
-                const labels: Record<string, string> = { urgent: 'عاجل', high: 'مرتفع', medium: 'متوسط', low: 'منخفض' };
-                title = labels[key] || key;
+                key = task.priority || 'medium';
+                title = priorityLabel(key);
               } else if (groupBy === 'project') {
-                key = t.pyra_boards?.pyra_projects?.name || 'no-project';
-                title = t.pyra_boards?.pyra_projects?.name || 'بدون مشروع';
+                key = task.pyra_boards?.pyra_projects?.name || 'no-project';
+                title = task.pyra_boards?.pyra_projects?.name || t('noProject');
               }
               if (!groups.has(key)) groups.set(key, { title, tasks: [] });
-              groups.get(key)!.tasks.push(t);
+              groups.get(key)!.tasks.push(task);
             });
             return Array.from(groups.entries()).map(([key, group]) => (
               <TaskSection key={key} title={group.title} icon={CheckSquare} color="text-orange-500" tasks={group.tasks} />
@@ -251,6 +253,9 @@ export default function MyTasksClient({ session }: MyTasksClientProps) {
 function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
   title: string; icon: any; color: string; tasks: any[]; collapsed?: boolean;
 }) {
+  const t = useTranslations('mywork.tasks');
+  const locale = useLocale();
+  const priorityLabel = useStatusLabels('taskPriority');
   const [open, setOpen] = useState(!collapsed);
   if (tasks.length === 0) return null;
 
@@ -264,16 +269,21 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
       {open && (
         <div className="space-y-2">
           {tasks.map((task) => {
-            const boardName = task.pyra_boards?.name;
-            const projectName = task.pyra_boards?.pyra_projects?.name;
-            const columnName = task.pyra_board_columns?.name;
-            const isOverdue = task.due_date && task.due_date < new Date().toISOString().split('T')[0] && !task.pyra_board_columns?.is_done_column;
             // Phase 15.1 Commit 3 — source-aware rendering. Lead tasks get
             // a sticky-note icon + "Lead: {assigned/lead context}" sub-label;
             // board tasks keep the existing briefcase + project/board path.
             // `target_path` (added by /api/my-tasks union) wins over the
             // legacy `/dashboard/boards/{board_id}` Link target.
             const isLeadTask = task._source === 'lead_task';
+            // The API's pyra_boards.name stub is a legacy hardcoded literal
+            // kept only for backward shape-compatibility — the client
+            // derives the display label from the `_source` discriminator
+            // instead of trusting the API's synthetic name.
+            const boardName = isLeadTask ? t('leadBoard') : task.pyra_boards?.name;
+            const projectName = task.pyra_boards?.pyra_projects?.name;
+            const columnName = task.pyra_board_columns?.name;
+            // dubaiDayKey() — Dubai-day comparison, NOT the UTC day (Phase 15.1 lock).
+            const isOverdue = task.due_date && task.due_date < dubaiDayKey() && !task.pyra_board_columns?.is_done_column;
             const SourceIcon = isLeadTask ? StickyNote : Circle;
             const href: string = task.target_path
               || (task.board_id ? `/dashboard/boards/${task.board_id}` : '#');
@@ -290,7 +300,7 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
                           {isLeadTask ? (
                             <span className="flex items-center gap-0.5 text-orange-600 dark:text-orange-400">
                               <User className="h-3 w-3" aria-hidden />
-                              عميل محتمل
+                              {t('leadTaskBadge')}
                             </span>
                           ) : (
                             <>
@@ -318,11 +328,11 @@ function TaskSection({ title, icon: Icon, color, tasks, collapsed = false }: {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <Badge variant="outline" className={`text-[10px] ${PRIORITY_STYLES[task.priority]}`}>
-                        {PRIORITY_LABELS[task.priority]}
+                        {priorityLabel(task.priority)}
                       </Badge>
                       {task.due_date && (
                         <span className={`text-[10px] ${isOverdue ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-                          {new Date(task.due_date).toLocaleDateString('ar-EG', { month: 'short', day: 'numeric' })}
+                          {new Date(task.due_date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', day: 'numeric' })}
                         </span>
                       )}
                     </div>
