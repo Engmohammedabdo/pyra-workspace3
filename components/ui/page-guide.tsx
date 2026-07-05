@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ interface PageGuideProps {
  * Place this next to any page header for contextual help.
  */
 export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuideProps) {
+  const t = useTranslations('common.guide');
   const pathname = usePathname();
   const guide = getModuleGuide(modulePath || pathname);
   const [open, setOpen] = useState(false);
@@ -42,10 +44,10 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
             variant === 'icon' ? 'h-8 w-8' : 'gap-1.5',
             className
           )}
-          aria-label="دليل الاستخدام"
+          aria-label={t('aria')}
         >
           <HelpCircle className="h-4 w-4" />
-          {variant === 'label' && <span className="text-xs">مساعدة</span>}
+          {variant === 'label' && <span className="text-xs">{t('help')}</span>}
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -60,7 +62,7 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
               <BookOpen className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <h4 className="text-sm font-semibold">دليل الاستخدام</h4>
+              <h4 className="text-sm font-semibold">{t('title')}</h4>
               <p className="text-[10px] text-muted-foreground">{guide.descriptionEn}</p>
             </div>
           </div>
@@ -71,7 +73,7 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
           <div className="space-y-1.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
               <Target className="h-3.5 w-3.5" />
-              <span>الهدف</span>
+              <span>{t('goal')}</span>
             </div>
             <p className="text-xs text-muted-foreground leading-relaxed">{guide.goal}</p>
           </div>
@@ -81,7 +83,7 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
             <div className="space-y-1.5">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400">
                 <Lightbulb className="h-3.5 w-3.5" />
-                <span>نصائح الاستخدام</span>
+                <span>{t('tips')}</span>
               </div>
               <ul className="space-y-1">
                 {guide.tips.map((tip, i) => (
@@ -111,7 +113,7 @@ export function PageGuide({ modulePath, className, variant = 'icon' }: PageGuide
             onClick={() => setOpen(false)}
           >
             <BookOpen className="h-3 w-3" />
-            عرض دليل جميع الوحدات
+            {t('viewAll')}
           </Link>
         </div>
       </PopoverContent>

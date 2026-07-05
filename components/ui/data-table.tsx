@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -97,6 +98,7 @@ export function DataTable<T>({
   rowClassName,
   className,
 }: DataTableProps<T>) {
+  const t = useTranslations('common.table');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Memoize row IDs for selection
@@ -229,7 +231,7 @@ export function DataTable<T>({
       {selectable && selectedIds.size > 0 && bulkActions.length > 0 && (
         <div className="sticky top-0 z-20 flex items-center gap-3 rounded-t-xl border border-b-0 bg-orange-500/10 px-4 py-2.5 dark:bg-orange-500/5">
           <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-            {selectedIds.size} محدد
+            {t('selectedCount', { count: selectedIds.size })}
           </span>
           <div className="flex items-center gap-2">
             {bulkActions.map((action) => {
@@ -251,7 +253,7 @@ export function DataTable<T>({
           <button
             onClick={clearSelection}
             className="ms-auto text-muted-foreground hover:text-foreground transition-colors"
-            aria-label="إلغاء التحديد"
+            aria-label={t('clearSelection')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -281,7 +283,7 @@ export function DataTable<T>({
                     // Use indeterminate visual when some are selected
                     className={cn(someSelected && 'opacity-70')}
                     onCheckedChange={toggleAll}
-                    aria-label="تحديد الكل"
+                    aria-label={t('selectAll')}
                   />
                 </th>
               )}
@@ -354,7 +356,7 @@ export function DataTable<T>({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleRow(rowId)}
-                        aria-label="تحديد الصف"
+                        aria-label={t('selectRow')}
                         onClick={(e) => e.stopPropagation()}
                       />
                     </td>

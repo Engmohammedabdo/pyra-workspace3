@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -106,14 +107,14 @@ interface NotificationItem {
   created_at: string;
 }
 
-/** Group notifications by Dubai day into labeled buckets: اليوم / أمس / date */
-function groupByDay(items: NotificationItem[]) {
+/** Group notifications by Dubai day into labeled buckets: today / yesterday / date */
+function groupByDay(items: NotificationItem[], todayLabel: string, yesterdayLabel: string) {
   const todayKey = dubaiDayKey();
   const yesterdayKey = dubaiDayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
   const groups = items.reduce<{ label: string; items: NotificationItem[] }[]>((acc, n) => {
     const key = dubaiDayKey(new Date(n.created_at));
-    const label = key === todayKey ? 'اليوم' : key === yesterdayKey ? 'أمس' : key;
+    const label = key === todayKey ? todayLabel : key === yesterdayKey ? yesterdayLabel : key;
     const last = acc[acc.length - 1];
     if (last && last.label === label) {
       last.items.push(n);
@@ -132,6 +133,7 @@ interface NotificationBellProps {
 
 export function NotificationBell({ username }: NotificationBellProps) {
   const router = useRouter();
+  const t = useTranslations('nav.bell');
   const { notifications, unreadCount, loading, refresh, markRead, markAllRead } =
     useNotifications();
 
@@ -165,12 +167,21 @@ export function NotificationBell({ username }: NotificationBellProps) {
     }
   };
 
-  const groups = useMemo(() => groupByDay(notifications), [notifications]);
+  const groups = useMemo(
+    () => groupByDay(notifications, t('today'), t('yesterday')),
+    [notifications, t]
+  );
 
   return (
     <Popover onOpenChange={(open) => { if (open) requestNotificationPermission(); }}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" title="الإشعارات" aria-label="الإشعارات">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          title={t('title')}
+          aria-label={unreadCount > 0 ? t('unreadAria', { count: unreadCount }) : t('title')}
+        >
           <Bell className="h-4 w-4" />
           {unreadCount > 0 && (
             <>
@@ -185,15 +196,15 @@ export function NotificationBell({ username }: NotificationBellProps) {
       <PopoverContent className="w-96 max-w-[calc(100vw-2rem)] p-0" align="end" sideOffset={8}>
         {/* Header */}
         <div className="flex items-center justify-between border-b p-3">
-          <h4 className="text-sm font-semibold">الإشعارات</h4>
+          <h4 className="text-sm font-semibold">{t('title')}</h4>
           <div className="flex items-center gap-1">
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7"
               onClick={toggleSound}
-              title={soundOn ? 'كتم صوت الإشعارات' : 'تفعيل صوت الإشعارات'}
-              aria-label={soundOn ? 'كتم صوت الإشعارات' : 'تفعيل صوت الإشعارات'}
+              title={soundOn ? t('muteSound') : t('unmuteSound')}
+              aria-label={soundOn ? t('muteSound') : t('unmuteSound')}
             >
               {soundOn ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />}
             </Button>
@@ -205,7 +216,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
                 onClick={markAllRead}
               >
                 <CheckCheck className="me-1 h-3 w-3" />
-                تعليم الكل كمقروء
+                {t('markAllRead')}
               </Button>
             )}
           </div>
@@ -226,7 +237,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
               ))}
             </div>
           ) : notifications.length === 0 ? (
-            <EmptyState icon={Bell} title="لا توجد إشعارات" className="py-4" />
+            <EmptyState icon={Bell} title={t('empty')} className="py-4" />
           ) : (
             groups.map((group) => (
               <div key={group.label}>
@@ -283,7 +294,7 @@ export function NotificationBell({ username }: NotificationBellProps) {
             className="w-full text-xs"
             onClick={() => router.push('/dashboard/notifications')}
           >
-            عرض كل الإشعارات
+            {t('viewAll')}
           </Button>
         </div>
       </PopoverContent>

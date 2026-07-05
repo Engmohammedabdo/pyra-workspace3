@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { AlertCircle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,12 +14,15 @@ interface ErrorCardProps {
 }
 
 export function ErrorCard({
-  title = 'فشل في تحميل البيانات',
-  message = 'حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.',
+  title,
+  message,
   onRetry,
   isNetworkError = false,
   className = '',
 }: ErrorCardProps) {
+  const t = useTranslations('common');
+  const effectiveTitle = title ?? t('errors.loadFailed');
+  const effectiveMessage = message ?? t('errors.serverConnection');
   const Icon = isNetworkError ? WifiOff : AlertCircle;
 
   return (
@@ -27,18 +31,18 @@ export function ErrorCard({
         <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-950/30 flex items-center justify-center mb-4">
           <Icon className="h-6 w-6 text-red-500" />
         </div>
-        <h3 className="text-base font-semibold mb-1">{title}</h3>
-        <p className="text-sm text-muted-foreground mb-4 max-w-sm">{message}</p>
+        <h3 className="text-base font-semibold mb-1">{effectiveTitle}</h3>
+        <p className="text-sm text-muted-foreground mb-4 max-w-sm">{effectiveMessage}</p>
         {isNetworkError && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
             <Wifi className="h-3 w-3" />
-            <span>تحقق من اتصال الإنترنت</span>
+            <span>{t('errors.checkInternet')}</span>
           </div>
         )}
         {onRetry && (
           <Button variant="outline" size="sm" onClick={onRetry} className="gap-2">
             <RefreshCw className="h-3.5 w-3.5" />
-            إعادة المحاولة
+            {t('actions.retry')}
           </Button>
         )}
       </CardContent>

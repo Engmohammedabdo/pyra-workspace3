@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef, useImperativeHandle, useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { cn } from '@/lib/utils/cn';
 import { Loader2, AtSign } from 'lucide-react';
@@ -60,6 +61,7 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
   maxLength,
   disabled,
 }, ref) {
+  const t = useTranslations('common.mentions');
   // ── Members cache ──
   const [members, setMembers] = useState<MemberItem[]>([]);
   const [membersLoaded, setMembersLoaded] = useState(false);
@@ -281,17 +283,17 @@ export const MentionTextarea = forwardRef<HTMLTextAreaElement, MentionTextareaPr
           {membersLoading ? (
             <div className="flex items-center justify-center py-4 gap-2 text-xs text-muted-foreground">
               <Loader2 className={cn('h-3.5 w-3.5 animate-spin', accentColor)} />
-              <span>جاري تحميل الأعضاء...</span>
+              <span>{t('loading')}</span>
             </div>
           ) : filteredMembers.length === 0 ? (
             <div className="flex items-center justify-center py-4 gap-2 text-xs text-muted-foreground">
               <AtSign className="h-3.5 w-3.5" />
-              <span>لا يوجد أعضاء مطابقين</span>
+              <span>{t('noMatch')}</span>
             </div>
           ) : (
             <>
               <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                أعضاء الفريق
+                {t('teamMembers')}
               </div>
               {filteredMembers.map((member, index) => (
                 <button

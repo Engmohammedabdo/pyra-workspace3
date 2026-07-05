@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
@@ -10,6 +11,7 @@ interface PaginationProps {
 }
 
 export function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
+  const t = useTranslations('common.pagination');
   if (totalPages <= 1) return null;
 
   return (
@@ -21,12 +23,12 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         className="h-8 w-8"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
-        aria-label="الصفحة السابقة"
+        aria-label={t('prev')}
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
       <span className="text-sm text-muted-foreground px-3 select-none">
-        صفحة {page} من {totalPages}
+        {t('pageOf', { page, totalPages })}
       </span>
       {/* In RTL: last button renders on LEFT = "next" (forward) */}
       <Button
@@ -35,7 +37,7 @@ export function Pagination({ page, totalPages, onPageChange }: PaginationProps) 
         className="h-8 w-8"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
-        aria-label="الصفحة التالية"
+        aria-label={t('next')}
       >
         <ChevronLeft className="h-4 w-4" />
       </Button>
