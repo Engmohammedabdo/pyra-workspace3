@@ -7,6 +7,7 @@ import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
+import { logError } from '@/lib/observability/log-error';
 
 // =============================================================
 // POST /api/tasks/[id]/move
@@ -211,14 +212,17 @@ export async function POST(
         // WhatsApp the admins too (not just in-app) — the admin wants a push
         // on WhatsApp when an employee moves a task, e.g. «جديد → قيد التنفيذ».
         // Skip the actor so an admin dragging their own card isn't messaged.
-        for (const admin of adminNames) {
-          if (admin === auth.pyraUser.username) continue;
-          await sendWhatsAppToUser(
-            supabase,
-            admin,
-            `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`,
-          );
-        }
+        // Fire-and-forget: this is the highest-frequency route and a slow
+        // Evolution API must never stall the drag-move response — the in-app
+        // notifyMany above is the guaranteed channel, WA is best-effort.
+        const waMessage = `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`;
+        void Promise.allSettled(
+          adminNames
+            .filter(admin => admin !== auth.pyraUser.username)
+            .map(admin => sendWhatsAppToUser(supabase, admin, waMessage)),
+        ).catch(err =>
+          logError({ error: err, request: req, metadata: { action: 'task_move_admin_whatsapp', task_id: id } }),
+        );
 
         // Raw drag-moves also silently skipped assignees (only button-driven
         // /advance and /approve notified them) — notify the task's assignees
