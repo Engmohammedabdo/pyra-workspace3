@@ -48,6 +48,8 @@ export interface PyraUser {
   salary_breakdown?: Record<string, unknown> | null;
   /** Migration 029 — timestamp set when status flips active → inactive/suspended (turnover metrics); cleared on reactivation */
   deactivated_at?: string | null;
+  /** Migration 035 — UI language preference ('ar' default). Cookie pyra_locale caches this. */
+  preferred_language?: 'ar' | 'en';
   // Joined from pyra_roles
   role_name?: string;
   role_name_ar?: string;
@@ -341,6 +343,8 @@ export interface PyraClient {
   last_login_at: string | null;
   is_active: boolean;
   created_at: string;
+  /** Migration 035 — portal UI language preference ('ar' default) */
+  preferred_language?: 'ar' | 'en';
 }
 
 export interface PyraProject {

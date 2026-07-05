@@ -21,6 +21,7 @@ export interface Client {
   tags?: string[];
   created_at?: string;
   updated_at?: string;
+  preferred_language?: 'ar' | 'en';
 }
 
 export interface ClientFinancials {

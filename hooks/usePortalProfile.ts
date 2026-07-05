@@ -8,6 +8,7 @@ export interface ClientProfile {
   email: string;
   phone: string | null;
   company: string;
+  preferred_language?: 'ar' | 'en';
   [key: string]: unknown;
 }
 

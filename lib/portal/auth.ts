@@ -9,7 +9,7 @@ const SESSION_EXPIRY_DAYS = 30;
 /**
  * Fields to select from pyra_clients -- everything EXCEPT auth_user_id
  */
-export const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at';
+export const CLIENT_SAFE_FIELDS = 'id, name, email, phone, company, last_login_at, is_active, created_at, preferred_language';
 
 /**
  * Generate a cryptographically secure session token (48 bytes = 64 chars base64url).
