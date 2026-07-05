@@ -18,6 +18,7 @@ export default async function DashboardLayout({
     display_name: session.pyraUser.display_name,
     rolePermissions: session.pyraUser.rolePermissions,
     role_name_ar: session.pyraUser.role_name_ar,
+    role_name: session.pyraUser.role_name,
   };
 
   return (

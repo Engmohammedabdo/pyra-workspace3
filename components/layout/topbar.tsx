@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -33,10 +34,13 @@ interface TopbarProps {
     role: string;
     display_name: string;
     role_name_ar?: string;
+    role_name?: string | null;
   };
 }
 
 export function Topbar({ user }: TopbarProps) {
+  const t = useTranslations('nav.topbar');
+  const locale = useLocale();
   const router = useRouter();
   const { theme, setTheme } = useTheme();
 
@@ -84,19 +88,19 @@ export function Topbar({ user }: TopbarProps) {
               variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              aria-label="تبديل الوضع"
+              aria-label={t('toggleTheme')}
             >
               <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}</TooltipContent>
+          <TooltipContent>{theme === 'dark' ? t('lightMode') : t('darkMode')}</TooltipContent>
         </Tooltip>
 
         {/* User Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="قائمة المستخدم">
+            <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label={t('userMenu')}>
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-orange-500/10 text-orange-600 text-xs font-semibold">
                   {initials}
@@ -109,19 +113,20 @@ export function Topbar({ user }: TopbarProps) {
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium">{user.display_name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {user.role_name_ar ?? (user.role === 'admin' ? 'مسؤول' : 'موظف')} · @{user.username}
+                  {(locale === 'ar' ? user.role_name_ar : user.role_name) ??
+                    t(user.role === 'admin' ? 'roleAdmin' : 'roleEmployee')} · @{user.username}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
               <User className="me-2 h-4 w-4" />
-              الملف الشخصي
+              {t('profile')}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               <LogOut className="me-2 h-4 w-4" />
-              تسجيل الخروج
+              {t('logout')}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
