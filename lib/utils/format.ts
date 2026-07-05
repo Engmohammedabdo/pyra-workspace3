@@ -1,4 +1,6 @@
 import { format, formatDistanceToNow, differenceInCalendarDays } from 'date-fns';
+import { getDateFnsLocale } from '@/lib/i18n/date-locale';
+import type { Locale } from '@/lib/i18n/config';
 
 // ─── Attendance time / duration helpers ───────────────────────────────────────
 // Phase 6B — extracted from three identical local copies in
@@ -8,10 +10,10 @@ import { format, formatDistanceToNow, differenceInCalendarDays } from 'date-fns'
  * Format an ISO timestamp as a Dubai-timezone HH:MM string.
  * Returns '—' for null/undefined input.
  */
-export function formatTime(isoString: string | null | undefined): string {
+export function formatTime(isoString: string | null | undefined, locale: Locale = 'ar'): string {
   if (!isoString) return '—';
   const d = new Date(isoString);
-  return d.toLocaleTimeString('ar-AE', {
+  return d.toLocaleTimeString(locale === 'ar' ? 'ar-AE' : 'en-AE', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'Asia/Dubai',
@@ -28,8 +30,6 @@ export function formatHours(hours: number): string {
   const m = Math.round((hours - h) * 60);
   return `${h}:${String(m).padStart(2, '0')}`;
 }
-import { ar } from 'date-fns/locale';
-
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -39,18 +39,22 @@ export function formatFileSize(bytes: number): string {
   return `\u200E${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
-export function formatDate(date: string | Date | null | undefined, pattern: string = 'dd-MM-yyyy'): string {
+export function formatDate(
+  date: string | Date | null | undefined,
+  pattern: string = 'dd-MM-yyyy',
+  locale: Locale = 'ar',
+): string {
   if (!date) return '';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '';
-  return format(d, pattern, { locale: ar });
+  return format(d, pattern, { locale: getDateFnsLocale(locale) });
 }
 
-export function formatRelativeDate(date: string | Date | null | undefined): string {
+export function formatRelativeDate(date: string | Date | null | undefined, locale: Locale = 'ar'): string {
   if (!date) return '';
   const d = new Date(date);
   if (isNaN(d.getTime())) return '';
-  return formatDistanceToNow(d, { addSuffix: true, locale: ar });
+  return formatDistanceToNow(d, { addSuffix: true, locale: getDateFnsLocale(locale) });
 }
 
 export function formatCurrency(amount: number, currency: string = 'AED'): string {
@@ -135,13 +139,41 @@ export interface TaskDueDateFormatted {
   isOverdue: boolean;
 }
 
+/**
+ * Bilingual label table for `formatTaskDueDate`.
+ *
+ * Documented catalog exception: this is a pure formatting util (no React
+ * context available), so labels can't come from the `t()` translation
+ * catalog the rest of the app uses — same doctrine as module-guide's
+ * hardcoded text (see CLAUDE.md Phase 17 decision #1). Locale is passed in
+ * explicitly by the caller instead.
+ */
+const DUE_LABELS = {
+  ar: {
+    none: 'بدون موعد',
+    today: 'اليوم',
+    tomorrow: 'غداً',
+    overdue: (n: number) => `متأخر منذ ${n} يوم`,
+    upcoming: (n: number) => `بعد ${n} أيام`,
+  },
+  en: {
+    none: 'No due date',
+    today: 'Today',
+    tomorrow: 'Tomorrow',
+    overdue: (n: number) => `Overdue by ${n} ${n === 1 ? 'day' : 'days'}`,
+    upcoming: (n: number) => `In ${n} ${n === 1 ? 'day' : 'days'}`,
+  },
+} as const;
+
 export function formatTaskDueDate(
   due: string | Date | null | undefined,
   today: Date = new Date(),
+  locale: Locale = 'ar',
 ): TaskDueDateFormatted {
+  const L = DUE_LABELS[locale];
   if (!due) {
     return {
-      label: 'بدون موعد',
+      label: L.none,
       tone: 'bg-muted text-muted-foreground',
       isOverdue: false,
     };
@@ -149,7 +181,7 @@ export function formatTaskDueDate(
   const d = typeof due === 'string' ? new Date(due) : due;
   if (isNaN(d.getTime())) {
     return {
-      label: 'بدون موعد',
+      label: L.none,
       tone: 'bg-muted text-muted-foreground',
       isOverdue: false,
     };
@@ -158,34 +190,34 @@ export function formatTaskDueDate(
   if (diff < 0) {
     const abs = Math.abs(diff);
     return {
-      label: `متأخر منذ ${abs} يوم`,
+      label: L.overdue(abs),
       tone: 'bg-red-500/10 text-red-700 dark:text-red-400 font-bold',
       isOverdue: true,
     };
   }
   if (diff === 0) {
     return {
-      label: 'اليوم',
+      label: L.today,
       tone: 'bg-orange-500/10 text-orange-700 dark:text-orange-400',
       isOverdue: false,
     };
   }
   if (diff === 1) {
     return {
-      label: 'غداً',
+      label: L.tomorrow,
       tone: 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
       isOverdue: false,
     };
   }
   if (diff <= 7) {
     return {
-      label: `بعد ${diff} أيام`,
+      label: L.upcoming(diff),
       tone: 'bg-yellow-500/10 text-yellow-700 dark:text-yellow-400',
       isOverdue: false,
     };
   }
   return {
-    label: format(d, 'dd MMM', { locale: ar }),
+    label: format(d, 'dd MMM', { locale: getDateFnsLocale(locale) }),
     tone: 'bg-muted text-muted-foreground',
     isOverdue: false,
   };
