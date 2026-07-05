@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -37,6 +38,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
   const { theme, setTheme } = useTheme();
   const { unreadCount } = usePortalNotifications();
   const branding = useBranding();
+  const t = useTranslations('nav');
   const [pushEnabled, setPushEnabled] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -106,13 +108,13 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                   className={pushEnabled ? '' : 'text-muted-foreground'}
                   style={pushEnabled ? { color: primaryColor } : undefined}
                   onClick={handleTogglePush}
-                  aria-label={pushEnabled ? 'إشعارات سطح المكتب مفعّلة' : 'تفعيل إشعارات سطح المكتب'}
+                  aria-label={pushEnabled ? t('portal.pushEnabled') : t('portal.pushEnable')}
                 >
                   <BellRing className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {pushEnabled ? 'إشعارات سطح المكتب مفعّلة' : 'تفعيل إشعارات سطح المكتب'}
+                {pushEnabled ? t('portal.pushEnabled') : t('portal.pushEnable')}
               </TooltipContent>
             </Tooltip>
           )}
@@ -126,7 +128,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                   size="icon"
                   onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                   className="text-muted-foreground hover:text-foreground"
-                  aria-label={theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}
+                  aria-label={theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
                 >
                   {theme === 'dark' ? (
                     <Sun className="h-4 w-4" />
@@ -136,7 +138,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                {theme === 'dark' ? 'الوضع النهاري' : 'الوضع الليلي'}
+                {theme === 'dark' ? t('topbar.lightMode') : t('topbar.darkMode')}
               </TooltipContent>
             </Tooltip>
           )}
@@ -149,7 +151,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 size="icon"
                 className="relative"
                 onClick={() => router.push('/portal/notifications')}
-                aria-label={unreadCount > 0 ? `${unreadCount} إشعار جديد` : 'الإشعارات'}
+                aria-label={unreadCount > 0 ? t('bell.unreadAria', { count: unreadCount }) : t('bell.title')}
               >
                 <Bell className="h-4 w-4" />
                 {unreadCount > 0 && (
@@ -163,7 +165,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              {unreadCount > 0 ? `${unreadCount} إشعار جديد` : 'الإشعارات'}
+              {unreadCount > 0 ? t('bell.unreadAria', { count: unreadCount }) : t('bell.title')}
             </TooltipContent>
           </Tooltip>
 
@@ -198,7 +200,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 onClick={() => router.push('/portal/profile')}
               >
                 <User className="me-2 h-4 w-4" />
-                الملف الشخصي
+                {t('topbar.profile')}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -206,7 +208,7 @@ export function PortalTopbar({ client }: PortalTopbarProps) {
                 className="text-destructive focus:text-destructive"
               >
                 <LogOut className="me-2 h-4 w-4" />
-                تسجيل الخروج
+                {t('topbar.logout')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

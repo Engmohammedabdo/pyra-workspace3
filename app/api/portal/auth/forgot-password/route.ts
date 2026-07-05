@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { generateId } from '@/lib/utils/id';
 import { createHash } from 'crypto';
@@ -37,13 +38,15 @@ function hashResetToken(token: string): string {
  *  6. Always return success (to prevent email enumeration)
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('auth.api');
+
   try {
     const body = await request.json();
     const { email } = body;
 
     // ── Validation ───────────────────────────────────
     if (!email?.trim()) {
-      return apiValidationError('البريد الإلكتروني مطلوب');
+      return apiValidationError(t('emailRequired'));
     }
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
     if (rateCheck.limited) {
       const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
       return apiError(
-        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        t('rateLimitMinutes', { retry: retryMinutes }),
         429
       );
     }
@@ -69,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Always return success to prevent email enumeration attacks.
     // Only actually generate a token if the client exists and is active.
-    const successMessage = 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني';
+    const successMessage = t('resetLinkSent');
 
     if (!client || !client.is_active) {
       // Client not found or inactive -- still return success to prevent enumeration
@@ -113,7 +116,7 @@ export async function POST(request: NextRequest) {
       id: generateId('al'),
       action_type: 'portal_password_reset_requested',
       username: client.email || client.name,
-      display_name: client.name || 'عميل',
+      display_name: client.name || 'عميل', // i18n-exempt: notification content (Phase 8)
       target_path: `/portal/auth`,
       details: {
         client_id: client.id,

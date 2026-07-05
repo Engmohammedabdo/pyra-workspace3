@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { destroyAllClientSessions } from '@/lib/portal/auth';
 import { createHash } from 'crypto';
@@ -37,6 +38,8 @@ function hashResetToken(token: string): string {
  *  8. Return success
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('auth.api');
+
   try {
     // ── Rate limiting (5 per IP per 15 min) ──────────
     const clientIp = getClientIp(request);
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
     if (rateCheck.limited) {
       const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
       return apiError(
-        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        t('rateLimitMinutes', { retry: retryMinutes }),
         429
       );
     }
@@ -54,11 +57,11 @@ export async function POST(request: NextRequest) {
 
     // ── Validation ───────────────────────────────────
     if (!token?.trim()) {
-      return apiValidationError('رمز إعادة التعيين مطلوب');
+      return apiValidationError(t('tokenRequired'));
     }
 
     if (!password || password.length < PASSWORD_MIN_LENGTH) {
-      return apiValidationError(`كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل)`);
+      return apiValidationError(t('passwordRequired', { min: PASSWORD_MIN_LENGTH }));
     }
 
     const supabase = createServiceRoleClient();
@@ -81,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!resetSession) {
-      return apiError('رمز إعادة التعيين غير صالح أو منتهي الصلاحية', 400);
+      return apiError(t('tokenInvalidOrExpired'), 400);
     }
 
     // Check expiry (stored in ip_address field)
@@ -89,14 +92,14 @@ export async function POST(request: NextRequest) {
     if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
       // Token expired — clean up
       await supabase.from('pyra_sessions').delete().eq('id', tokenHash);
-      return apiError('رمز إعادة التعيين منتهي الصلاحية', 400);
+      return apiError(t('tokenExpired'), 400);
     }
 
     // ── Extract client ID ────────────────────────────
     const clientId = resetSession.username.replace('reset:', '');
 
     if (!clientId) {
-      return apiError('رمز إعادة التعيين غير صالح', 400);
+      return apiError(t('tokenInvalid'), 400);
     }
 
     // ── Look up the client ───────────────────────────
@@ -107,11 +110,11 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (!client) {
-      return apiError('العميل غير موجود', 404);
+      return apiError(t('clientNotFound'), 404);
     }
 
     if (!client.is_active) {
-      return apiError('تم تعطيل حسابك. يرجى التواصل مع فريق الدعم', 403);
+      return apiError(t('accountDisabled'), 403);
     }
 
     // ── Update password in Supabase Auth ──────────────
@@ -119,7 +122,7 @@ export async function POST(request: NextRequest) {
 
     if (!authUserId) {
       return apiError(
-        'حسابك لا يدعم إعادة تعيين كلمة المرور عبر هذا الرابط. يرجى التواصل مع فريق الدعم',
+        t('resetUnsupported'),
         400
       );
     }
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Reset password — auth update error:', updateError);
-      return apiError('فشل في تحديث كلمة المرور. يرجى المحاولة مرة أخرى', 500);
+      return apiError(t('updateFailed'), 500);
     }
 
     // ── Delete the reset token ───────────────────────
@@ -151,7 +154,7 @@ export async function POST(request: NextRequest) {
       id: generateId('al'),
       action_type: 'portal_password_reset_completed',
       username: `client:${clientId}`,
-      display_name: 'عميل',
+      display_name: 'عميل', // i18n-exempt: notification content (Phase 8)
       target_path: `/portal/auth`,
       details: {
         client_id: clientId,
@@ -167,7 +170,7 @@ export async function POST(request: NextRequest) {
 
     return apiSuccess({
       success: true,
-      message: 'تم إعادة تعيين كلمة المرور بنجاح. يرجى تسجيل الدخول بكلمة المرور الجديدة',
+      message: t('resetSuccess'),
     });
   } catch (err) {
     console.error('POST /api/portal/auth/reset-password error:', err);

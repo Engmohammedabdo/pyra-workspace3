@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { PASSWORD_MIN_LENGTH } from '@/lib/constants/auth';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -29,6 +30,7 @@ function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') || '';
+  const t = useTranslations('auth');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -44,17 +46,17 @@ function ResetPasswordForm() {
 
     // Validations
     if (!token) {
-      setError('رمز إعادة التعيين مفقود. يرجى استخدام الرابط المرسل إلى بريدك الإلكتروني.');
+      setError(t('reset.missingToken'));
       return;
     }
 
     if (password.length < PASSWORD_MIN_LENGTH) {
-      setError(`كلمة المرور يجب أن تكون ${PASSWORD_MIN_LENGTH} أحرف على الأقل`);
+      setError(t('reset.minLength', { min: PASSWORD_MIN_LENGTH }));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('كلمتا المرور غير متطابقتين');
+      setError(t('reset.mismatch'));
       return;
     }
 
@@ -70,7 +72,7 @@ function ResetPasswordForm() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || 'حدث خطأ أثناء إعادة تعيين كلمة المرور');
+        setError(json.error || t('reset.resetError'));
         return;
       }
 
@@ -80,7 +82,7 @@ function ResetPasswordForm() {
         router.push('/portal/login');
       }, 3000);
     } catch {
-      setError('حدث خطأ غير متوقع. حاول مرة أخرى.');
+      setError(t('login.unexpected'));
     } finally {
       setLoading(false);
     }
@@ -94,16 +96,16 @@ function ResetPasswordForm() {
         </div>
         <div className="space-y-2">
           <p className="font-semibold text-foreground">
-            تم إعادة تعيين كلمة المرور بنجاح
+            {t('reset.success')}
           </p>
           <p className="text-sm text-muted-foreground">
-            سيتم تحويلك لصفحة تسجيل الدخول خلال لحظات...
+            {t('reset.redirecting')}
           </p>
         </div>
         <Link href="/portal/login">
           <Button variant="outline" className="mt-4 gap-2">
             <ArrowRight className="h-4 w-4" />
-            تسجيل الدخول الآن
+            {t('reset.loginNow')}
           </Button>
         </Link>
       </div>
@@ -114,7 +116,7 @@ function ResetPasswordForm() {
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* New Password */}
       <div className="space-y-2">
-        <Label htmlFor="reset-password">كلمة المرور الجديدة</Label>
+        <Label htmlFor="reset-password">{t('reset.newPassword')}</Label>
         <div className="relative">
           <Input
             id="reset-password"
@@ -145,7 +147,7 @@ function ResetPasswordForm() {
 
       {/* Confirm Password */}
       <div className="space-y-2">
-        <Label htmlFor="reset-confirm">تأكيد كلمة المرور</Label>
+        <Label htmlFor="reset-confirm">{t('reset.confirmPassword')}</Label>
         <div className="relative">
           <Input
             id="reset-confirm"
@@ -175,7 +177,7 @@ function ResetPasswordForm() {
       </div>
 
       <p className="text-xs text-muted-foreground">
-        {`يجب أن تتكون كلمة المرور من ${PASSWORD_MIN_LENGTH} أحرف على الأقل`}
+        {t('reset.minLength', { min: PASSWORD_MIN_LENGTH })}
       </p>
 
       {/* Error message */}
@@ -193,10 +195,10 @@ function ResetPasswordForm() {
         {loading ? (
           <>
             <Loader2 className="h-4 w-4 animate-spin" />
-            جاري إعادة التعيين...
+            {t('reset.submitting')}
           </>
         ) : (
-          'إعادة تعيين كلمة المرور'
+          t('reset.submit')
         )}
       </Button>
 
@@ -206,7 +208,7 @@ function ResetPasswordForm() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowRight className="h-3.5 w-3.5" />
-          العودة لتسجيل الدخول
+          {t('forgot.backToLogin')}
         </Link>
       </div>
     </form>
@@ -214,6 +216,7 @@ function ResetPasswordForm() {
 }
 
 export default function PortalResetPasswordPage() {
+  const t = useTranslations('auth');
   return (
     <div className="w-full max-w-md">
       <Card className="shadow-xl dark:shadow-black/25">
@@ -225,7 +228,7 @@ export default function PortalResetPasswordPage() {
           <div className="mx-auto mb-2">
             <div className="inline-flex items-center gap-1.5 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">
               <Building2 className="h-4 w-4" />
-              بوابة العملاء
+              {t('portalLogin.badge')}
             </div>
           </div>
 
@@ -234,10 +237,10 @@ export default function PortalResetPasswordPage() {
           </div>
 
           <CardTitle className="text-xl font-bold">
-            إعادة تعيين كلمة المرور
+            {t('reset.title')}
           </CardTitle>
           <CardDescription>
-            أدخل كلمة المرور الجديدة لحسابك
+            {t('reset.subtitle')}
           </CardDescription>
         </CardHeader>
 

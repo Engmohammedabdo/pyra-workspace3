@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,6 +17,7 @@ import { LocaleToggleAnon } from '@/components/layout/locale-toggle-anon';
 import { Loader2, ArrowRight, Mail, CheckCircle2, Building2 } from 'lucide-react';
 
 export default function PortalForgotPasswordPage() {
+  const t = useTranslations('auth');
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -36,13 +38,13 @@ export default function PortalForgotPasswordPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || 'حدث خطأ أثناء إرسال الطلب');
+        setError(json.error || t('forgot.requestError'));
         return;
       }
 
       setSubmitted(true);
     } catch {
-      setError('حدث خطأ غير متوقع. حاول مرة أخرى.');
+      setError(t('login.unexpected'));
     } finally {
       setLoading(false);
     }
@@ -59,15 +61,15 @@ export default function PortalForgotPasswordPage() {
           <div className="mx-auto mb-2">
             <div className="inline-flex items-center gap-1.5 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">
               <Building2 className="h-4 w-4" />
-              بوابة العملاء
+              {t('portalLogin.badge')}
             </div>
           </div>
 
           <CardTitle className="text-xl font-bold">
-            استعادة كلمة المرور
+            {t('forgot.title')}
           </CardTitle>
           <CardDescription>
-            أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة تعيين كلمة المرور
+            {t('forgot.subtitle')}
           </CardDescription>
         </CardHeader>
 
@@ -79,11 +81,10 @@ export default function PortalForgotPasswordPage() {
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-foreground">
-                  تم إرسال الرابط بنجاح
+                  {t('forgot.sent')}
                 </p>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  إذا كان البريد الإلكتروني مسجلاً لدينا، ستصلك رسالة تحتوي على
-                  رابط إعادة تعيين كلمة المرور.
+                  {t('forgot.sentDetail')}
                 </p>
               </div>
               <Link href="/portal/login">
@@ -92,14 +93,14 @@ export default function PortalForgotPasswordPage() {
                   className="mt-4 gap-2"
                 >
                   <ArrowRight className="h-4 w-4" />
-                  العودة لتسجيل الدخول
+                  {t('forgot.backToLogin')}
                 </Button>
               </Link>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="forgot-email">البريد الإلكتروني</Label>
+                <Label htmlFor="forgot-email">{t('login.email')}</Label>
                 <div className="relative">
                   <Input
                     id="forgot-email"
@@ -131,10 +132,10 @@ export default function PortalForgotPasswordPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    جاري الإرسال...
+                    {t('forgot.submitting')}
                   </>
                 ) : (
-                  'إرسال رابط الاستعادة'
+                  t('forgot.submit')
                 )}
               </Button>
 
@@ -144,7 +145,7 @@ export default function PortalForgotPasswordPage() {
                   className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <ArrowRight className="h-3.5 w-3.5" />
-                  العودة لتسجيل الدخول
+                  {t('forgot.backToLogin')}
                 </Link>
               </div>
             </form>

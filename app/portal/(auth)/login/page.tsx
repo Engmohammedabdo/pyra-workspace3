@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +20,7 @@ import { Loader2, LogIn, Eye, EyeOff, Building2, AlertCircle } from 'lucide-reac
 
 export default function PortalLoginPage() {
   const router = useRouter();
+  const t = useTranslations('auth');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -46,14 +48,14 @@ export default function PortalLoginPage() {
       const json = await res.json();
 
       if (!res.ok) {
-        setError(json.error || 'حدث خطأ أثناء تسجيل الدخول');
+        setError(json.error || t('portalLogin.loginError'));
         return;
       }
 
       router.push('/portal/projects');
       router.refresh();
     } catch {
-      setError('حدث خطأ غير متوقع. حاول مرة أخرى.');
+      setError(t('login.unexpected'));
     } finally {
       setLoading(false);
     }
@@ -86,12 +88,12 @@ export default function PortalLoginPage() {
           <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2.5">
             <Building2 className="h-5 w-5" />
             <span className="font-semibold text-base">
-              بوابة العملاء
+              {t('portalLogin.badge')}
             </span>
           </div>
 
           <p className="text-white/60 text-sm max-w-[280px] leading-relaxed mx-auto">
-            تابع مشاريعك، استعرض الملفات، وتواصل مع فريق العمل بسهولة
+            {t('portalLogin.tagline')}
           </p>
 
           <p className="text-white/40 text-xs">v3.0</p>
@@ -110,13 +112,13 @@ export default function PortalLoginPage() {
             <p className="text-xs text-muted-foreground">FOR AI SOLUTIONS</p>
             <div className="inline-flex items-center gap-1.5 mt-3 bg-portal/10 text-portal rounded-full px-4 py-1.5 text-sm font-medium">
               <Building2 className="h-4 w-4" />
-              بوابة العملاء
+              {t('portalLogin.badge')}
             </div>
           </div>
 
-          <CardTitle className="text-2xl font-bold">تسجيل الدخول</CardTitle>
+          <CardTitle className="text-2xl font-bold">{t('login.title')}</CardTitle>
           <CardDescription>
-            أدخل بياناتك للوصول إلى بوابة العملاء
+            {t('portalLogin.subtitle')}
           </CardDescription>
         </CardHeader>
 
@@ -124,7 +126,7 @@ export default function PortalLoginPage() {
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Email */}
             <div className="space-y-2">
-              <Label htmlFor="portal-email">البريد الإلكتروني</Label>
+              <Label htmlFor="portal-email">{t('login.email')}</Label>
               <Input
                 id="portal-email"
                 type="email"
@@ -140,7 +142,7 @@ export default function PortalLoginPage() {
 
             {/* Password */}
             <div className="space-y-2">
-              <Label htmlFor="portal-password">كلمة المرور</Label>
+              <Label htmlFor="portal-password">{t('login.password')}</Label>
               <div className="relative">
                 <Input
                   id="portal-password"
@@ -182,14 +184,14 @@ export default function PortalLoginPage() {
                   htmlFor="portal-remember"
                   className="text-sm font-normal cursor-pointer"
                 >
-                  تذكرني
+                  {t('portalLogin.rememberMe')}
                 </Label>
               </div>
               <Link
                 href="/portal/forgot-password"
                 className="text-sm text-portal hover:text-portal-secondary dark:text-portal dark:hover:text-portal transition-colors"
               >
-                نسيت كلمة المرور؟
+                {t('portalLogin.forgotPassword')}
               </Link>
             </div>
 
@@ -210,12 +212,12 @@ export default function PortalLoginPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  جاري تسجيل الدخول...
+                  {t('login.submitting')}
                 </>
               ) : (
                 <>
                   <LogIn className="h-4 w-4" />
-                  تسجيل الدخول
+                  {t('login.submit')}
                 </>
               )}
             </Button>

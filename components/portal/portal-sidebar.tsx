@@ -2,111 +2,18 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useBranding } from '@/components/portal/BrandingProvider';
 import { usePortalNotifications } from '@/hooks/useNotifications';
-import {
-  LayoutDashboard,
-  FolderKanban,
-  FolderOpen,
-  FileText,
-  FileSignature,
-  Receipt,
-  Bell,
-  User,
-  ScrollText,
-  HelpCircle,
-  Wallet,
-  RefreshCw,
-  ReceiptText,
-} from 'lucide-react';
-
-const portalNavItems = [
-  {
-    href: '/portal',
-    label: 'الرئيسية',
-    icon: LayoutDashboard,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/projects',
-    label: 'المشاريع',
-    icon: FolderKanban,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/files',
-    label: 'الملفات',
-    icon: FolderOpen,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/quotes',
-    label: 'عروض الأسعار',
-    icon: FileText,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/contracts',
-    label: 'العقود',
-    icon: FileSignature,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/invoices',
-    label: 'الفواتير',
-    icon: Receipt,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/credit-notes',
-    label: 'الإشعارات الدائنة',
-    icon: ReceiptText,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/recurring',
-    label: 'الفواتير المتكررة',
-    icon: RefreshCw,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/statement',
-    label: 'كشف الحساب',
-    icon: Wallet,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/scripts',
-    label: 'السكريبتات',
-    icon: ScrollText,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/help',
-    label: 'مركز المساعدة',
-    icon: HelpCircle,
-    badgeKey: null as 'notifications' | null,
-  },
-  {
-    href: '/portal/notifications',
-    label: 'الإشعارات',
-    icon: Bell,
-    badgeKey: 'notifications' as 'notifications' | null,
-  },
-  {
-    href: '/portal/profile',
-    label: 'الملف الشخصي',
-    icon: User,
-    badgeKey: null as 'notifications' | null,
-  },
-];
+import { PORTAL_NAV_ITEMS } from '@/components/portal/portal-nav-config';
 
 export function PortalSidebar() {
   const pathname = usePathname();
   const branding = useBranding();
   const { unreadCount } = usePortalNotifications();
+  const t = useTranslations('nav');
 
   const primaryColor = branding.primary_color || '#f97316';
   const displayName = branding.company_name_display || 'PYRAMEDIA X';
@@ -114,7 +21,7 @@ export function PortalSidebar() {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <aside aria-label="قائمة بوابة العملاء" className="fixed inset-y-0 start-0 z-40 hidden lg:flex w-[240px] flex-col border-e bg-sidebar transition-all duration-300">
+    <aside aria-label={t('portal.sidebarAria')} className="fixed inset-y-0 start-0 z-40 hidden lg:flex w-[240px] flex-col border-e bg-sidebar transition-all duration-300">
       {/* Logo */}
       <div className="flex items-center h-16 border-b px-4 gap-3">
         {logoUrl ? (
@@ -134,7 +41,7 @@ export function PortalSidebar() {
         <div className="flex flex-col min-w-0">
           <span className="font-bold text-sm truncate">{displayName}</span>
           <span className="text-[10px] text-muted-foreground truncate">
-            بوابة العملاء
+            {t('portal.clientPortal')}
           </span>
         </div>
       </div>
@@ -142,7 +49,7 @@ export function PortalSidebar() {
       {/* Navigation */}
       <ScrollArea className="flex-1 py-4">
         <nav className="space-y-1 px-3">
-          {portalNavItems.map((item) => {
+          {PORTAL_NAV_ITEMS.map((item) => {
             const isActive = item.href === '/portal'
               ? pathname === '/portal'
               : pathname === item.href || pathname.startsWith(item.href + '/');
@@ -164,7 +71,7 @@ export function PortalSidebar() {
                   className="h-5 w-5 shrink-0"
                   style={isActive ? { color: primaryColor } : undefined}
                 />
-                <span className="truncate" style={isActive ? { color: primaryColor } : undefined}>{item.label}</span>
+                <span className="truncate" style={isActive ? { color: primaryColor } : undefined}>{t(`portal.items.${item.key}`)}</span>
                 {/* Badge count */}
                 {item.badgeKey === 'notifications' && unreadCount > 0 ? (
                   <span

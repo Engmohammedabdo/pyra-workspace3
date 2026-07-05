@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { cookies } from 'next/headers';
+import { getTranslations } from 'next-intl/server';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 import { createPortalSession, CLIENT_SAFE_FIELDS } from '@/lib/portal/auth';
@@ -52,6 +53,8 @@ function recordPortalLoginAttempt(
  *  7. Return client data (no auth_user_id)
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('auth.api');
+
   try {
     // ── Rate limiting (5 per IP per 15 min) ──────────
     const clientIp = getClientIp(request);
@@ -59,7 +62,7 @@ export async function POST(request: NextRequest) {
     if (rateCheck.limited) {
       const retryMinutes = Math.ceil(rateCheck.retryAfterMs / 60000);
       return apiError(
-        `تجاوزت الحد المسموح. حاول مرة أخرى بعد ${retryMinutes} دقيقة`,
+        t('rateLimitMinutes', { retry: retryMinutes }),
         429
       );
     }
@@ -69,11 +72,11 @@ export async function POST(request: NextRequest) {
 
     // ── Validation ───────────────────────────────────
     if (!email?.trim()) {
-      return apiValidationError('البريد الإلكتروني مطلوب');
+      return apiValidationError(t('emailRequired'));
     }
 
     if (!password) {
-      return apiValidationError('كلمة المرور مطلوبة');
+      return apiValidationError(t('passwordRequiredPlain'));
     }
 
     const supabase = createServiceRoleClient();
@@ -86,7 +89,7 @@ export async function POST(request: NextRequest) {
     if (lockoutCheck.limited) {
       const retryHours = Math.ceil(lockoutCheck.retryAfterMs / (60 * 60 * 1000));
       return apiError(
-        `تم قفل الحساب مؤقتاً بسبب محاولات دخول متعددة. حاول مرة أخرى بعد ${retryHours} ساعة`,
+        t('accountLockedHours', { retry: retryHours }),
         429,
       );
     }
@@ -106,13 +109,13 @@ export async function POST(request: NextRequest) {
     if (!client) {
       // ── Record failed attempt (unknown email) ──
       recordPortalLoginAttempt(supabase, normalizedEmail, clientIp, false);
-      return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
+      return apiError(t('invalidCredentials'), 401);
     }
 
     // ── Check if active (support both is_active and status fields) ──
     const isActive = client.is_active !== null ? client.is_active : client.status === 'active';
     if (!isActive) {
-      return apiError('تم تعطيل حسابك. يرجى التواصل مع فريق الدعم', 403);
+      return apiError(t('accountDisabled'), 403);
     }
 
     // ── Authenticate: Supabase Auth or legacy password_hash ──
@@ -146,7 +149,7 @@ export async function POST(request: NextRequest) {
       // ── Record failed attempt (wrong password) ──
       recordPortalLoginAttempt(supabase, client.email || normalizedEmail, clientIp, false);
       console.warn('Portal login — auth failed for:', normalizedEmail);
-      return apiError('البريد الإلكتروني أو كلمة المرور غير صحيحة', 401);
+      return apiError(t('invalidCredentials'), 401);
     }
 
     // ── Record successful login attempt ──────────────

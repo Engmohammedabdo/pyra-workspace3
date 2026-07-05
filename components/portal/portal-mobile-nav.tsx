@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,96 +13,15 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Menu,
-  LayoutDashboard,
-  FolderKanban,
-  FolderOpen,
-  FileText,
-  FileSignature,
-  Receipt,
-  ReceiptText,
-  RefreshCw,
-  Wallet,
-  Bell,
-  User,
-  ScrollText,
-  HelpCircle,
-} from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { useBranding } from '@/components/portal/BrandingProvider';
-
-const portalNavItems = [
-  {
-    href: '/portal',
-    label: 'الرئيسية',
-    icon: LayoutDashboard,
-  },
-  {
-    href: '/portal/projects',
-    label: 'المشاريع',
-    icon: FolderKanban,
-  },
-  {
-    href: '/portal/files',
-    label: 'الملفات',
-    icon: FolderOpen,
-  },
-  {
-    href: '/portal/quotes',
-    label: 'عروض الأسعار',
-    icon: FileText,
-  },
-  {
-    href: '/portal/contracts',
-    label: 'العقود',
-    icon: FileSignature,
-  },
-  {
-    href: '/portal/invoices',
-    label: 'الفواتير',
-    icon: Receipt,
-  },
-  {
-    href: '/portal/credit-notes',
-    label: 'الإشعارات الدائنة',
-    icon: ReceiptText,
-  },
-  {
-    href: '/portal/recurring',
-    label: 'الفواتير المتكررة',
-    icon: RefreshCw,
-  },
-  {
-    href: '/portal/statement',
-    label: 'كشف الحساب',
-    icon: Wallet,
-  },
-  {
-    href: '/portal/scripts',
-    label: 'السكريبتات',
-    icon: ScrollText,
-  },
-  {
-    href: '/portal/help',
-    label: 'مركز المساعدة',
-    icon: HelpCircle,
-  },
-  {
-    href: '/portal/notifications',
-    label: 'الإشعارات',
-    icon: Bell,
-  },
-  {
-    href: '/portal/profile',
-    label: 'الملف الشخصي',
-    icon: User,
-  },
-];
+import { PORTAL_NAV_ITEMS } from '@/components/portal/portal-nav-config';
 
 export function PortalMobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const branding = useBranding();
+  const t = useTranslations('nav');
 
   const primaryColor = branding.primary_color || '#f97316';
   const displayName = branding.company_name_display || 'PYRAMEDIA X';
@@ -113,11 +33,11 @@ export function PortalMobileNav() {
       <SheetTrigger asChild>
         <Button variant="ghost" size="icon" className="lg:hidden">
           <Menu className="h-5 w-5" />
-          <span className="sr-only">القائمة</span>
+          <span className="sr-only">{t('portal.menuSr')}</span>
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-[min(280px,85vw)] p-0">
-        <SheetTitle className="sr-only">قائمة بوابة العملاء</SheetTitle>
+        <SheetTitle className="sr-only">{t('portal.sidebarAria')}</SheetTitle>
 
         {/* Logo header */}
         <div className="flex items-center h-16 border-b px-4 gap-3">
@@ -138,14 +58,14 @@ export function PortalMobileNav() {
           <div className="flex flex-col">
             <span className="font-bold text-sm">{displayName}</span>
             <span className="text-[10px] text-muted-foreground">
-              بوابة العملاء
+              {t('portal.clientPortal')}
             </span>
           </div>
         </div>
 
         <ScrollArea className="h-[calc(100vh-4rem)]">
           <nav className="space-y-1 p-3">
-            {portalNavItems.map((item) => {
+            {PORTAL_NAV_ITEMS.map((item) => {
               const isActive = item.href === '/portal'
                 ? pathname === '/portal'
                 : pathname === item.href || pathname.startsWith(item.href + '/');
@@ -168,7 +88,7 @@ export function PortalMobileNav() {
                     className="h-5 w-5"
                     style={isActive ? { color: primaryColor } : undefined}
                   />
-                  <span style={isActive ? { color: primaryColor } : undefined}>{item.label}</span>
+                  <span style={isActive ? { color: primaryColor } : undefined}>{t(`portal.items.${item.key}`)}</span>
                 </Link>
               );
             })}
