@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -41,6 +42,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; attachmentId: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   let attachmentIdForLogging: string | null = null;
@@ -62,7 +64,7 @@ export async function DELETE(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // ── Fetch attachment with cross-lead check ──
     // We .eq() on both id AND lead_id to defend against URL tampering
@@ -85,13 +87,13 @@ export async function DELETE(
       return apiServerError();
     }
 
-    if (!row) return apiNotFound('المرفق غير موجود');
+    if (!row) return apiNotFound(t('crm.attachmentNotFound'));
 
     // ── Authorisation: admin OR uploader === self ──
     const isAdmin = auth.pyraUser.role === 'admin';
     const isUploader = row.uploaded_by === auth.pyraUser.username;
     if (!isAdmin && !isUploader) {
-      return apiForbidden('يمكن للمدير أو صاحب الرفع فقط حذف هذا المرفق');
+      return apiForbidden(t('crm.attachmentDeleteOwnerOrAdminOnly'));
     }
 
     // ── DB delete FIRST (fatal on error) ──
@@ -114,7 +116,7 @@ export async function DELETE(
         metadata: { lead_id: leadId, attachment_id: attachmentId, action: 'delete-attachment', stage: 'db_delete' },
       });
       console.error('attachment delete failed:', deleteError.message);
-      return apiServerError('فشل حذف المرفق');
+      return apiServerError(t('crm.attachmentDeleteFailed'));
     }
 
     // ── Best-effort storage cleanup (after the row is gone) ──
@@ -148,7 +150,7 @@ export async function DELETE(
         id: generateId('la'),
         lead_id: leadId,
         activity_type: 'attachment_removed',
-        description: 'تم حذف مرفق',
+        description: 'تم حذف مرفق', // i18n-exempt: DB data
         metadata: {
           attachment_id: attachmentId,
           file_type: row.file_type,

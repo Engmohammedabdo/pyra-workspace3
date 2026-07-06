@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -20,13 +21,14 @@ import { phoneMatchKey, stripPhone } from '@/lib/utils/phone';
  * input. Catches +971 50 ..., 00971..., 050... variations of the same number.
  */
 export async function GET(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.view');
     if (isApiError(auth)) return auth;
 
     const sp = request.nextUrl.searchParams;
     const phone = sp.get('phone')?.trim() ?? '';
-    if (!phone) return apiValidationError('phone مطلوب');
+    if (!phone) return apiValidationError(t('crm.phoneRequired'));
 
     const stripped = stripPhone(phone);
     if (stripped.length < 7) return apiSuccess({ match: null });

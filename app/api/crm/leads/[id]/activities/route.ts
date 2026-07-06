@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -30,6 +31,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('lead_activities.view');
     if (isApiError(auth)) return auth;
@@ -38,7 +40,7 @@ export async function GET(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     const sp = request.nextUrl.searchParams;
     const limitParam = parseInt(sp.get('limit') || '50', 10);
@@ -47,7 +49,7 @@ export async function GET(
     // Validate the cursor before feeding it to .lt() against a timestamptz —
     // a non-timestamp value raises Postgres 22007 → 500 for what is bad input.
     if (before !== null && Number.isNaN(Date.parse(before))) {
-      return apiValidationError('before غير صالح — يجب أن يكون تاريخ ISO');
+      return apiValidationError(t('crm.isoDateInvalid', { field: 'before' }));
     }
     const typeFilter = sp.get('type')?.trim() || null;
 
@@ -120,6 +122,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('lead_activities.create');
     if (isApiError(auth)) return auth;
@@ -128,18 +131,20 @@ export async function POST(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية إضافة نشاط لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.activityAddPermission'));
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const activityType = typeof body.activity_type === 'string' ? body.activity_type : '';
     if (!MANUAL_TYPES.has(activityType)) {
-      return apiValidationError('نوع النشاط غير مسموح — اختر: ملاحظة / مكالمة / اجتماع / إيميل');
+      // i18n hazard (documented, census): AR labels enumerate English enum
+      // values in MANUAL_TYPES — machine values stay visible in both locales.
+      return apiValidationError(t('crm.activityTypeInvalid'));
     }
 
     const content = typeof body.content === 'string' ? body.content.trim() : '';
-    if (!content) return apiValidationError('المحتوى مطلوب');
+    if (!content) return apiValidationError(t('crm.contentRequired'));
 
     const incomingMetadata =
       body.metadata && typeof body.metadata === 'object' && !Array.isArray(body.metadata)
@@ -164,7 +169,7 @@ export async function POST(
 
     if (error || !activity) {
       console.error('POST /api/crm/leads/[id]/activities insert error:', error?.message);
-      return apiServerError(`فشل تسجيل النشاط${error?.message ? ': ' + error.message : ''}`);
+      return apiServerError(t('crm.activityLogFailed', { reason: error?.message ? ': ' + error.message : '' }));
     }
 
     // Bump last_contact_at — every manual activity is a touchpoint.
@@ -232,8 +237,8 @@ export async function POST(
 
         await notifyMany(supabase, Array.from(mentioned), {
           type: 'mention',
-          title: 'تم ذكرك في نشاط Lead',
-          message: `${auth.pyraUser.display_name} ذكرك في نشاط على عميل محتمل`,
+          title: 'تم ذكرك في نشاط Lead', // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} ذكرك في نشاط على عميل محتمل`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/crm/leads/${id}?tab=activity&highlight=${insertId}`,
           entity: { type: 'lead_activity', id: insertId },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

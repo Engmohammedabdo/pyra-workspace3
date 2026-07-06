@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -107,6 +108,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   try {
@@ -125,7 +127,7 @@ export async function GET(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     const { data, error } = await supabase
       .from('pyra_lead_attachments')
@@ -186,6 +188,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   try {
@@ -210,13 +213,13 @@ export async function POST(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // Layer 4 — multipart body
     const form = await request.formData();
     const file = form.get('file');
     if (!(file instanceof File)) {
-      return apiValidationError('الملف مطلوب');
+      return apiValidationError(t('crm.fileRequired'));
     }
 
     // Phase 15.2 Commit 2 — file_type form field branches the validation
@@ -230,10 +233,10 @@ export async function POST(
         : 'image';
 
     // Layer 5 — size (defensive — client resizes/caps; server enforces)
-    if (file.size <= 0) return apiValidationError('الملف فارغ');
+    if (file.size <= 0) return apiValidationError(t('crm.fileEmpty'));
     if (file.size > MAX_FILE_SIZE) {
       return apiError(
-        `حجم الملف يتجاوز الحد الأقصى (5 ميجابايت). حجم الملف الحالي: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
+        t('crm.fileSizeExceeded', { sizeMb: (file.size / 1024 / 1024).toFixed(2) }),
         413,
       );
     }
@@ -250,7 +253,7 @@ export async function POST(
           ? 'JPG, PNG, WebP, HEIC'
           : 'WebM, M4A/MP4 audio, OGG, MP3';
       return apiError(
-        `نوع الملف "${file.type}" غير مدعوم. الأنواع المسموح بها: ${list}`,
+        t('crm.fileTypeUnsupported', { fileType: file.type, list }),
         415,
       );
     }
@@ -267,7 +270,7 @@ export async function POST(
           ? '.jpg, .jpeg, .png, .webp, .heic, .heif'
           : '.webm, .m4a, .mp4, .ogg, .mp3';
       return apiError(
-        `امتداد الملف "${rawExt || '(لا يوجد)'}" غير مدعوم. الامتدادات المسموح بها: ${list}`,
+        t('crm.fileExtUnsupported', { ext: rawExt || t('crm.fileExtNone'), list }),
         415,
       );
     }
@@ -283,13 +286,11 @@ export async function POST(
       const parsed =
         typeof rawDuration === 'string' ? parseInt(rawDuration, 10) : NaN;
       if (!Number.isFinite(parsed) || parsed <= 0) {
-        return apiValidationError(
-          'duration_seconds مطلوب للملاحظات الصوتية (رقم بالثواني)',
-        );
+        return apiValidationError(t('crm.voiceDurationRequired'));
       }
       if (parsed > MAX_VOICE_DURATION_SEC) {
         return apiError(
-          `الحد الأقصى لمدة التسجيل ${MAX_VOICE_DURATION_SEC / 60} دقائق. المدة المرسلة: ${parsed} ثانية`,
+          t('crm.voiceDurationExceeded', { maxMinutes: MAX_VOICE_DURATION_SEC / 60, seconds: parsed }),
           422,
         );
       }
@@ -317,7 +318,7 @@ export async function POST(
 
     if ((existingCount ?? 0) >= MAX_PER_LEAD) {
       return apiError(
-        `تم بلوغ الحد الأقصى للمرفقات (${MAX_PER_LEAD} مرفقات لكل Lead). احذف مرفقات قديمة قبل إضافة جديدة.`,
+        t('crm.attachmentCapReached', { max: MAX_PER_LEAD }),
         422,
       );
     }
@@ -341,7 +342,7 @@ export async function POST(
         user: { id: auth.pyraUser.username, role: auth.pyraUser.role },
         metadata: { lead_id: leadId, action: 'upload-attachment', stage: 'canonical_ext_lookup', mime: file.type },
       });
-      return apiServerError('خطأ داخلي في تحديد نوع الملف');
+      return apiServerError(t('crm.fileTypeDetectFailed'));
     }
     // ID prefix matches the file_type for at-a-glance debugging of bucket
     // listings. Both prefixes resolve to the same generateId() length.
@@ -365,8 +366,8 @@ export async function POST(
         metadata: { lead_id: leadId, action: 'upload-attachment', stage: 'storage_upload', file_type: fileType },
       });
       console.error('storage upload error:', uploadError.message);
-      const label = fileType === 'voice_note' ? 'الملاحظة الصوتية' : 'الصورة';
-      return apiServerError(`فشل رفع ${label}: ${uploadError.message}`);
+      const label = fileType === 'voice_note' ? t('crm.voiceNoteLabel') : t('crm.imageLabel');
+      return apiServerError(t('crm.uploadFailed', { label, reason: uploadError.message }));
     }
 
     // Layer 11 — DB row
@@ -399,7 +400,7 @@ export async function POST(
         metadata: { lead_id: leadId, action: 'upload-attachment', stage: 'db_insert' },
       });
       console.error('attachment insert failed:', insertError?.message);
-      return apiServerError('فشل تسجيل المرفق');
+      return apiServerError(t('crm.attachmentRecordFailed'));
     }
 
     // Layer 12 — short-lived signed URL (private bucket)
@@ -418,8 +419,8 @@ export async function POST(
         activity_type: 'attachment_added',
         description:
           fileType === 'voice_note'
-            ? 'تم إضافة ملاحظة صوتية جديدة'
-            : 'تم إضافة مرفق جديد',
+            ? 'تم إضافة ملاحظة صوتية جديدة' // i18n-exempt: DB data
+            : 'تم إضافة مرفق جديد', // i18n-exempt: DB data
         metadata: {
           attachment_id: attachmentId,
           file_type: fileType,

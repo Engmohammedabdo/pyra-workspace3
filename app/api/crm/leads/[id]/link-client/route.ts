@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -50,6 +51,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   // Phase 14.1 Commit 2 — hoisted for catch-block logError context.
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
@@ -75,14 +77,14 @@ export async function POST(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     const body = (await request.json().catch(() => null)) as LinkClientBody | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const rawClientId = body.client_id;
     if (typeof rawClientId !== 'string' || rawClientId.trim().length === 0) {
-      return apiValidationError('client_id مطلوب');
+      return apiValidationError(t('crm.clientIdRequired'));
     }
     const clientId = rawClientId.trim();
 
@@ -100,9 +102,7 @@ export async function POST(
     if (!lead) return apiNotFound('lead not found');
 
     if (lead.client_id) {
-      return apiValidationError(
-        'هذا الـ Lead مرتبط بعميل بالفعل — استخدم SQL manual لإعادة الربط (Unlink UI في v1.1)',
-      );
+      return apiValidationError(t('crm.alreadyLinkedUseSql'));
     }
 
     // ── Verify the target client exists ──
@@ -116,7 +116,7 @@ export async function POST(
       console.error('link-client: client lookup error:', clientError.message);
       return apiServerError();
     }
-    if (!client) return apiValidationError('العميل غير موجود');
+    if (!client) return apiValidationError(t('crm.clientNotFound'));
 
     // ── UPDATE pyra_sales_leads — only client_id + updated_at ──
     // is_converted and name are intentionally left untouched (see invariants).
@@ -127,7 +127,7 @@ export async function POST(
 
     if (updateError) {
       console.error('link-client: update error:', updateError.message);
-      return apiServerError(`فشل ربط الـ Lead بالعميل: ${updateError.message}`);
+      return apiServerError(t('crm.linkFailed', { reason: updateError.message }));
     }
 
     // ── Lead timeline activity (visible in activity tab) ──
@@ -139,7 +139,7 @@ export async function POST(
         id: generateId('la'),
         lead_id: leadId,
         activity_type: 'field_updated',
-        description: 'تم ربط العميل المحتمل بحساب عميل موجود',
+        description: 'تم ربط العميل المحتمل بحساب عميل موجود', // i18n-exempt: DB data
         metadata: {
           source: 'manual_link_via_ui',
           client_id: clientId,

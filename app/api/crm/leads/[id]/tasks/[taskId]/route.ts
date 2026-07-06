@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -42,12 +43,14 @@ const ALLOWED_PRIORITY = new Set<LeadTaskPriority>(['low', 'medium', 'high', 'ur
 
 // Task fields whose change is worth a lead-timeline entry (GAP 2 — full coverage).
 const TASK_TIMELINE_FIELDS = ['title', 'description', 'due_date', 'priority', 'assigned_to'];
+// Used ONLY to build the stored timeline description (pyra_lead_activities.
+// description), never returned in an API response — DB data, exempt.
 const TASK_FIELD_LABELS_AR: Record<string, string> = {
-  title: 'العنوان',
-  description: 'الوصف',
-  due_date: 'تاريخ الاستحقاق',
-  priority: 'الأولوية',
-  assigned_to: 'المسؤول',
+  title: 'العنوان', // i18n-exempt: DB data
+  description: 'الوصف', // i18n-exempt: DB data
+  due_date: 'تاريخ الاستحقاق', // i18n-exempt: DB data
+  priority: 'الأولوية', // i18n-exempt: DB data
+  assigned_to: 'المسؤول', // i18n-exempt: DB data
 };
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -66,6 +69,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   let taskIdForLogging: string | null = null;
@@ -86,7 +90,7 @@ export async function PATCH(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // Cross-resource guard — fetch existing row WITH lead_id match
     const { data: existing, error: fetchErr } = await supabase
@@ -106,19 +110,19 @@ export async function PATCH(
       console.error('PATCH fetch error:', fetchErr.message);
       return apiServerError();
     }
-    if (!existing) return apiNotFound('المهمة غير موجودة');
+    if (!existing) return apiNotFound(t('crm.taskNotFound'));
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const updates: Record<string, unknown> = {};
 
     // FIX 4 — title validation BEFORE DB CHECK
     if ('title' in body) {
       const v = typeof body.title === 'string' ? body.title.trim() : '';
-      if (!v) return apiValidationError('العنوان مطلوب');
+      if (!v) return apiValidationError(t('crm.taskTitleRequired'));
       if (v.length > LEAD_TASK_TITLE_MAX) {
-        return apiValidationError(`العنوان طويل جداً (الحد الأقصى ${LEAD_TASK_TITLE_MAX} حرف)`);
+        return apiValidationError(t('crm.taskTitleTooLong', { max: LEAD_TASK_TITLE_MAX }));
       }
       updates.title = v;
     }
@@ -138,7 +142,7 @@ export async function PATCH(
         if (!v) updates.due_date = null;
         else {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-            return apiValidationError('تاريخ الاستحقاق يجب أن يكون بصيغة YYYY-MM-DD');
+            return apiValidationError(t('crm.taskDueDateFormat'));
           }
           updates.due_date = v;
         }
@@ -152,7 +156,7 @@ export async function PATCH(
         if (!v) updates.priority = null;
         else {
           if (!ALLOWED_PRIORITY.has(v)) {
-            return apiValidationError('الأولوية غير صحيحة');
+            return apiValidationError(t('crm.taskPriorityInvalidShort'));
           }
           updates.priority = v;
         }
@@ -172,7 +176,7 @@ export async function PATCH(
     if ('status' in body) {
       const newStatus = typeof body.status === 'string' ? body.status.trim() as LeadTaskStatus : '' as LeadTaskStatus;
       if (!ALLOWED_STATUS.has(newStatus)) {
-        return apiValidationError('الحالة غير صحيحة');
+        return apiValidationError(t('crm.taskStatusInvalid'));
       }
       const oldStatus = existing.status as LeadTaskStatus;
       if (newStatus !== oldStatus) {
@@ -188,7 +192,7 @@ export async function PATCH(
     }
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد تغييرات');
+      return apiValidationError(t('crm.noChanges'));
     }
 
     const { data: updated, error: updateErr } = await supabase
@@ -207,7 +211,7 @@ export async function PATCH(
         metadata: { lead_id: leadId, task_id: taskId, action: 'update-task' },
       });
       console.error('PATCH update error:', updateErr?.message);
-      return apiServerError('فشل تحديث المهمة');
+      return apiServerError(t('crm.taskUpdateFailed'));
     }
 
     // Activity dual-write — emit a timeline row for ANY user-visible task change:
@@ -218,9 +222,16 @@ export async function PATCH(
     const shouldLogTimeline = !!statusTransition || changedTaskFields.length > 0;
     if (shouldLogTimeline) {
       const taskTitle = (updated as PyraLeadTask).title;
+      // i18n hazard (documented, census): the status-transition branch embeds
+      // the raw ENGLISH status enum value (e.g. 'completed') inside an Arabic
+      // sentence baked into pyra_lead_activities.description — mixed-language
+      // stored data. The enum is ALSO in metadata.from_status/to_status below,
+      // so a future Phase 8 pass could drop it from the description text; kept
+      // as-is here since this is DB-write content (stored, exempt), not an API
+      // response string.
       const desc = statusTransition
-        ? `حالة المهمة "${taskTitle}" → ${statusTransition.to}`
-        : `تم تعديل المهمة "${taskTitle}" (${changedTaskFields.map((f) => TASK_FIELD_LABELS_AR[f]).join('، ')})`;
+        ? `حالة المهمة "${taskTitle}" → ${statusTransition.to}` // i18n-exempt: DB data
+        : `تم تعديل المهمة "${taskTitle}" (${changedTaskFields.map((f) => TASK_FIELD_LABELS_AR[f]).join('، ')})`; // i18n-exempt: DB data
       supabase
         .from('pyra_lead_activities')
         .insert({
@@ -280,6 +291,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; taskId: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   let taskIdForLogging: string | null = null;
@@ -300,7 +312,7 @@ export async function DELETE(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // Cross-resource guard + creator check
     const { data: existing, error: fetchErr } = await supabase
@@ -320,12 +332,12 @@ export async function DELETE(
       console.error('DELETE fetch error:', fetchErr.message);
       return apiServerError();
     }
-    if (!existing) return apiNotFound('المهمة غير موجودة');
+    if (!existing) return apiNotFound(t('crm.taskNotFound'));
 
     const isAdmin = auth.pyraUser.role === 'admin';
     const isCreator = existing.created_by === auth.pyraUser.username;
     if (!isAdmin && !isCreator) {
-      return apiForbidden('فقط منشئ المهمة أو الـ admin يقدر يحذفها');
+      return apiForbidden(t('crm.taskDeleteOwner'));
     }
 
     const { error: deleteErr } = await supabase
@@ -342,7 +354,7 @@ export async function DELETE(
         metadata: { lead_id: leadId, task_id: taskId, action: 'delete-task' },
       });
       console.error('DELETE error:', deleteErr.message);
-      return apiServerError('فشل حذف المهمة');
+      return apiServerError(t('crm.taskDeleteFailed'));
     }
 
     // Activity dual-write
@@ -352,7 +364,7 @@ export async function DELETE(
         id: generateId('la'),
         lead_id: leadId,
         activity_type: 'field_updated',
-        description: `تم حذف المهمة: ${existing.title}`,
+        description: `تم حذف المهمة: ${existing.title}`, // i18n-exempt: DB data
         metadata: {
           source: 'task_deleted',
           task_id: taskId,

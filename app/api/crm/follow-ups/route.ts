@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -121,18 +122,19 @@ export async function GET(request: NextRequest) {
 // ────────────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('follow_ups.create');
     if (isApiError(auth)) return auth;
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const leadId = typeof body.lead_id === 'string' ? body.lead_id : '';
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const dueAt = typeof body.due_at === 'string' ? body.due_at : '';
     if (!leadId || !title || !dueAt) {
-      return apiValidationError('lead_id و title و due_at مطلوبة');
+      return apiValidationError(t('crm.followUpFieldsRequired'));
     }
 
     // Validate due_at unconditionally (up front) — it goes into a NOT NULL
@@ -141,14 +143,14 @@ export async function POST(request: NextRequest) {
     // slipped past app validation and surfaced the raw Postgres error as a 500.
     const dueParsed = new Date(dueAt);
     if (isNaN(dueParsed.getTime())) {
-      return apiValidationError('due_at غير صالح — يجب أن يكون تاريخ ISO');
+      return apiValidationError(t('crm.isoDateInvalid', { field: 'due_at' }));
     }
     const dueAtIso = dueParsed.toISOString();
 
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, leadId);
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // assigned_to gate: assigning a follow-up to someone else is a manager/admin
     // action — require leads.assign and validate the target is a real, ACTIVE
@@ -158,11 +160,11 @@ export async function POST(request: NextRequest) {
       typeof body.assigned_to === 'string' ? body.assigned_to.trim() : '';
     if (requestedAssignee && requestedAssignee !== auth.pyraUser.username) {
       if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.assign')) {
-        return apiForbidden('تحتاج صلاحية "إسناد / نقل ملكية الـ Lead" لإسناد المتابعة لمستخدم آخر');
+        return apiForbidden(t('crm.assignPermissionFollowUp'));
       }
       const assignable = await isAssignableUser(supabase, requestedAssignee);
       if (!assignable) {
-        return apiValidationError('المستخدم المحدد للإسناد غير موجود أو غير نشط');
+        return apiValidationError(t('crm.assigneeInactive'));
       }
       assignedTo = requestedAssignee;
     }
@@ -181,7 +183,7 @@ export async function POST(request: NextRequest) {
     if (typeof body.reminder_at === 'string') {
       const parsed = new Date(body.reminder_at);
       if (isNaN(parsed.getTime())) {
-        return apiValidationError('reminder_at غير صالح — يجب أن يكون تاريخ ISO');
+        return apiValidationError(t('crm.isoDateInvalid', { field: 'reminder_at' }));
       }
       reminderAt = parsed.toISOString();
     } else {
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
       .single();
     if (error || !followUp) {
       console.error('POST /api/crm/follow-ups insert error:', error?.message);
-      return apiServerError(`فشل إنشاء المتابعة${error?.message ? ': ' + error.message : ''}`);
+      return apiServerError(t('crm.followUpCreateFailed', { reason: error?.message ? ': ' + error.message : '' }));
     }
 
     // Timeline entry on the parent lead.
@@ -257,8 +259,8 @@ export async function POST(request: NextRequest) {
       void notify(supabase, {
         to: assignedTo,
         type: 'follow_up_due',
-        title: 'متابعة جديدة لك',
-        message: `${auth.pyraUser.display_name} جدول متابعة "${title}"`,
+        title: 'متابعة جديدة لك', // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} جدول متابعة "${title}"`, // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/crm/leads/${leadId}`,
         entity: { type: 'follow_up', id: insertId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -198,17 +199,18 @@ export async function GET(request: NextRequest) {
 // win_probability_overridden = true (handled in PATCH).
 // ────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.create');
     if (isApiError(auth)) return auth;
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const name = typeof body.name === 'string' ? body.name.trim() : '';
     const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
-    if (!name) return apiValidationError('الاسم مطلوب');
-    if (!phone) return apiValidationError('الهاتف مطلوب');
+    if (!name) return apiValidationError(t('crm.nameRequired'));
+    if (!phone) return apiValidationError(t('crm.phoneRequiredLower'));
 
     const supabase = createServiceRoleClient();
 
@@ -234,11 +236,11 @@ export async function POST(request: NextRequest) {
       typeof body.assigned_to === 'string' ? body.assigned_to.trim() : '';
     if (requestedAssignee && requestedAssignee !== auth.pyraUser.username) {
       if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.assign')) {
-        return apiForbidden('تحتاج صلاحية "إسناد / نقل ملكية الـ Lead" لإسناده لمستخدم آخر');
+        return apiForbidden(t('crm.assignPermissionLead'));
       }
       const assignable = await isAssignableUser(supabase, requestedAssignee);
       if (!assignable) {
-        return apiValidationError('المستخدم المحدد للإسناد غير موجود أو غير نشط');
+        return apiValidationError(t('crm.assigneeInactive'));
       }
       assignedTo = requestedAssignee;
     }
@@ -283,7 +285,7 @@ export async function POST(request: NextRequest) {
 
     if (insertErr || !lead) {
       console.error('POST /api/crm/leads insert error:', insertErr?.message);
-      return apiServerError(`فشل إنشاء الـ Lead${insertErr?.message ? ': ' + insertErr.message : ''}`);
+      return apiServerError(t('crm.leadCreateFailed', { reason: insertErr?.message ? ': ' + insertErr.message : '' }));
     }
 
     // ── lead_created activity ──
@@ -342,8 +344,8 @@ export async function POST(request: NextRequest) {
       void notify(supabase, {
         to: assignedTo,
         type: 'lead_assigned',
-        title: 'تم إسناد Lead جديد لك',
-        message: `${auth.pyraUser.display_name} أنشأ Lead "${name}" وعيّنه عليك`,
+        title: 'تم إسناد Lead جديد لك', // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} أنشأ Lead "${name}" وعيّنه عليك`, // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/crm/leads/${insertId}`,
         entity: { type: ENTITY_TYPES.LEAD, id: insertId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

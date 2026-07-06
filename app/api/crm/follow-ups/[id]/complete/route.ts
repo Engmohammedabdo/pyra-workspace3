@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -26,6 +27,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('follow_ups.complete');
     if (isApiError(auth)) return auth;
@@ -42,13 +44,13 @@ export async function POST(
       console.error('POST follow-up complete fetch error:', fetchErr.message);
       return apiServerError();
     }
-    if (!followUp) return apiNotFound('المتابعة غير موجودة');
+    if (!followUp) return apiNotFound(t('crm.followUpNotFound'));
     // 'overdue' is a live not-done state (the check-due cron flips due-past
     // pending → overdue). It MUST stay completable — otherwise the row can never
     // be closed via the UI (the list shows a complete button) and overdue counts
     // + next_follow_up inflate forever.
     if (followUp.status !== 'pending' && followUp.status !== 'overdue') {
-      return apiValidationError('المتابعة تم إكمالها أو إلغاؤها بالفعل');
+      return apiValidationError(t('crm.followUpAlreadyDone'));
     }
 
     // Caller must own the follow-up OR have access to the parent lead
@@ -61,7 +63,7 @@ export async function POST(
       followUp.lead_id,
     );
     if (!isAssignee && !canAccess) {
-      return apiForbidden('فقط المسؤول عن المتابعة أو الـ admin يمكنه إكمالها');
+      return apiForbidden(t('crm.followUpOwnerOrAdminOnly'));
     }
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
@@ -83,7 +85,7 @@ export async function POST(
       return apiServerError();
     }
     if (!updated) {
-      return apiValidationError('المتابعة تم إكمالها بالفعل');
+      return apiValidationError(t('crm.followUpAlreadyCompleted'));
     }
 
     // .then() required — Supabase query builder is lazy; bare `void <builder>`

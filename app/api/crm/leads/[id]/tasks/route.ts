@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -47,6 +48,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   try {
@@ -65,7 +67,7 @@ export async function GET(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     // FIX 3 — CASE-based status sort: pending(0) < in_progress(1) <
     // completed(2) < cancelled(3). Supabase JS SDK doesn't expose raw
@@ -183,6 +185,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   try {
@@ -201,16 +204,16 @@ export async function POST(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     // FIX 4 — validate title BEFORE hitting DB CHECK constraint
     const title = typeof body.title === 'string' ? body.title.trim() : '';
-    if (!title) return apiValidationError('العنوان مطلوب');
+    if (!title) return apiValidationError(t('crm.taskTitleRequired'));
     if (title.length > LEAD_TASK_TITLE_MAX) {
-      return apiValidationError(`العنوان طويل جداً (الحد الأقصى ${LEAD_TASK_TITLE_MAX} حرف)`);
+      return apiValidationError(t('crm.taskTitleTooLong', { max: LEAD_TASK_TITLE_MAX }));
     }
 
     const description = typeof body.description === 'string' && body.description.trim()
@@ -222,7 +225,7 @@ export async function POST(
     if (typeof body.due_date === 'string' && body.due_date.trim()) {
       const v = body.due_date.trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) {
-        return apiValidationError('تاريخ الاستحقاق يجب أن يكون بصيغة YYYY-MM-DD');
+        return apiValidationError(t('crm.taskDueDateFormat'));
       }
       dueDate = v;
     }
@@ -231,7 +234,7 @@ export async function POST(
     if (typeof body.priority === 'string' && body.priority.trim()) {
       const v = body.priority.trim() as LeadTaskPriority;
       if (!ALLOWED_PRIORITY.has(v)) {
-        return apiValidationError('الأولوية غير صحيحة — اختر: low / medium / high / urgent');
+        return apiValidationError(t('crm.taskPriorityInvalid'));
       }
       priority = v;
     }
@@ -267,7 +270,7 @@ export async function POST(
         metadata: { lead_id: leadId, action: 'create-task' },
       });
       console.error('POST /api/crm/leads/[id]/tasks insert error:', insertError?.message);
-      return apiServerError('فشل إنشاء المهمة');
+      return apiServerError(t('crm.taskCreateFailed'));
     }
 
     // Activity dual-write — timeline + system audit. Lazy-thenable for the
@@ -278,7 +281,7 @@ export async function POST(
         id: generateId('la'),
         lead_id: leadId,
         activity_type: 'field_updated',
-        description: `تم إنشاء مهمة جديدة: ${title}`,
+        description: `تم إنشاء مهمة جديدة: ${title}`, // i18n-exempt: DB data
         metadata: {
           source: 'task_created',
           task_id: taskId,

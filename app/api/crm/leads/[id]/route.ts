@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -27,6 +28,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.view');
     if (isApiError(auth)) return auth;
@@ -35,7 +37,7 @@ export async function GET(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية الوصول لهذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadAccessDenied'));
 
     const { data: lead, error } = await supabase
       .from('pyra_sales_leads')
@@ -47,7 +49,7 @@ export async function GET(
       console.error('GET /api/crm/leads/[id] error:', error.message);
       return apiServerError();
     }
-    if (!lead) return apiNotFound('Lead غير موجود');
+    if (!lead) return apiNotFound(t('crm.leadNotFound'));
 
     // Phase 11.5: when the lead is linked to a client, fetch the client's
     // name so the UI can render the "مرتبط بـ {client_name}" badge without
@@ -176,6 +178,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.update');
     if (isApiError(auth)) return auth;
@@ -184,18 +187,18 @@ export async function PATCH(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية تعديل هذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadEditPermission'));
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     if ('stage_id' in body) {
-      return apiValidationError('تغيير المرحلة يتم عبر /api/crm/leads/[id]/move-stage');
+      return apiValidationError(t('crm.stageChangeViaMoveStage'));
     }
 
     // Reassign requires elevated permission.
     if ('assigned_to' in body && !hasPermission(auth.pyraUser.rolePermissions, 'leads.assign')) {
-      return apiForbidden('لا تملك صلاحية إعادة إسناد الـ Lead');
+      return apiForbidden(t('crm.leadReassignPermission'));
     }
 
     // Editing any of the lead's own data fields is ADMIN-ONLY (leads.edit_core).
@@ -205,14 +208,14 @@ export async function PATCH(
       Object.keys(body).some((k) => CORE_FIELDS.has(k)) &&
       !hasPermission(auth.pyraUser.rolePermissions, 'leads.edit_core')
     ) {
-      return apiForbidden('تعديل بيانات الليد متاح للمشرف فقط');
+      return apiForbidden(t('crm.leadEditCorePermission'));
     }
 
     const updates: Record<string, unknown> = {};
     for (const key of Object.keys(body)) {
       if (PATCHABLE_KEYS.has(key)) updates[key] = body[key];
     }
-    if (Object.keys(updates).length === 0) return apiValidationError('لا توجد حقول للتحديث');
+    if (Object.keys(updates).length === 0) return apiValidationError(t('crm.noFieldsToUpdate'));
 
     // Manual win_probability override flips the flag (Q-BIZ-001).
     if ('win_probability' in updates) {
@@ -230,7 +233,7 @@ export async function PATCH(
       .select([...PATCHABLE_KEYS].join(', '))
       .eq('id', id)
       .maybeSingle();
-    if (!before) return apiNotFound('Lead غير موجود');
+    if (!before) return apiNotFound(t('crm.leadNotFound'));
 
     const { data: lead, error: updErr } = await supabase
       .from('pyra_sales_leads')
@@ -240,7 +243,7 @@ export async function PATCH(
       .single();
     if (updErr || !lead) {
       console.error('PATCH /api/crm/leads/[id] update error:', updErr?.message);
-      return apiServerError(`فشل تحديث الـ Lead${updErr?.message ? ': ' + updErr.message : ''}`);
+      return apiServerError(t('crm.leadUpdateFailed', { reason: updErr?.message ? ': ' + updErr.message : '' }));
     }
 
     // ── Activity log: one timeline row per CHANGED field (GAP 1 fix) ──
@@ -302,8 +305,8 @@ export async function PATCH(
         void notify(supabase, {
           to: newOwner,
           type: 'lead_transferred',
-          title: 'تم تحويل Lead لك',
-          message: `${auth.pyraUser.display_name} حوّل Lead "${(lead as { name: string }).name}" إليك`,
+          title: 'تم تحويل Lead لك', // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} حوّل Lead "${(lead as { name: string }).name}" إليك`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/crm/leads/${id}`,
           entity: { type: ENTITY_TYPES.LEAD, id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -342,6 +345,7 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.delete');
     if (isApiError(auth)) return auth;
@@ -350,7 +354,7 @@ export async function DELETE(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية أرشفة هذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadArchivePermission'));
 
     const body = (await request.json().catch(() => null)) as { unarchive?: boolean } | null;
     const unarchive = body?.unarchive === true;
@@ -360,7 +364,7 @@ export async function DELETE(
       .select('id')
       .eq('id', id)
       .maybeSingle();
-    if (!existing) return apiNotFound('Lead غير موجود');
+    if (!existing) return apiNotFound(t('crm.leadNotFound'));
 
     const nowIso = new Date().toISOString();
     const { error: updErr } = await supabase
@@ -373,7 +377,7 @@ export async function DELETE(
       .eq('id', id);
     if (updErr) {
       console.error('DELETE /api/crm/leads/[id] update error:', updErr.message);
-      return apiServerError(unarchive ? 'فشل إلغاء الأرشفة' : 'فشل الأرشفة', updErr, request);
+      return apiServerError(unarchive ? t('crm.unarchiveFailed') : t('crm.archiveFailed'), updErr, request);
     }
 
     // Timeline activity (lazy-thenable → needs .then()).
@@ -383,7 +387,7 @@ export async function DELETE(
         id: generateId('la'),
         lead_id: id,
         activity_type: 'field_updated',
-        description: unarchive ? 'تم إلغاء أرشفة الـ Lead' : 'تم أرشفة الـ Lead',
+        description: unarchive ? 'تم إلغاء أرشفة الـ Lead' : 'تم أرشفة الـ Lead', // i18n-exempt: DB data
         metadata: { field: 'archived_at', source: unarchive ? 'unarchived' : 'archived' },
         created_by: auth.pyraUser.username,
       })
@@ -403,6 +407,6 @@ export async function DELETE(
     return apiSuccess({ id, archived: !unarchive });
   } catch (err) {
     console.error('DELETE /api/crm/leads/[id] threw:', err);
-    return apiServerError('فشل الأرشفة', err, request);
+    return apiServerError(t('crm.archiveFailed'), err, request);
   }
 }

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -36,6 +37,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ lead_id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.approve');
     if (isApiError(auth)) return auth;
@@ -53,17 +55,15 @@ export async function POST(
       console.error('approve fetch error:', fetchErr.message);
       return apiServerError();
     }
-    if (!leadBefore) return apiNotFound('Lead غير موجود');
+    if (!leadBefore) return apiNotFound(t('crm.leadNotFound'));
 
     if (leadBefore.stage_id !== PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
-      return apiValidationError(
-        'الـ Lead ليس في مرحلة "تم توقيع العقد" — لا يوجد طلب اعتماد فعّال',
-      );
+      return apiValidationError(t('crm.notSignedStage'));
     }
 
     // Scope gate — admin always passes; non-admin must be direct manager.
     if (!leadBefore.assigned_to) {
-      return apiValidationError('الـ Lead غير مسند لأحد — لا يمكن اعتماده');
+      return apiValidationError(t('crm.leadUnassignedApprove'));
     }
     const allowed = await canApproveFor(
       supabase,
@@ -72,7 +72,7 @@ export async function POST(
       leadBefore.assigned_to,
     );
     if (!allowed) {
-      return apiForbidden('يمكنك فقط اعتماد leads فريقك المباشر');
+      return apiForbidden(t('crm.teamOnlyApprove'));
     }
 
     const approvedAt = new Date().toISOString();
@@ -96,10 +96,10 @@ export async function POST(
       .maybeSingle();
     if (updErr) {
       console.error('approve update error:', updErr.message);
-      return apiServerError(`فشل اعتماد الـ Lead: ${updErr.message}`);
+      return apiServerError(t('crm.approveFailed', { reason: `: ${updErr.message}` }));
     }
     if (!lead) {
-      return apiError('تغيّرت حالة الـ Lead — حدّث الصفحة وحاول مرة أخرى', 409);
+      return apiError(t('crm.leadStateConflict'), 409);
     }
 
     // Activity row — fire-and-forget but with .then() so it actually executes.
@@ -122,8 +122,8 @@ export async function POST(
       void notify(supabase, {
         to: leadBefore.assigned_to,
         type: 'lead_closed_won_approved',
-        title: 'تم اعتماد إغلاق الصفقة',
-        message: `${auth.pyraUser.display_name} اعتمد إغلاق "${leadBefore.name}" — مبروك 🎉`,
+        title: 'تم اعتماد إغلاق الصفقة', // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} اعتمد إغلاق "${leadBefore.name}" — مبروك 🎉`, // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/crm/leads/${leadId}`,
         entity: { type: ENTITY_TYPES.LEAD, id: leadId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

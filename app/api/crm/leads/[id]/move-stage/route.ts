@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import { logError } from '@/lib/observability/log-error';
 import {
@@ -79,6 +80,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const t = await getTranslations('api');
   // Phase 14.1 Commit 2 — hoisted for catch-block logError context.
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
@@ -92,21 +94,19 @@ export async function POST(
     const supabase = createServiceRoleClient();
 
     const allowed = await canAccessLead(supabase, auth.pyraUser.username, auth.pyraUser.role, id);
-    if (!allowed) return apiForbidden('لا تملك صلاحية تحريك هذا الـ Lead');
+    if (!allowed) return apiForbidden(t('crm.leadMovePermission'));
 
     const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const toStage = typeof body.to_stage_id === 'string' ? body.to_stage_id.trim() : '';
-    if (!toStage) return apiValidationError('to_stage_id مطلوب');
-    if (!VALID_STAGES.has(toStage)) return apiValidationError(`to_stage_id غير معروف: ${toStage}`);
+    if (!toStage) return apiValidationError(t('crm.toStageIdRequired'));
+    if (!VALID_STAGES.has(toStage)) return apiValidationError(t('crm.toStageIdUnknown', { stage: toStage }));
 
     // Direct moves to closed_won are never allowed via this endpoint —
     // the approval workflow owns that transition.
     if (toStage === PIPELINE_STAGE_IDS.CLOSED_WON) {
-      return apiValidationError(
-        'لا يمكن النقل المباشر إلى "فوز بالصفقة" — تتم عبر اعتماد المدير',
-      );
+      return apiValidationError(t('crm.noDirectMoveToClosedWon'));
     }
 
     // Fetch the lead — need from_stage, assigned_to, override flag, current win prob.
@@ -125,12 +125,12 @@ export async function POST(
       console.error('move-stage fetch error:', fetchErr.message);
       return apiServerError();
     }
-    if (!leadBefore) return apiNotFound('Lead غير موجود');
+    if (!leadBefore) return apiNotFound(t('crm.leadNotFound'));
 
     const fromStage = leadBefore.stage_id as PipelineStageId | null;
     const toStageTyped = toStage as PipelineStageId;
     if (fromStage === toStageTyped) {
-      return apiValidationError('الـ Lead بالفعل في هذه المرحلة');
+      return apiValidationError(t('crm.leadAlreadyAtStage'));
     }
 
     // ── Reopen guard: from == closed_won requires leads.manage + reopen_reason
@@ -138,11 +138,11 @@ export async function POST(
     let reopenReason: string | null = null;
     if (isReopen) {
       if (!hasPermission(auth.pyraUser.rolePermissions, 'leads.manage')) {
-        return apiForbidden('لا يمكن إعادة فتح صفقة مغلقة');
+        return apiForbidden(t('crm.cannotReopenClosed'));
       }
       reopenReason = typeof body.reopen_reason === 'string' ? body.reopen_reason.trim() : '';
       if (!reopenReason) {
-        return apiValidationError('reopen_reason مطلوب لإعادة فتح صفقة مغلقة');
+        return apiValidationError(t('crm.reopenReasonRequired'));
       }
     }
 
@@ -151,7 +151,7 @@ export async function POST(
     let attachmentLabel: string | null = null;
     if (toStageTyped === PIPELINE_STAGE_IDS.CONTRACT_SIGNED) {
       if (!isAttachment(body.attachment)) {
-        return apiValidationError('attachment (عقد أو فاتورة) مطلوب لمرحلة "تم توقيع العقد"');
+        return apiValidationError(t('crm.attachmentRequiredForSignedStage'));
       }
       attachment = body.attachment;
 
@@ -164,14 +164,14 @@ export async function POST(
           .select('id, title, total_value, currency, lead_id, client_id')
           .eq('id', attachment.id)
           .maybeSingle();
-        if (!contract) return apiValidationError('العقد المختار غير موجود');
+        if (!contract) return apiValidationError(t('crm.selectedContractNotFound'));
         // Reject a contract positively linked to a DIFFERENT lead or client.
         // A pre-conversion lead has no client_id yet, so in that case we can
         // only reject on a foreign lead_id (never on a legitimately-unlinked one).
         const contractForeign =
           (!!contract.lead_id && contract.lead_id !== id) ||
           (!!leadBefore.client_id && !!contract.client_id && contract.client_id !== leadBefore.client_id);
-        if (contractForeign) return apiValidationError('العقد المختار لا يخص هذا الـ Lead');
+        if (contractForeign) return apiValidationError(t('crm.selectedContractForeign'));
         attachmentLabel = contract.title ?? `Contract ${contract.id}`;
       } else {
         const { data: invoice } = await supabase
@@ -179,15 +179,19 @@ export async function POST(
           .select('id, invoice_number, total, client_id')
           .eq('id', attachment.id)
           .maybeSingle();
-        if (!invoice) return apiValidationError('الفاتورة المختارة غير موجودة');
+        if (!invoice) return apiValidationError(t('crm.selectedInvoiceNotFound'));
         // Reject an invoice belonging to a different client (enforceable only
         // once the lead is linked to a client).
         if (leadBefore.client_id && invoice.client_id && invoice.client_id !== leadBefore.client_id) {
-          return apiValidationError('الفاتورة المختارة لا تخص هذا الـ Lead');
+          return apiValidationError(t('crm.selectedInvoiceForeign'));
         }
+        // NOTE: this is class (c) — attachmentLabel is computed per-request
+        // then STORED into pyra_lead_activities.description + metadata (never
+        // returned in the response body). The literal "فاتورة" (invoice) noun
+        // is DB-write content, not an API response string — exempt per census.
         attachmentLabel = invoice.invoice_number
-          ? `فاتورة #${invoice.invoice_number}`
-          : `فاتورة ${invoice.id}`;
+          ? `فاتورة #${invoice.invoice_number}` // i18n-exempt: DB data
+          : `فاتورة ${invoice.id}`; // i18n-exempt: DB data
       }
     }
 
@@ -195,7 +199,7 @@ export async function POST(
     let lostReason: string | null = null;
     if (toStageTyped === PIPELINE_STAGE_IDS.CLOSED_LOST) {
       const lr = typeof body.lost_reason === 'string' ? body.lost_reason.trim() : '';
-      if (!lr) return apiValidationError('lost_reason مطلوب لمرحلة "خسارة"');
+      if (!lr) return apiValidationError(t('crm.lostReasonRequired'));
       lostReason = lr;
     }
 
@@ -237,10 +241,16 @@ export async function POST(
         metadata: { lead_id: id, action: 'move-stage', stage: 'stage_update' },
       });
       console.error('move-stage update error:', updErr?.message);
-      return apiServerError(`فشل نقل المرحلة${updErr?.message ? ': ' + updErr.message : ''}`);
+      return apiServerError(t('crm.moveStageFailed', { reason: updErr?.message ? ': ' + updErr.message : '' }));
     }
 
     // ── Activity row (uses .then() — NOT bare `void <builder>`)
+    // i18n hazard (documented, census): PIPELINE_STAGE_LABELS_AR (lib/constants/
+    // statuses.ts) is snapshotted into DB metadata (from_stage_label/to_stage_label)
+    // per request — this constant MUST stay in lib/constants as the DB-write
+    // source. The UI side already reads labels via useStatusLabels('pipelineStage');
+    // do NOT migrate PIPELINE_STAGE_LABELS_AR out of lib/constants without
+    // preserving this write path, or this route breaks.
     const fromLabel = fromStage ? PIPELINE_STAGE_LABELS_AR[fromStage] ?? fromStage : null;
     const toLabel = PIPELINE_STAGE_LABELS_AR[toStageTyped];
     const isContractSigned = toStageTyped === PIPELINE_STAGE_IDS.CONTRACT_SIGNED;
@@ -306,8 +316,8 @@ export async function POST(
         void notify(supabase, {
           to: managerUsername,
           type: 'lead_closed_won_pending_approval',
-          title: 'صفقة بانتظار اعتمادك',
-          message: `${auth.pyraUser.display_name} يطلب اعتماد إغلاق "${leadName}"`,
+          title: 'صفقة بانتظار اعتمادك', // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} يطلب اعتماد إغلاق "${leadName}"`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/crm/approvals`,
           entity: { type: ENTITY_TYPES.LEAD, id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -319,8 +329,8 @@ export async function POST(
         void notify(supabase, {
           to: leadBefore.assigned_to,
           type: 'lead_reopened',
-          title: 'تم إعادة فتح صفقة كانت مغلقة',
-          message: `${auth.pyraUser.display_name} أعاد فتح "${leadName}" — السبب: ${reopenReason}`,
+          title: 'تم إعادة فتح صفقة كانت مغلقة', // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} أعاد فتح "${leadName}" — السبب: ${reopenReason}`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/crm/leads/${id}`,
           entity: { type: ENTITY_TYPES.LEAD, id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

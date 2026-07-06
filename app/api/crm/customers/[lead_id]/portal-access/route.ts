@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -44,6 +45,7 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ lead_id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.manage');
     if (isApiError(auth)) return auth;
@@ -53,9 +55,9 @@ export async function PATCH(
 
     // ── Body validation ──
     const body = (await request.json().catch(() => null)) as PortalAccessBody | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
     if (typeof body.enabled !== 'boolean') {
-      return apiValidationError('enabled (boolean) مطلوب');
+      return apiValidationError(t('crm.enabledBooleanRequired'));
     }
     const enabled: boolean = body.enabled;
 
@@ -70,18 +72,16 @@ export async function PATCH(
       console.error('portal-access: lead lookup error:', leadError);
       return apiServerError();
     }
-    if (!lead) return apiNotFound('العميل المحتمل غير موجود');
+    if (!lead) return apiNotFound(t('crm.prospectNotFound'));
     // Scope (defense-in-depth on top of leads.manage): a non-admin holder of
     // leads.manage may only toggle portal access on leads assigned to them —
     // mirrors canAccessLead so this route can't cross-scope like the list
     // endpoints refuse to.
     if (auth.pyraUser.role !== 'admin' && lead.assigned_to !== auth.pyraUser.username) {
-      return apiForbidden('يمكنك فقط إدارة وصول البورتال للعملاء المسند إليك');
+      return apiForbidden(t('crm.portalAccessOwnOnly'));
     }
     if (!lead.client_id) {
-      return apiValidationError(
-        'العميل لم يُحوّل بعد إلى عميل دائم — استخدم convert-to-customer أولاً',
-      );
+      return apiValidationError(t('crm.notConvertedYet'));
     }
 
     // ── UPDATE flag ──
@@ -108,8 +108,8 @@ export async function PATCH(
         lead_id: leadId,
         activity_type: 'field_updated',
         description: enabled
-          ? 'تم تفعيل وصول العميل للبورتال'
-          : 'تم إيقاف وصول العميل للبورتال',
+          ? 'تم تفعيل وصول العميل للبورتال' // i18n-exempt: DB data
+          : 'تم إيقاف وصول العميل للبورتال', // i18n-exempt: DB data
         metadata: {
           portal_active_changed: enabled,
           client_id: lead.client_id,

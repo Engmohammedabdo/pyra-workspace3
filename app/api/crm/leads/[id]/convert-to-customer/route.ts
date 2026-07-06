@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError, type ApiAuthResult } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -68,6 +69,7 @@ export async function POST(
   // Phase 14.1 Commit 2 — hoisted for catch-block logError. `leadId` is
   // populated after params resolves; null until then. `authForLogging`
   // captures the admin who initiated the conversion.
+  const t = await getTranslations('api');
   let authForLogging: ApiAuthResult | null = null;
   let leadIdForLogging: string | null = null;
   try {
@@ -97,14 +99,14 @@ export async function POST(
       console.error('convert-to-customer: lead lookup error:', leadError);
       return apiServerError();
     }
-    if (!lead) return apiNotFound('العميل المحتمل غير موجود');
+    if (!lead) return apiNotFound(t('crm.prospectNotFound'));
 
     // Scope (defense-in-depth on top of leads.manage): a non-admin holder of
     // leads.manage may only convert leads assigned to them — mirrors
     // canAccessLead so this cross-entity mutation can't act on another agent's
     // lead that the actor can't even view in the scoped list/detail endpoints.
     if (auth.pyraUser.role !== 'admin' && lead.assigned_to !== auth.pyraUser.username) {
-      return apiError('يمكنك فقط تحويل العملاء المحتملين المسند إليك', 403);
+      return apiError(t('crm.prospectOwnOnly'), 403);
     }
 
     // ── State: must be approved closed_won ──
@@ -112,9 +114,7 @@ export async function POST(
       lead.stage_id !== PIPELINE_STAGE_IDS.CLOSED_WON ||
       lead.is_converted !== true
     ) {
-      return apiValidationError(
-        'العميل المحتمل يجب أن يكون فائز ومُعتمد قبل التحويل لعميل',
-      );
+      return apiValidationError(t('crm.mustBeWonAndApproved'));
     }
 
     // ── Idempotent: already has a client_id, return that client ──
@@ -136,17 +136,15 @@ export async function POST(
 
     // ── Body validation ──
     const body = (await request.json().catch(() => null)) as ConvertBody | null;
-    if (!body) return apiValidationError('JSON body مطلوب');
+    if (!body) return apiValidationError(t('common.jsonBodyRequired'));
 
     const email = body.email?.trim().toLowerCase() || '';
-    if (!email) return apiValidationError('البريد الإلكتروني مطلوب');
+    if (!email) return apiValidationError(t('crm.emailRequired'));
 
     const createPortalAccess = body.create_portal_access === true;
     const password = body.password?.trim() || '';
     if (createPortalAccess && password.length < PASSWORD_MIN_LENGTH) {
-      return apiValidationError(
-        `كلمة المرور مطلوبة (${PASSWORD_MIN_LENGTH} أحرف على الأقل) لإنشاء حساب البورتال`,
-      );
+      return apiValidationError(t('crm.passwordMinRequired', { min: PASSWORD_MIN_LENGTH }));
     }
 
     const contactName = body.primary_contact_name?.trim() || lead.name;
@@ -157,7 +155,7 @@ export async function POST(
       .select('id')
       .eq('email', email)
       .maybeSingle();
-    if (dup) return apiError('البريد الإلكتروني مسجل مسبقاً', 409);
+    if (dup) return apiError(t('crm.emailAlreadyRegistered'), 409);
 
     // ── Optionally create Supabase Auth user ──
     let authUserId: string | null = null;
@@ -175,9 +173,9 @@ export async function POST(
       if (authError) {
         console.error('convert-to-customer: auth.admin.createUser error:', authError.message);
         if (authError.message.includes('already') && authError.message.includes('register')) {
-          return apiError('البريد الإلكتروني مسجل مسبقاً في نظام المصادقة', 409);
+          return apiError(t('crm.emailAlreadyRegisteredAuth'), 409);
         }
-        return apiError(`فشل إنشاء الحساب: ${authError.message}`, 422);
+        return apiError(t('crm.accountCreateFailed', { reason: authError.message }), 422);
       }
       authUserId = authUser.user?.id ?? null;
     }
@@ -219,7 +217,7 @@ export async function POST(
           console.error('convert-to-customer: rollback auth.admin.deleteUser error:', e),
         );
       }
-      return apiError('فشل إنشاء سجل العميل', 500);
+      return apiError(t('crm.clientRecordCreateFailed'), 500);
     }
 
     // ── UPDATE lead.client_id ──
@@ -254,7 +252,7 @@ export async function POST(
           console.error('convert-to-customer: rollback auth.admin.deleteUser error:', e),
         );
       }
-      return apiError('فشل ربط العميل بالسجل — تم التراجع، حاول مرة أخرى', 500);
+      return apiError(t('crm.clientLinkFailed'), 500);
     }
 
     // ── Back-fill client_id onto the lead's lead-phase quotes ──
@@ -282,8 +280,8 @@ export async function POST(
         lead_id: leadId,
         activity_type: 'field_updated',
         description: createPortalAccess
-          ? 'تم تحويل العميل المحتمل إلى عميل دائم مع حساب بورتال'
-          : 'تم تحويل العميل المحتمل إلى عميل دائم',
+          ? 'تم تحويل العميل المحتمل إلى عميل دائم مع حساب بورتال' // i18n-exempt: DB data
+          : 'تم تحويل العميل المحتمل إلى عميل دائم', // i18n-exempt: DB data
         metadata: {
           client_id_set: true,
           client_id: newClientId,
@@ -314,8 +312,17 @@ export async function POST(
       void notify(supabase, {
         to: lead.assigned_to,
         type: 'lead_converted_to_customer',
-        title: 'تم تحويل العميل إلى عميل دائم',
-        message: `${lead.name} أصبح عميلاً مع${createPortalAccess ? ' حساب بورتال' : 'ون حساب بورتال'}`,
+        title: 'تم تحويل العميل إلى عميل دائم', // i18n-exempt: notification content (Phase 8)
+        // i18n hazard fix (census): the original was an Arabic word-stem
+        // splice (`مع${... ? ' حساب بورتال' : 'ون حساب بورتال'}`) that
+        // concatenated onto «مع» to build a mangled «معون…» (pre-existing
+        // typo, likely intended «بدون»). Replaced with two complete,
+        // grammatically-correct Arabic strings via a proper ternary —
+        // untranslatable string-splicing no longer needed once each
+        // branch is whole. Still exempt as notification content (Phase 8).
+        message: createPortalAccess
+          ? `${lead.name} أصبح عميلاً مع حساب بورتال` // i18n-exempt: notification content (Phase 8)
+          : `${lead.name} أصبح عميلاً بدون حساب بورتال`, // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/crm/customers/${leadId}`,
         entity: { type: 'lead', id: leadId },
         from: { username: auth.pyraUser.username },

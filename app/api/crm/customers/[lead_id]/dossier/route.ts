@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -149,6 +150,7 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ lead_id: string }> },
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('leads.view');
     if (isApiError(auth)) return auth;
@@ -163,7 +165,7 @@ export async function GET(
       auth.pyraUser.role,
       leadId,
     );
-    if (!allowed) return apiNotFound('العميل غير موجود');
+    if (!allowed) return apiNotFound(t('crm.clientNotFound'));
 
     // ── Batch 1 (parallel) — anchor data ────────────────────────────────────
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -205,7 +207,7 @@ export async function GET(
       console.error('dossier: lead fetch error:', leadRes.error.message);
       return apiServerError();
     }
-    if (!leadRes.data) return apiNotFound('العميل غير موجود');
+    if (!leadRes.data) return apiNotFound(t('crm.clientNotFound'));
 
     // Casts via unknown — Supabase JS infers a union with a GenericStringError
     // sentinel that doesn't sufficiently overlap with our row shapes; the
