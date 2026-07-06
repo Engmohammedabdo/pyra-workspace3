@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +17,8 @@ import { ArrowRight, FileCheck, Plus, Trash2 } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface CreditNote {
   id: string;
@@ -31,14 +34,10 @@ interface CreditNote {
   currency: string;
 }
 
-const STATUS_MAP: Record<string, { label: string }> = {
-  draft:     { label: 'مسودة' },
-  issued:    { label: 'صادر' },
-  applied:   { label: 'مطبق' },
-  cancelled: { label: 'ملغي' },
-};
-
 export default function CreditNotesClient() {
+  const t = useTranslations('finance.creditNotes.list');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('creditNote');
   const router = useRouter();
   const [notes, setNotes] = useState<CreditNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,11 +58,11 @@ export default function CreditNotesClient() {
       if (json.data) setNotes(json.data);
       if (json.meta) setTotal(json.meta.total || 0);
     } catch {
-      toast.error('فشل في تحميل الإشعارات الدائنة');
+      toast.error(t('toasts.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, t]);
 
   useEffect(() => { fetchNotes(); }, [fetchNotes]);
 
@@ -75,14 +74,14 @@ export default function CreditNotesClient() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FileCheck className="h-6 w-6" aria-hidden="true" /> إشعارات دائنة
+            <FileCheck className="h-6 w-6" aria-hidden="true" /> {t('title')}
           </h1>
         </div>
         <Link href="/dashboard/finance/credit-notes/new">
-          <Button><Plus className="h-4 w-4 me-2" /> إشعار دائن جديد</Button>
+          <Button><Plus className="h-4 w-4 me-2" /> {t('newCreditNote')}</Button>
         </Link>
       </div>
 
@@ -91,17 +90,17 @@ export default function CreditNotesClient() {
         <SearchInput
           value={search}
           onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="بحث بالرقم أو العميل..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 min-w-[200px]"
         />
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('filters.statusPlaceholder')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            <SelectItem value="draft">مسودة</SelectItem>
-            <SelectItem value="issued">صادر</SelectItem>
-            <SelectItem value="applied">مطبق</SelectItem>
-            <SelectItem value="cancelled">ملغي</SelectItem>
+            <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+            <SelectItem value="draft">{statusLabelFor('draft')}</SelectItem>
+            <SelectItem value="issued">{statusLabelFor('issued')}</SelectItem>
+            <SelectItem value="applied">{statusLabelFor('applied')}</SelectItem>
+            <SelectItem value="cancelled">{statusLabelFor('cancelled')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -114,15 +113,15 @@ export default function CreditNotesClient() {
       ) : notes.length === 0 ? (
         <EmptyState
           icon={FileCheck}
-          title="لا توجد إشعارات دائنة"
-          description="أنشئ إشعار دائن جديد لإدارة المرتجعات والتعديلات"
-          actionLabel="إشعار دائن جديد"
+          title={t('emptyState.title')}
+          description={t('emptyState.description')}
+          actionLabel={t('emptyState.actionLabel')}
           onAction={() => router.push('/dashboard/finance/credit-notes/new')}
         />
       ) : (
         <div className="space-y-3">
           {notes.map(cn => {
-            const st = STATUS_MAP[cn.status] || STATUS_MAP.draft;
+            const statusLabel = statusLabelFor(cn.status) || cn.status;
             return (
               <Link key={cn.id} href={`/dashboard/finance/credit-notes/${cn.id}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -134,16 +133,16 @@ export default function CreditNotesClient() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm" dir="ltr">{cn.credit_note_number}</span>
-                          <Badge className={getStatusBadgeClass(cn.status)}>{st.label}</Badge>
+                          <Badge className={getStatusBadgeClass(cn.status)}>{statusLabel}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {cn.client_name || 'بدون عميل'} — {cn.reason?.slice(0, 50)}
+                          {cn.client_name || t('noClient')} — {cn.reason?.slice(0, 50)}
                         </p>
                       </div>
                     </div>
                     <div className="text-end">
                       <p className="font-bold font-mono">{formatCurrency(cn.total, cn.currency)}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(cn.issue_date)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(cn.issue_date, undefined, locale)}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -156,9 +155,9 @@ export default function CreditNotesClient() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>السابق</Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>التالي</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('pagination.prev')}</Button>
+          <span className="text-sm text-muted-foreground">{t('pagination.pageOf', { page, totalPages })}</span>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('pagination.next')}</Button>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,6 +27,7 @@ interface Category {
 }
 
 export default function ExpenseCategoriesPage() {
+  const t = useTranslations('finance.expenses.categories');
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function ExpenseCategoriesPage() {
   };
 
   const handleSave = async () => {
-    if (!form.name) { toast.error('اسم التصنيف مطلوب'); return; }
+    if (!form.name) { toast.error(t('toasts.nameRequired')); return; }
     setSaving(true);
     try {
       const url = editingId ? `/api/finance/expenses/categories/${editingId}` : '/api/finance/expenses/categories';
@@ -62,15 +64,15 @@ export default function ExpenseCategoriesPage() {
         body: JSON.stringify(form),
       });
       if (res.ok) {
-        toast.success(editingId ? 'تم التحديث' : 'تم الإضافة');
+        toast.success(editingId ? t('toasts.updateSuccess') : t('toasts.createSuccess'));
         setDialogOpen(false);
         queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       } else {
         const json = await res.json();
-        toast.error(json.error || 'فشل في الحفظ');
+        toast.error(json.error || t('toasts.saveFailedFallback'));
       }
     } catch {
-      toast.error('فشل في الحفظ');
+      toast.error(t('toasts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -81,15 +83,15 @@ export default function ExpenseCategoriesPage() {
     try {
       const res = await fetch(`/api/finance/expenses/categories/${deleteId}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('تم الحذف');
+        toast.success(t('toasts.deleteSuccess'));
         setDeleteId(null);
         queryClient.invalidateQueries({ queryKey: ['expense-categories'] });
       } else {
         const json = await res.json();
-        toast.error(json.error || 'فشل في الحذف');
+        toast.error(json.error || t('toasts.deleteFailedFallback'));
       }
     } catch {
-      toast.error('فشل في الحذف');
+      toast.error(t('toasts.deleteFailed'));
     }
   };
 
@@ -98,13 +100,13 @@ export default function ExpenseCategoriesPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance/expenses">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Tag className="h-6 w-6" aria-hidden="true" /> تصنيفات المصاريف
+            <Tag className="h-6 w-6" aria-hidden="true" /> {t('title')}
           </h1>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> إضافة تصنيف</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> {t('addCategory')}</Button>
       </div>
 
       <Card>
@@ -113,11 +115,11 @@ export default function ExpenseCategoriesPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="text-start p-3 font-medium">اللون</th>
-                  <th className="text-start p-3 font-medium">الاسم (EN)</th>
-                  <th className="text-start p-3 font-medium">الاسم (AR)</th>
-                  <th className="text-start p-3 font-medium">افتراضي</th>
-                  <th className="text-start p-3 font-medium">الإجراءات</th>
+                  <th className="text-start p-3 font-medium">{t('columns.color')}</th>
+                  <th className="text-start p-3 font-medium">{t('columns.nameEn')}</th>
+                  <th className="text-start p-3 font-medium">{t('columns.nameAr')}</th>
+                  <th className="text-start p-3 font-medium">{t('columns.isDefault')}</th>
+                  <th className="text-start p-3 font-medium">{t('columns.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,14 +134,14 @@ export default function ExpenseCategoriesPage() {
                     </td>
                     <td className="p-3 font-medium">{cat.name}</td>
                     <td className="p-3">{cat.name_ar || '—'}</td>
-                    <td className="p-3">{cat.is_default ? 'نعم' : 'لا'}</td>
+                    <td className="p-3">{cat.is_default ? t('yes') : t('no')}</td>
                     <td className="p-3">
                       <div className="flex items-center gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)} aria-label="تعديل التصنيف">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)} aria-label={t('rowActions.edit')}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
                         {!cat.is_default && (
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(cat.id)} aria-label="حذف التصنيف">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => setDeleteId(cat.id)} aria-label={t('rowActions.delete')}>
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
@@ -156,14 +158,14 @@ export default function ExpenseCategoriesPage() {
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingId ? 'تعديل التصنيف' : 'إضافة تصنيف'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? t('dialog.editTitle') : t('dialog.addTitle')}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2"><Label>الاسم (English) *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>الاسم (عربي)</Label><Input value={form.name_ar} onChange={e => setForm(f => ({ ...f, name_ar: e.target.value }))} /></div>
-            <div className="space-y-2"><Label>اللون</Label><Input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="h-10 w-20" /></div>
+            <div className="space-y-2"><Label>{t('dialog.nameLabel')}</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>{t('dialog.nameArLabel')}</Label><Input value={form.name_ar} onChange={e => setForm(f => ({ ...f, name_ar: e.target.value }))} /></div>
+            <div className="space-y-2"><Label>{t('dialog.colorLabel')}</Label><Input type="color" value={form.color} onChange={e => setForm(f => ({ ...f, color: e.target.value }))} className="h-10 w-20" /></div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}</Button>
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>{t('dialog.cancel')}</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('dialog.saving')}</> : t('dialog.save')}</Button>
             </div>
           </div>
         </DialogContent>
@@ -172,11 +174,11 @@ export default function ExpenseCategoriesPage() {
       {/* Delete Dialog */}
       <Dialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>حذف التصنيف</DialogTitle></DialogHeader>
-          <p className="text-muted-foreground">هل أنت متأكد من حذف هذا التصنيف؟</p>
+          <DialogHeader><DialogTitle>{t('deleteDialog.title')}</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">{t('deleteDialog.confirm')}</p>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDeleteId(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleDelete}>حذف</Button>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>{t('deleteDialog.cancel')}</Button>
+            <Button variant="destructive" onClick={handleDelete}>{t('deleteDialog.confirmButton')}</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
@@ -16,19 +17,16 @@ import {
 } from '@/components/ui/select';
 import { ArrowRight, Save, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface Category { id: string; name: string; name_ar: string; }
 interface Supplier { id: string; name: string; company: string | null; }
 
-const PAYMENT_METHODS = [
-  { value: 'cash', label: 'نقداً' },
-  { value: 'bank_transfer', label: 'تحويل بنكي' },
-  { value: 'credit_card', label: 'بطاقة ائتمان' },
-  { value: 'cheque', label: 'شيك' },
-  { value: 'online', label: 'دفع إلكتروني' },
-];
+const PAYMENT_METHOD_VALUES = ['cash', 'bank_transfer', 'credit_card', 'cheque', 'online'] as const;
 
 export default function NewExpensePage() {
+  const t = useTranslations('finance.expenses.form');
+  const paymentMethodLabelFor = useStatusLabels('paymentMethod');
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects({ pageSize: '100' });
@@ -52,16 +50,16 @@ export default function NewExpensePage() {
     mutationFn: (data: object) => mutateAPI('/api/finance/expenses', 'POST', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
-      toast.success('تم إضافة المصروف');
+      toast.success(t('toasts.createSuccess'));
       router.push('/dashboard/finance/expenses');
     },
-    onError: () => toast.error('فشل في الحفظ'),
+    onError: () => toast.error(t('toasts.saveFailed')),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.amount || Number(form.amount) <= 0) {
-      toast.error('المبلغ مطلوب');
+      toast.error(t('toasts.amountRequired'));
       return;
     }
     createMutation.mutate({
@@ -82,22 +80,22 @@ export default function NewExpensePage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/finance/expenses">
-          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
         </Link>
-        <h1 className="text-2xl font-bold">إضافة مصروف جديد</h1>
+        <h1 className="text-2xl font-bold">{t('newTitle')}</h1>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
-          <CardHeader><CardTitle className="text-base">بيانات المصروف</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('cardTitle')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>الوصف</Label>
-                <Input value={form.description} onChange={e => update('description', e.target.value)} placeholder="وصف المصروف" />
+                <Label>{t('fields.description')}</Label>
+                <Input value={form.description} onChange={e => update('description', e.target.value)} placeholder={t('fields.descriptionPlaceholder')} />
               </div>
               <div className="space-y-2">
-                <Label>المورد (من السجل)</Label>
+                <Label>{t('fields.supplierFromRecord')}</Label>
                 <Select value={form.supplier_id} onValueChange={v => {
                   update('supplier_id', v === 'none' ? '' : v);
                   if (v !== 'none') {
@@ -105,61 +103,61 @@ export default function NewExpensePage() {
                     if (sup) update('vendor', sup.name);
                   }
                 }}>
-                  <SelectTrigger><SelectValue placeholder="اختر مورد" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.supplierPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون ربط</SelectItem>
+                    <SelectItem value="none">{t('fields.noSupplierLink')}</SelectItem>
                     {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}{s.company ? ` — ${s.company}` : ''}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>اسم المورد</Label>
-                <Input value={form.vendor} onChange={e => update('vendor', e.target.value)} placeholder="اسم المورد" />
+                <Label>{t('fields.vendorName')}</Label>
+                <Input value={form.vendor} onChange={e => update('vendor', e.target.value)} placeholder={t('fields.vendorNamePlaceholder')} />
               </div>
               <div className="space-y-2">
-                <Label>المبلغ *</Label>
+                <Label>{t('fields.amount')}</Label>
                 <Input type="number" step="0.01" min="0" value={form.amount} onChange={e => update('amount', e.target.value)} placeholder="0.00" required dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label>نسبة الضريبة (%)</Label>
+                <Label>{t('fields.vatRate')}</Label>
                 <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => update('vat_rate', e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label>التصنيف</Label>
+                <Label>{t('fields.category')}</Label>
                 <Select value={form.category_id} onValueChange={v => update('category_id', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر التصنيف" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.categoryPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون تصنيف</SelectItem>
+                    <SelectItem value="none">{t('fields.noCategory')}</SelectItem>
                     {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name_ar || c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>طريقة الدفع</Label>
+                <Label>{t('fields.paymentMethod')}</Label>
                 <Select value={form.payment_method} onValueChange={v => update('payment_method', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر طريقة الدفع" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('paymentMethodPlaceholder.new')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">غير محدد</SelectItem>
-                    {PAYMENT_METHODS.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                    <SelectItem value="none">{t('fields.paymentMethodNone')}</SelectItem>
+                    {PAYMENT_METHOD_VALUES.map(value => <SelectItem key={value} value={value}>{paymentMethodLabelFor(value)}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>المشروع</Label>
+                <Label>{t('fields.project')}</Label>
                 <Select value={form.project_id} onValueChange={v => update('project_id', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر المشروع" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.projectPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون مشروع</SelectItem>
+                    <SelectItem value="none">{t('fields.noProject')}</SelectItem>
                     {(projects as any[]).map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>تاريخ المصروف</Label>
+                <Label>{t('fields.expenseDate')}</Label>
                 <Input type="date" value={form.expense_date} onChange={e => update('expense_date', e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>العملة</Label>
+                <Label>{t('fields.currency')}</Label>
                 <Select value={form.currency} onValueChange={v => update('currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -172,13 +170,13 @@ export default function NewExpensePage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>ملاحظات</Label>
-              <Textarea value={form.notes} onChange={e => update('notes', e.target.value)} placeholder="ملاحظات إضافية..." rows={3} />
+              <Label>{t('fields.notes')}</Label>
+              <Textarea value={form.notes} onChange={e => update('notes', e.target.value)} placeholder={t('fields.notesPlaceholder')} rows={3} />
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}
-                {saving ? 'جاري الحفظ...' : 'حفظ المصروف'}
+                {saving ? t('submitting') : t('submitNew')}
               </Button>
             </div>
           </CardContent>

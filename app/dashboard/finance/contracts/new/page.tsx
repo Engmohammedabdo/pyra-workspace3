@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { mutateAPI } from '@/hooks/api-helpers';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -17,16 +18,13 @@ import {
 } from '@/components/ui/select';
 import { ArrowRight, Save, RefreshCcw, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
-const CONTRACT_TYPES = [
-  { value: 'retainer', label: 'ثابت شهري (Retainer)' },
-  { value: 'milestone', label: 'مراحل (Milestone)' },
-  { value: 'upfront_delivery', label: 'دفعة مقدمة + تسليم' },
-  { value: 'fixed', label: 'سعر ثابت (Fixed)' },
-  { value: 'hourly', label: 'بالساعة (Hourly)' },
-];
+const CONTRACT_TYPE_VALUES = ['retainer', 'milestone', 'upfront_delivery', 'fixed', 'hourly'] as const;
 
 export default function NewContractPage() {
+  const t = useTranslations('finance.contracts.new');
+  const periodCycleLabelFor = useStatusLabels('periodCycle');
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: clients = [] } = useClients({ pageSize: '100' });
@@ -48,15 +46,15 @@ export default function NewContractPage() {
       // Live contract caches: ['contracts-list'] (recurring/new picker) + ['contracts', ...] (CRM move-stage modal)
       queryClient.invalidateQueries({ queryKey: ['contracts-list'] });
       queryClient.invalidateQueries({ queryKey: ['contracts'] });
-      toast.success('تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل');
+      toast.success(t('toasts.createSuccess'));
       router.push(`/dashboard/finance/contracts/${(data as any).id || ''}`);
     },
-    onError: () => toast.error('فشل في الحفظ'),
+    onError: () => toast.error(t('toasts.saveFailed')),
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title) { toast.error('عنوان العقد مطلوب'); return; }
+    if (!form.title) { toast.error(t('toasts.titleRequired')); return; }
     createMutation.mutate({
       ...form,
       total_value: Number(form.total_value) || 0,
@@ -84,26 +82,26 @@ export default function NewContractPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/finance/contracts">
-          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
         </Link>
-        <h1 className="text-2xl font-bold">إنشاء عقد جديد</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
       </div>
 
       <form onSubmit={handleSubmit}>
         <Card>
-          <CardHeader><CardTitle className="text-base">بيانات العقد</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">{t('cardTitle')}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2 md:col-span-2">
-                <Label>عنوان العقد *</Label>
-                <Input value={form.title} onChange={e => u('title', e.target.value)} placeholder="عنوان العقد" required />
+                <Label>{t('fields.titleLabel')}</Label>
+                <Input value={form.title} onChange={e => u('title', e.target.value)} placeholder={t('fields.titlePlaceholder')} required />
               </div>
               <div className="space-y-2">
-                <Label>العميل</Label>
+                <Label>{t('fields.client')}</Label>
                 <Select value={form.client_id} onValueChange={v => u('client_id', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر العميل" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.clientPlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون عميل</SelectItem>
+                    <SelectItem value="none">{t('fields.noClient')}</SelectItem>
                     {(clients as any[]).map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>{c.company || c.name}</SelectItem>
                     ))}
@@ -111,11 +109,11 @@ export default function NewContractPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>المشروع</Label>
+                <Label>{t('fields.project')}</Label>
                 <Select value={form.project_id} onValueChange={v => u('project_id', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder={form.client_id ? 'اختر المشروع' : 'اختر العميل أولاً'} /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={form.client_id ? t('fields.projectPlaceholder') : t('fields.projectPlaceholderNoClient')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون مشروع</SelectItem>
+                    <SelectItem value="none">{t('fields.noProject')}</SelectItem>
                     {(filteredProjects as any[]).map((p: any) => (
                       <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
@@ -123,23 +121,23 @@ export default function NewContractPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>نوع العقد</Label>
+                <Label>{t('fields.contractType')}</Label>
                 <Select value={form.contract_type} onValueChange={v => u('contract_type', v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="اختر النوع" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={t('fields.contractTypePlaceholder')} /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">غير محدد</SelectItem>
-                    {CONTRACT_TYPES.map(t => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    <SelectItem value="none">{t('fields.contractTypeNone')}</SelectItem>
+                    {CONTRACT_TYPE_VALUES.map(value => (
+                      <SelectItem key={value} value={value}>{t(`types.${value}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>القيمة الإجمالية</Label>
+                <Label>{t('fields.totalValue')}</Label>
                 <Input type="number" step="0.01" min="0" value={form.total_value} onChange={e => u('total_value', e.target.value)} placeholder="0.00" dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label>العملة</Label>
+                <Label>{t('fields.currency')}</Label>
                 <Select value={form.currency} onValueChange={v => u('currency', v)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -151,15 +149,15 @@ export default function NewContractPage() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>نسبة الضريبة (%)</Label>
+                <Label>{t('fields.vatRate')}</Label>
                 <Input type="number" step="0.01" min="0" max="100" value={form.vat_rate} onChange={e => u('vat_rate', e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-2">
-                <Label>تاريخ البداية</Label>
+                <Label>{t('fields.startDate')}</Label>
                 <Input type="date" value={form.start_date} onChange={e => u('start_date', e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>تاريخ النهاية</Label>
+                <Label>{t('fields.endDate')}</Label>
                 <Input type="date" value={form.end_date} onChange={e => u('end_date', e.target.value)} />
               </div>
             </div>
@@ -169,25 +167,25 @@ export default function NewContractPage() {
                 <div className="md:col-span-3">
                   <p className="text-sm font-medium text-orange-700 dark:text-orange-400 flex items-center gap-2">
                     <RefreshCcw className="h-4 w-4" />
-                    إعدادات الدفع الشهري
+                    {t('retainerSection.title')}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>المبلغ الشهري</Label>
+                  <Label>{t('retainerSection.monthlyAmount')}</Label>
                   <Input type="number" step="0.01" min="0" value={form.retainer_amount} onChange={e => u('retainer_amount', e.target.value)} placeholder="0.00" dir="ltr" />
                 </div>
                 <div className="space-y-2">
-                  <Label>دورة الفوترة</Label>
+                  <Label>{t('retainerSection.billingCycle')}</Label>
                   <Select value={form.retainer_cycle} onValueChange={v => u('retainer_cycle', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="monthly">شهري</SelectItem>
-                      <SelectItem value="quarterly">ربع سنوي</SelectItem>
+                      <SelectItem value="monthly">{periodCycleLabelFor('monthly')}</SelectItem>
+                      <SelectItem value="quarterly">{periodCycleLabelFor('quarterly')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>يوم الفوترة</Label>
+                  <Label>{t('retainerSection.billingDay')}</Label>
                   <Select value={form.billing_day} onValueChange={v => u('billing_day', v)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -201,17 +199,17 @@ export default function NewContractPage() {
             )}
 
             <div className="space-y-2">
-              <Label>الوصف</Label>
-              <Textarea value={form.description} onChange={e => u('description', e.target.value)} rows={3} placeholder="وصف العقد..." />
+              <Label>{t('description')}</Label>
+              <Textarea value={form.description} onChange={e => u('description', e.target.value)} rows={3} placeholder={t('descriptionPlaceholder')} />
             </div>
             <div className="space-y-2">
-              <Label>ملاحظات</Label>
-              <Textarea value={form.notes} onChange={e => u('notes', e.target.value)} rows={2} placeholder="ملاحظات إضافية..." />
+              <Label>{t('notes')}</Label>
+              <Textarea value={form.notes} onChange={e => u('notes', e.target.value)} rows={2} placeholder={t('notesPlaceholder')} />
             </div>
             <div className="flex justify-end">
               <Button type="submit" disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />}
-                {saving ? 'جاري الحفظ...' : 'إنشاء العقد'}
+                {saving ? t('submitting') : t('submit')}
               </Button>
             </div>
           </CardContent>

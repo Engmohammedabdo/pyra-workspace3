@@ -414,6 +414,420 @@
       "signaturePad": {
         "clear": "Clear Signature"
       }
+    },
+    "contracts": {
+      "meta": { "title": "Contracts | Pyra" },
+      "list": {
+        "toasts": {
+          "loadFailed": "Failed to load contracts",
+          "deleteFailedCount": "Failed to delete {count} contract(s)",
+          "deleteSuccessOne": "Contract deleted",
+          "deleteSuccessCount": "{count} contracts deleted",
+          "deleteFailed": "Failed to delete"
+        },
+        "columns": {
+          "title": "Title",
+          "client": "Client",
+          "type": "Type",
+          "totalValue": "Value",
+          "collection": "Collection",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "rowActions": {
+          "edit": "Edit contract",
+          "delete": "Delete contract"
+        },
+        "header": {
+          "back": "Back",
+          "title": "Contracts",
+          "newContract": "Create Contract"
+        },
+        "filters": {
+          "searchPlaceholder": "Search...",
+          "statusPlaceholder": "Status",
+          "allStatuses": "All"
+        },
+        "emptyState": {
+          "title": "No contracts",
+          "description": "Create a new contract to get started"
+        },
+        "bulkActions": {
+          "deleteSelected": "Delete Selected"
+        },
+        "pagination": {
+          "prev": "Previous",
+          "next": "Next",
+          "pageOf": "{page} / {totalPages}"
+        },
+        "deleteDialog": {
+          "title": "Delete Contract",
+          "confirm": "Are you sure you want to delete this contract?",
+          "cancel": "Cancel",
+          "confirmButton": "Delete",
+          "deleting": "Deleting..."
+        }
+      },
+      "new": {
+        "types": {
+          "retainer": "Retainer",
+          "milestone": "Milestone",
+          "upfront_delivery": "Upfront Payment + Delivery",
+          "fixed": "Fixed",
+          "hourly": "Hourly"
+        },
+        "toasts": {
+          "createSuccess": "Contract created — you can now add scope-of-work items",
+          "saveFailed": "Failed to save",
+          "titleRequired": "Contract title is required"
+        },
+        "back": "Back",
+        "title": "Create New Contract",
+        "cardTitle": "Contract Details",
+        "fields": {
+          "titleLabel": "Contract Title *",
+          "titlePlaceholder": "Contract title",
+          "client": "Client",
+          "clientPlaceholder": "Choose client",
+          "noClient": "No client",
+          "project": "Project",
+          "projectPlaceholder": "Choose project",
+          "projectPlaceholderNoClient": "Choose a client first",
+          "noProject": "No project",
+          "contractType": "Contract Type",
+          "contractTypePlaceholder": "Choose type",
+          "contractTypeNone": "Unspecified",
+          "totalValue": "Total Value",
+          "currency": "Currency",
+          "vatRate": "VAT Rate (%)",
+          "startDate": "Start Date",
+          "endDate": "End Date"
+        },
+        "retainerSection": {
+          "title": "Monthly Billing Settings",
+          "monthlyAmount": "Monthly Amount",
+          "billingCycle": "Billing Cycle",
+          "billingDay": "Billing Day"
+        },
+        "description": "Description",
+        "descriptionPlaceholder": "Contract description...",
+        "notes": "Notes",
+        "notesPlaceholder": "Additional notes...",
+        "submit": "Create Contract",
+        "submitting": "Saving..."
+      },
+      "detail": {
+        "toasts": {
+          "updateSuccess": "Contract updated",
+          "updateFailed": "Failed to update",
+          "milestoneUpdateSuccess": "Milestone updated",
+          "milestoneAddSuccess": "Milestone added",
+          "milestoneSaveFailed": "Failed to save milestone",
+          "milestoneUpdateFailedFallback": "Failed to update milestone",
+          "invoiceGenerateFailedFallback": "Failed to generate invoice",
+          "invoiceGenerateSuccess": "Invoice generated",
+          "connectionError": "A connection error occurred",
+          "milestoneDeleteFailedFallback": "Failed to delete milestone",
+          "milestoneDeleteSuccess": "Milestone deleted"
+        },
+        "back": "Back to Contracts",
+        "title": "Edit Contract",
+        "deleteMilestoneDialog": {
+          "title": "Confirm Delete",
+          "description": "Are you sure you want to delete this milestone? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        }
+      },
+      "itemsEditor": {
+        "toasts": {
+          "titleRequired": "All items must have a title",
+          "saveSuccess": "Contract items saved",
+          "saveFailed": "Failed to save items"
+        },
+        "title": "Scope of Work",
+        "saveItems": "Save Items",
+        "addItem": "Add Item",
+        "emptyState": {
+          "title": "No items yet",
+          "description": "Add scope-of-work items to appear on invoices and the portal",
+          "actionLabel": "Add First Item"
+        },
+        "itemTitlePlaceholder": "Item title",
+        "itemDescriptionPlaceholder": "Optional description",
+        "addChild": "Add sub-item",
+        "removeItem": "Delete item",
+        "childTitlePlaceholder": "Sub-item title",
+        "removeChild": "Delete",
+        "removeChildAria": "Delete sub-item"
+      }
+    },
+    "creditNotes": {
+      "list": {
+        "toasts": {
+          "loadFailed": "Failed to load credit notes"
+        },
+        "back": "Back",
+        "title": "Credit Notes",
+        "newCreditNote": "New Credit Note",
+        "filters": {
+          "searchPlaceholder": "Search by number or client...",
+          "statusPlaceholder": "Status",
+          "allStatuses": "All Statuses"
+        },
+        "emptyState": {
+          "title": "No credit notes",
+          "description": "Create a new credit note to manage returns and adjustments",
+          "actionLabel": "New Credit Note"
+        },
+        "noClient": "No client",
+        "pagination": {
+          "prev": "Previous",
+          "next": "Next",
+          "pageOf": "{page} / {totalPages}"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "Credit note created",
+          "createFailed": "An error occurred",
+          "reasonRequired": "Credit note reason is required",
+          "itemRequired": "At least one item must be added"
+        },
+        "back": "Back",
+        "title": "New Credit Note",
+        "subtitle": "Create a credit note (return / adjustment)",
+        "cardTitle": "Credit Note Details",
+        "fields": {
+          "client": "Client",
+          "clientPlaceholder": "Choose client",
+          "issueDate": "Issue Date",
+          "linkedInvoice": "Linked Invoice Number (optional)",
+          "linkedInvoicePlaceholder": "Invoice ID",
+          "reason": "Reason",
+          "reasonPlaceholder": "Credit note reason...",
+          "notes": "Notes",
+          "notesPlaceholder": "Additional notes..."
+        },
+        "itemsCardTitle": "Credit Note Items",
+        "addItem": "Add Item",
+        "columns": {
+          "description": "Description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount"
+        },
+        "descriptionPlaceholder": "Item description",
+        "removeItem": "Delete item",
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "total": "Total",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "Failed to load credit note",
+          "statusChangeFailedFallback": "An error occurred",
+          "issuedSuccess": "Credit note issued",
+          "cancelledSuccess": "Credit note cancelled",
+          "statusChangeFailed": "An error occurred",
+          "applyFailedFallback": "An error occurred",
+          "applySuccess": "Credit note applied — {amount}",
+          "applyFailed": "An error occurred",
+          "deleteFailed": "Failed to delete",
+          "deleteSuccess": "Credit note deleted"
+        },
+        "notFound": "Credit note not found",
+        "back": "Back",
+        "actions": {
+          "issue": "Issue",
+          "delete": "Delete credit note",
+          "applyToInvoice": "Apply to Invoice",
+          "cancel": "Cancel"
+        },
+        "infoCards": {
+          "client": "Client",
+          "issueDate": "Issue Date",
+          "linkedInvoice": "Linked Invoice",
+          "viewInvoice": "View Invoice"
+        },
+        "itemsCardTitle": "Credit Note Items",
+        "columns": {
+          "index": "#",
+          "description": "Description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount"
+        },
+        "subtotal": "Subtotal",
+        "taxLine": "Tax ({rate}%)",
+        "total": "Total",
+        "appliedAmount": "Applied Amount",
+        "notesTitle": "Notes",
+        "deleteDialog": {
+          "title": "Confirm Delete",
+          "description": "Are you sure you want to delete this credit note? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        }
+      }
+    },
+    "expenses": {
+      "meta": { "title": "Expenses | Pyra" },
+      "list": {
+        "toasts": {
+          "deleteFailedCount": "Failed to delete {count} expense(s)",
+          "deleteSuccessOne": "Expense deleted",
+          "deleteSuccessCount": "{count} expenses deleted",
+          "deleteFailed": "Failed to delete expense",
+          "statusUpdateFailed": "Failed to update expense status",
+          "approveSuccess": "Expense approved",
+          "rejectSuccess": "Expense rejected",
+          "unexpectedError": "An error occurred"
+        },
+        "columns": {
+          "description": "Description",
+          "amount": "Amount",
+          "category": "Category",
+          "date": "Date",
+          "vendor": "Vendor",
+          "status": "Status",
+          "actions": "Actions"
+        },
+        "rowActions": {
+          "approve": "Approve",
+          "reject": "Reject",
+          "approveAria": "Approve expense",
+          "rejectAria": "Reject expense",
+          "edit": "Edit expense",
+          "delete": "Delete expense"
+        },
+        "back": "Back",
+        "title": "Expenses",
+        "addExpense": "Add Expense",
+        "summary": {
+          "totalExpenses": "Total Expenses",
+          "totalVat": "VAT",
+          "totalCount": "Number of Expenses"
+        },
+        "filters": {
+          "searchPlaceholder": "Search...",
+          "categoryPlaceholder": "Category",
+          "allCategories": "All",
+          "statusPlaceholder": "Status",
+          "allStatuses": "All Statuses",
+          "dateFrom": "From",
+          "dateTo": "To"
+        },
+        "emptyState": {
+          "title": "No expenses",
+          "description": "Add a new expense to track spending"
+        },
+        "bulkActions": {
+          "deleteSelected": "Delete Selected"
+        },
+        "pagination": {
+          "prev": "Previous",
+          "next": "Next",
+          "pageOf": "{page} / {totalPages}"
+        },
+        "deleteDialog": {
+          "title": "Delete Expense",
+          "confirm": "Are you sure you want to delete this expense? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete",
+          "deleting": "Deleting..."
+        }
+      },
+      "form": {
+        "paymentMethodPlaceholder": {
+          "new": "Choose payment method",
+          "edit": "Choose"
+        },
+        "toasts": {
+          "createSuccess": "Expense added",
+          "saveFailed": "Failed to save",
+          "amountRequired": "Amount is required",
+          "updateSuccess": "Expense updated",
+          "updateFailedFallback": "Failed to update",
+          "updateFailed": "Failed to update"
+        },
+        "back": "Back",
+        "newTitle": "Add New Expense",
+        "editTitle": "Edit Expense",
+        "cardTitle": "Expense Details",
+        "fields": {
+          "description": "Description",
+          "descriptionPlaceholder": "Expense description",
+          "supplierFromRecord": "Supplier (from record)",
+          "supplierPlaceholder": "Choose supplier",
+          "noSupplierLink": "No link",
+          "vendorName": "Vendor Name",
+          "vendorNamePlaceholder": "Vendor name",
+          "amount": "Amount *",
+          "vatRate": "VAT Rate (%)",
+          "category": "Category",
+          "categoryPlaceholder": "Choose category",
+          "noCategory": "No category",
+          "paymentMethod": "Payment Method",
+          "paymentMethodNone": "Unspecified",
+          "project": "Project",
+          "projectPlaceholder": "Choose project",
+          "noProject": "No project",
+          "expenseDate": "Expense Date",
+          "currency": "Currency",
+          "notes": "Notes",
+          "notesPlaceholder": "Additional notes..."
+        },
+        "submitNew": "Save Expense",
+        "submitEdit": "Save Changes",
+        "submitting": "Saving..."
+      },
+      "categories": {
+        "toasts": {
+          "nameRequired": "Category name is required",
+          "updateSuccess": "Updated",
+          "createSuccess": "Added",
+          "saveFailedFallback": "Failed to save",
+          "saveFailed": "Failed to save",
+          "deleteSuccess": "Deleted",
+          "deleteFailedFallback": "Failed to delete",
+          "deleteFailed": "Failed to delete"
+        },
+        "back": "Back",
+        "title": "Expense Categories",
+        "addCategory": "Add Category",
+        "columns": {
+          "color": "Color",
+          "nameEn": "Name (EN)",
+          "nameAr": "Name (AR)",
+          "isDefault": "Default",
+          "actions": "Actions"
+        },
+        "yes": "Yes",
+        "no": "No",
+        "rowActions": {
+          "edit": "Edit category",
+          "delete": "Delete category"
+        },
+        "dialog": {
+          "editTitle": "Edit Category",
+          "addTitle": "Add Category",
+          "nameLabel": "Name (English) *",
+          "nameArLabel": "Name (Arabic)",
+          "colorLabel": "Color",
+          "cancel": "Cancel",
+          "save": "Save",
+          "saving": "Saving..."
+        },
+        "deleteDialog": {
+          "title": "Delete Category",
+          "confirm": "Are you sure you want to delete this category?",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        }
+      }
     }
   }
 }

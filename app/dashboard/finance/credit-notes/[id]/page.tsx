@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ArrowRight, FileCheck, Send, Trash2, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
-import { CREDIT_NOTE_STATUS_LABELS } from '@/lib/constants/statuses';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface CreditNoteItem { id: string; description: string; quantity: number; rate: number; amount: number; }
 
@@ -41,14 +43,10 @@ interface CreditNote {
   items: CreditNoteItem[];
 }
 
-const STATUS_MAP: Record<string, { label: string }> = {
-  draft:     { label: CREDIT_NOTE_STATUS_LABELS.draft },
-  issued:    { label: CREDIT_NOTE_STATUS_LABELS.issued },
-  applied:   { label: CREDIT_NOTE_STATUS_LABELS.applied },
-  cancelled: { label: CREDIT_NOTE_STATUS_LABELS.cancelled },
-};
-
 export default function CreditNoteDetailPage() {
+  const t = useTranslations('finance.creditNotes.detail');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('creditNote');
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const [cn, setCn] = useState<CreditNote | null>(null);
@@ -60,9 +58,9 @@ export default function CreditNoteDetailPage() {
     fetch(`/api/dashboard/credit-notes/${id}`)
       .then(r => r.json())
       .then(json => { if (json.data) setCn(json.data); })
-      .catch(() => toast.error('فشل في تحميل الإشعار الدائن'))
+      .catch(() => toast.error(t('toasts.loadFailed')))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, t]);
 
   const handleStatusChange = async (status: string) => {
     setActionLoading(status);
@@ -73,10 +71,10 @@ export default function CreditNoteDetailPage() {
         body: JSON.stringify({ status }),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'حدث خطأ'); return; }
+      if (!res.ok) { toast.error(json.error || t('toasts.statusChangeFailedFallback')); return; }
       setCn(prev => prev ? { ...prev, status } : prev);
-      toast.success(status === 'issued' ? 'تم إصدار الإشعار' : 'تم إلغاء الإشعار');
-    } catch { toast.error('حدث خطأ'); }
+      toast.success(status === 'issued' ? t('toasts.issuedSuccess') : t('toasts.cancelledSuccess'));
+    } catch { toast.error(t('toasts.statusChangeFailed')); }
     finally { setActionLoading(''); }
   };
 
@@ -85,20 +83,20 @@ export default function CreditNoteDetailPage() {
     try {
       const res = await fetch(`/api/dashboard/credit-notes/${id}/apply`, { method: 'POST' });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'حدث خطأ'); return; }
+      if (!res.ok) { toast.error(json.error || t('toasts.applyFailedFallback')); return; }
       setCn(prev => prev ? { ...prev, status: 'applied', applied_amount: json.data?.applied_amount || prev.total } : prev);
-      toast.success(`تم تطبيق الإشعار الدائن — ${formatCurrency(json.data?.applied_amount || 0)}`);
-    } catch { toast.error('حدث خطأ'); }
+      toast.success(t('toasts.applySuccess', { amount: formatCurrency(json.data?.applied_amount || 0) }));
+    } catch { toast.error(t('toasts.applyFailed')); }
     finally { setActionLoading(''); }
   };
 
   const handleDelete = async () => {
     try {
       const res = await fetch(`/api/dashboard/credit-notes/${id}`, { method: 'DELETE' });
-      if (!res.ok) { toast.error('فشل في الحذف'); return; }
-      toast.success('تم حذف الإشعار الدائن');
+      if (!res.ok) { toast.error(t('toasts.deleteFailed')); return; }
+      toast.success(t('toasts.deleteSuccess'));
       router.push('/dashboard/finance/credit-notes');
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('toasts.statusChangeFailed')); }
   };
 
   if (loading) return (
@@ -108,9 +106,9 @@ export default function CreditNoteDetailPage() {
     </div>
   );
 
-  if (!cn) return <p className="text-center text-muted-foreground mt-20">الإشعار الدائن غير موجود</p>;
+  if (!cn) return <p className="text-center text-muted-foreground mt-20">{t('notFound')}</p>;
 
-  const st = STATUS_MAP[cn.status] || STATUS_MAP.draft;
+  const statusLabel = statusLabelFor(cn.status) || cn.status;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -118,12 +116,12 @@ export default function CreditNoteDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance/credit-notes">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold" dir="ltr">{cn.credit_note_number}</h1>
-              <Badge className={getStatusBadgeClass(cn.status)}>{st.label}</Badge>
+              <Badge className={getStatusBadgeClass(cn.status)}>{statusLabel}</Badge>
             </div>
             <p className="text-sm text-muted-foreground">{cn.reason}</p>
           </div>
@@ -133,20 +131,20 @@ export default function CreditNoteDetailPage() {
             <>
               <Button variant="outline" onClick={() => handleStatusChange('issued')} disabled={!!actionLoading}>
                 {actionLoading === 'issued' ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Send className="h-4 w-4 me-2" />}
-                إصدار
+                {t('actions.issue')}
               </Button>
-              <Button variant="destructive" size="icon" aria-label="حذف إشعار الدائن" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="destructive" size="icon" aria-label={t('actions.delete')} onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
             </>
           )}
           {cn.status === 'issued' && cn.invoice_id && (
             <Button className="bg-green-600 hover:bg-green-700" onClick={handleApply} disabled={!!actionLoading}>
               {actionLoading === 'apply' ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <CheckCircle className="h-4 w-4 me-2" />}
-              تطبيق على الفاتورة
+              {t('actions.applyToInvoice')}
             </Button>
           )}
           {cn.status === 'issued' && (
             <Button variant="outline" className="text-red-600 dark:text-red-400" onClick={() => handleStatusChange('cancelled')} disabled={!!actionLoading}>
-              <XCircle className="h-4 w-4 me-2" /> إلغاء
+              <XCircle className="h-4 w-4 me-2" /> {t('actions.cancel')}
             </Button>
           )}
         </div>
@@ -155,19 +153,19 @@ export default function CreditNoteDetailPage() {
       {/* Info Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">العميل</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.client')}</p>
           <p className="font-bold mt-1">{cn.client_name || '—'}</p>
           {cn.client_company && <p className="text-xs text-muted-foreground">{cn.client_company}</p>}
         </CardContent></Card>
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">تاريخ الإصدار</p>
-          <p className="font-bold mt-1">{formatDate(cn.issue_date)}</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.issueDate')}</p>
+          <p className="font-bold mt-1">{formatDate(cn.issue_date, undefined, locale)}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">الفاتورة المرتبطة</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.linkedInvoice')}</p>
           {cn.invoice_id ? (
             <Link href={`/dashboard/invoices/${cn.invoice_id}`} className="font-bold mt-1 text-orange-600 hover:underline block">
-              عرض الفاتورة
+              {t('infoCards.viewInvoice')}
             </Link>
           ) : <p className="font-bold mt-1 text-muted-foreground">—</p>}
         </CardContent></Card>
@@ -175,17 +173,17 @@ export default function CreditNoteDetailPage() {
 
       {/* Items */}
       <Card>
-        <CardHeader><CardTitle>بنود الإشعار الدائن</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('itemsCardTitle')}</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-start py-2 pe-4">#</th>
-                  <th className="text-start py-2 pe-4">الوصف</th>
-                  <th className="text-start py-2 pe-4">الكمية</th>
-                  <th className="text-start py-2 pe-4">السعر</th>
-                  <th className="text-end py-2">المبلغ</th>
+                  <th className="text-start py-2 pe-4">{t('columns.index')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.description')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.quantity')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.rate')}</th>
+                  <th className="text-end py-2">{t('columns.amount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -205,20 +203,20 @@ export default function CreditNoteDetailPage() {
           {/* Totals */}
           <div className="border-t mt-2 pt-4 space-y-2 max-w-xs ms-auto">
             <div className="flex justify-between text-sm">
-              <span>المجموع الفرعي</span>
+              <span>{t('subtotal')}</span>
               <span className="font-mono">{formatCurrency(cn.subtotal, cn.currency)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>ضريبة ({cn.tax_rate}%)</span>
+              <span>{t('taxLine', { rate: cn.tax_rate })}</span>
               <span className="font-mono">{formatCurrency(cn.tax_amount, cn.currency)}</span>
             </div>
             <div className="flex justify-between font-bold text-base border-t pt-2">
-              <span>الإجمالي</span>
+              <span>{t('total')}</span>
               <span className="font-mono">{formatCurrency(cn.total, cn.currency)}</span>
             </div>
             {cn.applied_amount > 0 && (
               <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
-                <span>المبلغ المطبق</span>
+                <span>{t('appliedAmount')}</span>
                 <span className="font-mono">{formatCurrency(cn.applied_amount, cn.currency)}</span>
               </div>
             )}
@@ -229,7 +227,7 @@ export default function CreditNoteDetailPage() {
       {/* Notes */}
       {cn.notes && (
         <Card>
-          <CardHeader><CardTitle>ملاحظات</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('notesTitle')}</CardTitle></CardHeader>
           <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{cn.notes}</p></CardContent>
         </Card>
       )}
@@ -237,15 +235,15 @@ export default function CreditNoteDetailPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف هذا الإشعار الدائن؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('deleteDialog.confirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

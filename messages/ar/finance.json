@@ -414,6 +414,420 @@
       "signaturePad": {
         "clear": "مسح التوقيع"
       }
+    },
+    "contracts": {
+      "meta": { "title": "العقود | Pyra" },
+      "list": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل العقود",
+          "deleteFailedCount": "فشل حذف {count} عقد",
+          "deleteSuccessOne": "تم حذف العقد",
+          "deleteSuccessCount": "تم حذف {count} عقود",
+          "deleteFailed": "فشل في الحذف"
+        },
+        "columns": {
+          "title": "العنوان",
+          "client": "العميل",
+          "type": "النوع",
+          "totalValue": "القيمة",
+          "collection": "التحصيل",
+          "status": "الحالة",
+          "actions": "الإجراءات"
+        },
+        "rowActions": {
+          "edit": "تعديل العقد",
+          "delete": "حذف العقد"
+        },
+        "header": {
+          "back": "رجوع",
+          "title": "العقود",
+          "newContract": "إنشاء عقد"
+        },
+        "filters": {
+          "searchPlaceholder": "بحث...",
+          "statusPlaceholder": "الحالة",
+          "allStatuses": "الكل"
+        },
+        "emptyState": {
+          "title": "لا توجد عقود",
+          "description": "أنشئ عقد جديد للبدء"
+        },
+        "bulkActions": {
+          "deleteSelected": "حذف المحدد"
+        },
+        "pagination": {
+          "prev": "السابق",
+          "next": "التالي",
+          "pageOf": "{page} / {totalPages}"
+        },
+        "deleteDialog": {
+          "title": "حذف العقد",
+          "confirm": "هل أنت متأكد من حذف هذا العقد؟",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف",
+          "deleting": "جاري الحذف..."
+        }
+      },
+      "new": {
+        "types": {
+          "retainer": "ثابت شهري (Retainer)",
+          "milestone": "مراحل (Milestone)",
+          "upfront_delivery": "دفعة مقدمة + تسليم",
+          "fixed": "سعر ثابت (Fixed)",
+          "hourly": "بالساعة (Hourly)"
+        },
+        "toasts": {
+          "createSuccess": "تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل",
+          "saveFailed": "فشل في الحفظ",
+          "titleRequired": "عنوان العقد مطلوب"
+        },
+        "back": "رجوع",
+        "title": "إنشاء عقد جديد",
+        "cardTitle": "بيانات العقد",
+        "fields": {
+          "titleLabel": "عنوان العقد *",
+          "titlePlaceholder": "عنوان العقد",
+          "client": "العميل",
+          "clientPlaceholder": "اختر العميل",
+          "noClient": "بدون عميل",
+          "project": "المشروع",
+          "projectPlaceholder": "اختر المشروع",
+          "projectPlaceholderNoClient": "اختر العميل أولاً",
+          "noProject": "بدون مشروع",
+          "contractType": "نوع العقد",
+          "contractTypePlaceholder": "اختر النوع",
+          "contractTypeNone": "غير محدد",
+          "totalValue": "القيمة الإجمالية",
+          "currency": "العملة",
+          "vatRate": "نسبة الضريبة (%)",
+          "startDate": "تاريخ البداية",
+          "endDate": "تاريخ النهاية"
+        },
+        "retainerSection": {
+          "title": "إعدادات الدفع الشهري",
+          "monthlyAmount": "المبلغ الشهري",
+          "billingCycle": "دورة الفوترة",
+          "billingDay": "يوم الفوترة"
+        },
+        "description": "الوصف",
+        "descriptionPlaceholder": "وصف العقد...",
+        "notes": "ملاحظات",
+        "notesPlaceholder": "ملاحظات إضافية...",
+        "submit": "إنشاء العقد",
+        "submitting": "جاري الحفظ..."
+      },
+      "detail": {
+        "toasts": {
+          "updateSuccess": "تم تحديث العقد",
+          "updateFailed": "فشل في التحديث",
+          "milestoneUpdateSuccess": "تم تحديث المرحلة",
+          "milestoneAddSuccess": "تمت إضافة المرحلة",
+          "milestoneSaveFailed": "فشل في حفظ المرحلة",
+          "milestoneUpdateFailedFallback": "فشل في تحديث المرحلة",
+          "invoiceGenerateFailedFallback": "فشل في توليد الفاتورة",
+          "invoiceGenerateSuccess": "تم توليد الفاتورة",
+          "connectionError": "حدث خطأ في الاتصال",
+          "milestoneDeleteFailedFallback": "فشل في حذف المرحلة",
+          "milestoneDeleteSuccess": "تم حذف المرحلة"
+        },
+        "back": "العودة إلى العقود",
+        "title": "تعديل العقد",
+        "deleteMilestoneDialog": {
+          "title": "تأكيد الحذف",
+          "description": "هل أنت متأكد من حذف هذه المرحلة؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        }
+      },
+      "itemsEditor": {
+        "toasts": {
+          "titleRequired": "جميع البنود يجب أن تحتوي على عنوان",
+          "saveSuccess": "تم حفظ بنود العقد",
+          "saveFailed": "فشل في حفظ البنود"
+        },
+        "title": "نطاق العمل",
+        "saveItems": "حفظ البنود",
+        "addItem": "إضافة بند",
+        "emptyState": {
+          "title": "لا توجد بنود بعد",
+          "description": "أضف بنود نطاق العمل لتظهر في الفواتير والبوابة",
+          "actionLabel": "إضافة أول بند"
+        },
+        "itemTitlePlaceholder": "عنوان البند",
+        "itemDescriptionPlaceholder": "وصف اختياري",
+        "addChild": "إضافة بند فرعي",
+        "removeItem": "حذف البند",
+        "childTitlePlaceholder": "عنوان البند الفرعي",
+        "removeChild": "حذف",
+        "removeChildAria": "حذف البند الفرعي"
+      }
+    },
+    "creditNotes": {
+      "list": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل الإشعارات الدائنة"
+        },
+        "back": "رجوع",
+        "title": "إشعارات دائنة",
+        "newCreditNote": "إشعار دائن جديد",
+        "filters": {
+          "searchPlaceholder": "بحث بالرقم أو العميل...",
+          "statusPlaceholder": "الحالة",
+          "allStatuses": "كل الحالات"
+        },
+        "emptyState": {
+          "title": "لا توجد إشعارات دائنة",
+          "description": "أنشئ إشعار دائن جديد لإدارة المرتجعات والتعديلات",
+          "actionLabel": "إشعار دائن جديد"
+        },
+        "noClient": "بدون عميل",
+        "pagination": {
+          "prev": "السابق",
+          "next": "التالي",
+          "pageOf": "{page} / {totalPages}"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "تم إنشاء الإشعار الدائن",
+          "createFailed": "حدث خطأ",
+          "reasonRequired": "سبب الإشعار الدائن مطلوب",
+          "itemRequired": "يجب إضافة بند واحد على الأقل"
+        },
+        "back": "رجوع",
+        "title": "إشعار دائن جديد",
+        "subtitle": "إنشاء إشعار دائن (مرتجع / تعديل)",
+        "cardTitle": "بيانات الإشعار الدائن",
+        "fields": {
+          "client": "العميل",
+          "clientPlaceholder": "اختر العميل",
+          "issueDate": "تاريخ الإصدار",
+          "linkedInvoice": "رقم الفاتورة المرتبطة (اختياري)",
+          "linkedInvoicePlaceholder": "معرف الفاتورة",
+          "reason": "السبب",
+          "reasonPlaceholder": "سبب الإشعار الدائن...",
+          "notes": "ملاحظات",
+          "notesPlaceholder": "ملاحظات إضافية..."
+        },
+        "itemsCardTitle": "بنود الإشعار",
+        "addItem": "إضافة بند",
+        "columns": {
+          "description": "الوصف",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "amount": "المبلغ"
+        },
+        "descriptionPlaceholder": "وصف البند",
+        "removeItem": "حذف البند",
+        "subtotal": "المجموع الفرعي",
+        "vat": "ضريبة القيمة المضافة",
+        "total": "الإجمالي",
+        "cancel": "إلغاء",
+        "save": "حفظ"
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل الإشعار الدائن",
+          "statusChangeFailedFallback": "حدث خطأ",
+          "issuedSuccess": "تم إصدار الإشعار",
+          "cancelledSuccess": "تم إلغاء الإشعار",
+          "statusChangeFailed": "حدث خطأ",
+          "applyFailedFallback": "حدث خطأ",
+          "applySuccess": "تم تطبيق الإشعار الدائن — {amount}",
+          "applyFailed": "حدث خطأ",
+          "deleteFailed": "فشل في الحذف",
+          "deleteSuccess": "تم حذف الإشعار الدائن"
+        },
+        "notFound": "الإشعار الدائن غير موجود",
+        "back": "رجوع",
+        "actions": {
+          "issue": "إصدار",
+          "delete": "حذف إشعار الدائن",
+          "applyToInvoice": "تطبيق على الفاتورة",
+          "cancel": "إلغاء"
+        },
+        "infoCards": {
+          "client": "العميل",
+          "issueDate": "تاريخ الإصدار",
+          "linkedInvoice": "الفاتورة المرتبطة",
+          "viewInvoice": "عرض الفاتورة"
+        },
+        "itemsCardTitle": "بنود الإشعار الدائن",
+        "columns": {
+          "index": "#",
+          "description": "الوصف",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "amount": "المبلغ"
+        },
+        "subtotal": "المجموع الفرعي",
+        "taxLine": "ضريبة ({rate}%)",
+        "total": "الإجمالي",
+        "appliedAmount": "المبلغ المطبق",
+        "notesTitle": "ملاحظات",
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "description": "هل أنت متأكد من حذف هذا الإشعار الدائن؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        }
+      }
+    },
+    "expenses": {
+      "meta": { "title": "المصروفات | Pyra" },
+      "list": {
+        "toasts": {
+          "deleteFailedCount": "فشل حذف {count} مصروف",
+          "deleteSuccessOne": "تم حذف المصروف",
+          "deleteSuccessCount": "تم حذف {count} مصروفات",
+          "deleteFailed": "فشل في حذف المصروف",
+          "statusUpdateFailed": "فشل في تحديث حالة المصروف",
+          "approveSuccess": "تم اعتماد المصروف",
+          "rejectSuccess": "تم رفض المصروف",
+          "unexpectedError": "حدث خطأ"
+        },
+        "columns": {
+          "description": "الوصف",
+          "amount": "المبلغ",
+          "category": "التصنيف",
+          "date": "التاريخ",
+          "vendor": "المورد",
+          "status": "الحالة",
+          "actions": "الإجراءات"
+        },
+        "rowActions": {
+          "approve": "اعتماد",
+          "reject": "رفض",
+          "approveAria": "اعتماد المصروف",
+          "rejectAria": "رفض المصروف",
+          "edit": "تعديل المصروف",
+          "delete": "حذف المصروف"
+        },
+        "back": "رجوع",
+        "title": "المصاريف",
+        "addExpense": "إضافة مصروف",
+        "summary": {
+          "totalExpenses": "إجمالي المصاريف",
+          "totalVat": "ضريبة القيمة المضافة",
+          "totalCount": "عدد المصاريف"
+        },
+        "filters": {
+          "searchPlaceholder": "بحث...",
+          "categoryPlaceholder": "التصنيف",
+          "allCategories": "الكل",
+          "statusPlaceholder": "الحالة",
+          "allStatuses": "كل الحالات",
+          "dateFrom": "من",
+          "dateTo": "إلى"
+        },
+        "emptyState": {
+          "title": "لا توجد مصاريف",
+          "description": "أضف مصروف جديد لتتبع النفقات"
+        },
+        "bulkActions": {
+          "deleteSelected": "حذف المحدد"
+        },
+        "pagination": {
+          "prev": "السابق",
+          "next": "التالي",
+          "pageOf": "{page} / {totalPages}"
+        },
+        "deleteDialog": {
+          "title": "حذف المصروف",
+          "confirm": "هل أنت متأكد من حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف",
+          "deleting": "جاري الحذف..."
+        }
+      },
+      "form": {
+        "paymentMethodPlaceholder": {
+          "new": "اختر طريقة الدفع",
+          "edit": "اختر"
+        },
+        "toasts": {
+          "createSuccess": "تم إضافة المصروف",
+          "saveFailed": "فشل في الحفظ",
+          "amountRequired": "المبلغ مطلوب",
+          "updateSuccess": "تم تحديث المصروف",
+          "updateFailedFallback": "فشل في التحديث",
+          "updateFailed": "فشل في التحديث"
+        },
+        "back": "رجوع",
+        "newTitle": "إضافة مصروف جديد",
+        "editTitle": "تعديل المصروف",
+        "cardTitle": "بيانات المصروف",
+        "fields": {
+          "description": "الوصف",
+          "descriptionPlaceholder": "وصف المصروف",
+          "supplierFromRecord": "المورد (من السجل)",
+          "supplierPlaceholder": "اختر مورد",
+          "noSupplierLink": "بدون ربط",
+          "vendorName": "اسم المورد",
+          "vendorNamePlaceholder": "اسم المورد",
+          "amount": "المبلغ *",
+          "vatRate": "نسبة الضريبة (%)",
+          "category": "التصنيف",
+          "categoryPlaceholder": "اختر التصنيف",
+          "noCategory": "بدون تصنيف",
+          "paymentMethod": "طريقة الدفع",
+          "paymentMethodNone": "غير محدد",
+          "project": "المشروع",
+          "projectPlaceholder": "اختر المشروع",
+          "noProject": "بدون مشروع",
+          "expenseDate": "تاريخ المصروف",
+          "currency": "العملة",
+          "notes": "ملاحظات",
+          "notesPlaceholder": "ملاحظات إضافية..."
+        },
+        "submitNew": "حفظ المصروف",
+        "submitEdit": "حفظ التعديلات",
+        "submitting": "جاري الحفظ..."
+      },
+      "categories": {
+        "toasts": {
+          "nameRequired": "اسم التصنيف مطلوب",
+          "updateSuccess": "تم التحديث",
+          "createSuccess": "تم الإضافة",
+          "saveFailedFallback": "فشل في الحفظ",
+          "saveFailed": "فشل في الحفظ",
+          "deleteSuccess": "تم الحذف",
+          "deleteFailedFallback": "فشل في الحذف",
+          "deleteFailed": "فشل في الحذف"
+        },
+        "back": "رجوع",
+        "title": "تصنيفات المصاريف",
+        "addCategory": "إضافة تصنيف",
+        "columns": {
+          "color": "اللون",
+          "nameEn": "الاسم (EN)",
+          "nameAr": "الاسم (AR)",
+          "isDefault": "افتراضي",
+          "actions": "الإجراءات"
+        },
+        "yes": "نعم",
+        "no": "لا",
+        "rowActions": {
+          "edit": "تعديل التصنيف",
+          "delete": "حذف التصنيف"
+        },
+        "dialog": {
+          "editTitle": "تعديل التصنيف",
+          "addTitle": "إضافة تصنيف",
+          "nameLabel": "الاسم (English) *",
+          "nameArLabel": "الاسم (عربي)",
+          "colorLabel": "اللون",
+          "cancel": "إلغاء",
+          "save": "حفظ",
+          "saving": "جاري الحفظ..."
+        },
+        "deleteDialog": {
+          "title": "حذف التصنيف",
+          "confirm": "هل أنت متأكد من حذف هذا التصنيف؟",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        }
+      }
     }
   }
 }

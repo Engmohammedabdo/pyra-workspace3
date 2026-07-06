@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, use } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClients } from '@/hooks/useClients';
 import { useProjects } from '@/hooks/useProjects';
 import { useRouter } from 'next/navigation';
@@ -21,6 +22,7 @@ const EMPTY_MILESTONE_FORM = { title: '', description: '', percentage: '', due_d
 
 export default function EditContractPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const t = useTranslations('finance.contracts.detail');
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
@@ -118,10 +120,10 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       }),
     });
     if (res.ok) {
-      toast.success('تم تحديث العقد');
+      toast.success(t('toasts.updateSuccess'));
       router.push('/dashboard/finance/contracts');
     } else {
-      toast.error('فشل في التحديث');
+      toast.error(t('toasts.updateFailed'));
     }
     setSaving(false);
   };
@@ -138,11 +140,11 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
     const url = editingMilestone ? `/api/finance/contracts/${id}/milestones/${editingMilestone.id}` : `/api/finance/contracts/${id}/milestones`;
     const res = await fetch(url, { method: editingMilestone ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (res.ok) {
-      toast.success(editingMilestone ? 'تم تحديث المرحلة' : 'تمت إضافة المرحلة');
+      toast.success(editingMilestone ? t('toasts.milestoneUpdateSuccess') : t('toasts.milestoneAddSuccess'));
       setMilestoneDialogOpen(false);
       fetchMilestones();
     } else {
-      toast.error('فشل في حفظ المرحلة');
+      toast.error(t('toasts.milestoneSaveFailed'));
     }
     setMilestoneSaving(false);
   };
@@ -152,12 +154,12 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/finance/contracts/${id}/milestones/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed' }) });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) {
-        toast.error(j.error || 'فشل في تحديث المرحلة');
+        toast.error(j.error || t('toasts.milestoneUpdateFailedFallback'));
       } else {
-        toast.success('تم تحديث المرحلة');
+        toast.success(t('toasts.milestoneUpdateSuccess'));
       }
     } catch {
-      toast.error('حدث خطأ في الاتصال');
+      toast.error(t('toasts.connectionError'));
     }
     fetchMilestones();
   };
@@ -168,12 +170,12 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/finance/contracts/${id}/milestones/${m.id}/generate-invoice`, { method: 'POST' });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) {
-        toast.error(j.error || 'فشل في توليد الفاتورة');
+        toast.error(j.error || t('toasts.invoiceGenerateFailedFallback'));
       } else {
-        toast.success('تم توليد الفاتورة');
+        toast.success(t('toasts.invoiceGenerateSuccess'));
       }
     } catch {
-      toast.error('حدث خطأ في الاتصال');
+      toast.error(t('toasts.connectionError'));
     }
     fetchMilestones();
     setGeneratingInvoice(null);
@@ -190,12 +192,12 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       const res = await fetch(`/api/finance/contracts/${id}/milestones/${deleteMilestoneTarget.id}`, { method: 'DELETE' });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || j.error) {
-        toast.error(j.error || 'فشل في حذف المرحلة');
+        toast.error(j.error || t('toasts.milestoneDeleteFailedFallback'));
       } else {
-        toast.success('تم حذف المرحلة');
+        toast.success(t('toasts.milestoneDeleteSuccess'));
       }
     } catch {
-      toast.error('حدث خطأ في الاتصال');
+      toast.error(t('toasts.connectionError'));
     }
     fetchMilestones();
     setShowDeleteMilestoneDialog(false);
@@ -212,8 +214,8 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/finance/contracts" aria-label="العودة إلى العقود"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
-        <h1 className="text-2xl font-bold">تعديل العقد</h1>
+        <Link href="/dashboard/finance/contracts" aria-label={t('back')}><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
       </div>
       <ContractForm form={form} setForm={setForm} clients={clients} projects={allProjects} onSubmit={handleSubmit} saving={saving} />
       <ContractItemsEditor contractId={id} />
@@ -227,12 +229,12 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
                const j = await res.json().catch(() => ({}));
                if (!res.ok || j.error) {
                  // 409 duplicate-period guard returns a specific Arabic message — surface it verbatim
-                 toast.error(j.error || 'فشل في توليد الفاتورة');
+                 toast.error(j.error || t('toasts.invoiceGenerateFailedFallback'));
                } else {
-                 toast.success('تم توليد الفاتورة');
+                 toast.success(t('toasts.invoiceGenerateSuccess'));
                }
              } catch {
-               toast.error('حدث خطأ في الاتصال');
+               toast.error(t('toasts.connectionError'));
              }
              fetchBillingHistory();
              setGeneratingRetainerInvoice(false);
@@ -261,15 +263,15 @@ export default function EditContractPage({ params }: { params: Promise<{ id: str
       <AlertDialog open={showDeleteMilestoneDialog} onOpenChange={setShowDeleteMilestoneDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteMilestoneDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف هذه المرحلة؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteMilestoneDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteMilestoneDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteMilestone} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('deleteMilestoneDialog.confirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations, useLocale } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,8 +22,9 @@ import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 import { ExportButton } from '@/components/reports/ExportButton';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
-import { EXPENSE_STATUS_LABELS } from '@/lib/constants/statuses';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Expense {
   id: string;
@@ -42,11 +44,11 @@ interface Expense {
   status: 'draft' | 'pending' | 'approved' | 'rejected';
 }
 
-const EXPENSE_STATUS_MAP: Record<string, { label: string; icon: typeof CheckCircle }> = {
-  approved: { label: EXPENSE_STATUS_LABELS.approved, icon: CheckCircle },
-  pending: { label: EXPENSE_STATUS_LABELS.pending, icon: Clock },
-  rejected: { label: EXPENSE_STATUS_LABELS.rejected, icon: XCircle },
-  draft: { label: 'مسودة', icon: Clock },
+const EXPENSE_STATUS_ICON: Record<string, typeof CheckCircle> = {
+  approved: CheckCircle,
+  pending: Clock,
+  rejected: XCircle,
+  draft: Clock,
 };
 
 interface Category {
@@ -56,6 +58,9 @@ interface Category {
 }
 
 export default function ExpensesClient() {
+  const t = useTranslations('finance.expenses.list');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('expense');
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -116,11 +121,11 @@ export default function ExpensesClient() {
       }
       setDeleteId(null);
       setBulkDeleteIds([]);
-      if (failCount > 0) toast.error(`فشل حذف ${failCount} مصروف`);
-      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مصروفات` : 'تم حذف المصروف');
+      if (failCount > 0) toast.error(t('toasts.deleteFailedCount', { count: failCount }));
+      else toast.success(idsToDelete.length > 1 ? t('toasts.deleteSuccessCount', { count: idsToDelete.length }) : t('toasts.deleteSuccessOne'));
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
     } catch {
-      toast.error('فشل في حذف المصروف');
+      toast.error(t('toasts.deleteFailed'));
     } finally {
       setDeleting(false);
     }
@@ -133,13 +138,13 @@ export default function ExpensesClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action }),
       });
-      if (!res.ok) { toast.error('فشل في تحديث حالة المصروف'); return; }
-      toast.success(action === 'approve' ? 'تم اعتماد المصروف' : 'تم رفض المصروف');
+      if (!res.ok) { toast.error(t('toasts.statusUpdateFailed')); return; }
+      toast.success(action === 'approve' ? t('toasts.approveSuccess') : t('toasts.rejectSuccess'));
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     }
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   const pageSize = 20;
   const totalPages = Math.ceil(total / pageSize);
@@ -170,27 +175,27 @@ export default function ExpensesClient() {
         return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
       return sortConfig.direction === 'asc'
-        ? String(aVal).localeCompare(String(bVal), 'ar')
-        : String(bVal).localeCompare(String(aVal), 'ar');
+        ? String(aVal).localeCompare(String(bVal), locale)
+        : String(bVal).localeCompare(String(aVal), locale);
     });
-  }, [expenses, sortConfig]);
+  }, [expenses, sortConfig, locale]);
 
   /* ── column definitions ── */
   const columns: ColumnDef<Expense>[] = useMemo(() => [
     {
       key: 'description',
-      header: 'الوصف',
+      header: t('columns.description'),
       render: (exp) => <span className="font-medium">{exp.description || '—'}</span>,
     },
     {
       key: 'amount',
-      header: 'المبلغ',
+      header: t('columns.amount'),
       sortable: true,
       render: (exp) => <span className="text-red-600 dark:text-red-400 font-mono">{formatCurrency(exp.amount, exp.currency)}</span>,
     },
     {
       key: 'category',
-      header: 'التصنيف',
+      header: t('columns.category'),
       render: (exp) => exp.category_name_ar ? (
         <Badge variant="secondary" style={{ backgroundColor: exp.category_color ? `${exp.category_color}20` : undefined, color: exp.category_color || undefined }}>
           {exp.category_name_ar}
@@ -199,14 +204,14 @@ export default function ExpensesClient() {
     },
     {
       key: 'expense_date',
-      header: 'التاريخ',
+      header: t('columns.date'),
       sortable: true,
       className: 'text-muted-foreground',
-      render: (exp) => exp.expense_date ? formatDate(exp.expense_date) : '—',
+      render: (exp) => exp.expense_date ? formatDate(exp.expense_date, undefined, locale) : '—',
     },
     {
       key: 'vendor',
-      header: 'المورد',
+      header: t('columns.vendor'),
       sortable: true,
       render: (exp) => exp.supplier_id && exp.supplier_name ? (
         <Link href={`/dashboard/finance/suppliers/${exp.supplier_id}`} className="text-orange-600 hover:underline font-medium" onClick={e => e.stopPropagation()}>
@@ -218,47 +223,48 @@ export default function ExpensesClient() {
     },
     {
       key: 'status',
-      header: 'الحالة',
+      header: t('columns.status'),
       render: (exp) => {
-        const st = EXPENSE_STATUS_MAP[exp.status] || EXPENSE_STATUS_MAP.approved;
-        return <Badge className={`${getStatusBadgeClass(exp.status)} gap-1`}><st.icon className="h-3 w-3" />{st.label}</Badge>;
+        const Icon = EXPENSE_STATUS_ICON[exp.status] || CheckCircle;
+        const label = statusLabelFor(exp.status) || exp.status;
+        return <Badge className={`${getStatusBadgeClass(exp.status)} gap-1`}><Icon className="h-3 w-3" />{label}</Badge>;
       },
     },
     {
       key: 'actions',
-      header: 'الإجراءات',
+      header: t('columns.actions'),
       render: (exp) => (
         <div className="flex items-center gap-1" data-no-row-click>
           {exp.status === 'pending' && (
             <>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 dark:text-green-400" onClick={() => handleApproval(exp.id, 'approve')} title="اعتماد" aria-label="اعتماد المصروف">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 dark:text-green-400" onClick={() => handleApproval(exp.id, 'approve')} title={t('rowActions.approve')} aria-label={t('rowActions.approveAria')}>
                 <CheckCircle className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => handleApproval(exp.id, 'reject')} title="رفض" aria-label="رفض المصروف">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => handleApproval(exp.id, 'reject')} title={t('rowActions.reject')} aria-label={t('rowActions.rejectAria')}>
                 <XCircle className="h-3.5 w-3.5" />
               </Button>
             </>
           )}
           <Link href={`/dashboard/finance/expenses/${exp.id}`}>
-            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="تعديل المصروف"><Pencil className="h-3.5 w-3.5" /></Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('rowActions.edit')}><Pencil className="h-3.5 w-3.5" /></Button>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => setDeleteId(exp.id)} aria-label="حذف المصروف">
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 dark:text-red-400" onClick={() => setDeleteId(exp.id)} aria-label={t('rowActions.delete')}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       ),
     },
-  ], [handleApproval]);
+  ], [handleApproval, t, locale, statusLabelFor]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ArrowDownCircle className="h-6 w-6" aria-hidden="true" /> المصاريف
+            <ArrowDownCircle className="h-6 w-6" aria-hidden="true" /> {t('title')}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -268,7 +274,7 @@ export default function ExpensesClient() {
             to={toDate || new Date().toISOString().split('T')[0]}
           />
           <Link href="/dashboard/finance/expenses/new">
-            <Button><Plus className="h-4 w-4 me-2" /> إضافة مصروف</Button>
+            <Button><Plus className="h-4 w-4 me-2" /> {t('addExpense')}</Button>
           </Link>
         </div>
       </div>
@@ -280,15 +286,15 @@ export default function ExpensesClient() {
         )) : (
           <>
             <Card><CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">إجمالي المصاريف</p>
+              <p className="text-sm text-muted-foreground">{t('summary.totalExpenses')}</p>
               <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">{formatCurrency(summary.total_amount)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">ضريبة القيمة المضافة</p>
+              <p className="text-sm text-muted-foreground">{t('summary.totalVat')}</p>
               <p className="text-2xl font-bold mt-1">{formatCurrency(summary.total_vat)}</p>
             </CardContent></Card>
             <Card><CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">عدد المصاريف</p>
+              <p className="text-sm text-muted-foreground">{t('summary.totalCount')}</p>
               <p className="text-2xl font-bold mt-1">{summary.total_count}</p>
             </CardContent></Card>
           </>
@@ -300,31 +306,31 @@ export default function ExpensesClient() {
         <SearchInput
           value={search}
           onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="بحث..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 min-w-[200px]"
         />
         <Select value={categoryFilter} onValueChange={v => { setCategoryFilter(v === 'all' ? '' : v); setPage(1); }}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="التصنيف" /></SelectTrigger>
+          <SelectTrigger className="w-[180px]"><SelectValue placeholder={t('filters.categoryPlaceholder')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
+            <SelectItem value="all">{t('filters.allCategories')}</SelectItem>
             {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.name_ar || c.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('filters.statusPlaceholder')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            <SelectItem value="pending">بانتظار الاعتماد</SelectItem>
-            <SelectItem value="approved">معتمد</SelectItem>
-            <SelectItem value="rejected">مرفوض</SelectItem>
+            <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+            <SelectItem value="pending">{statusLabelFor('pending')}</SelectItem>
+            <SelectItem value="approved">{statusLabelFor('approved')}</SelectItem>
+            <SelectItem value="rejected">{statusLabelFor('rejected')}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">من</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{t('filters.dateFrom')}</span>
           <Input type="date" value={fromDate} onChange={e => { setFromDate(e.target.value); setPage(1); }} className="w-[160px]" />
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">إلى</span>
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{t('filters.dateTo')}</span>
           <Input type="date" value={toDate} onChange={e => { setToDate(e.target.value); setPage(1); }} className="w-[160px]" />
         </div>
       </div>
@@ -336,8 +342,8 @@ export default function ExpensesClient() {
         loading={loading}
         emptyState={{
           icon: ArrowDownCircle,
-          title: 'لا توجد مصاريف',
-          description: 'أضف مصروف جديد لتتبع النفقات',
+          title: t('emptyState.title'),
+          description: t('emptyState.description'),
         }}
         selectable
         getRowId={(exp) => exp.id}
@@ -345,7 +351,7 @@ export default function ExpensesClient() {
         onSortChange={handleSortChange}
         bulkActions={[
           {
-            label: 'حذف المحدد',
+            label: t('bulkActions.deleteSelected'),
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
@@ -360,20 +366,20 @@ export default function ExpensesClient() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>السابق</Button>
-          <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={!hasMore} onClick={() => setPage(p => p + 1)}>التالي</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('pagination.prev')}</Button>
+          <span className="text-sm text-muted-foreground">{t('pagination.pageOf', { page, totalPages })}</span>
+          <Button variant="outline" size="sm" disabled={!hasMore} onClick={() => setPage(p => p + 1)}>{t('pagination.next')}</Button>
         </div>
       )}
 
       {/* Delete Dialog */}
       <Dialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>حذف المصروف</DialogTitle></DialogHeader>
-          <p className="text-muted-foreground">هل أنت متأكد من حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء.</p>
+          <DialogHeader><DialogTitle>{t('deleteDialog.title')}</DialogTitle></DialogHeader>
+          <p className="text-muted-foreground">{t('deleteDialog.confirm')}</p>
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setDeleteId(null)}>إلغاء</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? 'جاري الحذف...' : 'حذف'}</Button>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>{t('deleteDialog.cancel')}</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? t('deleteDialog.deleting') : t('deleteDialog.confirmButton')}</Button>
           </div>
         </DialogContent>
       </Dialog>

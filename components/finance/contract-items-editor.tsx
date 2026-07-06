@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ interface ContractItemsEditorProps {
 }
 
 export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
+  const t = useTranslations('finance.contracts.itemsEditor');
   const [items, setItems] = useState<ContractItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,17 +58,17 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
       items.some(i => i.children?.some(c => !c.title.trim()));
 
     if (invalid) {
-      toast.error('جميع البنود يجب أن تحتوي على عنوان');
+      toast.error(t('toasts.titleRequired'));
       return;
     }
 
     setSaving(true);
     try {
       await mutateAPI(`/api/finance/contracts/${contractId}/items`, 'PUT', { items });
-      toast.success('تم حفظ بنود العقد');
+      toast.success(t('toasts.saveSuccess'));
       setHasChanges(false);
     } catch {
-      toast.error('فشل في حفظ البنود');
+      toast.error(t('toasts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -121,6 +123,9 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
     setHasChanges(true);
   };
 
+  // i18n-exempt: recipient-language content (Phase 9) — Arabic-alphabet ordinal
+  // scheme for contract sub-item numbering; flows into invoice items consumed
+  // by clients, not an admin-UI display string.
   const arabicLetters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
 
   if (loading) {
@@ -129,7 +134,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <ListTree className="h-4 w-4" />
-            نطاق العمل
+            {t('title')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -147,18 +152,18 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2">
             <ListTree className="h-4 w-4 text-orange-500" />
-            نطاق العمل
+            {t('title')}
           </CardTitle>
           <div className="flex items-center gap-2">
             {hasChanges && (
               <Button size="sm" onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Save className="h-4 w-4 me-1" />}
-                حفظ البنود
+                {t('saveItems')}
               </Button>
             )}
             <Button size="sm" variant="outline" onClick={addItem}>
               <Plus className="h-4 w-4 me-1" />
-              إضافة بند
+              {t('addItem')}
             </Button>
           </div>
         </div>
@@ -167,9 +172,9 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
         {items.length === 0 ? (
           <EmptyState
             icon={ListTree}
-            title="لا توجد بنود بعد"
-            description="أضف بنود نطاق العمل لتظهر في الفواتير والبوابة"
-            actionLabel="إضافة أول بند"
+            title={t('emptyState.title')}
+            description={t('emptyState.description')}
+            actionLabel={t('emptyState.actionLabel')}
             onAction={addItem}
           />
         ) : (
@@ -189,13 +194,13 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                     <Input
                       value={item.title}
                       onChange={e => updateItem(idx, 'title', e.target.value)}
-                      placeholder="عنوان البند"
+                      placeholder={t('itemTitlePlaceholder')}
                       className="font-medium"
                     />
                     <Input
                       value={item.description || ''}
                       onChange={e => updateItem(idx, 'description', e.target.value)}
-                      placeholder="وصف اختياري"
+                      placeholder={t('itemDescriptionPlaceholder')}
                       className="text-sm text-muted-foreground"
                     />
                   </div>
@@ -204,8 +209,8 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950"
                       onClick={() => addChild(idx)}
-                      title="إضافة بند فرعي"
-                      aria-label="إضافة بند فرعي"
+                      title={t('addChild')}
+                      aria-label={t('addChild')}
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
@@ -213,8 +218,8 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                       variant="ghost" size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                       onClick={() => removeItem(idx)}
-                      title="حذف البند"
-                      aria-label="حذف البند"
+                      title={t('removeItem')}
+                      aria-label={t('removeItem')}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -233,7 +238,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                           <Input
                             value={child.title}
                             onChange={e => updateChild(idx, cIdx, 'title', e.target.value)}
-                            placeholder="عنوان البند الفرعي"
+                            placeholder={t('childTitlePlaceholder')}
                             className="text-sm"
                           />
                         </div>
@@ -241,8 +246,8 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
                           variant="ghost" size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
                           onClick={() => removeChild(idx, cIdx)}
-                          title="حذف"
-                          aria-label="حذف البند الفرعي"
+                          title={t('removeChild')}
+                          aria-label={t('removeChildAria')}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -258,7 +263,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
               <div className="flex justify-end pt-2">
                 <Button size="sm" onClick={handleSave} disabled={saving}>
                   {saving ? <Loader2 className="h-4 w-4 me-1 animate-spin" /> : <Save className="h-4 w-4 me-1" />}
-                  حفظ البنود
+                  {t('saveItems')}
                 </Button>
               </div>
             )}
