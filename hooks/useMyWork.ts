@@ -18,6 +18,9 @@ export interface MyWorkLeaveItem {
   username: string;
   display_name: string;
   type: string;
+  /** pyra_leave_types.name_ar resolved server-side; null when the type
+   *  row can't be matched — render `type_name || leaveTypeLabel(type)`. */
+  type_name: string | null;
   start_date: string;
   end_date: string;
   days_count: number;

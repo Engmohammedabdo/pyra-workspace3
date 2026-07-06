@@ -256,7 +256,11 @@ export function MyWorkInbox() {
                 iconClass="bg-gradient-to-br from-blue-500 to-indigo-600"
                 href="/dashboard/approvals"
                 title={t('sections.approvals.leaveTitle', {
-                  type: leaveTypeLabel(l.type),
+                  // Resolve type label: DB name_ar first (type stores the
+                  // capitalized pyra_leave_types.name, which misses the
+                  // lowercase-keyed statuses.leaveType catalog), then the
+                  // catalog for legacy lowercase values, then raw type.
+                  type: l.type_name || leaveTypeLabel(l.type),
                   name: l.display_name,
                 })}
                 subtitle={t('sections.approvals.leaveSubtitle', {

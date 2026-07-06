@@ -54,6 +54,12 @@ interface LeaveItem {
   username: string;
   display_name: string;
   type: string;
+  /** Arabic display name of the leave type (pyra_leave_types.name_ar),
+   *  resolved server-side by type NAME — mirrors /api/approvals/team
+   *  (i18n Phase 5.3). null when the type row can't be resolved (e.g.
+   *  legacy lowercase 'annual' values from the old static form) — the
+   *  client then falls back through statuses.leaveType, then raw type. */
+  type_name: string | null;
   start_date: string;
   end_date: string;
   days_count: number;
@@ -184,11 +190,26 @@ export async function GET() {
         ? await serviceClient.from('pyra_users').select('username, display_name').in('username', leaveUsernames)
         : { data: [] };
       const userMap = new Map((leaveUsers || []).map((u) => [u.username, u.display_name]));
+
+      // Resolve type display names: `type` stores the capitalized
+      // pyra_leave_types.name (e.g. 'Annual'), which the lowercase-keyed
+      // statuses.leaveType catalog can't translate client-side.
+      const leaveTypeNames = Array.from(
+        new Set((leaves || []).map((l) => l.type).filter(Boolean))
+      );
+      const { data: leaveTypesData } = leaveTypeNames.length
+        ? await serviceClient.from('pyra_leave_types').select('name, name_ar').in('name', leaveTypeNames)
+        : { data: [] };
+      const typeNameArMap = new Map(
+        (leaveTypesData || []).map((t) => [t.name as string, t.name_ar as string])
+      );
+
       leaveItems = (leaves || []).map((l) => ({
         id: l.id,
         username: l.username,
         display_name: userMap.get(l.username) || l.username,
         type: l.type,
+        type_name: typeNameArMap.get(l.type) ?? null,
         start_date: l.start_date,
         end_date: l.end_date,
         days_count: l.days_count,
