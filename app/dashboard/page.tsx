@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations, useLocale } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +28,7 @@ import {
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { DashboardCharts } from '@/components/dashboard/charts';
 import { KpiGrid } from '@/components/dashboard/KpiGrid';
 import { SmartAlerts } from '@/components/dashboard/SmartAlerts';
@@ -75,28 +77,6 @@ interface DashboardData {
   pending_leave_count?: number;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  file_uploaded: 'رفع ملف', file_deleted: 'حذف ملف', file_renamed: 'إعادة تسمية',
-  file_moved: 'نقل ملف', folder_created: 'إنشاء مجلد', user_created: 'إنشاء مستخدم',
-  user_updated: 'تحديث مستخدم', user_deleted: 'حذف مستخدم', team_created: 'إنشاء فريق',
-  client_created: 'إنشاء عميل', project_created: 'إنشاء مشروع', project_deleted: 'حذف مشروع',
-  share_created: 'إنشاء رابط مشاركة', review_added: 'إضافة مراجعة', settings_updated: 'تحديث الإعدادات',
-  file_restored: 'استعادة ملف', file_purged: 'حذف نهائي', upload: 'رفع ملف', upload_deletion: 'حذف ملف مرفوع',
-  version_restore: 'استعادة نسخة', version_delete: 'حذف نسخة', trash_empty: 'تفريغ السلة',
-  trash_purge: 'حذف منتهية', password_changed: 'تغيير كلمة مرور', create_expense: 'إنشاء مصروف',
-  update_expense: 'تحديث مصروف', delete_expense: 'حذف مصروف', create_subscription: 'إنشاء اشتراك',
-  update_subscription: 'تحديث اشتراك', delete_subscription: 'حذف اشتراك', create_card: 'إضافة بطاقة',
-  update_card: 'تحديث بطاقة', delete_card: 'حذف بطاقة', create_contract: 'إنشاء عقد',
-  update_contract: 'تحديث عقد', create_target: 'إنشاء هدف', update_target: 'تحديث هدف',
-  payment_recorded: 'تسجيل دفعة', invoice_sent: 'إرسال فاتورة', invoice_created: 'إنشاء فاتورة',
-  milestone_invoice_generated: 'فاتورة مرحلة', quote_sent: 'إرسال عرض سعر', quote_signed: 'توقيع عرض سعر',
-  quote_viewed: 'مشاهدة عرض سعر', portal_login: 'دخول عميل', portal_logout: 'خروج عميل',
-  portal_download: 'تحميل ملف (عميل)', portal_preview: 'معاينة ملف (عميل)', file_approved: 'اعتماد ملف',
-  revision_requested: 'طلب تعديل', client_comment: 'تعليق عميل', script_approved: 'اعتماد سكريبت',
-  script_revision_requested: 'طلب تعديل سكريبت', script_reply_sent: 'رد إدارة على سكريبت',
-  script_client_reply: 'رد عميل على سكريبت', login: 'تسجيل دخول', logout: 'تسجيل خروج',
-};
-
 const ACTION_COLORS: Record<string, string> = {
   file_uploaded: 'from-blue-400 to-blue-600', upload: 'from-blue-400 to-blue-600',
   file_deleted: 'from-red-400 to-red-600', file_purged: 'from-red-400 to-red-600',
@@ -124,6 +104,19 @@ export default function DashboardPage() {
     staleTime: 60_000,
   });
 
+  const t = useTranslations('finance.dashboardHome');
+  const tActivity = useTranslations('finance.activityLabels');
+  const tNavItems = useTranslations('nav.items');
+  const tPaletteActions = useTranslations('nav.palette.actions');
+  const tMyWork = useTranslations('mywork.inbox');
+  const leaveTypeLabel = useStatusLabels('leaveType');
+  const locale = useLocale();
+
+  const actionLabelFor = (actionType: string): string =>
+    tActivity.has(actionType as Parameters<typeof tActivity>[0])
+      ? tActivity(actionType as Parameters<typeof tActivity>[0])
+      : actionType;
+
   const loadDashboard = () => { refetch(); };
 
   if (loading) {
@@ -137,7 +130,7 @@ export default function DashboardPage() {
   }
 
   const isAdmin = !!(data && 'total_users' in data);
-  const today = new Date().toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const today = new Date().toLocaleDateString(locale === 'ar' ? 'ar-SA' : 'en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <motion.div variants={containerMotion} initial="hidden" animate="show" className="space-y-6">
@@ -160,10 +153,10 @@ export default function DashboardPage() {
       {isAdmin && <motion.div variants={itemMotion}><KpiGrid /></motion.div>}
       {!isAdmin && data && (
         <motion.div variants={containerMotion} initial="hidden" animate="show" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <motion.div variants={itemMotion}><StatCard href="/dashboard/files" title="الملفات" value={data.accessible_files ?? 0} subtitle="ملفات متاحة لك" icon={FolderOpen} gradient="from-blue-500 to-indigo-600" /></motion.div>
-          <motion.div variants={itemMotion}><StatCard href="/dashboard/my-tasks" title="مهامي" value={data.my_tasks_count ?? 0} subtitle={(data.my_tasks_overdue ?? 0) > 0 ? `${data.my_tasks_overdue} متأخرة` : 'لا توجد مهام متأخرة'} icon={CheckSquare} accent={(data.my_tasks_overdue ?? 0) > 0 ? '#ef4444' : undefined} gradient={(data.my_tasks_overdue ?? 0) > 0 ? 'from-red-500 to-rose-600' : 'from-emerald-500 to-teal-600'} /></motion.div>
-          <motion.div variants={itemMotion}><StatCard href="/dashboard/timesheet" title="ساعات هذا الأسبوع" value={data.my_hours_this_week ?? 0} subtitle="ساعة مسجلة" icon={Clock} gradient="from-violet-500 to-purple-600" /></motion.div>
-          <motion.div variants={itemMotion}><StatCard href="/dashboard/notifications" title="الإشعارات" value={data.unread_notifications ?? 0} subtitle="غير مقروءة" icon={Bell} accent={data.unread_notifications ? '#f97316' : undefined} gradient="from-orange-500 to-amber-600" /></motion.div>
+          <motion.div variants={itemMotion}><StatCard href="/dashboard/files" title={tNavItems('files')} value={data.accessible_files ?? 0} subtitle={t('statCards.filesSubtitle')} icon={FolderOpen} gradient="from-blue-500 to-indigo-600" /></motion.div>
+          <motion.div variants={itemMotion}><StatCard href="/dashboard/my-tasks" title={tNavItems('myTasks')} value={data.my_tasks_count ?? 0} subtitle={(data.my_tasks_overdue ?? 0) > 0 ? t('statCards.overdueCount', { count: data.my_tasks_overdue ?? 0 }) : t('statCards.noOverdueTasks')} icon={CheckSquare} accent={(data.my_tasks_overdue ?? 0) > 0 ? '#ef4444' : undefined} gradient={(data.my_tasks_overdue ?? 0) > 0 ? 'from-red-500 to-rose-600' : 'from-emerald-500 to-teal-600'} /></motion.div>
+          <motion.div variants={itemMotion}><StatCard href="/dashboard/timesheet" title={t('statCards.hoursThisWeek')} value={data.my_hours_this_week ?? 0} subtitle={t('statCards.hoursSubtitle')} icon={Clock} gradient="from-violet-500 to-purple-600" /></motion.div>
+          <motion.div variants={itemMotion}><StatCard href="/dashboard/notifications" title={tNavItems('notifications')} value={data.unread_notifications ?? 0} subtitle={t('statCards.unreadSubtitle')} icon={Bell} accent={data.unread_notifications ? '#f97316' : undefined} gradient="from-orange-500 to-amber-600" /></motion.div>
         </motion.div>
       )}
       {!isAdmin && data && (data.my_tasks_overdue ?? 0) > 0 && (
@@ -173,8 +166,8 @@ export default function DashboardPage() {
               <div className="relative flex items-center gap-4">
                 <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-red-500 to-rose-600 flex items-center justify-center shrink-0 shadow-lg shadow-red-500/20"><AlertTriangle className="h-6 w-6 text-white" /></div>
                 <div className="flex-1">
-                  <p className="font-semibold text-red-800 dark:text-red-300">لديك {data.my_tasks_overdue} مهام متأخرة</p>
-                  <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">يرجى مراجعة المهام المتأخرة</p>
+                  <p className="font-semibold text-red-800 dark:text-red-300">{t('overdueBanner.title', { count: data.my_tasks_overdue ?? 0 })}</p>
+                  <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">{t('overdueBanner.subtitle')}</p>
                 </div>
                 <ArrowLeft className="h-5 w-5 text-red-400 group-hover:translate-x-[-4px] transition-transform" />
               </div>
@@ -193,8 +186,8 @@ export default function DashboardPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2 rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
-              <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-orange-500/15"><Activity className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">آخر النشاطات</h2></div>
-              <Link href="/dashboard/activity" className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 flex items-center gap-1 font-medium">عرض الكل <ArrowLeft className="h-3 w-3" /></Link>
+              <div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-md shadow-orange-500/15"><Activity className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">{t('recentActivity.title')}</h2></div>
+              <Link href="/dashboard/activity" className="text-xs text-orange-600 hover:text-orange-700 dark:text-orange-400 flex items-center gap-1 font-medium">{tMyWork('viewAll')} <ArrowLeft className="h-3 w-3" /></Link>
             </div>
             <ScrollArea className="h-[360px]">
               {data?.recent_activity && data.recent_activity.length > 0 ? (
@@ -203,45 +196,45 @@ export default function DashboardPage() {
                     <motion.div key={a.id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: i * 0.03 }} className="flex items-start gap-3 rounded-xl border border-border/30 bg-card/50 p-3">
                       <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br', ACTION_COLORS[a.action_type] || 'from-gray-400 to-gray-600')}><Activity className="h-4 w-4 text-white" /></div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-sm">{a.display_name}</span><Badge variant="secondary" className="text-[10px] px-2 py-0 rounded-full">{ACTION_LABELS[a.action_type] || a.action_type}</Badge></div>
+                        <div className="flex items-center gap-2 flex-wrap"><span className="font-semibold text-sm">{a.display_name}</span><Badge variant="secondary" className="text-[10px] px-2 py-0 rounded-full">{actionLabelFor(a.action_type)}</Badge></div>
                         <p className="text-xs text-muted-foreground/60 truncate mt-0.5">{a.target_path}</p>
-                        <p className="text-[10px] text-muted-foreground/40 mt-1">{formatRelativeDate(a.created_at)}</p>
+                        <p className="text-[10px] text-muted-foreground/40 mt-1">{formatRelativeDate(a.created_at, locale)}</p>
                       </div>
                     </motion.div>
                   ))}
                 </div>
-              ) : <EmptyState icon={Activity} title="لا توجد نشاطات حديثة" className="py-8" />}
+              ) : <EmptyState icon={Activity} title={t('recentActivity.empty')} className="py-8" />}
             </ScrollArea>
           </div>
           <div className="space-y-4">
             <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
-              <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center"><Zap className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">إجراءات سريعة</h2></div>
+              <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center"><Zap className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">{t('quickActions.title')}</h2></div>
               <div className="p-3 space-y-1.5">
                 {isAdmin ? (
                   <>
-                    <QuickAction href="/dashboard/invoices/new" icon={Receipt} label="فاتورة جديدة" gradient="from-orange-500 to-amber-600" />
-                    <QuickAction href="/dashboard/quotes/new" icon={Sparkles} label="عرض سعر جديد" gradient="from-indigo-500 to-blue-600" />
-                    <QuickAction href="/dashboard/projects?action=new" icon={Plus} label="مشروع جديد" gradient="from-emerald-500 to-teal-600" />
-                    <QuickAction href="/dashboard/clients?action=new" icon={UserPlus} label="عميل جديد" gradient="from-violet-500 to-purple-600" />
-                    <QuickAction href="/dashboard/files" icon={Upload} label="رفع ملفات" gradient="from-blue-500 to-cyan-600" />
+                    <QuickAction href="/dashboard/invoices/new" icon={Receipt} label={tPaletteActions('newInvoice')} gradient="from-orange-500 to-amber-600" />
+                    <QuickAction href="/dashboard/quotes/new" icon={Sparkles} label={tPaletteActions('newQuote')} gradient="from-indigo-500 to-blue-600" />
+                    <QuickAction href="/dashboard/projects?action=new" icon={Plus} label={tPaletteActions('newProject')} gradient="from-emerald-500 to-teal-600" />
+                    <QuickAction href="/dashboard/clients?action=new" icon={UserPlus} label={tPaletteActions('newClient')} gradient="from-violet-500 to-purple-600" />
+                    <QuickAction href="/dashboard/files" icon={Upload} label={t('quickActions.uploadFiles')} gradient="from-blue-500 to-cyan-600" />
                   </>
                 ) : (
                   <>
-                    <QuickAction href="/dashboard/my-tasks" icon={CheckSquare} label="مهامي" gradient="from-emerald-500 to-teal-600" />
-                    <QuickAction href="/dashboard/boards" icon={Kanban} label="لوحات العمل" gradient="from-blue-500 to-indigo-600" />
-                    <QuickAction href="/dashboard/timesheet" icon={Clock} label="تسجيل ساعات" gradient="from-violet-500 to-purple-600" />
-                    <QuickAction href="/dashboard/files" icon={Upload} label="رفع ملفات" gradient="from-orange-500 to-amber-600" />
+                    <QuickAction href="/dashboard/my-tasks" icon={CheckSquare} label={tNavItems('myTasks')} gradient="from-emerald-500 to-teal-600" />
+                    <QuickAction href="/dashboard/boards" icon={Kanban} label={tNavItems('boards')} gradient="from-blue-500 to-indigo-600" />
+                    <QuickAction href="/dashboard/timesheet" icon={Clock} label={t('quickActions.logHours')} gradient="from-violet-500 to-purple-600" />
+                    <QuickAction href="/dashboard/files" icon={Upload} label={t('quickActions.uploadFiles')} gradient="from-orange-500 to-amber-600" />
                   </>
                 )}
               </div>
             </div>
             {!isAdmin && data?.leave_balance && (
               <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
-                <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center"><CalendarDays className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">رصيد الإجازات</h2></div>
+                <div className="flex items-center gap-3 px-5 py-4 border-b border-border/40"><div className="w-9 h-9 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center"><CalendarDays className="h-4 w-4 text-white" /></div><h2 className="font-bold text-sm">{t('leaveBalance.title')}</h2></div>
                 <div className="px-5 py-3 space-y-1 divide-y divide-border/30">
-                  <LeaveBar label="سنوية" value={data.leave_balance.annual_remaining} gradient="from-orange-400 to-amber-500" />
-                  <LeaveBar label="مرضية" value={data.leave_balance.sick_remaining} gradient="from-blue-400 to-indigo-500" maxValue={15} />
-                  <LeaveBar label="شخصية" value={data.leave_balance.personal_remaining} gradient="from-violet-400 to-purple-500" maxValue={10} />
+                  <LeaveBar label={leaveTypeLabel('annual')} value={data.leave_balance.annual_remaining} gradient="from-orange-400 to-amber-500" />
+                  <LeaveBar label={leaveTypeLabel('sick')} value={data.leave_balance.sick_remaining} gradient="from-blue-400 to-indigo-500" maxValue={15} />
+                  <LeaveBar label={leaveTypeLabel('personal')} value={data.leave_balance.personal_remaining} gradient="from-violet-400 to-purple-500" maxValue={10} />
                 </div>
               </div>
             )}

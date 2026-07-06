@@ -1,5 +1,52 @@
 {
   "finance": {
+    "activityLabels": {
+      "file_uploaded": "File uploaded", "file_deleted": "File deleted", "file_renamed": "File renamed",
+      "file_moved": "File moved", "folder_created": "Folder created", "user_created": "User created",
+      "user_updated": "User updated", "user_deleted": "User deleted", "team_created": "Team created",
+      "client_created": "Client created", "project_created": "Project created", "project_deleted": "Project deleted",
+      "share_created": "Share link created", "review_added": "Review added", "settings_updated": "Settings updated",
+      "file_restored": "File restored", "file_purged": "File permanently deleted", "upload": "File uploaded", "upload_deletion": "Uploaded file deleted",
+      "version_restore": "Version restored", "version_delete": "Version deleted", "trash_empty": "Trash emptied",
+      "trash_purge": "Permanently deleted", "password_changed": "Password changed", "create_expense": "Expense created",
+      "update_expense": "Expense updated", "delete_expense": "Expense deleted", "create_subscription": "Subscription created",
+      "update_subscription": "Subscription updated", "delete_subscription": "Subscription deleted", "create_card": "Card added",
+      "update_card": "Card updated", "delete_card": "Card deleted", "create_contract": "Contract created",
+      "update_contract": "Contract updated", "create_target": "Target created", "update_target": "Target updated",
+      "payment_recorded": "Payment recorded", "invoice_sent": "Invoice sent", "invoice_created": "Invoice created",
+      "milestone_invoice_generated": "Milestone invoice generated", "quote_sent": "Quote sent", "quote_signed": "Quote signed",
+      "quote_viewed": "Quote viewed", "portal_login": "Client login", "portal_logout": "Client logout",
+      "portal_download": "File downloaded (client)", "portal_preview": "File previewed (client)", "file_approved": "File approved",
+      "revision_requested": "Revision requested", "client_comment": "Client comment", "script_approved": "Script approved",
+      "script_revision_requested": "Script revision requested", "script_reply_sent": "Admin reply on script",
+      "script_client_reply": "Client reply on script", "login": "Login", "logout": "Logout"
+    },
+    "dashboardHome": {
+      "statCards": {
+        "filesSubtitle": "Files available to you",
+        "hoursThisWeek": "Hours this week",
+        "hoursSubtitle": "Hours logged",
+        "unreadSubtitle": "Unread",
+        "overdueCount": "{count} overdue",
+        "noOverdueTasks": "No overdue tasks"
+      },
+      "overdueBanner": {
+        "title": "You have {count} overdue tasks",
+        "subtitle": "Please review your overdue tasks"
+      },
+      "recentActivity": {
+        "title": "Recent Activity",
+        "empty": "No recent activity"
+      },
+      "quickActions": {
+        "title": "Quick Actions",
+        "uploadFiles": "Upload Files",
+        "logHours": "Log Hours"
+      },
+      "leaveBalance": {
+        "title": "Leave Balance"
+      }
+    },
     "invoices": {
       "meta": { "title": "Invoices | Pyra Workspace" },
       "milestoneTypes": {
