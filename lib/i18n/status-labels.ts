@@ -9,7 +9,8 @@ export type StatusEntity =
   | 'client' | 'lead' | 'pipelineStage' | 'leadType' | 'leadDealType'
   | 'leadBillingCycle' | 'leadActivity' | 'conversation' | 'conversationPriority'
   | 'leadTask' | 'leadTaskPriority' | 'calendarEventSource' | 'attendance'
-  | 'taskPriority' | 'leaveType';
+  | 'taskPriority' | 'leaveType'
+  | 'leadPriority' | 'insightSeverity' | 'crmContract' | 'milestone';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

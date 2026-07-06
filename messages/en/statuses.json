@@ -29,6 +29,10 @@
     "calendarEventSource": { "task": "Task", "follow_up": "Follow-up", "meeting": "Meeting" },
     "attendance": { "present": "Present", "absent": "Absent", "late": "Late", "early_leave": "Early Leave", "holiday": "Public Holiday", "weekend": "Weekend" },
     "taskPriority": { "urgent": "Urgent", "high": "High", "medium": "Medium", "low": "Low" },
-    "leaveType": { "annual": "Annual", "sick": "Sick", "personal": "Personal", "unpaid": "Unpaid", "emergency": "Emergency" }
+    "leaveType": { "annual": "Annual", "sick": "Sick", "personal": "Personal", "unpaid": "Unpaid", "emergency": "Emergency" },
+    "leadPriority": { "vip": "VIP", "urgent": "Urgent", "high": "High", "medium": "Normal", "low": "Low" },
+    "insightSeverity": { "critical": "Critical", "high": "High", "medium": "Medium", "low": "Low" },
+    "crmContract": { "active": "Active", "in_progress": "In Progress", "completed": "Completed", "paused": "Paused", "cancelled": "Cancelled", "draft": "Draft", "expired": "Expired" },
+    "milestone": { "completed": "Completed", "invoiced": "Invoiced", "pending": "Pending", "cancelled": "Cancelled" }
   }
 }

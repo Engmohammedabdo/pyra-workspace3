@@ -29,6 +29,10 @@
     "calendarEventSource": { "task": "مهمة", "follow_up": "متابعة", "meeting": "اجتماع" },
     "attendance": { "present": "حاضر", "absent": "غائب", "late": "متأخر", "early_leave": "انصراف مبكر", "holiday": "إجازة رسمية", "weekend": "عطلة" },
     "taskPriority": { "urgent": "عاجل", "high": "مرتفع", "medium": "متوسط", "low": "منخفض" },
-    "leaveType": { "annual": "سنوية", "sick": "مرضية", "personal": "شخصية", "unpaid": "بدون راتب", "emergency": "طارئة" }
+    "leaveType": { "annual": "سنوية", "sick": "مرضية", "personal": "شخصية", "unpaid": "بدون راتب", "emergency": "طارئة" },
+    "leadPriority": { "vip": "VIP", "urgent": "عاجل", "high": "عالية", "medium": "عادية", "low": "منخفضة" },
+    "insightSeverity": { "critical": "حرج", "high": "عالي", "medium": "متوسط", "low": "منخفض" },
+    "crmContract": { "active": "نشط", "in_progress": "جاري", "completed": "مكتمل", "paused": "متوقف", "cancelled": "ملغى", "draft": "مسودة", "expired": "منتهي" },
+    "milestone": { "completed": "مكتمل", "invoiced": "تم تفويتُره", "pending": "قيد الانتظار", "cancelled": "ملغى" }
   }
 }

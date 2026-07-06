@@ -5,11 +5,12 @@ import type { Locale } from './config';
  * ONE top-level namespace (its own name) — files merge with a shallow spread,
  * so splitting a namespace across two files would silently drop keys.
  * Grows per phase: Phase 1 adds 'nav', 'auth', 'statuses'. Phase 2 adds
- * 'mywork', 'boards', 'calendar', 'api'.
+ * 'mywork', 'boards', 'calendar', 'api'. Phase 3 adds 'crm'.
  */
 export const NAMESPACE_FILES = [
   'common', 'nav', 'auth', 'statuses',
   'mywork', 'boards', 'calendar', 'api',
+  'crm',
 ] as const;
 
 type Messages = Record<string, unknown>;

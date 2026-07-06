@@ -7,7 +7,8 @@
       "taskNotFound": "المهمة غير موجودة",
       "boardNotFound": "اللوحة غير موجودة",
       "usernameRequired": "username مطلوب",
-      "titleRequired": "عنوان المهمة مطلوب"
+      "titleRequired": "عنوان المهمة مطلوب",
+      "jsonBodyRequired": "JSON body مطلوب"
     },
     "calendar": {
       "fromToRequired": "المعاملات from و to مطلوبتان (بصيغة YYYY-MM-DD)",
@@ -61,6 +62,30 @@
       "cannotDeleteOthersComments": "لا يمكنك حذف تعليقات الآخرين",
       "gatedColumnMoveBlocked": "هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)",
       "exitReviewApprovalBlocked": "للخروج من مرحلة المراجعة/الاعتماد استخدم أزرار «اعتماد» أو «طلب تعديل» من المهمة"
+    },
+    "crm": {
+      "leadAccessDenied": "لا تملك صلاحية الوصول لهذا الـ Lead",
+      "leadMovePermission": "لا تملك صلاحية تحريك هذا الـ Lead",
+      "leadEditPermission": "لا تملك صلاحية تعديل هذا الـ Lead",
+      "leadArchivePermission": "لا تملك صلاحية أرشفة هذا الـ Lead",
+      "leadReassignPermission": "لا تملك صلاحية إعادة إسناد الـ Lead",
+      "activityAddPermission": "لا تملك صلاحية إضافة نشاط لهذا الـ Lead",
+      "leadNotFound": "Lead غير موجود",
+      "clientNotFound": "العميل غير موجود",
+      "prospectNotFound": "العميل المحتمل غير موجود",
+      "leadStateConflict": "تغيّرت حالة الـ Lead — حدّث الصفحة وحاول مرة أخرى",
+      "notSignedStage": "الـ Lead ليس في مرحلة \"تم توقيع العقد\" — لا يوجد طلب اعتماد فعّال",
+      "assignPermissionFollowUp": "تحتاج صلاحية \"إسناد / نقل ملكية الـ Lead\" لإسناد المتابعة لمستخدم آخر",
+      "assignPermissionLead": "تحتاج صلاحية \"إسناد / نقل ملكية الـ Lead\" لإسناده لمستخدم آخر",
+      "assigneeInactive": "المستخدم المحدد للإسناد غير موجود أو غير نشط",
+      "isoDateInvalid": "{field} غير صالح — يجب أن يكون تاريخ ISO",
+      "taskNotFound": "المهمة غير موجودة",
+      "taskTitleRequired": "العنوان مطلوب",
+      "taskTitleTooLong": "العنوان طويل جداً (الحد الأقصى {max} حرف)",
+      "taskDueDateFormat": "تاريخ الاستحقاق يجب أن يكون بصيغة YYYY-MM-DD",
+      "taskPriorityInvalid": "الأولوية غير صحيحة — اختر: low / medium / high / urgent",
+      "taskStatusInvalid": "الحالة غير صحيحة",
+      "taskDeleteOwner": "فقط منشئ المهمة أو الـ admin يقدر يحذفها"
     }
   }
 }

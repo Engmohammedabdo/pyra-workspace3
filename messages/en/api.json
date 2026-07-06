@@ -7,7 +7,8 @@
       "taskNotFound": "Task not found",
       "boardNotFound": "Board not found",
       "usernameRequired": "username is required",
-      "titleRequired": "Task title is required"
+      "titleRequired": "Task title is required",
+      "jsonBodyRequired": "JSON body is required"
     },
     "calendar": {
       "fromToRequired": "The from and to parameters are required (in YYYY-MM-DD format)",
@@ -61,6 +62,30 @@
       "cannotDeleteOthersComments": "You cannot delete other people's comments",
       "gatedColumnMoveBlocked": "This column has a dedicated action — open the task and use the button (submit for review / approve / final delivery)",
       "exitReviewApprovalBlocked": "To exit the review/approval stage, use the «Approve» or «Request Changes» buttons from the task"
+    },
+    "crm": {
+      "leadAccessDenied": "You do not have access to this Lead",
+      "leadMovePermission": "You do not have permission to move this Lead",
+      "leadEditPermission": "You do not have permission to edit this Lead",
+      "leadArchivePermission": "You do not have permission to archive this Lead",
+      "leadReassignPermission": "You do not have permission to reassign this Lead",
+      "activityAddPermission": "You do not have permission to add an activity to this Lead",
+      "leadNotFound": "Lead not found",
+      "clientNotFound": "Client not found",
+      "prospectNotFound": "Prospect not found",
+      "leadStateConflict": "The Lead's status changed — refresh the page and try again",
+      "notSignedStage": "The Lead is not in the \"Contract Signed\" stage — there is no active approval request",
+      "assignPermissionFollowUp": "You need the \"Assign / Transfer Lead Ownership\" permission to assign the follow-up to another user",
+      "assignPermissionLead": "You need the \"Assign / Transfer Lead Ownership\" permission to assign it to another user",
+      "assigneeInactive": "The selected assignee does not exist or is inactive",
+      "isoDateInvalid": "{field} is invalid — it must be an ISO date",
+      "taskNotFound": "Task not found",
+      "taskTitleRequired": "Title is required",
+      "taskTitleTooLong": "Title is too long (max {max} characters)",
+      "taskDueDateFormat": "Due date must be in YYYY-MM-DD format",
+      "taskPriorityInvalid": "Invalid priority — choose: low / medium / high / urgent",
+      "taskStatusInvalid": "Invalid status",
+      "taskDeleteOwner": "Only the task's creator or an admin can delete it"
     }
   }
 }
