@@ -5,6 +5,7 @@ import { toAED } from '@/lib/utils/currency';
 import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { INVOICE_STATUS, INVOICE_OUTSTANDING_STATUSES, CONTRACT_STATUS, EXPENSE_STATUS } from '@/lib/constants/statuses';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 export async function GET() {
   const auth = await requireApiPermission('finance.view');
@@ -31,9 +32,14 @@ export async function GET() {
     }
 
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-    const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0];
-    const today = now.toISOString().split('T')[0];
+    // Dubai-anchored day/month/year boundaries (Phase 15.1 dubaiDayKey lock):
+    // the UTC day differs from the Dubai day for the last 4 hours of every
+    // Dubai day, and local-midnight Date construction shifts on non-UTC hosts.
+    const today = dubaiDayKey(now);
+    const dubaiYear = Number(today.slice(0, 4));
+    const dubaiMonth0 = Number(today.slice(5, 7)) - 1; // 0-based
+    const startOfMonth = `${today.slice(0, 7)}-01`;
+    const startOfYear = `${today.slice(0, 4)}-01-01`;
 
     // Auto-mark overdue invoices (fire-and-forget — don't block dashboard load)
     void supabase
@@ -143,14 +149,15 @@ export async function GET() {
     // Monthly revenue vs expenses (last 12 months)
     const monthlyData: Array<{ month: string; revenue: number; expenses: number }> = [];
     for (let i = 11; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const d = new Date(dubaiYear, dubaiMonth0 - i, 1);
       const monthLabel = d.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' });
 
       monthlyData.push({ month: monthLabel, revenue: 0, expenses: 0 });
     }
 
     // Get all payments for last 12 months (revenue by actual payment_date)
-    const twelveMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 11, 1).toISOString().split('T')[0];
+    const start12m = new Date(Date.UTC(dubaiYear, dubaiMonth0 - 11, 1));
+    const twelveMonthsAgo = `${start12m.getUTCFullYear()}-${String(start12m.getUTCMonth() + 1).padStart(2, '0')}-01`;
     const { data: payments12m } = await supabase
       .from('pyra_payments')
       .select('amount, payment_date, invoice_id')
@@ -176,8 +183,10 @@ export async function GET() {
       filteredPayments12m.map((p: { invoice_id: string | null }) => p.invoice_id)
     );
     filteredPayments12m.forEach((p: { amount: number; payment_date: string; invoice_id: string | null }) => {
+      // payment_date is a DATE string → parses as UTC midnight; UTC getters
+      // read the literal calendar month regardless of server timezone.
       const pDate = new Date(p.payment_date);
-      const monthIndex = 11 - ((now.getFullYear() - pDate.getFullYear()) * 12 + now.getMonth() - pDate.getMonth());
+      const monthIndex = 11 - ((dubaiYear - pDate.getUTCFullYear()) * 12 + dubaiMonth0 - pDate.getUTCMonth());
       if (monthIndex >= 0 && monthIndex < 12) {
         monthlyData[monthIndex].revenue += toAED(
           Number(p.amount || 0),
@@ -198,7 +207,7 @@ export async function GET() {
 
     (expenses12m || []).forEach((e: { amount: number; vat_amount: number; currency: string; expense_date: string }) => {
       const eDate = new Date(e.expense_date);
-      const monthIndex = 11 - ((now.getFullYear() - eDate.getFullYear()) * 12 + now.getMonth() - eDate.getMonth());
+      const monthIndex = 11 - ((dubaiYear - eDate.getUTCFullYear()) * 12 + dubaiMonth0 - eDate.getUTCMonth());
       if (monthIndex >= 0 && monthIndex < 12) {
         monthlyData[monthIndex].expenses += toAED(Number(e.amount) + Number(e.vat_amount || 0), e.currency);
       }

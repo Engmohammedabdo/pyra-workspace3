@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { REVENUE_TARGET_FIELDS } from '@/lib/supabase/fields';
 import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
 import { toAED } from '@/lib/utils/currency';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
     }
 
     if (current) {
-      const today = new Date().toISOString().split('T')[0];
+      const today = dubaiDayKey();
       query = query.lte('period_start', today).gte('period_end', today);
     }
 

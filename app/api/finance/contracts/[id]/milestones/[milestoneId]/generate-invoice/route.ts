@@ -12,6 +12,7 @@ import { generateNextInvoiceNumber } from '@/lib/utils/invoice-number';
 import { INVOICE_FIELDS } from '@/lib/supabase/fields';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
 import { recalcContractBilled } from '@/lib/finance/contract-billing';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 type RouteContext = { params: Promise<{ id: string; milestoneId: string }> };
 
@@ -155,7 +156,7 @@ export async function POST(
         client_id: contract.client_id || null,
         project_name: contract.title || null,
         status: INVOICE_STATUS.DRAFT,
-        issue_date: new Date().toISOString().split('T')[0],
+        issue_date: dubaiDayKey(),
         due_date: dueDate.toISOString().split('T')[0],
         currency: contract.currency || 'AED',
         subtotal,

@@ -4,6 +4,7 @@ import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { resolveUserScope } from '@/lib/auth/scope';
 import { INVOICE_STATUS } from '@/lib/constants/statuses';
+import { dubaiDayKey } from '@/lib/utils/format';
 
 /**
  * POST /api/invoices/check-overdue
@@ -23,7 +24,7 @@ export async function POST(_request: NextRequest) {
     }
 
     const supabase = createServiceRoleClient();
-    const today = new Date().toISOString().split('T')[0];
+    const today = dubaiDayKey();
 
     let query = supabase
       .from('pyra_invoices')
