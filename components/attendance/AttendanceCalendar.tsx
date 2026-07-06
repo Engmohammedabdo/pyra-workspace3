@@ -1,20 +1,22 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CalendarDays, Clock, ChevronRight, ChevronLeft } from 'lucide-react';
-import {
-  ATTENDANCE_STATUS_STYLES,
-  ATTENDANCE_STATUS_LABELS,
-} from '@/lib/constants/statuses';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { ATTENDANCE_STATUS_STYLES } from '@/lib/constants/statuses';
+import { monthNamesFor } from '@/lib/constants/dates';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { formatTime, formatHours } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import type { AttendanceRecord } from '@/hooks/useAttendance';
 
-const DAY_NAMES_AR = ['أحد', 'إثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'];
+// Sun..Sat index → the shared calendar.dayNames key set. Values confirmed
+// byte-identical to the local (now-removed) DAY_NAMES_AR array.
+const DAY_NAME_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 
 export type CalendarDay = { day: number; date: string; status?: string } | null;
 
@@ -51,18 +53,23 @@ export default function AttendanceCalendar({
   loading,
   today,
 }: AttendanceCalendarProps) {
+  const t = useTranslations('hr.attendance.calendar');
+  const tDayNames = useTranslations('calendar.dayNames');
+  const statusLabelFor = useStatusLabels('attendance');
+  const locale = useLocale() as Locale;
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Month Navigation */}
       <div className="lg:col-span-3 flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">
-          {MONTH_NAMES_AR[month - 1]} {year}
+          {monthNamesFor(locale)[month - 1]} {year}
         </h2>
         <div className="flex items-center gap-1">
-          <Button variant="outline" size="icon" onClick={onNext} className="h-8 w-8" aria-label="الشهر التالي">
+          <Button variant="outline" size="icon" onClick={onNext} className="h-8 w-8" aria-label={t('nextMonth')}>
             <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           </Button>
-          <Button variant="outline" size="icon" onClick={onPrev} className="h-8 w-8" aria-label="الشهر السابق">
+          <Button variant="outline" size="icon" onClick={onPrev} className="h-8 w-8" aria-label={t('prevMonth')}>
             <ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           </Button>
         </div>
@@ -73,13 +80,13 @@ export default function AttendanceCalendar({
         <CardContent className="pt-5">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-orange-500" aria-hidden="true" />
-            تقويم الحضور
+            {t('title')}
           </h3>
 
           <div className="grid grid-cols-7 gap-1 mb-2">
-            {DAY_NAMES_AR.map(day => (
-              <div key={day} className="text-center text-[10px] text-muted-foreground font-medium">
-                {day}
+            {DAY_NAME_KEYS.map(key => (
+              <div key={key} className="text-center text-[10px] text-muted-foreground font-medium">
+                {tDayNames(key)}
               </div>
             ))}
           </div>
@@ -99,11 +106,9 @@ export default function AttendanceCalendar({
 
                 const isToday = cell.date === today;
 
-                const statusLabel = cell.status
-                  ? ATTENDANCE_STATUS_LABELS[cell.status as keyof typeof ATTENDANCE_STATUS_LABELS]
-                  : undefined;
+                const statusLabel = cell.status ? statusLabelFor(cell.status) : undefined;
                 const ariaLabel = statusLabel
-                  ? `${cell.date} — ${statusLabel}`
+                  ? t('cellAria', { date: cell.date, status: statusLabel })
                   : undefined;
 
                 return (
@@ -131,7 +136,7 @@ export default function AttendanceCalendar({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border" role="list" aria-label="مفتاح ألوان الحضور">
+          <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border" role="list" aria-label={t('colorLegendAria')}>
             {[
               { color: 'bg-green-500', status: 'present' },
               { color: 'bg-yellow-500', status: 'late' },
@@ -143,7 +148,7 @@ export default function AttendanceCalendar({
               <div key={item.status} className="flex items-center gap-1.5" role="listitem">
                 <div className={`w-2 h-2 rounded-full ${item.color}`} aria-hidden="true" />
                 <span className="text-[10px] text-muted-foreground">
-                  {ATTENDANCE_STATUS_LABELS[item.status as keyof typeof ATTENDANCE_STATUS_LABELS]}
+                  {statusLabelFor(item.status)}
                 </span>
               </div>
             ))}
@@ -156,7 +161,7 @@ export default function AttendanceCalendar({
         <CardContent className="pt-5">
           <h3 className="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
             <Clock className="h-4 w-4 text-orange-500" aria-hidden="true" />
-            سجل الحضور
+            {t('recordsTitle')}
           </h3>
 
           {loading ? (
@@ -168,25 +173,25 @@ export default function AttendanceCalendar({
           ) : records.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="لا توجد سجلات"
-              description="لم يتم تسجيل أي حضور في هذا الشهر"
+              title={t('empty.title')}
+              description={t('empty.description')}
             />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th className="text-start pb-3 pe-4 font-medium">التاريخ</th>
-                    <th className="text-start pb-3 pe-4 font-medium">الدخول</th>
-                    <th className="text-start pb-3 pe-4 font-medium">الانصراف</th>
-                    <th className="text-start pb-3 pe-4 font-medium">الساعات</th>
-                    <th className="text-start pb-3 font-medium">الحالة</th>
+                    <th className="text-start pb-3 pe-4 font-medium">{t('columns.date')}</th>
+                    <th className="text-start pb-3 pe-4 font-medium">{t('columns.clockIn')}</th>
+                    <th className="text-start pb-3 pe-4 font-medium">{t('columns.clockOut')}</th>
+                    <th className="text-start pb-3 pe-4 font-medium">{t('columns.hours')}</th>
+                    <th className="text-start pb-3 font-medium">{t('columns.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {records.map((record) => {
                     const recDate = new Date(record.date + 'T00:00:00');
-                    const dayName = DAY_NAMES_AR[recDate.getDay()];
+                    const dayName = tDayNames(DAY_NAME_KEYS[recDate.getDay()]);
 
                     return (
                       <tr
@@ -196,16 +201,16 @@ export default function AttendanceCalendar({
                         <td className="py-3 pe-4">
                           <div className="flex flex-col">
                             <span className="text-foreground font-medium">
-                              {recDate.toLocaleDateString('ar-AE', { day: 'numeric', month: 'short' })}
+                              {recDate.toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB', { day: 'numeric', month: 'short' })}
                             </span>
                             <span className="text-[11px] text-muted-foreground">{dayName}</span>
                           </div>
                         </td>
                         <td className="py-3 pe-4 font-mono text-foreground">
-                          {formatTime(record.clock_in)}
+                          {formatTime(record.clock_in, locale)}
                         </td>
                         <td className="py-3 pe-4 font-mono text-foreground">
-                          {formatTime(record.clock_out)}
+                          {formatTime(record.clock_out, locale)}
                         </td>
                         <td className="py-3 pe-4 font-mono text-foreground">
                           {record.total_hours > 0 ? formatHours(record.total_hours) : '—'}
@@ -215,7 +220,7 @@ export default function AttendanceCalendar({
                             variant="outline"
                             className={`text-[11px] border-0 ${ATTENDANCE_STATUS_STYLES[record.status]}`}
                           >
-                            {ATTENDANCE_STATUS_LABELS[record.status] || record.status}
+                            {statusLabelFor(record.status)}
                           </Badge>
                         </td>
                       </tr>

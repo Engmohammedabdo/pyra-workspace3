@@ -1,3 +1,166 @@
 {
-  "hr": {}
+  "hr": {
+    "attendance": {
+      "page": {
+        "manageButton": "Edit Employee Attendance",
+        "toasts": {
+          "clockInSuccess": "Clocked in successfully",
+          "clockInError": "An error occurred while clocking in",
+          "clockOutSuccess": "Clocked out successfully",
+          "clockOutError": "An error occurred while clocking out"
+        }
+      },
+      "todayCard": {
+        "clockedOut": "Clocked out — {hours} hours",
+        "clockedInSince": "Clocked in since {time}",
+        "notClockedIn": "You haven't clocked in today",
+        "completedToday": "Done for today",
+        "clockingOut": "Clocking out...",
+        "clockOut": "Clock Out",
+        "clockingIn": "Clocking in...",
+        "clockIn": "Clock In"
+      },
+      "summaryCards": {
+        "presentDays": "Present Days",
+        "lateDays": "Late Days",
+        "absentDays": "Absent Days",
+        "totalHours": "Total Hours",
+        "average": "Average: {hours} / day"
+      },
+      "calendar": {
+        "title": "Attendance Calendar",
+        "nextMonth": "Next Month",
+        "prevMonth": "Previous Month",
+        "colorLegendAria": "Attendance color legend",
+        "cellAria": "{date} — {status}",
+        "recordsTitle": "Attendance Records",
+        "empty": {
+          "title": "No Records",
+          "description": "No attendance was recorded this month"
+        },
+        "columns": {
+          "date": "Date",
+          "clockIn": "Clock In",
+          "clockOut": "Clock Out",
+          "hours": "Hours",
+          "status": "Status"
+        }
+      },
+      "adminDialog": {
+        "toasts": {
+          "selectEmployee": "Please select an employee",
+          "selectDate": "Please select a date",
+          "saveSuccess": "Attendance record saved",
+          "saveFailed": "Save failed"
+        },
+        "title": "Edit / Add Attendance Record",
+        "employeeLabel": "Employee",
+        "employeePlaceholder": "Select an employee...",
+        "dateLabel": "Date",
+        "statusLabel": "Status",
+        "clockInLabel": "Clock-in Time (optional)",
+        "clockOutLabel": "Clock-out Time (optional)",
+        "notesLabel": "Notes (optional)",
+        "notesPlaceholder": "Any additional notes...",
+        "saving": "Saving...",
+        "save": "Save Record",
+        "cancel": "Cancel"
+      }
+    },
+    "timesheet": {
+      "page": {
+        "title": "Work Hours Log",
+        "summaryLine": "{count} entries · Total {hours} hours",
+        "logHours": "Log Hours",
+        "toasts": {
+          "entryAdded": "Entry added",
+          "entryAddFailed": "Failed to add entry",
+          "entrySubmitted": "Entry submitted for approval",
+          "entrySubmitFailed": "Failed to submit",
+          "entryApproved": "Entry approved",
+          "entryRejected": "Entry rejected",
+          "entryActionFailed": "Action failed",
+          "entryDeleted": "Deleted",
+          "entryDeleteFailed": "Delete failed",
+          "periodCreated": "Period created",
+          "periodCreateFailed": "Failed to create period",
+          "periodActionFailed": "Action failed",
+          "periodActionLabels": {
+            "submit": "Period submitted",
+            "approve": "Period approved",
+            "reject": "Period rejected"
+          }
+        },
+        "addEntryDialog": {
+          "title": "Log Work Hours",
+          "dateLabel": "Date",
+          "hoursLabel": "Hours",
+          "hoursPlaceholder": "e.g. 8",
+          "projectLabel": "Project (optional)",
+          "noProject": "No project",
+          "notesLabel": "Notes",
+          "notesPlaceholder": "What did you work on?",
+          "billable": "Billable",
+          "billingRateLabel": "Hourly Rate",
+          "billingRatePlaceholder": "e.g. 150",
+          "saving": "Saving...",
+          "save": "Save"
+        },
+        "summaryCards": {
+          "totalHours": "Total Hours",
+          "approved": "Approved",
+          "pendingApproval": "Pending Approval"
+        },
+        "overtimeCard": {
+          "title": "Overtime Summary — Current Month",
+          "overtimeHours": "Overtime Hours",
+          "overtimeEntries": "Overtime Entries",
+          "estimatedPay": "Estimated Overtime Pay"
+        },
+        "tabs": {
+          "entries": "Entries",
+          "periods": "Periods"
+        },
+        "entriesTab": {
+          "empty": {
+            "title": "No Records",
+            "description": "Start logging your work hours",
+            "actionLabel": "Log Hours"
+          },
+          "noDescription": "No description",
+          "billable": "Billable",
+          "billableRate": " ({rate}/hr)",
+          "overtime": "Overtime",
+          "submit": "Submit",
+          "approve": "Approve",
+          "reject": "Reject"
+        },
+        "periodsTab": {
+          "createPeriod": "Create Period",
+          "createPeriodDialog": {
+            "title": "Create Time Period",
+            "startDateLabel": "Start Date",
+            "endDateLabel": "End Date",
+            "creating": "Creating...",
+            "create": "Create"
+          },
+          "empty": {
+            "title": "No Periods",
+            "description": "Create a time period to group hour entries",
+            "actionLabel": "Create Period"
+          },
+          "totalHours": "{hours} hours",
+          "periodType": {
+            "weekly": "Weekly",
+            "biweekly": "Biweekly",
+            "monthly": "Monthly"
+          },
+          "rejectionReason": "Rejection reason: {reason}",
+          "submit": "Submit",
+          "approve": "Approve",
+          "reject": "Reject"
+        }
+      }
+    }
+  }
 }

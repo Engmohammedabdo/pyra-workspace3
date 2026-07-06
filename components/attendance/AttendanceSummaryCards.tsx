@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -20,6 +21,8 @@ export default function AttendanceSummaryCards({
   summary,
   loading,
 }: AttendanceSummaryCardsProps) {
+  const t = useTranslations('hr.attendance.summaryCards');
+
   if (loading) {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -43,7 +46,7 @@ export default function AttendanceSummaryCards({
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
             <CheckCircle className="h-4 w-4 text-green-500" />
-            أيام الحضور
+            {t('presentDays')}
           </div>
           <p className="text-2xl font-bold text-foreground">{summary.present_days}</p>
         </CardContent>
@@ -52,7 +55,7 @@ export default function AttendanceSummaryCards({
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
             <AlertTriangle className="h-4 w-4 text-yellow-500" />
-            أيام التأخر
+            {t('lateDays')}
           </div>
           <p className="text-2xl font-bold text-foreground">{summary.late_days}</p>
         </CardContent>
@@ -61,7 +64,7 @@ export default function AttendanceSummaryCards({
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
             <XCircle className="h-4 w-4 text-red-500" />
-            أيام الغياب
+            {t('absentDays')}
           </div>
           <p className="text-2xl font-bold text-foreground">{summary.absent_days}</p>
         </CardContent>
@@ -70,12 +73,12 @@ export default function AttendanceSummaryCards({
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
             <TrendingUp className="h-4 w-4 text-orange-500" />
-            إجمالي الساعات
+            {t('totalHours')}
           </div>
           <p className="text-2xl font-bold text-foreground">{formatHours(summary.total_hours)}</p>
           {summary.avg_hours_per_day > 0 && (
             <p className="text-xs text-muted-foreground mt-0.5">
-              المعدل: {formatHours(summary.avg_hours_per_day)} / يوم
+              {t('average', { hours: formatHours(summary.avg_hours_per_day) })}
             </p>
           )}
         </CardContent>

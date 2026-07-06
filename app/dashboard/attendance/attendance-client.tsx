@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import {
   useAttendanceRecords,
@@ -32,6 +33,7 @@ interface AttendanceClientProps {
 }
 
 export default function AttendanceClient({ session }: AttendanceClientProps) {
+  const t = useTranslations('hr.attendance.page');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [adminDialogOpen, setAdminDialogOpen] = useState(false);
 
@@ -143,12 +145,12 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
         todayRecord={todayRecord}
         elapsed={getElapsedTime()}
         onClockIn={() => clockIn.mutate(undefined, {
-          onSuccess: () => toast.success('تم تسجيل الدخول بنجاح'),
-          onError: () => toast.error('حدث خطأ أثناء تسجيل الدخول'),
+          onSuccess: () => toast.success(t('toasts.clockInSuccess')),
+          onError: () => toast.error(t('toasts.clockInError')),
         })}
         onClockOut={() => clockOut.mutate(undefined, {
-          onSuccess: () => toast.success('تم تسجيل الانصراف بنجاح'),
-          onError: () => toast.error('حدث خطأ أثناء تسجيل الانصراف'),
+          onSuccess: () => toast.success(t('toasts.clockOutSuccess')),
+          onError: () => toast.error(t('toasts.clockOutError')),
         })}
         clockingIn={clockIn.isPending}
         clockingOut={clockOut.isPending}
@@ -177,7 +179,7 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
               className="h-11 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
             >
               <UserCog className="h-4 w-4" />
-              تعديل حضور موظف
+              {t('manageButton')}
             </Button>
           </div>
           <AdminAttendanceDialog

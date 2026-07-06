@@ -3,6 +3,7 @@
 
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocale, useTranslations } from 'next-intl';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useProjects } from '@/hooks/useProjects';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +21,8 @@ import {
   Timer, CalendarRange, DollarSign, AlertTriangle, Loader2,
 } from 'lucide-react';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import type { AuthSession } from '@/lib/auth/guards';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -29,25 +32,11 @@ const STATUS_STYLES: Record<string, string> = {
   rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'مسودة',
-  submitted: 'مرسل',
-  approved: 'معتمد',
-  rejected: 'مرفوض',
-};
-
 const PERIOD_STATUS_STYLES: Record<string, string> = {
   open: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
   submitted: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
   approved: 'bg-green-500/10 text-green-600 dark:text-green-400',
   rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
-};
-
-const PERIOD_STATUS_LABELS: Record<string, string> = {
-  open: 'مفتوحة',
-  submitted: 'مرسلة',
-  approved: 'معتمدة',
-  rejected: 'مرفوضة',
 };
 
 interface TimesheetEntry {
@@ -97,6 +86,10 @@ interface TimesheetClientProps {
 }
 
 export default function TimesheetClient({ session }: TimesheetClientProps) {
+  const t = useTranslations('hr.timesheet.page');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('timesheet');
+  const periodStatusLabelFor = useStatusLabels('timesheetPeriod');
   const queryClient = useQueryClient();
   const { data: projects = [] } = useProjects();
   const [showAdd, setShowAdd] = useState(false);
@@ -147,7 +140,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
   const addEntryMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/timesheet', 'POST', data),
     onSuccess: () => {
-      toast.success('تم إضافة السجل');
+      toast.success(t('toasts.entryAdded'));
       setShowAdd(false);
       setFormHours('');
       setFormDesc('');
@@ -157,42 +150,42 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       invalidateEntries();
       invalidateOvertime();
     },
-    onError: () => toast.error('فشل الإضافة'),
+    onError: () => toast.error(t('toasts.entryAddFailed')),
   });
 
   const submitEntryMutation = useMutation({
     mutationFn: (id: string) => mutateAPI(`/api/timesheet/${id}`, 'PATCH', { status: 'submitted' }),
-    onSuccess: () => { toast.success('تم إرسال السجل للاعتماد'); invalidateEntries(); },
-    onError: () => toast.error('فشل الإرسال'),
+    onSuccess: () => { toast.success(t('toasts.entrySubmitted')); invalidateEntries(); },
+    onError: () => toast.error(t('toasts.entrySubmitFailed')),
   });
 
   const approveEntryMutation = useMutation({
     mutationFn: ({ id, approved }: { id: string; approved: boolean }) =>
       mutateAPI(`/api/timesheet/${id}`, 'PATCH', { status: approved ? 'approved' : 'rejected' }),
     onSuccess: (_, { approved }) => {
-      toast.success(approved ? 'تم اعتماد السجل' : 'تم رفض السجل');
+      toast.success(approved ? t('toasts.entryApproved') : t('toasts.entryRejected'));
       invalidateEntries();
     },
-    onError: () => toast.error('فشل العملية'),
+    onError: () => toast.error(t('toasts.entryActionFailed')),
   });
 
   const deleteEntryMutation = useMutation({
     mutationFn: (id: string) => mutateAPI(`/api/timesheet/${id}`, 'DELETE'),
-    onSuccess: () => { toast.success('تم الحذف'); invalidateEntries(); invalidateOvertime(); },
-    onError: () => toast.error('فشل الحذف'),
+    onSuccess: () => { toast.success(t('toasts.entryDeleted')); invalidateEntries(); invalidateOvertime(); },
+    onError: () => toast.error(t('toasts.entryDeleteFailed')),
   });
 
   // Period mutations
   const addPeriodMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/dashboard/timesheet-periods', 'POST', data),
     onSuccess: () => {
-      toast.success('تم إنشاء الفترة');
+      toast.success(t('toasts.periodCreated'));
       setShowAddPeriod(false);
       setPeriodStartDate('');
       setPeriodEndDate('');
       invalidatePeriods();
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'فشل إنشاء الفترة'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : t('toasts.periodCreateFailed')),
   });
 
   const updatePeriodStatusMutation = useMutation({
@@ -200,14 +193,14 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       mutateAPI(`/api/dashboard/timesheet-periods/${periodId}`, 'PATCH', { action }),
     onSuccess: (_, { action }) => {
       const actionLabels: Record<string, string> = {
-        submit: 'تم إرسال الفترة',
-        approve: 'تم اعتماد الفترة',
-        reject: 'تم رفض الفترة',
+        submit: t('toasts.periodActionLabels.submit'),
+        approve: t('toasts.periodActionLabels.approve'),
+        reject: t('toasts.periodActionLabels.reject'),
       };
       toast.success(actionLabels[action]);
       invalidatePeriods();
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : 'فشل العملية'),
+    onError: (err) => toast.error(err instanceof Error ? err.message : t('toasts.periodActionFailed')),
   });
 
   const saving = addEntryMutation.isPending;
@@ -268,26 +261,26 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">سجل ساعات العمل</h1>
+          <h1 className="text-2xl font-bold">{t('title')}</h1>
           <p className="text-sm text-muted-foreground">
-            {entries.length} سجل &middot; إجمالي {totalHours.toFixed(1)} ساعة
+            {t('summaryLine', { count: entries.length, hours: totalHours.toFixed(1) })}
           </p>
         </div>
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white">
               <Plus className="h-4 w-4 me-2" />
-              تسجيل ساعات
+              {t('logHours')}
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent dir={dirFor(locale)}>
             <DialogHeader>
-              <DialogTitle>تسجيل ساعات عمل</DialogTitle>
+              <DialogTitle>{t('addEntryDialog.title')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">التاريخ</label>
+                  <label className="text-sm font-medium">{t('addEntryDialog.dateLabel')}</label>
                   <Input
                     type="date"
                     value={formDate}
@@ -296,7 +289,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">الساعات</label>
+                  <label className="text-sm font-medium">{t('addEntryDialog.hoursLabel')}</label>
                   <Input
                     type="number"
                     min="0.5"
@@ -304,19 +297,19 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                     step="0.5"
                     value={formHours}
                     onChange={(e) => setFormHours(e.target.value)}
-                    placeholder="مثال: 8"
+                    placeholder={t('addEntryDialog.hoursPlaceholder')}
                     dir="ltr"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">المشروع (اختياري)</label>
+                <label className="text-sm font-medium">{t('addEntryDialog.projectLabel')}</label>
                 <select
                   value={formProject}
                   onChange={(e) => setFormProject(e.target.value)}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
-                  <option value="">بدون مشروع</option>
+                  <option value="">{t('addEntryDialog.noProject')}</option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -325,11 +318,11 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">ملاحظات</label>
+                <label className="text-sm font-medium">{t('addEntryDialog.notesLabel')}</label>
                 <Input
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
-                  placeholder="ما الذي عملت عليه؟"
+                  placeholder={t('addEntryDialog.notesPlaceholder')}
                 />
               </div>
               <div className="flex items-center gap-4">
@@ -340,18 +333,18 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                     onChange={(e) => setFormBillable(e.target.checked)}
                     className="h-4 w-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500"
                   />
-                  قابل للفوترة
+                  {t('addEntryDialog.billable')}
                 </label>
                 {formBillable && (
                   <div className="flex-1 space-y-1">
-                    <label className="text-xs text-muted-foreground">سعر الساعة</label>
+                    <label className="text-xs text-muted-foreground">{t('addEntryDialog.billingRateLabel')}</label>
                     <Input
                       type="number"
                       min="0"
                       step="0.01"
                       value={formBillingRate}
                       onChange={(e) => setFormBillingRate(e.target.value)}
-                      placeholder="مثال: 150"
+                      placeholder={t('addEntryDialog.billingRatePlaceholder')}
                       dir="ltr"
                       className="h-8"
                     />
@@ -363,7 +356,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                 disabled={saving || !formHours}
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
               >
-                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> جاري الحفظ...</> : 'حفظ'}
+                {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> {t('addEntryDialog.saving')}</> : t('addEntryDialog.save')}
               </Button>
             </div>
           </DialogContent>
@@ -379,7 +372,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalHours.toFixed(1)}</p>
-              <p className="text-xs text-muted-foreground">إجمالي الساعات</p>
+              <p className="text-xs text-muted-foreground">{t('summaryCards.totalHours')}</p>
             </div>
           </CardContent>
         </Card>
@@ -392,7 +385,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
               <p className="text-2xl font-bold">
                 {entries.filter((e) => e.status === 'approved').length}
               </p>
-              <p className="text-xs text-muted-foreground">معتمد</p>
+              <p className="text-xs text-muted-foreground">{t('summaryCards.approved')}</p>
             </div>
           </CardContent>
         </Card>
@@ -405,7 +398,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
               <p className="text-2xl font-bold">
                 {entries.filter((e) => e.status === 'submitted').length}
               </p>
-              <p className="text-xs text-muted-foreground">بانتظار الاعتماد</p>
+              <p className="text-xs text-muted-foreground">{t('summaryCards.pendingApproval')}</p>
             </div>
           </CardContent>
         </Card>
@@ -418,7 +411,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
             <div className="flex items-center gap-2 mb-3">
               <Timer className="h-5 w-5 text-orange-500" />
               <h3 className="font-semibold text-orange-600 dark:text-orange-400">
-                ملخص العمل الإضافي — الشهر الحالي
+                {t('overtimeCard.title')}
               </h3>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -430,7 +423,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                   <p className="text-lg font-bold" dir="ltr">
                     {overtimeSummary.total_overtime_hours}h
                   </p>
-                  <p className="text-[11px] text-muted-foreground">ساعات إضافية</p>
+                  <p className="text-[11px] text-muted-foreground">{t('overtimeCard.overtimeHours')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -439,7 +432,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                 </div>
                 <div>
                   <p className="text-lg font-bold">{overtimeSummary.total_overtime_entries}</p>
-                  <p className="text-[11px] text-muted-foreground">إدخال إضافي</p>
+                  <p className="text-[11px] text-muted-foreground">{t('overtimeCard.overtimeEntries')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -450,7 +443,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                   <p className="text-lg font-bold" dir="ltr">
                     {overtimeSummary.estimated_pay.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                   </p>
-                  <p className="text-[11px] text-muted-foreground">تقدير الأجر الإضافي</p>
+                  <p className="text-[11px] text-muted-foreground">{t('overtimeCard.estimatedPay')}</p>
                 </div>
               </div>
             </div>
@@ -459,10 +452,10 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
       )}
 
       {/* Tabs: Entries and Periods */}
-      <Tabs defaultValue="entries" dir="rtl">
+      <Tabs defaultValue="entries" dir={dirFor(locale)}>
         <TabsList>
-          <TabsTrigger value="entries">الإدخالات</TabsTrigger>
-          <TabsTrigger value="periods">الفترات</TabsTrigger>
+          <TabsTrigger value="entries">{t('tabs.entries')}</TabsTrigger>
+          <TabsTrigger value="periods">{t('tabs.periods')}</TabsTrigger>
         </TabsList>
 
         {/* === ENTRIES TAB === */}
@@ -470,9 +463,9 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
           {entries.length === 0 ? (
             <EmptyState
               icon={Clock}
-              title="لا توجد سجلات"
-              description="ابدأ بتسجيل ساعات عملك"
-              actionLabel="تسجيل ساعات"
+              title={t('entriesTab.empty.title')}
+              description={t('entriesTab.empty.description')}
+              actionLabel={t('entriesTab.empty.actionLabel')}
               onAction={() => setShowAdd(true)}
             />
           ) : (
@@ -490,7 +483,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                             {entry.hours}h
                           </p>
                           <p className="text-[10px] text-muted-foreground">
-                            {new Date(entry.date).toLocaleDateString('ar-EG', {
+                            {new Date(entry.date).toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', {
                               weekday: 'short',
                             })}
                           </p>
@@ -498,17 +491,17 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-medium">
-                              {entry.description || 'بدون وصف'}
+                              {entry.description || t('entriesTab.noDescription')}
                             </p>
                             {entry.is_billable && (
                               <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 text-[10px]">
-                                قابل للفوترة
-                                {entry.billing_rate ? ` (${entry.billing_rate}/س)` : ''}
+                                {t('entriesTab.billable')}
+                                {entry.billing_rate ? t('entriesTab.billableRate', { rate: entry.billing_rate }) : ''}
                               </Badge>
                             )}
                             {entry.is_overtime && (
                               <Badge className="bg-orange-500/10 text-orange-600 dark:text-orange-400 text-[10px]">
-                                عمل إضافي
+                                {t('entriesTab.overtime')}
                               </Badge>
                             )}
                             {entry.is_overtime && entry.overtime_multiplier && (
@@ -535,7 +528,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge className={`text-[10px] ${STATUS_STYLES[entry.status]}`}>
-                          {STATUS_LABELS[entry.status]}
+                          {statusLabelFor(entry.status)}
                         </Badge>
                         {entry.status === 'draft' && (
                           <>
@@ -546,7 +539,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                               onClick={() => submitEntry(entry.id)}
                             >
                               <Send className="h-3 w-3 me-1" />
-                              إرسال
+                              {t('entriesTab.submit')}
                             </Button>
                             <Button
                               variant="ghost"
@@ -567,7 +560,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                               onClick={() => approveEntry(entry.id, true)}
                             >
                               <CheckCircle className="h-3 w-3 me-1" />
-                              اعتماد
+                              {t('entriesTab.approve')}
                             </Button>
                             <Button
                               variant="ghost"
@@ -576,7 +569,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                               onClick={() => approveEntry(entry.id, false)}
                             >
                               <XCircle className="h-3 w-3 me-1" />
-                              رفض
+                              {t('entriesTab.reject')}
                             </Button>
                           </>
                         )}
@@ -598,17 +591,17 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                 <DialogTrigger asChild>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-white">
                     <Plus className="h-4 w-4 me-2" />
-                    إنشاء فترة
+                    {t('periodsTab.createPeriod')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent dir={dirFor(locale)}>
                   <DialogHeader>
-                    <DialogTitle>إنشاء فترة زمنية</DialogTitle>
+                    <DialogTitle>{t('periodsTab.createPeriodDialog.title')}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 mt-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">تاريخ البداية</label>
+                        <label className="text-sm font-medium">{t('periodsTab.createPeriodDialog.startDateLabel')}</label>
                         <Input
                           type="date"
                           value={periodStartDate}
@@ -617,7 +610,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">تاريخ النهاية</label>
+                        <label className="text-sm font-medium">{t('periodsTab.createPeriodDialog.endDateLabel')}</label>
                         <Input
                           type="date"
                           value={periodEndDate}
@@ -631,7 +624,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                       disabled={periodSaving || !periodStartDate || !periodEndDate}
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                     >
-                      {periodSaving ? 'جاري الإنشاء...' : 'إنشاء'}
+                      {periodSaving ? t('periodsTab.createPeriodDialog.creating') : t('periodsTab.createPeriodDialog.create')}
                     </Button>
                   </div>
                 </DialogContent>
@@ -648,9 +641,9 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
             ) : periods.length === 0 ? (
               <EmptyState
                 icon={CalendarRange}
-                title="لا توجد فترات"
-                description="أنشئ فترة زمنية لتجميع سجلات الساعات"
-                actionLabel="إنشاء فترة"
+                title={t('periodsTab.empty.title')}
+                description={t('periodsTab.empty.description')}
+                actionLabel={t('periodsTab.empty.actionLabel')}
                 onAction={() => setShowAddPeriod(true)}
               />
             ) : (
@@ -672,19 +665,19 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                                 {period.start_date} — {period.end_date}
                               </p>
                               <Badge className={`text-[10px] ${PERIOD_STATUS_STYLES[period.status]}`}>
-                                {PERIOD_STATUS_LABELS[period.status]}
+                                {periodStatusLabelFor(period.status)}
                               </Badge>
                             </div>
                             <div className="flex items-center gap-3 mt-1">
                               <span className="text-xs text-muted-foreground">
-                                {period.total_hours.toFixed(1)} ساعة
+                                {t('periodsTab.totalHours', { hours: period.total_hours.toFixed(1) })}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                {period.period_type === 'weekly' ? 'أسبوعية' : period.period_type === 'biweekly' ? 'نصف شهرية' : 'شهرية'}
+                                {t(`periodsTab.periodType.${period.period_type === 'weekly' ? 'weekly' : period.period_type === 'biweekly' ? 'biweekly' : 'monthly'}`)}
                               </span>
                               {period.rejection_note && (
                                 <span className="text-xs text-red-500">
-                                  سبب الرفض: {period.rejection_note}
+                                  {t('periodsTab.rejectionReason', { reason: period.rejection_note })}
                                 </span>
                               )}
                             </div>
@@ -701,7 +694,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                                 onClick={() => updatePeriodStatus(period.id, 'submit')}
                               >
                                 <Send className="h-3 w-3 me-1" />
-                                إرسال
+                                {t('periodsTab.submit')}
                               </Button>
                             )}
                           {/* Approve/Reject buttons for managers */}
@@ -714,7 +707,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                                 onClick={() => updatePeriodStatus(period.id, 'approve')}
                               >
                                 <CheckCircle className="h-3 w-3 me-1" />
-                                اعتماد
+                                {t('periodsTab.approve')}
                               </Button>
                               <Button
                                 variant="ghost"
@@ -723,7 +716,7 @@ export default function TimesheetClient({ session }: TimesheetClientProps) {
                                 onClick={() => updatePeriodStatus(period.id, 'reject')}
                               >
                                 <XCircle className="h-3 w-3 me-1" />
-                                رفض
+                                {t('periodsTab.reject')}
                               </Button>
                             </>
                           )}

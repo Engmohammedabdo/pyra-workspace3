@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -22,9 +23,10 @@ import {
 } from '@/components/ui/select';
 import { useUpsertAttendance } from '@/hooks/useAttendance';
 import { useUsersLite } from '@/hooks/useUsers';
-import { ATTENDANCE_STATUS_LABELS } from '@/lib/constants/statuses';
 import type { AttendanceStatus } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { dubaiDayKey } from '@/lib/utils/format';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 
 interface AdminAttendanceDialogProps {
   open: boolean;
@@ -43,10 +45,17 @@ function toUTCIso(date: string, time: string): string | null {
   return new Date(dubaiMs).toISOString();
 }
 
+const ATTENDANCE_STATUS_KEYS: AttendanceStatus[] = [
+  'present', 'absent', 'late', 'early_leave', 'holiday', 'weekend',
+];
+
 export default function AdminAttendanceDialog({
   open,
   onOpenChange,
 }: AdminAttendanceDialogProps) {
+  const t = useTranslations('hr.attendance.adminDialog');
+  const statusLabelFor = useStatusLabels('attendance');
+  const locale = useLocale() as Locale;
   const today = dubaiDayKey();
 
   const [username, setUsername] = useState('');
@@ -74,11 +83,11 @@ export default function AdminAttendanceDialog({
     e.preventDefault();
 
     if (!username) {
-      toast.error('يرجى اختيار موظف');
+      toast.error(t('toasts.selectEmployee'));
       return;
     }
     if (!date) {
-      toast.error('يرجى تحديد التاريخ');
+      toast.error(t('toasts.selectDate'));
       return;
     }
 
@@ -93,7 +102,7 @@ export default function AdminAttendanceDialog({
       },
       {
         onSuccess: () => {
-          toast.success('تم حفظ سجل الحضور');
+          toast.success(t('toasts.saveSuccess'));
           onOpenChange(false);
           // Reset form
           setUsername('');
@@ -104,7 +113,7 @@ export default function AdminAttendanceDialog({
           setNotes('');
         },
         onError: (e) => {
-          toast.error(e instanceof Error ? e.message : 'فشل الحفظ');
+          toast.error(e instanceof Error ? e.message : t('toasts.saveFailed'));
         },
       }
     );
@@ -112,18 +121,18 @@ export default function AdminAttendanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md" dir="rtl">
+      <DialogContent className="max-w-md" dir={dirFor(locale)}>
         <DialogHeader>
-          <DialogTitle className="text-start">تعديل / إضافة سجل حضور</DialogTitle>
+          <DialogTitle className="text-start">{t('title')}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Employee */}
           <div className="space-y-1.5">
-            <Label htmlFor="admin-att-employee">الموظف</Label>
+            <Label htmlFor="admin-att-employee">{t('employeeLabel')}</Label>
             <Select value={username} onValueChange={setUsername}>
               <SelectTrigger id="admin-att-employee" className="h-11">
-                <SelectValue placeholder="اختر موظفاً..." />
+                <SelectValue placeholder={t('employeePlaceholder')} />
               </SelectTrigger>
               <SelectContent>
                 {employees.map((u) => (
@@ -137,7 +146,7 @@ export default function AdminAttendanceDialog({
 
           {/* Date */}
           <div className="space-y-1.5">
-            <Label htmlFor="admin-att-date">التاريخ</Label>
+            <Label htmlFor="admin-att-date">{t('dateLabel')}</Label>
             <Input
               id="admin-att-date"
               type="date"
@@ -150,19 +159,17 @@ export default function AdminAttendanceDialog({
 
           {/* Status */}
           <div className="space-y-1.5">
-            <Label htmlFor="admin-att-status">الحالة</Label>
+            <Label htmlFor="admin-att-status">{t('statusLabel')}</Label>
             <Select value={status} onValueChange={(v) => setStatus(v as AttendanceStatus)}>
               <SelectTrigger id="admin-att-status" className="h-11">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {(Object.entries(ATTENDANCE_STATUS_LABELS) as [AttendanceStatus, string][]).map(
-                  ([key, label]) => (
-                    <SelectItem key={key} value={key}>
-                      {label}
-                    </SelectItem>
-                  )
-                )}
+                {ATTENDANCE_STATUS_KEYS.map((key) => (
+                  <SelectItem key={key} value={key}>
+                    {statusLabelFor(key)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -170,7 +177,7 @@ export default function AdminAttendanceDialog({
           {/* Clock-in / Clock-out (optional) */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="admin-att-clockin">وقت الدخول (اختياري)</Label>
+              <Label htmlFor="admin-att-clockin">{t('clockInLabel')}</Label>
               <Input
                 id="admin-att-clockin"
                 type="time"
@@ -180,7 +187,7 @@ export default function AdminAttendanceDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="admin-att-clockout">وقت الانصراف (اختياري)</Label>
+              <Label htmlFor="admin-att-clockout">{t('clockOutLabel')}</Label>
               <Input
                 id="admin-att-clockout"
                 type="time"
@@ -193,12 +200,12 @@ export default function AdminAttendanceDialog({
 
           {/* Notes */}
           <div className="space-y-1.5">
-            <Label htmlFor="admin-att-notes">ملاحظات (اختياري)</Label>
+            <Label htmlFor="admin-att-notes">{t('notesLabel')}</Label>
             <Textarea
               id="admin-att-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="أي ملاحظات إضافية..."
+              placeholder={t('notesPlaceholder')}
               rows={3}
               className="resize-none min-h-[44px]"
             />
@@ -210,7 +217,7 @@ export default function AdminAttendanceDialog({
               disabled={upsert.isPending}
               className="h-11 bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {upsert.isPending ? 'جاري الحفظ...' : 'حفظ السجل'}
+              {upsert.isPending ? t('saving') : t('save')}
             </Button>
             <Button
               type="button"
@@ -218,7 +225,7 @@ export default function AdminAttendanceDialog({
               className="h-11"
               onClick={() => onOpenChange(false)}
             >
-              إلغاء
+              {t('cancel')}
             </Button>
           </DialogFooter>
         </form>

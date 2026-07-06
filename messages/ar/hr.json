@@ -1,3 +1,166 @@
 {
-  "hr": {}
+  "hr": {
+    "attendance": {
+      "page": {
+        "manageButton": "تعديل حضور موظف",
+        "toasts": {
+          "clockInSuccess": "تم تسجيل الدخول بنجاح",
+          "clockInError": "حدث خطأ أثناء تسجيل الدخول",
+          "clockOutSuccess": "تم تسجيل الانصراف بنجاح",
+          "clockOutError": "حدث خطأ أثناء تسجيل الانصراف"
+        }
+      },
+      "todayCard": {
+        "clockedOut": "تم تسجيل الانصراف — {hours} ساعة",
+        "clockedInSince": "مسجل الدخول منذ {time}",
+        "notClockedIn": "لم تسجل الدخول اليوم",
+        "completedToday": "اكتمل اليوم",
+        "clockingOut": "جاري التسجيل...",
+        "clockOut": "تسجيل انصراف",
+        "clockingIn": "جاري التسجيل...",
+        "clockIn": "تسجيل دخول"
+      },
+      "summaryCards": {
+        "presentDays": "أيام الحضور",
+        "lateDays": "أيام التأخر",
+        "absentDays": "أيام الغياب",
+        "totalHours": "إجمالي الساعات",
+        "average": "المعدل: {hours} / يوم"
+      },
+      "calendar": {
+        "title": "تقويم الحضور",
+        "nextMonth": "الشهر التالي",
+        "prevMonth": "الشهر السابق",
+        "colorLegendAria": "مفتاح ألوان الحضور",
+        "cellAria": "{date} — {status}",
+        "recordsTitle": "سجل الحضور",
+        "empty": {
+          "title": "لا توجد سجلات",
+          "description": "لم يتم تسجيل أي حضور في هذا الشهر"
+        },
+        "columns": {
+          "date": "التاريخ",
+          "clockIn": "الدخول",
+          "clockOut": "الانصراف",
+          "hours": "الساعات",
+          "status": "الحالة"
+        }
+      },
+      "adminDialog": {
+        "toasts": {
+          "selectEmployee": "يرجى اختيار موظف",
+          "selectDate": "يرجى تحديد التاريخ",
+          "saveSuccess": "تم حفظ سجل الحضور",
+          "saveFailed": "فشل الحفظ"
+        },
+        "title": "تعديل / إضافة سجل حضور",
+        "employeeLabel": "الموظف",
+        "employeePlaceholder": "اختر موظفاً...",
+        "dateLabel": "التاريخ",
+        "statusLabel": "الحالة",
+        "clockInLabel": "وقت الدخول (اختياري)",
+        "clockOutLabel": "وقت الانصراف (اختياري)",
+        "notesLabel": "ملاحظات (اختياري)",
+        "notesPlaceholder": "أي ملاحظات إضافية...",
+        "saving": "جاري الحفظ...",
+        "save": "حفظ السجل",
+        "cancel": "إلغاء"
+      }
+    },
+    "timesheet": {
+      "page": {
+        "title": "سجل ساعات العمل",
+        "summaryLine": "{count} سجل · إجمالي {hours} ساعة",
+        "logHours": "تسجيل ساعات",
+        "toasts": {
+          "entryAdded": "تم إضافة السجل",
+          "entryAddFailed": "فشل الإضافة",
+          "entrySubmitted": "تم إرسال السجل للاعتماد",
+          "entrySubmitFailed": "فشل الإرسال",
+          "entryApproved": "تم اعتماد السجل",
+          "entryRejected": "تم رفض السجل",
+          "entryActionFailed": "فشل العملية",
+          "entryDeleted": "تم الحذف",
+          "entryDeleteFailed": "فشل الحذف",
+          "periodCreated": "تم إنشاء الفترة",
+          "periodCreateFailed": "فشل إنشاء الفترة",
+          "periodActionFailed": "فشل العملية",
+          "periodActionLabels": {
+            "submit": "تم إرسال الفترة",
+            "approve": "تم اعتماد الفترة",
+            "reject": "تم رفض الفترة"
+          }
+        },
+        "addEntryDialog": {
+          "title": "تسجيل ساعات عمل",
+          "dateLabel": "التاريخ",
+          "hoursLabel": "الساعات",
+          "hoursPlaceholder": "مثال: 8",
+          "projectLabel": "المشروع (اختياري)",
+          "noProject": "بدون مشروع",
+          "notesLabel": "ملاحظات",
+          "notesPlaceholder": "ما الذي عملت عليه؟",
+          "billable": "قابل للفوترة",
+          "billingRateLabel": "سعر الساعة",
+          "billingRatePlaceholder": "مثال: 150",
+          "saving": "جاري الحفظ...",
+          "save": "حفظ"
+        },
+        "summaryCards": {
+          "totalHours": "إجمالي الساعات",
+          "approved": "معتمد",
+          "pendingApproval": "بانتظار الاعتماد"
+        },
+        "overtimeCard": {
+          "title": "ملخص العمل الإضافي — الشهر الحالي",
+          "overtimeHours": "ساعات إضافية",
+          "overtimeEntries": "إدخال إضافي",
+          "estimatedPay": "تقدير الأجر الإضافي"
+        },
+        "tabs": {
+          "entries": "الإدخالات",
+          "periods": "الفترات"
+        },
+        "entriesTab": {
+          "empty": {
+            "title": "لا توجد سجلات",
+            "description": "ابدأ بتسجيل ساعات عملك",
+            "actionLabel": "تسجيل ساعات"
+          },
+          "noDescription": "بدون وصف",
+          "billable": "قابل للفوترة",
+          "billableRate": " ({rate}/س)",
+          "overtime": "عمل إضافي",
+          "submit": "إرسال",
+          "approve": "اعتماد",
+          "reject": "رفض"
+        },
+        "periodsTab": {
+          "createPeriod": "إنشاء فترة",
+          "createPeriodDialog": {
+            "title": "إنشاء فترة زمنية",
+            "startDateLabel": "تاريخ البداية",
+            "endDateLabel": "تاريخ النهاية",
+            "creating": "جاري الإنشاء...",
+            "create": "إنشاء"
+          },
+          "empty": {
+            "title": "لا توجد فترات",
+            "description": "أنشئ فترة زمنية لتجميع سجلات الساعات",
+            "actionLabel": "إنشاء فترة"
+          },
+          "totalHours": "{hours} ساعة",
+          "periodType": {
+            "weekly": "أسبوعية",
+            "biweekly": "نصف شهرية",
+            "monthly": "شهرية"
+          },
+          "rejectionReason": "سبب الرفض: {reason}",
+          "submit": "إرسال",
+          "approve": "اعتماد",
+          "reject": "رفض"
+        }
+      }
+    }
+  }
 }

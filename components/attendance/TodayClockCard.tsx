@@ -1,5 +1,6 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,7 @@ import {
   Fingerprint,
 } from 'lucide-react';
 import { formatTime, formatHours } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 import type { AttendanceRecord } from '@/hooks/useAttendance';
 
 interface TodayClockCardProps {
@@ -36,6 +38,8 @@ export default function TodayClockCard({
   loading,
   currentTime,
 }: TodayClockCardProps) {
+  const t = useTranslations('hr.attendance.todayCard');
+  const locale = useLocale() as Locale;
   const isClockedIn = todayRecord?.clock_in && !todayRecord?.clock_out;
   const isClockedOut = todayRecord?.clock_in && todayRecord?.clock_out;
 
@@ -47,7 +51,7 @@ export default function TodayClockCard({
             <div className="flex items-center gap-2 text-muted-foreground text-sm">
               <Clock className="h-4 w-4" />
               <span>
-                {currentTime.toLocaleTimeString('ar-AE', {
+                {currentTime.toLocaleTimeString(locale === 'ar' ? 'ar-AE' : 'en-GB', {
                   hour: '2-digit',
                   minute: '2-digit',
                   second: '2-digit',
@@ -55,7 +59,7 @@ export default function TodayClockCard({
                 })}
               </span>
               <span className="text-xs">
-                ({currentTime.toLocaleDateString('ar-AE', {
+                ({currentTime.toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB', {
                   weekday: 'long',
                   day: 'numeric',
                   month: 'long',
@@ -71,14 +75,14 @@ export default function TodayClockCard({
                 <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
                   <CheckCircle className="h-4 w-4" aria-hidden="true" />
                   <span className="text-sm font-medium">
-                    تم تسجيل الانصراف — {formatHours(todayRecord!.total_hours)} ساعة
+                    {t('clockedOut', { hours: formatHours(todayRecord!.total_hours) })}
                   </span>
                 </div>
               ) : isClockedIn ? (
                 <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
                   <Timer className="h-4 w-4 animate-pulse" aria-hidden="true" />
                   <span className="text-sm font-medium">
-                    مسجل الدخول منذ {formatTime(todayRecord!.clock_in)}
+                    {t('clockedInSince', { time: formatTime(todayRecord!.clock_in, locale) })}
                   </span>
                   <Badge variant="outline" className="font-mono text-xs">
                     {elapsed}
@@ -87,7 +91,7 @@ export default function TodayClockCard({
               ) : (
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Fingerprint className="h-4 w-4" aria-hidden="true" />
-                  <span className="text-sm">لم تسجل الدخول اليوم</span>
+                  <span className="text-sm">{t('notClockedIn')}</span>
                 </div>
               )}
             </div>
@@ -99,7 +103,7 @@ export default function TodayClockCard({
             ) : isClockedOut ? (
               <Button disabled size="lg" className="gap-2 bg-gray-400 cursor-not-allowed">
                 <CheckCircle className="h-5 w-5" />
-                اكتمل اليوم
+                {t('completedToday')}
               </Button>
             ) : isClockedIn ? (
               <Button
@@ -109,7 +113,7 @@ export default function TodayClockCard({
                 className="gap-2 bg-red-600 hover:bg-red-700 text-white"
               >
                 <LogOut className="h-5 w-5" />
-                {clockingOut ? 'جاري التسجيل...' : 'تسجيل انصراف'}
+                {clockingOut ? t('clockingOut') : t('clockOut')}
               </Button>
             ) : (
               <Button
@@ -119,7 +123,7 @@ export default function TodayClockCard({
                 className="gap-2 bg-green-600 hover:bg-green-700 text-white"
               >
                 <LogIn className="h-5 w-5" />
-                {clockingIn ? 'جاري التسجيل...' : 'تسجيل دخول'}
+                {clockingIn ? t('clockingIn') : t('clockIn')}
               </Button>
             )}
           </div>
