@@ -1506,7 +1506,7 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 // `<PopoverTrigger asChild>`. Radix clones the child and injects a ref +
 // onClick + aria/data-state props; a plain function component drops the ref,
 // so the popover has nothing to anchor to and never opens (2026-07-06 fix —
-// the الأعضاء/التصنيفات/الأولوية… popovers were dead). Standalone uses
+// the الأعضاء/التصنيفات/الأولوية… popovers were dead). Standalone uses // i18n-exempt: doc comment
 // (with their own onClick) keep working since props just spread through.
 const SidebarBtn = forwardRef<
   HTMLButtonElement,

@@ -2,8 +2,8 @@
   "statuses": {
     "invoice": { "draft": "مسودة", "sent": "مرسلة", "partially_paid": "مدفوعة جزئياً", "paid": "مدفوعة", "overdue": "متأخرة", "cancelled": "ملغية" },
     "quote": { "draft": "مسودة", "pending_approval": "بانتظار الموافقة", "sent": "مرسل", "viewed": "تم العرض", "signed": "موقّع", "invoiced": "تم الفوترة", "rejected": "مرفوض", "expired": "منتهي", "cancelled": "ملغي" },
-    "contract": { "draft": "مسودة", "active": "نشط", "completed": "مكتمل", "cancelled": "ملغي" },
-    "expense": { "pending": "بانتظار الموافقة", "approved": "معتمد", "rejected": "مرفوض" },
+    "contract": { "draft": "مسودة", "active": "نشط", "in_progress": "قيد التنفيذ", "completed": "مكتمل", "cancelled": "ملغي" },
+    "expense": { "pending": "بانتظار الموافقة", "approved": "معتمد", "rejected": "مرفوض", "draft": "مسودة" },
     "leave": { "pending": "بانتظار الموافقة", "approved": "موافق عليه", "rejected": "مرفوض" },
     "payroll": { "draft": "مسودة", "calculated": "محسوب", "approved": "معتمد", "paid": "مدفوع" },
     "po": { "draft": "مسودة", "sent": "مرسل", "acknowledged": "تم الاستلام", "received": "تم التوريد", "invoiced": "تم الفوترة", "cancelled": "ملغي" },
@@ -33,6 +33,8 @@
     "leadPriority": { "vip": "VIP", "urgent": "عاجل", "high": "عالية", "medium": "عادية", "low": "منخفضة" },
     "insightSeverity": { "critical": "حرج", "high": "عالي", "medium": "متوسط", "low": "منخفض" },
     "crmContract": { "active": "نشط", "in_progress": "جاري", "completed": "مكتمل", "paused": "متوقف", "cancelled": "ملغى", "draft": "مسودة", "expired": "منتهي" },
-    "milestone": { "completed": "مكتمل", "invoiced": "تم تفويتُره", "pending": "قيد الانتظار", "cancelled": "ملغى" }
+    "milestone": { "completed": "مكتمل", "invoiced": "تم تفويتُره", "pending": "قيد الانتظار", "cancelled": "ملغى" },
+    "contractType": { "retainer": "ثابت شهري", "milestone": "مراحل", "upfront_delivery": "دفعة مقدمة + تسليم", "fixed": "سعر ثابت", "hourly": "بالساعة" },
+    "periodCycle": { "monthly": "شهري", "quarterly": "ربع سنوي", "yearly": "سنوي" }
   }
 }

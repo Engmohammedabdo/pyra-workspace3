@@ -8,7 +8,9 @@
       "boardNotFound": "اللوحة غير موجودة",
       "usernameRequired": "username مطلوب",
       "titleRequired": "عنوان المهمة مطلوب",
-      "jsonBodyRequired": "JSON body مطلوب"
+      "jsonBodyRequired": "JSON body مطلوب",
+      "qtyGtZero": "الكمية يجب أن تكون أكبر من صفر",
+      "priceGteZero": "السعر يجب أن يكون صفر أو أكثر"
     },
     "calendar": {
       "fromToRequired": "المعاملات from و to مطلوبتان (بصيغة YYYY-MM-DD)",
@@ -168,6 +170,19 @@
         "overdueFollowups": "{count, plural, one {# متابعة متأخرة} other {# متابعات متأخرة}}",
         "followupsToday": "{count, plural, one {# متابعة اليوم} other {# متابعات اليوم}}"
       }
+    },
+    "finance": {
+      "contractNotFound": "العقد غير موجود",
+      "milestoneNotFound": "المرحلة غير موجودة",
+      "noFieldsToUpdate": "لا توجد حقول للتحديث",
+      "noValidFieldsToUpdate": "لا توجد حقول صالحة للتحديث",
+      "dateRangeInvalid": "تاريخ البداية يجب أن يكون قبل تاريخ النهاية",
+      "invoiceAlreadyGeneratedThisMonth": "تم توليد فاتورة لهذا العقد خلال هذا الشهر بالفعل ({invoiceNumber}). لو التكرار مقصود أعد الطلب مع force.",
+      "milestoneAlreadyInvoiced": "تم إنشاء فاتورة لهذه المرحلة مسبقاً",
+      "milestonePercentageExceeds100": "إجمالي نسب المراحل سيتجاوز 100% (الحالي: {current}% + الجديد: {new}%)",
+      "cardNameRequired": "اسم البطاقة مطلوب",
+      "clientNotFound": "العميل غير موجود",
+      "categoryInUse": "لا يمكن حذف التصنيف — يوجد {count} مصروف مرتبط به"
     }
   }
 }

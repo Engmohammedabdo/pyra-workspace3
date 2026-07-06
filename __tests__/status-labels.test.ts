@@ -31,11 +31,14 @@ const LEGACY_TO_CATALOG: Array<[Record<string, string>, keyof typeof arStatuses.
   [CALENDAR_EVENT_SOURCE_LABELS_AR, 'calendarEventSource'], [ATTENDANCE_STATUS_LABELS, 'attendance'],
 ];
 
+// Catalog entities may carry EXTRA gap keys for live production values the
+// legacy maps never defined (Phase 4: contract.in_progress, expense.draft) —
+// so the pin is "every legacy key renders verbatim", not exact equality.
 describe('statuses catalog extraction fidelity', () => {
   it.each(LEGACY_TO_CATALOG.map(([m, k]) => [k, m] as const))(
     'ar statuses.%s matches the legacy Arabic map verbatim',
     (catalogKey, legacyMap) => {
-      expect(arStatuses.statuses[catalogKey]).toEqual(legacyMap);
+      expect(arStatuses.statuses[catalogKey]).toEqual(expect.objectContaining(legacyMap));
     },
   );
 

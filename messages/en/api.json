@@ -8,7 +8,9 @@
       "boardNotFound": "Board not found",
       "usernameRequired": "username is required",
       "titleRequired": "Task title is required",
-      "jsonBodyRequired": "JSON body is required"
+      "jsonBodyRequired": "JSON body is required",
+      "qtyGtZero": "Quantity must be greater than zero",
+      "priceGteZero": "Price must be zero or more"
     },
     "calendar": {
       "fromToRequired": "The from and to parameters are required (in YYYY-MM-DD format)",
@@ -168,6 +170,19 @@
         "overdueFollowups": "{count, plural, one {# overdue follow-up} other {# overdue follow-ups}}",
         "followupsToday": "{count, plural, one {# follow-up today} other {# follow-ups today}}"
       }
+    },
+    "finance": {
+      "contractNotFound": "Contract not found",
+      "milestoneNotFound": "Milestone not found",
+      "noFieldsToUpdate": "No fields to update",
+      "noValidFieldsToUpdate": "No valid fields to update",
+      "dateRangeInvalid": "The start date must be before the end date",
+      "invoiceAlreadyGeneratedThisMonth": "An invoice has already been generated for this contract this month ({invoiceNumber}). If this repeat is intentional, resend the request with force.",
+      "milestoneAlreadyInvoiced": "An invoice has already been created for this milestone",
+      "milestonePercentageExceeds100": "The total milestone percentages would exceed 100% (current: {current}% + new: {new}%)",
+      "cardNameRequired": "Card name is required",
+      "clientNotFound": "Client not found",
+      "categoryInUse": "Cannot delete this category — {count} expense(s) are linked to it"
     }
   }
 }

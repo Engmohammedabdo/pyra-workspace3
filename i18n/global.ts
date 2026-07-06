@@ -7,10 +7,11 @@ import type boards from '../messages/ar/boards.json';
 import type calendar from '../messages/ar/calendar.json';
 import type api from '../messages/ar/api.json';
 import type crm from '../messages/ar/crm.json';
+import type finance from '../messages/ar/finance.json';
 
 type Messages = typeof common & typeof nav & typeof auth & typeof statuses
   & typeof mywork & typeof boards & typeof calendar & typeof api
-  & typeof crm;
+  & typeof crm & typeof finance;
 
 declare module 'next-intl' {
   interface AppConfig {

@@ -2,8 +2,8 @@
   "statuses": {
     "invoice": { "draft": "Draft", "sent": "Sent", "partially_paid": "Partially Paid", "paid": "Paid", "overdue": "Overdue", "cancelled": "Cancelled" },
     "quote": { "draft": "Draft", "pending_approval": "Pending Approval", "sent": "Sent", "viewed": "Viewed", "signed": "Signed", "invoiced": "Invoiced", "rejected": "Rejected", "expired": "Expired", "cancelled": "Cancelled" },
-    "contract": { "draft": "Draft", "active": "Active", "completed": "Completed", "cancelled": "Cancelled" },
-    "expense": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected" },
+    "contract": { "draft": "Draft", "active": "Active", "in_progress": "In Progress", "completed": "Completed", "cancelled": "Cancelled" },
+    "expense": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected", "draft": "Draft" },
     "leave": { "pending": "Pending Approval", "approved": "Approved", "rejected": "Rejected" },
     "payroll": { "draft": "Draft", "calculated": "Calculated", "approved": "Approved", "paid": "Paid" },
     "po": { "draft": "Draft", "sent": "Sent", "acknowledged": "Acknowledged", "received": "Received", "invoiced": "Invoiced", "cancelled": "Cancelled" },
@@ -33,6 +33,8 @@
     "leadPriority": { "vip": "VIP", "urgent": "Urgent", "high": "High", "medium": "Normal", "low": "Low" },
     "insightSeverity": { "critical": "Critical", "high": "High", "medium": "Medium", "low": "Low" },
     "crmContract": { "active": "Active", "in_progress": "In Progress", "completed": "Completed", "paused": "Paused", "cancelled": "Cancelled", "draft": "Draft", "expired": "Expired" },
-    "milestone": { "completed": "Completed", "invoiced": "Invoiced", "pending": "Pending", "cancelled": "Cancelled" }
+    "milestone": { "completed": "Completed", "invoiced": "Invoiced", "pending": "Pending", "cancelled": "Cancelled" },
+    "contractType": { "retainer": "Retainer", "milestone": "Milestone", "upfront_delivery": "Upfront Payment + Delivery", "fixed": "Fixed Price", "hourly": "Hourly" },
+    "periodCycle": { "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly" }
   }
 }
