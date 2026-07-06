@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
+import { dubaiDayKey } from '@/lib/utils/format';
 import {
   DndContext,
   DragEndEvent,
@@ -241,7 +242,7 @@ function TaskCard({
   const labels = task.pyra_task_labels || [];
   const assignees = task.pyra_task_assignees || [];
   const comments = task.pyra_task_comments || [];
-  const today = new Date().toISOString().split('T')[0];
+  const today = dubaiDayKey();
   const isOverdue = task.due_date && task.due_date < today;
   const dueBadgeColor = (() => {
     if (!task.due_date) return '';
