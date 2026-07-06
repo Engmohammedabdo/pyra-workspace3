@@ -75,7 +75,7 @@ export function AdjustBalanceDialog({
       toast.success(t('toasts.saveSuccess'));
       onOpenChange(false);
     } else {
-      const separator = locale === 'ar' ? '، ' : ', ';
+      const separator = locale === 'ar' ? '، ' : ', '; // i18n-exempt: locale-conditional list separator (Arabic comma is punctuation, already locale-switched)
       toast.error(`${t('toasts.saveFailedPrefix')}${failed.map((r) => r.name_ar).join(separator)}`);
     }
   };
