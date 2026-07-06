@@ -1257,6 +1257,145 @@
       "revenueLabel": "الإيرادات",
       "expensesLabel": "المصاريف",
       "amountLabel": "المبلغ"
+    },
+    "reports": {
+      "meta": {
+        "title": "التقارير المالية",
+        "subtitle": "تحليل مالي شامل للأرباح والضرائب والعملاء"
+      },
+      "tabs": {
+        "pnl": "الأرباح والخسائر",
+        "cashflow": "التدفق النقدي",
+        "vat": "الضريبة",
+        "clients": "ربحية العملاء",
+        "projects": "ربحية المشاريع"
+      },
+      "export": {
+        "button": "تصدير CSV",
+        "exportFailed": "فشل في تصدير التقرير",
+        "exportSuccess": "تم تصدير التقرير بنجاح"
+      },
+      "dateFilter": {
+        "from": "من",
+        "to": "إلى",
+        "showReport": "عرض التقرير"
+      },
+      "columns": {
+        "revenue": "الإيرادات",
+        "expenses": "المصاريف",
+        "profit": "الربح",
+        "margin": "الهامش"
+      },
+      "total": "الإجمالي",
+      "noDataToDisplay": "لا توجد بيانات لعرضها",
+      "pnl": {
+        "loadFailed": "فشل في تحميل تقرير الأرباح والخسائر",
+        "groupBy": {
+          "label": "التجميع",
+          "month": "شهري",
+          "quarter": "ربع سنوي"
+        },
+        "summary": {
+          "totalRevenue": "إجمالي الإيرادات",
+          "totalExpenses": "إجمالي المصاريف",
+          "netProfit": "صافي الربح",
+          "profitMargin": "هامش الربح"
+        },
+        "chartTitle": "الإيرادات مقابل المصاريف",
+        "legend": {
+          "revenue": "الإيرادات",
+          "salaries": "الرواتب",
+          "operational": "مصاريف تشغيلية",
+          "subscriptions": "الاشتراكات"
+        },
+        "periodsTitle": "تفاصيل الفترات",
+        "table": {
+          "period": "الفترة",
+          "revenue": "الإيرادات",
+          "salaries": "الرواتب",
+          "operational": "تشغيلية",
+          "subscriptions": "اشتراكات",
+          "totalExpenses": "إجمالي المصاريف",
+          "profit": "الربح"
+        }
+      },
+      "cashflow": {
+        "loadFailed": "فشل في تحميل تقرير التدفق النقدي",
+        "summary": {
+          "inflow": "الداخل (مقبوضات)",
+          "outflow": "الخارج (مصاريف)",
+          "refunds": "المبالغ المستردة",
+          "net": "صافي التدفق"
+        },
+        "chartTitle": "الداخل مقابل الخارج شهرياً",
+        "legend": {
+          "inflow": "الداخل",
+          "outflow": "الخارج (مصاريف + مستردات)"
+        },
+        "monthsTitle": "تفاصيل الشهور",
+        "table": {
+          "month": "الشهر",
+          "inflow": "الداخل",
+          "outflow": "الخارج",
+          "refunds": "مستردات",
+          "net": "الصافي",
+          "runningBalance": "الرصيد التراكمي"
+        },
+        "byMethodTitle": "حسب طريقة الدفع",
+        "noInflowInPeriod": "لا توجد مقبوضات في الفترة",
+        "forecastTitle": "متوقع تحصيله (فواتير مستحقة)",
+        "forecastHint": "إجمالي المتبقي على الفواتير المرسلة وغير المدفوعة بالكامل"
+      },
+      "vat": {
+        "loadFailed": "فشل في تحميل تقرير الضريبة",
+        "noDataToDisplay": "لا توجد بيانات ضريبية",
+        "summary": {
+          "collected": "ضريبة محصّلة",
+          "paid": "ضريبة مدفوعة",
+          "net": "صافي الضريبة"
+        },
+        "monthlyTitle": "التفاصيل الشهرية",
+        "table": {
+          "month": "الشهر",
+          "collected": "محصّلة",
+          "paid": "مدفوعة",
+          "net": "الصافي"
+        }
+      },
+      "clientProfitability": {
+        "loadFailed": "فشل في تحميل تقرير ربحية العملاء",
+        "noDataToDisplay": "لا توجد بيانات ربحية للعملاء",
+        "title": "ربحية العملاء",
+        "table": {
+          "client": "العميل",
+          "company": "الشركة",
+          "revenue": "الإيرادات",
+          "expenses": "المصاريف",
+          "profit": "الربح",
+          "margin": "الهامش",
+          "contracts": "العقود"
+        }
+      },
+      "projectProfitability": {
+        "loadFailed": "فشل في تحميل تقرير ربحية المشاريع",
+        "noDataToDisplay": "لا توجد بيانات ربحية للمشاريع",
+        "title": "ربحية المشاريع",
+        "table": {
+          "project": "المشروع",
+          "budget": "الميزانية",
+          "revenue": "الإيرادات",
+          "expenses": "المصاريف",
+          "profit": "الربح",
+          "budgetUtilization": "استخدام الميزانية"
+        }
+      },
+      "presets": {
+        "thisMonth": "هذا الشهر",
+        "lastMonth": "الشهر الماضي",
+        "thisQuarter": "هذا الربع",
+        "last6Months": "آخر 6 أشهر",
+        "thisYear": "هذه السنة"
+      }
     }
   }
 }

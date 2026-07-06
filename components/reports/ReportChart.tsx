@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BarChart3 } from 'lucide-react';
 import {
@@ -41,8 +42,10 @@ export function ReportChart({
   color = CHART_PRIMARY,
   height = 300,
 }: Props) {
+  const t = useTranslations('finance.reports');
+
   if (!data || data.length === 0) {
-    return <EmptyState icon={BarChart3} title="لا توجد بيانات لعرضها" className="py-8" />;
+    return <EmptyState icon={BarChart3} title={t('noDataToDisplay')} className="py-8" />;
   }
 
   if (type === 'bar') {

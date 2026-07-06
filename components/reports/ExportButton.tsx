@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function ExportButton({ type, from, to }: Props) {
+  const t = useTranslations('finance.reports.export');
   const [loading, setLoading] = useState(false);
 
   const handleExport = async () => {
@@ -22,7 +24,7 @@ export function ExportButton({ type, from, to }: Props) {
         `/api/reports/export?type=${encodeURIComponent(type)}&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
       );
       if (!res.ok) {
-        toast.error('فشل في تصدير التقرير');
+        toast.error(t('exportFailed'));
         return;
       }
       const blob = await res.blob();
@@ -34,9 +36,9 @@ export function ExportButton({ type, from, to }: Props) {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      toast.success('تم تصدير التقرير بنجاح');
+      toast.success(t('exportSuccess'));
     } catch {
-      toast.error('فشل في تصدير التقرير');
+      toast.error(t('exportFailed'));
     } finally {
       setLoading(false);
     }
@@ -49,7 +51,7 @@ export function ExportButton({ type, from, to }: Props) {
       ) : (
         <Download className="h-4 w-4 me-2" />
       )}
-      تصدير CSV
+      {t('button')}
     </Button>
   );
 }

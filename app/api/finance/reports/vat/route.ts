@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
+import { getLocale } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor } from '@/lib/constants/dates';
 import { EXPENSE_STATUS } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -25,7 +27,8 @@ function endOfCurrentQuarter(): string {
 }
 
 /** Build monthly buckets between from and to */
-function buildMonths(from: string, to: string) {
+function buildMonths(from: string, to: string, locale: Locale) {
+  const monthNames = monthNamesFor(locale);
   const months: { label: string; start: string; end: string }[] = [];
   const endDate = new Date(to + 'T00:00:00');
   let cursor = new Date(from + 'T00:00:00');
@@ -39,7 +42,7 @@ function buildMonths(from: string, to: string) {
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     months.push({
-      label: `${MONTH_NAMES_AR[month]} ${year}`,
+      label: `${monthNames[month]} ${year}`,
       start: monthStart,
       end: monthEnd,
     });
@@ -56,6 +59,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const locale = await getLocale() as Locale;
   const supabase = createServiceRoleClient();
   const params = req.nextUrl.searchParams;
 
@@ -109,7 +113,7 @@ export async function GET(req: NextRequest) {
     if (expErr) throw expErr;
 
     // Build monthly breakdown
-    const months = buildMonths(from, to);
+    const months = buildMonths(from, to, locale);
 
     let totalCollected = 0;
     let totalPaid = 0;

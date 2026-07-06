@@ -57,3 +57,31 @@ export const MONTH_NAMES_EN: readonly string[] = [
 export function monthNamesFor(locale: Locale): readonly string[] {
   return locale === 'ar' ? MONTH_NAMES_AR : MONTH_NAMES_EN;
 }
+
+/**
+ * Quarter-name arrays — i18n Phase 4.6, extracted from the inline `arabicQ`
+ * array in app/api/finance/reports/pnl/route.ts (`buildQuarterlyPeriods`).
+ * Index 0 = Q1. AR values are byte-identical to the original inline array —
+ * do NOT reword.
+ */
+export const QUARTER_NAMES_AR: readonly string[] = [
+  'الربع الأول',
+  'الربع الثاني',
+  'الربع الثالث',
+  'الربع الرابع',
+] as const;
+
+export const QUARTER_NAMES_EN: readonly string[] = [
+  'Q1',
+  'Q2',
+  'Q3',
+  'Q4',
+] as const;
+
+/**
+ * Locale-aware quarter-names accessor — returns QUARTER_NAMES_AR for 'ar',
+ * else QUARTER_NAMES_EN. Same index convention as both arrays (0 = Q1).
+ */
+export function quarterNamesFor(locale: Locale): readonly string[] {
+  return locale === 'ar' ? QUARTER_NAMES_AR : QUARTER_NAMES_EN;
+}

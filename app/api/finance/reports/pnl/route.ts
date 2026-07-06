@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
+import { getLocale } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor, quarterNamesFor } from '@/lib/constants/dates';
 import { EXPENSE_STATUS } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -18,7 +20,8 @@ function today(): string {
 }
 
 /** Build an array of { label, start, end } periods between two dates */
-function buildMonthlyPeriods(from: string, to: string) {
+function buildMonthlyPeriods(from: string, to: string, locale: Locale) {
+  const monthNames = monthNamesFor(locale);
   const periods: { label: string; start: string; end: string }[] = [];
   const startDate = new Date(from + 'T00:00:00');
   const endDate = new Date(to + 'T00:00:00');
@@ -33,7 +36,7 @@ function buildMonthlyPeriods(from: string, to: string) {
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     periods.push({
-      label: `${MONTH_NAMES_AR[month]} ${year}`,
+      label: `${monthNames[month]} ${year}`,
       start: monthStart,
       end: monthEnd,
     });
@@ -44,7 +47,8 @@ function buildMonthlyPeriods(from: string, to: string) {
   return periods;
 }
 
-function buildQuarterlyPeriods(from: string, to: string) {
+function buildQuarterlyPeriods(from: string, to: string, locale: Locale) {
+  const quarterNames = quarterNamesFor(locale);
   const periods: { label: string; start: string; end: string }[] = [];
   const startDate = new Date(from + 'T00:00:00');
   const endDate = new Date(to + 'T00:00:00');
@@ -62,9 +66,8 @@ function buildQuarterlyPeriods(from: string, to: string) {
     const qStartStr = `${year}-${String(q * 3 + 1).padStart(2, '0')}-01`;
     const qEndStr = `${year}-${String(qEndMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
-    const arabicQ = ['الربع الأول', 'الربع الثاني', 'الربع الثالث', 'الربع الرابع'];
     periods.push({
-      label: `${arabicQ[q]} ${year}`,
+      label: `${quarterNames[q]} ${year}`,
       start: qStartStr,
       end: qEndStr,
     });
@@ -85,6 +88,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const locale = await getLocale() as Locale;
   const supabase = createServiceRoleClient();
   const params = req.nextUrl.searchParams;
 
@@ -95,8 +99,8 @@ export async function GET(req: NextRequest) {
   try {
     const periods =
       groupBy === 'quarter'
-        ? buildQuarterlyPeriods(from, to)
-        : buildMonthlyPeriods(from, to);
+        ? buildQuarterlyPeriods(from, to, locale)
+        : buildMonthlyPeriods(from, to, locale);
 
     // Fetch all payments in the full range (cash-basis: revenue by payment_date)
     const { data: payments, error: payErr } = await supabase

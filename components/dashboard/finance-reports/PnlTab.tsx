@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,6 +25,7 @@ function getDefaultFrom(): string { const d = new Date(); return `${d.getFullYea
 function getDefaultTo(): string { return new Date().toISOString().slice(0, 10); }
 
 export function PnlTab() {
+  const t = useTranslations('finance.reports');
   const [from, setFrom] = useState(getDefaultFrom);
   const [to, setTo] = useState(getDefaultTo);
   const [groupBy, setGroupBy] = useState<'month' | 'quarter'>('month');
@@ -34,9 +36,9 @@ export function PnlTab() {
     setLoading(true);
     fetchAPI<PnlData>(`/api/finance/reports/pnl?from=${from}&to=${to}&group_by=${groupBy}`)
       .then((result) => setData(result))
-      .catch(() => toast.error('فشل في تحميل تقرير الأرباح والخسائر'))
+      .catch(() => toast.error(t('pnl.loadFailed')))
       .finally(() => setLoading(false));
-  }, [from, to, groupBy]);
+  }, [from, to, groupBy, t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -50,37 +52,48 @@ export function PnlTab() {
     );
   }
 
+  const legendRevenue = t('pnl.legend.revenue');
+  const legendSalaries = t('pnl.legend.salaries');
+  const legendOperational = t('pnl.legend.operational');
+  const legendSubscriptions = t('pnl.legend.subscriptions');
+  const legendMap: Record<string, string> = {
+    revenue: legendRevenue,
+    salaries: legendSalaries,
+    operational: legendOperational,
+    subscriptions: legendSubscriptions,
+  };
+
   return (
     <div className="space-y-6">
       <DateRangeFilter from={from} to={to} onFromChange={setFrom} onToChange={setTo} onApply={fetchData}>
         <div className="space-y-1.5">
-          <Label className="text-xs">التجميع</Label>
+          <Label className="text-xs">{t('pnl.groupBy.label')}</Label>
           <Select value={groupBy} onValueChange={(v) => setGroupBy(v as 'month' | 'quarter')}>
             <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-            <SelectContent><SelectItem value="month">شهري</SelectItem><SelectItem value="quarter">ربع سنوي</SelectItem></SelectContent>
+            <SelectContent><SelectItem value="month">{t('pnl.groupBy.month')}</SelectItem><SelectItem value="quarter">{t('pnl.groupBy.quarter')}</SelectItem></SelectContent>
           </Select>
         </div>
       </DateRangeFilter>
 
-      {!data ? <EmptyState icon={FileText} title="لا توجد بيانات لعرضها" /> : (
+      {!data ? <EmptyState icon={FileText} title={t('noDataToDisplay')} /> : (
         <>
           <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <SummaryCard title="إجمالي الإيرادات" value={formatCurrency(data.totals.revenue)} icon={TrendingUp} colorClass="text-green-600 dark:text-green-400" />
-            <SummaryCard title="إجمالي المصاريف" value={formatCurrency(data.totals.expenses.total)} icon={TrendingDown} colorClass="text-red-600 dark:text-red-400" />
-            <SummaryCard title="صافي الربح" value={formatCurrency(data.totals.profit)} icon={TrendingUp} colorClass={data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
-            <SummaryCard title="هامش الربح" value={`${data.totals.margin}%`} icon={FileText} colorClass={data.totals.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+            <SummaryCard title={t('pnl.summary.totalRevenue')} value={formatCurrency(data.totals.revenue)} icon={TrendingUp} colorClass="text-green-600 dark:text-green-400" />
+            <SummaryCard title={t('pnl.summary.totalExpenses')} value={formatCurrency(data.totals.expenses.total)} icon={TrendingDown} colorClass="text-red-600 dark:text-red-400" />
+            <SummaryCard title={t('pnl.summary.netProfit')} value={formatCurrency(data.totals.profit)} icon={TrendingUp} colorClass={data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
+            <SummaryCard title={t('pnl.summary.profitMargin')} value={`${data.totals.margin}%`} icon={FileText} colorClass={data.totals.margin >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'} />
           </div>
           {data.periods.length > 0 && (
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="h-5 w-5" />الإيرادات مقابل المصاريف</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="h-5 w-5" />{t('pnl.chartTitle')}</CardTitle></CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={350}>
                   <BarChart data={data.periods.map(p => ({ label: p.label, revenue: p.revenue, salaries: p.expenses.salaries, operational: p.expenses.operational, subscriptions: p.expenses.subscriptions }))}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" tick={{ fontSize: 11 }} className="text-muted-foreground" />
                     <YAxis tick={{ fontSize: 11 }} className="text-muted-foreground" tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(value: number, name: string) => [formatCurrency(value), { revenue: 'الإيرادات', salaries: 'الرواتب', operational: 'تشغيلية', subscriptions: 'الاشتراكات' }[name] || name]} />
-                    <Legend formatter={(value: string) => ({ revenue: 'الإيرادات', salaries: 'الرواتب', operational: 'مصاريف تشغيلية', subscriptions: 'الاشتراكات' }[value] || value)} />
+                    <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(value: number, name: string) => [formatCurrency(value), legendMap[name] || name]} />
+                    <Legend formatter={(value: string) => legendMap[value] || value} />
                     <Bar dataKey="revenue" fill="#22c55e" radius={[4, 4, 0, 0]} name="revenue" /><Bar dataKey="salaries" fill="#ef4444" stackId="expenses" name="salaries" /><Bar dataKey="operational" fill="#f97316" stackId="expenses" name="operational" /><Bar dataKey="subscriptions" fill="#8b5cf6" stackId="expenses" radius={[4, 4, 0, 0]} name="subscriptions" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -88,13 +101,13 @@ export function PnlTab() {
             </Card>
           )}
           <Card>
-            <CardHeader><CardTitle className="text-base">تفاصيل الفترات</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t('pnl.periodsTitle')}</CardTitle></CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead><tr className="border-b text-muted-foreground"><th className="text-end py-3 px-2 font-medium">الفترة</th><th className="text-end py-3 px-2 font-medium">الإيرادات</th><th className="text-end py-3 px-2 font-medium">الرواتب</th><th className="text-end py-3 px-2 font-medium">تشغيلية</th><th className="text-end py-3 px-2 font-medium">اشتراكات</th><th className="text-end py-3 px-2 font-medium">إجمالي المصاريف</th><th className="text-end py-3 px-2 font-medium">الربح</th></tr></thead>
+                  <thead><tr className="border-b text-muted-foreground"><th className="text-end py-3 px-2 font-medium">{t('pnl.table.period')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.revenue')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.salaries')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.operational')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.subscriptions')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.totalExpenses')}</th><th className="text-end py-3 px-2 font-medium">{t('pnl.table.profit')}</th></tr></thead>
                   <tbody>{data.periods.map((p) => <tr key={p.start} className="border-b last:border-0 hover:bg-muted/50"><td className="py-3 px-2 font-medium">{p.label}</td><td className="py-3 px-2 font-mono text-green-600 dark:text-green-400">{formatCurrency(p.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(p.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(p.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(p.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 dark:text-red-400 font-semibold">{formatCurrency(p.expenses.total)}</td><td className={`py-3 px-2 font-mono font-semibold ${p.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(p.profit)}</td></tr>)}</tbody>
-                  <tfoot><tr className="border-t-2 font-bold"><td className="py-3 px-2">الإجمالي</td><td className="py-3 px-2 font-mono text-green-600 dark:text-green-400">{formatCurrency(data.totals.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(data.totals.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(data.totals.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(data.totals.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 dark:text-red-400">{formatCurrency(data.totals.expenses.total)}</td><td className={`py-3 px-2 font-mono ${data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(data.totals.profit)}</td></tr></tfoot>
+                  <tfoot><tr className="border-t-2 font-bold"><td className="py-3 px-2">{t('total')}</td><td className="py-3 px-2 font-mono text-green-600 dark:text-green-400">{formatCurrency(data.totals.revenue)}</td><td className="py-3 px-2 font-mono text-red-500">{formatCurrency(data.totals.expenses.salaries)}</td><td className="py-3 px-2 font-mono text-orange-500">{formatCurrency(data.totals.expenses.operational)}</td><td className="py-3 px-2 font-mono text-violet-500">{formatCurrency(data.totals.expenses.subscriptions)}</td><td className="py-3 px-2 font-mono text-red-600 dark:text-red-400">{formatCurrency(data.totals.expenses.total)}</td><td className={`py-3 px-2 font-mono ${data.totals.profit >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>{formatCurrency(data.totals.profit)}</td></tr></tfoot>
                 </table>
               </div>
             </CardContent>

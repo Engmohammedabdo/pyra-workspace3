@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,10 +20,11 @@ export function DateRangeFilter({
   onApply: () => void;
   children?: React.ReactNode;
 }) {
+  const t = useTranslations('finance.reports.dateFilter');
   return (
     <div className="flex flex-wrap items-end gap-3 mb-6">
       <div className="space-y-1.5">
-        <Label className="text-xs">من</Label>
+        <Label className="text-xs">{t('from')}</Label>
         <Input
           type="date"
           value={from}
@@ -31,7 +33,7 @@ export function DateRangeFilter({
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">إلى</Label>
+        <Label className="text-xs">{t('to')}</Label>
         <Input
           type="date"
           value={to}
@@ -41,7 +43,7 @@ export function DateRangeFilter({
       </div>
       {children}
       <Button onClick={onApply} size="sm">
-        عرض التقرير
+        {t('showReport')}
       </Button>
     </div>
   );

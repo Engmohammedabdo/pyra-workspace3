@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server';
+import { getLocale } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { toAED } from '@/lib/utils/currency';
 import { getInvoiceCurrencyMap, sumPaymentsAED } from '@/lib/finance/payment-currency';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor } from '@/lib/constants/dates';
 import { EXPENSE_STATUS } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 
 /* ── Helpers ────────────────────────────────────────── */
 
@@ -17,7 +19,8 @@ function endOfYear(): string {
   return `${new Date().getFullYear()}-12-31`;
 }
 
-function buildMonthlyPeriods(from: string, to: string) {
+function buildMonthlyPeriods(from: string, to: string, locale: Locale) {
+  const monthNames = monthNamesFor(locale);
   const periods: { label: string; start: string; end: string }[] = [];
   const endDate = new Date(to + 'T00:00:00');
   let cursor = new Date(from + 'T00:00:00');
@@ -31,7 +34,7 @@ function buildMonthlyPeriods(from: string, to: string) {
     const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     periods.push({
-      label: `${MONTH_NAMES_AR[month]} ${year}`,
+      label: `${monthNames[month]} ${year}`,
       start: monthStart,
       end: monthEnd,
     });
@@ -53,6 +56,7 @@ export async function GET(req: NextRequest) {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const locale = await getLocale() as Locale;
   const supabase = createServiceRoleClient();
   const params = req.nextUrl.searchParams;
 
@@ -60,7 +64,7 @@ export async function GET(req: NextRequest) {
   const to = params.get('to') || endOfYear();
 
   try {
-    const periods = buildMonthlyPeriods(from, to);
+    const periods = buildMonthlyPeriods(from, to, locale);
 
     // ── Cash Inflows: actual payments received (by payment_date) ──
     const { data: payments, error: payErr } = await supabase
@@ -176,6 +180,9 @@ export async function GET(req: NextRequest) {
     const categoryBreakdown: Record<string, number> = {};
     for (const exp of expenses || []) {
       const catId = (exp as { category_id: string | null }).category_id;
+      // i18n-exempt: category names are DB data (pyra_expense_categories.name_ar);
+      // this fallback covers unmapped/null categories and stays AR-only until
+      // the categories table gains a name_en column (out of scope, Phase 4).
       const cat = (catId && categoryNames[catId]) || 'أخرى';
       categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) +
         toAED(Number(exp.amount) + Number(exp.vat_amount || 0), exp.currency);

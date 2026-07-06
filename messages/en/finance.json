@@ -1257,6 +1257,145 @@
       "revenueLabel": "Revenue",
       "expensesLabel": "Expenses",
       "amountLabel": "Amount"
+    },
+    "reports": {
+      "meta": {
+        "title": "Financial Reports",
+        "subtitle": "Comprehensive financial analysis of profit, tax, and clients"
+      },
+      "tabs": {
+        "pnl": "Profit & Loss",
+        "cashflow": "Cash Flow",
+        "vat": "Tax",
+        "clients": "Client Profitability",
+        "projects": "Project Profitability"
+      },
+      "export": {
+        "button": "Export CSV",
+        "exportFailed": "Failed to export report",
+        "exportSuccess": "Report exported successfully"
+      },
+      "dateFilter": {
+        "from": "From",
+        "to": "To",
+        "showReport": "Show Report"
+      },
+      "columns": {
+        "revenue": "Revenue",
+        "expenses": "Expenses",
+        "profit": "Profit",
+        "margin": "Margin"
+      },
+      "total": "Total",
+      "noDataToDisplay": "No data to display",
+      "pnl": {
+        "loadFailed": "Failed to load profit & loss report",
+        "groupBy": {
+          "label": "Group By",
+          "month": "Monthly",
+          "quarter": "Quarterly"
+        },
+        "summary": {
+          "totalRevenue": "Total Revenue",
+          "totalExpenses": "Total Expenses",
+          "netProfit": "Net Profit",
+          "profitMargin": "Profit Margin"
+        },
+        "chartTitle": "Revenue vs Expenses",
+        "legend": {
+          "revenue": "Revenue",
+          "salaries": "Salaries",
+          "operational": "Operational Expenses",
+          "subscriptions": "Subscriptions"
+        },
+        "periodsTitle": "Period Details",
+        "table": {
+          "period": "Period",
+          "revenue": "Revenue",
+          "salaries": "Salaries",
+          "operational": "Operational",
+          "subscriptions": "Subscriptions",
+          "totalExpenses": "Total Expenses",
+          "profit": "Profit"
+        }
+      },
+      "cashflow": {
+        "loadFailed": "Failed to load cash flow report",
+        "summary": {
+          "inflow": "Inflow (Receipts)",
+          "outflow": "Outflow (Expenses)",
+          "refunds": "Refunded Amounts",
+          "net": "Net Cash Flow"
+        },
+        "chartTitle": "Inflow vs Outflow Monthly",
+        "legend": {
+          "inflow": "Inflow",
+          "outflow": "Outflow (Expenses + Refunds)"
+        },
+        "monthsTitle": "Monthly Details",
+        "table": {
+          "month": "Month",
+          "inflow": "Inflow",
+          "outflow": "Outflow",
+          "refunds": "Refunds",
+          "net": "Net",
+          "runningBalance": "Running Balance"
+        },
+        "byMethodTitle": "By Payment Method",
+        "noInflowInPeriod": "No receipts in this period",
+        "forecastTitle": "Expected to Collect (Outstanding Invoices)",
+        "forecastHint": "Total remaining on sent, not-fully-paid invoices"
+      },
+      "vat": {
+        "loadFailed": "Failed to load tax report",
+        "noDataToDisplay": "No tax data available",
+        "summary": {
+          "collected": "Tax Collected",
+          "paid": "Tax Paid",
+          "net": "Net Tax"
+        },
+        "monthlyTitle": "Monthly Details",
+        "table": {
+          "month": "Month",
+          "collected": "Collected",
+          "paid": "Paid",
+          "net": "Net"
+        }
+      },
+      "clientProfitability": {
+        "loadFailed": "Failed to load client profitability report",
+        "noDataToDisplay": "No client profitability data available",
+        "title": "Client Profitability",
+        "table": {
+          "client": "Client",
+          "company": "Company",
+          "revenue": "Revenue",
+          "expenses": "Expenses",
+          "profit": "Profit",
+          "margin": "Margin",
+          "contracts": "Contracts"
+        }
+      },
+      "projectProfitability": {
+        "loadFailed": "Failed to load project profitability report",
+        "noDataToDisplay": "No project profitability data available",
+        "title": "Project Profitability",
+        "table": {
+          "project": "Project",
+          "budget": "Budget",
+          "revenue": "Revenue",
+          "expenses": "Expenses",
+          "profit": "Profit",
+          "budgetUtilization": "Budget Utilization"
+        }
+      },
+      "presets": {
+        "thisMonth": "This Month",
+        "lastMonth": "Last Month",
+        "thisQuarter": "This Quarter",
+        "last6Months": "Last 6 Months",
+        "thisYear": "This Year"
+      }
     }
   }
 }

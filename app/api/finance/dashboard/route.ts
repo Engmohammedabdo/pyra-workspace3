@@ -1,3 +1,4 @@
+import { getLocale } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -10,6 +11,7 @@ export async function GET() {
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
+  const locale = await getLocale();
   const scope = await resolveUserScope(auth);
 
   const supabase = createServiceRoleClient();
@@ -144,7 +146,7 @@ export async function GET() {
     const monthlyData: Array<{ month: string; revenue: number; expenses: number }> = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthLabel = d.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' });
+      const monthLabel = d.toLocaleDateString(locale === 'ar' ? 'ar-EG' : 'en-GB', { month: 'short', year: 'numeric' });
 
       monthlyData.push({ month: monthLabel, revenue: 0, expenses: 0 });
     }
