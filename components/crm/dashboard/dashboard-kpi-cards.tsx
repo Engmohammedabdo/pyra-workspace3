@@ -20,6 +20,7 @@
  *   without any UI change here (the visual contract is preserved).
  */
 
+import { useTranslations } from 'next-intl';
 import { useCRMKPIs, type CRMPeriod } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,6 +34,7 @@ interface DashboardKpiCardsProps {
 }
 
 export function DashboardKpiCards({ period = 'this_month' }: DashboardKpiCardsProps) {
+  const t = useTranslations('crm.dashboard.kpiCards');
   const { data: kpis, isLoading } = useCRMKPIs(period);
 
   return (
@@ -40,36 +42,36 @@ export function DashboardKpiCards({ period = 'this_month' }: DashboardKpiCardsPr
       <KpiCard
         loading={isLoading}
         icon={<Wallet className="size-5" />}
-        label="قيمة خط المبيعات"
+        label={t('pipelineValue.label')}
         value={kpis ? formatCurrency(kpis.pipeline_value.total_aed, kpis.currency) : '—'}
-        sub={kpis ? `${kpis.pipeline_value.count} ${kpis.pipeline_value.count === 1 ? 'صفقة نشطة' : 'صفقة نشطة'}` : undefined}
+        sub={kpis ? t('pipelineValue.sub', { count: kpis.pipeline_value.count }) : undefined}
         tone="orange"
         trendPct={kpis?.pipeline_value.trend_pct ?? 0}
       />
       <KpiCard
         loading={isLoading}
         icon={<TrendingUp className="size-5" />}
-        label="فوز هذه الفترة"
+        label={t('closedWon.label')}
         value={kpis ? formatCurrency(kpis.closed_won.total_aed, kpis.currency) : '—'}
-        sub={kpis ? `${kpis.closed_won.count} ${kpis.closed_won.count === 1 ? 'صفقة' : 'صفقات'}` : undefined}
+        sub={kpis ? t('closedWon.sub', { count: kpis.closed_won.count }) : undefined}
         tone="emerald"
         trendPct={kpis?.closed_won.vs_target_pct ?? 0}
       />
       <KpiCard
         loading={isLoading}
         icon={<Target className="size-5" />}
-        label="معدل التحويل"
+        label={t('conversionRate.label')}
         value={kpis ? `${kpis.conversion_rate.current_pct}%` : '—'}
-        sub="vs الفترة السابقة"
+        sub={t('conversionRate.sub')}
         tone="indigo"
         trendPct={kpis?.conversion_rate.vs_prior_pct ?? 0}
       />
       <KpiCard
         loading={isLoading}
         icon={<BarChart3 className="size-5" />}
-        label="متوسط حجم الصفقة"
+        label={t('avgDealSize.label')}
         value={kpis ? formatCurrency(kpis.avg_deal_size.aed, kpis.currency) : '—'}
-        sub="لكل صفقة نشطة"
+        sub={t('avgDealSize.sub')}
         tone="amber"
         trendPct={0}
       />

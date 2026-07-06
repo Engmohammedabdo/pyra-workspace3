@@ -29,6 +29,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useTeamPerformance, type CRMPeriod } from '@/hooks/useCRMDashboard';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -45,11 +46,12 @@ import { DashboardActionCards } from '@/components/crm/dashboard/dashboard-actio
 import { DashboardTeamPerformance } from '@/components/crm/dashboard/dashboard-team-performance';
 import { DashboardDataSources } from '@/components/crm/dashboard/dashboard-data-sources';
 
-const PERIOD_OPTIONS: Array<{ value: CRMPeriod; label: string }> = [
-  { value: 'this_month', label: 'هذا الشهر' },
-  { value: 'last_30d',   label: 'آخر ٣٠ يوم' },
-  { value: 'quarter',    label: 'هذا الربع' },
-];
+const PERIOD_VALUES: CRMPeriod[] = ['this_month', 'last_30d', 'quarter'];
+const PERIOD_KEY: Record<CRMPeriod, string> = {
+  this_month: 'thisMonth',
+  last_30d: 'last30d',
+  quarter: 'quarter',
+};
 
 export function DashboardClient() {
   const [period, setPeriod] = useState<CRMPeriod>('this_month');
@@ -107,21 +109,22 @@ function PeriodSelector({
   value: CRMPeriod;
   onChange: (v: CRMPeriod) => void;
 }) {
+  const t = useTranslations('crm.dashboard');
   return (
     <div
       role="tablist"
-      aria-label="فترة العرض"
+      aria-label={t('toolbar.periodAria')}
       className="inline-flex items-center gap-1 p-1 rounded-lg bg-muted/50 border border-border self-start"
     >
-      {PERIOD_OPTIONS.map((opt) => {
-        const isActive = value === opt.value;
+      {PERIOD_VALUES.map((opt) => {
+        const isActive = value === opt;
         return (
           <button
-            key={opt.value}
+            key={opt}
             type="button"
             role="tab"
             aria-selected={isActive}
-            onClick={() => onChange(opt.value)}
+            onClick={() => onChange(opt)}
             className={cn(
               'px-3 py-1.5 rounded-md text-xs font-medium transition-all',
               'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
@@ -130,7 +133,7 @@ function PeriodSelector({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {opt.label}
+            {t(`periodOptions.${PERIOD_KEY[opt]}` as 'periodOptions.thisMonth')}
           </button>
         );
       })}
@@ -147,19 +150,20 @@ function TeamFilter({
   onChange: (v: string) => void;
   agents: Array<{ username: string; display_name: string }>;
 }) {
+  const t = useTranslations('crm.dashboard');
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Users className="size-4 text-muted-foreground shrink-0" aria-hidden />
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        aria-label="فلترة حسب موظف المبيعات"
+        aria-label={t('toolbar.agentFilterAria')}
         className={cn(
           'text-xs px-3 py-1.5 rounded-md border border-border bg-background text-foreground',
           'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
         )}
       >
-        <option value="">كل الفريق</option>
+        <option value="">{t('toolbar.allTeam')}</option>
         {agents.map((a) => (
           <option key={a.username} value={a.username}>
             {a.display_name}
@@ -170,7 +174,7 @@ function TeamFilter({
           propagate to the data hooks in v1. v1.1 will wire it through
           once each scoped endpoint accepts an as_user param. */}
       <span className="text-[10px] italic text-muted-foreground">
-        (فلترة لكل موظف — قريباً في v1.1)
+        {t('toolbar.agentFilterDisclaimer')}
       </span>
     </div>
   );

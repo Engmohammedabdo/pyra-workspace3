@@ -85,7 +85,13 @@
       "taskDueDateFormat": "Due date must be in YYYY-MM-DD format",
       "taskPriorityInvalid": "Invalid priority — choose: low / medium / high / urgent",
       "taskStatusInvalid": "Invalid status",
-      "taskDeleteOwner": "Only the task's creator or an admin can delete it"
+      "taskDeleteOwner": "Only the task's creator or an admin can delete it",
+      "insights": {
+        "idleWarning": "{count, plural, one {# stale deal} other {# stale deals}} idle for 7+ days",
+        "approvalsPending": "{count, plural, one {# deal awaiting your approval} other {# deals awaiting your approval}}",
+        "overdueFollowups": "{count, plural, one {# overdue follow-up} other {# overdue follow-ups}}",
+        "followupsToday": "{count, plural, one {# follow-up today} other {# follow-ups today}}"
+      }
     }
   }
 }

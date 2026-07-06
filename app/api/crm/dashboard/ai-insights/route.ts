@@ -1,3 +1,4 @@
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -52,6 +53,12 @@ export async function GET() {
     const auth = await requireApiPermission('crm_reports.view');
     if (isApiError(auth)) return auth;
 
+    // Per-request-locale translator (new `message` field) + a fixed-'ar'
+    // translator (keeps `message_ar` populated for back-compat — pre-Phase-3
+    // consumers, if any, keep working unmodified).
+    const t = await getTranslations('api.crm.insights');
+    const tAr = await getTranslations({ locale: 'ar', namespace: 'api.crm.insights' });
+
     const supabase = createServiceRoleClient();
     const role = auth.pyraUser.role;
     const username = auth.pyraUser.username;
@@ -64,6 +71,9 @@ export async function GET() {
       severity: 'critical' | 'high' | 'medium' | 'low';
       count: number;
       value?: number;
+      /** Localized per the requester's current locale (Phase 3.2). */
+      message: string;
+      /** Back-compat — always the Arabic render, regardless of locale. */
       message_ar: string;
       link?: string;
     };
@@ -106,7 +116,8 @@ export async function GET() {
           severity: 'high',
           count: idleCount,
           value: idleValue,
-          message_ar: `${idleCount} ${idleCount === 1 ? 'صفقة راكدة' : 'صفقات راكدة'} أكثر من ٧ أيام`,
+          message: t('idleWarning', { count: idleCount }),
+          message_ar: tAr('idleWarning', { count: idleCount }),
           link: '/dashboard/crm?filter=at_risk',
         });
       }
@@ -135,7 +146,8 @@ export async function GET() {
           type: 'approvals_pending',
           severity: pCount > 5 ? 'critical' : 'high',
           count: pCount,
-          message_ar: `${pCount} ${pCount === 1 ? 'صفقة بانتظار اعتمادك' : 'صفقات بانتظار اعتمادك'}`,
+          message: t('approvalsPending', { count: pCount }),
+          message_ar: tAr('approvalsPending', { count: pCount }),
           link: '/dashboard/crm/approvals',
         });
       }
@@ -160,7 +172,8 @@ export async function GET() {
         type: 'overdue_followups',
         severity: oCount > 5 ? 'high' : 'medium',
         count: oCount,
-        message_ar: `${oCount} ${oCount === 1 ? 'متابعة متأخرة' : 'متابعات متأخرة'}`,
+        message: t('overdueFollowups', { count: oCount }),
+        message_ar: tAr('overdueFollowups', { count: oCount }),
         link: '/dashboard/crm/follow-ups?status=overdue',
       });
     }
@@ -193,7 +206,8 @@ export async function GET() {
         type: 'followups_today',
         severity: 'medium',
         count: tCount,
-        message_ar: `${tCount} ${tCount === 1 ? 'متابعة اليوم' : 'متابعات اليوم'}`,
+        message: t('followupsToday', { count: tCount }),
+        message_ar: tAr('followupsToday', { count: tCount }),
         link: '/dashboard/crm/follow-ups?status=today',
       });
     }

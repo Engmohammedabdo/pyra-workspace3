@@ -1,3 +1,89 @@
 {
-  "crm": {}
+  "crm": {
+    "dashboard": {
+      "meta": { "title": "لوحة المبيعات — Pyra" },
+      "periodOptions": {
+        "thisMonth": "هذا الشهر",
+        "last30d": "آخر ٣٠ يوم",
+        "quarter": "هذا الربع"
+      },
+      "toolbar": {
+        "periodAria": "فترة العرض",
+        "agentFilterAria": "فلترة حسب موظف المبيعات",
+        "allTeam": "كل الفريق",
+        "agentFilterDisclaimer": "(فلترة لكل موظف — قريباً في v1.1)"
+      },
+      "greeting": {
+        "line": "{greeting}، {name}",
+        "nameFallback": "بك",
+        "morning": "صباح الخير",
+        "evening": "مساء الخير",
+        "subtitleMorning": "يوم جديد، فرص جديدة",
+        "subtitleAfternoon": "نأمل ينتهي يومك بإغلاق صفقة",
+        "subtitleEvening": "إنجاز اليوم، تخطيط لبكرة"
+      },
+      "kpiCards": {
+        "pipelineValue": { "label": "قيمة خط المبيعات", "sub": "{count, plural, other {# صفقة نشطة}}" },
+        "closedWon": { "label": "فوز هذه الفترة", "sub": "{count, plural, one {# صفقة} other {# صفقات}}" },
+        "conversionRate": { "label": "معدل التحويل", "sub": "vs الفترة السابقة" },
+        "avgDealSize": { "label": "متوسط حجم الصفقة", "sub": "لكل صفقة نشطة" }
+      },
+      "funnel": {
+        "heading": "توزيع الصفقات على المراحل",
+        "empty": { "title": "لا توجد صفقات بعد", "description": "ابدأ بإضافة Lead جديد لرؤية التوزيع على المراحل." },
+        "count": "{count, plural, one {# صفقة} other {# صفقات}}",
+        "barAria": "{count, plural, one {# صفقة في مرحلة {stage}} other {# صفقات في مرحلة {stage}}}"
+      },
+      "dealsAtRisk": {
+        "heading": "صفقات تحتاج متابعة",
+        "empty": { "title": "كل العملاء متابعين 👌", "description": "لا توجد صفقات بدون نشاط منذ ٧ أيام أو أكثر." },
+        "viewAllExtra": "عرض كل الصفقات الراكدة ({hiddenCount} إضافية)",
+        "sinceLabel": "منذ {duration}",
+        "reminderAria": "تذكير {name} عبر واتساب",
+        "reminderTitle": "تذكير عبر واتساب",
+        "waFallbackService": "خدماتنا",
+        "waTemplate": "السلام عليكم {name}، بنتابع معاك عرض {service}. هل عندك أي استفسار؟"
+      },
+      "idle": {
+        "none": "بدون نشاط",
+        "days": "{count, plural, =1 {يوم واحد} =2 {يومين} other {# أيام}}",
+        "weeks": "{count, plural, other {# أسابيع}}",
+        "months": "{count, plural, other {# شهور}}"
+      },
+      "activityFeed": {
+        "heading": "النشاط الحديث",
+        "empty": { "title": "لا توجد أنشطة حديثة", "description": "ستظهر هنا آخر التحركات على الـ Leads (تغيير مرحلة، ملاحظات، مكالمات...) بمجرد ما تبدأ." },
+        "actorFallback": "النظام",
+        "leadFallback": "Lead"
+      },
+      "actionCards": {
+        "approvals": { "label": "اعتمادات بانتظارك", "countLabel": "{count, plural, one {# صفقة} other {# صفقات}}" },
+        "followUps": { "label": "متابعات معلقة", "countLabel": "{count, plural, one {# متابعة} other {# متابعات}}" },
+        "waUnread": { "label": "محادثات غير مقروءة", "countLabel": "{count, plural, one {# محادثة} other {# محادثات}}" }
+      },
+      "teamPerformance": {
+        "heading": "أداء الفريق",
+        "empty": { "title": "لا توجد بيانات للفريق بعد", "description": "ستظهر هنا أرقام كل موظف مبيعات بمجرد ما يبدأ الفريق العمل على Leads." },
+        "staffCount": "{count, plural, one {# موظف} other {# موظفين}}",
+        "th": {
+          "employee": "الموظف",
+          "total": "الإجمالي",
+          "active": "نشط",
+          "won": "فوز",
+          "lost": "خسارة",
+          "conversion": "التحويل",
+          "pipelineValue": "قيمة خط المبيعات"
+        }
+      },
+      "dataSources": {
+        "updatedAt": "تم تحديث البيانات الساعة <t>{timeValue}</t>",
+        "sourcesLabel": "المصادر:",
+        "separator": "،"
+      },
+      "aiInsight": {
+        "estimatedValue": "بقيمة تقديرية {value} درهم",
+        "severityAria": "درجة الخطورة: {severity}"
+      }
+    }
+  }
 }

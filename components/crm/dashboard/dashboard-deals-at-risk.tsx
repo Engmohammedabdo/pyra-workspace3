@@ -7,12 +7,12 @@
  *   "Deals-at-risk list with WhatsApp reminder action"
  *
  * Each row: lead name + days idle + stage label + WhatsApp button. The
- * WhatsApp button uses the locked Phase 8 template from Q4:
- *
- *   السلام عليكم {name}، بنتابع معاك عرض {service}.
- *   هل عندك أي استفسار؟
- *
- *   {service} = lead.deal_type ?? 'خدماتنا'
+ * WhatsApp button uses the locked Phase 8 template from Q4 — see the
+ * `crm.dashboard.dealsAtRisk.waTemplate` catalog key for the exact wording
+ * (outbound customer message, i18n-exempt per Phase 8/9 scope discipline —
+ * see the `useReminderTextBuilder` doc comment below).
+ * `{service}` falls back to the `waFallbackService` key when the lead has no
+ * `deal_type`.
  *
  * Cap visible rows at 5 with a "view all" link to a filtered Pipeline
  * view. The whole point is "the few deals you should poke today" — a
@@ -20,32 +20,52 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useDealsAtRisk } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { AlertTriangle, MessageCircle, ArrowLeft } from 'lucide-react';
 import { whatsAppHref } from '@/lib/utils/whatsapp';
-import { PIPELINE_STAGE_LABELS_AR, type PipelineStageId } from '@/lib/constants/statuses';
+import { PIPELINE_STAGE_IDS, type PipelineStageId } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { cn } from '@/lib/utils/cn';
 import type { DealAtRisk } from '@/hooks/useCRMDashboard';
 
 const VISIBLE_LIMIT = 5;
 
-function buildReminderText(lead: { name: string; deal_type: string | null }): string {
-  const service = lead.deal_type?.trim() || 'خدماتنا';
-  return `السلام عليكم ${lead.name}، بنتابع معاك عرض ${service}. هل عندك أي استفسار؟`;
+// Validity check without needing the full label map (the label itself now
+// comes from useStatusLabels('pipelineStage') inside the component).
+const VALID_STAGE_IDS: readonly string[] = Object.values(PIPELINE_STAGE_IDS);
+
+/**
+ * WhatsApp OUTBOUND message template — Phase 8 locked wording, customer-facing.
+ * i18n-exempt: outbound customer message (Phase 8/9 scope). Rendered from the
+ * crm.dashboard.dealsAtRisk.waTemplate / waFallbackService catalog keys so the
+ * literal text still lives in the catalog (translatable per-locale), but the
+ * decision to send a fixed customer-facing script is out of Phase 3's scope.
+ */
+function useReminderTextBuilder() {
+  const t = useTranslations('crm.dashboard.dealsAtRisk');
+  return (lead: { name: string; deal_type: string | null }): string => {
+    const service = lead.deal_type?.trim() || t('waFallbackService'); // i18n-exempt: outbound customer message (Phase 8/9 scope)
+    return t('waTemplate', { name: lead.name, service }); // i18n-exempt: outbound customer message (Phase 8/9 scope)
+  };
 }
 
-function daysIdleLabel(days: number | null): string {
-  if (days == null) return 'بدون نشاط';
-  if (days <= 1) return 'يوم واحد';
-  if (days <= 14) return `${days} ${days === 2 ? 'يومين' : 'أيام'}`;
-  if (days <= 30) return `${Math.floor(days / 7)} أسابيع`;
-  return `${Math.floor(days / 30)} شهور`;
+function useDaysIdleLabel() {
+  const t = useTranslations('crm.dashboard.idle');
+  return (days: number | null): string => {
+    if (days == null) return t('none');
+    if (days <= 1) return t('days', { count: 1 });
+    if (days <= 14) return t('days', { count: days });
+    if (days <= 30) return t('weeks', { count: Math.floor(days / 7) });
+    return t('months', { count: Math.floor(days / 30) });
+  };
 }
 
 export function DashboardDealsAtRisk() {
+  const t = useTranslations('crm.dashboard.dealsAtRisk');
   const { data, isLoading } = useDealsAtRisk(7);
 
   if (isLoading) {
@@ -76,12 +96,12 @@ export function DashboardDealsAtRisk() {
       <Card className="p-5">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <AlertTriangle className="size-4 text-muted-foreground" />
-          صفقات تحتاج متابعة
+          {t('heading')}
         </h2>
         <EmptyState
           icon={AlertTriangle}
-          title="كل العملاء متابعين 👌"
-          description="لا توجد صفقات بدون نشاط منذ ٧ أيام أو أكثر."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </Card>
     );
@@ -92,7 +112,7 @@ export function DashboardDealsAtRisk() {
       <header className="flex items-center justify-between mb-3">
         <h2 className="text-base font-semibold flex items-center gap-2">
           <AlertTriangle className="size-4 text-amber-500" />
-          صفقات تحتاج متابعة
+          {t('heading')}
           <span className="text-xs font-normal text-muted-foreground tabular-nums">
             ({deals.length})
           </span>
@@ -108,7 +128,7 @@ export function DashboardDealsAtRisk() {
           href="/dashboard/crm/pipeline?filter=at_risk"
           className="mt-3 flex items-center justify-center gap-1 text-xs text-orange-600 dark:text-orange-400 hover:underline"
         >
-          عرض كل الصفقات الراكدة ({hiddenCount} إضافية)
+          {t('viewAllExtra', { hiddenCount })}
           <ArrowLeft className="size-3" aria-hidden />
         </Link>
       )}
@@ -117,9 +137,14 @@ export function DashboardDealsAtRisk() {
 }
 
 function DealRow({ lead }: { lead: DealAtRisk }) {
+  const t = useTranslations('crm.dashboard.dealsAtRisk');
+  const stagePipelineLabel = useStatusLabels('pipelineStage');
+  const priorityLabel = useStatusLabels('leadPriority');
+  const buildReminderText = useReminderTextBuilder();
+  const daysIdleLabel = useDaysIdleLabel();
   const stageLabel =
-    lead.stage_id && lead.stage_id in PIPELINE_STAGE_LABELS_AR
-      ? PIPELINE_STAGE_LABELS_AR[lead.stage_id as PipelineStageId]
+    lead.stage_id && VALID_STAGE_IDS.includes(lead.stage_id)
+      ? stagePipelineLabel(lead.stage_id as PipelineStageId)
       : null;
   const wa = whatsAppHref(lead.phone, buildReminderText(lead));
 
@@ -136,13 +161,13 @@ function DealRow({ lead }: { lead: DealAtRisk }) {
             </span>
             {lead.priority === 'high' && (
               <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-red-500/10 text-red-600 dark:text-red-400 shrink-0">
-                عالية
+                {priorityLabel('high')}
               </span>
             )}
           </div>
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="text-amber-600 dark:text-amber-400 tabular-nums">
-              منذ {daysIdleLabel(lead.days_idle)}
+              {t('sinceLabel', { duration: daysIdleLabel(lead.days_idle) })}
             </span>
             {stageLabel && (
               <>
@@ -163,8 +188,8 @@ function DealRow({ lead }: { lead: DealAtRisk }) {
               'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
               'hover:bg-emerald-500/20 focus:outline-none focus:ring-2 focus:ring-emerald-500/40',
             )}
-            aria-label={`تذكير ${lead.name} عبر واتساب`}
-            title="تذكير عبر واتساب"
+            aria-label={t('reminderAria', { name: lead.name })}
+            title={t('reminderTitle')}
           >
             <MessageCircle className="size-4" aria-hidden />
           </a>

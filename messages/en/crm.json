@@ -1,3 +1,89 @@
 {
-  "crm": {}
+  "crm": {
+    "dashboard": {
+      "meta": { "title": "Sales Dashboard — Pyra" },
+      "periodOptions": {
+        "thisMonth": "This month",
+        "last30d": "Last 30 days",
+        "quarter": "This quarter"
+      },
+      "toolbar": {
+        "periodAria": "Display period",
+        "agentFilterAria": "Filter by sales agent",
+        "allTeam": "Whole team",
+        "agentFilterDisclaimer": "(Per-agent filter — coming in v1.1)"
+      },
+      "greeting": {
+        "line": "{greeting}, {name}",
+        "nameFallback": "there",
+        "morning": "Good morning",
+        "evening": "Good evening",
+        "subtitleMorning": "New day, new opportunities",
+        "subtitleAfternoon": "Hope your day ends with a closed deal",
+        "subtitleEvening": "Today's wins, tomorrow's plans"
+      },
+      "kpiCards": {
+        "pipelineValue": { "label": "Pipeline value", "sub": "{count, plural, one {# active deal} other {# active deals}}" },
+        "closedWon": { "label": "Won this period", "sub": "{count, plural, one {# deal} other {# deals}}" },
+        "conversionRate": { "label": "Conversion rate", "sub": "vs previous period" },
+        "avgDealSize": { "label": "Average deal size", "sub": "per active deal" }
+      },
+      "funnel": {
+        "heading": "Deals by pipeline stage",
+        "empty": { "title": "No deals yet", "description": "Add a new Lead to see the stage distribution." },
+        "count": "{count, plural, one {# deal} other {# deals}}",
+        "barAria": "{count, plural, one {# deal in {stage} stage} other {# deals in {stage} stage}}"
+      },
+      "dealsAtRisk": {
+        "heading": "Deals needing follow-up",
+        "empty": { "title": "All customers are followed up 👌", "description": "No deals without activity for 7+ days." },
+        "viewAllExtra": "View all stale deals ({hiddenCount} more)",
+        "sinceLabel": "{duration} ago",
+        "reminderAria": "Remind {name} via WhatsApp",
+        "reminderTitle": "Remind via WhatsApp",
+        "waFallbackService": "our services",
+        "waTemplate": "Hello {name}, following up on your {service} offer. Do you have any questions?"
+      },
+      "idle": {
+        "none": "No activity",
+        "days": "{count, plural, one {# day} other {# days}}",
+        "weeks": "{count, plural, one {# week} other {# weeks}}",
+        "months": "{count, plural, one {# month} other {# months}}"
+      },
+      "activityFeed": {
+        "heading": "Recent activity",
+        "empty": { "title": "No recent activity", "description": "The latest moves on your Leads (stage changes, notes, calls...) will show up here." },
+        "actorFallback": "System",
+        "leadFallback": "Lead"
+      },
+      "actionCards": {
+        "approvals": { "label": "Approvals waiting on you", "countLabel": "{count, plural, one {# deal} other {# deals}}" },
+        "followUps": { "label": "Pending follow-ups", "countLabel": "{count, plural, one {# follow-up} other {# follow-ups}}" },
+        "waUnread": { "label": "Unread conversations", "countLabel": "{count, plural, one {# conversation} other {# conversations}}" }
+      },
+      "teamPerformance": {
+        "heading": "Team performance",
+        "empty": { "title": "No team data yet", "description": "Each sales agent's numbers will show up here once the team starts working Leads." },
+        "staffCount": "{count, plural, one {# agent} other {# agents}}",
+        "th": {
+          "employee": "Agent",
+          "total": "Total",
+          "active": "Active",
+          "won": "Won",
+          "lost": "Lost",
+          "conversion": "Conversion",
+          "pipelineValue": "Pipeline value"
+        }
+      },
+      "dataSources": {
+        "updatedAt": "Data refreshed at <t>{timeValue}</t>",
+        "sourcesLabel": "Sources:",
+        "separator": ","
+      },
+      "aiInsight": {
+        "estimatedValue": "Estimated value {value} AED",
+        "severityAria": "Severity: {severity}"
+      }
+    }
+  }
 }

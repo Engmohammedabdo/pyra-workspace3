@@ -85,7 +85,13 @@
       "taskDueDateFormat": "تاريخ الاستحقاق يجب أن يكون بصيغة YYYY-MM-DD",
       "taskPriorityInvalid": "الأولوية غير صحيحة — اختر: low / medium / high / urgent",
       "taskStatusInvalid": "الحالة غير صحيحة",
-      "taskDeleteOwner": "فقط منشئ المهمة أو الـ admin يقدر يحذفها"
+      "taskDeleteOwner": "فقط منشئ المهمة أو الـ admin يقدر يحذفها",
+      "insights": {
+        "idleWarning": "{count, plural, one {# صفقة راكدة} other {# صفقات راكدة}} أكثر من ٧ أيام",
+        "approvalsPending": "{count, plural, one {# صفقة بانتظار اعتمادك} other {# صفقات بانتظار اعتمادك}}",
+        "overdueFollowups": "{count, plural, one {# متابعة متأخرة} other {# متابعات متأخرة}}",
+        "followupsToday": "{count, plural, one {# متابعة اليوم} other {# متابعات اليوم}}"
+      }
     }
   }
 }

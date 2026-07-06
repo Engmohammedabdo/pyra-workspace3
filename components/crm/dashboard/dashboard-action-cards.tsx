@@ -20,6 +20,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useSidebarBadges } from '@/hooks/useSidebarBadges';
 import { useMyWork } from '@/hooks/useMyWork';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
@@ -45,6 +46,7 @@ const TONE_CLASSES: Record<ActionCardSpec['tone'], string> = {
 };
 
 export function DashboardActionCards() {
+  const t = useTranslations('crm.dashboard.actionCards');
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const badges = useSidebarBadges();
   const { data: myWork, isLoading: myWorkLoading } = useMyWork();
@@ -64,27 +66,27 @@ export function DashboardActionCards() {
     cards.push({
       href: '/dashboard/crm/approvals',
       icon: CheckSquare,
-      label: 'اعتمادات بانتظارك',
+      label: t('approvals.label'),
       count: approvalsCount,
       tone: 'orange',
-      countLabel: approvalsCount === 1 ? 'صفقة' : 'صفقات',
+      countLabel: t('approvals.countLabel', { count: approvalsCount }),
     });
   }
   cards.push({
     href: '/dashboard/crm/follow-ups',
     icon: ClipboardCheck,
-    label: 'متابعات معلقة',
+    label: t('followUps.label'),
     count: followUpsCount,
     tone: 'amber',
-    countLabel: followUpsCount === 1 ? 'متابعة' : 'متابعات',
+    countLabel: t('followUps.countLabel', { count: followUpsCount }),
   });
   cards.push({
     href: '/dashboard/sales/chat',
     icon: MessageSquare,
-    label: 'محادثات غير مقروءة',
+    label: t('waUnread.label'),
     count: waUnreadCount,
     tone: 'emerald',
-    countLabel: waUnreadCount === 1 ? 'محادثة' : 'محادثات',
+    countLabel: t('waUnread.countLabel', { count: waUnreadCount }),
   });
 
   // While we don't yet know which cards to render (still loading user

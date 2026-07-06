@@ -5,23 +5,22 @@
  *
  * Per CRM Phase 8 spec (Cluster 1): simple, no data-fetching beyond
  * `useCurrentUser()` for the user's display name. Greeting computed client-side
- * so the cutover from "صباح الخير" → "مساء الخير" follows the user's local
+ * so the cutover from the morning to the evening greeting (see
+ * `crm.dashboard.greeting.morning`/`.evening`) follows the user's local
  * clock, not the server's timezone.
  */
 
+import { useTranslations } from 'next-intl';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { Skeleton } from '@/components/ui/skeleton';
 
-function arabicGreeting(hour: number): string {
-  // Two-mode Arabic greeting — natural for the locale.
-  // Morning: 4am–11:59am | Afternoon/Evening: 12pm onward
-  return hour < 12 ? 'صباح الخير' : 'مساء الخير';
-}
-
 export function DashboardGreeting() {
+  const t = useTranslations('crm.dashboard.greeting');
   const { data: user, isLoading } = useCurrentUser();
   const hour = new Date().getHours();
-  const greeting = arabicGreeting(hour);
+  // Two-mode greeting — natural for the locale.
+  // Morning: 4am–11:59am | Afternoon/Evening: 12pm onward
+  const greeting = hour < 12 ? t('morning') : t('evening');
 
   if (isLoading) {
     return (
@@ -32,19 +31,19 @@ export function DashboardGreeting() {
     );
   }
 
-  const name = user?.display_name?.trim() || 'بك';
+  const name = user?.display_name?.trim() || t('nameFallback');
 
   return (
     <div>
       <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-        {greeting}، {name} <span aria-hidden>👋</span>
+        {t('line', { greeting, name })} <span aria-hidden>👋</span>
       </h1>
       <p className="text-sm text-muted-foreground mt-1">
         {hour < 12
-          ? 'يوم جديد، فرص جديدة'
+          ? t('subtitleMorning')
           : hour < 18
-            ? 'نأمل ينتهي يومك بإغلاق صفقة'
-            : 'إنجاز اليوم، تخطيط لبكرة'}
+            ? t('subtitleAfternoon')
+            : t('subtitleEvening')}
       </p>
     </div>
   );

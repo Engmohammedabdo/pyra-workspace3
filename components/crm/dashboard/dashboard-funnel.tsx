@@ -21,6 +21,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useCRMFunnel } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +29,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { GitBranch } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { PipelineStageId } from '@/lib/constants/statuses';
 
 const STAGE_BAR_COLOR: Record<PipelineStageId, string> = {
@@ -42,6 +44,8 @@ const STAGE_BAR_COLOR: Record<PipelineStageId, string> = {
 };
 
 export function DashboardFunnel() {
+  const t = useTranslations('crm.dashboard.funnel');
+  const stageLabel = useStatusLabels('pipelineStage');
   const { data, isLoading } = useCRMFunnel();
 
   if (isLoading) {
@@ -71,12 +75,12 @@ export function DashboardFunnel() {
       <Card className="p-5">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <GitBranch className="size-4 text-muted-foreground" />
-          توزيع الصفقات على المراحل
+          {t('heading')}
         </h2>
         <EmptyState
           icon={GitBranch}
-          title="لا توجد صفقات بعد"
-          description="ابدأ بإضافة Lead جديد لرؤية التوزيع على المراحل."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </Card>
     );
@@ -91,13 +95,14 @@ export function DashboardFunnel() {
     <Card className="p-5">
       <h2 className="text-base font-semibold mb-4 flex items-center gap-2">
         <GitBranch className="size-4 text-muted-foreground" />
-        توزيع الصفقات على المراحل
+        {t('heading')}
       </h2>
       <ul className="space-y-3">
         {stages.map((stage) => {
           const widthPct = stage.count > 0 ? Math.max((stage.count / maxCount) * 100, 8) : 4;
           const barColor = STAGE_BAR_COLOR[stage.stage_id as PipelineStageId] ?? 'bg-orange-500';
           const isEmpty = stage.count === 0;
+          const label = stageLabel(stage.stage_id);
           return (
             <li key={stage.stage_id}>
               <Link
@@ -113,10 +118,10 @@ export function DashboardFunnel() {
                     'text-sm font-medium truncate',
                     isEmpty && 'text-muted-foreground',
                   )}>
-                    {stage.label_ar}
+                    {label}
                   </span>
                   <span className="text-xs text-muted-foreground tabular-nums shrink-0">
-                    {stage.count} {stage.count === 1 ? 'صفقة' : 'صفقات'}
+                    {t('count', { count: stage.count })}
                     {stage.total_value > 0 && (
                       <> · {formatCurrency(stage.total_value, data?.currency ?? 'AED')}</>
                     )}
@@ -130,7 +135,7 @@ export function DashboardFunnel() {
                       isEmpty && 'opacity-40',
                     )}
                     style={{ width: `${widthPct}%` }}
-                    aria-label={`${stage.count} deals at ${stage.label_ar}`}
+                    aria-label={t('barAria', { count: stage.count, stage: label })}
                   />
                 </div>
               </Link>

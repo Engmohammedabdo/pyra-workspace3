@@ -20,6 +20,7 @@
  *     "team filter" dropdown UX, but the component is defensive on its own.
  */
 
+import { useTranslations } from 'next-intl';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useTeamPerformance } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
@@ -31,6 +32,7 @@ import { formatCurrency } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
 
 export function DashboardTeamPerformance() {
+  const t = useTranslations('crm.dashboard.teamPerformance');
   const { data: user, isLoading: userLoading } = useCurrentUser();
   const canViewTeam = !!user && hasPermission(user.rolePermissions, 'crm_reports.team_view');
   const { data, isLoading: teamLoading } = useTeamPerformance({ enabled: canViewTeam });
@@ -68,12 +70,12 @@ export function DashboardTeamPerformance() {
       <Card className="p-5">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <Users className="size-4 text-muted-foreground" />
-          أداء الفريق
+          {t('heading')}
         </h2>
         <EmptyState
           icon={Users}
-          title="لا توجد بيانات للفريق بعد"
-          description="ستظهر هنا أرقام كل موظف مبيعات بمجرد ما يبدأ الفريق العمل على Leads."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </Card>
     );
@@ -83,22 +85,22 @@ export function DashboardTeamPerformance() {
     <Card className="p-5">
       <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
         <Users className="size-4 text-muted-foreground" />
-        أداء الفريق
+        {t('heading')}
         <span className="text-xs font-normal text-muted-foreground tabular-nums">
-          ({team.length} {team.length === 1 ? 'موظف' : 'موظفين'})
+          ({t('staffCount', { count: team.length })})
         </span>
       </h2>
       <div className="overflow-x-auto -mx-1.5">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-muted-foreground border-b border-border">
-              <th className="text-start font-medium pb-2 ps-2">الموظف</th>
-              <th className="text-end font-medium pb-2 px-2">الإجمالي</th>
-              <th className="text-end font-medium pb-2 px-2 hidden sm:table-cell">نشط</th>
-              <th className="text-end font-medium pb-2 px-2">فوز</th>
-              <th className="text-end font-medium pb-2 px-2 hidden md:table-cell">خسارة</th>
-              <th className="text-end font-medium pb-2 px-2">التحويل</th>
-              <th className="text-end font-medium pb-2 pe-2">قيمة خط المبيعات</th>
+              <th className="text-start font-medium pb-2 ps-2">{t('th.employee')}</th>
+              <th className="text-end font-medium pb-2 px-2">{t('th.total')}</th>
+              <th className="text-end font-medium pb-2 px-2 hidden sm:table-cell">{t('th.active')}</th>
+              <th className="text-end font-medium pb-2 px-2">{t('th.won')}</th>
+              <th className="text-end font-medium pb-2 px-2 hidden md:table-cell">{t('th.lost')}</th>
+              <th className="text-end font-medium pb-2 px-2">{t('th.conversion')}</th>
+              <th className="text-end font-medium pb-2 pe-2">{t('th.pipelineValue')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

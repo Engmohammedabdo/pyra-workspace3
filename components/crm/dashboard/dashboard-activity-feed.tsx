@@ -8,10 +8,10 @@
  *   "Activity feed (top 20 events). Scope: scoped to own leads' activities
  *    if not admin."
  *
- * Each row: type-specific icon + lead name (linked) + Arabic activity
- * label + actor + relative time. Activity-type labels come from the
- * shared `LEAD_ACTIVITY_LABELS_AR` map in lib/constants/statuses.ts so
- * the dashboard reads identical to the lead-detail timeline.
+ * Each row: type-specific icon + lead name (linked) + localized activity
+ * label + actor + relative time. Activity-type labels come from
+ * `useStatusLabels('leadActivity')` (statuses.leadActivity catalog entity)
+ * so the dashboard reads identical to the lead-detail timeline.
  *
  * Visible items capped at 8 to keep the dashboard scannable. The hook
  * fetches 20 by default; remaining 12 are simply not rendered (no "view
@@ -19,6 +19,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { useCRMRecentActivity, type CRMRecentActivity } from '@/hooks/useCRMDashboard';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,10 +43,9 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
-import {
-  LEAD_ACTIVITY_LABELS_AR,
-  type LeadActivityTypeNew,
-} from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { LeadActivityTypeNew } from '@/lib/constants/statuses';
+import type { Locale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils/cn';
 
 const VISIBLE_LIMIT = 8;
@@ -87,6 +87,7 @@ const ACTIVITY_TONE: Partial<Record<LeadActivityTypeNew, string>> = {
 const ACTIVITY_TONE_DEFAULT = 'text-muted-foreground bg-muted';
 
 export function DashboardActivityFeed() {
+  const t = useTranslations('crm.dashboard.activityFeed');
   const { data, isLoading } = useCRMRecentActivity(20);
 
   if (isLoading) {
@@ -114,12 +115,12 @@ export function DashboardActivityFeed() {
       <Card className="p-5">
         <h2 className="text-base font-semibold mb-2 flex items-center gap-2">
           <Activity className="size-4 text-muted-foreground" />
-          النشاط الحديث
+          {t('heading')}
         </h2>
         <EmptyState
           icon={Activity}
-          title="لا توجد أنشطة حديثة"
-          description="ستظهر هنا آخر التحركات على الـ Leads (تغيير مرحلة، ملاحظات، مكالمات...) بمجرد ما تبدأ."
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       </Card>
     );
@@ -131,7 +132,7 @@ export function DashboardActivityFeed() {
     <Card className="p-5">
       <h2 className="text-base font-semibold mb-3 flex items-center gap-2">
         <Activity className="size-4 text-muted-foreground" />
-        النشاط الحديث
+        {t('heading')}
       </h2>
       <ul className="space-y-3">
         {visible.map((act) => (
@@ -143,12 +144,16 @@ export function DashboardActivityFeed() {
 }
 
 function ActivityRow({ activity }: { activity: CRMRecentActivity }) {
+  const t = useTranslations('crm.dashboard.activityFeed');
+  const locale = useLocale() as Locale;
+  const activityLabel = useStatusLabels('leadActivity');
   const type = activity.activity_type as LeadActivityTypeNew;
   const Icon = ACTIVITY_ICON[type] ?? Activity;
   const tone = ACTIVITY_TONE[type] ?? ACTIVITY_TONE_DEFAULT;
-  const label = LEAD_ACTIVITY_LABELS_AR[type] ?? activity.activity_type;
-  const actor = activity.created_by_display_name ?? activity.created_by ?? 'النظام';
-  const relativeTime = formatRelativeDate(activity.created_at);
+  const label = activityLabel(activity.activity_type);
+  const actor = activity.created_by_display_name ?? activity.created_by ?? t('actorFallback');
+  const relativeTime = formatRelativeDate(activity.created_at, locale);
+  const leadFallback = t('leadFallback');
 
   // Lead name + link, falling back to a non-link span when lead_id is null
   // (system-emitted activities like idle_warning may detach over time).
@@ -157,10 +162,10 @@ function ActivityRow({ activity }: { activity: CRMRecentActivity }) {
       href={`/dashboard/crm/leads/${activity.lead_id}`}
       className="font-medium hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
     >
-      {activity.lead_name ?? 'Lead'}
+      {activity.lead_name ?? leadFallback}
     </Link>
   ) : (
-    <span className="font-medium">{activity.lead_name ?? 'Lead'}</span>
+    <span className="font-medium">{activity.lead_name ?? leadFallback}</span>
   );
 
   return (

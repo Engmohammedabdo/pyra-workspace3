@@ -21,10 +21,12 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useCRMInsights, type CRMInsight } from '@/hooks/useCRMDashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 const SEVERITY_DOT: Record<CRMInsight['severity'], string> = {
   critical: 'bg-orange-600',
@@ -33,14 +35,9 @@ const SEVERITY_DOT: Record<CRMInsight['severity'], string> = {
   low: 'bg-emerald-500',
 };
 
-const SEVERITY_LABEL_AR: Record<CRMInsight['severity'], string> = {
-  critical: 'حرج',
-  high: 'عالي',
-  medium: 'متوسط',
-  low: 'منخفض',
-};
-
 export function DashboardAiInsight() {
+  const t = useTranslations('crm.dashboard.aiInsight');
+  const severityLabel = useStatusLabels('insightSeverity');
   const { data, isLoading } = useCRMInsights();
 
   if (isLoading) {
@@ -52,7 +49,10 @@ export function DashboardAiInsight() {
   if (!top) return null;
 
   const dotClass = SEVERITY_DOT[top.severity];
-  const sevLabel = SEVERITY_LABEL_AR[top.severity];
+  const sevLabel = severityLabel(top.severity);
+  // Server sends both `message` (per-request locale, Phase 3.2) and
+  // `message_ar` (back-compat, always Arabic). Prefer the localized field.
+  const message = top.message ?? top.message_ar;
 
   // Inner card (clickable if link present, plain div otherwise).
   const Inner = (
@@ -72,16 +72,16 @@ export function DashboardAiInsight() {
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-amber-900 dark:text-amber-100 leading-snug">
-          {top.message_ar}
+          {message}
         </div>
         {typeof top.value === 'number' && top.value > 0 && (
           <div className="text-xs text-amber-700/80 dark:text-amber-200/70 mt-0.5 tabular-nums">
-            بقيمة تقديرية {Math.round(top.value).toLocaleString('en-US')} درهم
+            {t('estimatedValue', { value: Math.round(top.value).toLocaleString('en-US') })}
           </div>
         )}
       </div>
       {/* Severity indicator — small dot on the RTL-end (right) side with text label */}
-      <div className="shrink-0 flex items-center gap-1.5" aria-label={`severity: ${top.severity}`}>
+      <div className="shrink-0 flex items-center gap-1.5" aria-label={t('severityAria', { severity: sevLabel })}>
         <span className={cn('size-2 rounded-full', dotClass)} aria-hidden />
         <span className="text-[10px] font-medium text-amber-800/80 dark:text-amber-200/70">
           {sevLabel}
@@ -97,7 +97,7 @@ export function DashboardAiInsight() {
       <Link
         href={top.link}
         className="block focus:outline-none focus:ring-2 focus:ring-amber-500/40 rounded-xl"
-        aria-label={top.message_ar}
+        aria-label={message}
       >
         {Inner}
       </Link>
