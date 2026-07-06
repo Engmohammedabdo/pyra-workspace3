@@ -54,6 +54,11 @@ interface LeaveItem {
   username: string;
   display_name: string;
   type: string;
+  /** Arabic display name of the leave type (pyra_leave_types.name_ar),
+   *  resolved server-side by NAME lookup (same pattern as
+   *  /api/approvals/team). Falls back to the raw stored `type` value
+   *  (e.g. 'Annual') when the type row can't be resolved. */
+  type_name: string;
   start_date: string;
   end_date: string;
   days_count: number;
@@ -184,11 +189,22 @@ export async function GET() {
         ? await serviceClient.from('pyra_users').select('username, display_name').in('username', leaveUsernames)
         : { data: [] };
       const userMap = new Map((leaveUsers || []).map((u) => [u.username, u.display_name]));
+
+      // Resolve leave-type Arabic names by NAME lookup (pyra_leave_requests
+      // stores the type NAME string, not an id — Batch D). One batched query,
+      // never N+1. Same pattern as /api/approvals/team (685912f).
+      const leaveTypeNames = Array.from(new Set((leaves || []).map((l) => l.type).filter(Boolean)));
+      const { data: leaveTypeRows } = leaveTypeNames.length
+        ? await serviceClient.from('pyra_leave_types').select('name, name_ar').in('name', leaveTypeNames)
+        : { data: [] };
+      const typeNameMap = new Map((leaveTypeRows || []).map((t) => [t.name, t.name_ar]));
+
       leaveItems = (leaves || []).map((l) => ({
         id: l.id,
         username: l.username,
         display_name: userMap.get(l.username) || l.username,
         type: l.type,
+        type_name: typeNameMap.get(l.type) || l.type,
         start_date: l.start_date,
         end_date: l.end_date,
         days_count: l.days_count,

@@ -256,7 +256,9 @@ export function MyWorkInbox() {
                 iconClass="bg-gradient-to-br from-blue-500 to-indigo-600"
                 href="/dashboard/approvals"
                 title={t('sections.approvals.leaveTitle', {
-                  type: leaveTypeLabel(l.type),
+                  // Server-resolved name_ar first (T3 lock: DB name_ar →
+                  // accessor → raw); the accessor covers legacy rows only.
+                  type: l.type_name || leaveTypeLabel(l.type),
                   name: l.display_name,
                 })}
                 subtitle={t('sections.approvals.leaveSubtitle', {

@@ -18,6 +18,9 @@ export interface MyWorkLeaveItem {
   username: string;
   display_name: string;
   type: string;
+  /** Server-resolved leave-type display name (pyra_leave_types.name_ar),
+   *  falling back to the raw `type` value — see /api/my-work. */
+  type_name: string;
   start_date: string;
   end_date: string;
   days_count: number;
