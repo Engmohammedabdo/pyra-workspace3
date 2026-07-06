@@ -126,7 +126,7 @@ export function ContractItemsEditor({ contractId }: ContractItemsEditorProps) {
   // i18n-exempt: recipient-language content (Phase 9) — Arabic-alphabet ordinal
   // scheme for contract sub-item numbering; flows into invoice items consumed
   // by clients, not an admin-UI display string.
-  const arabicLetters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
+  const arabicLetters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي']; // i18n-exempt: recipient-language content (Phase 9)
 
   if (loading) {
     return (

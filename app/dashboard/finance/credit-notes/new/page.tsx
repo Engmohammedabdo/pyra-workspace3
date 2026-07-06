@@ -57,7 +57,7 @@ export default function NewCreditNotePage() {
         // `reason` column value if the admin doesn't edit it before submit;
         // stays canonically Arabic regardless of UI locale (business record
         // convention, per Phase 4 plan H1).
-        setReason(`مرتجع / تعديل على الفاتورة ${inv.invoice_number}`);
+        setReason(`مرتجع / تعديل على الفاتورة ${inv.invoice_number}`); // i18n-exempt: stored data
         if (inv.items) {
           setItems(inv.items.map((it: { description: string; quantity: number; rate: number }) => ({
             description: it.description, quantity: it.quantity, rate: it.rate,
