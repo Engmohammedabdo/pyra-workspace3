@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -13,6 +14,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.view');
     if (isApiError(auth)) return auth;
@@ -20,7 +22,7 @@ export async function GET(
     const { id: boardId } = await params;
 
     if (!(await checkBoardScope(boardId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+      return apiForbidden(t('common.noAccessBoard'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -57,13 +59,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
     const { username, role } = await req.json();
-    if (!username) return apiValidationError('اسم المستخدم مطلوب');
+    if (!username) return apiValidationError(t('boards.usernameFieldRequired'));
 
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
@@ -79,7 +82,7 @@ export async function POST(
       .single();
 
     if (error) {
-      if (error.message.includes('duplicate')) return apiValidationError('العضو موجود بالفعل');
+      if (error.message.includes('duplicate')) return apiValidationError(t('boards.memberAlreadyExists'));
       return apiServerError(error.message);
     }
 
@@ -89,8 +92,8 @@ export async function POST(
     await notify(supabase, {
       to: username,
       type: 'task_assigned',
-      title: 'تمت إضافتك إلى لوحة عمل',
-      message: `أضافك ${auth.pyraUser.display_name} إلى لوحة عمل`,
+      title: 'تمت إضافتك إلى لوحة عمل', // i18n-exempt: notification content (Phase 8)
+      message: `أضافك ${auth.pyraUser.display_name} إلى لوحة عمل`, // i18n-exempt: notification content (Phase 8)
       link: `/dashboard/boards/${boardId}`,
       entity: { type: 'board', id: boardId },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -117,13 +120,14 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
     const username = req.nextUrl.searchParams.get('username');
-    if (!username) return apiValidationError('username مطلوب');
+    if (!username) return apiValidationError(t('common.usernameRequired'));
 
     const supabase = await createServerSupabaseClient();
     await supabase.from('pyra_board_members').delete().eq('board_id', boardId).eq('username', username);

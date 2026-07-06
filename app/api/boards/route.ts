@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -55,13 +56,14 @@ export async function GET(req: NextRequest) {
 // Create a new board (optionally from a template)
 // =============================================================
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const body = await req.json();
     const { name, description, project_id, template, view_mode, is_pipeline, auto_advance } = body;
-    if (!name) return apiValidationError('اسم اللوحة مطلوب');
+    if (!name) return apiValidationError(t('boards.nameRequired'));
 
     const supabase = await createServerSupabaseClient();
     const boardId = generateId('bd');
@@ -86,9 +88,9 @@ export async function POST(req: NextRequest) {
     // Create columns from template or defaults
     const tmpl = template ? getBoardTemplate(template) : null;
     const cols = tmpl?.columns || [
-      { name: 'قائمة المهام', color: 'gray' },
-      { name: 'قيد التنفيذ', color: 'blue' },
-      { name: 'مكتمل', color: 'green', isDoneColumn: true },
+      { name: 'قائمة المهام', color: 'gray' }, // i18n-exempt: DB data — seeded default board-column name
+      { name: 'قيد التنفيذ', color: 'blue' }, // i18n-exempt: DB data — seeded default board-column name
+      { name: 'مكتمل', color: 'green', isDoneColumn: true }, // i18n-exempt: DB data — seeded default board-column name
     ];
 
     const columnInserts = cols.map((col, i) => ({

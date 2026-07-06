@@ -19,6 +19,48 @@
       "followUpFallbackTitle": "Follow-up",
       "meetingFallbackTitleWithLocation": "Meeting - {location}",
       "meetingFallbackTitle": "Meeting"
+    },
+    "boards": {
+      "nameRequired": "Board name is required",
+      "usernameFieldRequired": "Username is required",
+      "memberAlreadyExists": "This member already exists",
+      "columnNameRequired": "Column name is required",
+      "columnsUpdateFailed": "{count, plural, one {Failed to update # column} other {Failed to update # columns}}",
+      "columnIdRequired": "columnId is required",
+      "columnHasTasks": "{count, plural, one {Cannot delete this column — it contains # task. Move the tasks first.} other {Cannot delete this column — it contains # tasks. Move the tasks first.}}",
+      "labelNameRequired": "Label name is required",
+      "labelIdRequired": "Label ID is required",
+      "labelIdQueryRequired": "labelId is required",
+      "columnRequired": "Column is required",
+      "columnNotInBoard": "The selected column does not belong to this board",
+      "gatedColumnCreateBlocked": "You cannot create a task directly in a gated column (review/delivery) — create it in «جديد» or «قيد التنفيذ»",
+      "currentColumnNotFound": "Current column not found",
+      "taskAlreadyLastStage": "This task is already in the last stage",
+      "nextStageRequiresApproval": "The next stage requires approval. Use the approve endpoint.",
+      "reviewLinkRequired": "A review link (frame.io or Google Drive) is required to submit the task for review",
+      "deliveryLinkRequired": "A final delivery link on Google Drive is required to close the task",
+      "actionRequiredApproveReject": "You must specify an action: approve or reject",
+      "revisionNoteRequired": "A revision note is required — write a summary of what needs to change",
+      "columnsLoadFailed": "Failed to load columns",
+      "taskAlreadyLastStageAlt": "This task is in the last stage",
+      "approveOnlyForGatedStage": "This action is only for approving a stage that requires approval",
+      "noPendingReviewAction": "There is no pending review action on this task",
+      "fileNameAndUrlRequired": "File name and URL are required",
+      "attachmentUrlMustBeHttps": "The attachment URL must start with https://",
+      "actionRequiredApproveRevision": "You must specify an action: approve or revision",
+      "fileNotFound": "File not found"
+    },
+    "tasks": {
+      "usernamesArrayRequired": "usernames is required (array)",
+      "usersAlreadyAssigned": "These users are already assigned",
+      "checklistTitleRequired": "Item title is required",
+      "itemIdRequired": "itemId is required",
+      "noDataToUpdate": "No data to update",
+      "commentContentRequired": "Comment content is required",
+      "commentIdRequired": "commentId is required",
+      "cannotDeleteOthersComments": "You cannot delete other people's comments",
+      "gatedColumnMoveBlocked": "This column has a dedicated action — open the task and use the button (submit for review / approve / final delivery)",
+      "exitReviewApprovalBlocked": "To exit the review/approval stage, use the «Approve» or «Request Changes» buttons from the task"
     }
   }
 }

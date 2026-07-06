@@ -19,6 +19,48 @@
       "followUpFallbackTitle": "متابعة",
       "meetingFallbackTitleWithLocation": "اجتماع - {location}",
       "meetingFallbackTitle": "اجتماع"
+    },
+    "boards": {
+      "nameRequired": "اسم اللوحة مطلوب",
+      "usernameFieldRequired": "اسم المستخدم مطلوب",
+      "memberAlreadyExists": "العضو موجود بالفعل",
+      "columnNameRequired": "اسم العمود مطلوب",
+      "columnsUpdateFailed": "{count, plural, one {فشل في تحديث # عمود} other {فشل في تحديث # عمود}}",
+      "columnIdRequired": "columnId مطلوب",
+      "columnHasTasks": "{count, plural, one {لا يمكن حذف العمود — يحتوي على # مهمة. انقل المهام أولاً.} other {لا يمكن حذف العمود — يحتوي على # مهمة. انقل المهام أولاً.}}",
+      "labelNameRequired": "اسم التصنيف مطلوب",
+      "labelIdRequired": "معرف التصنيف مطلوب",
+      "labelIdQueryRequired": "labelId مطلوب",
+      "columnRequired": "العمود مطلوب",
+      "columnNotInBoard": "العمود المحدد لا ينتمي لهذه اللوحة",
+      "gatedColumnCreateBlocked": "لا يمكن إنشاء مهمة مباشرة في عمود مقيّد (مراجعة/تسليم) — أنشئها في «جديد» أو «قيد التنفيذ»",
+      "currentColumnNotFound": "العمود الحالي غير موجود",
+      "taskAlreadyLastStage": "المهمة بالفعل في المرحلة الأخيرة",
+      "nextStageRequiresApproval": "المرحلة التالية تتطلب موافقة. استخدم endpoint الموافقة.",
+      "reviewLinkRequired": "رابط المراجعة (frame.io أو Google Drive) مطلوب لرفع المهمة للمراجعة",
+      "deliveryLinkRequired": "رابط التسليم النهائي على Google Drive مطلوب لإغلاق المهمة",
+      "actionRequiredApproveReject": "يجب تحديد الإجراء: approve أو reject",
+      "revisionNoteRequired": "ملاحظة التعديل مطلوبة — اكتب ملخص المطلوب تغييره",
+      "columnsLoadFailed": "فشل تحميل الأعمدة",
+      "taskAlreadyLastStageAlt": "المهمة في المرحلة الأخيرة",
+      "approveOnlyForGatedStage": "هذا الإجراء مخصص لاعتماد مرحلة تتطلب موافقة فقط",
+      "noPendingReviewAction": "لا يوجد إجراء مراجعة معلّق على هذه المهمة",
+      "fileNameAndUrlRequired": "اسم الملف والرابط مطلوبان",
+      "attachmentUrlMustBeHttps": "رابط المرفق يجب أن يبدأ بـ https://",
+      "actionRequiredApproveRevision": "يجب تحديد الإجراء: approve أو revision",
+      "fileNotFound": "الملف غير موجود"
+    },
+    "tasks": {
+      "usernamesArrayRequired": "usernames مطلوب (مصفوفة)",
+      "usersAlreadyAssigned": "المستخدمون مُعيّنون بالفعل",
+      "checklistTitleRequired": "عنوان العنصر مطلوب",
+      "itemIdRequired": "itemId مطلوب",
+      "noDataToUpdate": "لا توجد بيانات للتحديث",
+      "commentContentRequired": "محتوى التعليق مطلوب",
+      "commentIdRequired": "commentId مطلوب",
+      "cannotDeleteOthersComments": "لا يمكنك حذف تعليقات الآخرين",
+      "gatedColumnMoveBlocked": "هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)",
+      "exitReviewApprovalBlocked": "للخروج من مرحلة المراجعة/الاعتماد استخدم أزرار «اعتماد» أو «طلب تعديل» من المهمة"
     }
   }
 }

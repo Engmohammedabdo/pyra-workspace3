@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -17,6 +18,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -24,7 +26,7 @@ export async function GET(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -52,6 +54,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -59,12 +62,12 @@ export async function POST(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const { usernames } = await req.json();
     if (!usernames || !Array.isArray(usernames) || usernames.length === 0) {
-      return apiValidationError('usernames مطلوب (مصفوفة)');
+      return apiValidationError(t('tasks.usernamesArrayRequired'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -79,7 +82,7 @@ export async function POST(
     const newUsernames = usernames.filter((u: string) => !existingUsernames.has(u));
 
     if (newUsernames.length === 0) {
-      return apiSuccess({ added: 0, message: 'المستخدمون مُعيّنون بالفعل' });
+      return apiSuccess({ added: 0, message: t('tasks.usersAlreadyAssigned') });
     }
 
     const inserts = newUsernames.map((username: string) => ({
@@ -115,8 +118,8 @@ export async function POST(
     if (taskInfo) {
       await notifyMany(supabase, newUsernames, {
         type: 'task_assigned',
-        title: `تم تعيينك في مهمة: ${taskInfo.title}`,
-        message: `قام ${auth.pyraUser.display_name} بتعيينك في المهمة`,
+        title: `تم تعيينك في مهمة: ${taskInfo.title}`, // i18n-exempt: notification content (Phase 8)
+        message: `قام ${auth.pyraUser.display_name} بتعيينك في المهمة`, // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/boards/${taskInfo.board_id}?task=${id}`,
         entity: { type: 'task', id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -125,7 +128,7 @@ export async function POST(
       for (const assignedUsername of newUsernames) {
         if (assignedUsername === auth.pyraUser.username) continue; // don't WhatsApp yourself
         await sendWhatsAppToUser(supabase, assignedUsername,
-          `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`);
+          `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`); // i18n-exempt: notification content (Phase 8)
       }
     }
 
@@ -153,6 +156,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -160,11 +164,11 @@ export async function DELETE(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const username = req.nextUrl.searchParams.get('username');
-    if (!username) return apiValidationError('username مطلوب');
+    if (!username) return apiValidationError(t('common.usernameRequired'));
 
     const supabase = await createServerSupabaseClient();
 

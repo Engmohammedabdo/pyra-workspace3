@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -15,6 +16,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -24,7 +26,7 @@ export async function POST(
     // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
     // users, so permission alone doesn't prove board access.
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const body = await req.json().catch(() => ({}));
@@ -37,7 +39,7 @@ export async function POST(
       .eq('id', id)
       .single();
 
-    if (!original) return apiNotFound('المهمة غير موجودة');
+    if (!original) return apiNotFound(t('common.taskNotFound'));
 
     const targetBoardId = body.target_board_id || original.board_id;
     const targetColumnId = body.target_column_id || original.column_id;
@@ -45,7 +47,7 @@ export async function POST(
     // Cross-board duplicate: also verify access to the destination board
     if (targetBoardId !== original.board_id) {
       if (!(await checkBoardScope(targetBoardId, auth))) {
-        return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+        return apiForbidden(t('common.noAccessBoard'));
       }
     }
 
@@ -74,7 +76,7 @@ export async function POST(
         id: newId,
         board_id: targetBoardId,
         column_id: targetColumnId,
-        title: `نسخة — ${original.title}`,
+        title: `نسخة — ${original.title}`, // i18n-exempt: DB data
         description: original.description,
         priority: original.priority,
         due_date: original.due_date,

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,6 +15,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -21,12 +23,12 @@ export async function POST(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const { title } = await req.json();
     if (!title || !title.trim()) {
-      return apiValidationError('عنوان العنصر مطلوب');
+      return apiValidationError(t('tasks.checklistTitleRequired'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -78,6 +80,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -85,11 +88,11 @@ export async function PATCH(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const itemId = req.nextUrl.searchParams.get('itemId');
-    if (!itemId) return apiValidationError('itemId مطلوب');
+    if (!itemId) return apiValidationError(t('tasks.itemIdRequired'));
 
     const body = await req.json();
     const updates: Record<string, unknown> = {};
@@ -97,7 +100,7 @@ export async function PATCH(
     if ('title' in body) updates.title = body.title;
 
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد بيانات للتحديث');
+      return apiValidationError(t('tasks.noDataToUpdate'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -136,6 +139,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -143,11 +147,11 @@ export async function DELETE(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const itemId = req.nextUrl.searchParams.get('itemId');
-    if (!itemId) return apiValidationError('itemId مطلوب');
+    if (!itemId) return apiValidationError(t('tasks.itemIdRequired'));
 
     const supabase = await createServerSupabaseClient();
 

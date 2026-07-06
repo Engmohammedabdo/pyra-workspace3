@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -17,6 +18,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -26,7 +28,7 @@ export async function POST(
     // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
     // users, so permission alone doesn't prove board access.
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const body = await req.json();
@@ -44,7 +46,7 @@ export async function POST(
       .single();
 
     if (taskError || !currentTask) {
-      return apiServerError('المهمة غير موجودة');
+      return apiServerError(t('common.taskNotFound'));
     }
 
     const isCrossColumn = currentTask.column_id !== column_id;
@@ -100,9 +102,7 @@ export async function POST(
           targetCol.column_type === 'delivery' ||
           targetCol.requires_approval)
       ) {
-        return apiValidationError(
-          'هذا العمود له إجراء مخصوص — افتح المهمة واستخدم الزر (رفع للمراجعة / اعتماد / تسليم نهائي)'
-        );
+        return apiValidationError(t('tasks.gatedColumnMoveBlocked'));
       }
 
       // Also block a raw drag OUT of a review/approved/approval-gated source
@@ -120,9 +120,7 @@ export async function POST(
           sourceCol.column_type === 'approved' ||
           sourceCol.requires_approval)
       ) {
-        return apiValidationError(
-          'للخروج من مرحلة المراجعة/الاعتماد استخدم أزرار «اعتماد» أو «طلب تعديل» من المهمة'
-        );
+        return apiValidationError(t('tasks.exitReviewApprovalBlocked'));
       }
     }
 
@@ -187,7 +185,7 @@ export async function POST(
 
       // Admins are blind to drag-moves otherwise (button-advances only
       // notify assignees) — alert active admins on every pipeline stage
-      // move so they see e.g. «جديد → قيد التنفيذ». notifyMany auto-skips
+      // move so they see e.g. "New -> In Progress". notifyMany auto-skips
       // the actor (from.username), so an admin dragging their own task
       // doesn't self-notify.
       if (targetCol) {
@@ -201,22 +199,22 @@ export async function POST(
         const adminTaskLink = `/dashboard/boards/${data.board_id}?task=${id}`;
         await notifyMany(supabase, adminNames, {
           type: 'task_stage_advanced',
-          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
-          message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`,
+          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`, // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name} نقل المهمة إلى "${targetCol.name}"`, // i18n-exempt: notification content (Phase 8)
           link: adminTaskLink,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
         });
 
         // WhatsApp the admins too (not just in-app) — the admin wants a push
-        // on WhatsApp when an employee moves a task, e.g. «جديد → قيد التنفيذ».
+        // on WhatsApp when an employee moves a task, e.g. "New -> In Progress".
         // Skip the actor so an admin dragging their own card isn't messaged.
         for (const admin of adminNames) {
           if (admin === auth.pyraUser.username) continue;
           await sendWhatsAppToUser(
             supabase,
             admin,
-            `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`,
+            `📌 ${auth.pyraUser.display_name} نقل «${data.title}» إلى ${targetCol.name}\n${APP_URL}${adminTaskLink}`, // i18n-exempt: notification content (Phase 8)
           );
         }
 
@@ -232,8 +230,8 @@ export async function POST(
 
         await notifyMany(supabase, assigneeNames, {
           type: 'task_stage_advanced',
-          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`,
-          message: `انتقلت المهمة إلى "${targetCol.name}"`,
+          title: `📌 «${data.title}» انتقلت إلى ${targetCol.name}`, // i18n-exempt: notification content (Phase 8)
+          message: `انتقلت المهمة إلى "${targetCol.name}"`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/boards/${data.board_id}?task=${id}`,
           entity: { type: 'task', id },
           from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

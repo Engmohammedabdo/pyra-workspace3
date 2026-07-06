@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,6 +15,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -39,7 +41,7 @@ export async function GET(
       .eq('id', id)
       .single();
 
-    if (error || !data) return apiNotFound('المهمة غير موجودة');
+    if (error || !data) return apiNotFound(t('common.taskNotFound'));
     return apiSuccess(data);
 
   } catch (err) {

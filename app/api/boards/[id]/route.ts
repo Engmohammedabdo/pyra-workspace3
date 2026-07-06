@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiNotFound, apiError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -13,6 +14,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.view');
     if (isApiError(auth)) return auth;
@@ -22,7 +24,7 @@ export async function GET(
     // Verify non-admin employee has access to this board
     const scope = await resolveUserScope(auth);
     if (!scope.isAdmin && !scope.boardIds.includes(id)) {
-      return apiError('ليس لديك صلاحية الوصول إلى هذه اللوحة', 403);
+      return apiError(t('common.noAccessBoard403'), 403);
     }
 
     const supabase = await createServerSupabaseClient();
@@ -38,7 +40,7 @@ export async function GET(
       .eq('id', id)
       .single();
 
-    if (error || !data) return apiNotFound('اللوحة غير موجودة');
+    if (error || !data) return apiNotFound(t('common.boardNotFound'));
     return apiSuccess(data);
 
   } catch (err) {

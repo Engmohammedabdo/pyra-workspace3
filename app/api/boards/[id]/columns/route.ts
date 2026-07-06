@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -13,13 +14,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
     const { name, color, position } = await req.json();
-    if (!name) return apiValidationError('اسم العمود مطلوب');
+    if (!name) return apiValidationError(t('boards.columnNameRequired'));
 
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
@@ -61,6 +63,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
@@ -84,7 +87,7 @@ export async function PATCH(
 
     if (errors.length > 0) {
       console.error('Column batch update errors:', errors);
-      return apiServerError(`فشل في تحديث ${errors.length} عمود`);
+      return apiServerError(t('boards.columnsUpdateFailed', { count: errors.length }));
     }
 
     logActivity(
@@ -111,12 +114,13 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const columnId = req.nextUrl.searchParams.get('columnId');
-    if (!columnId) return apiValidationError('columnId مطلوب');
+    if (!columnId) return apiValidationError(t('boards.columnIdRequired'));
 
     const supabase = await createServerSupabaseClient();
 
@@ -128,7 +132,7 @@ export async function DELETE(
       .eq('is_archived', false);
 
     if (count && count > 0) {
-      return apiValidationError(`لا يمكن حذف العمود — يحتوي على ${count} مهمة. انقل المهام أولاً.`);
+      return apiValidationError(t('boards.columnHasTasks', { count }));
     }
 
     const { error } = await supabase.from('pyra_board_columns').delete().eq('id', columnId);

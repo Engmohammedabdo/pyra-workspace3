@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -13,6 +14,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.view');
     if (isApiError(auth)) return auth;
@@ -20,7 +22,7 @@ export async function GET(
     const { id: boardId } = await params;
 
     if (!(await checkBoardScope(boardId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+      return apiForbidden(t('common.noAccessBoard'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -46,13 +48,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const { id: boardId } = await params;
     const { name, color } = await req.json();
-    if (!name) return apiValidationError('اسم التصنيف مطلوب');
+    if (!name) return apiValidationError(t('boards.labelNameRequired'));
 
     const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
@@ -87,12 +90,13 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const body = await req.json();
-    if (!body.id) return apiValidationError('معرف التصنيف مطلوب');
+    if (!body.id) return apiValidationError(t('boards.labelIdRequired'));
 
     const supabase = await createServerSupabaseClient();
     const updates: Record<string, string> = {};
@@ -131,12 +135,13 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
 
     const labelId = req.nextUrl.searchParams.get('labelId');
-    if (!labelId) return apiValidationError('labelId مطلوب');
+    if (!labelId) return apiValidationError(t('boards.labelIdQueryRequired'));
 
     const supabase = await createServerSupabaseClient();
     // Remove from tasks first

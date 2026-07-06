@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,6 +15,7 @@ type RouteCtx = { params: Promise<{ id: string; taskId: string; attId: string }>
 // Body: { action: 'approve' | 'revision', note?: string }
 // =============================================================
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
@@ -24,7 +26,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const note = (body.note as string) || '';
 
     if (!action || !['approve', 'revision'].includes(action)) {
-      return apiValidationError('يجب تحديد الإجراء: approve أو revision');
+      return apiValidationError(t('boards.actionRequiredApproveRevision'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .select()
       .single();
 
-    if (error || !data) return apiNotFound('الملف غير موجود');
+    if (error || !data) return apiNotFound(t('boards.fileNotFound'));
 
     // Get task info for notification
     const { data: task } = await supabase
@@ -58,9 +60,9 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         to: data.uploaded_by,
         type: action === 'approve' ? 'file_approval_requested' : 'file_approval_requested',
         title: action === 'approve'
-          ? `تمت الموافقة على الملف: ${data.file_name}`
-          : `مطلوب تعديل على الملف: ${data.file_name}`,
-        message: note || (action === 'approve' ? 'تمت الموافقة' : 'مطلوب تعديل'),
+          ? `تمت الموافقة على الملف: ${data.file_name}` // i18n-exempt: notification content (Phase 8)
+          : `مطلوب تعديل على الملف: ${data.file_name}`, // i18n-exempt: notification content (Phase 8)
+        message: note || (action === 'approve' ? 'تمت الموافقة' : 'مطلوب تعديل'), // i18n-exempt: notification content (Phase 8)
         link: `/dashboard/boards/${boardId}?task=${taskId}`,
         entity: { type: 'task_attachment', id: attId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         task_id: taskId,
         author_username: auth.pyraUser.username,
         author_name: auth.pyraUser.display_name,
-        content: `📎 مطلوب تعديل على "${data.file_name}": ${note}`,
+        content: `📎 مطلوب تعديل على "${data.file_name}": ${note}`, // i18n-exempt: DB data
       });
     }
 

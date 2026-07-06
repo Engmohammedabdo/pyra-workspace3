@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -17,6 +18,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -26,7 +28,7 @@ export async function GET(
     // Verify non-admin employee has access to this board
     const scope = await resolveUserScope(auth);
     if (!scope.isAdmin && !scope.boardIds.includes(boardId)) {
-      return apiError('ليس لديك صلاحية الوصول إلى هذه اللوحة', 403);
+      return apiError(t('common.noAccessBoard403'), 403);
     }
 
     const supabase = await createServerSupabaseClient();
@@ -60,6 +62,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -69,14 +72,14 @@ export async function POST(
     // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
     // users, so permission alone doesn't prove board access.
     if (!(await checkBoardScope(boardId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه اللوحة');
+      return apiForbidden(t('common.noAccessBoard'));
     }
 
     const body = await req.json();
     const { title, column_id, description, priority, due_date, start_date, estimated_hours, assignees } = body;
 
-    if (!title) return apiValidationError('عنوان المهمة مطلوب');
-    if (!column_id) return apiValidationError('العمود مطلوب');
+    if (!title) return apiValidationError(t('common.titleRequired'));
+    if (!column_id) return apiValidationError(t('boards.columnRequired'));
 
     const supabase = await createServerSupabaseClient();
 
@@ -90,7 +93,7 @@ export async function POST(
       .single();
 
     if (colError || !column) {
-      return apiValidationError('العمود المحدد لا ينتمي لهذه اللوحة');
+      return apiValidationError(t('boards.columnNotInBoard'));
     }
 
     if (
@@ -98,9 +101,7 @@ export async function POST(
       column.column_type === 'delivery' ||
       column.requires_approval === true
     ) {
-      return apiValidationError(
-        'لا يمكن إنشاء مهمة مباشرة في عمود مقيّد (مراجعة/تسليم) — أنشئها في «جديد» أو «قيد التنفيذ»'
-      );
+      return apiValidationError(t('boards.gatedColumnCreateBlocked'));
     }
 
     const taskId = generateId('tk');
@@ -168,8 +169,8 @@ export async function POST(
 
       await notifyMany(supabase, assigneeNames, {
         type: 'task_assigned',
-        title: `📌 مهمة جديدة: ${title}`,
-        message: `عيّنك ${auth.pyraUser.display_name} على مهمة جديدة${due_date ? ` — الموعد النهائي ${due_date}` : ''}`,
+        title: `📌 مهمة جديدة: ${title}`, // i18n-exempt: notification content (Phase 8)
+        message: `عيّنك ${auth.pyraUser.display_name} على مهمة جديدة${due_date ? ` — الموعد النهائي ${due_date}` : ''}`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -179,7 +180,7 @@ export async function POST(
         await sendWhatsAppToUser(
           supabase,
           uname,
-          `📌 مهمة جديدة اتعينت عليك: ${title}\nالموعد النهائي: ${due_date || 'غير محدد'}\n${APP_URL}${taskLink}`,
+          `📌 مهمة جديدة اتعينت عليك: ${title}\nالموعد النهائي: ${due_date || 'غير محدد'}\n${APP_URL}${taskLink}`, // i18n-exempt: notification content (Phase 8)
         );
       }
     }

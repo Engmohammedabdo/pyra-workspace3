@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -13,6 +14,7 @@ type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 // List all attachments for a task
 // =============================================================
 export async function GET(_req: NextRequest, ctx: RouteCtx) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -20,7 +22,7 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
     const { taskId } = await ctx.params;
 
     if (!(await checkTaskScope(taskId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -46,6 +48,7 @@ export async function GET(_req: NextRequest, ctx: RouteCtx) {
 // Body: { file_name, file_url, file_size, storage_path }
 // =============================================================
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -53,18 +56,18 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const { id: boardId, taskId } = await ctx.params;
 
     if (!(await checkTaskScope(taskId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const body = await req.json();
     const { file_name, file_url, file_size, storage_path } = body;
 
-    if (!file_name || !file_url) return apiValidationError('اسم الملف والرابط مطلوبان');
+    if (!file_name || !file_url) return apiValidationError(t('boards.fileNameAndUrlRequired'));
 
     // https-only guard — closes stored-XSS via javascript: URLs rendered
     // as <a href>/<img src> in the task-sheet attachment list.
     if (!/^https:\/\/.+/i.test(String(file_url).trim())) {
-      return apiValidationError('رابط المرفق يجب أن يبدأ بـ https://');
+      return apiValidationError(t('boards.attachmentUrlMustBeHttps'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -77,7 +80,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('board_id', boardId)
       .single();
 
-    if (!task) return apiNotFound('المهمة غير موجودة');
+    if (!task) return apiNotFound(t('common.taskNotFound'));
 
     const id = generateId('att');
     const { data, error } = await supabase

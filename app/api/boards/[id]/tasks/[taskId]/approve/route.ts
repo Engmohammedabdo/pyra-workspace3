@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiNotFound } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -16,6 +17,7 @@ type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 // Body: { action: 'approve' | 'reject', note?: string }
 // =============================================================
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('boards.manage');
     if (isApiError(auth)) return auth;
@@ -26,11 +28,11 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     const note = (body.note as string) || '';
 
     if (!action || !['approve', 'reject'].includes(action)) {
-      return apiValidationError('يجب تحديد الإجراء: approve أو reject');
+      return apiValidationError(t('boards.actionRequiredApproveReject'));
     }
 
     if (action === 'reject' && !note.trim()) {
-      return apiValidationError('ملاحظة التعديل مطلوبة — اكتب ملخص المطلوب تغييره');
+      return apiValidationError(t('boards.revisionNoteRequired'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -43,7 +45,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('board_id', boardId)
       .single();
 
-    if (!task) return apiNotFound('المهمة غير موجودة');
+    if (!task) return apiNotFound(t('common.taskNotFound'));
 
     // Get columns
     const { data: cols } = await supabase
@@ -52,10 +54,10 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('board_id', boardId)
       .order('position');
 
-    if (!cols) return apiServerError('فشل تحميل الأعمدة');
+    if (!cols) return apiServerError(t('boards.columnsLoadFailed'));
 
     const currentIdx = cols.findIndex(c => c.id === task.column_id);
-    if (currentIdx >= cols.length - 1) return apiValidationError('المهمة في المرحلة الأخيرة');
+    if (currentIdx >= cols.length - 1) return apiValidationError(t('boards.taskAlreadyLastStageAlt'));
 
     const currentCol = cols[currentIdx];
     const nextCol = cols[currentIdx + 1];
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       // past a stage with no real approval gate, writing a phantom
       // stage_history row that corrupts productivity metrics.
       if (nextCol.requires_approval !== true) {
-        return apiValidationError('هذا الإجراء مخصص لاعتماد مرحلة تتطلب موافقة فقط');
+        return apiValidationError(t('boards.approveOnlyForGatedStage'));
       }
       // Move to next column
       const completionPct = Math.round(((currentIdx + 2) / cols.length) * 100);
@@ -122,23 +124,25 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       const isDelivery = nextCol.is_done_column === true;
       await notifyMany(supabase, assigneeNames, {
         type: 'task_approved',
-        title: `✅ تمت الموافقة: ${task.title}`,
+        title: `✅ تمت الموافقة: ${task.title}`, // i18n-exempt: notification content (Phase 8)
         message: isDelivery
-          ? `تمت الموافقة والمهمة اكتملت${note ? ` — ${note}` : ''}`
-          : `تمت الموافقة — ${nextCol.name === 'معتمد' ? 'ارفع التسليم النهائي على Drive' : `انتقلت إلى "${nextCol.name}"`}${note ? ` — ${note}` : ''}`,
+          ? `تمت الموافقة والمهمة اكتملت${note ? ` — ${note}` : ''}` // i18n-exempt: notification content (Phase 8)
+          // i18n hazard (documented, Phase 2): business logic keyed on Arabic column name — do not localize without a column-type migration
+          : `تمت الموافقة — ${nextCol.name === 'معتمد' ? 'ارفع التسليم النهائي على Drive' : `انتقلت إلى "${nextCol.name}"`}${note ? ` — ${note}` : ''}`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
+      // i18n hazard (documented, Phase 2): business logic keyed on Arabic column name — do not localize without a column-type migration
       const approveWaLine = isDelivery
-        ? 'المهمة اكتملت'
-        : nextCol.name === 'معتمد'
-          ? 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد'
-          : `انتقلت إلى "${nextCol.name}"`;
+        ? 'المهمة اكتملت' // i18n-exempt: notification content (Phase 8)
+        : nextCol.name === 'معتمد' // i18n-exempt: i18n hazard — business logic keyed on Arabic column name (documented, Phase 2)
+          ? 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد' // i18n-exempt: notification content (Phase 8)
+          : `انتقلت إلى "${nextCol.name}"`; // i18n-exempt: notification content (Phase 8)
       for (const u of assigneeNames) {
         if (u === auth.pyraUser.username) continue;
         await sendWhatsAppToUser(supabase, u,
-          `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`);
+          `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
       }
 
       // Activity log
@@ -166,7 +170,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       // approval-gated (admin rejecting before it even entered review would be
       // a no-op transition otherwise).
       if (currentCol.column_type !== 'review' && nextCol.requires_approval !== true) {
-        return apiValidationError('لا يوجد إجراء مراجعة معلّق على هذه المهمة');
+        return apiValidationError(t('boards.noPendingReviewAction'));
       }
 
       // Reject — send back to previous column if exists, otherwise keep in place
@@ -201,8 +205,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
       await notifyMany(supabase, assigneeNames, {
         type: 'task_revision_requested',
-        title: `✏️ مطلوب تعديل: ${task.title}`,
-        message: `رجعت المهمة للتنفيذ — ${note}`,
+        title: `✏️ مطلوب تعديل: ${task.title}`, // i18n-exempt: notification content (Phase 8)
+        message: `رجعت المهمة للتنفيذ — ${note}`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -210,7 +214,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       for (const u of assigneeNames) {
         if (u === auth.pyraUser.username) continue;
         await sendWhatsAppToUser(supabase, u,
-          `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`);
+          `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
       }
 
       // Comment with rejection note
@@ -220,7 +224,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
           task_id: taskId,
           author_username: auth.pyraUser.username,
           author_name: auth.pyraUser.display_name,
-          content: `❌ مطلوب تعديل: ${note}`,
+          content: `❌ مطلوب تعديل: ${note}`, // i18n-exempt: DB data
         });
       }
 
@@ -231,7 +235,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         username: auth.pyraUser.username,
         display_name: auth.pyraUser.display_name,
         action: 'stage_rejected',
-        details: JSON.stringify({ note, sent_back_to: prevCol?.name || 'نفس المرحلة' }),
+        details: JSON.stringify({ note, sent_back_to: prevCol?.name || 'نفس المرحلة' }), // i18n-exempt: DB data
       });
 
       logActivity(

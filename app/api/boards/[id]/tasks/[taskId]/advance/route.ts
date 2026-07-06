@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiNotFound, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -16,6 +17,7 @@ type RouteCtx = { params: Promise<{ id: string; taskId: string }> };
 // Move task to the next stage in a pipeline board
 // =============================================================
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     // Board-scope gate: BASE_EMPLOYEE grants tasks.create to all internal
     // users, so permission alone doesn't prove board access.
     if (!(await checkBoardScope(boardId, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
@@ -40,7 +42,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('id', boardId)
       .single();
 
-    if (!board) return apiNotFound('اللوحة غير موجودة');
+    if (!board) return apiNotFound(t('common.boardNotFound'));
 
     // Fetch task
     const { data: task } = await supabase
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       .eq('board_id', boardId)
       .single();
 
-    if (!task) return apiNotFound('المهمة غير موجودة');
+    if (!task) return apiNotFound(t('common.taskNotFound'));
 
     // Sort columns by position
     const columns = ((board.pyra_board_columns as Array<{
@@ -60,14 +62,14 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
     }>) || []).sort((a, b) => a.position - b.position);
 
     const currentIdx = columns.findIndex(c => c.id === task.column_id);
-    if (currentIdx === -1) return apiValidationError('العمود الحالي غير موجود');
-    if (currentIdx >= columns.length - 1) return apiValidationError('المهمة بالفعل في المرحلة الأخيرة');
+    if (currentIdx === -1) return apiValidationError(t('boards.currentColumnNotFound'));
+    if (currentIdx >= columns.length - 1) return apiValidationError(t('boards.taskAlreadyLastStage'));
 
     const nextCol = columns[currentIdx + 1];
 
     // Check if next stage requires approval
     if (nextCol.requires_approval) {
-      return apiValidationError('المرحلة التالية تتطلب موافقة. استخدم endpoint الموافقة.');
+      return apiValidationError(t('boards.nextStageRequiresApproval'));
     }
 
     // ── Gated columns: link requirements (remote-production-tracking) ──
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     if (nextCol.column_type === 'review') {
       if (!isHttpsUrl(body.review_link)) {
-        return apiValidationError('رابط المراجعة (frame.io أو Google Drive) مطلوب لرفع المهمة للمراجعة');
+        return apiValidationError(t('boards.reviewLinkRequired'));
       }
       // round number = prior entries into the review column + 1 (derived, never stored)
       const { count } = await supabase
@@ -84,17 +86,17 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         .eq('task_id', taskId)
         .eq('to_column_id', nextCol.id);
       attachmentToCreate = {
-        name: `نسخة للمراجعة — جولة ${(count || 0) + 1}`,
+        name: `نسخة للمراجعة — جولة ${(count || 0) + 1}`, // i18n-exempt: DB data
         url: (body.review_link as string).trim(),
       };
     }
 
     if (nextCol.column_type === 'delivery') {
       if (!isHttpsUrl(body.delivery_link)) {
-        return apiValidationError('رابط التسليم النهائي على Google Drive مطلوب لإغلاق المهمة');
+        return apiValidationError(t('boards.deliveryLinkRequired'));
       }
       attachmentToCreate = {
-        name: 'التسليم النهائي',
+        name: 'التسليم النهائي', // i18n-exempt: DB data
         url: (body.delivery_link as string).trim(),
       };
     }
@@ -174,8 +176,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     await notifyMany(supabase, assigneeNames, {
       type: 'task_stage_advanced',
-      title: `مهمة انتقلت لمرحلة: ${nextCol.name}`,
-      message: `المهمة انتقلت إلى "${nextCol.name}"`,
+      title: `مهمة انتقلت لمرحلة: ${nextCol.name}`, // i18n-exempt: notification content (Phase 8)
+      message: `المهمة انتقلت إلى "${nextCol.name}"`, // i18n-exempt: notification content (Phase 8)
       link: taskLink,
       entity: { type: 'task', id: taskId },
       from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -195,8 +197,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
       await notifyMany(supabase, (adminRowsForAdvance || []).map(a => a.username), {
         type: 'task_stage_advanced',
-        title: `📌 «${task.title}» انتقلت إلى ${nextCol.name}`,
-        message: `${auth.pyraUser.display_name} نقل المهمة إلى "${nextCol.name}"`,
+        title: `📌 «${task.title}» انتقلت إلى ${nextCol.name}`, // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} نقل المهمة إلى "${nextCol.name}"`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -214,8 +216,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
       await notifyMany(supabase, adminNames, {
         type: 'task_submitted_for_review',
-        title: `👀 نسخة جاهزة للمراجعة`,
-        message: `${auth.pyraUser.display_name} رفع نسخة للمراجعة${body.note ? ` — ${String(body.note).slice(0, 200)}` : ''}`,
+        title: `👀 نسخة جاهزة للمراجعة`, // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} رفع نسخة للمراجعة${body.note ? ` — ${String(body.note).slice(0, 200)}` : ''}`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
@@ -223,7 +225,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
       for (const admin of adminNames) {
         if (admin === auth.pyraUser.username) continue;
         await sendWhatsAppToUser(supabase, admin,
-          `👀 نسخة جاهزة للمراجعة من ${auth.pyraUser.display_name}\nالرابط: ${attachmentToCreate?.url}\n${APP_URL}${taskLink}`);
+          `👀 نسخة جاهزة للمراجعة من ${auth.pyraUser.display_name}\nالرابط: ${attachmentToCreate?.url}\n${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
       }
     }
 
@@ -236,8 +238,8 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         .eq('status', 'active');
       await notifyMany(supabase, (adminRows || []).map(a => a.username), {
         type: 'task_delivered',
-        title: `📦 تم التسليم النهائي`,
-        message: `${auth.pyraUser.display_name} سلّم المهمة نهائياً — الفاينل على Drive`,
+        title: `📦 تم التسليم النهائي`, // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} سلّم المهمة نهائياً — الفاينل على Drive`, // i18n-exempt: notification content (Phase 8)
         link: taskLink,
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

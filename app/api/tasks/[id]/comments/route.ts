@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError, apiForbidden } from '@/lib/api/response';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
@@ -14,6 +15,7 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -21,7 +23,7 @@ export async function GET(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -50,6 +52,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.view');
     if (isApiError(auth)) return auth;
@@ -57,12 +60,12 @@ export async function POST(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const { content } = await req.json();
     if (!content || !content.trim()) {
-      return apiValidationError('محتوى التعليق مطلوب');
+      return apiValidationError(t('tasks.commentContentRequired'));
     }
 
     const supabase = await createServerSupabaseClient();
@@ -189,8 +192,8 @@ export async function POST(
         id: generateId('n'),
         recipient_username: uname,
         type: 'mention',
-        title: 'تم ذكرك في تعليق',
-        message: `${auth.pyraUser.display_name} ذكرك في تعليق على مهمة`,
+        title: 'تم ذكرك في تعليق', // i18n-exempt: notification content (Phase 8)
+        message: `${auth.pyraUser.display_name} ذكرك في تعليق على مهمة`, // i18n-exempt: notification content (Phase 8)
         source_username: auth.pyraUser.username,
         source_display_name: auth.pyraUser.display_name,
         target_path: `/dashboard/boards/${taskForPath?.board_id || ''}`,
@@ -231,8 +234,8 @@ export async function POST(
           id: generateId('ntf'),
           username: a.username,
           type: 'task_comment',
-          title: `تعليق جديد على: ${taskInfo?.title || 'مهمة'}`,
-          message: `${auth.pyraUser.display_name}: ${trimmedContent.slice(0, 80)}`,
+          title: `تعليق جديد على: ${taskInfo?.title || 'مهمة'}`, // i18n-exempt: notification content (Phase 8)
+          message: `${auth.pyraUser.display_name}: ${trimmedContent.slice(0, 80)}`, // i18n-exempt: notification content (Phase 8)
           link: `/dashboard/boards/${taskInfo?.board_id || ''}`,
           is_read: false,
         }));
@@ -266,6 +269,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('tasks.create');
     if (isApiError(auth)) return auth;
@@ -273,11 +277,11 @@ export async function DELETE(
     const { id } = await params;
 
     if (!(await checkTaskScope(id, auth))) {
-      return apiForbidden('لا تملك صلاحية الوصول لهذه المهمة');
+      return apiForbidden(t('common.noAccessTask'));
     }
 
     const commentId = req.nextUrl.searchParams.get('commentId');
-    if (!commentId) return apiValidationError('commentId مطلوب');
+    if (!commentId) return apiValidationError(t('tasks.commentIdRequired'));
 
     const supabase = await createServerSupabaseClient();
 
@@ -294,7 +298,7 @@ export async function DELETE(
         .single();
 
       if (comment?.author_username !== auth.pyraUser.username) {
-        return apiServerError('لا يمكنك حذف تعليقات الآخرين');
+        return apiServerError(t('tasks.cannotDeleteOthersComments'));
       }
     }
 
