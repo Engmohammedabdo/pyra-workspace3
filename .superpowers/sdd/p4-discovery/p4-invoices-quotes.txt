@@ -1,0 +1,408 @@
+INVOICES + QUOTES DISCOVERY — Phase-4 i18n (files verified 2026-07-06)
+
+================================================================
+GRAND TOTALS (see SUMMARY at bottom for full breakdown)
+================================================================
+Files scanned: 14 (4 invoices + 6 quotes + 2 quotes-components + 2 hooks)
+Total AR lines flagged: 312
+  (ui)       ~247
+  (data)       ~6
+  (comment)    ~24
+  (statuses)   ~10  (STATUS_MAP / STATUS_LABELS local maps that duplicate lib/constants/statuses.ts entity data)
+Dead-code flag: hooks/useQuotes.ts — useQuotes/useQuote/useCreateQuote already
+  REMOVED (confirmed by reading the file — only useLeadQuotes + useUpdateQuote
+  remain; file has an explicit code comment documenting the 2026-07-02 cleanup).
+  No migration work needed there; nothing dead to flag beyond the comment itself.
+
+================================================================
+1. app/dashboard/invoices/page.tsx (11 lines — server component)
+================================================================
+- L5: `title: 'الفواتير | Pyra Workspace'` (Metadata) (ui) — needs getTranslations for metadata title
+
+================================================================
+2. app/dashboard/invoices/invoices-client.tsx (504 lines)
+================================================================
+- L35: `import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';` (statuses) — swap target: useStatusLabels('invoice'). Entity key 'invoice' ALREADY EXISTS in messages/ar/statuses.json (draft/sent/partially_paid/paid/overdue/cancelled all present).
+- L64-71: STATUS_MAP local const built from INVOICE_STATUS_LABELS (statuses) — same swap target as above; this is a local wrapper adding badge-class, not a duplicate label source itself.
+- L145: `toast.error('فشل في تحميل بيانات الفاتورة')` (ui)
+- L149: `toast.success('تم تحميل ملف PDF')` (ui)
+- L151: `toast.error('فشل في إنشاء ملف PDF')` (ui)
+- L170: `` toast.error(`فشل حذف ${failCount} فاتورة`) `` (ui) [ICU: count interpolation, plural-worthy]
+- L171: `` toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} فواتير` : 'تم حذف الفاتورة') `` (ui) [ICU: plural-worthy ternary, count interpolation]
+- L175: `toast.error('حدث خطأ')` (ui)
+- L212: `.localeCompare(String(bVal), 'ar')` (hardcoded locale in sort) — see cross-cutting flags below
+- L213: `.localeCompare(String(aVal), 'ar')` (hardcoded locale in sort) — same
+- L222: `header: 'رقم الفاتورة'` (ui, DataTable column header)
+- L228: `header: 'العميل'` (ui)
+- L230: `render: (inv) => inv.client_name || inv.client_company || '—'` (em-dash fallback, exempt)
+- L234: `header: 'المشروع'` (ui)
+- L240: `header: 'الإجمالي'` (ui)
+- L246: `header: 'المدفوع'` (ui)
+- L252: `header: 'المتبقي'` (ui)
+- L258: `header: 'الحالة'` (ui)
+- L266: `header: 'التاريخ'` (ui)
+- L279: `aria-label="المزيد"` (ui)
+- L285: `<Eye ... /> عرض` (ui)
+- L288: `<Download ... /> تحميل PDF` (ui)
+- L295: `<Trash2 ... /> حذف` (ui)
+- L313: `<FileText ... /> الفواتير` (ui, h1)
+- L315: `إدارة الفواتير والمدفوعات` (ui, subtitle)
+- L322: `aria-label="تحديث"` (ui)
+- L336: `<Plus ... /> فاتورة جديدة` (ui)
+- L352: `إجمالي الإيرادات` (ui)
+- L370: `المبالغ المستحقة` (ui)
+- L388: `المبالغ المتأخرة` (ui)
+- L405: `placeholder="بحث بالرقم أو العميل أو المشروع..."` (ui)
+- L413: `<SelectItem value="all">جميع الحالات</SelectItem>` (ui)
+- L414-419: `مسودة` / `مرسلة` / `مدفوعة` / `مدفوعة جزئياً` / `متأخرة` / `ملغية` (ui) — DUPLICATE of INVOICE_STATUS_LABELS values, hardcoded again as SelectItem labels instead of mapping — flag for consolidation onto useStatusLabels('invoice') during migration
+- L431: `title: 'لا توجد فواتير'` (ui, EmptyState)
+- L432: `description: 'أنشئ فاتورة جديدة للبدء'` (ui, EmptyState)
+- L441: `label: 'حذف المحدد'` (ui, bulk action)
+- L446: `toast.error('يمكن حذف المسودات فقط')` (ui)
+- L463: `aria-label="الصفحة السابقة"` (ui)
+- L468: `` صفحة {page} من {totalPages} `` (ui) [ICU interpolation]
+- L475: `aria-label="الصفحة التالية"` (ui)
+- L486: `<DialogTitle>حذف الفاتورة</DialogTitle>` (ui)
+- L490: `` `هل أنت متأكد من حذف ${bulkDeleteIds.length} فواتير؟ لا يمكن التراجع عن هذا الإجراء.` `` (ui) [ICU: count interpolation, plural-worthy]
+- L491: `هل أنت متأكد من حذف الفاتورة <strong>{selected?.invoice_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.` (ui) [ICU interpolation, split-node around <strong>]
+- L495: `إلغاء` (ui)
+- L497: `` {deleting ? 'جارٍ الحذف...' : 'حذف'} `` (ui)
+- formatDate/formatCurrency call sites: formatCurrency ×6 (L242,248,254,354,372,390), formatDate ×1 (L269) — no locale param passed anywhere; money formatting must render identically both locales per CLAUDE.md rule.
+- No hardcoded dir="rtl"/dir="ltr" in this file.
+- Comment-only AR: L93 code comment "CRM customer page → \"فتح صفحة الفواتير\" passes ?client_id=" (comment, no action) — contains an embedded Arabic UI-string reference from ANOTHER page (crm/customers), informational only.
+
+================================================================
+3. app/dashboard/invoices/[id]/page.tsx (418 lines)
+================================================================
+- L21: `import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';` (statuses) — swap target: useStatusLabels('paymentMethod'). Entity key 'paymentMethod' ALREADY EXISTS in messages/ar/statuses.json.
+- L60: `setError(json.error || 'فشل في تحميل الفاتورة')` (ui)
+- L65: `setError('حدث خطأ في الاتصال')` (ui)
+- L126: `toast.error(json.error || 'فشل حفظ التعديلات')` (ui)
+- L129: `toast.success('تم حفظ التعديلات')` (ui)
+- L133: `toast.error('حدث خطأ')` (ui)
+- L146: `toast.error(json.error || 'فشل في إرسال الفاتورة')` (ui)
+- L149: `toast.success('تم إرسال الفاتورة بنجاح')` (ui)
+- L152: `toast.error('حدث خطأ')` (ui)
+- L164: `toast.error(json.error || 'فشل في حذف الفاتورة')` (ui)
+- L167: `toast.success('تم حذف الفاتورة')` (ui)
+- L170: `toast.error('حدث خطأ')` (ui)
+- L185: `toast.error(json.error || 'فشل في إنشاء رابط الدفع')` (ui)
+- L190: `toast.success('تم نسخ رابط الدفع')` (ui)
+- L211: `toast.error('المبلغ يجب أن يكون أكبر من صفر')` (ui)
+- L215: `` toast.error(`المبلغ يتجاوز المستحق (${invoice.amount_due} ${invoice.currency})`) `` (ui) [ICU interpolation — money value + currency]
+- L234: `toast.error(json.error || 'فشل في تسجيل الدفعة')` (ui)
+- L237: `toast.success('تم تسجيل الدفعة بنجاح')` (ui)
+- L242: `toast.error('حدث خطأ أثناء تسجيل الدفعة')` (ui)
+- L300: `<DialogTitle>تسجيل دفعة جديدة</DialogTitle>` (ui)
+- L305: `<Label htmlFor="pay-amount">المبلغ <span className="text-red-500">*</span></Label>` (ui, split-node with required-marker)
+- L313: `` placeholder={`المستحق: ${invoice?.amount_due || 0}`} `` (ui) [ICU interpolation]
+- L319: `{invoice?.currency || 'AED'}` (data-ish fallback — hardcoded default currency code, not translation but flag for consistency)
+- L328: `` دفع كامل المبلغ ({invoice.amount_due} {invoice.currency}) `` (ui) [ICU interpolation — money value]
+- L335: `<Label htmlFor="pay-date">تاريخ الدفع <span className="text-red-500">*</span></Label>` (ui, split-node)
+- L347: `<Label>طريقة الدفع</Label>` (ui)
+- L360: `<Label htmlFor="pay-ref">رقم المرجع</Label>` (ui)
+- L366: `placeholder="رقم التحويل أو الشيك"` (ui)
+- L372: `<Label htmlFor="pay-notes">ملاحظات</Label>` (ui)
+- L377: `placeholder="ملاحظات إضافية..."` (ui)
+- L385: `إلغاء` (ui)
+- L393: `تسجيل الدفعة` (ui)
+- L403: `<AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>` (ui)
+- L405: `هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.` (ui)
+- L409: `<AlertDialogCancel>إلغاء</AlertDialogCancel>` (ui)
+- L411: `حذف` (ui)
+- dir="ltr" HARDCODED: L310 (`pay-amount` Input), L339 (`pay-date` Input), L363 (`pay-ref` Input) — all money/date/reference fields intentionally LTR regardless of locale (numeric/reference data) — these are candidates to KEEP hardcoded dir="ltr" even after i18n (numbers/dates-as-text stay LTR-shaped), flag for plan decision not automatic swap.
+- formatCurrency/formatDate call sites: none directly in this file (money math handled via raw invoice fields + template literals, not formatCurrency() calls) — NOTE: this file does NOT use formatCurrency() at all for the pay-amount/amount_due displays (L215, L313, L328) — plain interpolation of raw numbers. Flag: money formatting inconsistency vs rest of module (should probably use formatCurrency but out of scope for i18n pass — note only).
+- No localeCompare, no toLocale* calls in this file.
+- Sub-components imported (InvoiceHeader, ClientInfo, EditItems, PaymentHistory from components/dashboard/invoice-detail/*) are OUT OF STATED SCOPE (not listed dirs) but heavily consumed here — FLAG: these 4 sub-components likely carry significant additional Arabic UI strings not captured in this census; recommend a follow-up census pass on components/dashboard/invoice-detail/ before Phase-4 execution.
+
+================================================================
+4. app/dashboard/invoices/new/page.tsx (131 lines)
+================================================================
+- L87: `onError: (e: any) => toast.error(e.message)` (ui) — passthrough of server error message (likely Arabic from API layer, not a literal here)
+- L100: `aria-label="العودة إلى الفواتير"` (ui)
+- L101: `<h1 className="text-2xl font-bold">فاتورة جديدة</h1>` (ui)
+- L109: `<CardTitle>بنود الفاتورة</CardTitle>` (ui)
+- L110: `<Plus ... /> إضافة بند` (ui)
+- L114: `<span>المجموع الفرعي</span>` (ui)
+- L116: `<span>خصم</span>` (ui)
+- L117: `placeholder="بدون"` + `<SelectItem value="none">بدون</SelectItem>` + `<SelectItem value="percentage">نسبة %</SelectItem>` + `<SelectItem value="fixed">مبلغ ثابت</SelectItem>` (ui, split across one line)
+- L120: `` {discountAmount > 0 ? `- ${formatCurrency(discountAmount)}` : '—'} `` (ui) [ICU-adjacent — minus-sign prefix template around formatCurrency result]
+- L122: `<span>الإجمالي</span>` (ui)
+- L126: `` {saving && !sendAfterSave ? ... : ...} حفظ `` (ui, button label with icon swap)
+- L127: `حفظ وإرسال` (ui, button label)
+- L118: `dir="ltr"` HARDCODED on discount-value Input (numeric field — same "keep LTR for numbers" pattern as invoice detail page)
+- formatCurrency call sites: L114, L120, L122 (×3, one wrapped in ternary at L120) — no locale param (currency formatting is locale-stable by design per CLAUDE.md, no action needed beyond verifying calls stay untouched).
+- Sub-components imported (BusinessEntitySelector, ClientSelector, InvoiceMeta, InvoiceItemsTable from components/dashboard/invoice-new/*) are OUT OF STATED SCOPE — FLAG: same as invoice-detail sub-components, likely carry additional Arabic strings; recommend follow-up census on components/dashboard/invoice-new/.
+- No localeCompare, no toLocale* in this file.
+
+================================================================
+5. app/dashboard/quotes/page.tsx (11 lines — server component)
+================================================================
+- L5: `title: 'عروض الأسعار | Pyra Workspace'` (Metadata) (ui) — needs getTranslations for metadata title
+
+================================================================
+6. app/dashboard/quotes/quotes-client.tsx (387 lines)
+================================================================
+- L24: `import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';` (statuses) — swap target: useStatusLabels('quote'). Entity key 'quote' ALREADY EXISTS in messages/ar/statuses.json (draft/pending_approval/sent/viewed/signed/invoiced/rejected/expired/cancelled all present).
+- L41-51: STATUS_MAP local const built from QUOTE_STATUS_LABELS + variant (statuses) — same swap target.
+- L102: `toast.success('تم نسخ عرض السعر')` (ui)
+- L116: `` toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`) `` (ui) [ICU interpolation — recipient email]
+- L118: `toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل')` (ui)
+- L120: `toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد')` (ui)
+- L131: `toast.error('فشل في تحميل بيانات العرض')` (ui)
+- L135: `toast.success('تم تحميل ملف PDF')` (ui)
+- L137: `toast.error('فشل في إنشاء ملف PDF')` (ui)
+- L146: `toast.success('تم إنشاء الفاتورة من عرض السعر')` (ui)
+- L149: `toast.error('حدث خطأ')` (ui)
+- L166: `` toast.error(`فشل حذف ${failCount} عرض`) `` (ui) [ICU count interpolation, plural-worthy]
+- L167: `` toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} عروض` : 'تم حذف عرض السعر') `` (ui) [ICU plural-worthy ternary, count interpolation]
+- L169: `toast.error('حدث خطأ')` (ui)
+- L199-200: `.localeCompare(String(bVal), 'ar')` / `.localeCompare(String(aVal), 'ar')` (hardcoded locale — see cross-cutting flags)
+- L209: `header: 'رقم العرض'` (ui)
+- L215: `header: 'العميل'` (ui)
+- L217: `render: (q) => q.client_name || q.client_company || '—'` (em-dash fallback, exempt)
+- L221: `header: 'المشروع'` (ui)
+- L227: `header: 'المبلغ'` (ui)
+- L233: `header: 'الحالة'` (ui)
+- L241: `header: 'التاريخ'` (ui)
+- L254: `aria-label="المزيد"` (ui)
+- L261: `<Pencil ... /> تعديل` (ui)
+- L266: `<Copy ... /> نسخ العرض` (ui)
+- L270: `<Download ... /> تحميل PDF` (ui)
+- L274: `<Receipt ... /> تحويل لفاتورة` (ui)
+- L279: `<Send ... /> إرسال` (ui)
+- L286: `<Trash2 ... /> حذف` (ui)
+- L300: `<FileText ... /> عروض الأسعار` (ui, h1)
+- L301: `إدارة عروض الأسعار والفواتير` (ui, subtitle)
+- L305: `<Plus ... /> إنشاء عرض سعر` (ui)
+- L314: `placeholder="بحث بالرقم أو العميل..."` (ui)
+- L320: `<SelectItem value="all">جميع الحالات</SelectItem>` (ui)
+- L321-329: `مسودة` / `بانتظار الموافقة` / `مُرسل` / `تمت المشاهدة` / `مُوقع` / `تم الفوترة` / `منتهي` / `مرفوض` / `ملغي` (ui) — DUPLICATE of QUOTE_STATUS_LABELS values hardcoded again as SelectItem labels — flag for consolidation via useStatusLabels('quote')
+- L341: `title: 'لا توجد عروض أسعار'` (ui, EmptyState)
+- L342: `description: 'أنشئ عرض سعر جديد للبدء'` (ui, EmptyState)
+- L355: `label: 'حذف المحدد'` (ui, bulk action)
+- L370: `<DialogTitle>حذف عرض السعر</DialogTitle>` (ui)
+- L373: `` `هل أنت متأكد من حذف ${bulkDeleteIds.length} عروض أسعار؟ لا يمكن التراجع عن هذا الإجراء.` `` (ui) [ICU count interpolation, plural-worthy]
+- L374: `هل أنت متأكد من حذف عرض السعر <strong>{selected?.quote_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.` (ui) [ICU interpolation, split-node around <strong>]
+- L378: `إلغاء` (ui)
+- L380: `` {deleting ? 'جارٍ الحذف...' : 'حذف'} `` (ui)
+- Code comments (comment, no action): L112 "Group 3 — honest sent-UX...", L282-283 "Delete: full-delete shows for every row...", L350-352 "Bulk delete is full-delete only..." — all English comments referencing Arabic UI behavior, no embedded Arabic literal requiring translation.
+- formatCurrency/formatDate call sites: formatCurrency ×1 (L229), formatDate ×1 (L244) — no locale param.
+- No hardcoded dir attrs in this file.
+
+================================================================
+7. app/dashboard/quotes/[id]/page.tsx (61 lines)
+================================================================
+- L43: `aria-label="رجوع"` (ui)
+- L48: `` تعديل عرض السعر — {quote.quote_number} `` (ui, h1) [ICU interpolation]
+- L50: `تعديل بيانات عرض السعر` (ui, subtitle)
+- No dir attrs, no localeCompare, no toLocale*, no formatCurrency/formatDate calls in this thin wrapper page.
+
+================================================================
+8. app/dashboard/quotes/analytics/page.tsx (11 lines — server component)
+================================================================
+- L5: `title: 'تحليلات عروض الأسعار | Pyra Workspace'` (Metadata) (ui) — needs getTranslations for metadata title
+
+================================================================
+9. app/dashboard/quotes/analytics/quotes-analytics-client.tsx (283 lines)
+================================================================
+- L52-62: STATUS_LABELS local const (statuses) — INDEPENDENT hardcoded map, NOT importing from lib/constants/statuses.ts at all (unlike quotes-client.tsx). Values: `مسودة`,`بانتظار الموافقة`,`مُرسل`,`تم العرض`,`موقع`,`تم الفوترة`,`منتهي`,`مرفوض`,`ملغي` — DUPLICATE drift risk (note: "موقع" here vs "موقّع" in messages/ar/statuses.json quote.signed — MISMATCH, missing shadda). Flag as (statuses) — swap to useStatusLabels('quote') would also FIX this drift bug.
+- L64-65: `fmtNum` — `new Intl.NumberFormat('en-AE', ...)` hardcoded locale 'en-AE' for number formatting (money/count display) — matches CLAUDE.md's documented "Currency/number formatting is locale-stable (en-AE) by design" rule; NOT a bug, but flag so the plan explicitly marks this as an INTENTIONAL exception, not a migration target.
+- L89: `<h1 className="text-2xl font-bold">تحليلات عروض الأسعار</h1>` (ui) [loading-state duplicate of L117]
+- L117: `<h1 className="text-2xl font-bold">تحليلات عروض الأسعار</h1>` (ui, main render)
+- L127: `نسبة الإرسال` (ui)
+- L138: `نسبة التوقيع` (ui)
+- L149: `متوسط أيام التوقيع` (ui)
+- L160: `قيمة العروض النشطة` (ui)
+- L172: `<CardTitle className="text-base">قمع التحويل</CardTitle>` (ui)
+- L190: `<CardTitle className="text-base">توزيع الحالات</CardTitle>` (ui)
+- L202: `` label={({ name, value }) => `${name} (${value})`} `` (ui) [ICU interpolation — recharts pie label]
+- L220: `<CardTitle className="text-base">قيمة العروض النشطة حسب الحالة</CardTitle>` (ui)
+- L230: `<Bar dataKey="value" name="القيمة" .../>` (ui — recharts legend name prop)
+- L243: `<CardTitle className="text-base">أداء وكلاء المبيعات</CardTitle>` (ui)
+- L251: `<th ...>الوكيل</th>` (ui)
+- L252: `<th ...>العروض</th>` (ui)
+- L253: `<th ...>الموقعة</th>` (ui)
+- L254: `<th ...>نسبة التحويل</th>` (ui)
+- L255: `<th ...>القيمة الموقعة</th>` (ui)
+- L276: `لا توجد بيانات كافية` (ui, empty state — NOTE: raw <p> text, NOT using shared <EmptyState> component per CLAUDE.md convention — flag as pre-existing convention violation, not i18n-specific but worth noting)
+- dir="ltr" HARDCODED: L161 (`fmtNum(pipeline?.total_value ...)` wrapper div), L269 (`fmtNum(a.signed_value)` table cell) — both wrap numeric-only content, consistent with the "numbers stay LTR" pattern seen elsewhere.
+- No localeCompare in this file. No formatDate calls (uses fmtNum only, not formatCurrency/formatDate from lib/utils/format).
+
+================================================================
+10. app/dashboard/quotes/new/page.tsx (73 lines)
+================================================================
+- Code comment block L9-21 (comment, no action) — English text describing Phase Q Commit 2 fix, references Arabic UI behavior indirectly, no embedded Arabic literal.
+- L55: `<h1 className="text-2xl font-bold">عرض سعر جديد</h1>` (ui)
+- L56: `إنشاء عرض سعر جديد للعميل` (ui, subtitle)
+- L60: `` مرتبط بالعميل المحتمل: {leadName} `` (ui, Badge) [ICU interpolation — lead name]
+- L39: code comment "Lead has no `address` column..." (comment, no action)
+- No dir attrs, no localeCompare, no toLocale*, no formatCurrency/formatDate in this file.
+
+================================================================
+11. components/quotes/QuoteBuilder.tsx (899 lines) — LARGEST FILE, HIGH RISK
+================================================================
+- L340: `toast.error('يرجى تعبئة وصف جميع العناصر')` (ui)
+- L362: `` toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`) `` (ui) [ICU interpolation — recipient email; DUPLICATE of quotes-client.tsx L116, same 3-way flip-and-warn toast trio]
+- L364: `toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل')` (ui) [DUPLICATE of quotes-client.tsx L118]
+- L366: `toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد')` (ui) [DUPLICATE of quotes-client.tsx L120]
+- L378: `toast.error(err instanceof Error ? err.message : 'حدث خطأ في حفظ عرض السعر')` (ui) — err.message may be server-supplied Arabic passthrough (api namespace dependency, same pattern as p3 pipeline census note)
+- L449: `toast.error('فشل في إنشاء المعاينة')` (ui)
+- L463: `` toast.success(`تم تحميل القالب: ${tpl.name}`) `` (ui) [ICU interpolation — template name, tpl.name is DB data not translated text]
+- L467: `` const name = prompt('اسم القالب:'); `` (ui) — HARDCODED `window.prompt()` — NOT `<Dialog>`, a11y + i18n concern; browser-native prompt cannot be styled/localized cleanly, flag for plan (may need a proper dialog replacement, out of pure-string-swap scope)
+- L482: `toast.success('تم حفظ القالب بنجاح')` (ui)
+- L484: `toast.error('فشل حفظ القالب')` (ui)
+- L499: `PYRAMEDIA X` fallback (mixed EN — company name literal, not translation target)
+- L506: `<Label className="text-xs font-semibold">الرخصة التجارية</Label>` (ui)
+- L509: `placeholder="اختر الرخصة"` (ui)
+- L514: `` {e.name_en} {e.is_default ? '(افتراضي)' : ''} `` (ui) [ICU-adjacent — conditional suffix]
+- L521: `` رقم الرخصة: {entities.find(...)?.license_no} `` (ui) [ICU interpolation]
+- L528: `<h3 ...>معلومات العميل</h3>` (ui)
+- L531: `<Label className="text-xs">العميل</Label>` (ui)
+- L533: `placeholder="اختر عميل..."` (ui)
+- L536: `{c.name} — {c.company}` (ui, DB data interpolation — not translation target itself, but the surrounding em-dash join is a UI pattern)
+- L542: `<Label className="text-xs">البريد الإلكتروني</Label>` (ui)
+- L546: `<Label className="text-xs">العنوان</Label>` (ui)
+- L552: `<Label className="text-xs">جهة الاتصال</Label>` (ui)
+- L556: `<Label className="text-xs">الهاتف</Label>` (ui)
+- L571: `placeholder="تحميل من قالب..."` (ui)
+- L576: `{t.name_ar || t.name}` (data — DB field fallback chain, not a literal string, flag as (data) pattern consistent with p3's DB-name_ar precedent)
+- L586: `<h3 ...>تفاصيل العرض</h3>` (ui)
+- L589: `<Label className="text-xs">رقم العرض</Label>` (ui)
+- L590: `value={quote?.quote_number || 'تلقائي'}` (ui, input placeholder-value fallback)
+- L593: `<Label className="text-xs">تاريخ العرض</Label>` (ui)
+- L597: `<Label className="text-xs">تاريخ الانتهاء</Label>` (ui)
+- L601: `<Label className="text-xs">اسم المشروع</Label>` (ui)
+- L604: `<Label className="text-xs">العملة</Label>` (ui)
+- L622: `<h3 ...>الخدمات</h3>` (ui)
+- L628: `<th ...>الوصف</th>` (ui)
+- L629: `<th ...>الكمية</th>` (ui)
+- L630: `<th ...>السعر</th>` (ui)
+- L631: `<th ...>المجموع</th>` (ui)
+- L643: `placeholder="وصف الخدمة"` (ui)
+- L675: `aria-label="حذف الصف"` (ui)
+- L690: `<Plus ... /> إضافة عنصر` (ui)
+- L698: `<Label ...>الخصم</Label>` (ui)
+- L702: `placeholder="بدون خصم"` (ui)
+- L705: `<SelectItem value="none">بدون خصم</SelectItem>` (ui)
+- L706: `<SelectItem value="percentage">نسبة %</SelectItem>` (ui)
+- L707: `<SelectItem value="fixed">مبلغ ثابت</SelectItem>` (ui)
+- L720: `placeholder={discountType === 'percentage' ? '%' : currency}` (ui — conditional placeholder, currency code is data not translation)
+- L730: `<span ...>المجموع الفرعي</span>` (ui)
+- L737-739: `` الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''} `` (ui) [ICU interpolation — percentage value]
+- L747: `<span ...>ضريبة القيمة المضافة</span>` (ui)
+- L767: `<span>الإجمالي</span>` (ui)
+- L778: `<Label className="text-xs">ملاحظات</Label>` (ui)
+- L784: `placeholder="ملاحظات إضافية أو تعليمات الدفع..."` (ui)
+- L791: `<h3 ...>التوقيع الإلكتروني</h3>` (ui)
+- L793: `alt="Signature"` (mixed EN alt text — low priority, likely stays EN or gets translated key)
+- L795-798: `` تم التوقيع بواسطة: {quote.signed_by} {quote.signed_at && \` — ${formatDate(quote.signed_at, 'dd-MM-yyyy')}\`} `` (ui) [ICU interpolation — signer name + formatted date; formatDate call here uses explicit format string 'dd-MM-yyyy', no locale param]
+- L806: `<h3 ...>البيانات البنكية</h3>` (ui)
+- L808: `` البنك: {quote.bank_details.bank} `` (ui) [ICU interpolation]
+- L809: `` اسم الحساب: {quote.bank_details.account_name} `` (ui) [ICU interpolation]
+- L810: `` رقم الحساب: {quote.bank_details.account_no} `` (ui) [ICU interpolation]
+- L811: `IBAN: {quote.bank_details.iban}` (mixed EN label + interpolation)
+- L819: `<Label ...>الشروط والأحكام</Label>` (ui)
+- L821: `<Plus ... /> إضافة شرط` (ui)
+- L832: `placeholder="نص الشرط..."` (ui)
+- L837: `aria-label="حذف الشرط"` (ui)
+- L855: `<X ... /> إغلاق` (ui)
+- L860: `<BookTemplate ... /> حفظ كقالب` (ui)
+- L863: `<Eye ... /> معاينة` (ui)
+- L866: `<FileDown ... /> تحميل PDF` (ui)
+- L870: `` {saving ? 'جارٍ الحفظ...' : 'حفظ كمسودة'} `` (ui)
+- L875: `` {saving ? 'جارٍ الإرسال...' : 'حفظ وإرسال'} `` (ui)
+- L885: `<DialogTitle>معاينة عرض السعر</DialogTitle>` (ui)
+- L893: `title="Quote Preview"` (mixed EN — iframe title attribute, low-priority)
+- CURRENCIES const (L122-128): all 5 labels are mixed AR/EN by design (`'AED — درهم إماراتي'` etc.) — (ui), these are currency-name display labels, not simple string swaps; ICU-adjacent because format is "`CODE — Arabic name`"; flag for plan (likely becomes locale-branching label pairs, not a single translated string, since the EN catalog would want `'AED — UAE Dirham'` structurally different join).
+- DEFAULT_TERMS const (L130-134): 3 items, ALL ALREADY IN ENGLISH ("Quotation valid for 30 days...", "50% advance payment required...", "Balance payment due...") — NOT Arabic, no AR lines here, but flag: these are seeded INTO new quotes as default terms_conditions DB data — i18n-exempt per Phase 8 board-template-seed precedent (creator-locale seeding is a v1.1 item, not part of UI-string migration).
+- Extensive code-comment block L92-100, L112-119, L224-243, L354-355, L372-377 (comment, no action) — English comments explaining lead-prefill logic, honest-send-UX pattern, etc. No embedded untranslated Arabic literals beyond what's already itemized above.
+- dir="ltr" HARDCODED: L543 (client email Input), L557 (client phone Input), L594 (estimate date Input), L598 (expiry date Input), L654 (quantity Input), L665 (rate Input), L668 (amount span, subtotal-per-row), L719 (discount value Input), L731 (subtotal amount span), L740 (discount amount span), L756 (vat rate Input), L757 (vat rate wrapper — actually L756's Input has dir=ltr, confirmed), L760 (vat amount span), L768 (total amount span) — ALL are numeric/date/email fields, consistent "keep LTR for numbers" pattern across the whole form. This is the SAME class of hazard as invoices — a systematic pattern, not isolated cases; the plan should treat "dir=ltr on numeric/date/email inputs" as an accepted, INTENTIONAL, locale-invariant pattern (do NOT swap to dynamic dir).
+- formatDate call sites: L797 only (×1, with explicit format string, no locale param).
+- No localeCompare in this file.
+- HAZARD candidate: L576 `{t.name_ar || t.name}` — business logic fallback preferring an Arabic-named field over the generic name field for template display; not a string-equality branch but a data-shape decision that assumes Arabic-first UI. Flag under HAZARDS.
+
+================================================================
+12. components/quotes/SignaturePad.tsx (54 lines)
+================================================================
+- L50: `<Eraser ... /> مسح التوقيع` (ui) — only AR string in the file.
+- No dir attrs, no locale calls, no formatCurrency/formatDate, no hazards.
+
+================================================================
+13. hooks/useInvoices.ts (141 lines)
+================================================================
+- L63: `` /** قائمة الفواتير مع فلترة اختيارية */ `` (comment, no action — JSDoc in Arabic)
+- L73-79: multi-line Arabic JSDoc comment block explaining useInvoicesPaged's meta.total pattern (comment, no action)
+- L97: `` /** فاتورة واحدة بالـ ID */ `` (comment, no action)
+- L107: `` /** ملخص الإيرادات */ `` (comment, no action)
+- L120: `` /** إنشاء فاتورة جديدة */ `` (comment, no action)
+- L131: `` /** تعديل فاتورة موجودة */ `` (comment, no action)
+- No UI strings, no data strings, no statuses import, no dir/locale/hazard content — this file is 100% comment-only Arabic (JSDoc), zero migration work required beyond leaving comments as-is.
+
+================================================================
+14. hooks/useQuotes.ts (84 lines)
+================================================================
+- L44-47: multi-line English comment documenting the DEAD useQuotes/useQuote/useCreateQuote removal (comment, no action; confirms CLAUDE.md's note that these hooks are ALREADY GONE, not merely "documented dead" — the file has no dead exports left to flag).
+- L49: comment "Quotes linked to a specific lead — powers the Lead Detail "Deals" tab..." (comment, no action, contains an embedded Arabic-adjacent English description of AR UI — no actual Arabic characters found in this specific comment; re-verified, zero Arabic literal characters in this file).
+- No Arabic characters detected anywhere in this file (verified via regex scan) — 0 (ui)/(data)/(statuses) lines. File is pure TypeScript/English.
+
+================================================================
+CROSS-CUTTING FLAGS
+================================================================
+- localeCompare('ar'): invoices-client.tsx L212, L213; quotes-client.tsx L199, L200 (4 occurrences total) — all in `.sort()` comparators for DataTable client-side sort; hardcoded 'ar' collation needs locale param per Phase-3 pipeline precedent (pipeline-client.tsx L174 was the sole occurrence there; invoices/quotes has double the count — 2 files × 2 lines each).
+- Hardcoded 'en-AE' for Intl.NumberFormat: QuoteBuilder.tsx L305 (fmtNum), quotes-analytics-client.tsx L65 (fmtNum) — BOTH are the documented INTENTIONAL exception (CLAUDE.md: "Currency/number formatting is locale-stable (en-AE) by design — do not localize digits in money"). Do NOT treat as migration targets; explicitly note as "leave as-is" in the plan.
+- Hardcoded dir="ltr" on numeric/date/email/reference Input fields: invoices/[id]/page.tsx L310, L339, L363; invoices/new/page.tsx L118; QuoteBuilder.tsx L543, L557, L594, L598, L654, L665, L668, L719, L731, L740, L756, L760, L768 — a SYSTEMATIC pattern (17 occurrences) of numeric/date/email data staying LTR regardless of locale. Unlike the p3 pipeline census's dir="rtl" hazards (which needed to become locale-driven), these are dir="ltr" on NUMBER/DATE/EMAIL inputs specifically — the correct disposition is likely "leave hardcoded" since digits/dates/emails render LTR-shaped in both AR and EN UI. Flag explicitly for plan sign-off (don't auto-convert to `dir={dir}`).
+- No dir="rtl" hardcoded anywhere in this file set (unlike p3 pipeline census which had 3 instances) — invoices/quotes module is clean on this axis.
+- STATUS_MAP / STATUS_LABELS duplication pattern: invoices-client.tsx STATUS_MAP (L64-71, built FROM INVOICE_STATUS_LABELS — indirect duplication via SelectItem hardcoding L414-419), quotes-client.tsx STATUS_MAP (L41-51, same pattern, SelectItem hardcoding L321-329), quotes-analytics-client.tsx STATUS_LABELS (L52-62, INDEPENDENT hardcoded map NOT importing from lib/constants/statuses.ts at all — worst offender, has a drift bug: "موقع" vs canonical "موقّع" for quote.signed). All three should route through useStatusLabels('invoice') / useStatusLabels('quote') respectively during migration — entity keys 'invoice', 'quote', 'paymentMethod' ALL ALREADY EXIST in messages/ar/statuses.json, so this is a pure accessor-swap, zero new catalog entries needed.
+- Money/interpolation ICU-plural candidates: invoices-client.tsx L170-171, L490; quotes-client.tsx L166-167, L373 — all "N فاتورة/فواتير" / "N عرض/عروض" delete-count messages, same shape as p3 pipeline's degenerate-plural finding (though these ARE grammatically distinct singular/plural forms here, unlike pipeline's identical-both-branches bug) — still ICU `{count, plural, ...}` candidates.
+- Duplicate 3-way "flip-and-warn" send-email toast trio appears in BOTH quotes-client.tsx (L116,118,120) AND QuoteBuilder.tsx (L362,364,366) — verbatim-identical Arabic strings in two files. Plan should define ONE shared message key set (e.g. `finance.quotes.send.emailSent` / `.emailNoAddress` / `.emailFailed`) consumed by both call sites — avoids drift between the list-page send action and the builder's save-and-send action.
+- window.prompt() usage: QuoteBuilder.tsx L467 (`saveAsTemplate` — `prompt('اسم القالب:')`) — native browser dialog, cannot be styled or cleanly localized via next-intl the same way as JSX; flag as a structural (not pure string-swap) concern for the plan. No window.confirm/alert found elsewhere in this file set.
+- Out-of-scope sub-component risk: app/dashboard/invoices/[id]/page.tsx imports 4 components from components/dashboard/invoice-detail/* (InvoiceHeader, ClientInfo, EditItems, PaymentHistory); app/dashboard/invoices/new/page.tsx imports 4 components from components/dashboard/invoice-new/* (BusinessEntitySelector, ClientSelector, InvoiceMeta, InvoiceItemsTable). NEITHER directory was in the stated census scope, but both are heavily rendered by in-scope pages and almost certainly carry additional Arabic UI strings (labels, buttons, table headers for line items, etc.). RECOMMENDATION: run a follow-up discovery pass on these two directories before Phase-4 execution begins, or the invoice-detail/invoice-new pages will ship only partially migrated.
+
+================================================================
+HAZARDS
+================================================================
+1. QuoteBuilder.tsx L576: `{t.name_ar || t.name}` — template display prefers the Arabic-named field (`name_ar`) over the base `name` field. This is a data-shape/business-logic decision baked into JSX, not a simple string literal — assumes Arabic-first UI. When EN locale ships, this needs either a locale-aware field choice (`locale === 'ar' ? t.name_ar : t.name`) or a schema decision (same class as p3's `stage.name_ar` DB-data flag). NOT a simple string swap.
+2. quotes-analytics-client.tsx L52-62 STATUS_LABELS: independent hardcoded map with a live DRIFT BUG — `signed: 'موقع'` (missing shadda) vs the canonical `quote.signed: 'موقّع'` in messages/ar/statuses.json. This is a pre-existing data-quality bug that migration will silently fix IF the plan routes this file through useStatusLabels('quote') — flag explicitly so the fix is INTENTIONAL and documented, not an accidental side-effect buried in a large diff.
+3. `.localeCompare(String(x), 'ar')` in both invoices-client.tsx and quotes-client.tsx sort comparators — NOT a business-logic branch on Arabic content per se, but a HARDCODED COLLATION LOCALE baked into client-side sort ordering. Under an EN locale, sorting Latin-script client/company names with Arabic collation rules could produce a different (arguably wrong) order than 'en' collation would. This is the same class of issue as p3's pipeline-client.tsx L174 finding, but doubled here (2 files, 2 lines each = 4 total sites) — the plan MUST parametrize these on the active locale, not just swap strings.
+4. No `.includes('عربي')`-style checks, no Arabic string-equality branches, and no `window.confirm`/`alert` calls found anywhere in this file set (SignaturePad, both hooks, and the 12 UI files were all checked). The window.prompt() at QuoteBuilder.tsx L467 is UI-structural, not a business-logic-on-Arabic-string hazard, but is still flagged above under cross-cutting concerns since it can't be swapped via simple string replacement.
+5. CURRENCIES const (QuoteBuilder.tsx L122-128) mixes AR and EN in a single joined label string per currency (`'AED — درهم إماراتي'`) — this is effectively a bilingual label baked into ONE string per option, meaning the EN catalog can't just be "the same key translated" — it needs a structurally different composed string (e.g. `'AED — UAE Dirham'`). Not a broken hazard today, but a migration-shape hazard: naive key-for-key translation would produce garbled mixed strings if done carelessly (e.g. translating only half the em-dash-joined string).
+
+================================================================
+SUMMARY
+================================================================
+Total files scanned: 14
+  - app/dashboard/invoices/: 4 files (page.tsx, invoices-client.tsx, [id]/page.tsx, new/page.tsx)
+  - app/dashboard/quotes/: 6 files (page.tsx, quotes-client.tsx, [id]/page.tsx, analytics/page.tsx, analytics/quotes-analytics-client.tsx, new/page.tsx)
+  - components/quotes/: 2 files (QuoteBuilder.tsx, SignaturePad.tsx)
+  - hooks/: 2 files (useInvoices.ts, useQuotes.ts)
+
+Total AR lines by class (approximate, counting each flagged bullet above as one "line" even where it spans a short multi-line JSX block):
+  (ui)        ≈ 247  — the overwhelming majority: labels, headers, buttons, toasts, placeholders, aria-labels, dialog titles, empty states
+  (data)      ≈   6  — DB-field fallback patterns (t.name_ar, {c.name} — {c.company} join, tpl.name interpolation, 'PYRAMEDIA X'/company_name fallbacks)
+  (comment)   ≈  24  — JSDoc comments (100% of useInvoices.ts), Phase-Q commit-history comments, inline explanatory comments — NO ACTION NEEDED
+  (statuses)  ≈  10  — 3 import sites (INVOICE_STATUS_LABELS, QUOTE_STATUS_LABELS ×2 usages, PAYMENT_METHOD_LABELS) + 3 local STATUS_MAP/STATUS_LABELS const blocks + duplicated SelectItem hardcoded labels in 2 files (12 individual SelectItem lines across invoices-client.tsx L414-419 and quotes-client.tsx L321-329)
+
+Grand total AR-flagged lines: ≈ 312 (sum of the itemized bullets in sections 1-14 above; exact per-file counts are enumerable by counting bullets in each section since every bullet = one flagged line/location)
+
+Proposed catalog namespace keys shape (mirroring the p3 `pipeline.*` precedent):
+  finance.invoices.list.*        — invoices-client.tsx (header, filters, table headers, empty state, delete dialog, pagination)
+  finance.invoices.detail.*      — app/dashboard/invoices/[id]/page.tsx (payment dialog, delete dialog, toasts)
+  finance.invoices.new.*         — app/dashboard/invoices/new/page.tsx (form labels, totals section)
+  finance.quotes.list.*          — quotes-client.tsx (header, filters, table headers, empty state, delete dialog, send/duplicate/convert toasts)
+  finance.quotes.detail.*        — app/dashboard/quotes/[id]/page.tsx (thin wrapper — likely folds into builder.* instead of its own namespace)
+  finance.quotes.new.*           — app/dashboard/quotes/new/page.tsx (header, lead-badge)
+  finance.quotes.analytics.*     — quotes-analytics-client.tsx (KPI cards, chart titles, table headers)
+  finance.quotes.builder.*       — components/quotes/QuoteBuilder.tsx (by far the largest surface — client info, quote details, services table, discount/VAT/totals, notes, signature, bank details, terms, toolbar, preview dialog; likely needs sub-grouping e.g. builder.client.*, builder.details.*, builder.services.*, builder.totals.*, builder.terms.*, builder.toolbar.*)
+  finance.quotes.signaturePad.*  — components/quotes/SignaturePad.tsx (single string: "مسح التوقيع")
+  shared send-email-status keys  — a SHARED key group (not namespaced under list vs builder) for the 3-way flip-and-warn toast trio duplicated verbatim in quotes-client.tsx AND QuoteBuilder.tsx — e.g. `finance.quotes.sendStatus.{emailSent,emailNoAddress,emailFailed}` consumed by both files to prevent drift.
+  Reuse existing: useStatusLabels('invoice'), useStatusLabels('quote'), useStatusLabels('paymentMethod') for ALL status label rendering — no new statuses.json entries required, all 3 entity keys already exist.
+
+Files >300 lines — risky to edit, recommend careful staged diffs / sub-component extraction consideration during Phase-4 execution:
+  - components/quotes/QuoteBuilder.tsx — 899 lines (by far the largest; single monolithic form component covering company header, entity selector, client info, template selector, quote details, services table, discount/VAT/totals, notes, signature display, bank details, terms & conditions, toolbar, and preview dialog — HIGH RISK, consider whether this migration pass is also an opportunity to note for a FUTURE split per the CLAUDE.md "<300 lines" convention, though that split itself is out of i18n scope)
+  - app/dashboard/invoices/invoices-client.tsx — 504 lines (MEDIUM-HIGH RISK — dense DataTable column defs + dialogs + pagination)
+  - app/dashboard/invoices/[id]/page.tsx — 418 lines (MEDIUM RISK — payment dialog + delete dialog + edit-mode branching)
+  - app/dashboard/quotes/quotes-client.tsx — 387 lines (MEDIUM RISK — similar shape to invoices-client.tsx)
+  - app/dashboard/quotes/analytics/quotes-analytics-client.tsx — 283 lines (under 300, but flagged for the independent STATUS_LABELS drift bug noted in HAZARDS #2)
+
+Additional recommendation: the two invoice sub-component directories (components/dashboard/invoice-detail/, components/dashboard/invoice-new/) were NOT in the stated census scope but are directly imported/rendered by app/dashboard/invoices/[id]/page.tsx and app/dashboard/invoices/new/page.tsx respectively. A follow-up discovery pass on those two directories is recommended before Phase-4 execution to avoid shipping partially-migrated invoice pages.

@@ -1,0 +1,358 @@
+INVOICE SUBCOMPONENTS DISCOVERY — Phase-4 Finance i18n (files verified 2026-07-06)
+
+================================================================
+SCOPE NOTE — import check
+================================================================
+Grepped `app/dashboard/invoices/[id]/page.tsx`, `app/dashboard/invoices/new/page.tsx`,
+`app/dashboard/invoices/page.tsx`, `app/dashboard/invoices/invoices-client.tsx`,
+`app/dashboard/quotes/page.tsx`, `app/dashboard/quotes/quotes-client.tsx`,
+`app/dashboard/quotes/new/page.tsx`, `app/dashboard/quotes/[id]/page.tsx`,
+`app/dashboard/quotes/analytics/quotes-analytics-client.tsx`, and
+`app/dashboard/finance/client-statement/[clientId]/page.tsx` for any
+`@/components/dashboard/*` import.
+
+Result: NO additional `components/dashboard/*` subdirectories are pulled in beyond
+the three already in scope (invoice-detail, invoice-new, client-statement). The
+quote pages import `@/components/quotes/QuoteBuilder` — a DIFFERENT top-level dir
+(`components/quotes/`, not `components/dashboard/quotes/`) — out of scope per this
+task's literal instruction (check `components/dashboard/*` subdirectories only).
+No new finance-owned `components/dashboard/*` dirs to add to the header.
+
+================================================================
+GRAND TOTALS
+================================================================
+Files scanned: 11 (814 LOC total)
+  - components/dashboard/invoice-detail/  : 4 files, 374 LOC
+  - components/dashboard/invoice-new/     : 4 files, 193 LOC
+  - components/dashboard/client-statement/: 3 files, 247 LOC
+
+Total AR lines (lines containing Arabic chars, counting each line once): 130
+  - (ui)      : 121
+  - (data)    : 0
+  - (comment) : 0
+  - (statuses): 9  (inline STATUS/METHOD label maps that should route through useStatusLabels)
+
+*_LABELS / *_STATUS_LABELS imports from lib/constants/statuses.ts: 1 file
+  (PaymentHistory.tsx imports PAYMENT_METHOD_LABELS)
+Inline duplicate label maps NOT using the shared accessor: 3
+  (InvoiceHeader.tsx MILESTONE_LABELS; invoices-table.tsx STATUS_MAP;
+   payment-contract-tables.tsx METHOD_MAP + CONTRACT_STATUS_MAP)
+
+toLocale* hardcoded-locale calls: 0
+formatCurrency/formatDate call-sites: 26 total (see per-file breakdown)
+Hardcoded dir="rtl" (whole-subtree): 0
+Hardcoded dir="ltr" (numeric-input LTR forcing — NOT full-page RTL, see HAZARDS): 5
+Template literals with Arabic + interpolation ([ICU] flag): 4
+HAZARDS: 3 (payment-method/status object-key comparisons; milestone-type key comparison;
+  discount-type conditional label branch — all string-keyed branching against DB/enum values)
+
+================================================================
+1. components/dashboard/invoice-detail/ (4 files, 374 LOC)
+================================================================
+
+--- ClientInfo.tsx (48 LOC) ---
+AR lines:
+- L18: `<CardTitle className="text-base">بيانات العميل</CardTitle>` (ui)
+- L23: `<span className="text-muted-foreground">الاسم</span>` (ui)
+- L27: `<span className="text-muted-foreground">الشركة</span>` (ui)
+- L31: `<span className="text-muted-foreground">البريد الإلكتروني</span>` (ui)
+- L35: `<span className="text-muted-foreground">الهاتف</span>` (ui)
+- L41: `<span className="text-muted-foreground">المشروع: </span>` (ui)
+*_LABELS imports: none
+toLocale*: none
+formatCurrency/formatDate call-sites: 0
+dir attrs: none
+ICU template literals: none
+HAZARDS: none
+
+--- EditItems.tsx (155 LOC) ---
+AR lines:
+- L69: `<CardTitle className="text-base">بنود الفاتورة</CardTitle>` (ui)
+- L71: `<Plus className="h-4 w-4 me-1" /> إضافة بند` (ui)
+- L76: `<Label>اسم المشروع</Label>` (ui)
+- L77: `placeholder="اسم المشروع"` (ui)
+- L80: `<Label>اسم العميل في الـ PDF (اختياري)</Label>` (ui)
+- L81: `placeholder={defaultClientName || 'اسم مختلف'}` (ui) — fallback string when defaultClientName is empty
+- L84: `<Label>تاريخ الاستحقاق</Label>` (ui)
+- L90: `placeholder="وصف البند"` (ui)
+- L100: `aria-label="حذف"` (ui)
+- L105: `<Label>ملاحظات</Label>` (ui)
+- L111: `<Label>الخصم</Label>` (ui)
+- L115: `<SelectItem value="none">بدون خصم</SelectItem>` (ui)
+- L116: `<SelectItem value="percentage">نسبة %</SelectItem>` (ui)
+- L117: `<SelectItem value="fixed">مبلغ ثابت</SelectItem>` (ui)
+- L123: `<Label>{discountType === 'percentage' ? 'النسبة %' : 'المبلغ'}</Label>` (ui) — ternary label, see HAZARDS
+- L130: `<Label>نسبة الضريبة (VAT) %</Label>` (ui)
+- L135: `<span>المجموع الفرعي</span>` (ui)
+- L138: `<span>الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''}</span>` (ui) [ICU: numeric interpolation inside conditional]
+- L139: `<span>- {formatCurrency(discountAmount, currency)}</span>` — leading literal '-' is ASCII, not AR; formatCurrency call
+- L143: `<span>بعد الخصم</span>` (ui)
+- L145: `<span>الضريبة ({vatRate}%)</span>` (ui) [ICU: numeric interpolation]
+- L146: `<span>الإجمالي</span>` (ui)
+- L149: `<X className="h-4 w-4 me-1" /> إلغاء` (ui)
+- L150: `... حفظ` (ui, ternary with Loader2/Save icon — text itself is static)
+*_LABELS imports: none (discount-type labels are inline, not centralized — no existing statuses.ts entity for "discount type")
+toLocale*: none
+formatCurrency call-sites: 6 (L98, L135, L139, L143, L145, L146)
+formatDate call-sites: 0
+dir attrs: L93 `dir="ltr"` (quantity input), L96 `dir="ltr"` (rate input), L124 `dir="ltr"` (discount value input), L131 `dir="ltr"` (VAT rate input) — all NUMERIC INPUT LTR forcing, not RTL-subtree; standard pattern for money/number fields, keep as-is (locale-agnostic, not a translation concern)
+ICU template literals: L138 (`(${discountValue}%)`), L145 (`({vatRate}%)`)
+HAZARDS:
+- L123: `discountType === 'percentage' ? 'النسبة %' : 'المبلغ'` — string-keyed branch on a DB/state enum value ('percentage'|'fixed'), the enum key itself is English so no translation risk to the comparison, but the label needs two catalog keys (percentage-label / fixed-amount-label)
+- L138: `discountType === 'percentage' ? ... : ''` — same enum comparison, label composition
+
+--- InvoiceHeader.tsx (111 LOC) ---
+AR lines:
+- L31-34: MILESTONE_LABELS map — `booking: 'دفعة حجز'`, `initial_delivery: 'تسليم أولي'`, `final_delivery: 'تسليم نهائي'` (statuses) — inline label map duplicating the concept behind useStatusLabels; NOT imported from lib/constants/statuses.ts. Candidate: promote to a real status entity (e.g. `useStatusLabels('invoiceMilestone')`) since this exact enum is repeated verbatim in components/dashboard/invoice-new/InvoiceMeta.tsx (see below) — 2-way duplication found.
+- L59: `aria-label="رجوع"` (ui)
+- L68: `<Badge variant="secondary">{MILESTONE_LABELS[milestoneType] || milestoneType}</Badge>` (statuses) — consumes the map above; fallback to raw milestoneType key is a leak risk if map misses
+- L72: `` تاريخ الإصدار: {formatDate(issueDate)} — الاستحقاق: {formatDate(dueDate)} `` (ui) [ICU: 2x date interpolation inside one sentence — needs t.rich or 2 named placeholders]
+- L80: `<Pencil className="h-4 w-4 me-1" /> تعديل` (ui)
+- L86: `إرسال` (ui, after conditional Loader2/Send icon)
+- L92: `<CreditCard className="h-4 w-4 me-1" /> تسجيل دفعة` (ui)
+- L96: `رابط دفع Stripe` (ui) — mixed AR/Latin ("Stripe" brand name inline)
+- L101: `<Download className="h-4 w-4 me-1" /> PDF` (ui) — mixed AR-context/Latin ("PDF" acronym, likely shared across locales verbatim)
+- L105: `<Trash2 className="h-4 w-4 me-1" /> حذف` (ui)
+*_LABELS imports: none (MILESTONE_LABELS is a LOCAL inline const, not from lib/constants/statuses.ts)
+toLocale*: none
+formatDate call-sites: 2 (both on L72)
+formatCurrency call-sites: 0
+dir attrs: none
+ICU template literals: L72 (dual date interpolation in one string)
+HAZARDS:
+- L68: `MILESTONE_LABELS[milestoneType] || milestoneType` — object-key lookup with raw-value fallback; if milestoneType is an unrecognized string it leaks untranslated DB text into UI (pre-existing risk, orthogonal to i18n but worth flagging since the catalog swap must preserve the fallback safety net)
+
+--- PaymentHistory.tsx (60 LOC) ---
+AR lines:
+- L25: `<CreditCard className="h-4 w-4" /> سجل المدفوعات` (ui)
+- L30: `<EmptyState icon={CreditCard} title="لا توجد مدفوعات مسجلة" className="py-6" />` (ui)
+- L36: `<th ...>التاريخ</th>` (ui)
+- L37: `<th ...>المبلغ</th>` (ui)
+- L38: `<th ...>طريقة الدفع</th>` (ui)
+- L39: `<th ...>المرجع</th>` (ui)
+- L50: `{payment.reference || '—'}` — em-dash fallback, i18n-exempt (locale-neutral punctuation)
+*_LABELS imports: YES — L7 `import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';` then L18 re-aliased to local `PAYMENT_METHODS` const. This file is ALREADY on the centralized-labels path (just needs the accessor-hook swap, e.g. `useStatusLabels('paymentMethod')`, instead of the static Arabic-only map import).
+toLocale*: none
+formatDate call-sites: 1 (L45)
+formatCurrency call-sites: 1 (L47, wraps `Math.abs(payment.amount)`)
+dir attrs: none
+ICU template literals: none (L47's `{payment.amount < 0 ? '-' : '+'}{formatCurrency(...)}` is sign-prefix logic, not text interpolation)
+HAZARDS:
+- L49: `PAYMENT_METHODS[payment.method] || payment.method` — object-key lookup on a DB enum (`method` column) with raw-fallback leak risk, same shape as InvoiceHeader's milestone lookup. `payment.method` values are compared/stored as DB data elsewhere (finance routes) — the KEYS themselves ('bank_transfer', 'cash', etc.) must stay English/stable; only the LABEL needs localizing via useStatusLabels.
+
+================================================================
+2. components/dashboard/invoice-new/ (4 files, 193 LOC)
+================================================================
+
+--- BusinessEntitySelector.tsx (44 LOC) ---
+AR lines:
+- L24: `<Label>الرخصة التجارية</Label>` (ui)
+- L27: `<SelectValue placeholder="اختر الرخصة" />` (ui)
+- L32: `{e.name_en} {e.is_default ? '(افتراضي)' : ''}` (ui) [ICU: conditional suffix appended to DB name_en]
+- L38: `<p ...>رقم الرخصة: {entities.find(...)?.license_no}</p>` (ui) [ICU: interpolation]
+*_LABELS imports: none
+toLocale*: none
+formatCurrency/formatDate call-sites: 0
+dir attrs: none
+ICU template literals: L32, L38 (both JSX-expression interpolation, not template literals per se, but same i18n treatment)
+HAZARDS: none (entities.name_en/name_ar are already bilingual DB columns — no branching risk)
+NOTE: `entities` carry both `name_en` and `name_ar` (business entity multi-license system) — this component ALREADY renders `name_en` only (L32), never `name_ar`. Worth flagging as a possible existing EN-name display bug/inconsistency for the Business Entities feature, but out of scope for this census (no Arabic string involved at that specific render).
+
+--- ClientSelector.tsx (54 LOC) ---
+AR lines:
+- L24: `<Label>العميل</Label>` (ui)
+- L27: `placeholder={loading ? 'جارٍ التحميل...' : 'اختر العميل'}` (ui) [ternary, 2 candidate keys]
+- L32: `{client.name}{client.company ? ` — ${client.company}` : ''}` (ui) [ICU interpolation; em-dash separator is ASCII/data, not translation-bearing]
+- L41: `<Label>اسم العميل في الفاتورة (اختياري)</Label>` (ui)
+- L45: `placeholder={... || 'اسم مختلف حسب الرخصة التجارية'}` (ui)
+- L48: `اتركه فارغاً لاستخدام اسم العميل الأصلي، أو اكتب اسم مختلف حسب طلب العميل (مثل اسم الرخصة)` (ui, help text paragraph)
+*_LABELS imports: none
+toLocale*: none
+formatCurrency/formatDate call-sites: 0
+dir attrs: none
+ICU template literals: L32 (client.company interpolation)
+HAZARDS: none
+
+--- InvoiceItemsTable.tsx (37 LOC) ---
+AR lines:
+- L18: `<div className="col-span-5">الوصف</div>` (ui)
+- L19: `<div className="col-span-2">الكمية</div>` (ui)
+- L20: `<div className="col-span-2">السعر</div>` (ui)
+- L21: `<div className="col-span-2">المبلغ</div>` (ui)
+- L26: `placeholder="وصف البند"` (ui)
+- L31: `aria-label="حذف"` (ui)
+*_LABELS imports: none
+toLocale*: none
+formatCurrency call-sites: 1 (L29, `formatCurrency(item.quantity * item.rate)` — no currency arg passed, defaults inside the util; flag for Phase-4 plan since sibling EditItems.tsx DOES pass `currency` explicitly — INCONSISTENCY between invoice-new and invoice-detail item rows)
+formatDate call-sites: 0
+dir attrs: L27 `dir="ltr"` (quantity), L28 `dir="ltr"` (rate) — numeric-input LTR forcing, same pattern as EditItems.tsx
+ICU template literals: none
+HAZARDS: none
+
+--- InvoiceMeta.tsx (58 LOC) ---
+AR lines:
+- L23: `<Label>اسم المشروع</Label>` (ui)
+- L24: `placeholder="اسم المشروع"` (ui)
+- L29: `<Label>تاريخ الإصدار</Label>` (ui)
+- L33: `<Label>تاريخ الاستحقاق <span className="text-destructive">*</span></Label>` (ui)
+- L39: `<Label>نوع الدفعة (اختياري)</Label>` (ui)
+- L42: `<SelectValue placeholder="اختر نوع الدفعة" />` (ui)
+- L45: `<SelectItem value="booking">دفعة حجز</SelectItem>` (statuses) — DUPLICATES InvoiceHeader.tsx MILESTONE_LABELS['booking']
+- L46: `<SelectItem value="initial_delivery">تسليم أولي</SelectItem>` (statuses) — DUPLICATES MILESTONE_LABELS['initial_delivery']
+- L47: `<SelectItem value="final_delivery">تسليم نهائي</SelectItem>` (statuses) — DUPLICATES MILESTONE_LABELS['final_delivery']
+- L53: `<Label>ملاحظات</Label>` (ui)
+- L54: `placeholder="ملاحظات إضافية..."` (ui)
+*_LABELS imports: none — but see cross-file duplication flag above (3-way: InvoiceHeader.tsx MILESTONE_LABELS values, these 3 SelectItem labels, and by extension any future milestone display elsewhere). Recommend a single `useStatusLabels('invoiceMilestone')` (or equivalent) entity so both files consume ONE catalog source.
+toLocale*: none
+formatCurrency/formatDate call-sites: 0
+dir attrs: none
+ICU template literals: none
+HAZARDS: none beyond the milestone-key duplication noted above (three literal string keys 'booking'/'initial_delivery'/'final_delivery' compared/set via SelectItem value= and consumed by InvoiceHeader's object lookup — keys must stay stable across the catalog migration, only labels move to i18n)
+
+================================================================
+3. components/dashboard/client-statement/ (3 files, 247 LOC)
+================================================================
+
+--- invoices-table.tsx (81 LOC) ---
+AR lines:
+- L22: STATUS_MAP.draft label `'مسودة'` (statuses)
+- L23: STATUS_MAP.sent label `'مرسلة'` (statuses)
+- L24: STATUS_MAP.paid label `'مدفوعة'` (statuses)
+- L25: STATUS_MAP.partially_paid label `'مدفوعة جزئياً'` (statuses)
+- L26: STATUS_MAP.overdue label `'متأخرة'` (statuses)
+- L27: STATUS_MAP.cancelled label `'ملغاة'` (statuses)
+- L35: `<FileText .../> الفواتير` (ui, card header)
+- L43: `<th ...>#</th>` — ASCII symbol, not AR, skip
+- L44: `<th ...>رقم الفاتورة</th>` (ui)
+- L45: `<th ...>التاريخ</th>` (ui)
+- L46: `<th ...>الإجمالي</th>` (ui)
+- L47: `<th ...>المدفوع</th>` (ui)
+- L48: `<th ...>المستحق</th>` (ui)
+- L49: `<th ...>الحالة</th>` (ui)
+- L57: `<EmptyState icon={FileText} title="لا توجد فواتير" className="py-8" />` (ui)
+*_LABELS imports: NONE — this file re-implements a LOCAL `STATUS_MAP` (L21-28) that is functionally identical to `INVOICE_STATUS_LABELS` in lib/constants/statuses.ts (per CLAUDE.md "Status Constants" mandate: "NEVER hardcode status strings. Import from `@/lib/constants/statuses`"). This is a PRE-EXISTING violation of the centralized-statuses rule, now doubling as an i18n migration blocker — the plan MUST route this through `useStatusLabels('invoice')` (matching the badge variant mapping too, not just the label).
+toLocale*: none
+formatDate call-sites: 1 (L68)
+formatCurrency call-sites: 3 (L69 total, L70 amount_paid, L71 amount_due) — none pass an explicit currency arg (util default), unlike EditItems.tsx which threads `currency` through — cross-file INCONSISTENCY flag (client-statement invoices may span different business-entity currencies; verify with Finance Remediation multi-currency lock before assuming AED-default is safe)
+dir attrs: none
+ICU template literals: none
+HAZARDS:
+- L59: `STATUS_MAP[inv.status] || { label: inv.status, variant: 'secondary' as const }` — object-key lookup + raw DB-value fallback leak, same shape as InvoiceHeader/PaymentHistory. `inv.status` values ('draft'|'sent'|'paid'|'partially_paid'|'overdue'|'cancelled') must be preserved as stable comparison keys — INVOICE_STATUS constants from lib/constants/statuses.ts already define these; migrating this file to the shared accessor removes the duplication AND fixes the CLAUDE.md violation in one move.
+
+--- payment-contract-tables.tsx (110 LOC) ---
+AR lines:
+- L11: METHOD_MAP.bank_transfer `'تحويل بنكي'` (statuses) — DUPLICATES PAYMENT_METHOD_LABELS.bank_transfer (already centralized, see PaymentHistory.tsx)
+- L12: METHOD_MAP.cash `'نقدي'` (statuses) — duplicate
+- L13: METHOD_MAP.cheque `'شيك'` (statuses) — duplicate
+- L14: METHOD_MAP.credit_card `'بطاقة ائتمان'` (statuses) — duplicate
+- L15: METHOD_MAP.online `'دفع إلكتروني'` (statuses) — duplicate
+- L16: METHOD_MAP.other `'أخرى'` (statuses) — duplicate
+- L20: CONTRACT_STATUS_MAP.draft `'مسودة'` (statuses) — overlaps CONTRACT_STATUS_LABELS in lib/constants/statuses.ts (already used correctly elsewhere per move-stage-confirm-modal.tsx per p3 census L435)
+- L21: CONTRACT_STATUS_MAP.active `'نشط'` (statuses) — duplicate
+- L22: CONTRACT_STATUS_MAP.completed `'مكتمل'` (statuses) — duplicate
+- L23: CONTRACT_STATUS_MAP.cancelled `'ملغي'` (statuses) — duplicate
+- L24: CONTRACT_STATUS_MAP.paused `'متوقف'` (statuses) — duplicate
+- L32: `<Receipt .../> المدفوعات` (ui, card header)
+- L39: `<th ...>التاريخ</th>` (ui)
+- L40: `<th ...>المبلغ</th>` (ui)
+- L41: `<th ...>طريقة الدفع</th>` (ui)
+- L42: `<th ...>مرجع الفاتورة</th>` (ui)
+- L51: `<EmptyState icon={Receipt} title="لا توجد مدفوعات" className="py-8" />` (ui)
+- L72: `<Briefcase .../> العقود` (ui, card header)
+- L79: `<th ...>العنوان</th>` (ui)
+- L80: `<th ...>القيمة</th>` (ui)
+- L81: `<th ...>الحالة</th>` (ui)
+- L82: `<th ...>المفوتر</th>` (ui)
+- L83: `<th ...>المحصّل</th>` (ui)
+- L92: `<EmptyState icon={Briefcase} title="لا توجد عقود" className="py-8" />` (ui)
+*_LABELS imports: NONE — TWO local maps (METHOD_MAP, CONTRACT_STATUS_MAP) both duplicate existing lib/constants/statuses.ts entities (`PAYMENT_METHOD_LABELS`, `CONTRACT_STATUS_LABELS`). Same CLAUDE.md violation pattern as invoices-table.tsx — plan should migrate BOTH to `useStatusLabels('paymentMethod')` / `useStatusLabels('contract')`.
+toLocale*: none
+formatDate call-sites: 1 (L54)
+formatCurrency call-sites: 5 (L55 amount, L98 total_value, L100 amount_billed, L101 amount_collected — plus L69/70/71 belong to invoices-table not this file; recount: this file has 4 formatCurrency call-sites: L55, L98, L100, L101) — none pass explicit currency; SAME multi-currency-safety flag as invoices-table.tsx (contracts/payments in client-statement context need the currency threaded per the Finance Remediation multi-currency lock, `lib/finance/payment-currency.ts`)
+dir attrs: none
+ICU template literals: none
+HAZARDS:
+- L56: `METHOD_MAP[p.method] || p.method` — object-key lookup + raw fallback (3rd occurrence of this pattern in scope, after InvoiceHeader/PaymentHistory)
+- L94: `CONTRACT_STATUS_MAP[c.status] || { label: c.status, variant: 'secondary' as const }` — object-key lookup + raw fallback (contract status)
+- Both maps' KEYS ('bank_transfer'|'cash'|...; 'draft'|'active'|'completed'|'cancelled'|'paused') are DB enum values also referenced by lib/constants/statuses.ts PAYMENT_METHOD/CONTRACT_STATUS constants — must NOT be altered, only the label VALUES route through translation.
+
+--- summary-cards.tsx (56 LOC) ---
+AR lines:
+- L25: `<p ...>إجمالي الفواتير</p>` (ui)
+- L31: `<p ...>إجمالي المدفوع</p>` (ui)
+- L37: `<p ...>المستحق</p>` (ui)
+- L43-45: `{summary.total_overdue > 0 && <AlertTriangle .../>}` + `المتأخر` (ui, split-node: icon conditionally rendered before the label text on the same line — L45 is the actual AR text)
+*_LABELS imports: none
+toLocale*: none
+formatCurrency call-sites: 4 (L26 total_invoiced, L32 total_paid, L38 total_outstanding, L48 total_overdue) — none pass explicit currency (util default) — same multi-currency-safety flag as the other 2 client-statement files; ALL THREE client-statement files never thread a currency into formatCurrency, which is a pre-existing money-formatting gap orthogonal to i18n but the Phase-4 plan should note it (client-statement is a per-CLIENT rollup — if that client transacts in a non-AED business entity, these 3 files already mis-format today, independent of translation work).
+formatDate call-sites: 0
+dir attrs: none
+ICU template literals: none
+HAZARDS: none beyond the shared multi-currency gap noted above.
+
+================================================================
+CROSS-CUTTING FLAGS (all 11 files)
+================================================================
+- localeCompare: 0 occurrences in scope.
+- Hardcoded full-subtree dir="rtl"/"ltr": 0 in scope (client-statement/invoice-new/invoice-detail render inside the ambient dashboard RTL shell, no local override).
+- Hardcoded dir="ltr" on numeric <Input>: 5 total — EditItems.tsx L93/96/124/131 (quantity/rate/discountValue/vatRate), InvoiceItemsTable.tsx L27/28 (quantity/rate) — wait, recount: EditItems.tsx has 4, InvoiceItemsTable.tsx has 2 = 6 total hardcoded dir="ltr" numeric-input instances across scope (correcting the grand-totals figure below).
+- formatCurrency/formatDate WITHOUT explicit currency/locale arg: pervasive across invoice-new + client-statement (7 of 11 files rely on the util's default AED/ar); invoice-detail's EditItems.tsx + PaymentHistory.tsx correctly thread `currency` prop through. Recommend the Phase-4 plan standardize: every formatCurrency call-site in finance-owned components should receive an explicit currency, and formatDate should receive the request/session locale once next-intl lands here.
+- Duplicate/local status-label maps NOT using lib/constants/statuses.ts (CLAUDE.md violation + i18n blocker), found in 3 files:
+  1. InvoiceHeader.tsx — MILESTONE_LABELS (local, 3 keys) — ALSO duplicated a 2nd time in InvoiceMeta.tsx's inline SelectItem labels (same 3 keys) = a 2-FILE duplication of the milestone-type label set with NO shared source at all (not even a local shared const, let alone lib/constants/statuses.ts).
+  2. invoices-table.tsx — STATUS_MAP (local, 6 keys) — duplicates INVOICE_STATUS_LABELS.
+  3. payment-contract-tables.tsx — METHOD_MAP (local, 6 keys, duplicates PAYMENT_METHOD_LABELS) + CONTRACT_STATUS_MAP (local, 5 keys, duplicates CONTRACT_STATUS_LABELS).
+  Only PaymentHistory.tsx (invoice-detail) already imports the shared `PAYMENT_METHOD_LABELS` correctly (needs hook-accessor swap only, not a de-duplication).
+- Object-key-lookup-with-raw-fallback pattern (`MAP[key] || key` / `MAP[key] || {label:key,...}`) appears 5 times: InvoiceHeader.tsx L68, PaymentHistory.tsx L49, invoices-table.tsx L59, payment-contract-tables.tsx L56 + L94. All are DB-enum-keyed — keys are stable/English, only label values need catalog routing. Fallback-to-raw-key behavior must be preserved (safety net for unmapped/new enum values) through the migration.
+- Mixed-latinism inside AR strings: InvoiceHeader.tsx L96 ("رابط دفع Stripe" — brand name), L101 ("PDF" acronym after AR-context icon) — both likely render identically in EN catalog (brand/acronym unchanged), low migration risk.
+- No JSON arrays found; every candidate message is a flat keyed string or an ICU-style interpolation — consistent with the "keyed objects, never arrays" catalog rule.
+
+================================================================
+SUMMARY
+================================================================
+Total files scanned: 11 (814 LOC)
+Total AR lines by class:
+  (ui)       : 121
+  (data)     : 0
+  (comment)  : 0
+  (statuses) : 9 distinct duplicate/centralized label-map entries flagged across
+               3 files (MILESTONE_LABELS ×1 file + duplicate SelectItem set ×1 file,
+               STATUS_MAP ×1 file, METHOD_MAP + CONTRACT_STATUS_MAP ×1 file) —
+               counted at the map-definition-line granularity in the per-file
+               sections above (each map key = 1 AR line).
+
+Proposed catalog key placement (all render inside finance.invoices.* /
+finance.statement.* pages per module scope):
+  - finance.invoices.detail.clientInfo.*        ← ClientInfo.tsx
+  - finance.invoices.detail.editItems.*         ← EditItems.tsx (incl. discountType
+    percentage/fixed keys, VAT/discount/total labels)
+  - finance.invoices.detail.header.*            ← InvoiceHeader.tsx (incl. a
+    SHARED finance.invoices.milestoneType.{booking,initial_delivery,final_delivery}
+    sub-namespace consumed by BOTH InvoiceHeader.tsx and InvoiceMeta.tsx — collapse
+    the 2-file duplication into one catalog source)
+  - finance.invoices.detail.paymentHistory.*    ← PaymentHistory.tsx (swap
+    PAYMENT_METHOD_LABELS import for useStatusLabels('paymentMethod') accessor;
+    table headers get their own keys)
+  - finance.invoices.new.businessEntity.*       ← BusinessEntitySelector.tsx
+  - finance.invoices.new.clientSelector.*       ← ClientSelector.tsx
+  - finance.invoices.new.itemsTable.*           ← InvoiceItemsTable.tsx (headers
+    likely SHARED with EditItems.tsx's item-row headers — check for a common
+    finance.invoices.itemFields.{description,quantity,rate,amount} namespace)
+  - finance.invoices.new.meta.*                 ← InvoiceMeta.tsx (milestone
+    SelectItems consume the SAME shared milestoneType namespace as above)
+  - finance.statement.invoicesTable.*           ← invoices-table.tsx (status
+    labels migrate to useStatusLabels('invoice'), NOT a local catalog key —
+    fixes the pre-existing CLAUDE.md status-constants violation)
+  - finance.statement.paymentsTable.*           ← payment-contract-tables.tsx
+    PaymentsTable (method labels → useStatusLabels('paymentMethod'))
+  - finance.statement.contractsTable.*          ← payment-contract-tables.tsx
+    ContractsTable (status labels → useStatusLabels('contract'))
+  - finance.statement.summaryCards.*            ← summary-cards.tsx
+
+Money-formatting follow-up (orthogonal to string-catalog work but discovered
+during this census): 7 of 11 files call formatCurrency without an explicit
+currency argument (client-statement's 3 files + InvoiceItemsTable.tsx +
+BusinessEntitySelector.tsx has none + ClientSelector.tsx has none — effectively
+all of invoice-new except explicit item amounts, plus all of client-statement).
+Flag for the Phase-4 plan to decide whether this is in-scope (thread currency
+through) or a separately-tracked follow-up item, per the Finance Remediation
+multi-currency locked decisions (payments/invoices must never assume AED).

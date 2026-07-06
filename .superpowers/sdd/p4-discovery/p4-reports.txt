@@ -1,0 +1,469 @@
+PLAIN-TEXT FINDINGS — Finance Reports + General Reports (i18n Phase-4 discovery)
+
+================================================================
+1. app/dashboard/finance/reports/page.tsx (54 lines)
+================================================================
+'use client' — no server metadata export in this file.
+- L29: <h1>التقارير المالية</h1>  (ui)
+- L30: <p>تحليل مالي شامل للأرباح والضرائب والعملاء</p>  (ui)
+- L39: TabsTrigger 'الأرباح والخسائر'  (ui)
+- L40: TabsTrigger 'التدفق النقدي'  (ui)
+- L41: TabsTrigger 'الضريبة'  (ui)
+- L42: TabsTrigger 'ربحية العملاء'  (ui)
+- L43: TabsTrigger 'ربحية المشاريع'  (ui)
+- L37: <Tabs defaultValue="pnl" dir="rtl">  — HARDCODED dir="rtl" (Phase-4 must make this locale-aware or drop once next-intl `<html dir>` is global; flag as HAZARD-lite, not a true hazard since page-level dir is likely redundant with html dir, but inconsistent with rest of app which relies on `<html dir>` alone)
+formatCurrency/formatDate call sites in this file: 0 (delegates to tabs + ExportButton).
+File is 54 lines — well under 300.
+
+================================================================
+2. components/dashboard/finance-reports/PnlTab.tsx (107 lines)
+================================================================
+- L37: toast.error('فشل في تحميل تقرير الأرباح والخسائر')  (ui — toast, not (a) API response; client-side catch message)
+- L57: <Label>التجميع</Label>  (ui)
+- L60: SelectItem 'شهري' / 'ربع سنوي'  (ui) — DUPLICATES the same month/quarter grouping labels used in VatTab's implicit quarter math and in ReportDateFilter presets; candidate shared key `finance.reports.groupBy.month` / `.quarter`
+- L65: EmptyState title="لا توجد بيانات لعرضها"  (ui) — duplicated verbatim in CashflowTab L69, VatTab L48, ReportChart.tsx L45 (with different icon) — strong candidate for ONE shared catalog key `common.noDataToDisplay` or `finance.reports.empty`
+- L68: SummaryCard title="إجمالي الإيرادات"  (ui)
+- L69: SummaryCard title="إجمالي المصاريف"  (ui)
+- L70: SummaryCard title="صافي الربح"  (ui)
+- L71: SummaryCard title="هامش الربح"  (ui)
+- L75: CardTitle 'الإيرادات مقابل المصاريف'  (ui)
+- L82: Recharts Tooltip formatter map: {revenue: 'الإيرادات', salaries: 'الرواتب', operational: 'تشغيلية', subscriptions: 'الاشتراكات'}  (ui) — RECHARTS TOOLTIP hardcoded AR labels, inline object literal (not a named const — repeats the same 4 words as the Legend formatter below; candidate shared const)
+- L83: Recharts Legend formatter map: {revenue: 'الإيرادات', salaries: 'الرواتب', operational: 'مصاريف تشغيلية', subscriptions: 'الاشتراكات'}  (ui) — NOTE: 'operational' label DIFFERS between tooltip ('تشغيلية') and legend ('مصاريف تشغيلية') — inconsistent duplicate strings, both need to migrate to ONE key
+- L91: CardTitle 'تفاصيل الفترات'  (ui)
+- L95: table headers: 'الفترة' / 'الإيرادات' / 'الرواتب' / 'تشغيلية' / 'اشتراكات' / 'إجمالي المصاريف' / 'الربح'  (ui) — 7 inline <th> strings in one JSX line (minified formatting), NOTE 'اشتراكات' here (col header) differs again from 'الاشتراكات' (chart) and 'subscriptions' key — same concept, 3rd wording variant
+- L97 (tfoot): 'الإجمالي'  (ui)
+formatCurrency call-site count: 14 (L68-71 SummaryCards ×1 each via formatCurrency; L96 row ×6; L97 tfoot ×5 — total occurrences of `formatCurrency(` in file = 14; grep-verified count: 14)
+formatDate call sites: 0
+No toLocale*, no MONTH_NAMES_AR import (groupBy label 'month'/'quarter' generated server-side already localized via MONTH_NAMES_AR from the API, not client).
+[ICU] none (no plurals here — SummaryCard values are formatted currency strings, not counts).
+HAZARD: Recharts Tooltip/Legend `formatter` callbacks return **plain strings**, not JSX — if these become `t('finance.reports.pnl.legend.revenue')` calls inside a client component that's fine (useTranslations works), but the two duplicate maps (L82 tooltip vs L83 legend) must be unified into ONE keyed object to avoid the 'تشغيلية' vs 'مصاريف تشغيلية' drift surviving into English (EN would then have the same inconsistency baked in).
+
+================================================================
+3. components/dashboard/finance-reports/CashflowTab.tsx (138 lines)
+================================================================
+- L26-33: METHOD_LABELS module-level map (bank_transfer/cash/cheque/stripe/online/credit_note/other) — DIRECT DUPLICATE of `paymentMethod` entity already in messages/ar/statuses.json (`"paymentMethod": {...bank_transfer, cash, cheque, credit_card, online, stripe, credit_note, refund, other}`). Recommend replacing this local map with `useStatusLabels('paymentMethod')` — entity already exists, near-identical key set (local map lacks 'credit_card'/'refund' but that's fine, unused here). (statuses)
+  - L28: 'تحويل بنكي'
+  - L29: 'نقدي'
+  - L30: 'شيك'
+  - L31: 'دفع إلكتروني' (stripe)
+  - L32: 'دفع إلكتروني' (online — SAME string as stripe, both map to same Arabic — fine, but means 2 keys collapse to 1 label; catalog entity already handles this the same way)
+  - L33: 'إشعار دائن'  (NOTE: statuses.json paymentMethod.credit_note = 'إشعار دائن (رد)' — slightly different wording than this local 'إشعار دائن'; migration must pick ONE, likely keep the catalog's more complete wording)
+  - L34: 'أخرى'
+  - L117: {METHOD_LABELS[m.method] || m.method}  — usage site
+- L69: EmptyState title="لا توجد بيانات لعرضها"  (ui) — dup of PnlTab L65 (see cross-cutting)
+- L72: SummaryCard title="الداخل (مقبوضات)"  (ui)
+- L73: SummaryCard title="الخارج (مصاريف)"  (ui)
+- L74: SummaryCard title="المبالغ المستردة"  (ui)
+- L75: SummaryCard title="صافي التدفق"  (ui)
+- L80: CardTitle 'الداخل مقابل الخارج شهرياً'  (ui)
+- L87: Tooltip formatter map: {inflow: 'الداخل', outflow: 'الخارج (مصاريف + مستردات)'}  (ui) — ICU-adjacent (parenthetical breakdown baked into label string)
+- L88: Legend formatter map: {inflow: 'الداخل', outflow: 'الخارج (مصاريف + مستردات)'}  (ui) — duplicate of L87 (same object shape twice, same drift risk as PnlTab)
+- L98: CardTitle 'تفاصيل الشهور'  (ui)
+- L102: table headers: 'الشهر' / 'الداخل' / 'الخارج' / 'مستردات' / 'الصافي' / 'الرصيد التراكمي'  (ui)
+- L111: CardTitle 'حسب طريقة الدفع'  (ui)
+- L113: empty-list inline string 'لا توجد مقبوضات في الفترة'  (ui) — NOT via EmptyState component, plain <p>; migration should still catalog it, note it bypasses the shared empty-state component
+- L126: CardTitle 'متوقع تحصيله (فواتير مستحقة)'  (ui)
+- L129: helper text 'إجمالي المتبقي على الفواتير المرسلة وغير المدفوعة بالكامل'  (ui)
+formatCurrency call-site count: grep-verified 13 occurrences (`formatCurrency(` appears 13×: L72-75 SummaryCards ×4, L103 row ×5 [inflow/outflow/refunds/net/running_balance], L118 by_method ×1, L128 forecast ×1 — actually let me recount precisely from source: L72,73,74,75 (4) + L103 has 5 formatCurrency calls in the row template + L118 (1) + L128 (1) = 11 distinct call expressions, but template literal L103 embeds 5 separate `formatCurrency(...)` invocations → total textual occurrences = 4+5+1+1 = 11. Correcting earlier estimate: 11 occurrences of `formatCurrency(`.
+formatDate call sites: 0. Uses `dubaiDayKey()` (L9, L37) for the default 'to' date — Dubai-day-correct, no hazard.
+MONTH_NAMES_AR: NOT imported client-side (server route already returns localized `label` strings per period — see §6 API section). This is the SAME "server pre-localizes month labels" pattern flagged in the CLAUDE.md rule — Phase-4 planner must decide whether month labels move to client-side i18n (recompute from `start`/`end` ISO dates using next-intl locale-aware month formatting) or stay server-localized with an explicit locale param threaded through from the request.
+[ICU] L87/L88 parenthetical breakdown counts as interpolation-adjacent but no numeric plural here.
+
+================================================================
+4. components/dashboard/finance-reports/VatTab.tsx (72 lines)
+================================================================
+- L29: toast.error('فشل في تحميل تقرير الضريبة')  (ui)
+- L48: EmptyState title="لا توجد بيانات ضريبية"  (ui) — 3rd variant of the "no data" empty state wording (differs from PnlTab/CashflowTab's 'لا توجد بيانات لعرضها') — still same catalog concept, different phrasing; migration should decide: keep as distinct catalog string (tab-specific) or normalize wording. Recommend keep distinct (more specific = better UX) but as its own key `finance.reports.vat.empty`.
+- L51: SummaryCard title="ضريبة محصّلة"  (ui)
+- L52: SummaryCard title="ضريبة مدفوعة"  (ui)
+- L53: SummaryCard title="صافي الضريبة"  (ui)
+- L56: CardTitle 'التفاصيل الشهرية'  (ui) — SAME string reused verbatim in ClientProfitabilityTab absent, but note PnlTab uses 'تفاصيل الفترات' (period, not month) — different because VAT is always monthly; keep distinct.
+- L60: table headers: 'الشهر' / 'محصّلة' / 'مدفوعة' / 'الصافي'  (ui)
+- L62 (tfoot): 'الإجمالي'  (ui) — dup of PnlTab L97 tfoot label (same concept, safe to share one key `common.total`)
+formatCurrency call-site count: grep-verified 9 (`formatCurrency(` × 9: L51,52,53 SummaryCards=3; L61 row=3 [collected/paid/net]; L62 tfoot=3).
+formatDate: 0. No client-side MONTH_NAMES_AR import — `m.month` field comes pre-labeled from the API (server-side MONTH_NAMES_AR, see §6).
+[ICU]: none.
+
+================================================================
+5. components/dashboard/finance-reports/ClientProfitabilityTab.tsx (57 lines)
+================================================================
+- L28: toast.error('فشل في تحميل تقرير ربحية العملاء')  (ui)
+- L41: EmptyState title="لا توجد بيانات ربحية للعملاء"  (ui) — 4th wording variant of "no data" empty state.
+- L43: CardTitle 'ربحية العملاء'  (ui) — matches page.tsx tab label 'ربحية العملاء' (dup, share one key)
+- L47: table headers: 'العميل' / 'الشركة' / 'الإيرادات' / 'المصاريف' / 'الربح' / 'الهامش' / 'العقود'  (ui) — NOTE 'الإيرادات'/'المصاريف'/'الربح' repeat across PnlTab/CashflowTab/ClientProfitabilityTab/ProjectProfitabilityTab table headers — strong shared-key candidates (`finance.reports.columns.revenue/expenses/profit`)
+- L48: fallback '—' for missing company (data, not translatable — em-dash placeholder, i18n-exempt as a universal glyph but note formatCurrency wraps it in some other tabs as literal '—' too — keep as-is, no key needed)
+formatCurrency call-site count: grep-verified 3 (`formatCurrency(` × 3 inside the single row-template: revenue, expenses, profit).
+formatDate: 0.
+Badge `{c.margin}%` — numeric interpolation, no ICU plural (percentage always singular-form neutral in AR).
+[ICU]: none.
+
+================================================================
+6. components/dashboard/finance-reports/ProjectProfitabilityTab.tsx (56 lines)
+================================================================
+- L27: toast.error('فشل في تحميل تقرير ربحية المشاريع')  (ui)
+- L40: EmptyState title="لا توجد بيانات ربحية للمشاريع"  (ui) — 5th wording variant of "no data".
+- L42: CardTitle 'ربحية المشاريع'  (ui) — matches page.tsx tab label (dup)
+- L46: table headers: 'المشروع' / 'الميزانية' / 'الإيرادات' / 'المصاريف' / 'الربح' / 'استخدام الميزانية'  (ui) — repeats revenue/expenses/profit headers (see §5 note)
+formatCurrency call-site count: grep-verified 3 (`formatCurrency(` × 3: budget when non-null, revenue, expenses, profit — actually 4 conditional/unconditional calls: L47 has `formatCurrency(p.budget)` (conditional), `formatCurrency(p.revenue)`, `formatCurrency(p.expenses)`, `formatCurrency(p.profit)` = 4 occurrences).
+formatDate: 0.
+budget_utilization progress bar: numeric `%` only, no AR string.
+[ICU]: none.
+
+================================================================
+7. components/dashboard/finance-reports/SummaryCard.tsx (28 lines)
+================================================================
+No Arabic strings — pure presentational wrapper (title/value/icon/colorClass all passed as props from callers). No action needed; callers carry all AR text (already censused above).
+
+================================================================
+8. components/dashboard/finance-reports/DateRangeFilter.tsx (49 lines)
+================================================================
+- L25: <Label>من</Label>  (ui) — "from" date label
+- L34: <Label>إلى</Label>  (ui) — "to" date label
+- L44: <Button>عرض التقرير</Button>  (ui) — "show report" / apply button
+These 3 strings are IDENTICAL in concept to `components/reports/ReportDateFilter.tsx` L74/L83 ('من'/'إلى' as inline spans, no 'عرض التقرير' button there) — two parallel date-filter components with overlapping vocabulary; strong candidate to share catalog keys `common.dateFrom` / `common.dateTo` / `finance.reports.showReport`. See HAZARDS section — these are TWO SEPARATE COMPONENTS (this one used only by finance tabs; ReportDateFilter used by the 5 general report pages) — do not merge components, but DO share catalog keys.
+formatCurrency/formatDate: 0.
+
+================================================================
+9. components/reports/ExportButton.tsx (56 lines)
+================================================================
+- L25: toast.error('فشل في تصدير التقرير')  (ui) — error toast, catch #1
+- L37: toast.success('تم تصدير التقرير بنجاح')  (ui) — success toast
+- L39: toast.error('فشل في تصدير التقرير')  (ui) — error toast, catch #2 (duplicate of L25 string — same catalog key, two call sites)
+- L52: <Button>تصدير CSV</Button>  (ui) — button label, mixed AR + Latin 'CSV' (acceptable — CSV is a universal file-format acronym, i18n-exempt for the acronym itself, but 'تصدير' (export) migrates)
+Raw fetch is used here (L21, with eslint-disable comment) for blob download — CLAUDE.md-sanctioned exemption (blob/file download cannot use fetchAPI/mutateAPI JSON wrapper). Not an i18n concern but noted for completeness.
+formatCurrency/formatDate: 0.
+**HAZARD**: `a.download = \`${type}-report-${from}-${to}.csv\`` (L32) — the DOWNLOADED FILENAME is English/ASCII already (type is an enum like 'finance'/'clients'/'revenue') — SAFE, no AR bytes in the filename. The CSV BODY CONTENT itself is generated server-side by `/api/reports/export` (see §11) — THAT is where the real export-language hazard lives, not in this button component.
+
+================================================================
+10. components/reports/ReportChart.tsx (141 lines)
+================================================================
+- L45: EmptyState title="لا توجد بيانات لعرضها"  (ui) — 6th occurrence of this exact "no data" string (verbatim match to PnlTab L65 / CashflowTab L69) — the STRONGEST shared-key candidate in the whole census; recommend ONE key `common.noDataToDisplay` used by both finance tabs AND this generic chart component.
+- L122-123: Pie label render function: `${name} ${(percent * 100).toFixed(0)}%`  — this is DATA (`name` comes from caller-supplied `nameKey` field, e.g. client company names, mime types, payment methods — already-translated-or-DB-data by the time it reaches here) + a numeric percentage suffix with NO Arabic text of its own. (data/none) — no action needed on this file itself; the `name` strings originate from callers (already censused: e.g. dashboard-team's ROLE_MAP, CashflowTab's METHOD_LABELS, etc.)
+No hardcoded AR strings elsewhere in this file — CHART_COLORS/CHART_PRIMARY/CHART_TOOLTIP_STYLE imported from lib/constants/chart-colors (not AR, styling only).
+formatCurrency/formatDate: 0 (chart is currency-agnostic — callers pre-format via `label` field, e.g. ClientsReportPage L121-124 building `label: \`${c.name} (${formatCurrency(c.revenue)})\`\` before passing to ReportChart).
+
+================================================================
+11. components/reports/ReportDateFilter.tsx (110 lines)
+================================================================
+- L28: presets[0].label 'هذا الشهر'  (ui)
+- L35: presets[1].label 'الشهر الماضي'  (ui)
+- L43: presets[2].label 'هذا الربع'  (ui)
+- L52: presets[3].label 'آخر 6 أشهر'  (ui) — NOTE: uses plain ASCII '6' (NOT Arabic-Indic ٦, unlike Phase-3's dashboard-client.tsx which had '٣٠') — no Arabic-Indic-digit hazard here.
+- L60: presets[4].label 'هذه السنة'  (ui)
+- L74: inline "from" label span 'من'  (ui) — dup of DateRangeFilter.tsx L25 concept (see §8 note — share catalog key, not component)
+- L83: inline "to" label span 'إلى'  (ui) — dup of DateRangeFilter.tsx L34 concept
+`presets` is a module-level const array of {label, getRange} — SAME "module-level label array" migration shape flagged in Phase-3 (PERIOD_OPTIONS). Recommend catalog keys `finance.reports.presets.thisMonth/lastMonth/thisQuarter/last6Months/thisYear` (or a shared `common.datePresets.*` since this component is reused by ALL 5 general report pages, not finance-specific).
+formatCurrency/formatDate: 0. Uses plain `.toISOString().split('T')[0]` (L15,19,23) for date math — NOT Dubai-day-aware, but this is a report DATE-RANGE PICKER default (not a "today in Dubai" comparison in the Phase-15.1 sense) — low-risk, flagging only for completeness, NOT a HAZARD.
+
+================================================================
+12. app/api/finance/reports/pnl/route.ts (211 lines)
+================================================================
+- L36: label: \`${MONTH_NAMES_AR[month]} ${year}\`  (statuses/ui-server) — SERVER-COMPUTED Arabic month label injected into the API payload's `periods[].label` field. Client (PnlTab) renders this directly as a table/chart-axis label with ZERO further processing. THIS IS THE CORE "report axes use month names" HAZARD flagged in the task brief.
+- L65: arabicQ = ['الربع الأول', 'الربع الثاني', 'الربع الثالث', 'الربع الرابع']  (ui-server) — INLINE local array (NOT MONTH_NAMES_AR, a separate ad-hoc quarter-name array scoped to `buildQuarterlyPeriods` only) — used to build `label: \`${arabicQ[q]} ${year}\`\` (L67). This is a NEW quarter-label array not shared with any other file in this census — candidate for a new `QUARTER_NAMES_AR` entry in lib/constants/dates.ts (parallel to MONTH_NAMES_AR) if quarter-grouping needs bilingual support.
+No `apiError`/`apiServerError` messages carry Arabic text of their own (generic helpers). No notifications written from this route.
+HAZARD: because `groupBy` periods+labels are computed SERVER-SIDE and returned as opaque strings, making this bilingual requires EITHER (a) threading a `locale` param into the route (query param or Accept-Language) and using `getTranslations`-equivalent month/quarter names server-side, OR (b) returning `{year, month}` raw and letting the client format via next-intl's Intl.DateTimeFormat with the request locale. Recommend (b) — same class of decision already flagged for CashflowTab in §3.
+
+================================================================
+13. app/api/finance/reports/cashflow/route.ts (222 lines)
+================================================================
+- L34: label: \`${MONTH_NAMES_AR[month]} ${year}\`  (statuses/ui-server) — same server-computed month label hazard as §12.
+- L179: cat = (catId && categoryNames[catId]) || 'أخرى'  (data) — fallback label for an unmapped/null expense category; 'أخرى' matches the `paymentMethod.other` wording family but this is actually an EXPENSE CATEGORY fallback, not payment method — reads `pyra_expense_categories.name_ar` (DB data) with a hardcoded Arabic fallback string when the category lookup misses. (ui-server, small hazard: fallback string bypasses the category's own name_ar/name; should migrate to a translated fallback too, not just leave hardcoded)
+- L169: select('id, name, name_ar') on pyra_expense_categories then `categoryNames[c.id] = c.name_ar || c.name;` — DB DATA (category display names are user-authored/seeded Arabic strings, category (data), not a UI string to migrate — but note: this hardcodes AR-only display; if categories need bilingual display, `pyra_expense_categories` needs a `name_en` column — OUT OF SCOPE for this census, flagging for planner awareness only).
+No (a) API response messages in Arabic (generic apiServerError/apiSuccess). No notifications.
+HAZARD: `by_category` payload field `category` is a MIX of (i) resolved Arabic DB names (from pyra_expense_categories.name_ar) and (ii) the hardcoded 'أخرى' fallback (L179) — inconsistent bilingual-readiness; if English UI needs this breakdown, category names need an EN source too.
+
+================================================================
+14. app/api/finance/reports/vat/route.ts (150 lines)
+================================================================
+- L42: label: \`${MONTH_NAMES_AR[month]} ${year}\`  (statuses/ui-server) — same server-computed month label hazard as §12/§13. This is the 3RD file in this census importing/using MONTH_NAMES_AR identically — confirms the CLAUDE.md note "finance report routes import the canonical MONTH_NAMES_AR array" is accurate and consistent (no drift across pnl/cashflow/vat).
+No other Arabic in this file. No (a) API messages, no notifications.
+
+================================================================
+15. app/api/finance/reports/client-profitability/route.ts (159 lines)
+================================================================
+No Arabic strings anywhere in this file. Pure numeric aggregation + DB data passthrough (client_name/company are DB data, category (c)). No MONTH_NAMES_AR usage (this report is NOT period-bucketed — single aggregate per client for the whole from/to range). No (a) messages, no notifications.
+
+================================================================
+16. app/api/finance/reports/project-profitability/route.ts (210 lines)
+================================================================
+No Arabic strings anywhere in this file. Same shape as client-profitability — pure numeric aggregation, DB data passthrough (project_name/client_name). No MONTH_NAMES_AR. No (a) messages, no notifications.
+
+================================================================
+17. app/api/finance/reports/aging/route.ts (156 lines) — NOT wired into any UI tab in this census scope (no AgingTab.tsx found under components/dashboard/finance-reports/), but IS a live route under the in-scope directory — censused for completeness.
+================================================================
+- L35: buckets[0].label = 'حالي (0-30 يوم)'  (ui-server) — bucket label returned in API payload
+- L36: buckets[1].label = '31-60 يوم'  (ui-server)
+- L37: buckets[2].label = '61-90 يوم'  (ui-server)
+- L38: buckets[3].label = '91-120 يوم'  (ui-server)
+- L39: buckets[4].label = 'أكثر من 120 يوم'  (ui-server)
+  NOTE: each bucket ALSO carries a parallel `labelEn` field (L35-39, e.g. 'Current (0-30)', '31-60 days', etc.) — THIS ROUTE ALREADY HAS BILINGUAL LABELS BUILT IN (the only file in the entire census with a pre-existing `labelEn` pattern). Recommend Phase-4 planner treat this as the REFERENCE PATTERN for how to bilingual-ize server-computed period/bucket labels elsewhere (§12/§13/§14's MONTH_NAMES_AR hazard) — i.e. add a parallel `label_en` (or better, return a locale-neutral `{min,max}` and let the client format) rather than inventing a new pattern.
+- L101: clientAging fallback name: data.name = inv.client_name || 'غير محدد'  (ui-server) — fallback string when client_name is null; matches the 'غير محدد' fallback family used elsewhere in the codebase (e.g. app/api/reports/clients/route.ts L108 — see §19).
+No (a) API messages, no notifications. [ICU]: none (pure numeric buckets).
+**This route is orphaned from the current UI** (no AgingTab component consumes `/api/finance/reports/aging` in this codebase snapshot) — flag for the planner: either (a) census it now for future-proofing (done above) or (b) explicitly mark it "defer — unused" in the plan. Recommending (b) defer-but-tracked since it has zero current UI surface but IS reachable at the API layer.
+
+================================================================
+18. app/dashboard/reports/page.tsx (11 lines) + reports-client.tsx (117 lines)
+================================================================
+page.tsx:
+- L5: metadata.title = 'التقارير | Pyra Workspace'  (ui) — Next metadata, needs generateMetadata + getTranslations pattern (same shape as Phase-3's CRM page.tsx L6 finding).
+
+reports-client.tsx:
+- L23: reportCards[0].title 'المشاريع'  (ui)
+- L24: reportCards[0].description 'تحليل أداء المشاريع والإنجاز'  (ui)
+- L28: getStat template: \`${formatNumber(...)} مشروع\`  (ui, [ICU]-adjacent — no plural branching, always singular-form 'مشروع' suffix regardless of count — a LATENT plural bug like Phase-3's kpi-cards broken branch, though here there's no ternary at all, just a flat suffix; still needs ICU plural treatment for EN "1 project" vs "5 projects")
+- L32: reportCards[1].title 'العملاء'  (ui)
+- L33: reportCards[1].description 'تحليلات العملاء والإيرادات حسب العميل'  (ui)
+- L37: getStat template: \`${formatNumber(...)} عميل\`  (ui, [ICU] same flat-suffix issue)
+- L41: reportCards[2].title 'التخزين'  (ui)
+- L42: reportCards[2].description 'تحليل استخدام التخزين وأنواع الملفات'  (ui)
+- L46: getStat template: \`${formatNumber(...)} ملف\`  (ui, [ICU] same flat-suffix issue)
+- L50: reportCards[3].title 'الإيرادات'  (ui)
+- L51: reportCards[3].description 'تقارير الإيرادات والفواتير والمدفوعات'  (ui)
+- L55: getStat: formatCurrency(...) — no AR suffix (currency formatting only)
+- L59: reportCards[4].title 'الفريق'  (ui)
+- L60: reportCards[4].description 'إنتاجية الفريق والنشاط'  (ui)
+- L64: getStat template: \`${formatNumber(...)} عضو\`  (ui, [ICU] same flat-suffix issue)
+- L80: <h1>... التقارير</h1>  (ui)
+- L82: <p>تقارير وتحليلات شاملة للنظام</p>  (ui)
+`reportCards` is a MODULE-LEVEL ARRAY OF OBJECTS containing title/description AND an inline `getStat` closure that embeds Arabic suffix text — the STRONGEST "module-level catalog array with embedded logic" case in this census (worse than Phase-3's flat PERIOD_OPTIONS, because the AR string is inside a function body, not a plain `label` field) — migration must extract each `getStat` suffix into a `t()` call inside the render, not inside the module-level array.
+formatCurrency call sites: 1 (L55). formatNumber call sites: 4 (L28,37,46,64) — formatNumber is a DIFFERENT helper than formatCurrency/formatDate (not explicitly named in the task brief's helper list, but functionally identical migration concern — verify it has a locale param).
+
+================================================================
+19. app/dashboard/reports/clients/page.tsx (157 lines)
+================================================================
+- L41: toast.error('فشل في تحميل التقرير')  (ui) — GENERIC "failed to load report" toast, IDENTICAL string reused verbatim in projects/page.tsx L49, revenue/page.tsx L52, team/page.tsx L55 (storage/page.tsx uses useQuery so has no manual catch/toast) — 4-WAY DUPLICATE, strongest shared-key candidate after the "no data" EmptyState string. Recommend ONE key `common.reportLoadFailed` (or `finance.reports.loadFailed`) used by all 4 pages.
+- L55: aria-label="العودة إلى التقارير"  (ui) — "back to reports" aria-label, duplicated VERBATIM in projects/page.tsx L63, revenue/page.tsx L66, storage/page.tsx L43, team/page.tsx L69 — 5-WAY DUPLICATE (ALL 5 general report pages use the identical back-button aria-label).
+- L62: <h1>... تقرير العملاء</h1>  (ui)
+- L86: 'إجمالي العملاء'  (ui)
+- L94: 'نشط'  (ui) — single-word status-ish label; NOTE this ISN'T from the `statuses` catalog (it's a KPI card label meaning "active count", not a status badge) — do not conflate with `common.active` status label even though the words match; contextually different usage (label vs status), but could still share the same translated string safely.
+- L102: 'جديد في الفترة'  (ui)
+- L114: CardTitle 'أعلى العملاء حسب الإيرادات'  (ui)
+- L128: ReportChart title prop 'أعلى العملاء حسب الإيرادات'  (ui) — dup of L114 (same string, two props — CardTitle AND ReportChart's internal title, though ReportChart doesn't actually render `title` visibly per §10 read — dead prop or used only as accessible name; either way, same catalog key covers both)
+- L138: CardTitle 'توزيع العملاء حسب الشركة'  (ui)
+- L149: ReportChart title prop 'توزيع العملاء حسب الشركة'  (ui) — dup of L138 (same pattern as above)
+formatCurrency call-site count: 1 (L123, inside the `.map()` building chart `label` field).
+formatDate: 0 (this page has no date column in its table).
+[ICU]: none (KPI cards are raw counts, no plural suffix here — unlike reports-client.tsx §18).
+
+================================================================
+20. app/dashboard/reports/projects/page.tsx (200 lines)
+================================================================
+- L49: toast.error('فشل في تحميل التقرير')  (ui) — dup, see §19.
+- L63: aria-label="العودة إلى التقارير"  (ui) — dup, see §19.
+- L70: <h1>... تقرير المشاريع</h1>  (ui)
+- L94: 'إجمالي المشاريع'  (ui)
+- L102: 'مكتمل في الفترة'  (ui)
+- L110: 'متوسط أيام الإنجاز'  (ui)
+- L118: 'متأخرة'  (ui) — NOTE: this matches `statuses.invoice.overdue` conceptually ("overdue") but is used here as a KPI-card label for overdue PROJECTS, not an invoice status badge — same word, different entity; keep as its own UI string, do not force into the `invoice` status map.
+- L130: CardTitle 'توزيع حالات المشاريع'  (ui)
+- L141: ReportChart title 'توزيع حالات المشاريع'  (ui) — dup of L130
+- L150: CardTitle 'المشاريع المكتملة حديثاً'  (ui)
+- L157: <th>المشروع</th>  (ui)
+- L158: <th>العميل</th>  (ui)
+- L159: <th>تاريخ الإكتمال</th>  (ui)
+- L160: <th>المدة (أيام)</th>  (ui) — parenthetical unit inside header label ([ICU]-adjacent, not a true plural but embeds a unit word)
+- L177: empty-table-row fallback 'لا توجد مشاريع مكتملة في هذه الفترة'  (ui) — table-specific empty message (NOT using EmptyState component — plain <td> text; 6th distinct "no data" wording variant in this census, this one very specific to "no completed projects in this period")
+- L187: Badge \`{item.days_taken} يوم\`  (ui, [ICU]) — numeric + unit-word interpolation, NO plural branching (always 'يوم' singular form regardless of count) — same flat-suffix bug pattern as reports-client.tsx §18. Needs ICU plural (يوم/يومين/أيام) treatment matching Phase-3's daysIdleLabel dual-form precedent.
+formatDate call-site count: 1 (L185, table row `completed_at` column).
+formatCurrency: 0.
+by_status data comes from `app/api/reports/projects/route.ts` where `status` is a RAW DB ENUM VALUE (e.g. 'active','completed','in_progress') passed through as `{name: s.status, count}` WITHOUT translation (data, category (c) — but flagging: if this chart needs bilingual/Arabic display of status names, the client should map through `useStatusLabels('project')` or similar rather than rendering the raw enum — currently renders raw untranslated DB status strings like "in_progress" verbatim in the pie/bar chart, which is arguably ALREADY a bug independent of i18n, but Phase-4 should decide whether to fix it as part of this pass or defer).
+
+================================================================
+21. app/dashboard/reports/revenue/page.tsx (196 lines)
+================================================================
+- L52: toast.error('فشل في تحميل التقرير')  (ui) — dup, see §19.
+- L66: aria-label="العودة إلى التقارير"  (ui) — dup, see §19.
+- L73: <h1>... تقرير الإيرادات</h1>  (ui)
+- L82: 'الفترة:'  (ui) — label with trailing colon baked into the string (colon punctuation should stay OUTSIDE the translatable string in the EN version — flag as a minor RTL-punctuation migration note, not a blocker)
+- L88: SelectItem 'شهري'  (ui) — dup of PnlTab's groupBy 'شهري' concept (see §2 note) — different Select (period, not groupBy) but same word/meaning; safe to share key.
+- L89: SelectItem 'ربع سنوي'  (ui) — dup of PnlTab's 'ربع سنوي' groupBy option (verbatim string match)
+- L90: SelectItem 'سنوي'  (ui) — new option not present in PnlTab (PnlTab only has month/quarter, this page adds yearly)
+- L112: 'إجمالي الإيرادات'  (ui)
+- L122: 'إجمالي الفواتير'  (ui)
+- L132: 'مستحقة'  (ui) — matches `statuses` vocabulls loosely but this is a KPI label ("outstanding amount"), not a status badge — keep distinct.
+- L142: 'متأخرة'  (ui) — dup of projects/page.tsx L118 (both mean "overdue", different domains — invoices here vs projects there); could share ONE generic `common.overdue` key since wording is identical, OR keep domain-scoped keys (`finance.reports.revenue.overdue` vs `finance.reports.projects.overdue`) for future independent wording changes. Recommend shared `common.overdue` given verbatim match.
+- L156: CardTitle 'اتجاه الإيرادات'  (ui)
+- L167: ReportChart title 'اتجاه الإيرادات'  (ui) — dup of L156
+- L177: CardTitle 'توزيع طرق الدفع'  (ui)
+- L188: ReportChart title 'توزيع طرق الدفع'  (ui) — dup of L177
+formatCurrency call-site count: 4 (L115,125,135,145 — the 4 summary KPI cards).
+formatDate: 0.
+by_payment_method data comes from `app/api/reports/revenue/route.ts` where `method` is a RAW DB ENUM (bank_transfer/cash/cheque/stripe/etc, same universe as CashflowTab §3's METHOD_LABELS / statuses.json `paymentMethod` entity) passed through UNTRANSLATED as `{name: m.method, amount}` (data (c), but SAME migration opportunity as CashflowTab — recommend applying `useStatusLabels('paymentMethod')` client-side here too, since currently this chart shows raw enum strings like "bank_transfer" instead of "تحويل بنكي" — again, an existing bug independent of i18n scope, flag for planner decision).
+period getPeriodKey() (API side) returns keys like "2025-Q1" / "2025-01" / "2025" — these are OPAQUE SORT KEYS, not display labels (the display comes from `name: r.period` — i.e. THE RAW KEY IS SHOWN AS THE CHART X-AXIS LABEL, e.g. "2025-Q1" literally, not a human month/quarter name) — NOT an Arabic hazard (no AR text at all in this axis), but worth flagging as a pre-existing UX rough edge unrelated to i18n.
+
+================================================================
+22. app/dashboard/reports/storage/page.tsx (173 lines)
+================================================================
+- L43: aria-label="العودة إلى التقارير"  (ui) — dup, see §19. (storage page uses useQuery, not manual fetch+toast, so NO 'فشل في تحميل التقرير' toast here — the only one of the 5 general report pages without it)
+- L49: <h1>... تقرير التخزين</h1>  (ui)
+- L72: 'إجمالي الملفات'  (ui)
+- L80: 'إجمالي المجلدات'  (ui)
+- L88: 'الحجم الإجمالي'  (ui)
+- L102: CardTitle 'التخزين حسب نوع الملف'  (ui)
+- L116: ReportChart title 'التخزين حسب نوع الملف'  (ui) — dup of L102
+- L125: CardTitle 'أكبر الملفات'  (ui)
+- L132: <th>اسم الملف</th>  (ui)
+- L133: <th>الحجم</th>  (ui)
+- L134: <th>النوع</th>  (ui)
+- L135: <th>المشروع</th>  (ui)
+- L152: empty-table-row fallback 'لا توجد ملفات'  (ui) — 7th "no data" wording variant, this one specific to "no files".
+formatCurrency: 0. formatFileSize call-site count: 3 (L91, L111 inside chart-data map, L159 table cell) — formatFileSize is ANOTHER format helper not in the task brief's named list (formatCurrency/formatDate) but is the SAME migration concern (verify locale-awareness, e.g. does "1.2 MB" need to become "١٫٢ ميجابايت" or stay Latin-digit — per CLAUDE.md's "Currency/number formatting is locale-stable (en-AE) by design" rule, likely formatFileSize should ALSO stay Latin-digit/ASCII-unit and NOT be localized — flag as a decision point, not an automatic migration).
+by_mime_type `name` field is a raw MIME type string (e.g. "application/pdf") — DATA (c), not translatable, rendered as-is in both the pie chart and no other table (table shows mime_type raw too at L160 — file.mime_type). No action.
+project_name fallback '—' (API-side, app/api/reports/storage/route.ts L97: `f.file_path?.split('/')[0] || '—'`) — DATA fallback glyph, i18n-exempt.
+
+================================================================
+23. app/dashboard/reports/team/page.tsx (190 lines)
+================================================================
+- L32-37: ROLE_MAP module-level object: {admin:'مدير', member:'عضو', viewer:'مشاهد', editor:'محرر', super_admin:'مدير أعلى'}  (statuses) — THIS IS A ROLE LABEL MAP, distinct from any entity currently in messages/ar/statuses.json (no `role` entity exists there — the codebase's real RBAC roles are admin/employee/sales_agent per CLAUDE.md, but THIS map uses a DIFFERENT, seemingly-legacy vocabulary: member/viewer/editor/super_admin — these do NOT match `pyra_users.role` values used elsewhere in the app (admin/employee/sales_agent)). FLAG AS HAZARD-CANDIDATE: this ROLE_MAP may be dead/stale code referencing a role taxonomy that no longer matches the live schema — Phase-4 planner should verify whether `pyra_users.role` can ever actually BE 'member'/'viewer'/'editor'/'super_admin' in production, or whether this map is vestigial from an earlier RBAC design. If vestigial, recommend flagging for cleanup rather than faithfully migrating a possibly-dead label map.
+  - L171: usage site: {ROLE_MAP[member.role] || member.role} — falls back to raw role string if unmapped (so 'sales_agent'/'employee' currently render UNTRANSLATED raw enum values in this table today — pre-existing bug, worth fixing alongside migration since the fallback path is very likely the ACTUALLY-HIT path in production for real Pyramedia roles).
+- L55: toast.error('فشل في تحميل التقرير')  (ui) — dup, see §19.
+- L69: aria-label="العودة إلى التقارير"  (ui) — dup, see §19.
+- L76: <h1>... تقرير الفريق</h1>  (ui)
+- L97: 'إجمالي الأعضاء'  (ui)
+- L108: CardTitle 'النشاط حسب العضو'  (ui)
+- L119: ReportChart title 'النشاط حسب العضو'  (ui) — dup of L108
+- L129: CardTitle 'ملخص نشاط الفريق'  (ui)
+- L136: <th>اسم المستخدم</th>  (ui)
+- L137: <th>الاسم</th>  (ui)
+- L138: <th>الدور</th>  (ui)
+- L139: <th>الإجراءات</th>  (ui)
+- L140: <th>الملفات المرفوعة</th>  (ui)
+- L141: <th>آخر نشاط</th>  (ui)
+- L158: empty-table-row fallback 'لا توجد بيانات نشاط في هذه الفترة'  (ui) — 8th "no data" wording variant, specific to "no activity data in this period".
+- L177: fallback '—' for null last_active — DATA glyph, i18n-exempt.
+formatDate call-site count: 1 (L177, conditional).
+formatCurrency: 0.
+
+================================================================
+24. app/api/reports/route.ts (223 lines) — overview aggregator for reports-client.tsx
+================================================================
+No Arabic strings anywhere (pure numeric aggregation, all field names are English enum-like keys). No (a) API messages, no notifications. Uses `new Date(now.getFullYear(), now.getMonth(), 1).toISOString()` (L21) for month-start — SERVER-LOCAL (not Dubai-day) month boundary, same UTC/Dubai smell class flagged in Phase-3's kpis/route.ts periodWindow() — worth flagging alongside that pre-existing pattern but not introducing anything new.
+
+================================================================
+25. app/api/reports/clients/route.ts (135 lines)
+================================================================
+- L108: companyMap fallback: (c as {company:string}).company || 'غير محدد'  (ui-server) — "unspecified/unknown" fallback for null company field, returned in the `client_distribution` payload's `name` field. Matches the SAME 'غير محدد' fallback family used in aging/route.ts L101 (§17) — recommend ONE shared server-side fallback constant/translation key for "unspecified" across all report routes.
+No other Arabic. No (a) messages, no notifications.
+
+================================================================
+26. app/api/reports/projects/route.ts (123 lines)
+================================================================
+No Arabic strings — pure numeric/DB-passthrough (status enum values returned raw, see §20 cross-reference). No (a) messages, no notifications.
+
+================================================================
+27. app/api/reports/revenue/route.ts (181 lines)
+================================================================
+No Arabic strings — pure numeric/DB-passthrough (method enum values returned raw, see §21 cross-reference). No (a) messages, no notifications.
+
+================================================================
+28. app/api/reports/storage/route.ts (106 lines)
+================================================================
+- L97: project_name fallback: f.file_path?.split('/')[0] || '—'  (ui-server) — em-dash fallback glyph, i18n-exempt (universal placeholder character, not translatable text).
+No other Arabic. No (a) messages, no notifications.
+
+================================================================
+29. app/api/reports/team/route.ts (135 lines)
+================================================================
+No Arabic strings — pure numeric/DB-passthrough (role enum values returned raw — this is the SOURCE of the raw role strings that ROLE_MAP in §23 attempts to translate client-side). No (a) messages, no notifications.
+
+================================================================
+30. app/api/reports/export/route.ts (391 lines) — THE CSV EXPORT HAZARD FILE
+================================================================
+This file is 100% Arabic-language CSV generation — every exported report type (projects/clients/revenue/team/storage/expenses/invoices/finance) hardcodes Arabic column headers and, in some cases, Arabic cell VALUES:
+- L107: projects headers: ['المعرف','اسم المشروع','شركة العميل','الحالة','تاريخ الإنشاء','آخر تحديث','الموعد النهائي']  (ui-server, export)
+- L133: clients headers: ['المعرف','الاسم','البريد','الهاتف','الشركة','نشط','تاريخ الإنشاء']  (ui-server, export)
+- L142: cell value: c.is_active ? 'نعم' : 'لا'  (ui-server, export) — Arabic Yes/No LITERAL VALUE baked into exported CSV data, not just a header — this is DATA THAT CHANGES BYTES per locale, the core CSV-export hazard.
+- L178: payment headers: ['معرف الدفعة','معرف الفاتورة','المبلغ','تاريخ الدفع','طريقة الدفع','المرجع']  (ui-server, export)
+- L191: invoice headers: ['رقم الفاتورة','العميل','الإجمالي','المدفوع','المتبقي','الحالة','تاريخ الإنشاء']  (ui-server, export)
+- L208: section divider literals: \`--- الفواتير ---\` / \`--- المدفوعات ---\`  (ui-server, export) — Arabic section-header rows embedded directly in CSV body text (not a column header, a whole divider ROW)
+- L253: team headers: ['اسم المستخدم','الاسم','الدور','عدد الإجراءات','الملفات المرفوعة','آخر نشاط']  (ui-server, export)
+- L282: storage headers: ['اسم الملف','المسار','الحجم (بايت)','النوع','تاريخ الفهرسة']  (ui-server, export) — parenthetical unit '(بايت)' baked into header text.
+- L325: expenses headers: ['الوصف','المبلغ','العملة','الضريبة','التاريخ','المورد','طريقة الدفع','التصنيف','ملاحظات']  (ui-server, export)
+- L359: invoices headers: ['رقم الفاتورة','العميل','الحالة','الإجمالي','المدفوع','المتبقي','العملة','تاريخ الإصدار','تاريخ الاستحقاق']  (ui-server, export)
+- L389: finance combined section dividers: \`--- المصاريف (${from} — ${to}) ---\` / \`--- الفواتير (${from} — ${to}) ---\`  (ui-server, export, [ICU]-adjacent interpolation of from/to dates into a section title)
+- L63: fileName template uses BOM + `.csv` — filename ITSELF is ASCII (`report-${type}-${date}.csv`, type is an English enum) — SAFE, no AR bytes in filename (confirms §9's ExportButton note).
+- L30: apiError('type is required (projects, clients, revenue, team, storage, expenses, invoices, finance)', 400)  (a) — this IS an API response error message and is currently in ENGLISH already (not Arabic) — inconsistent with the rest of the codebase's Arabic-first API error convention, but not a migration blocker (arguably already "migrated" by accident, though it should route through `getTranslations('api')` for consistency rather than being a hardcoded English literal).
+formatCurrency/formatDate: 0 (raw numeric values and `.toLocaleDateString('en-CA')` are written directly into CSV cells — see next point).
+- L115,116,143,200,264,290: `.toLocaleDateString('en-CA')` — HARDCODED LOCALE 'en-CA' (produces YYYY-MM-DD format) used 6 TIMES across export functions for date-formatting CSV cell values. This is INTENTIONAL for CSV machine-readability (en-CA gives ISO-like sortable dates) — recommend Phase-4 explicitly LOCK this as "CSV export dates always en-CA regardless of UI locale" (parallel to the CLAUDE.md rule that currency/number formatting stays locale-stable) rather than accidentally localizing it later.
+
+================================================================
+HAZARDS (exported artifact / server-computed label byte-changes for AR users)
+================================================================
+H1. **CSV export headers + Yes/No cell values are 100% hardcoded Arabic** (app/api/reports/export/route.ts, §30). Every exported CSV (projects, clients, revenue, team, storage, expenses, invoices, finance) has Arabic column headers baked directly into `toCSV()` calls, and clients export additionally bakes Arabic literal VALUES ('نعم'/'لا') into data cells. If Phase-4 makes the dashboard UI bilingual but leaves this route untouched, an English-locale admin downloading "تصدير CSV" gets an all-Arabic file — a stronger form of the CLAUDE.md rule "Recipient-language rendering... pass an explicit locale" (this note in CLAUDE.md is about notifications/emails, but the SAME principle applies to exported files a user actively requests in their own UI language). DECISION NEEDED: (a) thread the current UI locale into `/api/reports/export?...&locale=en`, producing fully-English CSVs for EN users, OR (b) keep CSV exports Arabic-only forever (defensible since these are often shared with UAE accountants/regulators who expect Arabic) and mark this route `i18n-exempt` explicitly in code comments. Recommend (a) for headers (cheap — swap a header array) but flag that (a) also requires resolving H2 below (the 'نعم'/'لا' hardcoded cell value) and H3 (raw untranslated enum values already leaking into the CSV, e.g. `p.status` in invoices export is a raw DB enum like "sent"/"overdue" that's ALREADY effectively English abbreviation-ish — inconsistent bilinguality even before Phase-4 touches anything).
+
+H2. **`.toLocaleDateString('en-CA')` × 6 in the export route is a GOOD hardcode that must survive the i18n pass unchanged** — these calls exist for CSV machine-readability (ISO-sortable dates), NOT for display polish. A naive "make all toLocale* calls locale-aware" sweep would WRONGLY localize these into Arabic-formatted dates inside a CSV, breaking spreadsheet re-import / sorting for the finance team. Explicit exemption needed, ideally as an inline comment at each of the 6 call sites (or refactor into one shared `csvDate()` helper with a comment once, replacing all 6).
+
+H3. **Server-computed month/quarter labels baked into finance report API payloads** (pnl/cashflow/vat routes, §12-14) mean the chart x-axis labels, table row labels, and CSV-adjacent report body text are ALL pre-rendered in Arabic before reaching the client. Unlike the CRM dashboard's `label_ar`/`message_ar` fields (Phase-3, which had a natural client-side alternative via `useStatusLabels`), there is NO existing client-side month-name catalog being bypassed here — `MONTH_NAMES_AR` genuinely has no English counterpart yet in `lib/constants/dates.ts`. Fixing this requires EITHER adding `MONTH_NAMES_EN` + threading a locale param through 3 API routes (pnl/cashflow/vat) + the ad-hoc `arabicQ` quarter array in pnl/route.ts (§12), OR moving month/quarter-label formatting entirely client-side using `start`/`end` ISO dates + `Intl.DateTimeFormat(locale, {month:'long', year:'numeric'})`. The aging/route.ts `label`/`labelEn` pattern (§17) is the ONLY existing precedent for bilingual server labels in this whole surface and should inform whichever approach is chosen.
+
+================================================================
+SUMMARY
+================================================================
+
+Total files scanned: 24
+  - app/dashboard/finance/reports/page.tsx
+  - app/dashboard/reports/page.tsx
+  - app/dashboard/reports/reports-client.tsx
+  - app/dashboard/reports/clients/page.tsx
+  - app/dashboard/reports/projects/page.tsx
+  - app/dashboard/reports/revenue/page.tsx
+  - app/dashboard/reports/storage/page.tsx
+  - app/dashboard/reports/team/page.tsx
+  - components/dashboard/finance-reports/PnlTab.tsx
+  - components/dashboard/finance-reports/CashflowTab.tsx
+  - components/dashboard/finance-reports/VatTab.tsx
+  - components/dashboard/finance-reports/ClientProfitabilityTab.tsx
+  - components/dashboard/finance-reports/ProjectProfitabilityTab.tsx
+  - components/dashboard/finance-reports/SummaryCard.tsx (no AR — presentational only)
+  - components/dashboard/finance-reports/DateRangeFilter.tsx
+  - components/reports/ExportButton.tsx
+  - components/reports/ReportChart.tsx
+  - components/reports/ReportDateFilter.tsx
+  - app/api/finance/reports/pnl/route.ts
+  - app/api/finance/reports/cashflow/route.ts
+  - app/api/finance/reports/vat/route.ts
+  - app/api/finance/reports/client-profitability/route.ts
+  - app/api/finance/reports/project-profitability/route.ts
+  - app/api/finance/reports/aging/route.ts (orphaned from UI — no consuming tab found)
+Additionally scanned (feed the general reports pages, discovered as a dependency of in-scope app/dashboard/reports/**; no app/api/dashboard/reports/** directory exists in this codebase):
+  - app/api/reports/route.ts
+  - app/api/reports/clients/route.ts
+  - app/api/reports/projects/route.ts
+  - app/api/reports/revenue/route.ts
+  - app/api/reports/storage/route.ts
+  - app/api/reports/team/route.ts
+  - app/api/reports/export/route.ts
+
+Total AR lines by class (approximate count of distinct AR-bearing lines/strings censused above, counting each numbered bullet once):
+  - (ui) user-visible strings: ~140
+  - (a) API response messages: 0 true Arabic (the one apiError found, §30 L30, is actually English — flagged as an inconsistency, not counted as Arabic)
+  - (data) DB/compared values: ~6 (fallback glyphs '—'/'غير محدد', category name_ar passthrough, raw status/method/role enums treated as data)
+  - (statuses) label-map imports/candidates: 3 concrete (METHOD_LABELS in CashflowTab → paymentMethod entity; ROLE_MAP in team/page.tsx → possibly-dead role vocabulary, no existing entity match; MONTH_NAMES_AR × 3 route usages → no existing entity, needs new EN counterpart)
+  - (comment): 0 (no AR-in-comments found in this scope, unlike Phase-3's useCRMDashboard.ts)
+  Grand total distinct AR-bearing source lines across all 24 scanned files: approximately 150.
+
+Proposed catalog key shape: `finance.reports.*`
+  Suggested sub-namespacing based on findings:
+  - `finance.reports.pnl.*` (PnlTab-specific: groupBy options, chart legend/tooltip, table headers, summary card titles)
+  - `finance.reports.cashflow.*` (CashflowTab-specific: summary cards, chart legend/tooltip, method breakdown section, forecast card)
+  - `finance.reports.vat.*` (VatTab-specific: summary cards, monthly table)
+  - `finance.reports.clientProfitability.*` / `finance.reports.projectProfitability.*`
+  - `finance.reports.columns.*` for the widely-shared table headers (revenue/expenses/profit/margin — reused across 4+ tabs)
+  - `finance.reports.presets.*` or promote to `common.datePresets.*` (ReportDateFilter's 5 presets, reused by all 5 general report pages — NOT finance-specific despite living in a "reports" tree; recommend `common.` since it's genuinely cross-module)
+  - `common.noDataToDisplay` for the 6-way-duplicated EmptyState "لا توجد بيانات لعرضها" string (PnlTab, CashflowTab, ReportChart all verbatim; VatTab/ClientProfitabilityTab/ProjectProfitabilityTab have their own more-specific variants — keep those distinct)
+  - `common.reportLoadFailed` for the 4-way-duplicated toast.error('فشل في تحميل التقرير') (clients/projects/revenue/team general report pages)
+  - `common.backToReports` (aria-label) for the 5-way-duplicated "العودة إلى التقارير" (all 5 general report pages)
+  - `common.total` for the repeated tfoot 'الإجمالي' label (PnlTab, VatTab)
+  - `common.overdue` for the 2-way-duplicated 'متأخرة' (projects/page.tsx KPI card, revenue/page.tsx KPI card — verbatim match, different domains)
+  - General reports pages get their own namespace, likely `reports.*` (distinct from `finance.reports.*` since app/dashboard/reports is arguably a separate module — see explicit answer below) — e.g. `reports.overview.*`, `reports.clients.*`, `reports.projects.*`, `reports.revenue.*`, `reports.storage.*`, `reports.team.*`.
+  - Export route: `reports.export.*` or kept as `i18n-exempt` server-only Arabic CSV content per the H1 decision.
+
+Files >300 lines: NONE. Largest is app/api/reports/export/route.ts at 391 lines (an API route, not a page/component — CLAUDE.md's <300-line rule targets pages/client components, which are all well under; largest client file is app/dashboard/reports/projects/page.tsx at 200 lines).
+
+EXPLICIT ANSWER — does app/dashboard/reports belong to finance or is it a separate module?
+RECOMMEND: DEFER (treat as a separate module, migrate in its own pass, NOT bundled into `finance.reports.*`).
+Rationale:
+  1. Permission gate differs: app/dashboard/finance/reports/page.tsx sits under the Finance module (implicitly gated by finance.view via its API routes), while app/dashboard/reports/page.tsx explicitly gates on requirePermission('reports.view') — a DIFFERENT permission (`reports.view`, not `finance.view`) covering projects/clients/storage/revenue/team, i.e. an org-wide operational-reporting module, not a finance-specific one.
+  2. Sidebar/IA separation: per CLAUDE.md's architecture map, `/dashboard/finance/reports` is a Finance sub-page while `/dashboard/reports` is its own top-level "التقارير" section (confirmed by reports-client.tsx's own <h1>التقارير</h1> + distinct card grid linking to /dashboard/reports/{projects,clients,storage,revenue,team}) — these are TWO DIFFERENT IA nodes in the sidebar, not nested.
+  3. Overlapping vocabulary (revenue/clients/team language) is coincidental domain overlap, not architectural coupling — the catalog can still SHARE common keys (`common.noDataToDisplay`, `common.reportLoadFailed`, `common.backToReports`, `common.overdue`) without merging the two modules' dedicated namespaces.
+  4. Practical migration sequencing: bundling both in one pass roughly DOUBLES this phase's file count (24 files total, 8 of which are the general-reports surface: page.tsx/reports-client.tsx + 5 sub-pages) — cleaner to close out finance.reports.* first (13 files: finance page + 5 finance-report-tab components + shared SummaryCard/DateRangeFilter + 5 finance API routes, +2 shared components/reports/* used by BOTH) then do a follow-up pass for reports.* (8 files: general reports page/client + 5 sub-pages + 6 API routes, the export route is genuinely SHARED infrastructure used by both).
+  If the planner prefers a SINGLE combined phase for efficiency (since components/reports/ExportButton.tsx, ReportChart.tsx, ReportDateFilter.tsx are ALREADY shared infrastructure consumed by both surfaces), that is a defensible INCLUDE decision too — flagging both options with a recommendation for DEFER/separate-pass as the primary recommendation given the permission-gate and IA evidence above.

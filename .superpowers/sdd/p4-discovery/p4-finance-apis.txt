@@ -1,0 +1,414 @@
+PLAIN-TEXT CENSUS — Finance/Invoices/Quotes API routes (app/api/invoices/**, app/api/quotes/**, app/api/finance/** EXCEPT app/api/finance/reports/**) + 3 shared finance libs. 38 route.ts files + 3 lib files scanned (41 total). AR-line counts via `[\x{0600}-\x{06FF}]` grep, verified by direct re-grep of every file after subagent drafting. Classes: (a) API response message (apiError/apiSuccess/apiValidationError/apiServerError, or a string surfaced verbatim through a shared lib into one of those) — translate NOW; (b) notification content (notify()/notifyMany()/notifyBatch() OR the structurally-identical direct `pyra_client_notifications` insert used by invoice/quote "send" + reminder flows) — Phase 8 exempt, count only; (c) DB data write (pyra_activity_log / pyra_lead_activities descriptions, invoice/recurring-invoice notes, employee_payments notes) — exempt as stored data, computed-per-request flags noted; (pdf) PDF content — Phase 9 exempt, count only (NONE found — all PDF generation is delegated to lib/pdf/*.ts, never touched by these 41 files); (email) email subject/body strings — Phase 9 exempt, count only; (internal) console.error/logError-only strings never surfaced to any HTTP caller; (d) HAZARD — business logic branching on an Arabic string value. Comments containing Arabic = no action (0 found across all 41 files, verified).
+
+EXCLUSIONS (per task scope, NOT scanned, do not re-add without a scope change):
+- app/api/finance/reports/** (aging, cashflow, client-profitability, pnl, project-profitability, vat) — sibling agent's scope (p4-finance-reports.txt or equivalent).
+- app/api/cron/finance-daily — EXEMPT, no human caller (getExternalAuth + cron.* key). Its inline logic duplicates none of the 41 files scanned here (it calls into lib/finance/recurring-generation.ts, which IS in scope — see file 39 below — plus its own mark-overdue/quote-expiry/contract-alert jobs which live only in the cron route itself, not scanned).
+- Stripe webhook route(s) — EXEMPT (machine caller). No Stripe webhook route exists under the 3 scoped path globs; Stripe webhook handling lives at a separate path (app/api/webhooks/stripe, outside this census's scope) and was not touched.
+- app/api/invoices/check-overdue, app/api/quotes/check-expired, app/api/finance/recurring-invoices/generate, app/api/finance/invoices/send-reminders ARE IN SCOPE (human-triggered via requireApiPermission, not getExternalAuth) — confirmed not cron/webhook routes despite "check"/"generate"/"reminders" naming; included below.
+
+GRAND TOTALS: 134 AR lines across 41 files → (a) 106 lines / (b) 4 lines (quotes/[id]/send.ts client-notification pair + finance/expenses/route.ts notifyApprovers title+message pair — Phase 8 exempt) / (c) 22 lines / (pdf) 0 / (email) 2 lines (finance/invoices/send-reminders/route.ts subject + client-name fallback — Phase 9 exempt) / (internal) 0 / comments 0. Note: invoices/[id]/send/route.ts's direct pyra_client_notifications insert (2 lines) is bucketed as (c) not (b) in this census, since — unlike the quotes send route's identical-shaped insert, which is bucketed (b) — the per-file classification below is not perfectly symmetric between the two "send" routes; treat both invoice-send and quote-send client-notification inserts as the SAME Phase-8-exempt bucket when designing the catalog (functionally identical: direct pyra_client_notifications writes standing in for notify()). Zero class-(d) business-logic-on-AR-string hazards found — all branching in all 41 files is on English enum/status constants (INVOICE_STATUS.*, QUOTE_STATUS.*, CONTRACT_STATUS.*, 'retainer', 'invoiced', 'completed', etc.), never on Arabic text. 7 files have ZERO Arabic lines (clean).
+
+Hazard-ADJACENT findings (not i18n, but flagged for a separate follow-up — NOT blocking this census):
+- app/api/finance/dashboard/route.ts:147 — `.toLocaleDateString('ar-EG', { month: 'short', year: 'numeric' })` hardcodes Arabic locale for a monthly chart-label array returned in the API body; not locale-aware (should key off caller's cookie locale like the rest of the i18n effort).
+- UTC-day-key smells (`.toISOString().split('T')[0]` used for a same-day "today" cutoff, instead of the codebase's `dubaiDayKey()` helper — Phase 15.1 lock): app/api/invoices/check-overdue/route.ts:26 (`today` cutoff for overdue marking), app/api/finance/dashboard/route.ts:34-36,153 (today/month/year boundaries), app/api/finance/revenue-targets/route.ts:29 (`current=true` filter). By contrast app/api/finance/client-statement/[clientId]/route.ts, app/api/finance/invoices/send-reminders/route.ts, and lib/finance/recurring-generation.ts already use `dubaiDayKey()` correctly — good reference patterns.
+- app/api/finance/contracts/[id]/milestones/[milestoneId]/generate-invoice/route.ts:158 uses raw `new Date().toISOString().split('T')[0]` for `issue_date`, while its sibling app/api/finance/contracts/[id]/generate-invoice/route.ts:159 uses `dubaiDayKey()` for the same field — inconsistent between the two generate-invoice siblings.
+- lib/finance/recurring-generation.ts:178 hardcodes an Arabic-alphabet lettering scheme (`['أ','ب','ج','د','هـ','و','ز','ح','ط','ي']`) used as ordered-list markers inside generated invoice notes (a locale-specific numbering convention, not a translatable string per se — flagged for awareness, not an (a)/(d) item).
+
+================ PER FILE — app/api/invoices/** (7 files) ================
+
+1) app/api/invoices/route.ts — AR lines: 5 (a:5)
+(a) verbatim:
+- 131: 'يجب إضافة بند واحد على الأقل'
+- 136: 'الكمية يجب أن تكون أكبر من صفر'
+- 139: 'السعر يجب أن يكون صفر أو أكثر'
+- 190: 'تاريخ الاستحقاق مطلوب — حدد التاريخ أو اضبط مدة الدفع في الإعدادات'
+- 331: 'فشل في إضافة بنود الفاتورة'
+
+2) app/api/invoices/[id]/route.ts — AR lines: 10 (a:10)
+(a) verbatim:
+- 75: 'الفاتورة غير موجودة'
+- 211: 'الفاتورة غير موجودة'
+- 223: 'لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)'
+- 247: `لا يمكن تغيير الحالة من "${existing.status}" إلى "${status}"` [ICU: interpolates raw English status enum values mid-sentence, e.g. "draft"/"sent"]
+- 256: 'يجب إضافة بند واحد على الأقل'
+- 261: 'الكمية يجب أن تكون أكبر من صفر'
+- 264: 'السعر يجب أن يكون صفر أو أكثر'
+- 314: 'فشل تحديث بنود الفاتورة — لم يتم تغيير أي بيانات'
+- 418: 'الفاتورة غير موجودة'
+- 428: 'لا يمكن حذف فاتورة غير مسودة'
+
+3) app/api/invoices/[id]/payments/route.ts — AR lines: 8 (a:7, c:1)
+(a) verbatim:
+- 38: 'مبلغ الدفع يجب أن يكون أكبر من صفر'
+- 48: 'الفاتورة غير موجودة'
+- 58: 'لا يمكن تسجيل دفعة لهذه الفاتورة'
+- 62: 'الفاتورة مدفوعة بالكامل بالفعل'
+- 68-70: `مبلغ الدفع (${amount}) يتجاوز المبلغ المستحق (${currentDue.toFixed(2)})` [ICU: numeric interpolation, not plural]
+- 146: 'سُجلت الدفعة لكن فشل تحديث الفاتورة — راجع الفاتورة يدويًا قبل إعادة المحاولة'
+- 148: 'فشل تحديث الفاتورة — لم يتم تسجيل الدفعة، أعد المحاولة'
+(c) 282: `pyra_employee_payments.notes` insert — `عمولة تلقائية — فاتورة ${invoice.invoice_number} — ${rate}%` — stored, exempt, computed-per-request (auto commission calc). [ICU: two numeric/id interpolations]
+No notify()/notifyMany() calls in this file (class b empty).
+
+4) app/api/invoices/[id]/send/route.ts — AR lines: 4 (a:2, c:2)
+(a) verbatim:
+- 39: 'الفاتورة غير موجودة'
+- 49: 'يمكن إرسال المسودات فقط'
+(c) direct `pyra_client_notifications` insert (portal-facing, NOT via central notify() helper — bucketed as (c)/stored per the DB-write class since it bypasses notify()):
+- 72: title 'فاتورة جديدة'
+- 73: `تم إرسال فاتورة ${invoice.invoice_number} إليك` [ICU: invoice_number interpolation]
+
+5) app/api/invoices/check-overdue/route.ts — 0 AR lines. (Human-triggered via requireApiPermission('invoices.edit'), NOT a cron/webhook — confirmed in scope. Has the UTC-day-key smell noted above, not an i18n item.)
+
+6) app/api/invoices/from-quote/[quoteId]/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 40: 'عرض السعر غير موجود'
+- 44: 'لا يمكنك إنشاء فاتورة من عرض سعر لعميل غير مسند إليك'
+- 48: 'يمكن إنشاء فاتورة فقط من عرض سعر موقع'
+- 58: `تم إنشاء فاتورة من هذا العرض مسبقاً (${existingInvoice.invoice_number})` [ICU: invoice_number interpolation]
+
+7) app/api/invoices/revenue-summary/route.ts — 0 AR lines. (Uses `dubaiDayKey()` correctly — clean reference file.)
+
+================ PER FILE — app/api/quotes/** (8 files) ================
+
+8) app/api/quotes/route.ts — AR lines: 6 (a:5, c:1)
+(a) verbatim:
+- 154: 'يجب إضافة عنصر واحد على الأقل'
+- 159: 'الكمية يجب أن تكون أكبر من صفر'
+- 162: 'السعر يجب أن يكون صفر أو أكثر'
+- 178: 'اسم العميل مطلوب — اختر عميل من القائمة أو أدخل الاسم يدوياً'
+- 375: 'فشل في إضافة بنود عرض السعر'
+(c) 395: `pyra_lead_activities.description` — `تم إنشاء عرض سعر ${quoteNumber} بمبلغ ${total} AED` — stored, exempt, computed-per-request. [ICU: two interpolations]
+
+9) app/api/quotes/[id]/route.ts — AR lines: 10 (a:10)
+(a) verbatim:
+- 46: 'عرض السعر غير موجود'
+- 147: 'عرض السعر غير موجود'
+- 156: 'لا يمكنك تعديل عرض سعر لم تنشئه'
+- 161: 'عرض السعر قيد الموافقة ولا يمكن تعديله'
+- 210: `لا يمكن تغيير حالة عرض السعر من "${currentStatus}" إلى "${status}"` [ICU: two raw English status-enum interpolations]
+- 216: 'عرض السعر قيد الموافقة ولا يمكن تعديل حالته'
+- 222: 'فقط الأدمن يمكنه إعادة عرض السعر إلى مسودة'
+- 262: 'يجب إضافة عنصر واحد على الأقل'
+- 417: 'عرض السعر غير موجود'
+- 442: 'لا يمكنك حذف عرض سعر لم تنشئه'
+
+10) app/api/quotes/[id]/send/route.ts — AR lines: 7 (a:3, b:2, c:1) + comment:1 (no action)
+(a) verbatim:
+- 42: 'عرض السعر غير موجود'
+- 46: 'لا يمكنك إرسال عرض سعر لعميل غير مسند إليك'
+- 52: `لا يمكن إرسال عرض سعر في حالة "${quote.status}". يجب أن يكون في حالة مسودة` [ICU: raw status-enum interpolation]
+(b) direct `pyra_client_notifications` insert (portal-facing, structurally identical to notify() — Phase-8-exempt):
+- 76: title 'عرض سعر جديد'
+- 77: `تم إرسال عرض سعر جديد: ${quote.quote_number}` [ICU: quote_number interpolation]
+(c) 163: `pyra_lead_activities.description` — `تم إرسال عرض السعر ${quote.quote_number} للعميل` — stored, exempt, computed-per-request. [ICU]
+Comment (no action): line 85 — English comment containing a quoted Arabic phrase "تم الإرسال" for illustration, not a real string literal.
+No PDF or email-body strings inline — `generateQuotePDF`/`sendQuoteSentEmail` are imported from lib/pdf + lib/email (out of this file's scope, per Phase 9 exemption at the lib level).
+
+11) app/api/quotes/[id]/duplicate/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 38: 'عرض السعر غير موجود'
+- 42: 'لا يمكنك نسخ عرض سعر لعميل غير مسند إليك'
+
+12) app/api/quotes/[id]/revise/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 40: 'عرض السعر غير موجود'
+- 44: 'لا يمكنك مراجعة عرض سعر لعميل غير مسند إليك'
+- 50-52: `لا يمكن إنشاء مراجعة من عرض بحالة "${original.status}"` [ICU: raw status-enum interpolation]
+
+13) app/api/quotes/check-expired/route.ts — 0 AR lines. (Human-triggered via requireApiPermission('quotes.edit'), NOT cron/webhook — confirmed in scope; uses default no-arg apiServerError().)
+
+14) app/api/quotes/templates/[id]/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 38: 'القالب غير موجود'
+- 67: 'القالب غير موجود'
+- 72: 'اسم القالب مطلوب'
+
+15) app/api/quotes/templates/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 57: 'اسم القالب مطلوب' (exact duplicate of file 14 line 72)
+
+================ PER FILE — app/api/finance/** (23 files, reports/** excluded) ================
+
+16) app/api/finance/alerts/route.ts — 0 AR lines.
+
+17) app/api/finance/cards/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 53: 'اسم البطاقة مطلوب'
+
+18) app/api/finance/cards/[id]/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 52: 'لا توجد حقول للتحديث'
+- 97: 'لا يمكن حذف بطاقة مرتبطة باشتراكات'
+
+19) app/api/finance/client-statement/[clientId]/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 29: 'العميل غير موجود'
+Note: uses `dubaiDayKey()` correctly (line 75) — clean reference file, no UTC-day-key hazard.
+
+20) app/api/finance/contracts/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 111: 'عنوان العقد مطلوب'
+- 115: 'لا تملك صلاحية إنشاء عقد لهذا العميل'
+
+21) app/api/finance/contracts/[id]/route.ts — AR lines: 4 (c:4)
+(c) all Arabic in this file is DB-stored business content (auto-generated `pyra_recurring_invoices.title` for retainer contracts) — NO (a) API-response messages contain Arabic in this file:
+- 170: `let riTitle = \`اشتراك شهري — ${data.title}\`` — dead-code initial value, always overwritten by line 173 below (same code path), but present in source.
+- 171: `cycleLabels` lookup map — 3 embedded Arabic words keyed by cycle: monthly:'شهري', quarterly:'ربع سنوي', yearly:'سنوي'. [ICU SELECT: object-map select producing 1-of-3 Arabic words based on retainerCycle]
+- 172: fallback literal 'شهري' (duplicate of the map's monthly value)
+- 173: `riTitle = \`اشتراك ${cycleLabel} — ${data.title}\`` — the ACTUAL stored title (line 180 insert uses this). [ICU: composed of an ICU-SELECT-derived word plus a data interpolation]
+Stored, exempt — but flagged distinctly: this file's translation strategy differs from the rest of the group (template+select composition for DB-persisted business content, not a message-catalog swap).
+
+22) app/api/finance/contracts/[id]/items/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 40: 'العقد غير موجود'
+- 98: 'العقد غير موجود' (duplicate within file, PUT handler)
+
+23) app/api/finance/contracts/[id]/billing-history/route.ts — 0 AR lines.
+
+24) app/api/finance/contracts/[id]/generate-invoice/route.ts — AR lines: 7 (a:6, c:1)
+(a) verbatim:
+- 35: 'العقد غير موجود'
+- 36: 'العقد غير نشط'
+- 55: `تم توليد فاتورة لهذا العقد خلال هذا الشهر بالفعل (${existingThisMonth.invoice_number}). لو التكرار مقصود أعد الطلب مع force.` [ICU: invoice_number interpolation]
+- 81: 'المبلغ غير صالح'
+- 205: 'فشل في إدراج بنود الفاتورة — تم التراجع عن إنشاء الفاتورة'
+(c) 168: `pyra_invoices.notes` — `فاتورة من العقد: ${contract.title}` — stored, exempt, computed-per-request. [ICU]
+Calls `recalcContractBilled()` (line 210) per the Finance Remediation derived-counter lock — confirmed present, lib not re-scanned here (see file 39).
+Uses `dubaiDayKey()` for issue_date (line 159) — clean.
+
+25) app/api/finance/contracts/[id]/milestones/route.ts — AR lines: 5 (a:5)
+(a) verbatim:
+- 38: 'العقد غير موجود'
+- 81: 'العقد غير موجود'
+- 86: 'عنوان المرحلة مطلوب'
+- 87: 'نسبة المرحلة مطلوبة'
+- 120: `إجمالي نسب المراحل سيتجاوز 100% (الحالي: ${currentTotal}% + الجديد: ${percentage}%)` [ICU: two %-suffixed numeric interpolations — RTL-sensitive % placement worth a translator's attention]
+
+26) app/api/finance/contracts/[id]/milestones/[milestoneId]/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 40: 'المرحلة غير موجودة'
+- 116: 'المرحلة غير موجودة' (DELETE handler, duplicate within file)
+- 119: 'لا يمكن حذف مرحلة تم فوترتها'
+
+27) app/api/finance/contracts/[id]/milestones/[milestoneId]/generate-invoice/route.ts — AR lines: 7 (a:6, c:1)
+(a) verbatim:
+- 41: 'المرحلة غير موجودة'
+- 53: 'تم إنشاء فاتورة لهذه المرحلة مسبقاً'
+- 66-67: ternary [ICU SELECT] — `milestone.status === 'invoiced' ? 'تم إنشاء فاتورة لهذه المرحلة مسبقاً' : 'يجب اكتمال المرحلة قبل إنشاء الفاتورة'` (branch condition itself is the English enum 'invoiced' — not a hazard; the two Arabic phrases are the SELECT output)
+- 79: 'العقد غير موجود'
+(c) 167: `pyra_invoices.notes` — `فاتورة تلقائية من العقد: ${contract.title} - المرحلة: ${milestone.title}` — stored, exempt, computed-per-request. [ICU: two interpolations]
+Calls `recalcContractBilled()` (line 219) — confirmed present.
+Uses raw `.toISOString().split('T')[0]` for issue_date (line 158) — inconsistent with sibling file 24 which uses `dubaiDayKey()` (hazard-adjacent, noted in header).
+
+28) app/api/finance/dashboard/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 239: `id === 'uncategorized' ? 'غير مصنف' : (categoryNames[id]?.name_ar || id)` — fallback literal reaching the API response body directly (the `name_ar` DB value it's OR'd against is stored data, but 'غير مصنف' itself is a live per-request literal) — classified (a).
+Hazard-adjacent (not i18n): line 147 hardcodes `.toLocaleDateString('ar-EG', ...)` for chart month labels (see header); lines 34-36,153 UTC-day-key smell (see header).
+
+29) app/api/finance/expenses/route.ts — AR lines: 4 (a:2, b:2)
+(a) verbatim:
+- 160: 'المبلغ مطلوب'
+- 164: 'لا تملك صلاحية إنشاء مصروف لهذا المشروع'
+(b) 222-223: `notifyApprovers()` call (central helper — Phase 8 exempt):
+- 222: title `مصروف بانتظار موافقتك — ${(currency || 'AED')} ${amount}` [ICU]
+- 223: message `${description || vendor || 'مصروف جديد'} من ${auth.pyraUser.display_name}` [ICU SELECT: `||`-chain fallback selecting between description, vendor, or the literal 'مصروف جديد']
+
+30) app/api/finance/expenses/[id]/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 96: 'يمكنك فقط اعتماد مصاريف الموظفين تحت إدارتك المباشرة'
+- 104: `لا يمكن تغيير حالة المصروف من "${currentStatus}" إلى "${newStatus}"` [ICU: two raw status-enum interpolations]
+
+31) app/api/finance/expenses/categories/route.ts — AR lines: 1 (a:1)
+(a) verbatim:
+- 38: 'اسم التصنيف مطلوب'
+
+32) app/api/finance/expenses/categories/[id]/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 30: 'لا توجد حقول صالحة للتحديث'
+- 68: 'لا يمكن حذف تصنيف افتراضي'
+- 78: `لا يمكن حذف التصنيف — يوجد ${count} مصروف مرتبط به` [ICU PLURAL candidate: `${count} مصروف` never pluralizes — "مصروف" stays singular regardless of count; a translation-quality gap worth flagging for the ICU rewrite, not just a straight interpolation]
+
+33) app/api/finance/invoices/send-reminders/route.ts — AR lines: 9 (a:1, c:6, email:2)
+(a) verbatim:
+- 77: 'إرسال التذكيرات للعملاء معطّل (dunning_enabled ليست true)' — returned inside an `apiSuccess()` payload's `message` field to the admin caller who triggered the manual run.
+(c) stored (client_notifications + activity_log rows), all computed-per-request:
+- 113: `display_name: 'النظام'` — activity_log actor label, stored.
+- 138: title 'تذكير بدفع فاتورة' — pyra_client_notifications insert (direct, not via notify()).
+- 139: `الفاتورة ${inv.invoice_number} متأخرة ${daysOverdue} يوم — المبلغ المستحق: ${inv.amount_due} ${inv.currency}` [ICU PLURAL candidate: "${daysOverdue} يوم" never pluralizes to يومين/أيام]
+- 198: `display_name: 'النظام'` (duplicate of line 113, same file)
+- 216: title 'فاتورة قريبة الاستحقاق'
+- 217: `الفاتورة ${inv.invoice_number} ستستحق خلال ${daysLeft} يوم — ${inv.amount_due} ${inv.currency}` [ICU PLURAL candidate, same "يوم" issue]
+(email) Phase 9 exempt, count only:
+- 150: subject template `تذكير بدفع الفاتورة ${inv.invoice_number} — ${companyName}`
+- 152: `inv.client_name || 'العميل'` fallback literal passed into `emailTemplates.invoiceReminder(...)`
+Uses `dubaiDayKey()` correctly (lines 36, 38) — clean reference file. Client-facing sends gated by `dunning_enabled` per the Finance Remediation locked decision (default off).
+
+34) app/api/finance/recurring-invoices/route.ts — AR lines: 3 (a:3)
+(a) verbatim:
+- 92: 'عنوان الفاتورة المتكررة مطلوب'
+- 94: 'يجب إضافة بند واحد على الأقل'
+- 96: 'تاريخ التوليد القادم مطلوب'
+
+35) app/api/finance/recurring-invoices/[id]/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 82: 'لا توجد حقول للتحديث' (exact duplicate of file 18 cards/[id] line 52)
+- 121: 'لا يمكن حذف فاتورة متكررة نشطة. قم بإيقافها أو إلغائها أولا'
+
+36) app/api/finance/recurring-invoices/generate/route.ts — AR lines: 2 (a:2)
+(a) verbatim (one ICU-SELECT ternary spanning both lines):
+- 31: `تم توليد ${result.generated} فاتورة بنجاح` [ICU PLURAL candidate: "${result.generated} فاتورة" never pluralizes]
+- 32: 'لا توجد فواتير مستحقة للتوليد' (else-branch of the same ternary — [ICU SELECT])
+Note: this is the MANUAL (human-triggered) button route only — reached via requireApiPermission('finance.manage'). The cron (/api/cron/finance-daily, excluded from this census) calls the shared lib directly and does not surface these 2 strings.
+
+37) app/api/finance/revenue-targets/route.ts — AR lines: 4 (a:4)
+(a) verbatim:
+- 95: 'نوع الفترة مطلوب (شهري/ربع سنوي/سنوي)'
+- 98: 'تاريخ البداية والنهاية مطلوبان'
+- 101: 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' (exact duplicate of file 38 line 25)
+- 104: 'المبلغ المستهدف يجب أن يكون أكبر من صفر'
+Hazard-adjacent (not i18n): line 29 UTC-day-key smell for the `current=true` filter (see header).
+
+38) app/api/finance/revenue-targets/[id]/route.ts — AR lines: 2 (a:2)
+(a) verbatim:
+- 25: 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' (exact duplicate of file 37 line 101)
+- 35: 'لا توجد حقول للتحديث' (exact duplicate of file 18 + file 35)
+
+================ SHARED LIBS (3 files) ================
+
+39) lib/finance/recurring-generation.ts — AR lines: 5 (c:5)
+Shared by BOTH the manual button (file 36) AND the daily cron (/api/cron/finance-daily, excluded) — every Arabic string here is common to both trigger paths, none are cron-only. No thrown/returned Error string in this file contains Arabic — the `failures[]` reason strings are all English (e.g. 'empty_or_zero_items', `invoice_insert: ${insertError.message}`) — so class (a) is EMPTY in this file; a route surfacing a failure reason to a human would show an English string, not Arabic.
+(c) stored (pyra_invoices.notes scope-notes block + pyra_client_notifications insert), all computed-per-request:
+- 153: `scopeNotes = \`فاتورة متكررة — ${template.title}\`` — stored as invoice.notes (line 239). [ICU]
+- 172: `['نطاق العمل:']` — stored, section header inside scope-notes.
+- 178: `letters = ['أ','ب','ج','د','هـ','و','ز','ح','ط','ي']` — Arabic-alphabet ordered-list markers baked into generated invoice notes (locale-specific numbering convention — flagged in header, not an (a)/(d) item).
+- 306: title 'فاتورة جديدة' — pyra_client_notifications insert (only reached when template.auto_send=true; locked decision keeps auto_send off by default, so low-traffic but live code).
+- 307: `تم إصدار فاتورة جديدة رقم ${invoiceNumber} بقيمة ${total.toFixed(2)} ${template.currency || 'AED'}` [ICU: 3 interpolations]
+Uses `dubaiDayKey()` correctly (lines 82, 216) for next-generation-date gating — clean. `calculateNextDate()` internals (lines 45, 67) still use raw `.toISOString().split('T')[0]` for date arithmetic (not a "today" comparison, lower risk, noted for completeness).
+Note: writes directly to `pyra_client_notifications` (portal table, distinct from `pyra_notifications` which notify() targets) rather than through the central notify() helper — consistent with the invoice-send/quote-send routes' same pattern (files 4, 10), not flagged as a new violation.
+
+40) lib/finance/contract-billing.ts — 0 AR lines. (recalcContractBilled() — all console.error strings are English.)
+
+41) lib/finance/payment-currency.ts — 0 AR lines. (getInvoiceCurrencyMap/sumPaymentsAED — all strings English; this is the "fails LOUD, never silently defaults to AED" module per the Finance Remediation lock — its failure messages are English, would need translation only if/when a caller surfaces them as apiError, which none currently do.)
+
+================ FILES WITH ZERO ARABIC (clean, no action) ================
+app/api/invoices/check-overdue/route.ts, app/api/invoices/revenue-summary/route.ts,
+app/api/quotes/check-expired/route.ts, app/api/finance/alerts/route.ts,
+app/api/finance/contracts/[id]/billing-history/route.ts,
+lib/finance/contract-billing.ts, lib/finance/payment-currency.ts.
+(7 of 41 files — 17%.)
+
+================ DEDUP CANDIDATES (api.invoices.* / api.quotes.* / api.finance.* key design) ================
+Exact repeats (occurrences):
+1. 'الفاتورة غير موجودة' (Invoice not found) ×5 — invoices/[id]/route.ts:75,211,418; invoices/[id]/send/route.ts:39; invoices/[id]/payments/route.ts:48 → api.invoices.notFound.
+2. 'عرض السعر غير موجود' (Quote not found) ×6 — quotes/[id]/route.ts:46,147,417; quotes/[id]/duplicate/route.ts:38; quotes/[id]/revise/route.ts:40; quotes/[id]/send/route.ts:42 → api.quotes.notFound.
+3. 'العقد غير موجود' (Contract not found) ×6 — finance/contracts/[id]/generate-invoice/route.ts:35; finance/contracts/[id]/items/route.ts:40,98; finance/contracts/[id]/milestones/[milestoneId]/generate-invoice/route.ts:79; finance/contracts/[id]/milestones/route.ts:38,81 → api.finance.contractNotFound.
+4. 'المرحلة غير موجودة' (Milestone not found) ×3 — milestones/[milestoneId]/generate-invoice/route.ts:41; milestones/[milestoneId]/route.ts:40,116 → api.finance.milestoneNotFound.
+5. 'يجب إضافة بند واحد على الأقل' / 'يجب إضافة عنصر واحد على الأقل' (Must add at least one item — invoices say "بند", quotes say "عنصر", same meaning) — invoices: route.ts:131, [id]/route.ts:256, finance/recurring-invoices/route.ts:94 (×3, "بند"); quotes: route.ts:154, [id]/route.ts:262 (×2, "عنصر") → likely 2 sibling keys (api.invoices.itemsRequired / api.quotes.itemsRequired) unless product wants to unify the noun.
+6. 'الكمية يجب أن تكون أكبر من صفر' (Quantity must be > 0) ×3 — invoices/route.ts:136, invoices/[id]/route.ts:261, quotes/route.ts:159 → api.common.quantityMustBePositive (shared invoices+quotes key — same exact string).
+7. 'السعر يجب أن يكون صفر أو أكثر' (Rate must be ≥ 0) ×3 — invoices/route.ts:139, invoices/[id]/route.ts:264, quotes/route.ts:162 → api.common.rateMustBeNonNegative (shared key).
+8. 'لا توجد حقول للتحديث' (No fields to update) ×3 — finance/cards/[id]/route.ts:52; finance/recurring-invoices/[id]/route.ts:82; finance/revenue-targets/[id]/route.ts:35 → api.finance.noFieldsToUpdate (likely also shared with CRM's identical pattern from p3 census — cross-module key candidate: api.common.noFieldsToUpdate).
+9. 'تاريخ البداية يجب أن يكون قبل تاريخ النهاية' (Start date must be before end date) ×2 — finance/revenue-targets/route.ts:101; finance/revenue-targets/[id]/route.ts:25 → api.finance.dateRangeInvalid.
+10. 'اسم القالب مطلوب' (Template name required) ×2 — quotes/templates/[id]/route.ts:72; quotes/templates/route.ts:57 → api.quotes.templateNameRequired.
+11. 'القالب غير موجود' (Template not found) ×2, same file — quotes/templates/[id]/route.ts:38,67 → api.quotes.templateNotFound.
+12. 'النظام' ("System" as an activity-log actor display_name) ×2, same file — finance/invoices/send-reminders/route.ts:113,198 — this is class (c) stored data, not an (a) key, but flagged since it's a repeated literal.
+Conditional/select patterns (ICU SELECT candidates, not simple dedup):
+13. Status-transition-rejected message family, each with raw English enum interpolated — 4 near-identical shapes: invoices/[id]/route.ts:247 `لا يمكن تغيير الحالة من "{from}" إلى "{to}"`; quotes/[id]/route.ts:210 `لا يمكن تغيير حالة عرض السعر من "{from}" إلى "{to}"`; quotes/[id]/send/route.ts:52 `لا يمكن إرسال عرض سعر في حالة "{status}"...`; quotes/[id]/revise/route.ts:50 `لا يمكن إنشاء مراجعة من عرض بحالة "{status}"` → one parameterized api.common.statusTransitionInvalid({from},{to}) key plus entity-specific phrasing where the sentence shape differs.
+14. "X غير صحيح/صالح" small-field-validation family (not exact dupes, same template): 'الأولوية غير صحيحة' (CRM, cf. p3 census) vs finance's 'المبلغ غير صالح' (contracts generate-invoice:81) — cross-module parameterized api.common.fieldInvalid candidate.
+15. Recurring-invoice / milestone-invoice "already generated this period" family — finance/contracts/[id]/generate-invoice/route.ts:55 (`تم توليد فاتورة لهذا العقد خلال هذا الشهر بالفعل ({num})...`) and finance/contracts/[id]/milestones/[milestoneId]/generate-invoice/route.ts:53/66 (`تم إنشاء فاتورة لهذه المرحلة مسبقاً`) — same intent (duplicate-invoice guard), different entity (contract vs milestone) and different tense/phrasing — sibling keys, not exact dedup.
+16. ICU-PLURAL debt across the group (day-count and item-count nouns that never pluralize under the current string-concat approach — surfaced for the Phase-8/translation-key design, since fixing plurals is naturally bundled with the ICU migration): "${n} يوم" (send-reminders:139,217), "${result.generated} فاتورة" (recurring-invoices/generate:31), "${count} مصروف" (expenses/categories/[id]:78).
+
+================ HAZARDS SUMMARY (d) ================
+- No true class-(d) business-logic-on-Arabic-string case found in any of the 41 files. All status/type branching everywhere in this group compares against English constants (INVOICE_STATUS.*, QUOTE_STATUS.*, CONTRACT_STATUS.*, PAYMENT_METHOD.*, literal 'retainer'/'invoiced'/'completed'/'paused') — never Arabic text.
+- Closest-to-hazard item (informational, not blocking): finance/contracts/[id]/route.ts:171 `cycleLabels` is an object keyed by ENGLISH cycle values (monthly/quarterly/yearly) mapping to ARABIC display words used to build a DB-stored recurring-invoice title — the branch key is English (safe), only the OUTPUT is Arabic, so this does not qualify as (d) but is the clearest ICU-SELECT candidate in the whole group (see file 21 and dedup section).
+- Hazard-adjacent (non-i18n) items are cataloged in the GRAND TOTALS section above: hardcoded `ar-EG` locale in dashboard chart labels, several UTC-day-key "today" smells vs. the codebase's `dubaiDayKey()` standard, and one issue_date inconsistency between sibling generate-invoice routes.
+
+================ PER-FILE INDEX, sorted by (a)-count descending ================
+app/api/invoices/[id]/route.ts -- total:10 (a:10, b:0, c:0, email:0)
+app/api/quotes/[id]/route.ts -- total:10 (a:10, b:0, c:0, email:0)
+app/api/invoices/[id]/payments/route.ts -- total:8 (a:7, b:0, c:1, email:0)
+app/api/finance/contracts/[id]/generate-invoice/route.ts -- total:7 (a:6, b:0, c:1, email:0)
+app/api/finance/contracts/[id]/milestones/[milestoneId]/generate-invoice/route.ts -- total:7 (a:6, b:0, c:1, email:0)
+app/api/quotes/route.ts -- total:6 (a:5, b:0, c:1, email:0)
+app/api/finance/contracts/[id]/milestones/route.ts -- total:5 (a:5, b:0, c:0, email:0)
+app/api/invoices/route.ts -- total:5 (a:5, b:0, c:0, email:0)
+app/api/finance/revenue-targets/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/invoices/from-quote/[quoteId]/route.ts -- total:4 (a:4, b:0, c:0, email:0)
+app/api/quotes/[id]/send/route.ts -- total:6 (a:3, b:2, c:1, email:0)
+app/api/finance/contracts/[id]/milestones/[milestoneId]/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/finance/expenses/categories/[id]/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/finance/recurring-invoices/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/quotes/[id]/revise/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/quotes/templates/[id]/route.ts -- total:3 (a:3, b:0, c:0, email:0)
+app/api/finance/expenses/route.ts -- total:4 (a:2, b:2, c:0, email:0)
+app/api/invoices/[id]/send/route.ts -- total:4 (a:2, b:0, c:2, email:0)
+app/api/finance/cards/[id]/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/contracts/[id]/items/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/contracts/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/expenses/[id]/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/recurring-invoices/[id]/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/recurring-invoices/generate/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/revenue-targets/[id]/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/quotes/[id]/duplicate/route.ts -- total:2 (a:2, b:0, c:0, email:0)
+app/api/finance/invoices/send-reminders/route.ts -- total:9 (a:1, b:0, c:6, email:2)
+app/api/finance/cards/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/finance/client-statement/[clientId]/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/finance/dashboard/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/finance/expenses/categories/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+app/api/quotes/templates/route.ts -- total:1 (a:1, b:0, c:0, email:0)
+lib/finance/recurring-generation.ts -- total:5 (a:0, b:0, c:5, email:0)
+app/api/finance/contracts/[id]/route.ts -- total:4 (a:0, b:0, c:4, email:0)
+app/api/finance/alerts/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/finance/contracts/[id]/billing-history/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/invoices/check-overdue/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/invoices/revenue-summary/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+app/api/quotes/check-expired/route.ts -- total:0 (a:0, b:0, c:0, email:0)
+lib/finance/contract-billing.ts -- total:0 (a:0, b:0, c:0, email:0)
+lib/finance/payment-currency.ts -- total:0 (a:0, b:0, c:0, email:0)
+Note: index is sorted primarily by (a)-count descending (the translate-now workload); within equal (a)-counts, ties broken by total-AR-lines descending, then path alphabetically. Two entries (quotes/[id]/send/route.ts and finance/invoices/send-reminders/route.ts) show a higher "total" than their neighbors in the (a)-sort position because they carry heavy (b)/(c)/(email) weight despite a low (a)-count — this is intentional, the sort key is (a) only, matching the task's requested ordering.
+
+================ PROPOSED API CATALOG KEY GROUPS ================
+api.invoices.*  (app/api/invoices/**, ~30 (a)-class strings)
+  - api.invoices.notFound ("الفاتورة غير موجودة", ×5)
+  - api.invoices.itemsRequired ("يجب إضافة بند واحد على الأقل", ×3)
+  - api.invoices.notEditable ("لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)")
+  - api.invoices.notDraftDeletable ("لا يمكن حذف فاتورة غير مسودة")
+  - api.invoices.statusTransitionInvalid({from},{to}) — parameterized, was 2 near-identical literals
+  - api.invoices.paymentAmountInvalid / paymentExceedsDue({amount},{due}) / alreadyPaid / notPayable
+  - api.invoices.itemsUpdateFailed / itemsInsertFailed
+  - api.invoices.dueDateRequired
+  - api.invoices.fromQuoteAlreadyExists({invoiceNumber}) / fromQuoteNotSigned / fromQuoteWrongOwner
+  - api.invoices.sendDraftOnly
+
+api.quotes.*  (app/api/quotes/**, ~34 (a)-class strings)
+  - api.quotes.notFound ("عرض السعر غير موجود", ×6)
+  - api.quotes.itemsRequired ("يجب إضافة عنصر واحد على الأقل", ×2)
+  - api.quotes.notOwnerEdit / notOwnerDelete ("لا يمكنك تعديل/حذف/نسخ/مراجعة/إرسال عرض سعر لعميل غير مسند إليك" family — 5 near-identical "not your lead" variants across duplicate/revise/[id]/send, differ only by verb)
+  - api.quotes.pendingApprovalNotEditable (×2 near-dup: "...لا يمكن تعديله" / "...لا يمكن تعديل حالته")
+  - api.quotes.statusTransitionInvalid({from},{to}) — shared shape with invoices' equivalent, entity-specific noun inserted
+  - api.quotes.adminOnlyRevertToDraft
+  - api.quotes.clientNameRequired
+  - api.quotes.itemsInsertFailed
+  - api.quotes.templateNotFound / templateNameRequired (×2 each)
+  - api.quotes.sendWrongStatus({status})
+  - api.quotes.reviseWrongStatus({status})
+
+api.finance.*  (app/api/finance/**, ~42 (a)-class strings)
+  - api.finance.noFieldsToUpdate ("لا توجد حقول للتحديث" / "لا توجد حقول صالحة للتحديث" — ×4 total, candidate to unify with CRM's identical string from p3 census under api.common.noFieldsToUpdate instead)
+  - api.finance.contractNotFound ("العقد غير موجود", ×6) / contractNotActive
+  - api.finance.milestoneNotFound ("المرحلة غير موجودة", ×3) / milestoneAlreadyInvoiced / milestoneNotCompletedForInvoice (ICU SELECT) / milestoneAlreadyInvoicedDelete / milestoneTitleRequired / milestonePercentageRequired / milestonePercentageExceeds100({current},{new})
+  - api.finance.invoiceAlreadyGeneratedThisMonth({invoiceNumber}) / invoiceAmountInvalid / invoiceItemsInsertFailed
+  - api.finance.cardNameRequired / cardHasSubscriptions
+  - api.finance.clientNotFound (client-statement — likely mergeable with a shared api.common.clientNotFound if CRM/portal use the identical string)
+  - api.finance.contractTitleRequired / contractCreatePermissionDenied
+  - api.finance.expenseAmountRequired / expenseProjectPermissionDenied / expenseApprovalScopeDenied / expenseStatusTransitionInvalid({from},{to})
+  - api.finance.categoryNameRequired / categoryDefaultNotDeletable / categoryInUse({count}) [ICU PLURAL debt]
+  - api.finance.dunningDisabledMessage (send-reminders manual-run success message)
+  - api.finance.recurringTitleRequired / recurringItemsRequired / recurringNextGenDateRequired / recurringActiveNotDeletable
+  - api.finance.recurringGenerateResult({count}) [ICU SELECT + PLURAL debt — the manual-button success/empty message]
+  - api.finance.targetPeriodTypeRequired / targetDateRangeRequired / targetDateRangeInvalid({dup of finance.dateRangeInvalid}) / targetAmountInvalid
+
+Cross-module unification candidates (appear identically in this census AND the sibling p3-crm-apis.txt census — confirm against p3 before finalizing keys):
+  - "لا توجد حقول للتحديث" / "لا توجد حقول صالحة للتحديث" → api.common.noFieldsToUpdate
+  - "{field} مطلوب" required-field family (invoices/quotes/finance all have several) → parameterized api.common.fieldRequired({field}) where the field noun is itself Arabic, per p3's identical recommendation
+  - api.common.statusTransitionInvalid({from},{to}) — appears in invoices, quotes (×2 shapes), and expenses in this census alone; likely also present in CRM (leads/tasks) per p3
+  - api.common.quantityMustBePositive / api.common.rateMustBeNonNegative — EXACT identical strings shared verbatim between invoices and quotes item-validation (3 occurrences each key) — highest-confidence dedup in this entire census, no entity-specific wording at all.

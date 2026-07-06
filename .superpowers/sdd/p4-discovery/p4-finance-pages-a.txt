@@ -1,0 +1,507 @@
+FINANCE DISCOVERY — Phase-4 i18n (Contracts / Credit Notes / Expenses) — files verified 2026-07-06
+
+================================================================
+GRAND TOTALS (all files in scope)
+================================================================
+Files scanned: 14
+  - app/dashboard/finance/contracts/{contracts-client.tsx, page.tsx, new/page.tsx, [id]/page.tsx}  (4)
+  - app/dashboard/finance/credit-notes/{credit-notes-client.tsx, page.tsx, new/page.tsx, [id]/page.tsx}  (4)
+  - app/dashboard/finance/expenses/{expenses-client.tsx, page.tsx, new/page.tsx, [id]/page.tsx, categories/page.tsx}  (5)
+  - components/finance/contract-items-editor.tsx  (1)
+  - hooks/useContracts.ts, hooks/useCreditNotes.ts, hooks/useExpenses.ts — EXIST, checked: NO Arabic strings (pure typed CRUD hooks, api-helpers pattern). 0 AR lines each.
+
+Total AR-bearing lines (ui + data + statuses classes; comments excluded from count but listed): 216
+  - (ui) user-visible JSX/label/placeholder/aria/toast: 205
+  - (data) string compared against or written to DB: 3 (contracts-client TYPE_MAP keys used only as display map, not compared; credit-note reason string is free text; move-stage-adjacent N/A here — see HAZARDS)
+  - (comment): 0 (no Arabic-language code comments found in this scope)
+  - (statuses) label maps that should route through useStatusLabels(entity) instead of local STATUS_MAP/inline objects: 8 distinct maps/arrays covering contract/creditNote/expense (+ payment-method + contract-type, which are NOT in the existing statuses catalog)
+
+Files >300 lines: NONE in scope (largest: contracts-client.tsx 305 lines i.e. under threshold; credit-notes/[id]/page.tsx 256; expenses-client.tsx 383 — THIS ONE IS >300, flag for split consideration at implementation time, though CLAUDE.md's <300-line rule is about NEW/edited pages, existing file, note only)
+
+Proposed catalog key shape:
+  finance.contracts.list.*        (contracts-client.tsx: header, filters, table, dialog)
+  finance.contracts.new.*         (new/page.tsx: form fields, contract-type options, retainer sub-section)
+  finance.contracts.detail.*      (
+[id]/page.tsx: edit header, milestone dialog, delete-milestone alert, retainer/milestone toasts)
+  finance.contracts.itemsEditor.* (components/finance/contract-items-editor.tsx: scope-of-work editor)
+  finance.creditNotes.list.*      (credit-notes-client.tsx)
+  finance.creditNotes.new.*       (new/page.tsx)
+  finance.creditNotes.detail.*    ([id]/page.tsx)
+  finance.expenses.list.*         (expenses-client.tsx)
+  finance.expenses.new.*          (new/page.tsx)
+  finance.expenses.detail.*       ([id]/page.tsx — edit form, mirrors new almost 1:1, consider shared finance.expenses.form.* sub-namespace for the ~20 duplicated field labels)
+  finance.expenses.categories.*   (categories/page.tsx)
+  Shared cross-cutting: statuses.contract / statuses.creditNote / statuses.expense (already exist) via useStatusLabels; a NEW catalog would be needed for contract "type" (retainer/milestone/upfront_delivery/fixed/hourly) and expense "payment method" (cash/bank_transfer/credit_card/cheque/online) — see section 2 below, these are NOT in messages/ar/statuses.json today.
+
+================================================================
+1. app/dashboard/finance/contracts/
+================================================================
+
+app/dashboard/finance/contracts/page.tsx (server component — needs getTranslations for metadata)
+- L5: `title: 'العقود | Pyra'` (Metadata) (ui)
+
+app/dashboard/finance/contracts/contracts-client.tsx
+- L36: STATUS_MAP.draft.label `'مسودة'` (statuses) — duplicates CONTRACT_STATUS_LABELS.draft
+- L37: STATUS_MAP.active.label `'نشط'` (statuses) — duplicates CONTRACT_STATUS_LABELS.active
+- L38: STATUS_MAP.in_progress.label `'قيد التنفيذ'` (statuses) — NOTE: `in_progress` is NOT a key in CONTRACT_STATUS_LABELS/statuses.json's `contract` entity (only draft/active/completed/cancelled) — this is a LATENT DATA GAP, not just an i18n gap; the UI supports a status the shared map doesn't define. Flag for plan: either extend `contract` entity in statuses.json with `in_progress`, or confirm this status is legacy/dead.
+- L39: STATUS_MAP.completed.label `'مكتمل'` (statuses) — duplicates CONTRACT_STATUS_LABELS.completed
+- L40: STATUS_MAP.cancelled.label `'ملغي'` (statuses) — duplicates CONTRACT_STATUS_LABELS.cancelled
+- L44: TYPE_MAP.retainer `'ثابت شهري'` (statuses-like, but NO existing catalog entity for "contract type") — candidate NEW entity `contractType`
+- L45: TYPE_MAP.milestone `'مراحل'`
+- L46: TYPE_MAP.upfront_delivery `'دفعة مقدمة + تسليم'`
+- L47: TYPE_MAP.fixed `'سعر ثابت'`
+- L48: TYPE_MAP.hourly `'بالساعة'`
+- L79: toast.error(`'فشل في تحميل العقود'`) (ui)
+- L99: toast.error(`` `فشل حذف ${failCount} عقد` ``) — ICU count interpolation (ui)
+- L100: toast.success(idsToDelete.length > 1 ? `` `تم حذف ${idsToDelete.length} عقود` `` : `'تم حذف العقد'`) — hand-rolled plural branch (2-way, not degenerate but still ICU-plural-worthy) (ui) [ICU]
+- L103: toast.error(`'فشل في الحذف'`) (ui)
+- L138-139: `.localeCompare(String(bVal), 'ar')` (x2, asc/desc) — hardcoded 'ar' collation locale, needs locale param
+- L147: header `'العنوان'` (ui)
+- L153: header `'العميل'` (ui)
+- L160: header `'النوع'` (ui)
+- L162: fallback render `c.contract_type ? TYPE_MAP[...] || c.contract_type : '—'` — raw DB value fallback leak if type missing from TYPE_MAP (data/statuses boundary)
+- L166: header `'القيمة'` (ui)
+- L172: header `'التحصيل'` (ui)
+- L194: header `'الحالة'` (ui)
+- L197: `STATUS_MAP[c.status]?.label || c.status` — raw status leak fallback (statuses)
+- L203: header `'الإجراءات'` (ui)
+- L207: aria-label `"تعديل العقد"` (ui)
+- L209: aria-label `"حذف العقد"` (ui)
+- L222: aria-label `"رجوع"` (ui)
+- L225: h1 text `العقود` (after FileSignature icon) (ui)
+- L229: button text `إنشاء عقد` (ui)
+- L237: placeholder `"بحث..."` (ui)
+- L240: SelectValue placeholder `"الحالة"` (ui)
+- L242: SelectItem `الكل` (ui)
+- L243-247: SelectItem status options `مسودة` / `نشط` / `قيد التنفيذ` / `مكتمل` / `ملغي` (statuses) — duplicates STATUS_MAP labels inline a 2nd time in the same file (drift risk already present pre-i18n)
+- L258-260: DataTable emptyState title `'لا توجد عقود'` + description `'أنشئ عقد جديد للبدء'` (ui)
+- L268: bulkActions label `'حذف المحدد'` (ui)
+- L283: pagination button `السابق` (ui)
+- L284: pagination text `` `{page} / {totalPages}` `` — ICU interpolation, digits-only, likely safe verbatim (ui) [ICU]
+- L285: pagination button `التالي` (ui)
+- L292: DialogTitle `حذف العقد` (ui)
+- L293: confirm text `هل أنت متأكد من حذف هذا العقد؟` (ui)
+- L295: Button `إلغاء` (ui)
+- L297: Button `{deleting ? 'جاري الحذف...' : 'حذف'}` (ui)
+- No dir attrs in this file. No toLocaleDateString calls (formatCurrency only, count below).
+- formatCurrency call-site count: 3 (L168, L179, L185-inline-via-progress-var no — actually L168, L179; recount: L168 `formatCurrency(c.total_value, c.currency)`, L179 `formatCurrency(c.amount_collected, c.currency)` = 2 call sites). formatDate: 0.
+
+app/dashboard/finance/contracts/new/page.tsx
+- L22: CONTRACT_TYPES retainer label `'ثابت شهري (Retainer)'` (statuses-like / mixed-latinism — "Retainer" in parens)
+- L23: `'مراحل (Milestone)'` (mixed-latinism)
+- L24: `'دفعة مقدمة + تسليم'`
+- L25: `'سعر ثابت (Fixed)'` (mixed-latinism)
+- L26: `'بالساعة (Hourly)'` (mixed-latinism)
+- L51: toast.success `'تم إنشاء العقد — يمكنك الآن إضافة بنود نطاق العمل'` (ui)
+- L54: toast.error `'فشل في الحفظ'` (ui)
+- L59: toast.error `'عنوان العقد مطلوب'` (ui)
+- L87: aria-label `"رجوع"` (ui)
+- L89: h1 `إنشاء عقد جديد` (ui)
+- L94: CardTitle `بيانات العقد` (ui)
+- L98: Label `عنوان العقد *` (ui)
+- L99: placeholder `"عنوان العقد"` (ui)
+- L102: Label `العميل` (ui)
+- L104: SelectValue placeholder `"اختر العميل"` (ui)
+- L106: SelectItem `بدون عميل` (ui)
+- L108: `{c.company || c.name}` — raw DB data (client display name), not translatable string (data, exempt)
+- L114: Label `المشروع` (ui)
+- L116: SelectValue placeholder ternary `form.client_id ? 'اختر المشروع' : 'اختر العميل أولاً'` (ui) [ICU-adjacent: conditional message, not interpolation]
+- L118: SelectItem `بدون مشروع` (ui)
+- L126: Label `نوع العقد` (ui)
+- L128: SelectValue placeholder `"اختر النوع"` (ui)
+- L130: SelectItem `غير محدد` (ui)
+- L138: Label `القيمة الإجمالية` (ui)
+- L139: placeholder `"0.00"` + `dir="ltr"` HARDCODED on numeric input (see dir section)
+- L142: Label `العملة` (ui)
+- L154: Label `نسبة الضريبة (%)` (ui)
+- L158: Label `تاريخ البداية` (ui)
+- L162: Label `تاريخ النهاية` (ui)
+- L170-173: retainer settings header block: `إعدادات الدفع الشهري` (ui)
+- L176: Label `المبلغ الشهري` (ui)
+- L177: placeholder `"0.00"` + `dir="ltr"`
+- L180: Label `دورة الفوترة` (ui)
+- L184: SelectItem `شهري` (ui) — overlaps BILLING_CYCLE_LABELS.monthly / leadBillingCycle.monthly entities
+- L185: SelectItem `ربع سنوي` (ui) — overlaps BILLING_CYCLE_LABELS.quarterly
+- L190: Label `يوم الفوترة` (ui)
+- L204: Label `الوصف` (ui)
+- L205: placeholder `"وصف العقد..."` (ui)
+- L208: Label `ملاحظات` (ui)
+- L209: placeholder `"ملاحظات إضافية..."` (ui)
+- L213-214: Submit button `{saving ? 'جاري الحفظ...' : 'إنشاء العقد'}` (ui)
+- dir="ltr" HARDCODED (locale-agnostic numeric fields, likely INTENTIONAL for LTR numerals even in EN catalog — flag as "keep as-is, not a translation target" but note for plan): L139, L155(vat_rate input, not listed above — recheck: yes L155 `dir="ltr"` on vat_rate)
+- formatCurrency/formatDate call sites: 0 (raw number inputs, not formatted display)
+
+app/dashboard/finance/contracts/[id]/page.tsx
+- L121: toast.success `'تم تحديث العقد'` (ui)
+- L124: toast.error `'فشل في التحديث'` (ui)
+- L141: toast.success ternary `editingMilestone ? 'تم تحديث المرحلة' : 'تمت إضافة المرحلة'` (ui)
+- L145: toast.error `'فشل في حفظ المرحلة'` (ui)
+- L155: toast.error `j.error || 'فشل في تحديث المرحلة'` — SERVER-SUPPLIED Arabic passthrough fallback (ui, api-namespace dependency)
+- L157: toast.success `'تم تحديث المرحلة'` (ui)
+- L160: toast.error `'حدث خطأ في الاتصال'` (ui)
+- L171: toast.error `j.error || 'فشل في توليد الفاتورة'` — server passthrough fallback (ui, api-namespace dependency)
+- L173: toast.success `'تم توليد الفاتورة'` (ui)
+- L176: toast.error `'حدث خطأ في الاتصال'` (ui)
+- L193: toast.error `j.error || 'فشل في حذف المرحلة'` — server passthrough fallback
+- L195: toast.success `'تم حذف المرحلة'` (ui)
+- L198: toast.error `'حدث خطأ في الاتصال'` (ui)
+- L215: aria-label `"العودة إلى العقود"` (ui)
+- L216: h1 `تعديل العقد` (ui)
+- L229: comment (code comment, not rendered) `// 409 duplicate-period guard returns a specific Arabic message — surface it verbatim` (comment) — no action, but documents that generate-invoice server error text is Arabic and displayed verbatim (api-namespace / server-message dependency, same pattern as pipeline move-stage)
+- L230: toast.error `j.error || 'فشل في توليد الفاتورة'` — server passthrough fallback
+- L232: toast.success `'تم توليد الفاتورة'` (ui)
+- L235: toast.error `'حدث خطأ في الاتصال'` (ui)
+- L264: AlertDialogTitle `تأكيد الحذف` (ui)
+- L265-267: AlertDialogDescription `هل أنت متأكد من حذف هذه المرحلة؟ لا يمكن التراجع عن هذا الإجراء.` (ui)
+- L270: AlertDialogCancel `إلغاء` (ui)
+- L272-273: AlertDialogAction `حذف` (ui)
+- No dir attrs, no toLocaleDateString, no localeCompare in this file. formatCurrency/formatDate: 0 direct calls (delegated to child components MilestonesSection/RetainerBillingSection — OUT OF SCOPE for this census, listed for cross-reference only: components/dashboard/contract-detail/*).
+- HAZARD: milestone status compare at L246 `m.status === 'completed' || m.status === 'invoiced'` — DATA comparison, must NOT be touched by i18n (matches locked CRM Phase 9 decision #2 "milestone invoiced counts as completed"); the reduce() computes progressPercentage, no UI string involved directly but flagging because it's adjacent to status display elsewhere.
+
+================================================================
+2. app/dashboard/finance/credit-notes/
+================================================================
+
+app/dashboard/finance/credit-notes/page.tsx
+- No Arabic strings (thin wrapper, no metadata title even). 0 AR lines.
+
+app/dashboard/finance/credit-notes/credit-notes-client.tsx
+- L35: STATUS_MAP.draft.label `'مسودة'` (statuses) — duplicates CREDIT_NOTE_STATUS_LABELS.draft (NOT imported here — local re-declaration, drift risk)
+- L36: STATUS_MAP.issued.label `'صادر'` (statuses)
+- L37: STATUS_MAP.applied.label `'مطبق'` (statuses) — NOTE: catalog value in statuses.json/CREDIT_NOTE_STATUS_LABELS is `'مطبّق'` (with shadda) vs this file's `'مطبق'` (no shadda) — MINOR TEXT DRIFT, must reconcile to one canonical string when routing through useStatusLabels('creditNote')
+- L38: STATUS_MAP.cancelled.label `'ملغي'` (statuses)
+- L62: toast.error `'فشل في تحميل الإشعارات الدائنة'` (ui)
+- L78: aria-label `"رجوع"` (ui)
+- L81: h1 `إشعارات دائنة` (ui)
+- L85: button `إشعار دائن جديد` (ui)
+- L94: SearchInput placeholder `"بحث بالرقم أو العميل..."` (ui)
+- L98: SelectValue placeholder `"الحالة"` (ui)
+- L100: SelectItem `كل الحالات` (ui)
+- L101-104: SelectItem `مسودة` / `صادر` / `مطبق` / `ملغي` (statuses) — 2nd inline duplication of the same 4 labels within this file
+- L117: EmptyState title `"لا توجد إشعارات دائنة"` (ui)
+- L118: EmptyState description `"أنشئ إشعار دائن جديد لإدارة المرتجعات والتعديلات"` (ui)
+- L119: EmptyState actionLabel `"إشعار دائن جديد"` (ui)
+- L140: `{cn.client_name || 'بدون عميل'} — {cn.reason?.slice(0, 50)}` — ICU interpolation; `cn.reason` is raw DB free-text (data, exempt from catalog but still interpolated into an AR sentence via em-dash separator — verify em-dash placement survives RTL/LTR switch) [ICU]
+- L159: pagination button `السابق` (ui)
+- L160: pagination text `` `{page} / {totalPages}` `` [ICU]
+- L161: pagination button `التالي` (ui)
+- dir="ltr" HARDCODED: L136 `<span className="font-bold text-sm" dir="ltr">{cn.credit_note_number}</span>` — numeric/code identifier display, likely intentional keep-as-LTR (flag, not swap)
+- formatCurrency call sites: 1 (L145). formatDate call sites: 1 (L146, no locale param — needs locale param per Phase 0-2 convention).
+
+app/dashboard/finance/credit-notes/new/page.tsx
+- L54: `setReason(\`مرتجع / تعديل على الفاتورة ${inv.invoice_number}\`)` — ICU interpolation; ALSO writes into `reason` field which is PERSISTED to DB as free text — this is a (data) hazard: the auto-generated Arabic default text becomes the stored `reason` value if the user doesn't edit it. Translating this template literal changes what gets saved when locale=en. Flag for plan: decide whether stored reason should stay canonical-language or reflect UI locale (business decision, not pure string swap). [ICU] [HAZARD]
+- L77: toast.success `'تم إنشاء الإشعار الدائن'` (ui)
+- L80: toast.error `'حدث خطأ'` (ui)
+- L84: toast.error `'سبب الإشعار الدائن مطلوب'` (ui)
+- L86: toast.error `'يجب إضافة بند واحد على الأقل'` (ui)
+- L100: aria-label `"رجوع"` (ui)
+- L103: h1 `إشعار دائن جديد` (ui)
+- L104: subtitle `إنشاء إشعار دائن (مرتجع / تعديل)` (ui)
+- L109: CardTitle `بيانات الإشعار الدائن` (ui)
+- L113: Label `العميل` (ui)
+- L115: SelectValue placeholder `"اختر العميل"` (ui)
+- L117: `{c.name}{c.company ? \` — ${c.company}\` : ''}` — raw DB data interpolation (data, exempt)
+- L122: Label `تاريخ الإصدار` (ui)
+- L127: Label `رقم الفاتورة المرتبطة (اختياري)` (ui)
+- L128: placeholder `"معرف الفاتورة"` + `dir="ltr"` (identifier field, likely keep-LTR)
+- L131: Label `السبب` (span `*` destructive marker separate node — split-node, ICU-worthy if asterisk styling must be preserved) [ICU: rich-text]
+- L132: placeholder `"سبب الإشعار الدائن..."` (ui)
+- L135: Label `ملاحظات` (ui)
+- L136: placeholder `"ملاحظات إضافية..."` (ui)
+- L143: CardTitle `بنود الإشعار` (ui)
+- L144: Button `إضافة بند` (ui)
+- L148: column header `الوصف` (ui)
+- L148: column header `الكمية` (ui)
+- L149: column header `السعر` (ui)
+- L149: column header `المبلغ` (ui)
+  (all 4 headers on same visual row, split across L148-149 in source — listing distinctly per header text)
+- L153: placeholder `"وصف البند"` (ui)
+- L158: aria-label `"حذف البند"` (ui)
+- L163: label `المجموع الفرعي` (ui)
+- L166: label `ضريبة القيمة المضافة` (ui)
+- L172: label `الإجمالي` (ui)
+- L178: Button `إلغاء` (ui)
+- L181: Button `حفظ` (ui)
+- dir="ltr": L128 (invoice id), L154 (quantity input), L155 (rate input), L167 (vat_rate input) — all numeric/identifier fields, likely intentional keep-LTR (flag only)
+- formatCurrency call sites: 4 (L156 item amount, L163 subtotal, L170 vatAmount, L172 total). formatDate: 0.
+- HAZARD (data): L34 `new Date().toISOString().split('T')[0]` for default issue_date — NOT a Dubai-day concern here (date-only default, not a "today" boundary comparison used for business logic classification), but flagging per Phase 15.1 lock discipline as a pattern to double check; low risk.
+
+app/dashboard/finance/credit-notes/[id]/page.tsx
+- L14: import `CREDIT_NOTE_STATUS_LABELS` from `@/lib/constants/statuses` — ALREADY using the shared constant (not a local re-declaration like the list page) — GOOD, this file is the "ahead" one; STATUS_MAP here (L44-49) wraps CREDIT_NOTE_STATUS_LABELS rather than hardcoding, so swap target is simply routing STATUS_MAP through useStatusLabels('creditNote') instead of the direct import.
+- L44-49: STATUS_MAP wrapping CREDIT_NOTE_STATUS_LABELS.{draft,issued,applied,cancelled} (statuses) — swap to useStatusLabels('creditNote')
+- L63: toast.error `'فشل في تحميل الإشعار الدائن'` (ui)
+- L76: toast.error `json.error || 'حدث خطأ'` — server passthrough fallback (ui)
+- L78: toast.success ternary `status === 'issued' ? 'تم إصدار الإشعار' : 'تم إلغاء الإشعار'` (ui)
+- L79: toast.error `'حدث خطأ'` (ui)
+- L88: toast.error `json.error || 'حدث خطأ'` — server passthrough fallback
+- L90: toast.success `` `تم تطبيق الإشعار الدائن — ${formatCurrency(json.data?.applied_amount || 0)}` `` — ICU interpolation, embeds formatCurrency() output [ICU]
+- L91: toast.error `'حدث خطأ'` (ui)
+- L98: toast.error `'فشل في الحذف'` (ui)
+- L99: toast.success `'تم حذف الإشعار الدائن'` (ui)
+- L101: toast.error `'حدث خطأ'` (ui)
+- L111: page-level not-found text `الإشعار الدائن غير موجود` (ui)
+- L121: aria-label `"رجوع"` (ui)
+- L128: `<p>{cn.reason}</p>` — raw DB data, free text (data, exempt)
+- L136: Button text `إصدار` (ui)
+- L138: aria-label `"حذف إشعار الدائن"` (ui)
+- L144: Button text `تطبيق على الفاتورة` (ui)
+- L149: Button text `إلغاء` (ui)
+- L158: label `العميل` (ui)
+- L163: label `تاريخ الإصدار` (ui)
+- L167: label `الفاتورة المرتبطة` (ui)
+- L170: link text `عرض الفاتورة` (ui)
+- L178: CardTitle `بنود الإشعار الدائن` (ui)
+- L184: column header `#` (not Arabic, skip)
+- L185: column header `الوصف` (ui)
+- L186: column header `الكمية` (ui)
+- L187: column header `السعر` (ui)
+- L188: column header `المبلغ` (ui)
+- L208: label `المجموع الفرعي` (ui)
+- L212: `` `ضريبة (${cn.tax_rate}%)` `` — ICU interpolation (numeric tax rate, DB data) [ICU]
+- L216: label `الإجمالي` (ui)
+- L221: label `المبلغ المطبق` (ui)
+- L232: CardTitle `ملاحظات` (ui)
+- L240: AlertDialogTitle `تأكيد الحذف` (ui)
+- L241-243: AlertDialogDescription `هل أنت متأكد من حذف هذا الإشعار الدائن؟ لا يمكن التراجع عن هذا الإجراء.` (ui)
+- L246: AlertDialogCancel `إلغاء` (ui)
+- L247-248: AlertDialogAction `حذف` (ui)
+- dir="ltr" HARDCODED: L125 `<h1 ... dir="ltr">{cn.credit_note_number}</h1>` — identifier display, likely intentional keep-LTR (flag, not swap)
+- formatCurrency call sites: 6 (L145 inline in toast — counted above too, L197, L198, L209, L213, L217, L222 — recount precisely: L197 rate, L198 amount, L209 subtotal, L213 tax_amount, L217 total, L222 applied_amount = 6, PLUS the toast one at L90 = 7 total in file). formatDate call sites: 1 (L164, no locale param).
+
+================================================================
+3. app/dashboard/finance/expenses/
+================================================================
+
+app/dashboard/finance/expenses/page.tsx
+- L5: `title: 'المصروفات | Pyra'` (Metadata) (ui)
+
+app/dashboard/finance/expenses/expenses-client.tsx  [FILE >300 LINES — 383 total]
+- L24: import `EXPENSE_STATUS_LABELS` from `@/lib/constants/statuses` — ALREADY using shared constant (good pattern, same as credit-notes/[id])
+- L46-48: EXPENSE_STATUS_MAP wrapping EXPENSE_STATUS_LABELS.{approved,pending,rejected} (statuses) — swap to useStatusLabels('expense')
+- L49: EXPENSE_STATUS_MAP.draft.label `'مسودة'` HARDCODED (NOT from EXPENSE_STATUS_LABELS — `draft` is not a key in EXPENSE_STATUS_LABELS/statuses.json's `expense` entity, which only has pending/approved/rejected) — LATENT DATA GAP similar to contracts' `in_progress`: UI supports a `draft` expense status the shared catalog doesn't define. Flag for plan: extend `expense` entity in statuses.json with `draft`, or confirm dead code path.
+- L62: toast.error `'فشل في تحميل الإشعارات الدائنة'` — WAIT: this is actually NOT in this file, re-verify... (correction: L62 in THIS file is unrelated; see below for actual expenses toasts)
+- L119: toast.error `` `فشل حذف ${failCount} مصروف` `` — ICU count interpolation
+- L120: toast.success ternary `` idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} مصروفات` : 'تم حذف المصروف' `` [ICU]
+- L123: toast.error `'فشل في حذف المصروف'` (ui)
+- L136: toast.error `'فشل في تحديث حالة المصروف'` (ui)
+- L137: toast.success ternary `action === 'approve' ? 'تم اعتماد المصروف' : 'تم رفض المصروف'` (ui)
+- L140: toast.error `'حدث خطأ'` (ui)
+- L173-174: `.localeCompare(String(bVal), 'ar')` (x2) — hardcoded 'ar' collation
+- L182: column header `الوصف` (ui)
+- L187: column header `المبلغ` (ui)
+- L193: column header `التصنيف` (ui)
+- L196: `{exp.category_name_ar}` — raw DB data (data, exempt, but note: category names have their own AR/EN pair already in DB — `category_name` vs `category_name_ar` — this is a PRE-EXISTING per-row bilingual pattern the plan should be aware of; NOT part of the UI-string catalog)
+- L202: column header `التاريخ` (ui)
+- L209: column header `المورد` (ui)
+- L221: column header `الحالة` (ui)
+- L229: column header `الإجراءات` (ui)
+- L234: aria-label + title `"اعتماد"` (ui) [duplicated attr]
+- L237: aria-label + title `"رفض"` (ui) [duplicated attr]
+- L243: aria-label `"تعديل المصروف"` (ui)
+- L245: aria-label `"حذف المصروف"` (ui)
+- L258: aria-label `"رجوع"` (ui)
+- L261: h1 `المصاريف` (ui)
+- L271: button `إضافة مصروف` (ui)
+- L283: card label `إجمالي المصاريف` (ui)
+- L287: card label `ضريبة القيمة المضافة` (ui)
+- L291: card label `عدد المصاريف` (ui)
+- L303: SearchInput placeholder `"بحث..."` (ui)
+- L307: SelectValue placeholder `"التصنيف"` (ui)
+- L309: SelectItem `الكل` (ui)
+- L310: `{c.name_ar || c.name}` — raw DB data (data, exempt)
+- L314: SelectValue placeholder `"الحالة"` (ui)
+- L316: SelectItem `كل الحالات` (ui)
+- L317: SelectItem `بانتظار الاعتماد` (statuses) — NOTE: this string ('بانتظار الاعتماد') DIFFERS from EXPENSE_STATUS_LABELS.pending ('بانتظار الموافقة') used elsewhere in same file at line 47 via the map — TEXT DRIFT within the same file: two different Arabic phrasings for the same "pending" status. Flag as a MUST-FIX during catalog consolidation (pick one canonical string).
+- L318: SelectItem `معتمد` (statuses) — matches EXPENSE_STATUS_LABELS.approved
+- L319: SelectItem `مرفوض` (statuses) — matches EXPENSE_STATUS_LABELS.rejected
+- L323: filter label `من` (ui) — very short word, high collision risk in ICU key naming (use fully-qualified key e.g. finance.expenses.list.dateFromLabel)
+- L327: filter label `إلى` (ui) — same collision risk
+- L339: DataTable emptyState title `'لا توجد مصاريف'` (ui)
+- L340: DataTable emptyState description `'أضف مصروف جديد لتتبع النفقات'` (ui)
+- L348: bulkActions label `'حذف المحدد'` (ui)
+- L363: pagination button `السابق` (ui)
+- L364: pagination text `` `{page} / {totalPages}` `` [ICU]
+- L365: pagination button `التالي` (ui)
+- L372: DialogTitle `حذف المصروف` (ui)
+- L373: confirm text `هل أنت متأكد من حذف هذا المصروف؟ لا يمكن التراجع عن هذا الإجراء.` (ui)
+- L375: Button `إلغاء` (ui)
+- L376: Button ternary `{deleting ? 'جاري الحذف...' : 'حذف'}` (ui)
+- No dir attrs, no toLocaleDateString. formatCurrency call sites: 4 (L189 row, L284 summary total, L288 summary vat; a 4th? recount: L189, L284, L288 = 3 direct calls; formatDate: 1 (L205, no locale param)).
+- ExportButton usage L265-269 passes computed date ranges via `.toISOString().split('T')[0]` (L267-268) — UTC-naive date slicing, NOT a "today in Dubai" comparison per se (it's a default date-range for export, not a same-day boundary check) — LOW risk, flagging per Phase 15.1 discipline only.
+
+app/dashboard/finance/expenses/new/page.tsx
+- L25: PAYMENT_METHODS `'نقداً'` (cash) — statuses-like, NO existing catalog entity for "payment method" in the *contextual sense here* (there IS a `paymentMethod` entity in statuses.json but its keys are `bank_transfer/cash/cheque/credit_card/online/stripe/credit_note/refund/other` — labels differ slightly: catalog has `'نقدي'` for cash vs this file's `'نقداً'` — TEXT DRIFT, must reconcile) [HAZARD-adjacent: same entity, different string]
+- L26: `'تحويل بنكي'` — matches PAYMENT_METHOD_LABELS.bank_transfer exactly
+- L27: `'بطاقة ائتمان'` — matches PAYMENT_METHOD_LABELS.credit_card exactly
+- L28: `'شيك'` — matches PAYMENT_METHOD_LABELS.cheque exactly
+- L29: `'دفع إلكتروني'` — matches PAYMENT_METHOD_LABELS.online exactly
+- L55: toast.success `'تم إضافة المصروف'` (ui)
+- L58: toast.error `'فشل في الحفظ'` (ui)
+- L64: toast.error `'المبلغ مطلوب'` (ui)
+- L85: aria-label `"رجوع"` (ui)
+- L87: h1 `إضافة مصروف جديد` (ui)
+- L92: CardTitle `بيانات المصروف` (ui)
+- L96: Label `الوصف` (ui)
+- L97: placeholder `"وصف المصروف"` (ui)
+- L100: Label `المورد (من السجل)` (ui)
+- L108: SelectValue placeholder `"اختر مورد"` (ui)
+- L110: SelectItem `بدون ربط` (ui)
+- L111: `{s.name}{s.company ? \` — ${s.company}\` : ''}` — raw DB data (data, exempt)
+- L116: Label `اسم المورد` (ui)
+- L117: placeholder `"اسم المورد"` (ui)
+- L120: Label `المبلغ *` (ui)
+- L121: placeholder `"0.00"` + `dir="ltr"`
+- L124: Label `نسبة الضريبة (%)` (ui)
+- L128: Label `التصنيف` (ui)
+- L130: SelectValue placeholder `"اختر التصنيف"` (ui)
+- L132: SelectItem `بدون تصنيف` (ui)
+- L133: `{c.name_ar || c.name}` — raw DB data (data, exempt)
+- L138: Label `طريقة الدفع` (ui)
+- L140: SelectValue placeholder `"اختر طريقة الدفع"` (ui)
+- L142: SelectItem `غير محدد` (ui)
+- L148: Label `المشروع` (ui)
+- L150: SelectValue placeholder `"اختر المشروع"` (ui)
+- L152: SelectItem `بدون مشروع` (ui)
+- L158: Label `تاريخ المصروف` (ui)
+- L162: Label `العملة` (ui)
+- L175: Label `ملاحظات` (ui)
+- L176: placeholder `"ملاحظات إضافية..."` (ui)
+- L181-182: Submit button ternary `{saving ? 'جاري الحفظ...' : 'حفظ المصروف'}` (ui)
+- dir="ltr": L121 (amount), L125 (vat_rate — check actual line: Label at L124, Input likely L125 area, verify) — numeric fields, flag only.
+- formatCurrency/formatDate call sites: 0.
+
+app/dashboard/finance/expenses/[id]/page.tsx
+- L26: PAYMENT_METHODS `'نقداً'` — SAME drift as new/page.tsx (duplicated const array, not shared/imported — DRY violation pre-existing, worth flagging for the i18n plan to consolidate PAYMENT_METHODS into one place, likely `lib/constants/statuses.ts` PAYMENT_METHOD_LABELS reuse)
+- L27: `'تحويل بنكي'`
+- L28: `'بطاقة ائتمان'`
+- L29: `'شيك'`
+- L30: `'دفع إلكتروني'`
+- L101: toast.success `'تم تحديث المصروف'` (ui)
+- L105: toast.error `json.error || 'فشل في التحديث'` — server passthrough fallback
+- L108: toast.error `'فشل في التحديث'` (ui)
+- L129: aria-label `"رجوع"` (ui)
+- L131: h1 `تعديل المصروف` (ui)
+- L136: CardTitle `بيانات المصروف` (ui)
+- L140: Label `الوصف` (ui)
+- L144: Label `المورد (من السجل)` (ui)
+- L152: SelectValue placeholder `"اختر مورد"` (ui)
+- L154: SelectItem `بدون ربط` (ui)
+- L155: `{s.name}{s.company ? \` — ${s.company}\` : ''}` — raw DB data (data, exempt)
+- L160: Label `اسم المورد` (ui)
+- L164: Label `المبلغ *` (ui)
+- L168: Label `نسبة الضريبة (%)` (ui)
+- L172: Label `التصنيف` (ui)
+- L174: SelectValue placeholder `"اختر التصنيف"` (ui)
+- L176: SelectItem `بدون تصنيف` (ui)
+- L177: `{c.name_ar || c.name}` — raw DB data (data, exempt)
+- L182: Label `طريقة الدفع` (ui)
+- L184: SelectValue placeholder `"اختر"` (ui) — TERSER than new/page.tsx's `"اختر طريقة الدفع"` at the equivalent field — TEXT DRIFT between the two near-duplicate forms
+- L186: SelectItem `غير محدد` (ui)
+- L192: Label `المشروع` (ui)
+- L194: SelectValue placeholder `"اختر المشروع"` (ui)
+- L196: SelectItem `بدون مشروع` (ui)
+- L202: Label `تاريخ المصروف` (ui)
+- L206: Label `العملة` (ui)
+- L219: Label `ملاحظات` (ui)
+- L224-225: Submit button ternary `{saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}` (ui) — NOTE: different button text than new/page.tsx's `'حفظ المصروف'` — intentional (edit vs create), keep as separate keys.
+- dir="ltr": L165 (amount), L169 (vat_rate) — numeric fields, flag only.
+- formatCurrency/formatDate call sites: 0.
+
+app/dashboard/finance/expenses/categories/page.tsx
+- L54: toast.error `'اسم التصنيف مطلوب'` (ui)
+- L65: toast.success ternary `editingId ? 'تم التحديث' : 'تم الإضافة'` (ui)
+- L70: toast.error `json.error || 'فشل في الحفظ'` — server passthrough fallback
+- L73: toast.error `'فشل في الحفظ'` (ui)
+- L84: toast.success `'تم الحذف'` (ui)
+- L89: toast.error `json.error || 'فشل في الحذف'` — server passthrough fallback
+- L92: toast.error `'فشل في الحذف'` (ui)
+- L101: aria-label `"رجوع"` (ui)
+- L104: h1 `تصنيفات المصاريف` (ui)
+- L107: Button `إضافة تصنيف` (ui)
+- L116: column header `اللون` (ui)
+- L117: column header `الاسم (EN)` (ui) — mixed-latinism, parenthetical language tag
+- L118: column header `الاسم (AR)` (ui) — mixed-latinism, parenthetical language tag; BOTH L117/L118 headers are meta-labels describing bilingual DB columns (`name`/`name_ar`) — this is a UI label ABOUT bilingual data, itself needs translation but the underlying concept (English name column / Arabic name column) may need re-thinking once the UI itself goes bilingual (a value judgment for the plan: does "الاسم (EN)" still make sense in an English UI render? Likely becomes "Name (EN)" / "Name (AR)" which is redundant-but-harmless).
+- L119: column header `افتراضي` (ui)
+- L120: column header `الإجراءات` (ui)
+- L135: cell value ternary `cat.is_default ? 'نعم' : 'لا'` (ui) — Yes/No boolean render, ICU-worthy as generic yesNo key
+- L138: aria-label `"تعديل التصنيف"` (ui)
+- L142: aria-label `"حذف التصنيف"` (ui)
+- L159: DialogTitle ternary `editingId ? 'تعديل التصنيف' : 'إضافة تصنيف'` (ui)
+- L161: Label `الاسم (English) *` (ui) — mixed-latinism ("English" spelled out, not abbreviated like the column header)
+- L162: Label `الاسم (عربي)` (ui)
+- L163: Label `اللون` (ui)
+- L165: Button `إلغاء` (ui)
+- L166: Button ternary `{saving ? <>...جاري الحفظ...</> : 'حفظ'}` — split-node with inline Loader2 icon + text `جاري الحفظ...` [ICU: rich-text wrapping icon]
+- L175: DialogTitle `حذف التصنيف` (ui)
+- L176: confirm text `هل أنت متأكد من حذف هذا التصنيف؟` (ui)
+- L178: Button `إلغاء` (ui)
+- L179: Button `حذف` (ui)
+- No dir attrs, no formatCurrency/formatDate/toLocale calls, no localeCompare in this file.
+
+================================================================
+4. components/finance/contract-items-editor.tsx
+================================================================
+- L59: toast.error `'جميع البنود يجب أن تحتوي على عنوان'` (ui)
+- L66: toast.success `'تم حفظ بنود العقد'` (ui)
+- L69: toast.error `'فشل في حفظ البنود'` (ui)
+- L124: `const arabicLetters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];` — (data/ui hybrid) HARDCODED ARABIC ALPHABETICAL NUMBERING SCHEME used as child-item ordinal labels (أ. ب. ج. ...). This is a LOCALE-DEPENDENT NUMBERING CONVENTION, not a translatable string — in an English-locale render this must become a/b/c (or i/ii/iii, or keep Arabic per business/legal-document convention since contracts may be legally Arabic-first). FLAG AS HAZARD: this is NOT a simple string swap — it's a formatting/numbering-system decision matching the ICU `en-US` alpha ordinal vs Arabic `أ ب ج` ordinal list. Needs explicit design decision.
+- L132: CardTitle `نطاق العمل` (ui) (loading-state skeleton header)
+- L150: CardTitle `نطاق العمل` (ui) (duplicate text, live state header)
+- L156: Button text `حفظ البنود` (ui)
+- L162: Button text `إضافة بند` (ui)
+- L170: EmptyState title `"لا توجد بنود بعد"` (ui)
+- L171: EmptyState description `"أضف بنود نطاق العمل لتظهر في الفواتير والبوابة"` (ui)
+- L173: EmptyState actionLabel `"إضافة أول بند"` (ui)
+- L186: ordinal render `{idx + 1}.` — numeric, not Arabic text, but note: Western digit numbering for PARENT items co-exists with Arabic-letter numbering for CHILD items (L230) in the SAME component — an intentional visual hierarchy (numbers for top-level, letters for sub-level) that must be preserved conceptually even if the letter scheme is later made locale-aware.
+- L192: placeholder `"عنوان البند"` (ui)
+- L198: placeholder `"وصف اختياري"` (ui)
+- L207-208: title + aria-label `"إضافة بند فرعي"` (ui) [duplicated attr]
+- L216-217: title + aria-label `"حذف البند"` (ui) [duplicated attr]
+- L230: `{arabicLetters[cIdx] || String(cIdx + 1)}.` — see L124 hazard above; fallback to Western numeral string when >10 children.
+- L236: placeholder `"عنوان البند الفرعي"` (ui)
+- L244-245: title + aria-label `"حذف"` (ui) [duplicated attr, note: bare "حذف" here vs "حذف البند" at parent level — intentional differentiation by context, acceptable as 2 distinct keys]
+- L259: Button text `حفظ البنود` (ui) (2nd occurrence, bottom-of-list save button — same string as L156, can share one key)
+- No dir attrs, no formatCurrency/formatDate/toLocale/localeCompare calls in this file.
+
+================================================================
+5. hooks/useContracts.ts / useCreditNotes.ts / useExpenses.ts
+================================================================
+All three: pure TypeScript CRUD hooks following the CLAUDE.md `fetchAPI`/`mutateAPI`/`buildQueryString` pattern. Zero Arabic strings, zero toasts, zero date/currency formatting, zero locale-sensitive code. NOT in scope for string-catalog work; only relevant if a future pass wants typed status unions imported here (useExpenses.ts already imports `ExpenseStatus` type from lib/constants/statuses — good precedent to extend to `ContractStatus`/`CreditNoteStatus` if desired, but that's a typing improvement, not an i18n requirement).
+
+================================================================
+6. Cross-cutting flags
+================================================================
+- localeCompare('ar'): contracts-client.tsx L138-139 (x2), expenses-client.tsx L173-174 (x2). 4 total occurrences across scope.
+- Hardcoded dir="rtl": NONE found in this scope (unlike Phase-3 pipeline scope).
+- Hardcoded dir="ltr": contracts/new L139,155; credit-notes/new L128,154,155,167; credit-notes/[id] L125; expenses/new L121 (+ likely L125 vat_rate, verify at impl time); expenses/[id] L165,169; credit-notes-client.tsx L136 (credit_note_number span). ALL are numeric/identifier display fields — plan should treat these as "keep as-is" (LTR digits/codes are locale-agnostic), NOT translation targets, but confirm during implementation that `dir="ltr"` doesn't need to become conditional in an RTL-vs-LTR-page sense (it's a sub-element override, independent of overall page dir).
+- Hardcoded 'AED': NONE directly hardcoded as a literal currency code passed to formatCurrency in this scope (all calls pass `.currency` from data or omit param, defaulting to 'AED' per formatCurrency's own default) — contrast with Phase-3's pipeline-column.tsx hardcoded 'AED'. Form default state `currency: 'AED'` (contracts/new L36, expenses/new L36-ish) is a DATA default, not a display hardcode — exempt.
+- formatDate without locale param: credit-notes-client.tsx L146; credit-notes/[id]/page.tsx L164; expenses-client.tsx L205. 3 total call sites needing a locale param per Phase 0-2 convention.
+- Degenerate/near-degenerate plural patterns: contracts-client.tsx L100 (2-way manual plural: `تم حذف العقد` vs `تم حذف ${n} عقود`), expenses-client.tsx L120 (identical shape: `تم حذف المصروف` vs `تم حذف ${n} مصروفات`). Both are prime ICU `{count, plural, one{...} other{...}}` candidates — NOT degenerate (the two branches differ, unlike Phase-3's pipeline-filter-bar), but still worth ICU-izing for correctness at count=0/2+ edge cases and for the EN catalog's real plural rules.
+- Server-message passthrough toasts (`toast.error(json.error || 'فشل ...')`): appears repeatedly — contracts/[id] L155,171,193,230; credit-notes/[id] L76,88; expenses/categories L70,89; expenses/[id] L105. ALL depend on the underlying API route's error string being migrated to the `api` namespace (per CLAUDE.md i18n rules) before the client-side fallback text alone can be considered "done" — flag as a cross-file dependency the plan must sequence (API route i18n migration BEFORentacle or IN LOCKSTEP WITH these pages, otherwise an English-locale user still sees Arabic server errors on failure paths).
+- TEXT DRIFT inventory (same concept, different Arabic string, found during this census — must be reconciled to ONE canonical string per key during catalog authoring):
+  1. Credit note "applied" status: `'مطبق'` (credit-notes-client.tsx L37, inline SelectItem L103) vs `'مطبّق'` (CREDIT_NOTE_STATUS_LABELS.applied, used correctly in credit-notes/[id]/page.tsx L47).
+  2. Expense "pending" status: `'بانتظار الموافقة'` (EXPENSE_STATUS_LABELS.pending, imported correctly at expenses-client.tsx L47) vs `'بانتظار الاعتماد'` (same file's inline SelectItem at L317) — literally the SAME FILE uses two different Arabic phrasings for "pending" in two different UI locations.
+  3. Payment method "cash": `'نقداً'` (expenses/new L25, expenses/[id] L26 — both duplicated locally) vs `'نقدي'` (PAYMENT_METHOD_LABELS.cash in lib/constants/statuses.ts, NOT imported/used by either expense form).
+  4. Payment method select placeholder: `"اختر طريقة الدفع"` (expenses/new L140) vs `"اختر"` (expenses/[id] L184) — same field, different placeholder verbosity between create/edit forms.
+- LATENT DATA-VS-CATALOG GAPS (status values used in UI but absent from the shared statuses.json/lib/constants/statuses.ts entity — these are NOT pure i18n issues, they pre-date this migration and should be flagged to the user/plan-owner, not silently "fixed" by the i18n pass alone):
+  1. Contract status `in_progress` — used in contracts-client.tsx STATUS_MAP + inline SelectItem, absent from `CONTRACT_STATUS`/`CONTRACT_STATUS_LABELS`/statuses.json's `contract` entity.
+  2. Expense status `draft` — used in expenses-client.tsx EXPENSE_STATUS_MAP, absent from `EXPENSE_STATUS`/`EXPENSE_STATUS_LABELS`/statuses.json's `expense` entity.
+  3. Contract "type" (retainer/milestone/upfront_delivery/fixed/hourly) — has NO entity at all in statuses.json; only exists as local TYPE_MAP/CONTRACT_TYPES consts duplicated across contracts-client.tsx and contracts/new/page.tsx (2 separate literal arrays/objects for the same 5 values, already drifted in label wording — e.g. list page "ثابت شهري" vs new-page "ثابت شهري (Retainer)").
+- Mixed-latinism (English word embedded in Arabic string): contracts/new CONTRACT_TYPES parentheticals (Retainer/Milestone/Fixed/Hourly at L22-26), expenses/categories column headers "(EN)"/"(AR)" and Label "(English)" (L117-118, L161).
+- No JSON arrays needed anywhere in this scope; all candidate messages are flat keyed strings + a handful of ICU plural/interpolation cases enumerated above.
+
+================================================================
+7. HAZARDS section (business logic branching on Arabic strings; status display-vs-comparison risk)
+================================================================
+
+H1. [CRITICAL — data hazard] credit-notes/new/page.tsx L54: the auto-populated `reason` field default value is an Arabic template literal (`` `مرتجع / تعديل على الفاتورة ${inv.invoice_number}` ``) that gets PERSISTED VERBATIM to the DB as the credit note's `reason` column if the admin doesn't edit it before submit. This is displayed AND stored — translating the UI template literal changes what future readers of that credit note (including PDF/reports, if any) see as the stored reason, retroactively for NEW records created under an EN-locale session. Plan must decide: (a) keep this auto-fill text canonically Arabic regardless of UI locale (business record convention), or (b) let it follow UI locale and accept that credit note reasons will be bilingual/inconsistent going forward. Recommend (a) — do NOT make this ICU-translated without an explicit decision.
+
+H2. [MEDIUM — numbering-system hazard, not a string] components/finance/contract-items-editor.tsx L124: `arabicLetters` ordinal scheme (أ ب ج د هـ و ز ح ط ي) for contract sub-item numbering. This is CONTENT that appears inside the generated Scope-of-Work section of contracts, which likely gets pulled into invoices/portal display (per the component's own EmptyState hint: "أضف بنود نطاق العمل لتظهر في الفواتير والبوابة" = "add scope items to appear in invoices and the portal"). If contract items are rendered to an English-locale client in the portal, showing Arabic ordinal letters (أ. ب. ج.) would look broken/foreign. This needs an explicit numbering-scheme decision (Arabic letters vs Latin letters vs roman numerals) tied to the CONSUMING locale (client's `preferred_language`), not just the admin dashboard's locale — cross-references the portal-parity concern from CLAUDE.md's "STOP — Ask WHO?" checklist.
+
+H3. [MEDIUM — status display-vs-comparison] Every STATUS_MAP / EXPENSE_STATUS_MAP / STATUS_MAP(credit-notes) pattern in this scope follows the SAFE shape already: the map's KEY (`draft`/`active`/`pending`/etc.) is the DB-stored status string compared elsewhere (e.g. `cn.status === 'draft'` at credit-notes/[id]/page.tsx L132, `exp.status === 'pending'` at expenses-client.tsx L232, `form.contract_type === 'retainer'` at contracts/[id]/page.tsx L220/243) — comparisons are against the ENGLISH DB enum value, and only the MAP'S VALUE (the `.label`) is the Arabic display string. This is the CORRECT pattern (display separate from comparison) and i18n work here is LOW RISK — swapping `.label` values to `useStatusLabels(entity)` output does not touch any `===` comparison. No live hazard found matching the Phase-3-style "chip-identity-coupling" pattern (where a translatable label was ALSO the persisted/compared value) — EXCEPT for H1 above (credit note `reason` free text) and the `contract_type` TYPE_MAP labels, which are NEVER compared (only `contract_type` raw value is compared, TYPE_MAP is display-only) — confirmed safe.
+
+H4. [LOW — server-message passthrough coupling] Multiple toasts across contracts/[id], credit-notes/[id], expenses/categories, expenses/[id] render `json.error` (a live Arabic string from the API route) as a FALLBACK when present, else a client-side hardcoded Arabic string. Until the corresponding API routes (`/api/finance/contracts/[id]/milestones/*`, `/api/dashboard/credit-notes/*`, `/api/finance/expenses/categories/*`) are migrated to the `api` i18n namespace (per CLAUDE.md's i18n rules for route handlers), an EN-locale user will see a mixed-language toast (English client fallback but Arabic server message on actual failures). This is a sequencing dependency for the phase-4 API-route census, not a page-level fix.
+
+H5. [LOW — duplicated/drifted local consts] PAYMENT_METHODS array is defined TWICE (expenses/new/page.tsx L23-29 and expenses/[id]/page.tsx L25-31) with IDENTICAL values but is NOT imported from `lib/constants/statuses.ts`'s `PAYMENT_METHOD_LABELS` (which has slightly different label text — see TEXT DRIFT #3 above). Recommend the i18n plan use this migration as an opportunity to DRY these into one shared source (likely extending `PAYMENT_METHOD_LABELS` or adding a `paymentMethodExpenseForm` distinction if the label differences are intentional) — a pre-existing violation of the "single source of truth" principle in CLAUDE.md's Status Constants section, surfaced by this census.
+
+END OF CENSUS.

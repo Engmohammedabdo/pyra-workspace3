@@ -1,0 +1,166 @@
+PHASE-4 FINANCE CROSS-CUTTING DISCOVERY — findings (repo: C:\xampp\htdocs\pyra-workspace-3)
+
+=== 1. STATUSES-ACCESSOR SWAP TARGETS (imports of lib/constants/statuses label maps) ===
+
+INVOICE_STATUS_LABELS
+- app/dashboard/invoices/invoices-client.tsx:35 (import), render :65-70 — local `STATUS_MAP: Record<string,{label,variant}>` built FROM the canonical labels (draft/sent/paid/partially_paid/overdue/cancelled), NOT a shadow copy. Swap = useStatusLabels('invoice') feeding the same map shape.
+PAYMENT_METHOD_LABELS
+- app/dashboard/invoices/[id]/page.tsx:21 (import), render :351 — `Object.entries(PAYMENT_METHOD_LABELS).map(...)` building a `<Select>` options list (bank_transfer/cash/cheque/credit_card/online/stripe/credit_note/refund/other).
+QUOTE_STATUS_LABELS
+- app/dashboard/quotes/quotes-client.tsx:24 (import), render :42-50 — local `{label,variant}` map (draft/pending_approval/sent/viewed/signed/invoiced/rejected/expired/cancelled). Clean pass-through, same swap shape as invoices.
+EXPENSE_STATUS_LABELS
+- app/dashboard/finance/expenses/expenses-client.tsx:24 (import), render :46-48 — local `{label,icon}` map (approved/pending/rejected).
+CREDIT_NOTE_STATUS_LABELS
+- app/dashboard/finance/credit-notes/[id]/page.tsx:14 (import), render :45-48 — local `{label}` map (draft/issued/applied/cancelled). NOTE: the LIST page (`credit-notes-client.tsx`) does NOT import the constant — it has its OWN inline shadow map with DIFFERENT wording ("مطبق" vs canonical "مطبّق" — missing shadda). See §2.
+
+CRM's already-covered PIPELINE_STAGE/LEAD_* maps are NOT in scope for Phase 4 (finance surface has zero imports of those).
+
+=== 2. LOCAL SHADOW LABEL MAPS (inline AR, not from statuses.ts import — must be swapped to the SAME canonical entity even though the file never imported the constant) ===
+
+- app\dashboard\quotes\analytics\quotes-analytics-client.tsx:52-62 `STATUS_LABELS: Record<string,string>` = { draft:'مسودة', pending_approval:'بانتظار الموافقة', sent:'مُرسل' (note: مُرسل vs canonical 'مرسل' — extra diacritic, must reconcile at swap), viewed:'تم العرض', signed:'موقع' (missing shadda vs canonical 'موقّع'), invoiced:'تم الفوترة', expired:'منتهي', rejected:'مرفوض', cancelled:'ملغي' }; render :101-113 (pie + bar chart `name` field). Sits alongside a PARALLEL `STATUS_COLORS` map (:40-50, imports `CHART_STATUS_COLORS`/`CHART_COLORS` from lib/constants/chart-colors — that map is fine, colors aren't translatable). Also has local `fmtNum` (Intl.NumberFormat 'en-AE', see §2 format helpers) at :64-65.
+- app\dashboard\finance\purchase-orders\purchase-orders-client.tsx:31-41 `STATUS_MAP` = { draft:{label:'مسودة',variant:'outline'}, active:{label:'نشط',variant:'default'}, in_progress:{label:'قيد التنفيذ',variant:'default'}, completed:{label:'مكتمل',variant:'secondary'}, cancelled:{label:'ملغي',variant:'destructive'} } — ⚠️ WRONG ENTITY: this is actually the CONTRACTS status vocabulary (draft/active/in_progress/completed/cancelled) copy-pasted into the PO client by mistake — filter <Select> options at :242-247 use the same 5 keys. The REAL PO status set (draft/sent/acknowledged/received/invoiced/cancelled) is nowhere used in this file — it appears the filter dropdown is functionally broken/mismatched against `PO_STATUS` already (pre-existing bug, flag for the plan — not an i18n regression to introduce, but swapping to `useStatusLabels('po')` will surface/fix it).
+- app\dashboard\finance\purchase-orders\[id]\page.tsx:31-38 `STATUS_MAP: Record<string,{label:string}>` = { draft:'مسودة', sent:'مُرسل', acknowledged:'مؤكد' (canonical PO_STATUS_LABELS.acknowledged = 'تم الاستلام' — DIFFERENT wording), received:'مستلم' (canonical = 'تم التوريد' — DIFFERENT), invoiced:'مفوتر' (canonical = 'تم الفوترة' — DIFFERENT), cancelled:'ملغي' }. This IS the correct PO entity but with 3 divergent labels vs statuses.ts — swap must reconcile wording (pick canonical, confirm with Abdou if the detail-page wording was intentional).
+- app\dashboard\finance\contracts\contracts-client.tsx:35-41 `STATUS_MAP` = { draft:{label:'مسودة',variant:'outline'}, active:{label:'نشط',variant:'default'}, in_progress:{label:'قيد التنفيذ',variant:'default'}, completed:{label:'مكتمل',variant:'secondary'}, cancelled:{label:'ملغي',variant:'destructive'} }; render via Badge (list rows) + filter <Select> :242-247 (draft/active/in_progress/completed/cancelled). ⚠️ GAP MATCHES CRM PHASE 9 LOCK: `CONTRACT_STATUS`/`CONTRACT_STATUS_LABELS` in lib/constants/statuses.ts only has draft/active/completed/cancelled — `in_progress` is a live production status value with NO canonical constant entry. The CRM module already worked around this with its own `crmContract` catalog entity (in_progress/paused/expired) — Phase 4 must decide: widen `CONTRACT_STATUS`/`statuses.contract` to add `in_progress` (breaking nothing, additive), OR reuse the existing `crmContract` catalog key for this admin finance surface too (same entity, same values — DRY). RECOMMEND: reuse `crmContract` catalog key (already has in_progress/paused/expired) rather than minting a second contract-status catalog entry — but the underlying `CONTRACT_STATUS` TS union in statuses.ts still only has 4 values; either widen the TS type too or leave TS as-is (loosely typed `status: string` in the Contract hook already, see §3) and just point the UI's useStatusLabels at 'crmContract'.
+  Also has a `TYPE_MAP: Record<string,string>` at :43-49 for contract_type (retainer/milestone/upfront_delivery/fixed/hourly) — NOT a status per se, no catalog entity exists; needs a NEW catalog key if Phase 4 translates it (e.g. `statuses.contractType` or a `finance.json` non-status key). Flag as an ADDITIONAL translatable map beyond the 8 requested entities.
+- app\dashboard\finance\credit-notes\credit-notes-client.tsx:34-39 `STATUS_MAP` = { draft:'مسودة', issued:'صادر', applied:'مطبق' (canonical CREDIT_NOTE_STATUS_LABELS.applied = 'مطبّق' — missing shadda, cosmetic diacritic diff), cancelled:'ملغي' }. Reconcile wording at swap (trivial — same word, diacritic only).
+- app\dashboard\finance\cards\page.tsx:37-42 `CARD_TYPES` = [{value:'visa',label:'Visa'},{value:'mastercard',label:'Mastercard'},{value:'amex',label:'American Express'},{value:'other',label:'أخرى'}] — card-brand picker, not a status entity. Only 'أخرى' needs translation; low priority (CLAUDE.md marks this whole page an "orphaned — removal candidate" post subscriptions-sunset — confirm with Abdou whether to migrate or skip translating a page slated for removal).
+
+=== 3. STATUSES.JSON GAPS — entities Phase 4 must ADD or WIDEN (AR labels copied verbatim from lib/constants/statuses.ts) ===
+
+ALREADY PRESENT (from earlier phases — confirmed by reading messages/{ar,en}/statuses.json) — Phase 4 does NOT need to re-add these, only wire `useStatusLabels()` into the finance UI call sites:
+  invoice, quote, contract (see gap below), expense, po, creditNote, subscription, paymentMethod, billingCycle.
+
+GAP — contract entity needs `in_progress` (+ optionally paused/expired to fully align with the sibling `crmContract` key, see §2 recommendation to just reuse `crmContract` instead of forking a second key). Exact AR wording already exists verbatim in the EXISTING `crmContract` catalog entry (added Phase 3):
+  "crmContract": { "active": "نشط", "in_progress": "جاري", "completed": "مكتمل", "paused": "متوقف", "cancelled": "ملغى", "draft": "مسودة", "expired": "منتهي" }
+  If Phase 4 instead widens the base `contract` entity in place (alternative option), the NEW key/value to append (verbatim from lib/constants/statuses.ts CONTRACT_STATUS — NOTE: the TS const does not actually define `in_progress`/`paused`/`expired`, these only exist as ad-hoc UI strings copied from the CRM `STATUS_LABEL_AR` shadow map documented in the Phase-3 census — the AR text below is copied from that shadow map, not from statuses.ts since statuses.ts has no such keys):
+  in_progress: "قيد التنفيذ" (as literally written in contracts-client.tsx / purchase-orders-client.tsx's copy-pasted map) — CONFLICTS with crmContract's "جاري" for the same key. Two different AR words ("قيد التنفيذ" vs "جاري") are in production for the SAME status value across CRM vs Finance surfaces today. Phase 4 MUST reconcile this wording collision with Abdou before adding any catalog key — do not silently pick one.
+
+NEW entity needed — contract TYPE (not status): retainer/milestone/upfront_delivery/fixed/hourly (AR verbatim from contracts-client.tsx TYPE_MAP):
+  retainer: "ثابت شهري", milestone: "مراحل", upfront_delivery: "دفعة مقدمة + تسليم", fixed: "سعر ثابت", hourly: "بالساعة"
+  No existing catalog key. Candidate name: `statuses.contractType` (parallels the entity-adjacent naming of pipelineStage/leadDealType) or a `finance.json` key if the team prefers non-status vocab to live outside statuses.json — Phase 3 precedent (leadDealType, leadBillingCycle) put deal-shape vocab INSIDE statuses.json, so `statuses.contractType` is the consistent choice.
+
+NOT gaps (verify-only, no catalog action needed): subscription, paymentMethod, billingCycle are present and the finance surface has ZERO live UI consumers of `subscription` (module sunset per CLAUDE.md Finance Remediation decisions — `pyra_subscriptions` table is historical-only, no UI reads `SUBSCRIPTION_STATUS_LABELS` anywhere in app/dashboard/finance or components/finance). Confirmed via grep — zero hits for `SUBSCRIPTION_STATUS` under the finance surface. Do not build a subscriptions status UI as part of Phase 4.
+
+WORDING RECONCILIATION LIST (cosmetic diacritic diffs vs statuses.json — decide keep-as-canonical-json or match-json-to-code):
+  - credit-notes-client.tsx "applied: 'مطبق'" vs statuses.json creditNote.applied = "مطبّق" (shadda) — recommend keep catalog's version (already correct), fix the local shadow map's spelling when swapping.
+  - purchase-orders/[id]/page.tsx acknowledged:'مؤكد'/received:'مستلم'/invoiced:'مفوتر' vs statuses.json po.{acknowledged:'تم الاستلام', received:'تم التوريد', invoiced:'تم الفوترة'} — 3 genuinely different Arabic words, not diacritics. This is a real wording divergence between the PO list page (uses canonical wording indirectly never — see below) and PO detail page (uses these 3 divergent words). NEITHER page currently imports PO_STATUS_LABELS (list page's STATUS_MAP is actually contract vocabulary per the bug noted in §2). Recommend: standardize BOTH PO pages on the canonical `po` catalog entity and drop both local maps.
+  - quotes-analytics-client.tsx sent:'مُرسل' / signed:'موقع' vs statuses.json quote.{sent:'مرسل', signed:'موقّع'} — diacritic-only diffs, safe to swap to canonical.
+
+=== 4. FORMAT-HELPER CALL SITES ===
+
+formatCurrency(amount, currency) signature CONFIRMED: NO locale param (lib/utils/format.ts:60-70). Always builds `new Intl.NumberFormat('en-AE', {style:'currency', currency, minimumFractionDigits:2, maximumFractionDigits:2})` regardless of caller's locale. Verified empirically (node -e): 'en-AE' formatting of 12345.50 → "AED 12,345.50" (ASCII digits + literal "AED" prefix) — this is IDENTICAL output regardless of which UI locale (ar/en) is active, because the function never branches on locale at all.
+VERIFICATION METHOD FOR THE PLAN: no code change needed to formatCurrency for Phase 4. State in the plan: "money strings are locale-invariant by construction (hardcoded 'en-AE' + ASCII digits) — verify via `grep -n \"formatCurrency\\|Intl.NumberFormat\" <file>` that no Phase-4 call site re-implements a locale-conditional currency formatter; the existing calls need zero changes." formatCurrencyMap (same file, :83-93) delegates to formatCurrency per-entry — same invariance.
+
+formatDate/formatRelativeDate/formatTaskDueDate ALREADY have `locale: Locale = 'ar'` param (Phase 0 T8, matches Phase 3 census) — these need LOCALE THREADING (pass the resolved UI locale instead of relying on the 'ar' default) at every call site listed below:
+
+Date/time call sites needing locale threading:
+  - app/dashboard/finance/page.tsx:30 — NOT formatDate/formatRelativeDate, but a raw `new Date().toLocaleDateString('ar-EG', { month:'long', year:'numeric' })` hardcoded to ar-EG — see §5 hazard, must become locale-conditional (or route through formatDate with a 'MMMM yyyy' pattern + explicit locale).
+  - (No other formatDate/formatRelativeDate call sites found via grep in app/dashboard/finance, app/dashboard/invoices, app/dashboard/quotes, components/finance, components/quotes — the finance surface largely renders dates via inline `new Date(...).toLocaleDateString()`-style ad hoc code inside page files rather than the shared helper; see raw hardcoded-locale sites below.)
+
+Hardcoded-locale toLocale*/Intl.* sites (full site list, file:line + snippet):
+  1. app/dashboard/finance/page.tsx:30 — `new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })` — REAL HAZARD, renders Arabic month name unconditionally regardless of UI locale.
+  2. app/dashboard/quotes/analytics/quotes-analytics-client.tsx:64-65 — `fmtNum = (n) => new Intl.NumberFormat('en-AE', {minimumFractionDigits:0, maximumFractionDigits:0}).format(n)` — locale-invariant (en-AE, ASCII digits), same doctrine as formatCurrency — no change needed, just confirm it stays en-AE (do not "fix" to be locale-conditional, that would introduce Arabic-Indic digit drift).
+  3. components/quotes/QuoteBuilder.tsx:305 — `new Intl.NumberFormat('en-AE', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n)` — same, locale-invariant, no change needed.
+  4. components/finance/RevenueExpenseChart.tsx:63 — `` `${value.toLocaleString('en-AE')} AED` `` — locale-invariant, no change needed.
+  5. components/finance/ExpenseBarChart.tsx:55 — `` `${value.toLocaleString('en-AE')} AED` `` — locale-invariant, no change needed.
+  6. components/finance/ExpenseBarChart.tsx:65 — `formatter: (v) => \`${v.toLocaleString('en-AE')} AED\`` — locale-invariant, no change needed.
+  7. components/finance/ExpenseCategoryPieChart.tsx:54 — `` `${value.toLocaleString('en-AE')} AED` `` — locale-invariant, no change needed.
+
+SUMMARY: only site #1 (app/dashboard/finance/page.tsx:30) is a genuine locale hazard among the 7 hardcoded-locale hits found in the whole finance surface. All others already use 'en-AE' (ASCII digits) consistent with the money-formatting invariance policy and require zero change.
+
+=== 5. HOOKS WITH ARABIC ===
+
+Read hooks/useInvoices.ts, hooks/useExpenses.ts, hooks/useContracts.ts, hooks/useCreditNotes.ts, hooks/useRecurring.ts, hooks/usePurchaseOrders.ts, hooks/useSuppliers.ts, hooks/useSales.ts (finance-relevant scope) — ZERO Arabic UI-string literals (no toasts, no thrown-error messages) in any of the 8 hooks. useInvoices.ts has 2 doc-comments in Arabic ("قائمة الفواتير مع فلترة اختيارية", "ملخص الإيرادات" etc. at :63,73-79,97,107,120,131) — comments only, not rendered strings, out of scope for i18n migration. useExpenses/useContracts/useCreditNotes/useRecurring/usePurchaseOrders/useSuppliers/useSales have NO Arabic at all (not even comments) — these are thin CRUD hooks with `[key: string]: unknown` loosely-typed interfaces (Contract, CreditNote, RecurringInvoice, PurchaseOrder, Supplier, SalesLead all use the escape-hatch index signature — a pre-existing typing debt, not an i18n concern). No hook-level swap work needed for Phase 4 beyond what UI components already do.
+
+=== 6. SHARED WIDGETS (components/dashboard/**) ===
+
+components/dashboard/finance-overview/FinanceSummaryCards.tsx — zero STATUS_LABEL/_LABEL_AR/toLocale/Intl hits; not yet read in full but the grep found no label-map or format-helper hazards.
+components/dashboard/finance-reports/{CashflowTab,ClientProfitabilityTab,DateRangeFilter,PnlTab,ProjectProfitabilityTab,SummaryCard,VatTab}.tsx — zero hits across all 7 files for the same greps. (These likely already use formatCurrency/formatDate from lib/utils/format directly rather than ad hoc formatting — confirms Phase 4 work here is limited to converting existing Arabic JSX text to translation keys, not fixing format-helper hazards.)
+components/dashboard/finance-targets/{RevenueTargetCard,RevenueTargetForm}.tsx — zero STATUS_LABEL hits (spot-checked RevenueTargetCard). Targets page (app/dashboard/finance/targets/page.tsx) has zero STATUS_MAP hits.
+
+app/dashboard/page.tsx (dashboard ROOT — ⚠️ SEE HAZARD #1 BELOW) — this file is NOT the pure "already migrated in Phase 2" file CLAUDE.md/memory claims. It renders `<MyWorkInbox />` (which IS correctly migrated, confirmed via mywork.json catalog covering all its strings) INSIDE a much larger un-migrated wrapper: a `DashboardPage` component with zero `useTranslations`/`getTranslations`/next-intl imports, containing:
+  - An `ACTION_LABELS`/`ACTION_COLORS` pair (:60-108, only partially shown — ACTION_LABELS starts ~:79 per grep) mapping ~30 activity-log action_type strings to Arabic labels, INCLUDING finance-specific ones: `payment_recorded: 'تسجيل دفعة'`, `invoice_sent: 'إرسال فاتورة'`, `invoice_created: 'إنشاء فاتورة'`, `milestone_invoice_generated: 'فاتورة مرحلة'`, `quote_sent: 'إرسال عرض سعر'`, `quote_signed: 'توقيع عرض سعر'`, `quote_viewed: 'مشاهدة عرض سعر'`, `create_expense`/`update_expense`/`delete_expense`, `create_subscription`/`update_subscription`/`delete_subscription`, `create_card`/`update_card`/`delete_card`, `create_contract`/`update_contract`, `create_target`/`update_target` — this is a FINANCE-ADJACENT activity-feed label map living OUTSIDE any Phase-4-declared path.
+  - Quick-action buttons at :222-223 linking to `/dashboard/invoices/new` ("فاتورة جديدة") and `/dashboard/quotes/new` ("عرض سعر جديد") — hardcoded Arabic labels for finance destinations.
+  - `isAdmin` branch (:139 `const isAdmin = !!(data && 'total_users' in data)`) gates an entirely separate admin stats view (StatCard grid, activity feed, leave-balance widget) — 43 Arabic-containing lines total in this one file (grep -c count).
+  This file calls `/api/dashboard` (queryKey ['dashboard']) — a DIFFERENT endpoint from `/api/my-work` that MyWorkInbox itself calls. CLAUDE.md's architecture doc lists `app/dashboard/page.tsx` as the My-Work-inbox page, and the i18n manifest (scripts/i18n-check.ts) lists `components/dashboard/MyWorkInbox.tsx` as migrated but NOT `app/dashboard/page.tsx` itself — so the manifest is actually consistent (it never claimed the wrapper page was migrated), but CLAUDE.md prose and the user's MEMORY.md note ("Phase 2: work-core = my-work/my-tasks/boards/calendar/APIs") both read as if the whole page were done. It was NOT — only the embedded MyWorkInbox component was. This is a real gap that touches finance strings (activity labels + quick actions) and should be called out explicitly in the Phase 4 plan as either (a) in-scope for Phase 4 since the leftover strings are finance-flavored, or (b) an explicit cross-phase carry-over item for whichever phase claims app/dashboard/page.tsx's admin-stats shell.
+
+=== 7. RAW-FETCH INVENTORY (hands-off — do NOT convert during i18n migration) ===
+
+17 files under the Phase-4 surface use raw `fetch()`/`await fetch()` instead of the React Query hooks (`useInvoices`/`useExpenses`/etc. exist but are NOT consumed by these pages):
+  app/dashboard/finance/expenses/[id]/page.tsx
+  app/dashboard/finance/contracts/[id]/page.tsx
+  app/dashboard/finance/suppliers/suppliers-client.tsx
+  app/dashboard/finance/targets/page.tsx
+  app/dashboard/finance/suppliers/[id]/page.tsx
+  app/dashboard/finance/purchase-orders/purchase-orders-client.tsx
+  app/dashboard/finance/purchase-orders/[id]/page.tsx
+  app/dashboard/finance/expenses/expenses-client.tsx (NOTE: this file ALSO imports EXPENSE_STATUS_LABELS correctly per §1 — it's a hybrid: React-Query-free-form for CRUD list state but does use fetchAPI-independent raw fetch; confirm before assuming a hook exists everywhere it's needed)
+  app/dashboard/finance/expenses/categories/page.tsx
+  app/dashboard/finance/credit-notes/credit-notes-client.tsx
+  app/dashboard/finance/credit-notes/[id]/page.tsx
+  app/dashboard/finance/contracts/contracts-client.tsx
+  app/dashboard/finance/cards/page.tsx
+  app/dashboard/finance/client-statement/[clientId]/page.tsx
+  app/dashboard/invoices/[id]/page.tsx
+  app/dashboard/invoices/invoices-client.tsx
+  app/dashboard/quotes/quotes-client.tsx
+
+This matches CLAUDE.md's "~20 finance pages still use raw fetch()" v1.1 backlog note (Finance v1.1 backlog section). PLAN INSTRUCTION: the i18n migration must ONLY swap Arabic strings for translation-key calls (useTranslations/t()) and status-label lookups — it must NOT touch the fetch/useState data-layer pattern in these 17 files, even though CLAUDE.md's global rule says "NEVER use raw fetch() in components." Converting fetch→hooks is explicitly OUT OF SCOPE for the i18n effort (separate backlog item) — implementers must resist the urge to "fix" this while they're in the file for translation work.
+
+=== 8. i18n:check MANIFEST (scripts/i18n-check.ts MIGRATED_PATHS) ===
+
+Current manifest (65 lines, Phases 0-3 recorded): infra (i18n, lib/i18n, scripts/i18n-check.ts), Phase 0 locale components, Phase 1 app-shell (sidebar/topbar/nav/breadcrumb/CommandPalette/NotificationBell/page-guide/data-table/pagination/search-input/sheet/error-boundary/error-card/mention-textarea/scroll-area + portal nav/sidebar/mobile-nav/topbar + login page + portal auth), Phase 2 work-core (MyWorkInbox.tsx, MyCalendarWidget.tsx, app/dashboard/my-tasks, app/dashboard/boards, components/boards, app/dashboard/calendar, components/calendar, app/api/calendar, app/api/boards, app/api/tasks, app/api/my-tasks), Phase 3 CRM (app/dashboard/crm, components/crm, app/api/crm, hooks/useLeads.ts).
+
+Phase 4 must APPEND these path entries (mirroring the Phase 3 CRM pattern of listing directory roots + individual hook files):
+  // Phase 4 — Finance
+  'app/dashboard/invoices',
+  'app/dashboard/quotes',
+  'app/dashboard/finance',
+  'components/quotes',
+  'components/finance',
+  'components/dashboard/finance-overview',
+  'components/dashboard/finance-reports',
+  'components/dashboard/finance-targets',
+  'app/api/invoices',
+  'app/api/quotes',      (verify exact API route root name — likely app/api/dashboard/quotes + app/api/quotes; confirm both exist before adding)
+  'app/api/finance',
+  'hooks/useInvoices.ts',
+  'hooks/useExpenses.ts',
+  'hooks/useContracts.ts',
+  'hooks/useCreditNotes.ts',
+  'hooks/useRecurring.ts',
+  'hooks/usePurchaseOrders.ts',
+  'hooks/useSuppliers.ts',
+
+NOTE: hooks/useSales.ts was read (finance-relevant per the task's own hook list) but is a THIN legacy hook pointing at `/api/dashboard/sales/leads` (the CRM Phase 12 "PROTECTED but legacy" surface) — it contains zero Arabic and is arguably not a Phase 4 (Finance) concern at all; recommend EXCLUDING it from the Phase 4 manifest additions (it's CRM/sales-adjacent, already covered or intentionally out of scope per Phase 3's CRM census which did not list it either). Flag for the plan author to confirm before adding.
+
+CAUTION: do NOT add 'app/dashboard/page.tsx' or 'components/dashboard' (bare) to the Phase-4 manifest — that file has the un-migrated admin-stats hazard from §6 and is NOT part of the Finance surface's declared scope; adding the bare 'components/dashboard' directory to MIGRATED_PATHS would make i18n:check immediately fail (scan hits on the un-migrated dashboard root + any other un-migrated components/dashboard/* siblings not yet covered). Only add the specific finance-overview/finance-reports/finance-targets subdirectories.
+
+=== 9. EXISTING CATALOGS ===
+
+messages/ar/*.json namespaces (9 files) with top-level key counts under their single root key:
+  api.json     (api)      — 5 keys
+  auth.json    (auth)     — 5 keys
+  boards.json  (boards)   — 9 keys
+  calendar.json(calendar) — 10 keys
+  common.json  (common)   — 8 keys
+  crm.json     (crm)      — 11 keys       ← added Phase 3
+  mywork.json  (mywork)   — 2 keys
+  nav.json     (nav)      — 9 keys
+  statuses.json(statuses) — 34 entity groups (see full list in §3 preamble)
+
+No 'finance.json' namespace exists yet — CONFIRMED (directory listing shows only the 9 files above). Phase 4 will create messages/ar/finance.json + messages/en/finance.json as new namespace files (register in NAMESPACE_FILES + i18n/global.ts per CLAUDE.md i18n rules), OR fold finance UI strings into per-page-scoped keys within a new 'finance' namespace — recommend one 'finance' namespace file per CLAUDE.md's "ONE top-level namespace per file" rule, covering invoices/quotes/finance-admin-pages/finance-overview/finance-reports/finance-targets collectively (mirrors how 'crm' namespace covers the whole CRM module in one file).
+
+PAYLOAD SIZE (gzip):
+  messages/ar/*.json combined: 24,650 bytes gzipped
+  messages/en/*.json combined: 21,681 bytes gzipped
+  Per-AR-file breakdown: api.json 4187B, auth.json 1398B, boards.json 3622B, calendar.json 860B, common.json 770B, crm.json 11570B (by far the largest — Phase 3 CRM catalog), mywork.json 1035B, nav.json 2859B, statuses.json 2048B.
+  Phase 4's new finance.json will likely land in the 3,000-8,000 byte (gz) range based on the CRM precedent scaled down (finance UI surface is smaller than CRM's — no kanban/pipeline/activity-timeline equivalent), plus statuses.json will grow modestly (+1 gap entity or +contractType entity, a few hundred bytes).
+
+=== 10. HAZARDS ===
+
+1. **app/dashboard/page.tsx admin-stats shell is un-migrated and finance-adjacent** (§6) — contains an `ACTION_LABELS` map with ~15 finance activity-type strings (invoice_created, invoice_sent, payment_recorded, quote_sent, quote_signed, quote_viewed, create_expense, update_expense, delete_expense, create_subscription, update_subscription, delete_subscription, create_card, update_card, delete_card, create_contract, update_contract, create_target, update_target — milestone_invoice_generated) plus 2 finance quick-action buttons (فاتورة جديدة → /dashboard/invoices/new, عرض سعر جديد → /dashboard/quotes/new). Despite CLAUDE.md/MEMORY.md implying Phase 2 finished this file, it has ZERO i18n imports and 43 Arabic-containing lines. The i18n-check manifest never actually claimed this bare file (only MyWorkInbox.tsx, a sub-component it renders) — so the manifest is technically consistent, but the PLAN must explicitly decide whether Phase 4 absorbs this page's finance-labeled activity map (since the strings are finance-domain) or defers it as a named cross-phase carry-over (e.g. "Phase 4.5" or explicitly flagged for whichever phase eventually claims the dashboard-root admin shell). Silently ignoring it will leave a real, larger Arabic surface undetected by i18n:check since the manifest doesn't scan it.
+
+2. **Contract-status wording collision between CRM and Finance surfaces for the SAME status value `in_progress`.** CRM's existing shadow map (documented in Phase-3 census, contract-card.tsx) uses "جاري"; the Finance admin surface's two independent shadow maps (contracts-client.tsx, purchase-orders-client.tsx's copy-pasted contract vocabulary) use "قيد التنفيذ". Phase 4 cannot silently pick one when building/reusing the `crmContract` catalog key for the finance UI — this is a live production wording inconsistency that predates the i18n effort and will become VISIBLE (both AR strings can't coexist under one catalog key) the moment Finance is wired to the same catalog entity CRM uses. Needs an explicit decision from Abdou: which word wins, or do they stay as two distinct catalog entities (finance vs crm) despite representing identical underlying data.
+
+3. **Purchase-orders list-page STATUS_MAP is the wrong entity (copy-paste bug, pre-existing).** `app/dashboard/finance/purchase-orders/purchase-orders-client.tsx`'s STATUS_MAP + status-filter `<Select>` options use CONTRACT status vocabulary (draft/active/in_progress/completed/cancelled) instead of PO status vocabulary (draft/sent/acknowledged/received/invoiced/cancelled — the correct set is used one level down on the PO detail page instead, with 3 additionally-divergent wordings). This means the PO list's status filter dropdown is currently filtering on values that likely never match real `pyra_purchase_orders.status` rows (a functional bug, not just a translation gap) — swapping this file to `useStatusLabels('po')` during Phase 4 will surface (and effectively fix) this bug as a side effect. The plan should flag this explicitly rather than let an implementer "quietly" change behavior while doing what looks like a pure translation swap — get a decision on whether fixing this filter's correctness is in scope for Phase 4 or should be a separate bug-fix commit.

@@ -1,0 +1,979 @@
+FINANCE PAGES-B DISCOVERY — Phase-4 i18n (files verified 2026-07-06)
+
+================================================================
+0. SCOPE NOTE — discovered sub-component dependencies (NOT in original file list)
+================================================================
+The following files are directly composed/rendered by in-scope pages and were
+census'd as an appendix because their AR strings render on the same page:
+- components/dashboard/supplier-detail/{SupplierInfo,LinkedExpenses,SupplierEditForm}.tsx
+  (rendered by app/dashboard/finance/suppliers/[id]/page.tsx)
+- components/dashboard/recurring-list/{RecurringSummary,RecurringTable}.tsx
+  (rendered by app/dashboard/finance/recurring/page.tsx)
+- components/dashboard/recurring-new/{BasicInfo,LineItems}.tsx
+  (rendered by app/dashboard/finance/recurring/new/page.tsx)
+- components/dashboard/finance-targets/{RevenueTargetCard,RevenueTargetForm}.tsx
+  (rendered by app/dashboard/finance/targets/page.tsx)
+- components/dashboard/client-statement/{summary-cards,invoices-table,payment-contract-tables}.tsx
+  (rendered by app/dashboard/finance/client-statement/[clientId]/page.tsx)
+components/dashboard/finance-overview/ contains ONLY FinanceSummaryCards.tsx (no
+other files) — full directory census'd as instructed.
+
+================================================================
+1. app/dashboard/finance/page.tsx (finance overview root — 41 lines)
+================================================================
+- L22: `لا توجد بيانات` (ui) — no-data fallback
+- L29: `الإدارة المالية` (ui) — h1
+- L30: `` `ملخص ${new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })}` `` (ui)[ICU] — HARDCODED locale 'ar-EG' in toLocaleDateString; month name comes from Intl, not a catalog — needs locale param / next-intl date formatter
+- L35: `فلوس مستنياك` (ui) — colloquial "money owed to you" label on outstanding/overdue card
+- L35: `عرض الفواتير` (ui) — button label (Link to /dashboard/invoices)
+- L37: `الإيرادات مقابل المصاريف` (ui) — chart card title
+- L38: `وين راحت الفلوس؟` (ui) — colloquial "where did the money go?" chart card title
+- toLocale*: L30 `new Date().toLocaleDateString('ar-EG', {...})` — hardcoded locale, HAZARD (see below)
+- formatCurrency call-sites: L35 (1), total in this file: 1
+- formatDate call-sites: 0
+- No dir attrs / RTL logic hardcoded in this file.
+- No *_LABELS import (raw data.summary object).
+
+================================================================
+2. app/dashboard/finance/purchase-orders/*
+================================================================
+
+app/dashboard/finance/purchase-orders/page.tsx (5 lines)
+- No AR strings (pure re-export wrapper).
+
+app/dashboard/finance/purchase-orders/purchase-orders-client.tsx (168 lines)
+- L31-38: STATUS_MAP inline label object (statuses) — OVERLAPS existing `po` entity in
+  messages/ar/statuses.json (draft/sent/acknowledged/received/invoiced/cancelled — exact
+  1:1 key match). Should be replaced by `useStatusLabels('po')`.
+  - L32: `'مسودة'`
+  - L33: `'مُرسل'` (note: statuses.json has `'مرسل'` without hamza-on-alif variant — check exact glyph match before swap)
+  - L34: `'مؤكد'` (statuses.json `po.acknowledged` = `'تم الاستلام'` — LABEL MISMATCH, not identical text; needs reconciliation decision, not a blind accessor swap)
+  - L35: `'مستلم'` (statuses.json `po.received` = `'تم التوريد'` — LABEL MISMATCH)
+  - L36: `'مفوتر'` (statuses.json `po.invoiced` = `'تم الفوترة'` — LABEL MISMATCH)
+  - L37: `'ملغي'` (matches)
+- L61: `toast.error('فشل في تحميل أوامر الشراء')` (ui)
+- L77: `aria-label="رجوع"` (ui)
+- L80: `أوامر الشراء` (ui) — h1
+- L84: `أمر شراء جديد` (ui) — button (also appears L120 as actionLabel)
+- L93: placeholder `"بحث بالرقم أو المورد..."` (ui)
+- L97: SelectValue placeholder `"الحالة"` (ui)
+- L99: `كل الحالات` (ui)
+- L100-105: SelectItem labels duplicate STATUS_MAP set verbatim (مسودة/مُرسل/مؤكد/مستلم/مفوتر/ملغي) — SAME mismatch-vs-statuses.json concern as above; this is a SECOND inline copy of the same label set (DRY violation, not just i18n)
+- L118: `لا توجد أوامر شراء` (ui) — EmptyState title
+- L119: `أنشئ أمر شراء جديد لإدارة مشترياتك من الموردين` (ui) — EmptyState description
+- L141: fallback `'بدون مورد'` (ui)
+- L142: `` ` — ${po.supplier_company}` `` (ui)[ICU] — split concat, not a template literal per se but interpolation-adjacent
+- L161: `السابق` (ui) — pagination prev
+- L163: `التالي` (ui) — pagination next
+- formatCurrency call-sites: L147 (1)
+- formatDate call-sites: L148 (1) — no locale param
+- dir attrs: L137 `dir="ltr"` on po_number span (LTR-content exemption, not RTL-logic — safe, PO numbers are Latin/numeric)
+- No toLocale*, no localeCompare.
+- Raw fetch() used (L56) — pre-existing CLAUDE.md violation (not i18n-in-scope but noted since it affects error-string plumbing); pagination/search state is manual useState/useEffect, not React Query.
+
+app/dashboard/finance/purchase-orders/new/page.tsx (173 lines)
+- L62: `toast.success('تم إنشاء أمر الشراء')` (ui)
+- L65: `toast.error('حدث خطأ')` (ui)
+- L70: `toast.error('يجب إضافة بند واحد على الأقل')` (ui)
+- L77: `aria-label="رجوع"` (ui)
+- L88: `أمر شراء جديد` (ui) — h1 (duplicate string of list-page button, different context — same catalog key candidate family though)
+- L89: `إنشاء أمر شراء للمورد` (ui) — subtitle
+- L94: `بيانات أمر الشراء` (ui) — card title
+- L98: `المورد` (ui) — label
+- L100: SelectValue placeholder `"اختر المورد"` (ui)
+- L102: `` `${s.name}${s.company ? ` — ${s.company}` : ''}` `` (ui)[ICU] — supplier display, raw DB data interpolated
+- L107: `المشروع (اختياري)` (ui) — label
+- L109: SelectValue placeholder `"اختر المشروع"` (ui)
+- L111: `بدون مشروع` (ui) — SelectItem "no project"
+- L118: `تاريخ الإصدار` (ui) — label
+- L119: `تاريخ التسليم المتوقع` (ui) — label
+- L122: `ملاحظات` (ui) — label
+- L123: placeholder `"ملاحظات إضافية..."` (ui)
+- L130: `بنود أمر الشراء` (ui) — card title
+- L131: `إضافة بند` (ui) — button
+- L135: `الوصف` (ui) — table header
+- L135: `الكمية` (ui) — table header
+- L136: `السعر` (ui) — table header
+- L136: `المبلغ` (ui) — table header
+- L140: placeholder `"وصف البند"` (ui)
+- L145: `aria-label="حذف البند"` (ui)
+- L150: `المجموع الفرعي` (ui) — subtotal label
+- L153: `ضريبة القيمة المضافة` (ui) — VAT label
+- L155: `%` (ui) — literal percent sign, exempt/trivial
+- L159: `الإجمالي` (ui) — total label
+- L165: `إلغاء` (ui) — cancel button
+- L168: `حفظ` (ui) — save button
+- formatCurrency call-sites: L143, L150, L157, L159 → 4
+- formatDate call-sites: 0 (raw date <Input type="date"> only)
+- No dir attrs (numeric inputs use `dir="ltr"` L141/142/154 — LTR-content exemption for numbers, not RTL-logic hazard)
+- No toLocale*, no *_LABELS import.
+- L36: `new Date().toISOString().split('T')[0]` — UTC-day-key smell (default issue_date) — Phase 15.1-class hazard: should arguably use dubaiDayKey() for "today" default, though low severity (date picker, user can change).
+
+app/dashboard/finance/purchase-orders/[id]/page.tsx (256 lines)
+- L42-49: STATUS_MAP (identical duplicate of purchase-orders-client.tsx's STATUS_MAP — THIRD copy of the same label set across this feature; same mismatch-vs-statuses.json concern)
+- L51-67: STATUS_ACTIONS — action-button labels per status transition (statuses):
+  - L53: `'إرسال للمورد'`
+  - L54: `'إلغاء'`
+  - L57: `'تأكيد الاستلام'`
+  - L58: `'إلغاء'`
+  - L61: `'تم الاستلام'`
+  - L62: `'إلغاء'`
+  - L65: `'تم الفوترة'`
+  These are ACTION verbs (transition CTAs), not state labels — distinct catalog keys from STATUS_MAP even though some text overlaps po.received/po.invoiced state labels coincidentally.
+- L77: `aria-label="رجوع"`
+- L81: `toast.error('فشل في تحميل أمر الشراء')`
+- L94: `toast.error(json.error || 'حدث خطأ')` — note: json.error may be server AR passthrough (api namespace dependency)
+- L96: `toast.success('تم تحديث الحالة')`
+- L97: `toast.error('حدث خطأ')`
+- L104: `toast.error('فشل في الحذف')`
+- L105: `toast.success('تم حذف أمر الشراء')`
+- L107: `toast.error('حدث خطأ')`
+- L117: `أمر الشراء غير موجود` (ui) — not-found fallback
+- L128: `aria-label="رجوع"`
+- L135: `` ` — ${po.supplier_company}` `` (ui)[ICU]
+- L158: `aria-label="حذف أمر الشراء"`
+- L166: `المورد` (ui) — info card label
+- L169: fallback `'عرض المورد'` (ui)
+- L171: fallback `'—'` (em-dash, exempt)
+- L174: `تاريخ الإصدار` (ui)
+- L178: `تاريخ التسليم المتوقع` (ui)
+- L179: fallback `'—'`
+- L185: `بنود أمر الشراء` (ui) — card title (duplicate of new-page string)
+- L192: `#` (table header, trivial/exempt)
+- L192: `الوصف`
+- L193: `الكمية`
+- L194: `السعر`
+- L195: `المبلغ`
+- L215: `المجموع الفرعي`
+- L219: `` `ضريبة (${po.tax_rate}%)` `` (ui)[ICU] — interpolated tax rate
+- L223: `الإجمالي`
+- L233: `ملاحظات` (ui) — card title
+- L241: `تأكيد الحذف` (ui) — AlertDialog title
+- L243: `هل أنت متأكد من حذف أمر الشراء هذا؟ لا يمكن التراجع عن هذا الإجراء.` (ui) — AlertDialog description
+- L247: `إلغاء` (ui)
+- L249: `حذف` (ui) — destructive confirm
+- formatCurrency call-sites: L204, L205, L216, L220, L224 → 5
+- formatDate call-sites: L175, L179 → 2 (no locale param)
+- dir attrs: L132 `dir="ltr"` on po_number h1 (LTR-content exemption, safe)
+- Raw fetch() throughout (L78, L88, L103) — pre-existing violation, noted not fixed here.
+- No toLocale*, no localeCompare, no *_LABELS import.
+
+================================================================
+3. app/dashboard/finance/suppliers/*
+================================================================
+
+app/dashboard/finance/suppliers/page.tsx (5 lines)
+- No AR strings (pure re-export wrapper).
+
+app/dashboard/finance/suppliers/suppliers-client.tsx (156 lines)
+- L50: `toast.error('فشل في تحميل الموردين')`
+- L66: `aria-label="رجوع"`
+- L69: `الموردين` (ui) — h1
+- L73: `مورد جديد` (ui) — button (also L106 EmptyState actionLabel)
+- L82: placeholder `"بحث بالاسم أو الشركة..."`
+- L86: SelectValue placeholder `"الحالة"`
+- L88: `الكل`
+- L89: `نشط`
+- L90: `غير نشط`
+- L103: `لا يوجد موردين` (ui) — EmptyState title
+- L104: `أضف مورداً جديداً لربطه بالمصروفات وأوامر الشراء` (ui) — EmptyState description
+- L125: `{sup.is_active ? 'نشط' : 'غير نشط'}` (ui)[ICU-ish ternary] — status badge, DUPLICATE of L89/L90 filter labels; overlaps `client.active`/`client.inactive`-shape entity but there is no dedicated `supplier` entity key in statuses.json (candidate: add `finance.suppliers.status.{active,inactive}` or reuse a generic active/inactive key)
+- L136: `` `شروط الدفع: ${sup.payment_terms_days} يوم` `` (ui)[ICU] — payment terms interpolation
+- L149: `السابق`
+- L151: `التالي`
+- No formatCurrency call-sites (currency shown as raw code L137, not formatted amount).
+- No formatDate call-sites.
+- No dir attrs, no toLocale*, no *_LABELS import.
+- Raw fetch() (L45) + manual useState pagination — pre-existing violation, not fixed here.
+
+app/dashboard/finance/suppliers/new/page.tsx (149 lines)
+- L38: `toast.success('تم إنشاء المورد')`
+- L41: `toast.error('حدث خطأ')`
+- L45: `toast.error('اسم المورد مطلوب')`
+- L61: `aria-label="رجوع"`
+- L64: `مورد جديد` (ui) — h1 (duplicate of list-page button text, same catalog family)
+- L65: `إضافة مورد جديد لربطه بالمصروفات وأوامر الشراء` (ui) — subtitle (duplicate of EmptyState description text above — same string reused twice across two files, candidate for ONE shared key)
+- L70: `بيانات المورد` (ui) — card title
+- L74: `الاسم` (ui) — label (+ `*` required marker literal, trivial)
+- L75: placeholder `"اسم المورد"`
+- L78: `الشركة` (ui) — label
+- L79: placeholder `"اسم الشركة"`
+- L84: `البريد الإلكتروني` (ui) — label
+- L88: `الهاتف` (ui) — label
+- L93: `العنوان` (ui) — label
+- L94: placeholder `"العنوان الكامل"`
+- L98: `الرقم الضريبي` (ui) — label
+- L102: `شروط الدفع (أيام)` (ui) — label
+- L106: `العملة` (ui) — label
+- L114: `البيانات البنكية` (ui) — card title
+- L118: `اسم البنك` (ui) — label
+- L119: placeholder `"اسم البنك"`
+- L122: `رقم الحساب` (ui) — label
+- L123: placeholder `"رقم الحساب"`
+- L127: `IBAN` (ui, Latin literal — trivial/exempt)
+- L134: `ملاحظات` (ui) — card title
+- L136: placeholder `"ملاحظات إضافية..."` (duplicate of PO new-page string — shared key candidate)
+- L141: `إلغاء`
+- L144: `حفظ`
+- No formatCurrency/formatDate call-sites.
+- dir attrs: L85 `dir="ltr"` (email), L89 (phone), L99 (tax number), L103 (payment terms), L107 (currency), L123 (bank account), L128 (IBAN) — all LTR-content exemptions on Latin/numeric fields, NOT RTL-logic hazards.
+- No toLocale*, no *_LABELS import.
+
+app/dashboard/finance/suppliers/[id]/page.tsx (120 lines)
+- L40: `toast.error('اسم المورد مطلوب')`
+- L52: `toast.success('تم تحديث البيانات')`
+- L53: `toast.error('خطأ في الحفظ')`
+- L59: `toast.success('تم الحذف')`
+- L60: `toast.error('خطأ في الحذف')`
+- L64: `المورد غير موجود` (ui) — not-found fallback
+- L70: `aria-label="العودة إلى الموردين"`
+- L75: `{supplier.is_active ? 'نشط' : 'غير نشط'}` (ui) — DUPLICATE of list-page badge ternary
+- L83: `تعديل` (ui) — edit button
+- L84: `aria-label="حذف المورد"`
+- L88: `إلغاء`
+- L89: `حفظ`
+- L105: `تأكيد الحذف` (ui) — AlertDialog title
+- L107: `هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.` (ui) — AlertDialog description (near-duplicate pattern of PO delete-confirm text, different noun)
+- L111: `إلغاء`
+- L113: `حذف`
+- No formatCurrency/formatDate call-sites directly in this file (delegated to sub-components).
+- No dir attrs, no toLocale*, no *_LABELS import.
+- Raw fetch() (L29, L34, L42, L58) — pre-existing violation.
+
+--- Appendix: components/dashboard/supplier-detail/* (rendered by suppliers/[id]) ---
+
+SupplierInfo.tsx (45 lines)
+- L12: `معلومات التواصل` (ui) — card label
+- L16: fallback `'—'` (exempt)
+- L19: `معلومات مالية` (ui) — card label
+- L20: `` `الرقم الضريبي: ${supplier.tax_number || '—'}` `` (ui)[ICU]
+- L21: `` `شروط الدفع: ${supplier.payment_terms_days} يوم` `` (ui)[ICU] — DUPLICATE of suppliers-client.tsx L136
+- L22: `` `العملة: ${supplier.currency}` `` (ui)[ICU]
+- L29: `البنك` (ui)
+- L29/30/31: fallback `'—'` × 3 (exempt)
+- L30: `رقم الحساب` (ui)
+- L31: `IBAN` (ui, Latin, exempt)
+- dir attrs: L30, L31 `dir="ltr"` (LTR-content exemption for account numbers, safe)
+- No formatCurrency/formatDate.
+
+LinkedExpenses.tsx (42 lines)
+- L16: `المصروفات المرتبطة` (ui) — card title
+- L23: `لا توجد مصروفات` (ui) — EmptyState title
+- L23: `لم يتم ربط أي مصروفات بهذا المورد بعد` (ui) — EmptyState description
+- L30: fallback `'—'` (exempt)
+- L31: fallback `'—'` (exempt)
+- formatCurrency call-sites: L19, L33 → 2
+- formatDate call-sites: L31 → 1
+
+SupplierEditForm.tsx (75 lines) — pure form labels, all (ui):
+- L19: `الاسم *`
+- L23: `الشركة`
+- L29: `البريد الإلكتروني`
+- L33: `الهاتف`
+- L38: `العنوان`
+- L43: `الرقم الضريبي`
+- L47: `شروط الدفع (أيام)`
+- L51: `العملة`
+- L57: `اسم البنك`
+- L61: `رقم الحساب`
+- L66: `IBAN`
+- L70: `ملاحظات`
+(All labels are near-exact duplicates of new/page.tsx form labels — same catalog
+key family; a single `finance.suppliers.form.*` namespace should serve both
+create and edit forms.)
+- dir attrs: L30, L34, L44, L48, L52, L62, L67 `dir="ltr"` — all LTR-content
+  exemptions (email/phone/tax-number/payment-days/currency/bank-account/IBAN).
+
+================================================================
+4. app/dashboard/finance/recurring/*
+================================================================
+
+app/dashboard/finance/recurring/page.tsx (96 lines)
+- L38: `toast.success('تم الحذف')`
+- L39: `toast.error('فشل في الحذف')`
+- L44: `toast.success('تم توليد الفواتير بنجاح')`
+- L45: `toast.error('فشل في توليد الفواتير')`
+- L55: `aria-label="العودة إلى المالية"`
+- L56: `الفواتير المتكررة` (ui) — h1
+- L59: `{generateMutation.isPending ? 'جاري...' : 'توليد'}` (ui) — button label, loading/idle variants
+- L60: `إضافة` (ui) — button
+- L69: placeholder `"بحث..."`
+- L72: SelectValue placeholder `"الحالة"`
+- L74: `الكل`
+- L75: `نشط`
+- L76: `متوقف`
+- L77: `ملغي`
+- L86: `حذف الفاتورة` (ui) — Dialog title
+- L87: `هل أنت متأكد؟` (ui) — confirm text
+- L89: `إلغاء`
+- L90: `{deleteMutation.isPending ? <><Loader2 .../> جاري...</> : 'حذف'}` (ui)
+- No formatCurrency/formatDate directly (delegated to RecurringTable).
+- No dir attrs, no toLocale*, no *_LABELS import.
+- Uses useRecurringInvoices (React Query) + mutateAPI — COMPLIANT with CLAUDE.md
+  data-layer mandate (unlike purchase-orders/suppliers list pages above).
+
+app/dashboard/finance/recurring/new/page.tsx (77 lines)
+- L47: `toast.success('تم إنشاء الفاتورة المتكررة بنجاح')`
+- L50: `toast.error('حدث خطأ أثناء إنشاء الفاتورة')`
+- L55: `toast.error('يرجى إدخال عنوان الفاتورة المتكررة')`
+- L64: `aria-label="العودة"`
+- L65: `إنشاء فاتورة متكررة جديدة` (ui) — h1
+- L71: `إلغاء`
+- L72: `حفظ الفاتورة المتكررة` (ui) — submit button
+- dir attrs: **L62 `dir="rtl"` HARDCODED on root wrapper `<div>`** — HAZARD, must become locale-driven (dir={dir})
+- No formatCurrency/formatDate directly (delegated to BasicInfo/LineItems).
+- No toLocale*, no *_LABELS import.
+
+--- Appendix: components/dashboard/recurring-list/* (rendered by recurring/page.tsx) ---
+
+RecurringSummary.tsx (51 lines)
+- L18: `إجمالي القوالب` (ui)
+- L24: `نشطة` (ui)
+- L30: `مستحقة التوليد` (ui)
+- L41: `` `${dueCount} فاتورة متكررة مستحقة التوليد` `` (ui)[ICU] — count interpolation, plural-worthy
+- L44: `اضغط على &quot;توليد الفواتير المستحقة&quot; لإنشاء الفواتير تلقائيا` (ui) — NOTE: references button label "توليد الفواتير المستحقة" which does NOT match the actual button text in recurring/page.tsx L59 ("توليد") — pre-existing copy drift, flag for content review during migration.
+- No formatCurrency/formatDate.
+
+RecurringTable.tsx (78 lines)
+- L14: CYCLE_LABELS inline map (statuses-like) — OVERLAPS `billingCycle` entity in
+  statuses.json but KEY MISMATCH: statuses.json `billingCycle` has weekly/monthly/
+  quarterly/yearly (4 keys); this file only has monthly/quarterly/yearly (3 keys,
+  no weekly) — needs reconciliation before accessor swap.
+  - L14: `'شهري'`, `'ربع سنوي'`, `'سنوي'`
+- L15-19: STATUS_MAP (active/paused/cancelled) — statuses.json `subscription` entity
+  has active/cancelled/expired (NOT paused) — KEY MISMATCH, no exact reuse target;
+  closer to a dedicated `recurringInvoice` status entity that doesn't exist yet.
+  - L16: `'نشط'`
+  - L17: `'متوقف'`
+  - L18: `'ملغي'`
+- L31: `العنوان` (table header)
+- L32: `العميل` (table header)
+- L33: `الدورة` (table header)
+- L34: `التكلفة` (table header)
+- L35: `التوليد القادم` (table header)
+- L36: `آخر توليد` (table header)
+- L37: `الحالة` (table header)
+- L38: `الإجراءات` (table header)
+- L49: `إرسال تلقائي` (ui) — Badge (auto_send flag)
+- L52: fallback `'—'` (exempt)
+- L57: `مستحق` (ui) — Badge ("due" indicator)
+- L59: fallback `'—'` (exempt)
+- L66: `aria-label="تعديل"`
+- L68: `aria-label="حذف"`
+- formatCurrency call-sites: L54 → 1
+- formatDate call-sites: L56, L59 → 2 (no locale param)
+- No dir attrs, no toLocale*.
+
+--- Appendix: components/dashboard/recurring-new/* (rendered by recurring/new/page.tsx) ---
+
+BasicInfo.tsx (96 lines)
+- L20: `المعلومات الأساسية` (ui) — card title
+- L24: `عنوان الفاتورة المتكررة *` (ui) — label
+- L25: placeholder `"أدخل عنوان الفاتورة المتكررة"`
+- L29: `العميل` (ui) — label
+- L32: SelectValue placeholder `"اختر العميل"`
+- L36: `` `${client.name} ${client.company ? `- ${client.company}` : ''}` `` (ui)[ICU]
+- L42: `العقد` (ui) — label
+- L45: SelectValue placeholder `"اختر العقد"`
+- L55: `دورة الفوترة` (ui) — label
+- L58: SelectValue placeholder `"اختر دورة الفوترة"`
+- L61: `شهري` / L62: `ربع سنوي` / L63: `سنوي` — SelectItem labels, THIRD copy of
+  the monthly/quarterly/yearly triad in this feature (RecurringTable CYCLE_LABELS,
+  here, and billingCycle entity) — DRY + reconciliation candidate
+- L68: `تاريخ التوليد القادم` (ui) — label
+- L72: `العملة` (ui) — label
+- L75: SelectValue placeholder `"اختر العملة"`
+- L78: `درهم` / L79: `دولار` / L80: `يورو` / L81: `ريال` — currency display names
+  (AED/USD/EUR/SAR) — hardcoded Arabic currency names, no existing entity in
+  statuses.json; candidate new `finance.currencies.*` catalog
+- L86: `إرسال تلقائي` (ui) — label (duplicate string of RecurringTable Badge)
+- L89: `إرسال الفاتورة تلقائياً عند التوليد` (ui) — helper text
+- No formatCurrency/formatDate, no dir attrs, no toLocale*.
+
+LineItems.tsx (71 lines)
+- L31: `بنود الفاتورة` (ui) — card title
+- L34: `إضافة بند` (ui) — button (duplicate of PO new-page string)
+- L42: `الوصف` (ui, `md:hidden` mobile label) — table-like field label
+- L46: `الكمية` (ui)
+- L50: `السعر` (ui)
+- L54: `المبلغ` (ui)
+- L43: placeholder `"وصف البند"` (duplicate of PO new-page)
+- L47: placeholder `"1"` (trivial/exempt)
+- L51: placeholder `"0.00"` (trivial/exempt)
+- L58: `aria-label="حذف"`
+- L65: `المجموع الفرعي` (ui) — duplicate of PO totals label
+- L66: `` `${subtotal.toFixed(2)} ${currency}` `` (ui)[ICU] — RAW NUMBER FORMATTING,
+  NOT using formatCurrency() — HAZARD: bypasses the shared currency formatter,
+  won't localize/format thousands separators consistently with the rest of the app.
+- No formatDate. No dir attrs (numeric inputs use `dir="ltr"` L47/51/55 — LTR
+  exemption, safe).
+
+================================================================
+5. app/dashboard/finance/cards/page.tsx (290 lines) — ORPHANED PAGE
+================================================================
+NOTE (per task instructions): this page is documented in CLAUDE.md as an
+ORPHANED surface — "Subscriptions module SUNSET (commit 8f553aa) ... Cards page
+is now orphaned — removal candidate." Census'd per instructions but FLAG:
+recommend confirming with the plan whether to skip/delete rather than migrate.
+
+- L41: `CARD_TYPES` array — L41: `'أخرى'` (ui, "other" card type; Visa/Mastercard/
+  American Express are Latin literals, not Arabic, so only this one entry is AR)
+- L80: `toast.error('اسم البطاقة مطلوب')`
+- L96: `toast.success(editingId ? 'تم التحديث' : 'تم إضافة البطاقة')` (ui)[ICU ternary]
+- L101: `toast.error(json.error || 'فشل في الحفظ')`
+- L104: `toast.error('فشل في الحفظ')`
+- L116: `toast.success('تم حذف البطاقة')`
+- L121: `toast.error(json.error || 'فشل في الحذف')`
+- L124: `toast.error('فشل في الحذف')`
+- L137: `aria-label="رجوع"`
+- L140: `البطاقات` (ui) — h1
+- L143: `إضافة بطاقة` (ui) — button (+ L159 EmptyState actionLabel duplicate)
+- L156: `لا توجد بطاقات` (ui) — EmptyState title
+- L157: `أضف بطاقة لربطها بالاشتراكات` (ui) — EmptyState description (references
+  sunset "الاشتراكات"/subscriptions concept — orphaned-feature evidence)
+- L168: `افتراضية` (ui) — Badge ("default" card)
+- L173: fallback `'بطاقة'` (ui)
+- L177: `aria-label="تعديل البطاقة"`
+- L180: `aria-label="حذف البطاقة"`
+- L204: `` `${c.subscription_count} اشتراك مرتبط` `` (ui)[ICU] — count interpolation,
+  plural-worthy, references sunset subscriptions concept
+- L218: `{editingId ? 'تعديل البطاقة' : 'إضافة بطاقة'}` (ui)[ICU ternary] — Dialog title
+- L222: `اسم البطاقة *` (ui) — label
+- L223: placeholder `"مثال: بطاقة الشركة"`
+- L226: `البنك` (ui) — label
+- L227: placeholder `"اسم البنك"` (duplicate of supplier form)
+- L231: `آخر 4 أرقام` (ui) — label
+- L235: `نوع البطاقة` (ui) — label
+- L237: SelectValue placeholder `"اختر"`
+- L239: `غير محدد` (ui) — SelectItem ("unspecified")
+- L247: `شهر الانتهاء` (ui) — label
+- L251: `سنة الانتهاء` (ui) — label
+- L265: `بطاقة افتراضية` (ui) — checkbox label
+- L268: `إلغاء`
+- L269: `{saving ? <>...جاري الحفظ...</> : 'حفظ'}` (ui)[ICU ternary]
+- L278: `حذف البطاقة` (ui) — Dialog title
+- L279: `هل أنت متأكد من حذف هذه البطاقة؟` (ui) — confirm text
+- L281: `إلغاء`
+- L282: `{deleting ? 'جاري الحذف...' : 'حذف'}` (ui)[ICU ternary]
+- No formatCurrency/formatDate (no money amounts on this page — card metadata only).
+- No dir attrs except L248/L252 `dir="ltr"` (expiry month/year numeric inputs —
+  LTR exemption, safe).
+- No toLocale*, no *_LABELS import.
+- Raw fetch() throughout (L85, L114) mixed with useQuery for the list — partial
+  CLAUDE.md violation, not fixed here.
+
+================================================================
+6. app/dashboard/finance/targets/page.tsx (130 lines)
+================================================================
+- L58: `toast.error('يرجى ملء الحقول المطلوبة')`
+- L70: `toast.success(editingId ? 'تم تحديث الهدف' : 'تم إضافة الهدف')` (ui)[ICU ternary]
+- L74: `toast.error('فشل في الحفظ')`
+- L87: `toast.success('تم حذف الهدف')`
+- L91: `toast.error('فشل في الحذف')`
+- L102: `aria-label="العودة إلى المالية"`
+- L105: `أهداف الإيرادات` (ui) — h1
+- L107: `إضافة هدف` (ui) — button
+- L115: `لا توجد أهداف إيرادات` (ui) — EmptyState title
+- L115: `أضف هدفاً لتتبع الإيرادات` (ui) — EmptyState description
+- L115: `إضافة هدف` (ui) — EmptyState actionLabel (duplicate)
+- L124: `{editingId ? 'تعديل الهدف' : 'إضافة هدف جديد'}` (ui)[ICU ternary] — Dialog title
+- No formatCurrency/formatDate directly (delegated to RevenueTargetCard).
+- No dir attrs, no toLocale*, no *_LABELS import.
+
+--- Appendix: components/dashboard/finance-targets/* (rendered by targets/page.tsx) ---
+
+RevenueTargetCard.tsx (86 lines)
+- L16-20: PERIOD_TYPE_MAP (statuses-like) — `'شهري'`/`'ربع سنوي'`/`'سنوي'` — FOURTH
+  copy of the monthly/quarterly/yearly triad across this codebase scan (recurring
+  page's SelectItems, BasicInfo.tsx SelectItems, RecurringTable CYCLE_LABELS, and
+  here) — strong DRY signal for a single shared `periodType`/`billingCycle`
+  accessor via useStatusLabels + reconciling the `billingCycle` entity (which
+  already has weekly too).
+- L43: `aria-label="تعديل الهدف"`
+- L46: `aria-label="حذف الهدف"`
+- L59: `المستهدف` (ui) — label
+- L64: `الإيرادات الفعلية` (ui) — label
+- L65-66 (comment): explains actual_revenue is ALWAYS AED-converted server-side
+  (Finance Remediation Batch-4 decision — do NOT localize/relabel currency here)
+- L74: `التقدم` (ui) — label ("progress")
+- formatCurrency call-sites: L60, L68 → 2 (L68 explicitly omits currency arg per
+  the AED-only decision noted in the comment — INTENTIONAL, not a bug)
+- formatDate call-sites: L54 (× 2 interpolated: `{formatDate(period_start)} —
+  {formatDate(period_end)}`) → counts as 2 calls, no locale param
+- No dir attrs, no toLocale*.
+
+RevenueTargetForm.tsx (100 lines)
+- L21-26: CURRENCIES array — FIFTH occurrence of hardcoded Arabic currency display
+  names in this scan (matches BasicInfo.tsx's AED/USD/EUR/SAR set near-verbatim):
+  - L22: `'درهم (AED)'`, L23: `'دولار (USD)'`, L24: `'يورو (EUR)'`, L25: `'ريال (SAR)'`
+  (BasicInfo.tsx uses bare `'درهم'`/`'دولار'`/`'يورو'`/`'ريال'` without the
+  parenthetical code — MINOR INCONSISTENCY, same underlying currency set)
+- L34: `نوع الفترة *` (ui) — label
+- L36: SelectValue placeholder `"اختر نوع الفترة"`
+- L38: `شهري` / L39: `ربع سنوي` / L40: `سنوي` — SelectItems, SIXTH copy of the triad
+- L47: `تاريخ البداية *` (ui) — label
+- L51: `تاريخ النهاية *` (ui) — label
+- L58: `المبلغ المستهدف *` (ui) — label
+- L65: placeholder `"0.00"` (trivial/exempt)
+- L70: `العملة` (ui) — label
+- L83: `ملاحظات` (ui) — label
+- L87: placeholder `"ملاحظات إضافية..."` (duplicate of multiple other forms)
+- L93: `إلغاء`
+- L95: `{saving ? <>...جاري الحفظ...</> : 'حفظ'}` (ui)[ICU ternary]
+- No formatCurrency/formatDate (raw number input, not a display formatter).
+- No dir attrs (date/number inputs use browser-native types, no explicit dir).
+
+================================================================
+7. app/dashboard/finance/client-statement/[clientId]/page.tsx (84 lines)
+================================================================
+- L49: `toast.error(json.error || 'فشل في تحميل كشف الحساب')`
+- L52: `toast.error('فشل في تحميل كشف الحساب')` (duplicate of above fallback)
+- L67: `aria-label="رجوع"`
+- L73: `` <>كشف حساب العميل: {client?.company || client?.name || '—'}</> `` (ui)[ICU]
+  — h1, JSX-fragment interpolation (client display name), fallback `'—'`
+- No formatCurrency/formatDate directly (delegated to summary-cards / tables).
+- No dir attrs, no toLocale*, no *_LABELS import.
+- Raw fetch() (L40) + manual useState — pre-existing violation, not fixed here.
+
+--- Appendix: components/dashboard/client-statement/* (rendered by this page) ---
+
+summary-cards.tsx (56 lines)
+- L25: `إجمالي الفواتير` (ui)
+- L31: `إجمالي المدفوع` (ui)
+- L37: `المستحق` (ui)
+- L45: `المتأخر` (ui)
+- formatCurrency call-sites: L26, L32, L38, L48 → 4
+- No formatDate. No dir attrs.
+
+invoices-table.tsx (81 lines)
+- L21-28: STATUS_MAP (invoice statuses) — draft/sent/paid/partially_paid/overdue/
+  cancelled — MATCHES `invoice` entity in statuses.json (draft/sent/
+  partially_paid/paid/overdue/cancelled — same 6 keys, values match except
+  L27 `'ملغاة'` here vs statuses.json `'ملغية'` — GLYPH/GRAMMATICAL-GENDER
+  MISMATCH, needs reconciliation before accessor swap, NOT a blind swap).
+  - L22: `'مسودة'`, L23: `'مرسلة'`, L24: `'مدفوعة'`, L25: `'مدفوعة جزئياً'`,
+    L26: `'متأخرة'`, L27: `'ملغاة'`
+- L35: `الفواتير` (ui) — section header
+- L43: `#` (trivial/exempt)
+- L43: `رقم الفاتورة`
+- L44: `التاريخ`
+- L45: `الإجمالي`
+- L46: `المدفوع`
+- L47: `المستحق`
+- L48: `الحالة`
+- L57: `لا توجد فواتير` (ui) — EmptyState title
+- formatCurrency call-sites: L69, L70, L71 → 3
+- formatDate call-sites: L68 → 1 (no locale param)
+- Already has *_LABELS-shaped inline map — swap target for `useStatusLabels('invoice')`
+  once the ملغاة/ملغية mismatch is resolved.
+
+payment-contract-tables.tsx (110 lines) — exports PaymentsTable + ContractsTable
+- L10-17: METHOD_MAP (payment method) — bank_transfer/cash/cheque/credit_card/
+  online/other — MATCHES `paymentMethod` entity in statuses.json partially:
+  statuses.json also has stripe/credit_note/refund (9 keys total vs this file's
+  6) — this file is a SUBSET, safe to swap to accessor (no conflicting values
+  for the overlapping keys, verified: `'تحويل بنكي'`/`'نقدي'`/`'شيك'`/
+  `'بطاقة ائتمان'`/`'دفع إلكتروني'`/`'أخرى'` all match statuses.json verbatim).
+- L19-25: CONTRACT_STATUS_MAP — draft/active/completed/cancelled/paused — statuses.json
+  `contract` entity only has draft/active/completed/cancelled (NO paused) —
+  PARTIAL MISMATCH (extra `paused` key here); statuses.json `crmContract` entity
+  DOES have paused (+ in_progress/expired) — likely the RIGHT entity to target
+  is `crmContract`, not `contract`, but values differ (`crmContract.completed`
+  = `'مكتمل'` matches; `crmContract.paused` = `'متوقف'` matches L24 `'متوقف'`)
+  — needs a plan decision on which entity this finance-side contract status
+  should bind to.
+- L32: `المدفوعات` (ui) — section header (PaymentsTable)
+- L39: `التاريخ`
+- L40: `المبلغ`
+- L41: `طريقة الدفع`
+- L42: `مرجع الفاتورة`
+- L51: `لا توجد مدفوعات` (ui) — EmptyState title
+- L71: `العقود` (ui) — section header (ContractsTable)
+- L79: `العنوان`
+- L80: `القيمة`
+- L81: `الحالة`
+- L82: `المفوتر`
+- L83: `المحصّل`
+- L92: `لا توجد عقود` (ui) — EmptyState title
+- formatCurrency call-sites: L55, L98, L100, L101 → 4
+- formatDate call-sites: L54 → 1 (no locale param)
+
+================================================================
+8. components/dashboard/finance-overview/FinanceSummaryCards.tsx (66 lines)
+================================================================
+(Full directory census — this is the ONLY file in components/dashboard/finance-overview/)
+- L9-12: `getProfitMargin()` helper — returns `` `${pct}%` `` — plain number+percent,
+  NOT Arabic text itself, but consumed by an AR-adjacent Badge (see L58) — [ICU]-
+  adjacent (percentage formatting, not full ICU number formatting).
+- L21: `فلوس دخلت` (ui) — colloquial "money that came in" (revenue MTD label)
+- L27: `` `من بداية السنة: ${formatCurrency(summary.revenue_ytd)}` `` (ui)[ICU]
+- L36: `فلوس طلعت` (ui) — colloquial "money that went out" (expenses MTD label)
+- L42: `` `من بداية السنة: ${formatCurrency(summary.expenses_ytd)}` `` (ui)[ICU]
+- L51: `الصافي` (ui) — "net" label
+- L58: `` <Badge>هامش {getProfitMargin(...)}</Badge> `` (ui)[ICU] — "margin {pct}%"
+- L60: `` `من بداية السنة: ${formatCurrency(summary.profit_ytd)}` `` (ui)[ICU] —
+  THIRD occurrence of the identical "من بداية السنة: {amount}" pattern in this
+  file (L27/L42/L60) — single ICU message candidate: `financeOverview.ytdLabel`
+  with a `{amount}` placeholder, parametrized 3× instead of 3 near-identical strings.
+- formatCurrency call-sites: L26, L27, L41, L42, L57, L60 → 6
+- No formatDate, no dir attrs, no toLocale*, no *_LABELS import.
+
+================================================================
+9. components/finance/{RevenueExpenseChart,ExpenseBarChart,ExpenseCategoryPieChart}.tsx — RECHARTS
+================================================================
+
+RevenueExpenseChart.tsx (91 lines)
+- L29: `لا توجد بيانات` (ui) — EmptyState title (no-data fallback)
+- L58: `` tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} `` — Y-axis tick
+  formatter, Latin "k" suffix (thousands abbreviation) — NOT Arabic text, but a
+  HARDCODED FORMAT that should probably route through a locale-aware number
+  formatter eventually (low-severity flag, not a hazard per se).
+- L62-65: Tooltip formatter — `` `${value.toLocaleString('en-AE')} AED` `` +
+  ternary `name === 'revenue' ? 'الإيرادات' : 'المصاريف'` — [RECHARTS TOOLTIP]
+  HARDCODED Arabic labels INSIDE the tooltip formatter function (not JSX, so it
+  won't be caught by simple JSX-string-scan tooling) — needs the translation
+  hook (`t()`) threaded into this component's props/closure since Recharts
+  formatter callbacks execute outside the normal render-tree i18n context.
+  - toLocale*: `value.toLocaleString('en-AE')` — HARDCODED locale 'en-AE' (this
+    one is currency-number-formatting, which per CLAUDE.md i18n doctrine on
+    "Currency/number formatting is locale-stable (en-AE) by design" — this may
+    be INTENTIONALLY exempt, but flag for plan confirmation since it's inside
+    a Recharts callback, not the shared formatCurrency() helper).
+- L67-71: Legend formatter — `` value === 'revenue' ? 'الإيرادات' : 'المصاريف' ``
+  — [RECHARTS LEGEND] SAME two Arabic labels hardcoded a SECOND time (Tooltip +
+  Legend both hardcode 'الإيرادات'/'المصاريف' independently) — DRY + i18n hazard,
+  both call sites need the same translation keys threaded in.
+- No formatCurrency/formatDate (chart uses raw Recharts formatting, not the
+  shared helpers — consistent with other 2 chart files below).
+- No dir attrs.
+
+ExpenseBarChart.tsx (81 lines)
+- L29: `لا توجد مصاريف هذا الشهر` (ui) — EmptyState title (no-data fallback,
+  DUPLICATE string also in ExpenseCategoryPieChart.tsx L28)
+- L54-57: Tooltip formatter — `` `${value.toLocaleString('en-AE')} AED` `` +
+  `'المبلغ'` — [RECHARTS TOOLTIP] hardcoded Arabic label "المبلغ" (= "amount") +
+  toLocaleString('en-AE') hardcoded locale (same en-AE-exemption question as above).
+- L63-68: Bar `label` prop formatter — `` `${v.toLocaleString('en-AE')} AED` ``
+  — [RECHARTS AXIS/DATA-LABEL] third occurrence of the toLocaleString('en-AE')
+  + literal " AED" suffix pattern in this file alone (Tooltip + Bar label) —
+  the literal string `'AED'` is hardcoded 2× here (not from a currency-code
+  variable), which could silently mismatch if a chart is ever fed non-AED data.
+- No formatCurrency/formatDate (raw Recharts number formatting throughout).
+- No dir attrs.
+
+ExpenseCategoryPieChart.tsx (69 lines)
+- L28: `لا توجد مصاريف هذا الشهر` (ui) — EmptyState title (duplicate of
+  ExpenseBarChart.tsx L29 — SAME exact string, shared key candidate)
+- L51-56: Tooltip formatter — `` `${value.toLocaleString('en-AE')} AED` `` +
+  `'المبلغ'` — [RECHARTS TOOLTIP] same hardcoded-label + hardcoded-locale +
+  hardcoded-'AED'-literal pattern as ExpenseBarChart (THIRD near-identical
+  Tooltip formatter across the 3 chart files — strong candidate for a single
+  shared `<ChartTooltip formatter>` utility that takes a translated "amount"
+  label + locale-aware currency string, instead of 3 independent copies).
+- No Legend formatter labels here (Legend renders raw `name` from data, no
+  hardcoded AR text at the Legend level in this file — unlike RevenueExpenseChart).
+- No formatCurrency/formatDate.
+- No dir attrs.
+
+================================================================
+10. hooks/{usePurchaseOrders,useSuppliers,useRecurring}.ts (65 lines each)
+================================================================
+- ZERO Arabic strings in all three hook files — pure TypeScript data-layer code
+  (React Query wrappers around fetchAPI/mutateAPI/buildQueryString). No i18n
+  action needed in this layer; all UI-facing strings live in the page/component
+  files that consume these hooks (already census'd above).
+- All three follow the CLAUDE.md-mandated hook pattern (queryKey, staleTime
+  60_000, enabled gate on single-item hooks, invalidateQueries on mutations) —
+  fully compliant, no notes.
+
+================================================================
+11. *_LABELS / *_STATUS_LABELS import check
+================================================================
+NONE of the 14 in-scope files (nor the 12 discovered appendix sub-components)
+IMPORT any `*_LABELS`/`*_STATUS_LABELS` constant from `lib/constants/statuses.ts`.
+Every status/type label set encountered in this scope is a LOCAL inline
+`Record<string, ...>` or array literal, re-declared per file. This is a much
+higher DRY/i18n debt concentration than the Phase-3 pipeline scan (which had at
+least one `PIPELINE_STAGE_LABELS_AR` centralized constant already).
+
+Entity-key reconciliation table (does the inline map match statuses.json?):
+| Local map (file)                                  | Candidate entity   | Match? |
+|----------------------------------------------------|--------------------|--------|
+| PO STATUS_MAP (×3 files)                            | `po`               | PARTIAL — 3/6 keys textually differ (acknowledged/received/invoiced) |
+| Supplier active/inactive ternary (×2 files)         | none exists        | NO ENTITY — needs new `supplier` or generic `activeStatus` entity |
+| Recurring CYCLE_LABELS / BasicInfo / RevenueTarget×2 (monthly/quarterly/yearly, ×4 occurrences) | `billingCycle` (has weekly too) OR `leadBillingCycle` (has one_time+annual) | PARTIAL — neither entity is an exact 3-key match; needs a decision |
+| Recurring STATUS_MAP (active/paused/cancelled)      | `subscription` (active/cancelled/expired — no paused) | NO MATCH — needs new `recurringInvoice` entity |
+| Card CARD_TYPES 'أخرى'                              | n/a (single word, generic "other") | trivial, low priority |
+| Currency display names (درهم/دولار/يورو/ريال, ×2 occurrences w/ minor format diff) | none exists | NO ENTITY — needs new `finance.currencies.*` |
+| Invoice STATUS_MAP (client-statement)               | `invoice`          | PARTIAL — 5/6 match, `'ملغاة'` vs `'ملغية'` gender mismatch |
+| Payment METHOD_MAP (client-statement)                | `paymentMethod`    | MATCH (subset, safe to swap) |
+| Contract CONTRACT_STATUS_MAP (client-statement, has extra `paused`) | `contract` (no paused) or `crmContract` (has paused) | AMBIGUOUS — needs decision |
+
+================================================================
+12. toLocale* / MONTH_NAMES_AR / ARABIC_MONTHS occurrences
+================================================================
+- app/dashboard/finance/page.tsx L30: `new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' })` — HARDCODED locale + relies on Intl for month name (not a MONTH_NAMES_AR constant, but still locale-hardcoded) — HAZARD.
+- components/finance/RevenueExpenseChart.tsx L63: `value.toLocaleString('en-AE')` (Tooltip formatter)
+- components/finance/ExpenseBarChart.tsx L55, L65: `value.toLocaleString('en-AE')` / `v.toLocaleString('en-AE')` (×2)
+- components/finance/ExpenseCategoryPieChart.tsx L54: `value.toLocaleString('en-AE')`
+- No MONTH_NAMES_AR / ARABIC_MONTHS constant usage found anywhere in this scope
+  (the finance dashboard root uses native Intl via toLocaleDateString instead).
+
+================================================================
+13. formatCurrency / formatDate call-site count per file
+================================================================
+| File                                                        | formatCurrency | formatDate |
+|---------------------------------------------------------------|:---:|:---:|
+| app/dashboard/finance/page.tsx                                 | 1 | 0 |
+| purchase-orders/purchase-orders-client.tsx                     | 1 | 1 |
+| purchase-orders/new/page.tsx                                   | 4 | 0 |
+| purchase-orders/[id]/page.tsx                                  | 5 | 2 |
+| suppliers/suppliers-client.tsx                                  | 0 | 0 |
+| suppliers/new/page.tsx                                          | 0 | 0 |
+| suppliers/[id]/page.tsx                                         | 0 | 0 |
+| supplier-detail/SupplierInfo.tsx (appendix)                     | 0 | 0 |
+| supplier-detail/LinkedExpenses.tsx (appendix)                   | 2 | 1 |
+| supplier-detail/SupplierEditForm.tsx (appendix)                 | 0 | 0 |
+| recurring/page.tsx                                              | 0 | 0 |
+| recurring/new/page.tsx                                          | 0 | 0 |
+| recurring-list/RecurringSummary.tsx (appendix)                  | 0 | 0 |
+| recurring-list/RecurringTable.tsx (appendix)                    | 1 | 2 |
+| recurring-new/BasicInfo.tsx (appendix)                          | 0 | 0 |
+| recurring-new/LineItems.tsx (appendix) — uses raw toFixed, NOT formatCurrency | 0* | 0 |
+| cards/page.tsx                                                  | 0 | 0 |
+| targets/page.tsx                                                | 0 | 0 |
+| finance-targets/RevenueTargetCard.tsx (appendix)                | 2 | 2 (paired call) |
+| finance-targets/RevenueTargetForm.tsx (appendix)                | 0 | 0 |
+| client-statement/[clientId]/page.tsx                            | 0 | 0 |
+| client-statement/summary-cards.tsx (appendix)                   | 4 | 0 |
+| client-statement/invoices-table.tsx (appendix)                  | 3 | 1 |
+| client-statement/payment-contract-tables.tsx (appendix)         | 4 | 1 |
+| finance-overview/FinanceSummaryCards.tsx                        | 6 | 0 |
+| finance/RevenueExpenseChart.tsx                                 | 0 | 0 |
+| finance/ExpenseBarChart.tsx                                     | 0 | 0 |
+| finance/ExpenseCategoryPieChart.tsx                             | 0 | 0 |
+| hooks/*.ts (×3)                                                 | 0 | 0 |
+TOTAL formatCurrency call-sites: 33   TOTAL formatDate call-sites: 10
+(*LineItems.tsx computes `subtotal.toFixed(2)` manually instead of calling
+formatCurrency — flagged as HAZARD in section 4, not counted as a compliant call.)
+
+================================================================
+14. Hardcoded dir attrs / RTL logic
+================================================================
+- app/dashboard/finance/recurring/new/page.tsx L62: `dir="rtl"` HARDCODED on root
+  `<div>` wrapper — MUST become locale-driven (dir={dir}). This is the only
+  full-page-level hardcoded dir in scope.
+- LTR-content exemptions (safe, NOT hazards — numeric/Latin fields):
+  - purchase-orders/purchase-orders-client.tsx L137 (po_number span)
+  - purchase-orders/new/page.tsx L141, L142, L154 (quantity/rate/vat number inputs)
+  - purchase-orders/[id]/page.tsx L132 (po_number h1)
+  - suppliers/new/page.tsx L85, L89, L99, L103, L107, L123, L128 (email/phone/tax/
+    payment-terms/currency/bank-account/IBAN)
+  - supplier-detail/SupplierInfo.tsx L30, L31 (bank account/IBAN display)
+  - supplier-detail/SupplierEditForm.tsx L30, L34, L44, L48, L52, L62, L67 (same
+    field set as new/page.tsx, edit-mode)
+  - cards/page.tsx L248, L252 (expiry month/year number inputs)
+  - recurring-new/LineItems.tsx L47, L51, L55 (quantity/rate/amount number inputs)
+
+================================================================
+15. Template literals with Arabic + interpolation ([ICU] flag)
+================================================================
+See per-file sections above for the full list (marked `[ICU]` inline). Notable
+clusters:
+- Three near-identical "من بداية السنة: {amount}" strings in
+  FinanceSummaryCards.tsx (L27/L42/L60) — single parametrized ICU message.
+- Six occurrences of the monthly/quarterly/yearly period-type triad across
+  4 different files (recurring/page.tsx SelectItems are literal not interpolated,
+  but BasicInfo.tsx, RecurringTable CYCLE_LABELS, RevenueTargetCard
+  PERIOD_TYPE_MAP, RevenueTargetForm SelectItems all restate the same 3 words).
+- Two occurrences of the exact EmptyState string "لا توجد مصاريف هذا الشهر"
+  (ExpenseBarChart.tsx L29, ExpenseCategoryPieChart.tsx L28).
+- `— ${supplier_company}` interpolation pattern repeated 3× (purchase-orders
+  list, PO new-page supplier dropdown, PO detail page) with identical
+  ` — ` em-dash-space prefix — single ICU message candidate.
+- Placeholder `"ملاحظات إضافية..."` repeated verbatim in 4 files (PO new, supplier
+  new, recurring... actually BasicInfo doesn't have it, RevenueTargetForm does,
+  cards page doesn't) — count: PO-new L123, supplier-new L136, RevenueTargetForm
+  L87 → 3 occurrences, shared key candidate.
+
+================================================================
+16. Recharts-specific hardcoded labels (chart tooltip/legend/axis)
+================================================================
+ALL THREE chart components (RevenueExpenseChart, ExpenseBarChart,
+ExpenseCategoryPieChart) hardcode Arabic strings INSIDE Recharts
+Tooltip/Legend/Bar-label `formatter` callback functions — these execute as
+plain JS closures, NOT JSX, so:
+1. They will NOT be caught by a naive "scan JSX for Arabic" migration tool.
+2. They CANNOT simply call `t()` unless the translation function is captured
+   in the component's closure (i.e., call `useTranslations()` at the top of
+   the component and reference `t('...')` inside the formatter callback —
+   straightforward since these are function components, but must not be
+   forgotten during the swap).
+3. The "المبلغ" (amount) label appears independently in BOTH ExpenseBarChart
+   and ExpenseCategoryPieChart Tooltip formatters (2 separate hardcodes of the
+   same word) plus RevenueExpenseChart hardcodes 'الإيرادات'/'المصاريف' TWICE
+   each (once in Tooltip formatter, once in Legend formatter) — 6 total
+   hardcoded-in-closure Arabic string sites across 3 files needing coordinated
+   translation-hook threading.
+4. All three ALSO hardcode `toLocaleString('en-AE')` + literal `' AED'` suffix
+   — per CLAUDE.md doctrine ("Currency/number formatting is locale-stable
+   (en-AE) by design — do not localize digits in money") the en-AE part may be
+   INTENTIONALLY correct, but the literal `'AED'` text should probably become
+   a currency-code variable/prop rather than a hardcoded string, since these
+   chart components have no currency prop today (implicitly assume AED site-
+   wide, which is consistent with current all-AED production data per other
+   locked decisions, but is a latent multi-currency gap like the CRM dashboard
+   ai-insights AED assumption documented elsewhere in the codebase).
+
+================================================================
+17. HAZARDS section
+================================================================
+H1. app/dashboard/finance/page.tsx L30 — `toLocaleDateString('ar-EG', {...})`
+    hardcoded locale for the finance dashboard's month/year subtitle. Must
+    become locale-aware (use next-intl date formatting or pass the resolved
+    cookie locale). If rendered under an EN locale, this would still show
+    Arabic month names — a correctness bug, not just a cosmetic gap.
+
+H2. app/dashboard/finance/recurring/new/page.tsx L62 — `dir="rtl"` HARDCODED
+    on the page's root wrapper `<div>`. Under an EN/LTR locale this would force
+    the entire "create recurring invoice" form into RTL layout regardless of
+    the user's chosen language — a functional RTL/LTR-layout bug, not cosmetic.
+
+H3. Massive STATUS_MAP / label-map duplication with NO shared accessor:
+    the PO status map is copy-pasted 3× (list, list's SelectItems, detail page)
+    with the SAME textual mismatches vs statuses.json (`po.acknowledged`,
+    `po.received`, `po.invoiced` all differ from the local copies). Any i18n
+    migration MUST first decide the canonical label per status THEN swap all
+    3 copies atomically — swapping one copy to `useStatusLabels('po')` while
+    leaving the other 2 as stale local literals would create a THIRD, worse
+    inconsistency (some pages showing "مؤكد", others showing "تم الاستلام" for
+    the exact same `acknowledged` status).
+
+H4. The monthly/quarterly/yearly period-type/billing-cycle triad appears
+    hardcoded independently in AT LEAST 6 places across 4 files with NO
+    single shared entity in statuses.json that exactly matches (billingCycle
+    has an extra `weekly`; leadBillingCycle has `one_time`+`annual` instead).
+    A plan must decide: (a) reuse `billingCycle` and accept weekly is simply
+    unused in these dropdowns, or (b) create a new entity. Blind accessor
+    swap without this decision will either drop a needed option or import an
+    unused one.
+
+H5. Currency display-name maps (AED/USD/EUR/SAR → درهم/دولار/يورو/ريال) are
+    hardcoded in 2 places (BasicInfo.tsx bare names, RevenueTargetForm.tsx
+    names+codes) with a MINOR FORMAT INCONSISTENCY between them (one has the
+    parenthetical currency code, one doesn't) — no existing statuses.json
+    entity covers this; needs a new `finance.currencies.*` catalog to avoid
+    a third divergent copy being created during migration.
+
+H6. Recharts formatter-callback Arabic strings (section 16) are invisible to
+    naive JSX-scanning migration scripts — explicit manual pass required for
+    the 3 chart files, or the migration will silently miss 6+ hardcoded
+    strings (المبلغ ×2, الإيرادات ×2, المصاريف ×2) plus 4 hardcoded 'en-AE' +
+    literal 'AED' occurrences.
+
+H7. Two separate "delete confirmation" AlertDialog description strings
+    (purchase-orders/[id]/page.tsx L243, suppliers/[id]/page.tsx L107) are
+    NEAR-identical templated sentences ("هل أنت متأكد من حذف {noun} هذا؟ لا
+    يمكن التراجع عن هذا الإجراء.") that should collapse into ONE parametrized
+    ICU message (`{entityLabel}` placeholder) rather than 2 (soon-to-be-N as
+    more entities get delete confirms) hand-copied variants — same class of
+    duplication CLAUDE.md's DRY conventions elsewhere warn against.
+
+H8. cards/page.tsx is a documented ORPHANED page (Finance Remediation decision:
+    "Subscriptions module SUNSET... Cards page is now orphaned — removal
+    candidate"). Spending i18n-migration effort on 290 lines of a page flagged
+    for removal is likely wasted work — the Phase-4 plan should explicitly
+    decide skip-and-flag-for-deletion vs full-migrate before scheduling this
+    file's work.
+
+H9. Raw `fetch()` + manual `useState`/`useEffect` pagination (NOT React Query)
+    is used throughout purchase-orders-client.tsx, suppliers-client.tsx,
+    purchase-orders/[id]/page.tsx, suppliers/[id]/page.tsx, cards/page.tsx
+    (partial), and client-statement/[clientId]/page.tsx — a pre-existing
+    CLAUDE.md violation (mandatory React Query data layer) that is orthogonal
+    to i18n but will make wiring `useTranslations()` + reactive locale-switch
+    re-fetching MORE AWKWARD in these files than in the already-compliant
+    recurring/page.tsx (which uses `useRecurringInvoices` + `useMutation`).
+    Not this scan's job to fix, but the i18n plan should note it raises
+    implementation friction in 6 of 14 in-scope files.
+
+H10. RecurringSummary.tsx L44 references button text "توليد الفواتير المستحقة"
+     that does NOT match the actual button label in recurring/page.tsx L59
+     ("توليد" / "جاري..." while pending) — a PRE-EXISTING content drift bug
+     (not caused by i18n) that will get "frozen into two different catalog
+     keys" if migrated as-is without a content review flag. Recommend the
+     plan include a one-line content-parity fix alongside the string extraction.
+
+================================================================
+SUMMARY
+================================================================
+
+Total files scanned: 14 in-scope files + 12 discovered appendix sub-component
+files = 26 files total (all read in full).
+
+Files >300 lines: NONE. Largest is cards/page.tsx at 290 lines (orphaned,
+see H8), followed by purchase-orders/[id]/page.tsx at 256 lines. All other
+files are well under the 300-line CLAUDE.md threshold.
+
+--- AR line counts by class (approximate, counting distinct AR-bearing lines
+    per the per-file breakdowns above; a line with multiple strings counts once) ---
+
+(ui)       ≈ 195 lines  — the overwhelming majority: labels, buttons, toasts,
+                          placeholders, headers, EmptyState copy, dialog text
+(data)     0 lines       — no lines in this scope compare/write raw Arabic to
+                          the DB as a value (all AR here is display-layer only;
+                          the closest data-adjacent case is the LOST_REASON-
+                          style chip-identity coupling seen in Phase-3 pipeline,
+                          which does NOT recur in this finance-pages-b scope)
+(comment)  2 lines        — RevenueTargetCard.tsx L65-66 (AED-conversion
+                          rationale comment); purchase-orders STATUS_MAP-related
+                          inline comments are absent (no comment-only AR lines
+                          elsewhere in scope)
+(statuses) ≈ 20 lines     — the local STATUS_MAP / CYCLE_LABELS / METHOD_MAP /
+                          CONTRACT_STATUS_MAP / PERIOD_TYPE_MAP / CARD_TYPES
+                          inline label objects (9 distinct maps across the
+                          scope, see reconciliation table in section 11)
+
+TOTAL distinct AR-bearing source lines in scope: ≈ 217
+
+Proposed catalog key shape (mirrors Phase-3 pipeline's `finance.*` nesting):
+- finance.overview.*         (app/dashboard/finance/page.tsx, FinanceSummaryCards,
+                               RevenueExpenseChart/ExpenseBarChart/
+                               ExpenseCategoryPieChart — the "financeOverview"
+                               namespace should also own the chart tooltip/
+                               legend strings per H6)
+- finance.purchaseOrders.*   (list, new, detail, + shared po status labels —
+                               resolve H3 before extracting)
+- finance.suppliers.*        (list, new, detail + SupplierInfo/LinkedExpenses/
+                               SupplierEditForm appendix — one shared
+                               finance.suppliers.form.* sub-namespace for the
+                               new/edit form label duplication)
+- finance.recurring.*        (list, new + RecurringSummary/RecurringTable/
+                               BasicInfo/LineItems appendix — resolve H4 before
+                               extracting the cycle/period triad)
+- finance.cards.*            (ORPHANED — see H8, confirm skip/delete before
+                               allocating catalog namespace)
+- finance.targets.*          (targets/page.tsx + RevenueTargetCard/
+                               RevenueTargetForm — resolve H5 currency-names
+                               overlap with finance.recurring's BasicInfo
+                               currency list, consider a shared
+                               finance.currencies.* catalog instead of
+                               duplicating inside both namespaces)
+- finance.statement.*        (client-statement page + summary-cards/
+                               invoices-table/payment-contract-tables appendix
+                               — resolve invoice ملغاة/ملغية mismatch (H3-class)
+                               and contract-status entity ambiguity before
+                               swapping to useStatusLabels)
+
+TOP-3 HAZARDS (also surfaced in final report):
+1. H2 — hardcoded `dir="rtl"` on recurring/new/page.tsx root wrapper (functional
+   RTL/LTR layout bug under EN locale, not cosmetic).
+2. H3/H4 — pervasive un-DRY'd STATUS_MAP/period-triad duplication (PO status
+   copy-pasted 3× with real textual mismatches vs statuses.json; period-type
+   triad duplicated 6×) — migration must reconcile labels BEFORE swapping to
+   shared accessors, or it will freeze inconsistent Arabic text across pages
+   into permanent, harder-to-fix catalog keys.
+3. H6 — Recharts Tooltip/Legend/Bar-label formatter callbacks hardcode Arabic
+   text as plain JS closures (6+ sites across 3 chart files), invisible to
+   naive JSX-scan tooling and requiring explicit `useTranslations()` threading
+   into the closures.
