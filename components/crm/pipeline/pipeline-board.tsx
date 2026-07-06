@@ -29,6 +29,8 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
+import { useTranslations, useLocale } from 'next-intl';
+import { dirFor } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils/cn';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
@@ -38,6 +40,7 @@ import { PipelineEmpty } from './pipeline-empty';
 import { ACCENT_DOT } from '@/lib/constants/pipeline-colors';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
+import type { Locale } from '@/lib/i18n/config';
 
 interface PipelineBoardProps {
   stages: PipelineStage[] | undefined;
@@ -73,6 +76,9 @@ export function PipelineBoard({
   selectedIds,
   onToggleSelect,
 }: PipelineBoardProps) {
+  const t = useTranslations('crm.pipeline');
+  const locale = useLocale() as Locale;
+  const dir = dirFor(locale);
   const isDesktop = useIsDesktop();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
@@ -137,7 +143,7 @@ export function PipelineBoard({
   if (!stages || stages.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center text-sm text-muted-foreground">
-        لم يتم تحميل المراحل.
+        {t('board.stagesFailed')}
       </div>
     );
   }
@@ -161,7 +167,7 @@ export function PipelineBoard({
     >
       {/* Desktop / tablet — horizontal scroll */}
       <div className="hidden md:block">
-        <div className="flex gap-3 overflow-x-auto pb-3" dir="rtl">
+        <div className="flex gap-3 overflow-x-auto pb-3" dir={dir}>
           {stages.map((s) => (
             <div key={s.id} className="shrink-0 w-72 lg:w-80">
               <PipelineColumn
@@ -184,7 +190,7 @@ export function PipelineBoard({
           button doesn't mount there. */}
       <div className="md:hidden">
         <div className="sticky top-0 z-10 -mx-4 px-4 pb-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" dir="rtl">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin" dir={dir}>
             {stages.map((s) => {
               const count = grouped.get(s.id)?.length ?? 0;
               const isActive = effectiveActiveId === s.id;
@@ -214,7 +220,7 @@ export function PipelineBoard({
           {effectiveActiveId && (grouped.get(effectiveActiveId)?.length ?? 0) === 0 ? (
             <PipelineEmpty
               stageLabel={
-                stages.find((s) => s.id === effectiveActiveId)?.name_ar ?? 'هذه المرحلة'
+                stages.find((s) => s.id === effectiveActiveId)?.name_ar ?? t('board.emptyStageFallback')
               }
             />
           ) : (

@@ -2,13 +2,11 @@
 
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { fetchAPI, mutateAPI, buildQueryString, ApiError } from './api-helpers';
-import {
-  PIPELINE_STAGE_IDS,
-  PIPELINE_STAGE_LABELS_AR,
-  type PipelineStageId,
-} from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { PIPELINE_STAGE_IDS, type PipelineStageId } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
 
 // ── Types returned by API endpoints ──
@@ -238,6 +236,8 @@ export interface RunMoveStageExtras {
  */
 export function useMoveLeadStageWithToasts() {
   const moveStage = useMoveLeadStage();
+  const t = useTranslations('crm.pipeline.moveToasts');
+  const stageLabel = useStatusLabels('pipelineStage');
 
   const runMoveStage = useCallback(
     async (
@@ -246,10 +246,8 @@ export function useMoveLeadStageWithToasts() {
       fromStageId: string | null,
       extras?: RunMoveStageExtras,
     ): Promise<void> => {
-      const fromLabel = fromStageId
-        ? PIPELINE_STAGE_LABELS_AR[fromStageId as PipelineStageId] ?? fromStageId
-        : null;
-      const toLabel = PIPELINE_STAGE_LABELS_AR[toStageId as PipelineStageId] ?? toStageId;
+      const fromLabel = fromStageId ? stageLabel(fromStageId as PipelineStageId) : null;
+      const toLabel = stageLabel(toStageId as PipelineStageId);
 
       try {
         const res = await moveStage.mutateAsync({
@@ -260,13 +258,13 @@ export function useMoveLeadStageWithToasts() {
         });
         const movedToContractSigned = (res as { pending_approval?: boolean })?.pending_approval;
         if (toStageId === PIPELINE_STAGE_IDS.CLOSED_LOST) {
-          toast.success(`تم نقل الصفقة إلى "${toLabel}" — تم تسجيل السبب`);
+          toast.success(t('closedLostSuccess', { to: toLabel }));
         } else if (movedToContractSigned) {
-          toast.success(`تم نقل الـ Lead إلى "${toLabel}" — في انتظار اعتماد المدير`);
+          toast.success(t('pendingApprovalSuccess', { to: toLabel }));
         } else if (fromLabel) {
-          toast.success(`تم نقل الـ Lead من "${fromLabel}" إلى "${toLabel}"`);
+          toast.success(t('fromToSuccess', { from: fromLabel, to: toLabel }));
         } else {
-          toast.success(`تم نقل الـ Lead إلى "${toLabel}"`);
+          toast.success(t('toOnlySuccess', { to: toLabel }));
         }
       } catch (err: unknown) {
         const apiErr = err instanceof ApiError ? err : null;
@@ -277,19 +275,19 @@ export function useMoveLeadStageWithToasts() {
             : null;
 
         if (status === 403) {
-          toast.error('ليس لديك صلاحية لنقل المراحل');
+          toast.error(t('forbidden'));
         } else if (status === 409 || status === 410) {
-          toast.error('حدث تغيير في الـ Lead. الرجاء التحديث');
+          toast.error(t('conflict'));
         } else if (status === 422 && serverMessage) {
           toast.error(serverMessage);
         } else if (status === 422) {
-          toast.error(`لا يمكن نقل الـ Lead إلى "${toLabel}" مباشرة — راجع متطلبات المرحلة`);
+          toast.error(t('invalidTransition', { to: toLabel }));
         } else {
-          toast.error(serverMessage ?? 'فشل نقل المرحلة — حاول مرة أخرى');
+          toast.error(serverMessage ?? t('fallback'));
         }
       }
     },
-    [moveStage],
+    [moveStage, t, stageLabel],
   );
 
   return { moveStage, runMoveStage };

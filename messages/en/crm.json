@@ -84,6 +84,127 @@
         "estimatedValue": "Estimated value {value} AED",
         "severityAria": "Severity: {severity}"
       }
+    },
+    "pipeline": {
+      "meta": { "title": "Sales Pipeline — Pyra" },
+      "header": {
+        "title": "Sales Pipeline",
+        "subtitle": "Click any deal to open its details, or drag it between columns to change stage (on desktop).",
+        "archive": "Archive",
+        "selectAll": "Select all ({count})",
+        "exitSelection": "Exit selection",
+        "bulkSelect": "Bulk select",
+        "newLead": "New Lead"
+      },
+      "bulkAssign": {
+        "success": "{count, plural, one {# deal assigned successfully} other {# deals assigned successfully}}",
+        "genericError": "Bulk assignment failed"
+      },
+      "ownerOptions": {
+        "departedSuffix": "{name} (departed)",
+        "allDeparted": "All departed agents"
+      },
+      "closedWonGuard": "You can't move directly to \"Closed Won\" — drag to \"Contract Signed\" and wait for manager approval",
+      "board": {
+        "stagesFailed": "Stages could not be loaded.",
+        "emptyStageFallback": "this stage"
+      },
+      "card": {
+        "winProbability": "Win probability",
+        "call": "Call",
+        "whatsapp": "WhatsApp",
+        "selectAria": "Select {name}",
+        "changeStageAria": "Move {name} to another stage",
+        "changeStage": "Change stage"
+      },
+      "timeAgo": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "days": "{count, plural, one {# day ago} other {# days ago}}",
+        "weeks": "{count, plural, one {# week ago} other {# weeks ago}}",
+        "months": "{count, plural, one {# month ago} other {# months ago}}"
+      },
+      "filterBar": {
+        "sources": {
+          "whatsapp": "WhatsApp",
+          "website": "Website",
+          "referral": "Referral",
+          "manual": "Manual",
+          "ad": "Ad",
+          "social": "Social"
+        },
+        "searchPlaceholder": "Search by name, company, or phone...",
+        "ownerPlaceholder": "Owner",
+        "allOwners": "All owners",
+        "sourcePlaceholder": "Source",
+        "allSources": "All sources",
+        "priorityPlaceholder": "Priority",
+        "allPriorities": "All priorities",
+        "clear": "Clear ({count})",
+        "total": "{count, plural, one {# deal} other {# deals}}",
+        "chips": {
+          "search": "Search: {query}",
+          "owner": "Owner: {owner}",
+          "source": "Source: {source}",
+          "priority": "Priority: {priority}"
+        }
+      },
+      "empty": {
+        "message": "No deals in<stageTag>{stage}</stageTag>right now."
+      },
+      "mobileStageSheet": {
+        "title": "Change stage",
+        "description": "The customer is not notified — this is an internal action. \"{name}\" will move to a new stage.",
+        "noOtherStages": "No other stages available",
+        "moveToAria": "Move to {stage}"
+      },
+      "moveToasts": {
+        "closedLostSuccess": "Deal moved to \"{to}\" — reason recorded",
+        "pendingApprovalSuccess": "Lead moved to \"{to}\" — awaiting manager approval",
+        "fromToSuccess": "Lead moved from \"{from}\" to \"{to}\"",
+        "toOnlySuccess": "Lead moved to \"{to}\"",
+        "forbidden": "You don't have permission to move stages",
+        "conflict": "This Lead has changed. Please refresh",
+        "invalidTransition": "The Lead can't move to \"{to}\" directly — check the stage requirements",
+        "fallback": "Failed to move stage — try again"
+      },
+      "moveStageConfirmModal": {
+        "titleContractSigned": "Move deal to \"Contract Signed\"",
+        "titleClosedLost": "Move deal to \"Lost\"",
+        "descriptionContractSigned": "Link the deal to a contract or invoice before sending it for approval.",
+        "descriptionClosedLost": "Choose a loss reason to improve our analytics.",
+        "tabContract": "Contract",
+        "tabInvoice": "Invoice",
+        "lostReasonChips": {
+          "priceNotSuitable": "Price wasn't right",
+          "lostToCompetitor": "Lost to a competitor",
+          "decisionDelayed": "Decision delayed",
+          "other": "Other"
+        },
+        "lostReasonPrompt": "Pick a quick reason (optional) — or write freely:",
+        "lostReasonPlaceholder": "Describe the loss reason in detail...",
+        "lostReasonMinChars": "{count} / {min} characters minimum",
+        "confirmContractSigned": "Move deal and send for approval",
+        "confirmClosedLost": "Move to \"Lost\"",
+        "loadFailed": "Couldn't load data",
+        "loadFailedHint1": "You may not have the required permission (finance.view / invoices.view).",
+        "loadFailedHint2": "Ask your manager to grant permissions, or use an admin account.",
+        "noContracts": "No contracts available",
+        "noContractsHint": "Create a new contract for the deal before moving it to the approval stage.",
+        "createContract": "Create new contract",
+        "untitledContract": "Untitled contract",
+        "noInvoices": "No invoices available",
+        "noInvoicesHint": "Create an invoice for the client before moving the deal to the approval stage.",
+        "createInvoice": "Create new invoice",
+        "invoiceLabel": "Invoice {number}",
+        "invoiceDue": "Due {date}"
+      },
+      "bulkActionBar": {
+        "selectedCount": "Selected: <n>{count}</n>",
+        "batchHint": "Distributed in batches of {max}",
+        "assignPlaceholder": "Assign to...",
+        "assign": "Assign"
+      }
     }
   }
 }

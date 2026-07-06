@@ -42,11 +42,13 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { Phone, MessageCircle, ArrowRightLeft, Check } from 'lucide-react';
 import { LeadPriorityBadge } from '@/components/crm/lead/lead-priority-badge';
 import { LeadSourceIcon } from '@/components/crm/lead/lead-source-icon';
 import { formatCurrency } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import type { Lead } from '@/hooks/useLeads';
 import type { PipelineStage } from '@/hooks/usePipelineStages';
 import MobileStageSheet from './mobile-stage-sheet';
@@ -80,15 +82,24 @@ interface PipelineCardProps {
   onToggleSelect?: (leadId: string) => void;
 }
 
-function daysAgoLabel(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
-  if (days < 0) return null;
-  if (days === 0) return 'اليوم';
-  if (days === 1) return 'منذ يوم';
-  if (days <= 7) return `منذ ${days} أيام`;
-  if (days <= 30) return `منذ ${Math.floor(days / 7)} أسابيع`;
-  return `منذ ${Math.floor(days / 30)} شهور`;
+/**
+ * daysAgoLabel — hand-rolled relative-date label preserving the exact
+ * اليوم / منذ يوم / N أيام / N أسابيع / N شهور forms (Phase 3.3 migration:
+ * ported to crm.pipeline.timeAgo ICU keys; a hook since it now needs
+ * useTranslations — module-level function became a hook, same call sites).
+ */
+function useDaysAgoLabel() {
+  const t = useTranslations('crm.pipeline.timeAgo');
+  return (iso: string | null | undefined): string | null => {
+    if (!iso) return null;
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000));
+    if (days < 0) return null;
+    if (days === 0) return t('today');
+    if (days === 1) return t('yesterday');
+    if (days <= 7) return t('days', { count: days });
+    if (days <= 30) return t('weeks', { count: Math.floor(days / 7) });
+    return t('months', { count: Math.floor(days / 30) });
+  };
 }
 
 function whatsAppHref(phone: string | null | undefined): string | null {
@@ -121,6 +132,9 @@ function PipelineCardView({
    *  so a stray tap on a card edge selects instead of dialing/opening WhatsApp. */
   hideQuickActions?: boolean;
 }) {
+  const t = useTranslations('crm.pipeline.card');
+  const daysAgoLabel = useDaysAgoLabel();
+  const dealTypeLabel = useStatusLabels('leadDealType');
   const lastContact = daysAgoLabel(lead.last_contact_at);
   const winProb = lead.win_probability ?? 0;
   const value = Number(lead.expected_value) || 0;
@@ -163,7 +177,7 @@ function PipelineCardView({
               : winProb >= 50 ? 'bg-orange-500/10 text-orange-700 dark:text-orange-300'
               : 'bg-muted text-muted-foreground',
             )}
-            title="احتمال الفوز"
+            title={t('winProbability')}
           >
             {winProb}%
           </span>
@@ -173,7 +187,7 @@ function PipelineCardView({
       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5 min-w-0">
           <LeadSourceIcon source={lead.source} />
-          {lead.deal_type && <span className="truncate">{lead.deal_type}</span>}
+          {lead.deal_type && <span className="truncate">{dealTypeLabel(lead.deal_type)}</span>}
         </div>
         {lastContact && <span className="shrink-0">{lastContact}</span>}
       </div>
@@ -194,8 +208,8 @@ function PipelineCardView({
               href={`tel:${lead.phone}`}
               onClick={(e) => e.stopPropagation()}
               className="size-7 rounded-full bg-background border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent"
-              aria-label="اتصال"
-              title="اتصال"
+              aria-label={t('call')}
+              title={t('call')}
             >
               <Phone className="size-3.5" />
             </a>
@@ -207,8 +221,8 @@ function PipelineCardView({
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               className="size-7 rounded-full bg-background border border-border flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-              aria-label="WhatsApp"
-              title="WhatsApp"
+              aria-label={t('whatsapp')}
+              title={t('whatsapp')}
             >
               <MessageCircle className="size-3.5" />
             </a>
@@ -241,6 +255,7 @@ export function PipelineCard({
   isSelected = false,
   onToggleSelect,
 }: PipelineCardProps) {
+  const t = useTranslations('crm.pipeline.card');
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lead.id,
     data: { lead },
@@ -282,7 +297,7 @@ export function PipelineCard({
         type="button"
         onClick={() => onToggleSelect?.(lead.id)}
         aria-pressed={isSelected}
-        aria-label={`تحديد ${lead.name}`}
+        aria-label={t('selectAria', { name: lead.name })}
         className={cn(
           'relative block w-full text-start rounded-xl transition-all',
           'focus:outline-none focus:ring-2 focus:ring-orange-500/40',
@@ -338,10 +353,10 @@ export function PipelineCard({
             setSheetOpen(true);
           }}
           className="md:hidden mt-1 w-full rounded-lg border border-border bg-muted/30 hover:bg-muted/60 px-3 py-2 text-xs font-medium text-foreground transition-colors flex items-center justify-center gap-1.5"
-          aria-label={`نقل ${lead.name} إلى مرحلة أخرى`}
+          aria-label={t('changeStageAria', { name: lead.name })}
         >
           <ArrowRightLeft className="size-3.5" />
-          نقل المرحلة
+          {t('changeStage')}
         </button>
       )}
 

@@ -13,6 +13,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Users, X, Loader2, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,6 +42,8 @@ export interface BulkActionBarProps {
 }
 
 export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBarProps) {
+  const t = useTranslations('crm.pipeline.bulkActionBar');
+  const tTable = useTranslations('common.table');
   const { leadCapable, isLoading } = useLeadCapableUsers();
   const [target, setTarget] = useState<string>('');
 
@@ -52,18 +55,18 @@ export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBar
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/95 backdrop-blur px-3 py-2 shadow-lg">
         <span className="inline-flex items-center gap-1.5 text-sm font-medium">
           <Users className="size-4 text-orange-500" aria-hidden />
-          محدد: <span className="tabular-nums">{count}</span>
+          {t.rich('selectedCount', { count, n: (chunks) => <span className="tabular-nums">{chunks}</span> })}
         </span>
 
         <div className="flex items-center gap-2 ms-auto">
           {overCap && (
             <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-              توزيع على دفعات من {MAX_BULK}
+              {t('batchHint', { max: MAX_BULK })}
             </span>
           )}
           <Select value={target} onValueChange={setTarget} disabled={busy || isLoading}>
             <SelectTrigger className="h-9 w-44">
-              <SelectValue placeholder="تعيين لـ..." />
+              <SelectValue placeholder={t('assignPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
               {leadCapable.map((u) => (
@@ -85,7 +88,7 @@ export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBar
             ) : (
               <UserCog className="size-4 me-1.5" />
             )}
-            تعيين
+            {t('assign')}
           </Button>
         </div>
 
@@ -97,7 +100,7 @@ export function BulkActionBar({ count, busy, onAssign, onCancel }: BulkActionBar
           disabled={busy}
           className="h-9"
         >
-          <X className="size-4 me-1" /> إلغاء التحديد
+          <X className="size-4 me-1" /> {tTable('clearSelection')}
         </Button>
       </div>
     </div>

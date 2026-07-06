@@ -13,6 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface PipelineFilterBarProps {
   /** Render owner-filter dropdown only for admins (sales agents see only their own leads). */
@@ -34,25 +36,23 @@ interface PipelineFilterBarProps {
   total?: number;
 }
 
-const SOURCE_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'whatsapp', label: 'WhatsApp' },
-  { value: 'website', label: 'الموقع' },
-  { value: 'referral', label: 'إحالة' },
-  { value: 'manual', label: 'يدوي' },
-  { value: 'ad', label: 'إعلان' },
-  { value: 'social', label: 'سوشيال' },
-];
-
-const PRIORITY_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'urgent', label: 'عاجل' },
-  { value: 'high', label: 'عالية' },
-  { value: 'medium', label: 'عادية' },
-  { value: 'low', label: 'منخفضة' },
-];
+const SOURCE_VALUES = ['whatsapp', 'website', 'referral', 'manual', 'ad', 'social'] as const;
+const PRIORITY_VALUES = ['urgent', 'high', 'medium', 'low'] as const;
 
 export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: PipelineFilterBarProps) {
+  const t = useTranslations('crm.pipeline.filterBar');
+  const priorityLabel = useStatusLabels('leadPriority');
   const router = useRouter();
   const sp = useSearchParams();
+
+  const SOURCE_OPTIONS = useMemo(
+    () => SOURCE_VALUES.map((value) => ({ value, label: t(`sources.${value}`) })),
+    [t],
+  );
+  const PRIORITY_OPTIONS = useMemo(
+    () => PRIORITY_VALUES.map((value) => ({ value, label: priorityLabel(value) })),
+    [priorityLabel],
+  );
 
   const initialSearch = sp.get('search') ?? '';
   const owner = sp.get('assigned_to') ?? 'all';
@@ -80,10 +80,10 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
 
   // Debounce search → URL.
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (searchInput !== initialSearch) setParam('search', searchInput.trim() || null);
     }, 400);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [searchInput, initialSearch, setParam]);
 
   const activeCount = useMemo(() => {
@@ -101,12 +101,12 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
   }
 
   // Resolve human-readable labels for the active-filter chip strip below.
-  // Source + priority labels come from the inline option arrays defined
-  // at the top of this file. Owner is rendered as the raw username (the
-  // dropdown also shows raw usernames — there's no display_name lookup
-  // in this surface; admin recognizes their own team).
-  const sourceLabel = SOURCE_OPTIONS.find((s) => s.value === source)?.label ?? source;
-  const priorityLabel = PRIORITY_OPTIONS.find((p) => p.value === priority)?.label ?? priority;
+  // Source + priority labels come from the option arrays built above.
+  // Owner is rendered as the raw username (the dropdown also shows raw
+  // usernames — there's no display_name lookup in this surface; admin
+  // recognizes their own team).
+  const sourceChipLabel = SOURCE_OPTIONS.find((s) => s.value === source)?.label ?? source;
+  const priorityChipLabel = PRIORITY_OPTIONS.find((p) => p.value === priority)?.label ?? priority;
 
   return (
     <div>
@@ -118,7 +118,7 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
           <Input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="ابحث بالاسم أو الشركة أو الهاتف..."
+            placeholder={t('searchPlaceholder')}
             className="ps-9 h-11"
           />
         </div>
@@ -126,10 +126,10 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
         {isAdmin && ownerOptions.length > 0 && (
           <Select value={owner} onValueChange={(v) => setParam('assigned_to', v)}>
             <SelectTrigger className="w-40 h-11">
-              <SelectValue placeholder="المسؤول" />
+              <SelectValue placeholder={t('ownerPlaceholder')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">كل المسؤولين</SelectItem>
+              <SelectItem value="all">{t('allOwners')}</SelectItem>
               {ownerOptions.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -141,10 +141,10 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
 
         <Select value={source} onValueChange={(v) => setParam('source', v)}>
           <SelectTrigger className="w-36 h-11">
-            <SelectValue placeholder="المصدر" />
+            <SelectValue placeholder={t('sourcePlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">كل المصادر</SelectItem>
+            <SelectItem value="all">{t('allSources')}</SelectItem>
             {SOURCE_OPTIONS.map((s) => (
               <SelectItem key={s.value} value={s.value}>
                 {s.label}
@@ -155,10 +155,10 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
 
         <Select value={priority} onValueChange={(v) => setParam('priority', v)}>
           <SelectTrigger className="w-36 h-11">
-            <SelectValue placeholder="الأولوية" />
+            <SelectValue placeholder={t('priorityPlaceholder')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">كل الأولويات</SelectItem>
+            <SelectItem value="all">{t('allPriorities')}</SelectItem>
             {PRIORITY_OPTIONS.map((p) => (
               <SelectItem key={p.value} value={p.value}>
                 {p.label}
@@ -172,13 +172,13 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
             override would conflict semantically. */}
         {activeCount > 0 && (
           <Button variant="ghost" onClick={clearAll} className="gap-1 h-11">
-            <X className="size-3.5" /> مسح ({activeCount})
+            <X className="size-3.5" /> {t('clear', { count: activeCount })}
           </Button>
         )}
 
         {typeof total === 'number' && (
           <span className="text-xs text-muted-foreground ms-auto tabular-nums">
-            {total} {total === 1 ? 'صفقة' : 'صفقة'}
+            {t('total', { count: total })}
           </span>
         )}
       </div>
@@ -195,22 +195,22 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
         <div className="md:hidden mt-2 flex flex-wrap gap-1.5">
           {initialSearch && (
             <Badge variant="secondary" className="text-xs gap-1">
-              بحث: {initialSearch}
+              {t('chips.search', { query: initialSearch })}
             </Badge>
           )}
           {owner !== 'all' && (
             <Badge variant="secondary" className="text-xs gap-1">
-              المالك: {owner}
+              {t('chips.owner', { owner })}
             </Badge>
           )}
           {source !== 'all' && (
             <Badge variant="secondary" className="text-xs gap-1">
-              المصدر: {sourceLabel}
+              {t('chips.source', { source: sourceChipLabel })}
             </Badge>
           )}
           {priority !== 'all' && (
             <Badge variant="secondary" className="text-xs gap-1">
-              الأولوية: {priorityLabel}
+              {t('chips.priority', { priority: priorityChipLabel })}
             </Badge>
           )}
         </div>

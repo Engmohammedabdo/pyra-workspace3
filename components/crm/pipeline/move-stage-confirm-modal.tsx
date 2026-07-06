@@ -29,8 +29,9 @@
  * cancel/ESC/backdrop closes the modal cleanly with no API call.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations, useLocale } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -51,22 +52,26 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils/cn';
 import { fetchAPI, buildQueryString } from '@/hooks/api-helpers';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
-import {
-  CONTRACT_STATUS_LABELS,
-  INVOICE_STATUS_LABELS,
-  PIPELINE_STAGE_IDS,
-  type ContractStatus,
-  type InvoiceStatus,
-} from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dirFor, type Locale } from '@/lib/i18n/config';
+import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const LOST_REASON_CHIPS = [
-  'السعر مش مناسب',
-  'فاز عليه منافس',
-  'تأجل القرار',
-  'غير ذلك',
+/**
+ * Lost-reason chip VALUES (stable keys) — labels resolved via t() inside the
+ * component. Chip-identity coupling (Phase 3.3 lock): the textarea-insert
+ * (onClick sets the LOCALIZED label text) and the selected-state comparison
+ * (chip === trimmedReason) both use the LOCALIZED label, so AR behavior stays
+ * byte-identical (stored lost_reason is whatever free text the user's
+ * textarea holds — user-language data, as it always was).
+ */
+const LOST_REASON_CHIP_KEYS = [
+  'priceNotSuitable',
+  'lostToCompetitor',
+  'decisionDelayed',
+  'other',
 ] as const;
 
 const MIN_LOST_REASON = 5;
@@ -126,12 +131,24 @@ export function MoveStageConfirmModal({
   submitting,
   onConfirm,
 }: MoveStageConfirmModalProps) {
+  const t = useTranslations('crm.pipeline.moveStageConfirmModal');
+  const tCommon = useTranslations('common.actions');
+  const locale = useLocale() as Locale;
+  const dir = dirFor(locale);
+
   // ── contract_signed state
   const [tab, setTab] = useState<'contract' | 'invoice'>('contract');
   const [selected, setSelected] = useState<AttachmentSelection | null>(null);
 
   // ── closed_lost state
   const [reason, setReason] = useState('');
+
+  // Localized lost-reason chips — label is the LOCALIZED text (Phase 3.3
+  // chip-identity coupling lock, see LOST_REASON_CHIP_KEYS doc comment above).
+  const lostReasonChips = useMemo(
+    () => LOST_REASON_CHIP_KEYS.map((key) => t(`lostReasonChips.${key}`)),
+    [t],
+  );
 
   // Reset everything whenever the modal opens or the target stage changes
   // — prevents state from one variant leaking into the next.
@@ -183,11 +200,11 @@ export function MoveStageConfirmModal({
 
   // Header config differs per variant.
   const title = isContractSigned
-    ? 'نقل الصفقة إلى "تم توقيع العقد"'
-    : 'نقل الصفقة إلى "خسارة"';
+    ? t('titleContractSigned')
+    : t('titleClosedLost');
   const description = isContractSigned
-    ? 'اربط الصفقة بعقد أو فاتورة قبل إرسالها للاعتماد.'
-    : 'اختر سبب الخسارة لتحسين تحليلاتنا.';
+    ? t('descriptionContractSigned')
+    : t('descriptionClosedLost');
   const TitleIcon = isContractSigned ? FileSignature : XCircle;
   const titleIconColor = isContractSigned
     ? 'text-orange-500'
@@ -200,7 +217,7 @@ export function MoveStageConfirmModal({
           'sm:max-w-2xl flex flex-col',
           isContractSigned ? 'max-h-[85vh]' : 'max-h-[80vh]',
         )}
-        dir="rtl"
+        dir={dir}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -224,10 +241,10 @@ export function MoveStageConfirmModal({
           >
             <TabsList className="grid grid-cols-2 w-full h-auto p-1">
               <TabsTrigger value="contract" className="gap-1.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <FileSignature className="size-4" /> عقد
+                <FileSignature className="size-4" /> {t('tabContract')}
               </TabsTrigger>
               <TabsTrigger value="invoice" className="gap-1.5 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                <Receipt className="size-4" /> فاتورة
+                <Receipt className="size-4" /> {t('tabInvoice')}
               </TabsTrigger>
             </TabsList>
 
@@ -252,9 +269,9 @@ export function MoveStageConfirmModal({
         {isClosedLost && (
           <div className="flex-1 min-h-0 overflow-y-auto py-2 space-y-3">
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">اختر سبباً سريعاً (اختياري) — أو اكتب بحريّة:</p>
+              <p className="text-xs font-medium text-muted-foreground">{t('lostReasonPrompt')}</p>
               <div className="flex flex-wrap gap-1.5">
-                {LOST_REASON_CHIPS.map((chip) => {
+                {lostReasonChips.map((chip) => {
                   const isChipSelected = chip === trimmedReason;
                   return (
                     <button
@@ -280,14 +297,14 @@ export function MoveStageConfirmModal({
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
-                placeholder="اكتب سبب الخسارة بالتفصيل..."
+                placeholder={t('lostReasonPlaceholder')}
                 required
                 minLength={MIN_LOST_REASON}
                 className="resize-none"
               />
               {trimmedReason.length < MIN_LOST_REASON && (
                 <p className="text-xs text-muted-foreground">
-                  {trimmedReason.length} / {MIN_LOST_REASON} حرف على الأقل
+                  {t('lostReasonMinChars', { count: trimmedReason.length, min: MIN_LOST_REASON })}
                 </p>
               )}
             </div>
@@ -296,7 +313,7 @@ export function MoveStageConfirmModal({
 
         <DialogFooter className="!flex-row gap-2 pt-3 border-t border-border">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
-            إلغاء
+            {tCommon('cancel')}
           </Button>
           {isContractSigned && (
             <Button
@@ -306,7 +323,7 @@ export function MoveStageConfirmModal({
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
               {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-              نقل الصفقة وإرسال للاعتماد
+              {t('confirmContractSigned')}
             </Button>
           )}
           {isClosedLost && (
@@ -317,7 +334,7 @@ export function MoveStageConfirmModal({
               onClick={handleConfirm}
             >
               {submitting ? <Loader2 className="size-4 animate-spin me-1.5" /> : null}
-              نقل إلى "خسارة"
+              {t('confirmClosedLost')}
             </Button>
           )}
         </DialogFooter>
@@ -349,6 +366,7 @@ function PickerListShell({
   emptyHrefLabel,
   children,
 }: PickerListShellProps) {
+  const t = useTranslations('crm.pipeline.moveStageConfirmModal');
   if (loading) {
     return (
       <div className="space-y-2 py-2">
@@ -362,10 +380,11 @@ function PickerListShell({
     return (
       <div className="flex flex-col items-center text-center py-8 px-4 gap-2">
         <AlertCircle className="size-8 text-amber-500" aria-hidden />
-        <p className="text-sm font-medium">تعذّر تحميل البيانات</p>
+        <p className="text-sm font-medium">{t('loadFailed')}</p>
         <p className="text-xs text-muted-foreground leading-5 max-w-md">
-          قد لا يكون لديك الصلاحية اللازمة (finance.view / invoices.view).
-          راجع المدير لتعيين الصلاحيات أو استخدم حساب مدير.
+          {t('loadFailedHint1')}
+          {' '}
+          {t('loadFailedHint2')}
         </p>
       </div>
     );
@@ -397,16 +416,19 @@ function ContractList({
   selected: AttachmentSelection | null;
   setSelected: (s: AttachmentSelection) => void;
 }) {
+  const t = useTranslations('crm.pipeline.moveStageConfirmModal');
+  const locale = useLocale() as Locale;
+  const contractStatusLabel = useStatusLabels('contract');
   const rows = query.data ?? [];
   return (
     <PickerListShell
       loading={query.isLoading}
       error={query.error}
       empty={!query.isLoading && rows.length === 0}
-      emptyTitle="لا توجد عقود متاحة"
-      emptyHint="أنشئ عقد جديد للصفقة قبل نقلها إلى مرحلة الاعتماد."
+      emptyTitle={t('noContracts')}
+      emptyHint={t('noContractsHint')}
       emptyHref="/dashboard/finance/contracts"
-      emptyHrefLabel="إنشاء عقد جديد"
+      emptyHrefLabel={t('createContract')}
     >
       {rows.map((c) => {
         const isSelected = selected?.type === 'contract' && selected.id === c.id;
@@ -424,15 +446,15 @@ function ContractList({
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{c.title ?? 'عقد بدون عنوان'}</p>
+                  <p className="text-sm font-semibold truncate">{c.title ?? t('untitledContract')}</p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {c.client_name ? `${c.client_name} · ` : ''}
                     {c.contract_type ?? '—'}
-                    {c.start_date ? ` · ${formatDate(c.start_date)}` : ''}
+                    {c.start_date ? ` · ${formatDate(c.start_date, 'dd-MM-yyyy', locale)}` : ''}
                   </p>
                 </div>
                 <Badge variant="outline" className="shrink-0">
-                  {CONTRACT_STATUS_LABELS[c.status as ContractStatus] ?? c.status}
+                  {contractStatusLabel(c.status)}
                 </Badge>
               </div>
               <p className="mt-1.5 text-sm font-bold tabular-nums">
@@ -455,16 +477,19 @@ function InvoiceList({
   selected: AttachmentSelection | null;
   setSelected: (s: AttachmentSelection) => void;
 }) {
+  const t = useTranslations('crm.pipeline.moveStageConfirmModal');
+  const locale = useLocale() as Locale;
+  const invoiceStatusLabel = useStatusLabels('invoice');
   const rows = query.data ?? [];
   return (
     <PickerListShell
       loading={query.isLoading}
       error={query.error}
       empty={!query.isLoading && rows.length === 0}
-      emptyTitle="لا توجد فواتير متاحة"
-      emptyHint="أنشئ فاتورة للعميل قبل نقل الصفقة إلى مرحلة الاعتماد."
+      emptyTitle={t('noInvoices')}
+      emptyHint={t('noInvoicesHint')}
       emptyHref="/dashboard/invoices"
-      emptyHrefLabel="إنشاء فاتورة جديدة"
+      emptyHrefLabel={t('createInvoice')}
     >
       {rows.map((inv) => {
         const isSelected = selected?.type === 'invoice' && selected.id === inv.id;
@@ -483,15 +508,15 @@ function InvoiceList({
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate">
-                    فاتورة {inv.invoice_number ? `#${inv.invoice_number}` : inv.id}
+                    {t('invoiceLabel', { number: inv.invoice_number ? `#${inv.invoice_number}` : inv.id })}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5 truncate">
                     {inv.client_name ? `${inv.client_name} · ` : ''}
-                    {inv.due_date ? `استحقاق ${formatDate(inv.due_date)}` : '—'}
+                    {inv.due_date ? t('invoiceDue', { date: formatDate(inv.due_date, 'dd-MM-yyyy', locale) }) : '—'}
                   </p>
                 </div>
                 <Badge variant="outline" className="shrink-0">
-                  {INVOICE_STATUS_LABELS[inv.status as InvoiceStatus] ?? inv.status}
+                  {invoiceStatusLabel(inv.status)}
                 </Badge>
               </div>
               <p className="mt-1.5 text-sm font-bold tabular-nums">

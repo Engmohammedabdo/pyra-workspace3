@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -33,6 +34,7 @@ export default function MobileStageSheet({
   stages,
   onSelectStage,
 }: MobileStageSheetProps) {
+  const t = useTranslations('crm.pipeline.mobileStageSheet');
   const otherStages = stages.filter((s) => s.id !== lead.stage_id);
 
   return (
@@ -44,15 +46,15 @@ export default function MobileStageSheet({
         className="h-auto max-h-[80vh] rounded-t-2xl p-0"
       >
         <SheetHeader className="px-6 pt-6 pb-3">
-          <SheetTitle>نقل المرحلة</SheetTitle>
+          <SheetTitle>{t('title')}</SheetTitle>
           <SheetDescription>
-            لا يصل العميل إشعارًا — هذه عملية داخلية. سيتم نقل &quot;{lead.name}&quot; إلى مرحلة جديدة.
+            {t('description', { name: lead.name })}
           </SheetDescription>
         </SheetHeader>
 
         {otherStages.length === 0 ? (
           <div className="px-6 pb-6 pt-2 text-center text-sm text-muted-foreground">
-            لا توجد مراحل أخرى متاحة
+            {t('noOtherStages')}
           </div>
         ) : (
           <div className="px-2 pb-4 max-h-[55vh] overflow-y-auto">
@@ -64,7 +66,7 @@ export default function MobileStageSheet({
                   onSelectStage(stage.id);
                   onOpenChange(false);
                 }}
-                aria-label={`نقل إلى ${stage.name_ar}`}
+                aria-label={t('moveToAria', { stage: stage.name_ar })}
                 className="w-full px-4 py-3 rounded-lg hover:bg-muted/60 transition-colors flex items-center gap-3"
               >
                 <span
@@ -78,9 +80,12 @@ export default function MobileStageSheet({
                   {stage.name_ar}
                 </span>
                 {/* ChevronLeft = visual "forward" arrow in RTL (points toward
-                    the row's end, since text flows right-to-left). */}
+                    the row's end, since text flows right-to-left). Phase 15.1
+                    §7 lock: LTR-semantic icon name + rtl:rotate-180 utility so
+                    the icon mirrors correctly if this sheet ever renders LTR
+                    (EN locale) — SVGs don't auto-mirror on their own. */}
                 <ChevronLeft
-                  className="size-4 text-muted-foreground shrink-0"
+                  className="size-4 text-muted-foreground shrink-0 rtl:rotate-180"
                   aria-hidden
                 />
               </button>

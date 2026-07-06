@@ -84,6 +84,127 @@
         "estimatedValue": "بقيمة تقديرية {value} درهم",
         "severityAria": "درجة الخطورة: {severity}"
       }
+    },
+    "pipeline": {
+      "meta": { "title": "خط المبيعات — Pyra" },
+      "header": {
+        "title": "خط المبيعات",
+        "subtitle": "اضغط على أي صفقة لفتح تفاصيلها، أو اسحبها بين الأعمدة لتغيير المرحلة (على سطح المكتب).",
+        "archive": "الأرشيف",
+        "selectAll": "تحديد الكل ({count})",
+        "exitSelection": "إنهاء التحديد",
+        "bulkSelect": "تحديد متعدد",
+        "newLead": "Lead جديد"
+      },
+      "bulkAssign": {
+        "success": "{count, plural, one {تم تعيين # صفقة بنجاح} other {تم تعيين # صفقة بنجاح}}",
+        "genericError": "فشل التعيين الجماعي"
+      },
+      "ownerOptions": {
+        "departedSuffix": "{name} (مغادر)",
+        "allDeparted": "كل المغادرين"
+      },
+      "closedWonGuard": "لا يمكن النقل المباشر إلى \"فوز بالصفقة\" — اسحب إلى \"تم توقيع العقد\" وانتظر اعتماد المدير",
+      "board": {
+        "stagesFailed": "لم يتم تحميل المراحل.",
+        "emptyStageFallback": "هذه المرحلة"
+      },
+      "card": {
+        "winProbability": "احتمال الفوز",
+        "call": "اتصال",
+        "whatsapp": "WhatsApp",
+        "selectAria": "تحديد {name}",
+        "changeStageAria": "نقل {name} إلى مرحلة أخرى",
+        "changeStage": "نقل المرحلة"
+      },
+      "timeAgo": {
+        "today": "اليوم",
+        "yesterday": "منذ يوم",
+        "days": "منذ {count} أيام",
+        "weeks": "منذ {count} أسابيع",
+        "months": "منذ {count} شهور"
+      },
+      "filterBar": {
+        "sources": {
+          "whatsapp": "WhatsApp",
+          "website": "الموقع",
+          "referral": "إحالة",
+          "manual": "يدوي",
+          "ad": "إعلان",
+          "social": "سوشيال"
+        },
+        "searchPlaceholder": "ابحث بالاسم أو الشركة أو الهاتف...",
+        "ownerPlaceholder": "المسؤول",
+        "allOwners": "كل المسؤولين",
+        "sourcePlaceholder": "المصدر",
+        "allSources": "كل المصادر",
+        "priorityPlaceholder": "الأولوية",
+        "allPriorities": "كل الأولويات",
+        "clear": "مسح ({count})",
+        "total": "{count, plural, one {# صفقة} other {# صفقة}}",
+        "chips": {
+          "search": "بحث: {query}",
+          "owner": "المالك: {owner}",
+          "source": "المصدر: {source}",
+          "priority": "الأولوية: {priority}"
+        }
+      },
+      "empty": {
+        "message": "لا توجد صفقات في<stageTag>{stage}</stageTag>حالياً."
+      },
+      "mobileStageSheet": {
+        "title": "نقل المرحلة",
+        "description": "لا يصل العميل إشعارًا — هذه عملية داخلية. سيتم نقل \"{name}\" إلى مرحلة جديدة.",
+        "noOtherStages": "لا توجد مراحل أخرى متاحة",
+        "moveToAria": "نقل إلى {stage}"
+      },
+      "moveToasts": {
+        "closedLostSuccess": "تم نقل الصفقة إلى \"{to}\" — تم تسجيل السبب",
+        "pendingApprovalSuccess": "تم نقل الـ Lead إلى \"{to}\" — في انتظار اعتماد المدير",
+        "fromToSuccess": "تم نقل الـ Lead من \"{from}\" إلى \"{to}\"",
+        "toOnlySuccess": "تم نقل الـ Lead إلى \"{to}\"",
+        "forbidden": "ليس لديك صلاحية لنقل المراحل",
+        "conflict": "حدث تغيير في الـ Lead. الرجاء التحديث",
+        "invalidTransition": "لا يمكن نقل الـ Lead إلى \"{to}\" مباشرة — راجع متطلبات المرحلة",
+        "fallback": "فشل نقل المرحلة — حاول مرة أخرى"
+      },
+      "moveStageConfirmModal": {
+        "titleContractSigned": "نقل الصفقة إلى \"تم توقيع العقد\"",
+        "titleClosedLost": "نقل الصفقة إلى \"خسارة\"",
+        "descriptionContractSigned": "اربط الصفقة بعقد أو فاتورة قبل إرسالها للاعتماد.",
+        "descriptionClosedLost": "اختر سبب الخسارة لتحسين تحليلاتنا.",
+        "tabContract": "عقد",
+        "tabInvoice": "فاتورة",
+        "lostReasonChips": {
+          "priceNotSuitable": "السعر مش مناسب",
+          "lostToCompetitor": "فاز عليه منافس",
+          "decisionDelayed": "تأجل القرار",
+          "other": "غير ذلك"
+        },
+        "lostReasonPrompt": "اختر سبباً سريعاً (اختياري) — أو اكتب بحريّة:",
+        "lostReasonPlaceholder": "اكتب سبب الخسارة بالتفصيل...",
+        "lostReasonMinChars": "{count} / {min} حرف على الأقل",
+        "confirmContractSigned": "نقل الصفقة وإرسال للاعتماد",
+        "confirmClosedLost": "نقل إلى \"خسارة\"",
+        "loadFailed": "تعذّر تحميل البيانات",
+        "loadFailedHint1": "قد لا يكون لديك الصلاحية اللازمة (finance.view / invoices.view).",
+        "loadFailedHint2": "راجع المدير لتعيين الصلاحيات أو استخدم حساب مدير.",
+        "noContracts": "لا توجد عقود متاحة",
+        "noContractsHint": "أنشئ عقد جديد للصفقة قبل نقلها إلى مرحلة الاعتماد.",
+        "createContract": "إنشاء عقد جديد",
+        "untitledContract": "عقد بدون عنوان",
+        "noInvoices": "لا توجد فواتير متاحة",
+        "noInvoicesHint": "أنشئ فاتورة للعميل قبل نقل الصفقة إلى مرحلة الاعتماد.",
+        "createInvoice": "إنشاء فاتورة جديدة",
+        "invoiceLabel": "فاتورة {number}",
+        "invoiceDue": "استحقاق {date}"
+      },
+      "bulkActionBar": {
+        "selectedCount": "محدد: <n>{count}</n>",
+        "batchHint": "توزيع على دفعات من {max}",
+        "assignPlaceholder": "تعيين لـ...",
+        "assign": "تعيين"
+      }
     }
   }
 }

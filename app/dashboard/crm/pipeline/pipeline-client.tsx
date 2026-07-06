@@ -34,6 +34,7 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -56,6 +57,8 @@ import { PIPELINE_STAGE_IDS } from '@/lib/constants/statuses';
 import type { PyraSalesLead } from '@/types/database';
 
 export function PipelineClient() {
+  const t = useTranslations('crm.pipeline');
+  const locale = useLocale();
   const sp = useSearchParams();
   const { data: me } = useCurrentUser();
   const [addLeadOpen, setAddLeadOpen] = useState(false);
@@ -106,13 +109,13 @@ export function PipelineClient() {
           });
           affected += res.affected ?? 0;
         }
-        toast.success(`تم تعيين ${affected || ids.length} صفقة بنجاح`);
+        toast.success(t('bulkAssign.success', { count: affected || ids.length }));
         exitSelection();
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'فشل التعيين الجماعي');
+        toast.error(err instanceof Error ? err.message : t('bulkAssign.genericError'));
       }
     },
-    [selectedIds, bulkAssign, exitSelection],
+    [selectedIds, bulkAssign, exitSelection, t],
   );
 
   // Shared "needs-extra-data" modal state. Set when a card is dropped on
@@ -171,17 +174,20 @@ export function PipelineClient() {
         const sa = a.status === 'active' ? 0 : 1;
         const sb = b.status === 'active' ? 0 : 1;
         if (sa !== sb) return sa - sb; // active first
-        return a.display_name.localeCompare(b.display_name, 'ar');
+        return a.display_name.localeCompare(b.display_name, locale);
       })
       .map((u) => ({
         value: u.username,
-        label: u.status === 'active' ? u.display_name : `${u.display_name} (مغادر)`,
+        label:
+          u.status === 'active'
+            ? u.display_name
+            : t('ownerOptions.departedSuffix', { name: u.display_name }),
       }));
     if (capable.some((u) => u.status !== 'active')) {
-      opts.push({ value: '__inactive__', label: 'كل المغادرين' });
+      opts.push({ value: '__inactive__', label: t('ownerOptions.allDeparted') });
     }
     return opts;
-  }, [isAdmin, allUsers]);
+  }, [isAdmin, allUsers, locale, t]);
 
   // Select every currently-loaded lead (respects the active filter) — one click
   // to grab an entire departed agent's book for bulk reassignment.
@@ -202,10 +208,7 @@ export function PipelineClient() {
     (leadId: string, toStageId: string, fromStageId: string | null) => {
       // (1) closed_won client-side guard — never round-trip to the server.
       if (toStageId === PIPELINE_STAGE_IDS.CLOSED_WON) {
-        toast.error(
-          'لا يمكن النقل المباشر إلى "فوز بالصفقة" — اسحب إلى "تم توقيع العقد" وانتظر اعتماد المدير',
-          { duration: 6000 },
-        );
+        toast.error(t('closedWonGuard'), { duration: 6000 });
         return;
       }
 
@@ -232,7 +235,7 @@ export function PipelineClient() {
       // (3) routine.
       void runMoveStage(leadId, toStageId, fromStageId);
     },
-    [leads, runMoveStage],
+    [leads, runMoveStage, t],
   );
 
   // Confirm handler shared between both modal variants — discriminates
@@ -270,18 +273,18 @@ export function PipelineClient() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <GitBranch className="size-6 text-orange-500" /> خط المبيعات
+              <GitBranch className="size-6 text-orange-500" /> {t('header.title')}
             </h1>
             </div>
           <p className="text-sm text-muted-foreground mt-1">
-            اضغط على أي صفقة لفتح تفاصيلها، أو اسحبها بين الأعمدة لتغيير المرحلة (على سطح المكتب).
+            {t('header.subtitle')}
           </p>
         </div>
         <div className="flex gap-2">
           {isAdmin && (
             <Button asChild variant="outline">
               <Link href="/dashboard/crm/leads/archived">
-                <Archive className="size-4 me-2" /> الأرشيف
+                <Archive className="size-4 me-2" /> {t('header.archive')}
               </Link>
             </Button>
           )}
@@ -289,19 +292,19 @@ export function PipelineClient() {
             (selectionMode ? (
               <>
                 <Button variant="outline" onClick={selectAllVisible} disabled={!leads?.length}>
-                  <CheckSquare className="size-4 me-2" /> تحديد الكل ({leads?.length ?? 0})
+                  <CheckSquare className="size-4 me-2" /> {t('header.selectAll', { count: leads?.length ?? 0 })}
                 </Button>
                 <Button variant="outline" onClick={exitSelection}>
-                  <X className="size-4 me-2" /> إنهاء التحديد
+                  <X className="size-4 me-2" /> {t('header.exitSelection')}
                 </Button>
               </>
             ) : (
               <Button variant="outline" onClick={() => setSelectionMode(true)}>
-                <CheckSquare className="size-4 me-2" /> تحديد متعدد
+                <CheckSquare className="size-4 me-2" /> {t('header.bulkSelect')}
               </Button>
             ))}
           <Button onClick={() => setAddLeadOpen(true)} className="bg-orange-500 hover:bg-orange-600 text-white">
-            <Plus className="size-4 me-2" /> Lead جديد
+            <Plus className="size-4 me-2" /> {t('header.newLead')}
           </Button>
         </div>
       </header>
