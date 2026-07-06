@@ -514,7 +514,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const cleanupTables = [
       { table: 'pyra_timesheets', column: 'username' },
       { table: 'pyra_leave_requests', column: 'username' },
-      { table: 'pyra_leave_balances', column: 'username' },
       { table: 'pyra_leave_balances_v2', column: 'username' },
       { table: 'pyra_attendance', column: 'username' },
       { table: 'pyra_timesheet_periods', column: 'username' },
