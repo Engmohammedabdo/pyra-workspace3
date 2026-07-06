@@ -222,11 +222,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
-      for (const admin of adminNames) {
-        if (admin === auth.pyraUser.username) continue;
-        await sendWhatsAppToUser(supabase, admin,
-          `👀 نسخة جاهزة للمراجعة من ${auth.pyraUser.display_name}\nالرابط: ${attachmentToCreate?.url}\n${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
-      }
+      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
+      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
+      // in the response path. sendWhatsAppToUser never throws (returns false).
+      void Promise.allSettled(
+        adminNames
+          .filter(admin => admin !== auth.pyraUser.username)
+          .map(admin => sendWhatsAppToUser(supabase, admin,
+            `👀 نسخة جاهزة للمراجعة من ${auth.pyraUser.display_name}\nالرابط: ${attachmentToCreate?.url}\n${APP_URL}${taskLink}`)) // i18n-exempt: notification content (Phase 8)
+      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_advance_whatsapp' } }));
     }
 
     // Entering delivery → alert admins the task closed

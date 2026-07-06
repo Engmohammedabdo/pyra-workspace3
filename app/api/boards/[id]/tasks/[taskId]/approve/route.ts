@@ -139,11 +139,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         : nextCol.name === 'معتمد' // i18n-exempt: i18n hazard — business logic keyed on Arabic column name (documented, Phase 2)
           ? 'ارفع التسليم النهائي على Drive وسجّله من الداشبورد' // i18n-exempt: notification content (Phase 8)
           : `انتقلت إلى "${nextCol.name}"`; // i18n-exempt: notification content (Phase 8)
-      for (const u of assigneeNames) {
-        if (u === auth.pyraUser.username) continue;
-        await sendWhatsAppToUser(supabase, u,
-          `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
-      }
+      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
+      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
+      // in the response path. sendWhatsAppToUser never throws (returns false).
+      void Promise.allSettled(
+        assigneeNames
+          .filter(u => u !== auth.pyraUser.username)
+          .map(u => sendWhatsAppToUser(supabase, u,
+            `✅ تمت الموافقة على: ${task.title}\n${approveWaLine}\n${APP_URL}${taskLink}`)) // i18n-exempt: notification content (Phase 8)
+      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_approve_whatsapp' } }));
 
       // Activity log
       await supabase.from('pyra_task_activity').insert({
@@ -211,11 +215,15 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
         entity: { type: 'task', id: taskId },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
-      for (const u of assigneeNames) {
-        if (u === auth.pyraUser.username) continue;
-        await sendWhatsAppToUser(supabase, u,
-          `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`); // i18n-exempt: notification content (Phase 8)
-      }
+      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
+      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
+      // in the response path. sendWhatsAppToUser never throws (returns false).
+      void Promise.allSettled(
+        assigneeNames
+          .filter(u => u !== auth.pyraUser.username)
+          .map(u => sendWhatsAppToUser(supabase, u,
+            `✏️ مطلوب تعديل على: ${task.title}\nالملاحظة: ${note}\nالتفاصيل على frame.io/التعليقات — ${APP_URL}${taskLink}`)) // i18n-exempt: notification content (Phase 8)
+      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_reject_whatsapp' } }));
 
       // Comment with rejection note
       if (note) {

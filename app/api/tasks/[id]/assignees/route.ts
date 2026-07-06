@@ -7,6 +7,7 @@ import { generateId } from '@/lib/utils/id';
 import { invalidateScopeCache } from '@/lib/auth/scope';
 import { checkTaskScope } from '@/lib/auth/task-scope';
 import { logActivity } from '@/lib/api/activity';
+import { logError } from '@/lib/observability/log-error';
 import { notifyMany } from '@/lib/notifications/notify';
 import { sendWhatsAppToUser, APP_URL } from '@/lib/notifications/whatsapp';
 
@@ -125,11 +126,15 @@ export async function POST(
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },
       });
 
-      for (const assignedUsername of newUsernames) {
-        if (assignedUsername === auth.pyraUser.username) continue; // don't WhatsApp yourself
-        await sendWhatsAppToUser(supabase, assignedUsername,
-          `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`); // i18n-exempt: notification content (Phase 8)
-      }
+      // Fire-and-forget: WhatsApp is best-effort (the in-app notifyMany above
+      // is the guaranteed channel) — don't serialize N×8s Evolution timeouts
+      // in the response path. sendWhatsAppToUser never throws (returns false).
+      void Promise.allSettled(
+        newUsernames
+          .filter((u: string) => u !== auth.pyraUser.username) // don't WhatsApp yourself
+          .map((u: string) => sendWhatsAppToUser(supabase, u,
+            `📌 اتعينت على مهمة جديدة: ${taskInfo.title}\nالموعد النهائي: ${taskInfo.due_date || 'غير محدد'}\n${APP_URL}/dashboard/boards/${taskInfo.board_id}?task=${id}`)) // i18n-exempt: notification content (Phase 8)
+      ).catch(err => logError({ error: err, request: req, metadata: { action: 'task_assignees_whatsapp' } }));
     }
 
     logActivity(
