@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { hasPermission } from '@/lib/auth/rbac';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 import { motion } from 'framer-motion';
 import { UserCog } from 'lucide-react';
 import AdminAttendanceDialog from '@/components/attendance/AdminAttendanceDialog';
@@ -116,7 +117,7 @@ export default function AttendanceClient({ session }: AttendanceClientProps) {
       const dateStr = `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const dayDate = new Date(selectedYear, selectedMonth - 1, d);
       const dayOfWeek = dayDate.getDay();
-      const scheduledWorkDays: number[] = workSchedule?.work_days ?? [0, 1, 2, 3, 4];
+      const scheduledWorkDays: readonly number[] = workSchedule?.work_days ?? DEFAULT_WORK_DAYS;
       const isWeekend = !scheduledWorkDays.includes(dayOfWeek);
 
       let status: string | undefined = recordMap.get(dateStr);
