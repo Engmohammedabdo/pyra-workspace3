@@ -543,6 +543,203 @@
         "downloadSuccess": "تم تحميل كشف الراتب",
         "downloadError": "حدث خطأ أثناء إنشاء كشف الراتب"
       }
+    },
+    "evaluations": {
+      "tabs": {
+        "evaluations": "التقييمات",
+        "periods": "الفترات",
+        "kpis": "مؤشرات الأداء",
+        "trend": "الأداء عبر الفترات"
+      },
+      "list": {
+        "toasts": {
+          "loadDetailFailed": "فشل في تحميل تفاصيل التقييم",
+          "createSuccess": "تم إنشاء التقييم بنجاح",
+          "createFailed": "فشل في إنشاء التقييم",
+          "saveScoresSuccess": "تم حفظ الدرجات بنجاح",
+          "saveScoresFailed": "فشل في حفظ الدرجات",
+          "submitSuccess": "تم تقديم التقييم بنجاح",
+          "submitFailed": "فشل في تقديم التقييم",
+          "acknowledgeSuccess": "تم الاعتراف بالتقييم بنجاح",
+          "acknowledgeFailed": "فشل في الاعتراف بالتقييم",
+          "saveCommentsSuccess": "تم حفظ الملاحظات",
+          "saveCommentsFailed": "فشل في حفظ الملاحظات",
+          "recommendBonusSuccess": "تمت التوصية بمكافأة بنجاح",
+          "recommendBonusFailed": "فشل في التوصية بمكافأة",
+          "allFieldsRequired": "جميع الحقول مطلوبة"
+        },
+        "title": "التقييمات",
+        "createButton": "تقييم جديد",
+        "empty": {
+          "title": "لا توجد تقييمات",
+          "description": "لم يتم إنشاء أي تقييمات بعد",
+          "actionLabel": "إنشاء تقييم"
+        },
+        "evaluatorLabel": "المقيّم: {name}",
+        "radarChartTitle": "مخطط التقييم",
+        "radarScoreName": "الدرجة",
+        "scoresTableTitle": "الدرجات التفصيلية",
+        "scoreOutOf": "/5",
+        "commentsTitle": "ملاحظات التقييم",
+        "strengthsLabel": "نقاط القوة",
+        "strengthsPlaceholder": "أذكر نقاط القوة...",
+        "improvementsLabel": "نقاط التحسين",
+        "improvementsPlaceholder": "أذكر نقاط التحسين...",
+        "generalCommentsLabel": "ملاحظات عامة",
+        "generalCommentsPlaceholder": "ملاحظات إضافية...",
+        "savingComments": "جارٍ الحفظ...",
+        "saveComments": "حفظ الملاحظات",
+        "strengthsReadonlyLabel": "نقاط القوة:",
+        "improvementsReadonlyLabel": "نقاط التحسين:",
+        "generalCommentsReadonlyLabel": "ملاحظات عامة:",
+        "scoreAction": "تقييم الدرجات",
+        "submitAction": "تقديم التقييم",
+        "acknowledgeAction": "الاعتراف بالتقييم",
+        "bonusRecommended": "تمت التوصية بمكافأة",
+        "recommendingBonus": "جارٍ الإرسال...",
+        "recommendBonusAction": "التوصية بمكافأة",
+        "createDialog": {
+          "title": "تقييم جديد",
+          "periodLabel": "فترة التقييم",
+          "periodPlaceholder": "اختر الفترة",
+          "employeeLabel": "الموظف",
+          "employeePlaceholder": "اختر الموظف",
+          "evaluatorLabel": "المقيّم",
+          "evaluatorPlaceholder": "اختر المقيّم",
+          "typeLabel": "نوع التقييم",
+          "cancel": "إلغاء",
+          "creating": "جارٍ الإنشاء...",
+          "create": "إنشاء"
+        },
+        "scoreDialog": {
+          "title": "تقييم الدرجات",
+          "weightLabel": "الوزن: {weight}",
+          "scoreLabel": "الدرجة:",
+          "commentPlaceholder": "ملاحظة (اختياري)",
+          "cancel": "إلغاء",
+          "saving": "جارٍ الحفظ...",
+          "save": "حفظ الدرجات"
+        }
+      },
+      "periods": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل الفترات",
+          "createSuccess": "تم إنشاء الفترة بنجاح",
+          "createFailed": "فشل في إنشاء الفترة",
+          "statusUpdateSuccess": "تم تحديث الحالة إلى \"{status}\"",
+          "statusUpdateFailed": "فشل في تحديث الحالة",
+          "allFieldsRequired": "جميع الحقول مطلوبة"
+        },
+        "title": "فترات التقييم",
+        "createButton": "فترة جديدة",
+        "empty": {
+          "title": "لا توجد فترات تقييم",
+          "description": "قم بإنشاء فترة تقييم جديدة للبدء",
+          "actionLabel": "إنشاء فترة"
+        },
+        "dateRange": "{start} — {end}",
+        "activateButton": "تفعيل",
+        "closeButton": "إغلاق",
+        "createDialog": {
+          "title": "فترة تقييم جديدة",
+          "nameEnLabel": "الاسم (إنجليزي)",
+          "nameArLabel": "الاسم (عربي)",
+          "startDateLabel": "تاريخ البداية",
+          "endDateLabel": "تاريخ النهاية",
+          "cancel": "إلغاء",
+          "creating": "جارٍ الإنشاء...",
+          "create": "إنشاء"
+        }
+      },
+      "kpis": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل مؤشرات الأداء",
+          "createSuccess": "تم إنشاء مؤشر الأداء بنجاح",
+          "createFailed": "فشل في إنشاء مؤشر الأداء",
+          "validationError": "اسم المستخدم والعنوان مطلوبان"
+        },
+        "title": "مؤشرات الأداء (KPIs)",
+        "createButton": "مؤشر جديد",
+        "empty": {
+          "title": "لا توجد مؤشرات أداء",
+          "description": "قم بإنشاء مؤشرات أداء لتتبع تقدم الموظفين",
+          "actionLabel": "إنشاء مؤشر"
+        },
+        "createDialog": {
+          "title": "مؤشر أداء جديد",
+          "employeeLabel": "الموظف",
+          "employeePlaceholder": "اختر الموظف",
+          "titleLabel": "العنوان",
+          "titlePlaceholder": "مثال: عدد المشاريع المنجزة",
+          "targetLabel": "القيمة المستهدفة",
+          "targetPlaceholder": "مثال: 10",
+          "unitLabel": "الوحدة",
+          "unitPlaceholder": "مثال: مشروع، ساعة، %",
+          "periodLabel": "فترة التقييم (اختياري)",
+          "periodPlaceholder": "اختر الفترة (اختياري)",
+          "cancel": "إلغاء",
+          "creating": "جارٍ الإنشاء...",
+          "create": "إنشاء"
+        }
+      },
+      "settings": {
+        "toasts": {
+          "createSuccess": "تم إنشاء المعيار بنجاح",
+          "createFailed": "فشل في إنشاء المعيار",
+          "validationError": "الاسم والاسم بالعربية مطلوبان"
+        },
+        "title": "إعدادات معايير التقييم",
+        "createButton": "معيار جديد",
+        "empty": {
+          "title": "لا توجد معايير تقييم",
+          "description": "قم بإنشاء معايير التقييم التي ستُستخدم في تقييم الموظفين",
+          "actionLabel": "إنشاء معيار"
+        },
+        "criteriaCount": "({count} {label})",
+        "criteriaCountSingular": "معيار",
+        "criteriaCountPlural": "معايير",
+        "weightLabel": "الوزن",
+        "sortOrderLabel": "الترتيب",
+        "createDialog": {
+          "title": "معيار تقييم جديد",
+          "nameEnLabel": "الاسم (إنجليزي)",
+          "nameArLabel": "الاسم (عربي)",
+          "descriptionLabel": "الوصف (اختياري)",
+          "descriptionPlaceholder": "وصف المعيار...",
+          "weightLabel": "الوزن",
+          "categoryLabel": "الفئة",
+          "categoryPlaceholder": "اختر الفئة",
+          "cancel": "إلغاء",
+          "creating": "جارٍ الإنشاء...",
+          "create": "إنشاء"
+        }
+      },
+      "kpiProgressEditor": {
+        "toasts": {
+          "saveSuccess": "تم تحديث التقدم بنجاح",
+          "saveFailed": "فشل في تحديث التقدم",
+          "invalidValue": "القيمة الفعلية يجب أن تكون رقماً غير سالب"
+        },
+        "label": "تحديث التقدم:",
+        "saving": "جارٍ الحفظ...",
+        "save": "حفظ"
+      },
+      "performanceTrend": {
+        "employeeLabel": "اختر الموظف",
+        "employeePlaceholder": "اختر موظفاً لعرض أداءه",
+        "selectEmployeeEmpty": {
+          "title": "اختر موظفاً",
+          "description": "اختر موظفاً من القائمة أعلاه لعرض تقييماته عبر الفترات المختلفة"
+        },
+        "noEvaluationsEmpty": {
+          "title": "لا توجد تقييمات مقدّمة",
+          "description": "لا توجد تقييمات مقدّمة أو معترف بها لهذا الموظف بعد"
+        },
+        "cardTitle": "الأداء عبر الفترات",
+        "average": "المتوسط: {average} / 5",
+        "lowPerformance": "أداء منخفض",
+        "lineChartName": "التقييم"
+      }
     }
   }
 }

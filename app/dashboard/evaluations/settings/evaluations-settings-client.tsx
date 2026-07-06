@@ -1,8 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -56,26 +59,21 @@ interface Criterion {
 // Category constants
 // ============================================================
 
-const CATEGORIES = [
-  { value: 'technical', label: 'تقنية' },
-  { value: 'communication', label: 'تواصل' },
-  { value: 'leadership', label: 'قيادة' },
-  { value: 'productivity', label: 'إنتاجية' },
-  { value: 'teamwork', label: 'عمل جماعي' },
-  { value: 'creativity', label: 'إبداع' },
-  { value: 'other', label: 'أخرى' },
-];
-
-const CATEGORY_LABELS: Record<string, string> = {};
-for (const c of CATEGORIES) {
-  CATEGORY_LABELS[c.value] = c.label;
-}
+// DB enum keys (pyra_evaluation_criteria.category) — labels resolve via
+// useStatusLabels('evaluationCriteriaCategory') at render time.
+const CATEGORY_VALUES = [
+  'technical', 'communication', 'leadership', 'productivity',
+  'teamwork', 'creativity', 'other',
+] as const;
 
 // ============================================================
 // Main Component
 // ============================================================
 
 export default function EvaluationsSettingsClient({ session: _session }: { session: AuthSession }) {
+  const t = useTranslations('hr.evaluations.settings');
+  const locale = useLocale() as Locale;
+  const categoryLabelFor = useStatusLabels('evaluationCriteriaCategory');
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -94,16 +92,16 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
   const createMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations/criteria', 'POST', data),
     onSuccess: () => {
-      toast.success('تم إنشاء المعيار بنجاح');
+      toast.success(t('toasts.createSuccess'));
       setCreateOpen(false);
       setFormData({ name: '', name_ar: '', description: '', weight: '1', category: '' });
       queryClient.invalidateQueries({ queryKey: ['evaluation-criteria'] });
     },
-    onError: () => toast.error('فشل في إنشاء المعيار'),
+    onError: () => toast.error(t('toasts.createFailed')),
   });
 
   const handleCreate = () => {
-    if (!formData.name || !formData.name_ar) { toast.error('الاسم والاسم بالعربية مطلوبان'); return; }
+    if (!formData.name || !formData.name_ar) { toast.error(t('toasts.validationError')); return; }
     createMutation.mutate({
       name: formData.name, name_ar: formData.name_ar,
       description: formData.description || null,
@@ -145,7 +143,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Settings className="h-5 w-5 text-orange-500" />
-          <h2 className="text-lg font-semibold">إعدادات معايير التقييم</h2>
+          <h2 className="text-lg font-semibold">{t('title')}</h2>
         </div>
         <Button
           onClick={() => setCreateOpen(true)}
@@ -153,7 +151,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
           className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
         >
           <Plus className="h-4 w-4" />
-          معيار جديد
+          {t('createButton')}
         </Button>
       </div>
 
@@ -161,9 +159,9 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
       {criteria.length === 0 ? (
         <EmptyState
           icon={ListOrdered}
-          title="لا توجد معايير تقييم"
-          description="قم بإنشاء معايير التقييم التي ستُستخدم في تقييم الموظفين"
-          actionLabel="إنشاء معيار"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={() => setCreateOpen(true)}
         />
       ) : (
@@ -172,10 +170,13 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {CATEGORY_LABELS[category] || category}
+                  {categoryLabelFor(category)}
                 </Badge>
                 <span className="text-muted-foreground text-xs">
-                  ({items.length} {items.length === 1 ? 'معيار' : 'معايير'})
+                  {t('criteriaCount', {
+                    count: items.length,
+                    label: items.length === 1 ? t('criteriaCountSingular') : t('criteriaCountPlural'),
+                  })}
                 </span>
               </CardTitle>
             </CardHeader>
@@ -185,8 +186,12 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
                   <div key={c.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">{c.name_ar}</span>
-                        <span className="text-xs text-muted-foreground">({c.name})</span>
+                        <span className="font-medium text-sm">
+                          {locale === 'ar' ? c.name_ar : (c.name || c.name_ar)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          ({locale === 'ar' ? (c.name || c.name_ar) : c.name_ar})
+                        </span>
                         {c.is_active ? (
                           <CheckCircle className="h-3.5 w-3.5 text-green-500" />
                         ) : (
@@ -199,13 +204,13 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-end">
-                        <span className="text-xs text-muted-foreground">الوزن</span>
+                        <span className="text-xs text-muted-foreground">{t('weightLabel')}</span>
                         <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
                           {c.weight}
                         </p>
                       </div>
                       <div className="text-end">
-                        <span className="text-xs text-muted-foreground">الترتيب</span>
+                        <span className="text-xs text-muted-foreground">{t('sortOrderLabel')}</span>
                         <p className="text-sm font-medium">{c.sort_order}</p>
                       </div>
                     </div>
@@ -219,13 +224,13 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
 
       {/* Create Criterion Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
           <DialogHeader>
-            <DialogTitle>معيار تقييم جديد</DialogTitle>
+            <DialogTitle>{t('createDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>الاسم (إنجليزي)</Label>
+              <Label>{t('createDialog.nameEnLabel')}</Label>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
@@ -234,7 +239,7 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
               />
             </div>
             <div>
-              <Label>الاسم (عربي)</Label>
+              <Label>{t('createDialog.nameArLabel')}</Label>
               <Input
                 value={formData.name_ar}
                 onChange={(e) => setFormData((p) => ({ ...p, name_ar: e.target.value }))}
@@ -243,17 +248,17 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
               />
             </div>
             <div>
-              <Label>الوصف (اختياري)</Label>
+              <Label>{t('createDialog.descriptionLabel')}</Label>
               <Textarea
                 value={formData.description}
                 onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                placeholder="وصف المعيار..."
+                placeholder={t('createDialog.descriptionPlaceholder')}
                 className="mt-1"
                 rows={2}
               />
             </div>
             <div>
-              <Label>الوزن</Label>
+              <Label>{t('createDialog.weightLabel')}</Label>
               <Input
                 type="number"
                 step="0.1"
@@ -265,18 +270,18 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
               />
             </div>
             <div>
-              <Label>الفئة</Label>
+              <Label>{t('createDialog.categoryLabel')}</Label>
               <Select
                 value={formData.category}
                 onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الفئة" />
+                  <SelectValue placeholder={t('createDialog.categoryPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat.value} value={cat.value}>
-                      {cat.label}
+                  {CATEGORY_VALUES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {categoryLabelFor(cat)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -285,14 +290,14 @@ export default function EvaluationsSettingsClient({ session: _session }: { sessi
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              إلغاء
+              {t('createDialog.cancel')}
             </Button>
             <Button
               onClick={handleCreate}
               disabled={createMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {createMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createMutation.isPending ? t('createDialog.creating') : t('createDialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

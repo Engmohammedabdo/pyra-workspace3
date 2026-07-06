@@ -1,9 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useQuery } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useUsersLite } from '@/hooks/useUsers';
+import type { Locale } from '@/lib/i18n/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -47,6 +49,8 @@ const LOW_PERFORMANCE_THRESHOLD = 3.0;
 // ============================================================
 
 export function PerformanceTrend() {
+  const t = useTranslations('hr.evaluations.performanceTrend');
+  const locale = useLocale() as Locale;
   const [employee, setEmployee] = useState<string>('');
 
   const { data: usersRaw = [] } = useUsersLite();
@@ -69,10 +73,12 @@ export function PerformanceTrend() {
       .filter((ev) => (ev.status === 'submitted' || ev.status === 'acknowledged') && ev.overall_rating !== null)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       .map((ev) => ({
-        period: ev.period?.name_ar || ev.period?.name || '—',
+        period: (locale === 'ar'
+          ? ev.period?.name_ar
+          : (ev.period?.name || ev.period?.name_ar)) || '—',
         rating: Number(ev.overall_rating),
       }));
-  }, [evaluations]);
+  }, [evaluations, locale]);
 
   const average = useMemo(() => {
     if (chartData.length === 0) return 0;
@@ -85,10 +91,10 @@ export function PerformanceTrend() {
   return (
     <div className="space-y-4 mt-4">
       <div className="max-w-xs">
-        <Label className="text-sm">اختر الموظف</Label>
+        <Label className="text-sm">{t('employeeLabel')}</Label>
         <Select value={employee} onValueChange={setEmployee}>
           <SelectTrigger className="mt-1">
-            <SelectValue placeholder="اختر موظفاً لعرض أداءه" />
+            <SelectValue placeholder={t('employeePlaceholder')} />
           </SelectTrigger>
           <SelectContent>
             {employees.map((u) => (
@@ -103,24 +109,24 @@ export function PerformanceTrend() {
       {!employee ? (
         <EmptyState
           icon={Users}
-          title="اختر موظفاً"
-          description="اختر موظفاً من القائمة أعلاه لعرض تقييماته عبر الفترات المختلفة"
+          title={t('selectEmployeeEmpty.title')}
+          description={t('selectEmployeeEmpty.description')}
         />
       ) : isLoading ? (
         <Skeleton className="h-72 w-full rounded-xl" />
       ) : chartData.length === 0 ? (
         <EmptyState
           icon={TrendingUp}
-          title="لا توجد تقييمات مقدّمة"
-          description="لا توجد تقييمات مقدّمة أو معترف بها لهذا الموظف بعد"
+          title={t('noEvaluationsEmpty.title')}
+          description={t('noEvaluationsEmpty.description')}
         />
       ) : (
         <Card>
           <CardHeader className="pb-2 flex flex-row items-center justify-between flex-wrap gap-2">
-            <CardTitle className="text-sm">الأداء عبر الفترات</CardTitle>
+            <CardTitle className="text-sm">{t('cardTitle')}</CardTitle>
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
-                المتوسط: {average.toFixed(1)} / 5
+                {t('average', { average: average.toFixed(1) })}
               </Badge>
               {hasLowPerformance && (
                 <Badge
@@ -128,7 +134,7 @@ export function PerformanceTrend() {
                   className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400"
                 >
                   <AlertTriangle className="h-3 w-3" />
-                  أداء منخفض
+                  {t('lowPerformance')}
                 </Badge>
               )}
             </div>
@@ -144,7 +150,7 @@ export function PerformanceTrend() {
                   <Line
                     type="monotone"
                     dataKey="rating"
-                    name="التقييم"
+                    name={t('lineChartName')}
                     stroke={CHART_PRIMARY}
                     strokeWidth={2}
                     dot={{ fill: CHART_PRIMARY, r: 4 }}

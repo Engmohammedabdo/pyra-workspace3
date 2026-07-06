@@ -15,7 +15,8 @@ export type StatusEntity =
   // Phase 5 — HR
   | 'timesheet' | 'timesheetPeriod' | 'onboarding' | 'documentExpiry'
   | 'employmentType' | 'workLocation' | 'paymentSourceType'
-  | 'evaluationForm' | 'evaluationPeriod';
+  | 'evaluationForm' | 'evaluationPeriod' | 'evaluationType'
+  | 'evaluationCriteriaCategory';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

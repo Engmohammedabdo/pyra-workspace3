@@ -1,9 +1,12 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { useUsers } from '@/hooks/useUsers';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -148,20 +151,8 @@ const STATUS_STYLES: Record<string, string> = {
   acknowledged: 'bg-green-500/10 text-green-600 dark:text-green-400',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'مسودة',
-  active: 'نشط',
-  closed: 'مغلق',
-  submitted: 'مقدم',
-  acknowledged: 'معترف به',
-};
-
-const EVAL_TYPE_LABELS: Record<string, string> = {
-  manager: 'تقييم المدير',
-  self: 'تقييم ذاتي',
-  peer: 'تقييم الأقران',
-  '360': 'تقييم 360°',
-};
+// Status + evaluation-type labels now resolve via useStatusLabels('evaluationForm' |
+// 'evaluationPeriod' | 'evaluationType') at each render site — see lib/i18n/status-labels.ts.
 
 // ============================================================
 // Main Component
@@ -169,6 +160,8 @@ const EVAL_TYPE_LABELS: Record<string, string> = {
 
 export default function EvaluationsClient({ session }: { session: AuthSession }) {
   const canManage = hasPermission(session.pyraUser.rolePermissions, 'evaluations.manage');
+  const t = useTranslations('hr.evaluations.tabs');
+  const locale = useLocale() as Locale;
 
   return (
     <motion.div
@@ -177,23 +170,23 @@ export default function EvaluationsClient({ session }: { session: AuthSession })
       transition={{ duration: 0.35 }}
       className="space-y-6"
     >
-      <Tabs defaultValue="evaluations" dir="rtl">
+      <Tabs defaultValue="evaluations" dir={dirFor(locale)}>
         <TabsList className="w-full justify-start">
           <TabsTrigger value="evaluations" className="gap-1.5">
             <ClipboardCheck className="h-4 w-4" />
-            التقييمات
+            {t('evaluations')}
           </TabsTrigger>
           <TabsTrigger value="periods" className="gap-1.5">
             <CalendarRange className="h-4 w-4" />
-            الفترات
+            {t('periods')}
           </TabsTrigger>
           <TabsTrigger value="kpis" className="gap-1.5">
             <Target className="h-4 w-4" />
-            مؤشرات الأداء
+            {t('kpis')}
           </TabsTrigger>
           <TabsTrigger value="trend" className="gap-1.5">
             <TrendingUp className="h-4 w-4" />
-            الأداء عبر الفترات
+            {t('trend')}
           </TabsTrigger>
         </TabsList>
 
@@ -222,6 +215,14 @@ export default function EvaluationsClient({ session }: { session: AuthSession })
 // ============================================================
 
 function EvaluationsTab({ session, canManage }: { session: AuthSession; canManage: boolean }) {
+  const t = useTranslations('hr.evaluations.list');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('evaluationForm');
+  const evalTypeLabelFor = useStatusLabels('evaluationType');
+  // Bundled fix (sanctioned): the score dialog previously rendered the raw
+  // English category key unmapped — now routes through the same
+  // evaluationCriteriaCategory entity the settings page uses.
+  const categoryLabelFor = useStatusLabels('evaluationCriteriaCategory');
   const queryClient = useQueryClient();
   const { data: evaluations = [], isLoading: loading } = useQuery<Evaluation[]>({
     queryKey: ['evaluations'],
@@ -290,7 +291,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
         });
       }
     } catch {
-      toast.error('فشل في تحميل تفاصيل التقييم');
+      toast.error(t('toasts.loadDetailFailed'));
     } finally {
       setExpandedLoading(false);
     }
@@ -317,68 +318,70 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
   const createEvalMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations', 'POST', data),
     onSuccess: () => {
-      toast.success('تم إنشاء التقييم بنجاح');
+      toast.success(t('toasts.createSuccess'));
       setCreateOpen(false);
       setNewEval({ period_id: '', employee_username: '', evaluator_username: '', evaluation_type: 'manager' });
       fetchData();
     },
-    onError: () => toast.error('فشل في إنشاء التقييم'),
+    onError: () => toast.error(t('toasts.createFailed')),
   });
 
   const saveScoresMutation = useMutation({
     mutationFn: ({ evalId, scores }: { evalId: string; scores: object[] }) =>
       mutateAPI(`/api/dashboard/evaluations/${evalId}/scores`, 'POST', { scores }),
     onSuccess: () => {
-      toast.success('تم حفظ الدرجات بنجاح');
+      toast.success(t('toasts.saveScoresSuccess'));
       setScoreOpen(false);
       if (expandedId && scoreEvalId && expandedId === scoreEvalId) refreshExpanded(scoreEvalId);
       fetchData();
     },
-    onError: () => toast.error('فشل في حفظ الدرجات'),
+    onError: () => toast.error(t('toasts.saveScoresFailed')),
   });
 
   const submitEvalMutation = useMutation({
     mutationFn: (evalId: string) => mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'submit' }),
     onSuccess: (_d, evalId) => {
-      toast.success('تم تقديم التقييم بنجاح');
+      toast.success(t('toasts.submitSuccess'));
       fetchData();
       if (expandedId === evalId) refreshExpanded(evalId);
     },
-    onError: () => toast.error('فشل في تقديم التقييم'),
+    onError: () => toast.error(t('toasts.submitFailed')),
   });
 
   const acknowledgeEvalMutation = useMutation({
     mutationFn: (evalId: string) => mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'acknowledge' }),
     onSuccess: (_d, evalId) => {
-      toast.success('تم الاعتراف بالتقييم بنجاح');
+      toast.success(t('toasts.acknowledgeSuccess'));
       fetchData();
       if (expandedId === evalId) refreshExpanded(evalId);
     },
-    onError: () => toast.error('فشل في الاعتراف بالتقييم'),
+    onError: () => toast.error(t('toasts.acknowledgeFailed')),
   });
 
   const saveCommentsMutation = useMutation({
     mutationFn: ({ evalId, comments }: { evalId: string; comments: object }) =>
       mutateAPI(`/api/dashboard/evaluations/${evalId}`, 'PATCH', comments),
-    onSuccess: () => toast.success('تم حفظ الملاحظات'),
-    onError: () => toast.error('فشل في حفظ الملاحظات'),
+    onSuccess: () => toast.success(t('toasts.saveCommentsSuccess')),
+    onError: () => toast.error(t('toasts.saveCommentsFailed')),
   });
 
   const recommendBonusMutation = useMutation({
     mutationFn: (evalId: string) =>
       mutateAPI<{ message: string }>(`/api/dashboard/evaluations/${evalId}`, 'PATCH', { action: 'recommend_bonus' }),
     onSuccess: (data, evalId) => {
-      toast.success(data?.message || 'تمت التوصية بمكافأة بنجاح');
+      // Server-supplied message (Arabic, api-namespace route — Phase 8) takes
+      // priority; the client fallback is the ordinary UI toast string.
+      toast.success(data?.message || t('toasts.recommendBonusSuccess'));
       setBonusRecommendedIds((prev) => new Set(prev).add(evalId));
     },
     onError: (err) => {
-      toast.error(err instanceof Error ? err.message : 'فشل في التوصية بمكافأة');
+      toast.error(err instanceof Error ? err.message : t('toasts.recommendBonusFailed'));
     },
   });
 
   const handleCreate = () => {
     if (!newEval.period_id || !newEval.employee_username || !newEval.evaluator_username) {
-      toast.error('جميع الحقول مطلوبة');
+      toast.error(t('toasts.allFieldsRequired'));
       return;
     }
     createEvalMutation.mutate(newEval);
@@ -456,7 +459,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
     <div className="space-y-4 mt-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">التقييمات</h2>
+        <h2 className="text-lg font-semibold">{t('title')}</h2>
         {canManage && (
           <Button
             onClick={() => setCreateOpen(true)}
@@ -464,7 +467,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
             className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
           >
             <Plus className="h-4 w-4" />
-            تقييم جديد
+            {t('createButton')}
           </Button>
         )}
       </div>
@@ -473,9 +476,9 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
       {evaluations.length === 0 ? (
         <EmptyState
           icon={ClipboardCheck}
-          title="لا توجد تقييمات"
-          description="لم يتم إنشاء أي تقييمات بعد"
-          actionLabel={canManage ? 'إنشاء تقييم' : undefined}
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={canManage ? t('empty.actionLabel') : undefined}
           onAction={canManage ? () => setCreateOpen(true) : undefined}
         />
       ) : (
@@ -492,21 +495,21 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                       {ev.employee?.display_name || ev.employee_username}
                     </span>
                     <Badge className={STATUS_STYLES[ev.status] || ''} variant="secondary">
-                      {STATUS_LABELS[ev.status] || ev.status}
+                      {statusLabelFor(ev.status)}
                     </Badge>
                     <Badge variant="outline" className="text-xs">
-                      {EVAL_TYPE_LABELS[ev.evaluation_type] || ev.evaluation_type}
+                      {evalTypeLabelFor(ev.evaluation_type)}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Users className="h-3.5 w-3.5" />
-                      المقيّم: {ev.evaluator?.display_name || ev.evaluator_username}
+                      {t('evaluatorLabel', { name: ev.evaluator?.display_name || ev.evaluator_username })}
                     </span>
                     {ev.period && (
                       <span className="flex items-center gap-1">
                         <CalendarRange className="h-3.5 w-3.5" />
-                        {ev.period.name_ar}
+                        {locale === 'ar' ? ev.period.name_ar : (ev.period.name || ev.period.name_ar)}
                       </span>
                     )}
                   </div>
@@ -536,14 +539,16 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                     {expandedData.scores && expandedData.scores.length > 0 && (
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">مخطط التقييم</CardTitle>
+                          <CardTitle className="text-sm">{t('radarChartTitle')}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="h-[280px]">
                             <ResponsiveContainer width="100%" height="100%">
                               <RadarChart
                                 data={expandedData.scores.map((s) => ({
-                                  criterion: s.criteria?.name_ar || s.criteria?.name || '',
+                                  criterion: (locale === 'ar'
+                                    ? s.criteria?.name_ar
+                                    : (s.criteria?.name || s.criteria?.name_ar)) || '',
                                   score: s.score,
                                   fullMark: 5,
                                 }))}
@@ -559,7 +564,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                                   tick={{ fontSize: 10 }}
                                 />
                                 <Radar
-                                  name="الدرجة"
+                                  name={t('radarScoreName')}
                                   dataKey="score"
                                   stroke="#f97316"
                                   fill="#f97316"
@@ -577,7 +582,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                     {expandedData.scores && expandedData.scores.length > 0 && (
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">الدرجات التفصيلية</CardTitle>
+                          <CardTitle className="text-sm">{t('scoresTableTitle')}</CardTitle>
                         </CardHeader>
                         <CardContent>
                           <div className="space-y-2">
@@ -588,7 +593,9 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                               >
                                 <div>
                                   <span className="font-medium text-sm">
-                                    {s.criteria?.name_ar || s.criteria?.name}
+                                    {locale === 'ar'
+                                      ? s.criteria?.name_ar
+                                      : (s.criteria?.name || s.criteria?.name_ar)}
                                   </span>
                                   {s.comment && (
                                     <p className="text-xs text-muted-foreground mt-0.5">{s.comment}</p>
@@ -598,7 +605,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                                   <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
                                     {s.score.toFixed(1)}
                                   </span>
-                                  <span className="text-xs text-muted-foreground">/5</span>
+                                  <span className="text-xs text-muted-foreground">{t('scoreOutOf')}</span>
                                 </div>
                               </div>
                             ))}
@@ -612,41 +619,41 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                       (canManage || expandedData.evaluator_username === session.pyraUser.username)) ? (
                       <Card>
                         <CardHeader className="pb-2">
-                          <CardTitle className="text-sm">ملاحظات التقييم</CardTitle>
+                          <CardTitle className="text-sm">{t('commentsTitle')}</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div>
-                            <Label className="text-xs">نقاط القوة</Label>
+                            <Label className="text-xs">{t('strengthsLabel')}</Label>
                             <Textarea
                               value={editComments.strengths}
                               onChange={(e) =>
                                 setEditComments((p) => ({ ...p, strengths: e.target.value }))
                               }
-                              placeholder="أذكر نقاط القوة..."
+                              placeholder={t('strengthsPlaceholder')}
                               className="mt-1"
                               rows={2}
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">نقاط التحسين</Label>
+                            <Label className="text-xs">{t('improvementsLabel')}</Label>
                             <Textarea
                               value={editComments.improvements}
                               onChange={(e) =>
                                 setEditComments((p) => ({ ...p, improvements: e.target.value }))
                               }
-                              placeholder="أذكر نقاط التحسين..."
+                              placeholder={t('improvementsPlaceholder')}
                               className="mt-1"
                               rows={2}
                             />
                           </div>
                           <div>
-                            <Label className="text-xs">ملاحظات عامة</Label>
+                            <Label className="text-xs">{t('generalCommentsLabel')}</Label>
                             <Textarea
                               value={editComments.comments}
                               onChange={(e) =>
                                 setEditComments((p) => ({ ...p, comments: e.target.value }))
                               }
-                              placeholder="ملاحظات إضافية..."
+                              placeholder={t('generalCommentsPlaceholder')}
                               className="mt-1"
                               rows={2}
                             />
@@ -657,7 +664,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                             disabled={saveCommentsMutation.isPending}
                             className="bg-orange-500 hover:bg-orange-600 text-white"
                           >
-                            {saveCommentsMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الملاحظات'}
+                            {saveCommentsMutation.isPending ? t('savingComments') : t('saveComments')}
                           </Button>
                         </CardContent>
                       </Card>
@@ -666,24 +673,24 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                       (expandedData.strengths || expandedData.improvements || expandedData.comments) && (
                         <Card>
                           <CardHeader className="pb-2">
-                            <CardTitle className="text-sm">ملاحظات التقييم</CardTitle>
+                            <CardTitle className="text-sm">{t('commentsTitle')}</CardTitle>
                           </CardHeader>
                           <CardContent className="space-y-2 text-sm">
                             {expandedData.strengths && (
                               <div>
-                                <span className="font-medium text-green-600 dark:text-green-400">نقاط القوة:</span>
+                                <span className="font-medium text-green-600 dark:text-green-400">{t('strengthsReadonlyLabel')}</span>
                                 <p className="text-muted-foreground mt-0.5">{expandedData.strengths}</p>
                               </div>
                             )}
                             {expandedData.improvements && (
                               <div>
-                                <span className="font-medium text-orange-600 dark:text-orange-400">نقاط التحسين:</span>
+                                <span className="font-medium text-orange-600 dark:text-orange-400">{t('improvementsReadonlyLabel')}</span>
                                 <p className="text-muted-foreground mt-0.5">{expandedData.improvements}</p>
                               </div>
                             )}
                             {expandedData.comments && (
                               <div>
-                                <span className="font-medium">ملاحظات عامة:</span>
+                                <span className="font-medium">{t('generalCommentsReadonlyLabel')}</span>
                                 <p className="text-muted-foreground mt-0.5">{expandedData.comments}</p>
                               </div>
                             )}
@@ -704,7 +711,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                               className="gap-1.5"
                             >
                               <FileText className="h-4 w-4" />
-                              تقييم الدرجات
+                              {t('scoreAction')}
                             </Button>
                             <Button
                               size="sm"
@@ -712,7 +719,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                               className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
                             >
                               <Send className="h-4 w-4" />
-                              تقديم التقييم
+                              {t('submitAction')}
                             </Button>
                           </>
                         )}
@@ -724,7 +731,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                             className="gap-1.5 bg-green-600 hover:bg-green-700 text-white"
                           >
                             <CheckCircle className="h-4 w-4" />
-                            الاعتراف بالتقييم
+                            {t('acknowledgeAction')}
                           </Button>
                         )}
                       {canManage &&
@@ -738,10 +745,10 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                           >
                             <Gift className="h-4 w-4" />
                             {bonusRecommendedIds.has(ev.id)
-                              ? 'تمت التوصية بمكافأة'
+                              ? t('bonusRecommended')
                               : recommendBonusMutation.isPending
-                              ? 'جارٍ الإرسال...'
-                              : 'التوصية بمكافأة'}
+                              ? t('recommendingBonus')
+                              : t('recommendBonusAction')}
                           </Button>
                         )}
                     </div>
@@ -755,34 +762,34 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 
       {/* Create Evaluation Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
           <DialogHeader>
-            <DialogTitle>تقييم جديد</DialogTitle>
+            <DialogTitle>{t('createDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>فترة التقييم</Label>
+              <Label>{t('createDialog.periodLabel')}</Label>
               <Select value={newEval.period_id} onValueChange={(v) => setNewEval((p) => ({ ...p, period_id: v }))}>
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الفترة" />
+                  <SelectValue placeholder={t('createDialog.periodPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {periods.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name_ar}
+                      {locale === 'ar' ? p.name_ar : (p.name || p.name_ar)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>الموظف</Label>
+              <Label>{t('createDialog.employeeLabel')}</Label>
               <Select
                 value={newEval.employee_username}
                 onValueChange={(v) => setNewEval((p) => ({ ...p, employee_username: v }))}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الموظف" />
+                  <SelectValue placeholder={t('createDialog.employeePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (
@@ -794,13 +801,13 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
               </Select>
             </div>
             <div>
-              <Label>المقيّم</Label>
+              <Label>{t('createDialog.evaluatorLabel')}</Label>
               <Select
                 value={newEval.evaluator_username}
                 onValueChange={(v) => setNewEval((p) => ({ ...p, evaluator_username: v }))}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر المقيّم" />
+                  <SelectValue placeholder={t('createDialog.evaluatorPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (
@@ -812,7 +819,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
               </Select>
             </div>
             <div>
-              <Label>نوع التقييم</Label>
+              <Label>{t('createDialog.typeLabel')}</Label>
               <Select
                 value={newEval.evaluation_type}
                 onValueChange={(v) => setNewEval((p) => ({ ...p, evaluation_type: v }))}
@@ -821,24 +828,24 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="manager">تقييم المدير</SelectItem>
-                  <SelectItem value="self">تقييم ذاتي</SelectItem>
-                  <SelectItem value="peer">تقييم الأقران</SelectItem>
-                  <SelectItem value="360">تقييم 360°</SelectItem>
+                  <SelectItem value="manager">{evalTypeLabelFor('manager')}</SelectItem>
+                  <SelectItem value="self">{evalTypeLabelFor('self')}</SelectItem>
+                  <SelectItem value="peer">{evalTypeLabelFor('peer')}</SelectItem>
+                  <SelectItem value="360">{evalTypeLabelFor('360')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              إلغاء
+              {t('createDialog.cancel')}
             </Button>
             <Button
               onClick={handleCreate}
               disabled={createEvalMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {createEvalMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createEvalMutation.isPending ? t('createDialog.creating') : t('createDialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -846,31 +853,33 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 
       {/* Score Entry Dialog */}
       <Dialog open={scoreOpen} onOpenChange={setScoreOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto" dir={dirFor(locale)}>
           <DialogHeader>
-            <DialogTitle>تقييم الدرجات</DialogTitle>
+            <DialogTitle>{t('scoreDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             {criteria.map((c) => (
               <div key={c.id} className="space-y-2 p-3 border rounded-lg">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="font-medium text-sm">{c.name_ar}</span>
+                    <span className="font-medium text-sm">
+                      {locale === 'ar' ? c.name_ar : (c.name || c.name_ar)}
+                    </span>
                     {c.category && (
                       <Badge variant="outline" className="ms-2 text-xs">
-                        {c.category}
+                        {categoryLabelFor(c.category)}
                       </Badge>
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    الوزن: {c.weight}
+                    {t('scoreDialog.weightLabel', { weight: c.weight })}
                   </span>
                 </div>
                 {c.description && (
                   <p className="text-xs text-muted-foreground">{c.description}</p>
                 )}
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs min-w-[50px]">الدرجة:</Label>
+                  <Label className="text-xs min-w-[50px]">{t('scoreDialog.scoreLabel')}</Label>
                   <div className="flex items-center gap-1">
                     {[1, 2, 3, 4, 5].map((val) => (
                       <button
@@ -894,7 +903,7 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
                   </div>
                 </div>
                 <Input
-                  placeholder="ملاحظة (اختياري)"
+                  placeholder={t('scoreDialog.commentPlaceholder')}
                   value={scoreValues[c.id]?.comment || ''}
                   onChange={(e) =>
                     setScoreValues((prev) => ({
@@ -909,14 +918,14 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setScoreOpen(false)}>
-              إلغاء
+              {t('scoreDialog.cancel')}
             </Button>
             <Button
               onClick={handleSaveScores}
               disabled={saveScoresMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {saveScoresMutation.isPending ? 'جارٍ الحفظ...' : 'حفظ الدرجات'}
+              {saveScoresMutation.isPending ? t('scoreDialog.saving') : t('scoreDialog.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -930,6 +939,9 @@ function EvaluationsTab({ session, canManage }: { session: AuthSession; canManag
 // ============================================================
 
 function PeriodsTab({ canManage }: { canManage: boolean }) {
+  const t = useTranslations('hr.evaluations.periods');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('evaluationPeriod');
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -941,28 +953,28 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
       const data = await fetchAPI<EvaluationPeriod[]>('/api/dashboard/evaluations/periods');
       setPeriods(data || []);
     } catch {
-      toast.error('فشل في تحميل الفترات');
+      toast.error(t('toasts.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { fetchPeriods(); }, [fetchPeriods]);
 
   const createPeriodMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/dashboard/evaluations/periods', 'POST', data),
-    onSuccess: () => { toast.success('تم إنشاء الفترة بنجاح'); setCreateOpen(false); setNewPeriod({ name: '', name_ar: '', start_date: '', end_date: '' }); fetchPeriods(); },
-    onError: () => toast.error('فشل في إنشاء الفترة'),
+    onSuccess: () => { toast.success(t('toasts.createSuccess')); setCreateOpen(false); setNewPeriod({ name: '', name_ar: '', start_date: '', end_date: '' }); fetchPeriods(); },
+    onError: () => toast.error(t('toasts.createFailed')),
   });
 
   const updateStatusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => mutateAPI(`/api/dashboard/evaluations/periods/${id}`, 'PATCH', { status }),
-    onSuccess: (_d, { status }) => { toast.success(`تم تحديث الحالة إلى "${STATUS_LABELS[status]}"`); fetchPeriods(); },
-    onError: () => toast.error('فشل في تحديث الحالة'),
+    onSuccess: (_d, { status }) => { toast.success(t('toasts.statusUpdateSuccess', { status: statusLabelFor(status) })); fetchPeriods(); },
+    onError: () => toast.error(t('toasts.statusUpdateFailed')),
   });
 
   const handleCreate = () => {
-    if (!newPeriod.name || !newPeriod.name_ar || !newPeriod.start_date || !newPeriod.end_date) { toast.error('جميع الحقول مطلوبة'); return; }
+    if (!newPeriod.name || !newPeriod.name_ar || !newPeriod.start_date || !newPeriod.end_date) { toast.error(t('toasts.allFieldsRequired')); return; }
     createPeriodMutation.mutate(newPeriod);
   };
 
@@ -981,7 +993,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">فترات التقييم</h2>
+        <h2 className="text-lg font-semibold">{t('title')}</h2>
         {canManage && (
           <Button
             onClick={() => setCreateOpen(true)}
@@ -989,7 +1001,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
             className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
           >
             <Plus className="h-4 w-4" />
-            فترة جديدة
+            {t('createButton')}
           </Button>
         )}
       </div>
@@ -997,9 +1009,9 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
       {periods.length === 0 ? (
         <EmptyState
           icon={CalendarRange}
-          title="لا توجد فترات تقييم"
-          description="قم بإنشاء فترة تقييم جديدة للبدء"
-          actionLabel={canManage ? 'إنشاء فترة' : undefined}
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={canManage ? t('empty.actionLabel') : undefined}
           onAction={canManage ? () => setCreateOpen(true) : undefined}
         />
       ) : (
@@ -1008,13 +1020,13 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
             <CardContent className="flex items-center justify-between p-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-medium">{p.name_ar}</span>
+                  <span className="font-medium">{locale === 'ar' ? p.name_ar : (p.name || p.name_ar)}</span>
                   <Badge className={STATUS_STYLES[p.status] || ''} variant="secondary">
-                    {STATUS_LABELS[p.status] || p.status}
+                    {statusLabelFor(p.status)}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {p.start_date} — {p.end_date}
+                  {t('dateRange', { start: p.start_date, end: p.end_date })}
                 </p>
               </div>
               {canManage && (
@@ -1026,7 +1038,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
                       onClick={() => handleUpdateStatus(p.id, 'active')}
                       className="text-green-600 border-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                     >
-                      تفعيل
+                      {t('activateButton')}
                     </Button>
                   )}
                   {p.status === 'active' && (
@@ -1036,7 +1048,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
                       onClick={() => handleUpdateStatus(p.id, 'closed')}
                       className="text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
-                      إغلاق
+                      {t('closeButton')}
                     </Button>
                   )}
                 </div>
@@ -1048,13 +1060,13 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
 
       {/* Create Period Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
           <DialogHeader>
-            <DialogTitle>فترة تقييم جديدة</DialogTitle>
+            <DialogTitle>{t('createDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>الاسم (إنجليزي)</Label>
+              <Label>{t('createDialog.nameEnLabel')}</Label>
               <Input
                 value={newPeriod.name}
                 onChange={(e) => setNewPeriod((p) => ({ ...p, name: e.target.value }))}
@@ -1063,7 +1075,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
               />
             </div>
             <div>
-              <Label>الاسم (عربي)</Label>
+              <Label>{t('createDialog.nameArLabel')}</Label>
               <Input
                 value={newPeriod.name_ar}
                 onChange={(e) => setNewPeriod((p) => ({ ...p, name_ar: e.target.value }))}
@@ -1072,7 +1084,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
               />
             </div>
             <div>
-              <Label>تاريخ البداية</Label>
+              <Label>{t('createDialog.startDateLabel')}</Label>
               <Input
                 type="date"
                 value={newPeriod.start_date}
@@ -1081,7 +1093,7 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
               />
             </div>
             <div>
-              <Label>تاريخ النهاية</Label>
+              <Label>{t('createDialog.endDateLabel')}</Label>
               <Input
                 type="date"
                 value={newPeriod.end_date}
@@ -1092,14 +1104,14 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              إلغاء
+              {t('createDialog.cancel')}
             </Button>
             <Button
               onClick={handleCreate}
               disabled={createPeriodMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {createPeriodMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createPeriodMutation.isPending ? t('createDialog.creating') : t('createDialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1113,6 +1125,8 @@ function PeriodsTab({ canManage }: { canManage: boolean }) {
 // ============================================================
 
 function KpisTab({ session, canManage }: { session: AuthSession; canManage: boolean }) {
+  const t = useTranslations('hr.evaluations.kpis');
+  const locale = useLocale() as Locale;
   const [kpis, setKpis] = useState<KpiTarget[]>([]);
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
   const [users, setUsers] = useState<PyraUser[]>([]);
@@ -1141,11 +1155,11 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
         setUsers((usersData as any).data ?? usersData ?? []);
       }
     } catch {
-      toast.error('فشل في تحميل مؤشرات الأداء');
+      toast.error(t('toasts.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [canManage]);
+  }, [canManage, t]);
 
   useEffect(() => {
     fetchData();
@@ -1154,17 +1168,17 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
   const createKpiMutation = useMutation({
     mutationFn: (data: object) => mutateAPI('/api/dashboard/kpi', 'POST', data),
     onSuccess: () => {
-      toast.success('تم إنشاء مؤشر الأداء بنجاح');
+      toast.success(t('toasts.createSuccess'));
       setCreateOpen(false);
       setNewKpi({ username: '', period_id: '', title: '', target_value: '', unit: '' });
       fetchData();
     },
-    onError: () => toast.error('فشل في إنشاء مؤشر الأداء'),
+    onError: () => toast.error(t('toasts.createFailed')),
   });
 
   const handleCreate = () => {
     if (!newKpi.username || !newKpi.title) {
-      toast.error('اسم المستخدم والعنوان مطلوبان');
+      toast.error(t('toasts.validationError'));
       return;
     }
     createKpiMutation.mutate({
@@ -1192,7 +1206,7 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
   return (
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">مؤشرات الأداء (KPIs)</h2>
+        <h2 className="text-lg font-semibold">{t('title')}</h2>
         {canManage && (
           <Button
             onClick={() => setCreateOpen(true)}
@@ -1200,7 +1214,7 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
             className="gap-1.5 bg-orange-500 hover:bg-orange-600 text-white"
           >
             <Plus className="h-4 w-4" />
-            مؤشر جديد
+            {t('createButton')}
           </Button>
         )}
       </div>
@@ -1208,9 +1222,9 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
       {kpis.length === 0 ? (
         <EmptyState
           icon={TrendingUp}
-          title="لا توجد مؤشرات أداء"
-          description="قم بإنشاء مؤشرات أداء لتتبع تقدم الموظفين"
-          actionLabel={canManage ? 'إنشاء مؤشر' : undefined}
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={canManage ? t('empty.actionLabel') : undefined}
           onAction={canManage ? () => setCreateOpen(true) : undefined}
         />
       ) : (
@@ -1228,7 +1242,7 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
                       </span>
                       {kpi.period && (
                         <Badge variant="outline" className="text-xs">
-                          {kpi.period.name_ar}
+                          {locale === 'ar' ? kpi.period.name_ar : (kpi.period.name || kpi.period.name_ar)}
                         </Badge>
                       )}
                     </div>
@@ -1271,19 +1285,19 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
 
       {/* Create KPI Dialog */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir="rtl">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" dir={dirFor(locale)}>
           <DialogHeader>
-            <DialogTitle>مؤشر أداء جديد</DialogTitle>
+            <DialogTitle>{t('createDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>الموظف</Label>
+              <Label>{t('createDialog.employeeLabel')}</Label>
               <Select
                 value={newKpi.username}
                 onValueChange={(v) => setNewKpi((p) => ({ ...p, username: v }))}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الموظف" />
+                  <SelectValue placeholder={t('createDialog.employeePlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map((u) => (
@@ -1295,47 +1309,47 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
               </Select>
             </div>
             <div>
-              <Label>العنوان</Label>
+              <Label>{t('createDialog.titleLabel')}</Label>
               <Input
                 value={newKpi.title}
                 onChange={(e) => setNewKpi((p) => ({ ...p, title: e.target.value }))}
-                placeholder="مثال: عدد المشاريع المنجزة"
+                placeholder={t('createDialog.titlePlaceholder')}
                 className="mt-1"
               />
             </div>
             <div>
-              <Label>القيمة المستهدفة</Label>
+              <Label>{t('createDialog.targetLabel')}</Label>
               <Input
                 type="number"
                 value={newKpi.target_value}
                 onChange={(e) => setNewKpi((p) => ({ ...p, target_value: e.target.value }))}
-                placeholder="مثال: 10"
+                placeholder={t('createDialog.targetPlaceholder')}
                 className="mt-1"
                 dir="ltr"
               />
             </div>
             <div>
-              <Label>الوحدة</Label>
+              <Label>{t('createDialog.unitLabel')}</Label>
               <Input
                 value={newKpi.unit}
                 onChange={(e) => setNewKpi((p) => ({ ...p, unit: e.target.value }))}
-                placeholder="مثال: مشروع، ساعة، %"
+                placeholder={t('createDialog.unitPlaceholder')}
                 className="mt-1"
               />
             </div>
             <div>
-              <Label>فترة التقييم (اختياري)</Label>
+              <Label>{t('createDialog.periodLabel')}</Label>
               <Select
                 value={newKpi.period_id}
                 onValueChange={(v) => setNewKpi((p) => ({ ...p, period_id: v }))}
               >
                 <SelectTrigger className="mt-1">
-                  <SelectValue placeholder="اختر الفترة (اختياري)" />
+                  <SelectValue placeholder={t('createDialog.periodPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {periods.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name_ar}
+                      {locale === 'ar' ? p.name_ar : (p.name || p.name_ar)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1344,14 +1358,14 @@ function KpisTab({ session, canManage }: { session: AuthSession; canManage: bool
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              إلغاء
+              {t('createDialog.cancel')}
             </Button>
             <Button
               onClick={handleCreate}
               disabled={createKpiMutation.isPending}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {createKpiMutation.isPending ? 'جارٍ الإنشاء...' : 'إنشاء'}
+              {createKpiMutation.isPending ? t('createDialog.creating') : t('createDialog.create')}
             </Button>
           </DialogFooter>
         </DialogContent>

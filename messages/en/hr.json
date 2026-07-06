@@ -543,6 +543,203 @@
         "downloadSuccess": "Payslip downloaded",
         "downloadError": "An error occurred while generating the payslip"
       }
+    },
+    "evaluations": {
+      "tabs": {
+        "evaluations": "Evaluations",
+        "periods": "Periods",
+        "kpis": "KPIs",
+        "trend": "Performance Over Time"
+      },
+      "list": {
+        "toasts": {
+          "loadDetailFailed": "Failed to load evaluation details",
+          "createSuccess": "Evaluation created successfully",
+          "createFailed": "Failed to create evaluation",
+          "saveScoresSuccess": "Scores saved successfully",
+          "saveScoresFailed": "Failed to save scores",
+          "submitSuccess": "Evaluation submitted successfully",
+          "submitFailed": "Failed to submit evaluation",
+          "acknowledgeSuccess": "Evaluation acknowledged successfully",
+          "acknowledgeFailed": "Failed to acknowledge evaluation",
+          "saveCommentsSuccess": "Comments saved",
+          "saveCommentsFailed": "Failed to save comments",
+          "recommendBonusSuccess": "Bonus recommended successfully",
+          "recommendBonusFailed": "Failed to recommend bonus",
+          "allFieldsRequired": "All fields are required"
+        },
+        "title": "Evaluations",
+        "createButton": "New Evaluation",
+        "empty": {
+          "title": "No Evaluations",
+          "description": "No evaluations have been created yet",
+          "actionLabel": "Create Evaluation"
+        },
+        "evaluatorLabel": "Evaluator: {name}",
+        "radarChartTitle": "Evaluation Chart",
+        "radarScoreName": "Score",
+        "scoresTableTitle": "Detailed Scores",
+        "scoreOutOf": "/5",
+        "commentsTitle": "Evaluation Comments",
+        "strengthsLabel": "Strengths",
+        "strengthsPlaceholder": "List strengths...",
+        "improvementsLabel": "Areas for Improvement",
+        "improvementsPlaceholder": "List areas for improvement...",
+        "generalCommentsLabel": "General Comments",
+        "generalCommentsPlaceholder": "Additional comments...",
+        "savingComments": "Saving...",
+        "saveComments": "Save Comments",
+        "strengthsReadonlyLabel": "Strengths:",
+        "improvementsReadonlyLabel": "Areas for Improvement:",
+        "generalCommentsReadonlyLabel": "General Comments:",
+        "scoreAction": "Score Evaluation",
+        "submitAction": "Submit Evaluation",
+        "acknowledgeAction": "Acknowledge Evaluation",
+        "bonusRecommended": "Bonus Recommended",
+        "recommendingBonus": "Sending...",
+        "recommendBonusAction": "Recommend Bonus",
+        "createDialog": {
+          "title": "New Evaluation",
+          "periodLabel": "Evaluation Period",
+          "periodPlaceholder": "Select period",
+          "employeeLabel": "Employee",
+          "employeePlaceholder": "Select employee",
+          "evaluatorLabel": "Evaluator",
+          "evaluatorPlaceholder": "Select evaluator",
+          "typeLabel": "Evaluation Type",
+          "cancel": "Cancel",
+          "creating": "Creating...",
+          "create": "Create"
+        },
+        "scoreDialog": {
+          "title": "Score Evaluation",
+          "weightLabel": "Weight: {weight}",
+          "scoreLabel": "Score:",
+          "commentPlaceholder": "Comment (optional)",
+          "cancel": "Cancel",
+          "saving": "Saving...",
+          "save": "Save Scores"
+        }
+      },
+      "periods": {
+        "toasts": {
+          "loadFailed": "Failed to load periods",
+          "createSuccess": "Period created successfully",
+          "createFailed": "Failed to create period",
+          "statusUpdateSuccess": "Status updated to \"{status}\"",
+          "statusUpdateFailed": "Failed to update status",
+          "allFieldsRequired": "All fields are required"
+        },
+        "title": "Evaluation Periods",
+        "createButton": "New Period",
+        "empty": {
+          "title": "No Evaluation Periods",
+          "description": "Create a new evaluation period to get started",
+          "actionLabel": "Create Period"
+        },
+        "dateRange": "{start} — {end}",
+        "activateButton": "Activate",
+        "closeButton": "Close",
+        "createDialog": {
+          "title": "New Evaluation Period",
+          "nameEnLabel": "Name (English)",
+          "nameArLabel": "Name (Arabic)",
+          "startDateLabel": "Start Date",
+          "endDateLabel": "End Date",
+          "cancel": "Cancel",
+          "creating": "Creating...",
+          "create": "Create"
+        }
+      },
+      "kpis": {
+        "toasts": {
+          "loadFailed": "Failed to load KPIs",
+          "createSuccess": "KPI created successfully",
+          "createFailed": "Failed to create KPI",
+          "validationError": "Username and title are required"
+        },
+        "title": "KPIs",
+        "createButton": "New KPI",
+        "empty": {
+          "title": "No KPIs",
+          "description": "Create KPIs to track employee progress",
+          "actionLabel": "Create KPI"
+        },
+        "createDialog": {
+          "title": "New KPI",
+          "employeeLabel": "Employee",
+          "employeePlaceholder": "Select employee",
+          "titleLabel": "Title",
+          "titlePlaceholder": "e.g. Number of projects completed",
+          "targetLabel": "Target Value",
+          "targetPlaceholder": "e.g. 10",
+          "unitLabel": "Unit",
+          "unitPlaceholder": "e.g. project, hour, %",
+          "periodLabel": "Evaluation Period (optional)",
+          "periodPlaceholder": "Select period (optional)",
+          "cancel": "Cancel",
+          "creating": "Creating...",
+          "create": "Create"
+        }
+      },
+      "settings": {
+        "toasts": {
+          "createSuccess": "Criterion created successfully",
+          "createFailed": "Failed to create criterion",
+          "validationError": "Name and Arabic name are required"
+        },
+        "title": "Evaluation Criteria Settings",
+        "createButton": "New Criterion",
+        "empty": {
+          "title": "No Evaluation Criteria",
+          "description": "Create the evaluation criteria that will be used to evaluate employees",
+          "actionLabel": "Create Criterion"
+        },
+        "criteriaCount": "({count} {label})",
+        "criteriaCountSingular": "criterion",
+        "criteriaCountPlural": "criteria",
+        "weightLabel": "Weight",
+        "sortOrderLabel": "Order",
+        "createDialog": {
+          "title": "New Evaluation Criterion",
+          "nameEnLabel": "Name (English)",
+          "nameArLabel": "Name (Arabic)",
+          "descriptionLabel": "Description (optional)",
+          "descriptionPlaceholder": "Criterion description...",
+          "weightLabel": "Weight",
+          "categoryLabel": "Category",
+          "categoryPlaceholder": "Select category",
+          "cancel": "Cancel",
+          "creating": "Creating...",
+          "create": "Create"
+        }
+      },
+      "kpiProgressEditor": {
+        "toasts": {
+          "saveSuccess": "Progress updated successfully",
+          "saveFailed": "Failed to update progress",
+          "invalidValue": "Actual value must be a non-negative number"
+        },
+        "label": "Update Progress:",
+        "saving": "Saving...",
+        "save": "Save"
+      },
+      "performanceTrend": {
+        "employeeLabel": "Select Employee",
+        "employeePlaceholder": "Select an employee to view their performance",
+        "selectEmployeeEmpty": {
+          "title": "Select an Employee",
+          "description": "Select an employee from the list above to view their evaluations across periods"
+        },
+        "noEvaluationsEmpty": {
+          "title": "No Submitted Evaluations",
+          "description": "No submitted or acknowledged evaluations for this employee yet"
+        },
+        "cardTitle": "Performance Over Time",
+        "average": "Average: {average} / 5",
+        "lowPerformance": "Low Performance",
+        "lineChartName": "Rating"
+      }
     }
   }
 }

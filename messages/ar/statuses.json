@@ -44,6 +44,8 @@
     "workLocation": { "onsite": "مكتبي", "remote": "عن بُعد", "hybrid": "هجين" },
     "paymentSourceType": { "task": "مهمة", "bonus": "مكافأة", "deduction": "خصم", "salary": "راتب", "advance": "سلفة", "commission": "عمولة", "overtime": "إضافي" },
     "evaluationForm": { "draft": "مسودة", "submitted": "مقدم", "acknowledged": "معترف به" },
-    "evaluationPeriod": { "draft": "مسودة", "active": "نشط", "closed": "مغلق" }
+    "evaluationPeriod": { "draft": "مسودة", "active": "نشط", "closed": "مغلق" },
+    "evaluationType": { "manager": "تقييم المدير", "self": "تقييم ذاتي", "peer": "تقييم الأقران", "360": "تقييم 360°" },
+    "evaluationCriteriaCategory": { "technical": "تقنية", "communication": "تواصل", "leadership": "قيادة", "productivity": "إنتاجية", "teamwork": "عمل جماعي", "creativity": "إبداع", "other": "أخرى" }
   }
 }
