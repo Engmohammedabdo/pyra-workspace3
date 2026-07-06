@@ -480,7 +480,7 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 ```
 Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
-## i18n — Bilingual AR/EN (Phases 0–1 shipped)
+## i18n — Bilingual AR/EN (Phases 0–2 shipped)
 
 next-intl WITHOUT locale routing — URLs never change. Locale = `pyra_locale`
 cookie (cache) ← `pyra_users.preferred_language` / `pyra_clients.preferred_language`
@@ -509,6 +509,18 @@ layouts.
 - Adding a translated module (Phases 2+): create `messages/{ar,en}/<mod>.json`,
   register in `NAMESPACE_FILES` + `i18n/global.ts`, swap the module's UI +
   API strings, extend MIGRATED_PATHS, QA both locales.
+- The `api` namespace is the shared server-response-message namespace for API
+  route handlers — `const t = await getTranslations('api')`. Notification /
+  WhatsApp / DB-data strings inside routes STAY Arabic with a documented
+  `// i18n-exempt:` comment until Phase 8 (they're persisted content, not
+  per-request response messages).
+- Board-template SEEDED column/label names (`lib/config/board-templates.ts` →
+  columns written into real `pyra_columns` rows on board creation) remain
+  Arabic DB data — creator-locale seeding (localizing template content at
+  creation time) is a v1.1 item, not part of the UI-string migration.
+- Catalogs must NEVER contain JSON arrays — arrays poison next-intl's type
+  inference. Use keyed objects instead (see `calendar.dayNames`, which is an
+  object keyed `sun`–`sat`, not a `string[]`).
 - Dates: `formatDate/formatRelativeDate/formatTime/formatTaskDueDate` take a
   trailing `locale` param (default `'ar'`). Currency/number formatting is
   locale-stable (`en-AE`) by design — do not localize digits in money.

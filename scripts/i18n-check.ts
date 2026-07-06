@@ -43,6 +43,18 @@ const MIGRATED_PATHS: string[] = [
   'app/(auth)/login/page.tsx',
   'app/portal/(auth)',
   'app/api/portal/auth',
+  // Phase 2 — work core
+  'components/dashboard/MyWorkInbox.tsx',
+  'components/dashboard/MyCalendarWidget.tsx',
+  'app/dashboard/my-tasks',
+  'app/dashboard/boards',
+  'components/boards',
+  'app/dashboard/calendar',
+  'components/calendar',
+  'app/api/calendar',
+  'app/api/boards',
+  'app/api/tasks',
+  'app/api/my-tasks',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text
