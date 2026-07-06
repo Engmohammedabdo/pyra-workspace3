@@ -168,7 +168,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
   const [entities, setEntities] = useState<Array<{ id: string; name_en: string; name_ar: string; license_no: string; logo_url: string; is_default: boolean }>>([]);
   const [entityId, setEntityId] = useState(quote?.entity_id || '');
 
-  // Group 2 — "حفظ وإرسال" gate. The /api/quotes/[id]/send endpoint requires
+  // Group 2 — "حفظ وإرسال" gate. The /api/quotes/[id]/send endpoint requires // i18n-exempt: doc comment
   // `quotes.edit`; sales agents lack it (their quotes go through the approval
   // flow, then an admin sends post-approval). Hiding the button for them
   // prevents the save-then-fail-send partial-state double-create bug surfaced

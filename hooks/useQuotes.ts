@@ -70,7 +70,7 @@ export function useLeadQuotes(leadId: string | undefined) {
 // Hooks: Mutations
 // ============================================================
 
-/** تعديل عرض موجود (يستخدم مسار /api/quotes الحقيقي) */
+/** Update an existing quote (uses the real /api/quotes path). */
 export function useUpdateQuote() {
   const queryClient = useQueryClient();
   return useMutation<Quote, Error, { id: string; data: Partial<Quote> }>({

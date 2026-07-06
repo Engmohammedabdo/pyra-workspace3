@@ -60,7 +60,7 @@ export interface RevenueSummary {
 // Hooks: Queries
 // ============================================================
 
-/** قائمة الفواتير مع فلترة اختيارية */
+/** Invoice list with optional filters. */
 export function useInvoices(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
   return useQuery<Invoice[]>({
@@ -71,11 +71,11 @@ export function useInvoices(params?: Record<string, string | undefined>) {
 }
 
 /**
- * قائمة الفواتير مع الترقيم (total من meta).
- * fetchAPI يجرّد الـ meta — الترقيم يحتاج الغلاف الكامل، لذلك يقرأ
- * الاستجابة الخام (الاستثناء الموثّق للحصول على meta).
- * Finance audit 2026-07-02 (F-PAGINATION): total لم يكن يُقرأ أبداً
- * فكانت الفواتير الأقدم من صفحة واحدة غير قابلة للوصول من القائمة.
+ * Invoice list WITH pagination (total comes from meta).
+ * fetchAPI strips meta — pagination needs the full envelope, so this reads
+ * the raw response (the documented exemption for reaching meta).
+ * Finance audit 2026-07-02 (F-PAGINATION): total was never read, so invoices
+ * older than one page were unreachable from the list.
  */
 export function useInvoicesPaged(params?: Record<string, string | undefined>) {
   const qs = buildQueryString(params);
@@ -94,7 +94,7 @@ export function useInvoicesPaged(params?: Record<string, string | undefined>) {
   });
 }
 
-/** فاتورة واحدة بالـ ID */
+/** Single invoice by ID. */
 export function useInvoice(id: string | undefined) {
   return useQuery<Invoice>({
     queryKey: ['invoices', id],
@@ -104,7 +104,7 @@ export function useInvoice(id: string | undefined) {
   });
 }
 
-/** ملخص الإيرادات */
+/** Revenue summary. */
 export function useRevenueSummary() {
   return useQuery<RevenueSummary>({
     queryKey: ['invoices', 'revenue-summary'],
@@ -117,7 +117,7 @@ export function useRevenueSummary() {
 // Hooks: Mutations
 // ============================================================
 
-/** إنشاء فاتورة جديدة */
+/** Create a new invoice. */
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
   return useMutation<Invoice, Error, Partial<Invoice>>({
@@ -128,7 +128,7 @@ export function useCreateInvoice() {
   });
 }
 
-/** تعديل فاتورة موجودة */
+/** Update an existing invoice. */
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
   return useMutation<Invoice, Error, { id: string; data: Partial<Invoice> }>({

@@ -32,11 +32,11 @@ export async function GET(req: NextRequest) {
 
     // Define aging buckets
     const buckets = [
-      { label: 'حالي (0-30 يوم)', labelEn: 'Current (0-30)', min: 0, max: 30 },
-      { label: '31-60 يوم', labelEn: '31-60 days', min: 31, max: 60 },
-      { label: '61-90 يوم', labelEn: '61-90 days', min: 61, max: 90 },
-      { label: '91-120 يوم', labelEn: '91-120 days', min: 91, max: 120 },
-      { label: 'أكثر من 120 يوم', labelEn: '120+ days', min: 121, max: Infinity },
+      { label: 'حالي (0-30 يوم)', labelEn: 'Current (0-30)', min: 0, max: 30 }, // i18n-exempt: pre-existing bilingual label/labelEn payload (no UI consumer; census)
+      { label: '31-60 يوم', labelEn: '31-60 days', min: 31, max: 60 }, // i18n-exempt: bilingual payload
+      { label: '61-90 يوم', labelEn: '61-90 days', min: 61, max: 90 }, // i18n-exempt: bilingual payload
+      { label: '91-120 يوم', labelEn: '91-120 days', min: 91, max: 120 }, // i18n-exempt: bilingual payload
+      { label: 'أكثر من 120 يوم', labelEn: '120+ days', min: 121, max: Infinity }, // i18n-exempt: bilingual payload
     ];
 
     interface AgingInvoice {
@@ -98,7 +98,7 @@ export async function GET(req: NextRequest) {
           // Client aggregation
           const clientKey = inv.client_id || 'unknown';
           if (!clientAging[clientKey]) {
-            clientAging[clientKey] = { name: inv.client_name || 'غير محدد', buckets: [0, 0, 0, 0, 0] };
+            clientAging[clientKey] = { name: inv.client_name || 'غير محدد', buckets: [0, 0, 0, 0, 0] }; // i18n-exempt: fallback in unused-by-UI payload — full route treatment deferred with the labelEn pattern
           }
           clientAging[clientKey].buckets[i] += amountDueAED;
           break;
