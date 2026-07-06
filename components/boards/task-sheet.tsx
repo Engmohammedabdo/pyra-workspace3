@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef } from 'react';
 import { useTranslations, useLocale } from 'next-intl';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
@@ -1502,13 +1502,24 @@ export function TaskSheet({ taskId, board, onClose, onUpdate, session }: TaskShe
 // Sub-components
 // ═══════════════════════════════════════════════════════════
 
-function SidebarBtn({ icon: Icon, label, badge, onClick, compact }: {
-  icon: React.ElementType; label: string; badge?: string; onClick?: () => void; compact?: boolean;
-}) {
+// forwardRef + prop-spread are REQUIRED: this button is used as the child of
+// `<PopoverTrigger asChild>`. Radix clones the child and injects a ref +
+// onClick + aria/data-state props; a plain function component drops the ref,
+// so the popover has nothing to anchor to and never opens (2026-07-06 fix —
+// the الأعضاء/التصنيفات/الأولوية… popovers were dead). Standalone uses
+// (with their own onClick) keep working since props just spread through.
+const SidebarBtn = forwardRef<
+  HTMLButtonElement,
+  {
+    icon: React.ElementType; label: string; badge?: string; onClick?: () => void; compact?: boolean;
+  } & React.ButtonHTMLAttributes<HTMLButtonElement>
+>(({ icon: Icon, label, badge, onClick, compact, ...props }, ref) => {
   if (compact) {
     return (
       <button
+        ref={ref}
         onClick={onClick}
+        {...props}
         className="h-8 px-2.5 rounded-lg border border-border/50 bg-muted/40 text-xs flex items-center gap-1.5 whitespace-nowrap hover:bg-muted transition-colors shrink-0"
       >
         <Icon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
@@ -1519,7 +1530,9 @@ function SidebarBtn({ icon: Icon, label, badge, onClick, compact }: {
   }
   return (
     <button
+      ref={ref}
       onClick={onClick}
+      {...props}
       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-start hover:bg-muted transition-colors"
     >
       <Icon className="h-4 w-4 text-muted-foreground" />
@@ -1527,7 +1540,8 @@ function SidebarBtn({ icon: Icon, label, badge, onClick, compact }: {
       {badge && <span className="text-[10px] text-muted-foreground">{badge}</span>}
     </button>
   );
-}
+});
+SidebarBtn.displayName = 'SidebarBtn';
 
 function SidebarDateBtn({ icon: Icon, label, value, onChange, isOverdue, compact }: {
   icon: React.ElementType; label: string; value: string; onChange: (v: string) => void; isOverdue?: boolean; compact?: boolean;
