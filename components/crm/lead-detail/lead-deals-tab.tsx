@@ -9,6 +9,7 @@
  */
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,12 +17,17 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FileSignature, Receipt, Plus, FileText } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
-import { INVOICE_STATUS_LABELS, QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import { useLeadQuotes } from '@/hooks/useQuotes';
 import { usePermission } from '@/hooks/usePermission';
 import type { LeadDetail } from '@/hooks/useLeads';
 
 export function LeadDealsTab({ data }: { data: LeadDetail }) {
+  const t = useTranslations('crm.leadTabs.deals');
+  const locale = useLocale() as Locale;
+  const quoteStatusLabelFor = useStatusLabels('quote');
+  const invoiceStatusLabelFor = useStatusLabels('invoice');
   const { lead, contracts, invoices, payments_summary } = data;
   // Gap #5b — quotes linked to this lead (closes issue #7). The owning agent
   // can finally SEE the quotes they created for the lead (Gap #5a scoping).
@@ -35,7 +41,7 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="size-4 text-orange-500" /> عروض الأسعار
+            <FileText className="size-4 text-orange-500" /> {t('quotesHeading')}
             {quotes.length > 0 && (
               <Badge variant="outline" className="bg-muted/50 tabular-nums">{quotes.length}</Badge>
             )}
@@ -43,7 +49,7 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
           {canCreateQuote && (
             <Button asChild variant="outline" size="sm">
               <Link href={`/dashboard/quotes/new?lead_id=${lead.id}`}>
-                <Plus className="size-4 me-1" /> عرض سعر
+                <Plus className="size-4 me-1" /> {t('newQuote')}
               </Link>
             </Button>
           )}
@@ -57,8 +63,8 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
         ) : quotes.length === 0 ? (
           <EmptyState
             icon={FileText}
-            title="لا توجد عروض أسعار بعد"
-            description="اضغط «عرض سعر» لإنشاء أول عرض لهذا الـ Lead — هيتعبّى تلقائياً ببيانات العميل."
+            title={t('emptyQuotesTitle')}
+            description={t('emptyQuotesDescription')}
             className="py-8"
           />
         ) : (
@@ -71,10 +77,10 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">{q.quote_number}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(q.created_at)}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(q.created_at, undefined, locale)}</p>
                   </div>
                   <Badge variant="outline" className="shrink-0">
-                    {QUOTE_STATUS_LABELS[q.status] ?? q.status}
+                    {quoteStatusLabelFor(q.status)}
                   </Badge>
                   <span className="text-sm font-semibold tabular-nums shrink-0">
                     {formatCurrency(Number(q.total) || 0, q.currency || 'AED')}
@@ -90,14 +96,14 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FileSignature className="size-4 text-orange-500" /> العقود
+            <FileSignature className="size-4 text-orange-500" /> {t('contractsHeading')}
             {contracts.length > 0 && (
               <Badge variant="outline" className="bg-muted/50 tabular-nums">{contracts.length}</Badge>
             )}
           </h3>
           <Button asChild variant="outline" size="sm">
             <Link href={`/dashboard/finance/contracts?lead_id=${lead.id}`}>
-              <Plus className="size-4 me-1" /> عقد جديد
+              <Plus className="size-4 me-1" /> {t('newContract')}
             </Link>
           </Button>
         </div>
@@ -105,8 +111,8 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
         {contracts.length === 0 ? (
           <EmptyState
             icon={FileSignature}
-            title="لا يوجد عقد لهذا الـ Lead"
-            description="بعد توقيع العقد قم بإنشائه في صفحة العقود واربطه بهذا الـ Lead."
+            title={t('emptyContractsTitle')}
+            description={t('emptyContractsDescription')}
             className="py-8"
           />
         ) : (
@@ -124,7 +130,7 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold">{c.title ?? 'عقد بدون عنوان'}</p>
+                        <p className="text-sm font-semibold">{c.title ?? t('untitledContract')}</p>
                         {c.contract_type && (
                           <p className="text-xs text-muted-foreground mt-0.5 capitalize">{c.contract_type}</p>
                         )}
@@ -132,21 +138,24 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                       <Badge variant="outline" className="capitalize shrink-0">{c.status}</Badge>
                     </div>
                     <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                      <Stat label="القيمة الكلية" value={formatCurrency(total, c.currency || 'AED')} />
-                      <Stat label="مفوتر" value={formatCurrency(billed, c.currency || 'AED')} />
-                      <Stat label="مدفوع" value={formatCurrency(collected, c.currency || 'AED')} tone="emerald" />
-                      <Stat label="متبقي" value={formatCurrency(remaining, c.currency || 'AED')} tone={remaining > 0 ? 'orange' : 'gray'} />
+                      <Stat label={t('statTotal')} value={formatCurrency(total, c.currency || 'AED')} />
+                      <Stat label={t('statBilled')} value={formatCurrency(billed, c.currency || 'AED')} />
+                      <Stat label={t('statPaid')} value={formatCurrency(collected, c.currency || 'AED')} tone="emerald" />
+                      <Stat label={t('statRemaining')} value={formatCurrency(remaining, c.currency || 'AED')} tone={remaining > 0 ? 'orange' : 'gray'} />
                     </div>
                     {(c.start_date || c.end_date) && (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        {c.start_date ? formatDate(c.start_date) : '—'}
+                        {c.start_date ? formatDate(c.start_date, undefined, locale) : '—'}
                         {' → '}
-                        {c.end_date ? formatDate(c.end_date) : '—'}
+                        {c.end_date ? formatDate(c.end_date, undefined, locale) : '—'}
                       </p>
                     )}
                     {c.retainer_amount && Number(c.retainer_amount) > 0 && (
                       <p className="mt-1 text-xs text-orange-600 dark:text-orange-400">
-                        احتفاظ {c.retainer_cycle ?? 'monthly'} · {formatCurrency(Number(c.retainer_amount), c.currency || 'AED')}
+                        {t('retainerLine', {
+                          cycle: c.retainer_cycle ?? 'monthly',
+                          amount: formatCurrency(Number(c.retainer_amount), c.currency || 'AED'),
+                        })}
                       </p>
                     )}
                   </Link>
@@ -161,21 +170,21 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Receipt className="size-4 text-orange-500" /> الفواتير
+            <Receipt className="size-4 text-orange-500" /> {t('invoicesHeading')}
             {invoices.length > 0 && (
               <Badge variant="outline" className="bg-muted/50 tabular-nums">{invoices.length}</Badge>
             )}
           </h3>
           <span className="text-xs text-muted-foreground tabular-nums">
-            مدفوع {formatCurrency(payments_summary.total_paid, payments_summary.currency)}
+            {t('totalPaidLabel', { amount: formatCurrency(payments_summary.total_paid, payments_summary.currency) })}
           </span>
         </div>
 
         {invoices.length === 0 ? (
           <EmptyState
             icon={Receipt}
-            title="لا توجد فواتير بعد"
-            description="الفواتير المرتبطة بعقود هذا الـ Lead ستظهر هنا"
+            title={t('emptyInvoicesTitle')}
+            description={t('emptyInvoicesDescription')}
             className="py-8"
           />
         ) : (
@@ -189,11 +198,11 @@ export function LeadDealsTab({ data }: { data: LeadDetail }) {
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium truncate">#{inv.invoice_number ?? inv.id}</p>
                     {inv.due_date && (
-                      <p className="text-xs text-muted-foreground">استحقاق {formatDate(inv.due_date)}</p>
+                      <p className="text-xs text-muted-foreground">{t('invoiceDue', { date: formatDate(inv.due_date, undefined, locale) })}</p>
                     )}
                   </div>
                   <Badge variant="outline" className="me-3 capitalize">
-                    {INVOICE_STATUS_LABELS[inv.status as keyof typeof INVOICE_STATUS_LABELS] ?? inv.status}
+                    {invoiceStatusLabelFor(inv.status)}
                   </Badge>
                   <span className="text-sm font-semibold tabular-nums">
                     {formatCurrency(Number(inv.total) || 0, inv.currency ?? 'AED')}

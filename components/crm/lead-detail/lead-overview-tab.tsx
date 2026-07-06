@@ -12,6 +12,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,6 +30,7 @@ interface LeadOverviewTabProps {
 }
 
 export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
+  const t = useTranslations('crm.leadTabs.overview');
   const { lead, contracts } = data;
   const activitiesQuery = useLeadActivities(lead.id);
   const recentActivities = activitiesQuery.data?.pages?.[0]?.activities?.slice(0, 5) ?? [];
@@ -39,22 +41,22 @@ export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FileSignature className="size-4 text-orange-500" /> العقود
+            <FileSignature className="size-4 text-orange-500" /> {t('contractsHeading')}
             {contracts.length > 0 && (
               <Badge variant="outline" className="bg-muted/50 tabular-nums">{contracts.length}</Badge>
             )}
           </h3>
           {contracts.length > 3 && (
             <Button variant="ghost" size="sm" onClick={() => onSwitchTab('deals')} className="text-xs">
-              عرض الكل <ArrowLeftCircle className="size-3.5 ms-1" />
+              {t('viewAll')} <ArrowLeftCircle className="size-3.5 ms-1" />
             </Button>
           )}
         </div>
         {contracts.length === 0 ? (
           <EmptyState
             icon={FileSignature}
-            title="لا توجد عقود بعد"
-            description="سيظهر هنا أول عقد يتم ربطه بهذا الـ Lead"
+            title={t('emptyContractsTitle')}
+            description={t('emptyContractsDescription')}
             className="py-8"
           />
         ) : (
@@ -67,7 +69,7 @@ export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{c.title ?? 'عقد بدون عنوان'}</p>
+                      <p className="text-sm font-medium truncate">{c.title ?? t('untitledContract')}</p>
                       {c.contract_type && <p className="text-xs text-muted-foreground mt-0.5">{c.contract_type}</p>}
                     </div>
                     <Badge variant="outline" className="shrink-0 capitalize">{c.status}</Badge>
@@ -89,14 +91,14 @@ export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
       <Card className="p-4 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <ActivityIcon className="size-4 text-orange-500" /> أحدث النشاط
+            <ActivityIcon className="size-4 text-orange-500" /> {t('recentActivityHeading')}
             {recentActivities.length > 0 && (
               <Badge variant="outline" className="bg-muted/50 tabular-nums">{data.activity_count}</Badge>
             )}
           </h3>
           {data.activity_count > 5 && (
             <Button variant="ghost" size="sm" onClick={() => onSwitchTab('activity')} className="text-xs">
-              التايم لاين كامل <ArrowLeftCircle className="size-3.5 ms-1" />
+              {t('fullTimeline')} <ArrowLeftCircle className="size-3.5 ms-1" />
             </Button>
           )}
         </div>
@@ -109,8 +111,8 @@ export function LeadOverviewTab({ data, onSwitchTab }: LeadOverviewTabProps) {
         ) : recentActivities.length === 0 ? (
           <EmptyState
             icon={ActivityIcon}
-            title="لم يبدأ النشاط بعد"
-            description="بمجرد ما يتم تسجيل ملاحظة، مكالمة، أو رسالة WhatsApp ستظهر هنا."
+            title={t('emptyActivityTitle')}
+            description={t('emptyActivityDescription')}
             className="py-8"
           />
         ) : (

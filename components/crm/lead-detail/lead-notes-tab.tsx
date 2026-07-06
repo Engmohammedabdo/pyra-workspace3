@@ -8,6 +8,7 @@
  * Phase 6 will add the composer; for now we link back to the Activity tab.
  */
 
+import { useTranslations } from 'next-intl';
 import { useLeadActivities } from '@/hooks/useLeadActivities';
 import { ActivityItem } from '@/components/crm/activity/activity-item';
 import { ActivityComposer } from '@/components/crm/activity/activity-composer';
@@ -17,6 +18,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Loader2, StickyNote } from 'lucide-react';
 
 export function LeadNotesTab({ leadId }: { leadId: string }) {
+  const t = useTranslations('crm.leadTabs.notes');
   const q = useLeadActivities(leadId, { type: 'note' });
   const notes = q.data?.pages.flatMap((p) => p.activities) ?? [];
 
@@ -32,8 +34,8 @@ export function LeadNotesTab({ leadId }: { leadId: string }) {
       ) : notes.length === 0 ? (
         <EmptyState
           icon={StickyNote}
-          title="لا توجد ملاحظات بعد"
-          description="اكتب أول ملاحظة في المُحرّر بالأعلى لتظهر هنا"
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <>
@@ -52,7 +54,7 @@ export function LeadNotesTab({ leadId }: { leadId: string }) {
                 className="gap-1.5"
               >
                 {q.isFetchingNextPage ? <Loader2 className="size-3.5 animate-spin" /> : null}
-                تحميل المزيد
+                {t('loadMore')}
               </Button>
             </div>
           )}

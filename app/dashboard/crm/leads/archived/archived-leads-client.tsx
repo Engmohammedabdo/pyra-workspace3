@@ -17,6 +17,7 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { useLeads, useArchiveLead } from '@/hooks/useLeads';
 import { usePermission } from '@/hooks/usePermission';
 import { Card } from '@/components/ui/card';
@@ -26,10 +27,13 @@ import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Archive, Search, ArrowLeft, ArchiveRestore } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
+import type { Locale } from '@/lib/i18n/config';
 
 const VISIBLE_LIMIT = 50;
 
 export function ArchivedLeadsClient() {
+  const t = useTranslations('crm.leadsList.archived');
+  const locale = useLocale() as Locale;
   const [searchQuery, setSearchQuery] = useState('');
   const canRestore = usePermission('leads.delete');
   const { data, isLoading } = useLeads({
@@ -56,12 +60,12 @@ export function ArchivedLeadsClient() {
       <header>
         <Button asChild variant="ghost" size="sm" className="-ms-2 mb-1">
           <Link href="/dashboard/crm/pipeline">
-            <ArrowLeft className="size-4 me-1" /> خط المبيعات
+            <ArrowLeft className="size-4 me-1" /> {t('backToPipeline')}
           </Link>
         </Button>
         <div className="flex items-center gap-2">
           <Archive className="size-5 text-muted-foreground" aria-hidden />
-          <h1 className="text-2xl font-bold">أرشيف الـ Leads</h1>
+          <h1 className="text-2xl font-bold">{t('heading')}</h1>
           {!isLoading && (
             <span className="text-sm font-normal text-muted-foreground tabular-nums">
               ({all.length})
@@ -69,7 +73,7 @@ export function ArchivedLeadsClient() {
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          الـ Leads المؤرشفة مخفية من خط المبيعات والقوائم. تقدر تراجعها هنا وتسترجع أي واحد.
+          {t('subtitle')}
         </p>
       </header>
 
@@ -78,7 +82,7 @@ export function ArchivedLeadsClient() {
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
-          placeholder="ابحث بالاسم أو الشركة أو الهاتف..."
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="ps-10"
@@ -104,16 +108,16 @@ export function ArchivedLeadsClient() {
         <Card className="p-5">
           <EmptyState
             icon={Archive}
-            title="لا يوجد Leads مؤرشفة"
-            description="لما تأرشف Lead من صفحة تفاصيله، هيظهر هنا وتقدر تسترجعه في أي وقت."
+            title={t('emptyTitle')}
+            description={t('emptyDescription')}
           />
         </Card>
       ) : filtered.length === 0 ? (
         <Card className="p-5">
           <EmptyState
             icon={Search}
-            title="لا توجد نتائج"
-            description={`لم يتم العثور على نتائج تطابق "${searchQuery}".`}
+            title={t('noResultsTitle')}
+            description={t('noResultsDescription', { query: searchQuery })}
           />
         </Card>
       ) : (
@@ -132,12 +136,12 @@ export function ArchivedLeadsClient() {
                     {lead.name}
                   </div>
                   <div className="text-xs text-muted-foreground truncate">
-                    {lead.company || lead.phone || lead.email || '—'}
+                    {lead.company || lead.phone || lead.email || t('dash')}
                     {lead.archived_at && (
                       <>
                         {' · '}
-                        أُرشِف {formatRelativeDate(lead.archived_at)}
-                        {lead.archived_by ? ` بواسطة @${lead.archived_by}` : ''}
+                        {t('archivedByLine', { rel: formatRelativeDate(lead.archived_at, locale) })}
+                        {lead.archived_by ? t('archivedBySuffix', { username: lead.archived_by }) : ''}
                       </>
                     )}
                   </div>
@@ -153,6 +157,7 @@ export function ArchivedLeadsClient() {
 }
 
 function RestoreButton({ leadId }: { leadId: string }) {
+  const t = useTranslations('crm.leadsList.archived');
   const restore = useArchiveLead();
   return (
     <Button
@@ -163,13 +168,13 @@ function RestoreButton({ leadId }: { leadId: string }) {
       onClick={async () => {
         try {
           await restore.mutateAsync({ id: leadId, unarchive: true });
-          toast.success('تم استرجاع الـ Lead');
+          toast.success(t('restoreSuccess'));
         } catch (err) {
-          toast.error(err instanceof Error ? err.message : 'فشل الاسترجاع');
+          toast.error(err instanceof Error ? err.message : t('restoreError'));
         }
       }}
     >
-      <ArchiveRestore className="size-4 me-1.5" /> استرجاع
+      <ArchiveRestore className="size-4 me-1.5" /> {t('restore')}
     </Button>
   );
 }

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import { ArchivedLeadsClient } from './archived-leads-client';
 
-export const metadata: Metadata = {
-  title: 'أرشيف الـ Leads — Pyra',
-  description: 'الـ Leads المؤرشفة',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('crm.leadsList.archived');
+  return { title: t('meta.title'), description: t('meta.description') };
+}
 
 export default async function ArchivedLeadsPage() {
   // `leads.view` is the same gate as the pipeline/customers pages. Server-side

@@ -21,6 +21,7 @@
 
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -58,9 +59,10 @@ import {
   useDeleteLeadTask,
 } from '@/hooks/useLeadTasks';
 import { LeadTaskRow } from './lead-task-row';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
-  LEAD_TASK_STATUS_LABELS_AR,
-  LEAD_TASK_PRIORITY_LABELS_AR,
+  LEAD_TASK_STATUS,
+  LEAD_TASK_PRIORITY,
   LEAD_TASK_TITLE_MAX,
 } from '@/lib/constants/statuses';
 import type {
@@ -91,6 +93,9 @@ interface EditFormState {
 // ── Component ──
 
 export function LeadTasksTab({ leadId }: { leadId: string }) {
+  const t = useTranslations('crm.leadTabs.tasks');
+  const statusLabelFor = useStatusLabels('leadTask');
+  const priorityLabelFor = useStatusLabels('leadTaskPriority');
   const { data, isLoading } = useLeadTasks(leadId);
   const createMutation = useCreateLeadTask();
   const updateMutation = useUpdateLeadTask();
@@ -113,11 +118,11 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
   async function handleCreate() {
     const title = createForm.title.trim();
     if (!title) {
-      toast.error('العنوان مطلوب');
+      toast.error(t('requiredTitle'));
       return;
     }
     if (title.length > LEAD_TASK_TITLE_MAX) {
-      toast.error(`العنوان طويل جداً (الحد الأقصى ${LEAD_TASK_TITLE_MAX} حرف)`);
+      toast.error(t('titleTooLong', { max: LEAD_TASK_TITLE_MAX }));
       return;
     }
     try {
@@ -129,9 +134,9 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
       });
       resetCreate();
       setCreateOpen(false);
-      toast.success('تم إنشاء المهمة');
+      toast.success(t('createSuccess'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل إنشاء المهمة');
+      toast.error(err instanceof Error ? err.message : t('createError'));
     }
   }
 
@@ -164,11 +169,11 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
     if (!editingTask) return;
     const title = editForm.title.trim();
     if (!title) {
-      toast.error('العنوان مطلوب');
+      toast.error(t('requiredTitle'));
       return;
     }
     if (title.length > LEAD_TASK_TITLE_MAX) {
-      toast.error(`العنوان طويل جداً (الحد الأقصى ${LEAD_TASK_TITLE_MAX} حرف)`);
+      toast.error(t('titleTooLong', { max: LEAD_TASK_TITLE_MAX }));
       return;
     }
     try {
@@ -181,10 +186,10 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
         priority: editForm.priority === 'none' ? null : editForm.priority,
         status: editForm.status,
       });
-      toast.success('تم حفظ التغييرات');
+      toast.success(t('updateSuccess'));
       closeEditSheet();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل حفظ التغييرات');
+      toast.error(err instanceof Error ? err.message : t('updateError'));
     }
   }
 
@@ -198,10 +203,10 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
         lead_id: leadId,
         task_id: deletingTask.id,
       });
-      toast.success('تم حذف المهمة');
+      toast.success(t('deleteSuccess'));
       setDeletingTask(null);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل حذف المهمة');
+      toast.error(err instanceof Error ? err.message : t('deleteError'));
     }
   }
 
@@ -214,20 +219,20 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
           type="button"
           onClick={() => setCreateOpen(true)}
           className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white justify-start"
-          aria-label="إضافة مهمة جديدة"
+          aria-label={t('addAria')}
         >
           <Plus className="size-4 me-2" aria-hidden />
-          إضافة مهمة
+          {t('add')}
         </Button>
       ) : (
         <div className="space-y-3 p-3 rounded-lg border border-orange-200 dark:border-orange-800/40 bg-orange-500/[0.03]">
           <div className="space-y-1.5">
-            <Label htmlFor="task-title" className="text-xs">العنوان *</Label>
+            <Label htmlFor="task-title" className="text-xs">{t('titleField')}</Label>
             <Input
               id="task-title"
               value={createForm.title}
               onChange={(e) => setCreateForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="مثال: متابعة العميل بخصوص العرض"
+              placeholder={t('titlePlaceholder')}
               className="h-11"
               maxLength={LEAD_TASK_TITLE_MAX}
               autoFocus
@@ -241,7 +246,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="task-due" className="text-xs">تاريخ الاستحقاق</Label>
+              <Label htmlFor="task-due" className="text-xs">{t('dueDateField')}</Label>
               <Input
                 id="task-due"
                 type="date"
@@ -251,7 +256,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="task-priority" className="text-xs">الأولوية</Label>
+              <Label htmlFor="task-priority" className="text-xs">{t('priorityField')}</Label>
               <Select
                 value={createForm.priority}
                 onValueChange={(v) => setCreateForm((f) => ({ ...f, priority: v as LeadTaskPriority }))}
@@ -260,9 +265,9 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(LEAD_TASK_PRIORITY_LABELS_AR) as LeadTaskPriority[]).map((p) => (
+                  {Object.values(LEAD_TASK_PRIORITY).map((p) => (
                     <SelectItem key={p} value={p}>
-                      {LEAD_TASK_PRIORITY_LABELS_AR[p]}
+                      {priorityLabelFor(p)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -282,7 +287,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               className="h-11"
             >
               <X className="size-4 me-1.5" aria-hidden />
-              إلغاء
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -295,7 +300,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               ) : (
                 <Check className="size-4 me-1.5" aria-hidden />
               )}
-              إضافة
+              {t('confirmAdd')}
             </Button>
           </div>
         </div>
@@ -311,17 +316,17 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
       ) : tasks.length === 0 ? (
         <EmptyState
           icon={ClipboardList}
-          title="لا توجد مهام"
-          description="أضف مهمة جديدة لمتابعة العمل على هذا العميل"
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <div className="space-y-2">
-          {tasks.map((t) => (
+          {tasks.map((task) => (
             <LeadTaskRow
-              key={t.id}
-              task={t}
-              onEdit={() => openEditSheet(t)}
-              onDelete={() => setDeletingTask(t)}
+              key={task.id}
+              task={task}
+              onEdit={() => openEditSheet(task)}
+              onDelete={() => setDeletingTask(task)}
             />
           ))}
         </div>
@@ -331,15 +336,15 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
       <Sheet open={!!editingTask} onOpenChange={(o) => { if (!o) closeEditSheet(); }}>
         <SheetContent side="right" className="w-[95vw] sm:max-w-md overflow-y-auto p-4">
           <SheetHeader className="pb-4">
-            <SheetTitle>تعديل المهمة</SheetTitle>
+            <SheetTitle>{t('editSheetTitle')}</SheetTitle>
             <SheetDescription>
-              عدّل تفاصيل المهمة كلها من هنا. غيّر الحالة أو الأولوية أو الميعاد.
+              {t('editSheetDescription')}
             </SheetDescription>
           </SheetHeader>
 
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="edit-title" className="text-xs">العنوان *</Label>
+              <Label htmlFor="edit-title" className="text-xs">{t('titleField')}</Label>
               <Input
                 id="edit-title"
                 value={editForm.title}
@@ -350,19 +355,19 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="edit-description" className="text-xs">الوصف</Label>
+              <Label htmlFor="edit-description" className="text-xs">{t('descriptionField')}</Label>
               <Textarea
                 id="edit-description"
                 value={editForm.description}
                 onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
                 rows={3}
-                placeholder="تفاصيل إضافية عن المهمة (اختياري)"
+                placeholder={t('descriptionPlaceholder')}
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="edit-due" className="text-xs">تاريخ الاستحقاق</Label>
+                <Label htmlFor="edit-due" className="text-xs">{t('dueDateField')}</Label>
                 <Input
                   id="edit-due"
                   type="date"
@@ -372,7 +377,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-priority" className="text-xs">الأولوية</Label>
+                <Label htmlFor="edit-priority" className="text-xs">{t('priorityField')}</Label>
                 <Select
                   value={editForm.priority}
                   onValueChange={(v) => setEditForm((f) => ({ ...f, priority: v as LeadTaskPriority | 'none' }))}
@@ -381,10 +386,10 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">بدون</SelectItem>
-                    {(Object.keys(LEAD_TASK_PRIORITY_LABELS_AR) as LeadTaskPriority[]).map((p) => (
+                    <SelectItem value="none">{t('priorityNone')}</SelectItem>
+                    {Object.values(LEAD_TASK_PRIORITY).map((p) => (
                       <SelectItem key={p} value={p}>
-                        {LEAD_TASK_PRIORITY_LABELS_AR[p]}
+                        {priorityLabelFor(p)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -393,7 +398,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="edit-status" className="text-xs">الحالة</Label>
+              <Label htmlFor="edit-status" className="text-xs">{t('statusField')}</Label>
               <Select
                 value={editForm.status}
                 onValueChange={(v) => setEditForm((f) => ({ ...f, status: v as LeadTaskStatus }))}
@@ -402,9 +407,9 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(LEAD_TASK_STATUS_LABELS_AR) as LeadTaskStatus[]).map((s) => (
+                  {Object.values(LEAD_TASK_STATUS).map((s) => (
                     <SelectItem key={s} value={s}>
-                      {LEAD_TASK_STATUS_LABELS_AR[s]}
+                      {statusLabelFor(s)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -420,7 +425,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               disabled={updateMutation.isPending}
               className="h-11"
             >
-              إلغاء
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -433,7 +438,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               ) : (
                 <Check className="size-4 me-1.5" aria-hidden />
               )}
-              حفظ
+              {t('save')}
             </Button>
           </SheetFooter>
         </SheetContent>
@@ -446,13 +451,13 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>حذف المهمة</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل تريد فعلاً حذف المهمة &quot;{deletingTask?.title}&quot;؟ هذا الإجراء نهائي ولا يمكن التراجع عنه.
+              {t('deleteDescription', { title: deletingTask?.title ?? '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 // AlertDialogAction closes on click by default; we still want
@@ -469,7 +474,7 @@ export function LeadTasksTab({ leadId }: { leadId: string }) {
               {deleteMutation.isPending ? (
                 <Loader2 className="size-4 me-1.5 animate-spin" aria-hidden />
               ) : null}
-              حذف
+              {t('confirmDelete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

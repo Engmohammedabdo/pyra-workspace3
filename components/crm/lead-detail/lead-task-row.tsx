@@ -23,6 +23,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -47,7 +48,8 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { formatTaskDueDate } from '@/lib/utils/format';
 import { useUpdateLeadTask } from '@/hooks/useLeadTasks';
-import { LEAD_TASK_PRIORITY_LABELS_AR } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import type { PyraLeadTask, LeadTaskPriority } from '@/types/database';
 
 interface PrioritySpec {
@@ -83,6 +85,9 @@ export interface LeadTaskRowProps {
 }
 
 export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
+  const t = useTranslations('crm.leadTabs.tasks.row');
+  const locale = useLocale() as Locale;
+  const priorityLabelFor = useStatusLabels('leadTaskPriority');
   const update = useUpdateLeadTask();
   const isDone = task.status === 'completed';
 
@@ -101,7 +106,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
   async function commitTitle() {
     const next = titleDraft.trim();
     if (!next) {
-      toast.error('العنوان مطلوب');
+      toast.error(t('requiredTitle'));
       setTitleDraft(task.title);
       setEditingTitle(false);
       return;
@@ -118,7 +123,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
       });
       setEditingTitle(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل تحديث العنوان');
+      toast.error(err instanceof Error ? err.message : t('updateTitleError'));
       setTitleDraft(task.title);
       setEditingTitle(false);
     }
@@ -143,12 +148,12 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
         status: newStatus,
       });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'فشل تحديث الحالة');
+      toast.error(err instanceof Error ? err.message : t('updateStatusError'));
     }
   }
 
   // ── Render ──
-  const due = formatTaskDueDate(task.due_date);
+  const due = formatTaskDueDate(task.due_date, new Date(), locale);
   const prioritySpec = task.priority ? PRIORITY_SPECS[task.priority] : null;
   const PriorityIcon = prioritySpec?.icon;
 
@@ -167,7 +172,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
         checked={isDone}
         onCheckedChange={toggleStatus}
         disabled={update.isPending}
-        aria-label={isDone ? 'إلغاء إكمال المهمة' : 'إكمال المهمة'}
+        aria-label={isDone ? t('uncompleteAria') : t('completeAria')}
         className="mt-1 h-5 w-5"
       />
 
@@ -190,7 +195,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
             }}
             className="h-8 text-sm"
             maxLength={200}
-            aria-label="تعديل عنوان المهمة"
+            aria-label={t('editTitleAria')}
           />
         ) : (
           <button
@@ -200,7 +205,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
               'text-start text-sm font-medium leading-5 truncate w-full hover:text-foreground transition-colors',
               isDone && 'line-through text-muted-foreground',
             )}
-            aria-label="انقر لتعديل العنوان"
+            aria-label={t('clickToEditAria')}
           >
             {task.title}
           </button>
@@ -224,7 +229,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
               )}
             >
               <PriorityIcon className="size-3" aria-hidden />
-              {LEAD_TASK_PRIORITY_LABELS_AR[task.priority as LeadTaskPriority]}
+              {priorityLabelFor(task.priority as LeadTaskPriority)}
             </Badge>
           )}
 
@@ -253,6 +258,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
 // ──────────────────────────────────────────────────────────────────────────
 
 function TaskKebab({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  const t = useTranslations('crm.leadTabs.tasks.row');
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -260,7 +266,7 @@ function TaskKebab({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => v
           variant="ghost"
           size="sm"
           className="h-11 w-8 p-0 -my-2 text-muted-foreground hover:text-foreground"
-          aria-label="خيارات إضافية"
+          aria-label={t('moreOptionsAria')}
         >
           <MoreVertical className="size-4" aria-hidden />
         </Button>
@@ -268,14 +274,14 @@ function TaskKebab({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => v
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem onSelect={() => onEdit()}>
           <Pencil className="size-4 me-2" aria-hidden />
-          تعديل التفاصيل
+          {t('editDetails')}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => onDelete()}
           className="text-red-600 dark:text-red-400 focus:text-red-700 dark:focus:text-red-300"
         >
           <Trash2 className="size-4 me-2" aria-hidden />
-          حذف
+          {t('delete')}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

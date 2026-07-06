@@ -29,6 +29,7 @@
 
 import { useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   Sheet,
   SheetContent,
@@ -63,11 +64,14 @@ import {
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import { useQueryClient } from '@tanstack/react-query';
 import { resizeImageForUpload, blobToFile } from '@/lib/utils/image-resize';
+import type { Locale } from '@/lib/i18n/config';
 import type { PyraLeadAttachment } from '@/types/database';
 
 const MAX_PER_LEAD = 10;
 
 export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
+  const t = useTranslations('crm.leadTabs.attachments');
+  const locale = useLocale() as Locale;
   const cameraInputRef = useRef<HTMLInputElement | null>(null);
   const galleryInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -107,7 +111,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
     const toUpload = fileArr.slice(0, remaining);
     if (toUpload.length < fileArr.length) {
       toast.warning(
-        `تم تجاهل ${fileArr.length - toUpload.length} ملف — الحد الأقصى ${MAX_PER_LEAD} مرفقات لكل Lead`,
+        t('ignoredFiles', { count: fileArr.length - toUpload.length, max: MAX_PER_LEAD }),
       );
     }
 
@@ -128,7 +132,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         const msg =
           err instanceof Error && err.message
             ? err.message
-            : `فشل رفع "${file.name}"`;
+            : t('uploadError', { name: file.name });
         toast.error(msg);
       } finally {
         setUploadingCount((c) => Math.max(0, c - 1));
@@ -143,7 +147,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
 
   async function handleStartRecording() {
     if (atCap) {
-      toast.error(`تم بلوغ الحد الأقصى للمرفقات (${MAX_PER_LEAD})`);
+      toast.error(t('capReached', { max: MAX_PER_LEAD }));
       return;
     }
     await recorder.start();
@@ -170,11 +174,11 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         fileType: 'voice_note',
         durationSeconds: result.durationSeconds,
       });
-      toast.success('تم رفع الملاحظة الصوتية');
+      toast.success(t('voiceUploadSuccess'));
     } catch (err) {
       console.error('voice upload failed', err);
       const msg =
-        err instanceof Error && err.message ? err.message : 'فشل رفع الملاحظة الصوتية';
+        err instanceof Error && err.message ? err.message : t('voiceUploadError');
       toast.error(msg);
     } finally {
       setUploadingCount((c) => Math.max(0, c - 1));
@@ -186,17 +190,17 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
   }
 
   async function handleDelete(att: PyraLeadAttachment) {
-    if (!window.confirm('هل أنت متأكد من حذف هذه الصورة؟ لا يمكن التراجع.')) {
+    if (!window.confirm(t('deleteConfirm'))) {
       return;
     }
     try {
       await deleteMutation.mutateAsync(att.id);
-      toast.success('تم الحذف');
+      toast.success(t('deleteSuccess'));
       // If the sheet showed this attachment, close it.
       if (selected?.id === att.id) setSelected(null);
     } catch (err) {
       console.error('delete failed', err);
-      const msg = err instanceof Error ? err.message : 'فشل الحذف';
+      const msg = err instanceof Error ? err.message : t('deleteError');
       toast.error(msg);
     }
   }
@@ -227,7 +231,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
               className="h-11 flex-1 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
             >
               <Camera className="size-4" />
-              كاميرا
+              {t('camera')}
             </Button>
             <Button
               type="button"
@@ -237,7 +241,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
               className="h-11 flex-1 gap-2"
             >
               <ImagePlus className="size-4" />
-              معرض الصور
+              {t('gallery')}
             </Button>
             <Button
               type="button"
@@ -245,20 +249,20 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
               onClick={() => void handleStartRecording()}
               disabled={atCap || uploadingCount > 0}
               className="h-11 flex-1 gap-2"
-              aria-label="تسجيل ملاحظة صوتية"
+              aria-label={t('recordVoiceAria')}
             >
               <Mic className="size-4" />
-              صوت
+              {t('voice')}
             </Button>
           </div>
           <div className="flex items-center justify-between sm:justify-end gap-3 text-xs text-muted-foreground">
             <span className="tabular-nums">
-              {attachments.length} / {MAX_PER_LEAD} مرفقات
+              {t('counter', { count: attachments.length, max: MAX_PER_LEAD })}
             </span>
             {uploadingCount > 0 && (
               <span className="flex items-center gap-1 text-orange-600 dark:text-orange-400">
                 <Loader2 className="size-3.5 animate-spin" />
-                جاري رفع {uploadingCount}…
+                {t('uploading', { count: uploadingCount })}
               </span>
             )}
           </div>
@@ -301,8 +305,7 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
         <div className="flex items-start gap-2 rounded-lg border border-amber-200 dark:border-amber-800/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
           <AlertCircle className="size-4 shrink-0 mt-0.5" />
           <p>
-            تم بلوغ الحد الأقصى للمرفقات ({MAX_PER_LEAD}). احذف مرفقات قديمة
-            لإضافة جديدة.
+            {t('capBanner', { max: MAX_PER_LEAD })}
           </p>
         </div>
       )}
@@ -318,14 +321,14 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
       ) : attachments.length === 0 ? (
         <EmptyState
           icon={ImageIcon}
-          title="لا توجد مرفقات بعد"
-          description="استخدم زر الكاميرا أو معرض الصور لإضافة صور، أو زر الصوت لتسجيل ملاحظة صوتية. الـ EXIF (موقع GPS وبيانات الكاميرا) بيتم حذفها تلقائياً قبل الرفع."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <ul className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {attachments.map((att) => (
             <li key={att.id}>
-              <AttachmentCell attachment={att} onSelect={() => setSelected(att)} onMediaError={handleMediaError} />
+              <AttachmentCell attachment={att} locale={locale} onSelect={() => setSelected(att)} onMediaError={handleMediaError} />
             </li>
           ))}
         </ul>
@@ -354,13 +357,16 @@ export function LeadAttachmentsTab({ leadId }: { leadId: string }) {
 
 function AttachmentCell({
   attachment,
+  locale,
   onSelect,
   onMediaError,
 }: {
   attachment: PyraLeadAttachment;
+  locale: Locale;
   onSelect: () => void;
   onMediaError: (id: string) => void;
 }) {
+  const t = useTranslations('crm.leadTabs.attachments');
   const isVoice = attachment.file_type === 'voice_note';
   const durationLabel = formatVoiceDuration(attachment.duration_seconds);
 
@@ -375,8 +381,8 @@ function AttachmentCell({
       )}
       aria-label={
         isVoice
-          ? `ملاحظة صوتية ${durationLabel ?? ''} — ${formatRelativeDate(attachment.uploaded_at)}`
-          : `صورة مرفقة — ${formatRelativeDate(attachment.uploaded_at)}`
+          ? t('voiceCellAria', { duration: durationLabel ?? '', rel: formatRelativeDate(attachment.uploaded_at, locale) })
+          : t('imageCellAria', { rel: formatRelativeDate(attachment.uploaded_at, locale) })
       }
     >
       {isVoice ? (
@@ -412,7 +418,7 @@ function AttachmentCell({
       {/* Hover/focus overlay with relative time */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
         <span className="text-[10px] text-white tabular-nums">
-          {formatRelativeDate(attachment.uploaded_at)}
+          {formatRelativeDate(attachment.uploaded_at, locale)}
         </span>
       </div>
     </button>
@@ -434,6 +440,7 @@ function RecordingPanel({
   onStop: () => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations('crm.leadTabs.attachments');
   const progress = Math.min(100, (duration / maxDuration) * 100);
   return (
     <div className="rounded-lg border border-red-200 dark:border-red-800/40 bg-red-500/5 p-3 space-y-2">
@@ -448,7 +455,7 @@ function RecordingPanel({
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-red-700 dark:text-red-300">
-            جاري التسجيل…
+            {t('recording')}
           </p>
           <p className="text-xs text-muted-foreground tabular-nums">
             {formatDuration(duration)} / {formatDuration(maxDuration)}
@@ -461,20 +468,20 @@ function RecordingPanel({
             size="sm"
             onClick={onCancel}
             className="h-11 gap-1.5"
-            aria-label="إلغاء التسجيل"
+            aria-label={t('cancelRecordingAria')}
           >
             <X className="size-4" />
-            إلغاء
+            {t('cancel')}
           </Button>
           <Button
             type="button"
             size="sm"
             onClick={onStop}
             className="h-11 gap-1.5 bg-red-500 hover:bg-red-600 text-white"
-            aria-label="إنهاء ورفع التسجيل"
+            aria-label={t('stopRecordingAria')}
           >
             <Square className="size-4 fill-current" />
-            إيقاف
+            {t('stop')}
           </Button>
         </div>
       </div>
@@ -507,6 +514,8 @@ function AttachmentDetailPanel({
   deleting: boolean;
   onMediaError: (id: string) => void;
 }) {
+  const t = useTranslations('crm.leadTabs.attachments');
+  const locale = useLocale() as Locale;
   const canDelete = isAdmin || attachment.uploaded_by === currentUsername;
   const isVoice = attachment.file_type === 'voice_note';
   const sizeKb = (attachment.size_bytes / 1024).toFixed(1);
@@ -524,10 +533,10 @@ function AttachmentDetailPanel({
           ) : (
             <ImageIcon className="size-5 text-orange-500" />
           )}
-          {isVoice ? 'ملاحظة صوتية' : 'صورة مرفقة'}
+          {isVoice ? t('voiceNoteTitle') : t('imageTitle')}
         </SheetTitle>
         <SheetDescription className="text-xs">
-          {formatDate(attachment.uploaded_at, 'eeee dd-MM-yyyy HH:mm')}
+          {formatDate(attachment.uploaded_at, 'eeee dd-MM-yyyy HH:mm', locale)}
         </SheetDescription>
       </SheetHeader>
 
@@ -541,10 +550,10 @@ function AttachmentDetailPanel({
                   <Volume2 className="size-6" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">ملاحظة صوتية</p>
+                  <p className="text-sm font-medium">{t('voiceNoteTitle')}</p>
                   {durationLabel && (
                     <p className="text-xs text-muted-foreground tabular-nums">
-                      المدة: {durationLabel}
+                      {t('durationLabel', { duration: durationLabel })}
                     </p>
                   )}
                 </div>
@@ -558,14 +567,14 @@ function AttachmentDetailPanel({
                 onError={() => onMediaError(attachment.id)}
                 className="w-full"
               >
-                المتصفح لا يدعم تشغيل الصوت.
+                {t('audioUnsupported')}
               </audio>
             </div>
           ) : (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={attachment.public_url}
-              alt="مرفق"
+              alt={t('imageAlt')}
               onError={() => onMediaError(attachment.id)}
               className="w-full h-auto max-h-[60vh] object-contain bg-black/5"
             />
@@ -575,21 +584,21 @@ function AttachmentDetailPanel({
 
       <dl className="mt-4 space-y-2 text-xs">
         <div className="flex items-start gap-2">
-          <dt className="text-muted-foreground w-24 shrink-0">رفعها</dt>
+          <dt className="text-muted-foreground w-24 shrink-0">{t('uploadedByLabel')}</dt>
           <dd className="font-medium">@{attachment.uploaded_by}</dd>
         </div>
         <div className="flex items-start gap-2">
-          <dt className="text-muted-foreground w-24 shrink-0">الحجم</dt>
+          <dt className="text-muted-foreground w-24 shrink-0">{t('sizeLabel')}</dt>
           <dd className="font-medium tabular-nums">{sizeLabel}</dd>
         </div>
         {isVoice && durationLabel && (
           <div className="flex items-start gap-2">
-            <dt className="text-muted-foreground w-24 shrink-0">المدة</dt>
+            <dt className="text-muted-foreground w-24 shrink-0">{t('durationDt')}</dt>
             <dd className="font-medium tabular-nums">{durationLabel}</dd>
           </div>
         )}
         <div className="flex items-start gap-2">
-          <dt className="text-muted-foreground w-24 shrink-0">النوع</dt>
+          <dt className="text-muted-foreground w-24 shrink-0">{t('typeLabel')}</dt>
           <dd className="font-mono text-[11px]">{attachment.mime_type}</dd>
         </div>
       </dl>
@@ -599,7 +608,7 @@ function AttachmentDetailPanel({
           <Button asChild variant="outline" className="h-11 gap-2 w-full">
             <a href={attachment.public_url} target="_blank" rel="noopener noreferrer">
               <Download className="size-4" />
-              {isVoice ? 'فتح الصوت الأصلي' : 'فتح الصورة الأصلية'}
+              {isVoice ? t('openOriginalVoice') : t('openOriginalImage')}
             </a>
           </Button>
         )}
@@ -612,7 +621,7 @@ function AttachmentDetailPanel({
             className="h-11 gap-2 w-full text-red-600 dark:text-red-400 hover:bg-red-500/10 border-red-200 dark:border-red-800/40"
           >
             {deleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            {isVoice ? 'حذف الملاحظة الصوتية' : 'حذف الصورة'}
+            {isVoice ? t('deleteVoice') : t('deleteImage')}
           </Button>
         )}
       </div>
