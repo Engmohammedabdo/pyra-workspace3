@@ -15,8 +15,11 @@
  *   anything else                     → muted Circle (defensive default)
  */
 
+import { useLocale, useTranslations } from 'next-intl';
 import { CheckCircle2, Circle, AlertCircle } from 'lucide-react';
 import { formatCurrency, formatDate, dubaiDayKey } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils/cn';
 import type { DossierMilestone } from '@/hooks/useCustomerDossier';
 
@@ -38,13 +41,6 @@ function iconStateOf(m: DossierMilestone): IconState {
   return 'pending';
 }
 
-const STATUS_LABEL_AR: Record<string, string> = {
-  completed: 'مكتمل',
-  invoiced:  'تم تفويتُره',  // 'invoiced' = work done, billed
-  pending:   'قيد الانتظار',
-  cancelled: 'ملغى',
-};
-
 function statusPillClass(state: IconState): string {
   switch (state) {
     case 'done':
@@ -57,6 +53,10 @@ function statusPillClass(state: IconState): string {
 }
 
 export function ContractMilestones({ milestones, currency }: Props) {
+  const t = useTranslations('crm.contracts.milestones');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('milestone');
+
   if (milestones.length === 0) return null;
 
   const sorted = milestones
@@ -65,7 +65,7 @@ export function ContractMilestones({ milestones, currency }: Props) {
 
   return (
     <div className="mt-4 pt-4 border-t border-border">
-      <div className="text-xs text-muted-foreground mb-2">مراحل المشروع</div>
+      <div className="text-xs text-muted-foreground mb-2">{t('heading')}</div>
       <ul className="space-y-2">
         {sorted.map((m) => {
           const state = iconStateOf(m);
@@ -73,9 +73,9 @@ export function ContractMilestones({ milestones, currency }: Props) {
             <li key={m.id} className="flex items-center gap-3 text-sm">
               <MilestoneIcon state={state} />
               <div className="flex-1 min-w-0">
-                <div className="font-medium truncate">{m.title ?? '—'}</div>
+                <div className="font-medium truncate">{m.title ?? t('untitled')}</div>
                 <div className="text-xs text-muted-foreground tabular-nums">
-                  {m.due_date && <>{formatDate(m.due_date, 'd MMM yyyy')}</>}
+                  {m.due_date && <>{formatDate(m.due_date, 'd MMM yyyy', locale)}</>}
                   {m.due_date && m.amount > 0 && <span className="mx-1.5">·</span>}
                   {m.amount > 0 && formatCurrency(m.amount, currency ?? 'AED')}
                 </div>
@@ -86,7 +86,7 @@ export function ContractMilestones({ milestones, currency }: Props) {
                   statusPillClass(state),
                 )}
               >
-                {state === 'overdue' ? 'متأخر' : (m.status ? STATUS_LABEL_AR[m.status] ?? m.status : '—')}
+                {state === 'overdue' ? t('overdue') : (m.status ? statusLabelFor(m.status) : '—')}
               </span>
             </li>
           );
@@ -97,11 +97,13 @@ export function ContractMilestones({ milestones, currency }: Props) {
 }
 
 function MilestoneIcon({ state }: { state: IconState }) {
+  const t = useTranslations('crm.contracts.milestones');
+
   if (state === 'done') {
-    return <CheckCircle2 className="size-5 text-emerald-500 shrink-0" aria-label="مكتمل" />;
+    return <CheckCircle2 className="size-5 text-emerald-500 shrink-0" aria-label={t('doneAria')} />;
   }
   if (state === 'overdue') {
-    return <AlertCircle className="size-5 text-red-500 shrink-0" aria-label="متأخر" />;
+    return <AlertCircle className="size-5 text-red-500 shrink-0" aria-label={t('overdueAria')} />;
   }
-  return <Circle className="size-5 text-muted-foreground shrink-0" aria-label="قيد الانتظار" />;
+  return <Circle className="size-5 text-muted-foreground shrink-0" aria-label={t('pendingAria')} />;
 }

@@ -22,7 +22,9 @@
  */
 
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
+import { dirFor, type Locale } from '@/lib/i18n/config';
 
 export const CUSTOMER_TAB_IDS = [
   'overview',
@@ -36,16 +38,6 @@ export const CUSTOMER_TAB_IDS = [
 
 export type CustomerTabId = (typeof CUSTOMER_TAB_IDS)[number];
 
-const TAB_LABEL_AR: Record<CustomerTabId, string> = {
-  overview:  'نظرة عامة',
-  contracts: 'العقود',
-  projects:  'المشاريع',
-  invoices:  'الفواتير',
-  activity:  'النشاط',
-  files:     'الملفات',
-  notes:     'ملاحظات',
-};
-
 export function useCustomerActiveTab(): CustomerTabId {
   const searchParams = useSearchParams();
   const raw = searchParams.get('tab') ?? 'overview';
@@ -55,6 +47,8 @@ export function useCustomerActiveTab(): CustomerTabId {
 }
 
 export function CustomerTabs() {
+  const t = useTranslations('crm.customers.tabs');
+  const locale = useLocale() as Locale;
   const router = useRouter();
   const pathname = usePathname();
   const active = useCustomerActiveTab();
@@ -72,11 +66,11 @@ export function CustomerTabs() {
         'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70',
         'border-b border-border',
       )}
-      dir="rtl"
+      dir={dirFor(locale)}
     >
       <nav
         role="tablist"
-        aria-label="أقسام صفحة العميل"
+        aria-label={t('navAria')}
         className="flex gap-1 overflow-x-auto pb-px scrollbar-thin"
       >
         {CUSTOMER_TAB_IDS.map((tab) => {
@@ -97,7 +91,7 @@ export function CustomerTabs() {
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
               )}
             >
-              {TAB_LABEL_AR[tab]}
+              {t(tab)}
             </button>
           );
         })}

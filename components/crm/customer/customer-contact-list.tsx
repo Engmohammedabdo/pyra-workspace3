@@ -16,6 +16,7 @@
  *               deals-at-risk reminder in Phase 8).
  */
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Mail, Phone, MessageCircle } from 'lucide-react';
@@ -27,26 +28,27 @@ interface Props {
   customer: DossierCustomer;
 }
 
-function getInitials(name: string): string {
+function getInitials(name: string, fallback: string): string {
   // Take first letter of first 2 words. Works for both Arabic and Latin.
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? '';
   const second = parts[1]?.[0] ?? '';
-  return (first + second).toUpperCase() || '؟';
+  return (first + second).toUpperCase() || fallback;
 }
 
 export function CustomerContactList({ customer }: Props) {
+  const t = useTranslations('crm.customers.contactList');
   const wa = whatsAppHref(customer.phone);
 
   return (
     <Card className="p-4">
-      <h3 className="text-sm font-semibold mb-3">جهة الاتصال الأساسية</h3>
+      <h3 className="text-sm font-semibold mb-3">{t('heading')}</h3>
 
       {/* Avatar + name */}
       <div className="flex items-center gap-3">
         <Avatar className="size-12 bg-orange-500/10 text-orange-700 dark:text-orange-300">
           <AvatarFallback className="bg-transparent text-sm font-medium">
-            {getInitials(customer.name)}
+            {getInitials(customer.name, t('initialsFallback'))}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0 flex-1">
@@ -81,13 +83,13 @@ export function CustomerContactList({ customer }: Props) {
             href={wa}
             icon={<MessageCircle className="size-4" />}
             tone="emerald"
-            label="فتح محادثة واتساب"
+            label={t('openWhatsApp')}
             external
           />
         )}
         {!customer.email && !customer.phone && (
           <div className="text-xs text-muted-foreground italic">
-            لا توجد بيانات اتصال — أضفها من صفحة الـ Lead
+            {t('empty')}
           </div>
         )}
       </div>

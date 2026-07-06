@@ -25,6 +25,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useLeads } from '@/hooks/useLeads';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,10 +34,13 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Users, Search, ArrowLeft } from 'lucide-react';
 import { formatRelativeDate } from '@/lib/utils/format';
 import { cn } from '@/lib/utils/cn';
+import type { Locale } from '@/lib/i18n/config';
 
 const VISIBLE_LIMIT = 50;
 
 export function CustomersListClient() {
+  const t = useTranslations('crm.customers.list');
+  const locale = useLocale() as Locale;
   const [searchQuery, setSearchQuery] = useState('');
   const { data, isLoading } = useLeads({
     is_converted: 'true',
@@ -62,7 +66,7 @@ export function CustomersListClient() {
       <header>
         <div className="flex items-center gap-2">
           <Users className="size-5 text-muted-foreground" aria-hidden />
-          <h1 className="text-2xl font-bold">العملاء</h1>
+          <h1 className="text-2xl font-bold">{t('heading')}</h1>
           {!isLoading && (
             <span className="text-sm font-normal text-muted-foreground tabular-nums">
               ({all.length})
@@ -70,7 +74,7 @@ export function CustomersListClient() {
           )}
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          العملاء المحوّلين من خط المبيعات. اضغط على عميل لعرض ملف العلاقة الكامل (عقود، مشاريع، صحة العلاقة).
+          {t('subtitle')}
         </p>
       </header>
 
@@ -79,7 +83,7 @@ export function CustomersListClient() {
         <Search className="absolute start-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
         <Input
           type="search"
-          placeholder="ابحث بالاسم أو الشركة أو البريد..."
+          placeholder={t('searchPlaceholder')}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="ps-10"
@@ -107,11 +111,11 @@ export function CustomersListClient() {
         <Card className="p-5">
           <EmptyState
             icon={Users}
-            title="لا يوجد عملاء بعد"
-            description="حوّل عميل محتمل من خط المبيعات إلى عميل دائم وسيظهر هنا."
+            title={t('emptyTitle')}
+            description={t('emptyDescription')}
             actions={[
               {
-                label: 'فتح خط المبيعات',
+                label: t('openPipeline'),
                 variant: 'secondary',
                 onClick: () => {
                   window.location.href = '/dashboard/crm/pipeline';
@@ -124,8 +128,8 @@ export function CustomersListClient() {
         <Card className="p-5">
           <EmptyState
             icon={Search}
-            title="لا توجد نتائج"
-            description={`لم يتم العثور على عملاء يطابقون "${searchQuery}".`}
+            title={t('noResultsTitle')}
+            description={t('noResultsDescription', { query: searchQuery })}
           />
         </Card>
       ) : (
@@ -140,7 +144,7 @@ export function CustomersListClient() {
                     'hover:bg-muted/40 focus:outline-none focus:bg-muted/40 focus:ring-2 focus:ring-orange-500/40',
                   )}
                 >
-                  <Avatar name={lead.name} />
+                  <Avatar name={lead.name} initialsFallback={t('initialsFallback')} />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{lead.name}</div>
                     <div className="text-xs text-muted-foreground truncate">
@@ -149,13 +153,13 @@ export function CustomersListClient() {
                   </div>
                   {lead.assigned_to && (
                     <div className="text-xs text-muted-foreground hidden sm:block">
-                      <span className="text-muted-foreground/70">مسؤول: </span>
+                      <span className="text-muted-foreground/70">{t('assignedTo')}</span>
                       <span className="text-foreground">@{lead.assigned_to}</span>
                     </div>
                   )}
                   {lead.last_contact_at && (
                     <div className="text-xs text-muted-foreground hidden md:block tabular-nums">
-                      {formatRelativeDate(lead.last_contact_at)}
+                      {formatRelativeDate(lead.last_contact_at, locale)}
                     </div>
                   )}
                   <ArrowLeft className="size-4 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0" aria-hidden />
@@ -171,12 +175,12 @@ export function CustomersListClient() {
 
 // ── Avatar ──────────────────────────────────────────────────────────────────
 
-function Avatar({ name }: { name: string }) {
+function Avatar({ name, initialsFallback }: { name: string; initialsFallback: string }) {
   // Take first letter of first 2 words. Works for both Arabic and Latin.
   const parts = name.trim().split(/\s+/).filter(Boolean);
   const first = parts[0]?.[0] ?? '';
   const second = parts[1]?.[0] ?? '';
-  const initials = (first + second).toUpperCase() || '؟';
+  const initials = (first + second).toUpperCase() || initialsFallback;
   return (
     <div className="size-10 rounded-full bg-orange-500/10 text-orange-700 dark:text-orange-300 flex items-center justify-center text-sm font-medium shrink-0">
       {initials}

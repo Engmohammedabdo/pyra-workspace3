@@ -11,6 +11,7 @@
  * during the first load — the parent passes `isLoading` to indicate that.
  */
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Wallet, Repeat, FileText, Briefcase } from 'lucide-react';
@@ -25,13 +26,6 @@ interface Props {
   isLoading?: boolean;
 }
 
-const HEALTH_LABEL_AR: Record<DossierHealthScore['color'], string> = {
-  emerald: 'ممتاز',
-  amber:   'جيد',
-  orange:  'متوسط',
-  red:     'يحتاج اهتمام',
-};
-
 const HEALTH_LABEL_TONE: Record<DossierHealthScore['color'], string> = {
   emerald: 'text-emerald-600 dark:text-emerald-400',
   amber:   'text-amber-600 dark:text-amber-400',
@@ -40,6 +34,8 @@ const HEALTH_LABEL_TONE: Record<DossierHealthScore['color'], string> = {
 };
 
 export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
+  const t = useTranslations('crm.customers.statStrip');
+  const tHealth = useTranslations('crm.customers.health');
   const currency = kpis?.currency ?? 'AED';
 
   return (
@@ -47,29 +43,29 @@ export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
       <StatCard
         icon={<Wallet className="size-5" />}
         tone="orange"
-        label="القيمة الكلية"
+        label={t('totalValue')}
         value={isLoading ? null : (kpis ? formatCurrencyMap(kpis.ltv_by_currency, currency) : '—')}
-        sub="مدفوع تراكميًا"
+        sub={t('totalValueSub')}
       />
       <StatCard
         icon={<Repeat className="size-5" />}
         tone="emerald"
-        label="MRR"
+        label={t('mrr')}
         value={isLoading ? null : (kpis ? formatCurrencyMap(kpis.mrr_by_currency, currency) : '—')}
-        sub="شهريًا"
+        sub={t('mrrSub')}
       />
       <StatCard
         icon={<FileText className="size-5" />}
         tone="indigo"
-        label="العقود"
+        label={t('contracts')}
         value={isLoading ? null : (kpis ? `${kpis.contracts_count}` : '—')}
-        sub={kpis ? `${kpis.active_contracts_count} نشط` : undefined}
+        sub={kpis ? t('activeContractsSub', { count: kpis.active_contracts_count }) : undefined}
         valueIsNumeric
       />
       <StatCard
         icon={<Briefcase className="size-5" />}
         tone="amber"
-        label="المشاريع"
+        label={t('projects')}
         value={isLoading ? null : (kpis ? `${kpis.projects_count}` : '—')}
         valueIsNumeric
       />
@@ -77,12 +73,12 @@ export function CustomerStatStrip({ kpis, health, isLoading = false }: Props) {
       <Card className="p-4">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-xs text-muted-foreground">صحة العميل</div>
+            <div className="text-xs text-muted-foreground">{t('health')}</div>
             {isLoading || !health ? (
               <Skeleton className="h-6 w-20 mt-1" />
             ) : (
               <div className={cn('mt-1 text-base font-semibold', HEALTH_LABEL_TONE[health.color])}>
-                {HEALTH_LABEL_AR[health.color]}
+                {tHealth(health.color)}
               </div>
             )}
             {!isLoading && health && (

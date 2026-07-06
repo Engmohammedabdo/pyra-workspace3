@@ -21,6 +21,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useCustomerDossier } from '@/hooks/useCustomerDossier';
 import { ApiError } from '@/hooks/api-helpers';
 import { CustomerHeader } from '@/components/crm/customer/customer-header';
@@ -42,6 +43,7 @@ interface Props {
 }
 
 export function CustomerDetailClient({ leadId }: Props) {
+  const t = useTranslations('crm.customers.detail');
   const { data: dossier, isLoading, error, refetch } = useCustomerDossier(leadId);
   const activeTab = useCustomerActiveTab();
 
@@ -53,12 +55,12 @@ export function CustomerDetailClient({ leadId }: Props) {
       <div className="py-16">
         <EmptyState
           icon={AlertCircle}
-          title="العميل غير موجود"
-          description="ربما تم حذفه أو ليس لديك صلاحية للوصول."
+          title={t('notFoundTitle')}
+          description={t('notFoundDescription')}
         />
         <div className="text-center mt-4">
           <Button asChild variant="outline">
-            <Link href="/dashboard/crm/pipeline">العودة لخط المبيعات</Link>
+            <Link href="/dashboard/crm/pipeline">{t('backToPipeline')}</Link>
           </Button>
         </div>
       </div>
@@ -72,13 +74,13 @@ export function CustomerDetailClient({ leadId }: Props) {
       <div className="py-16">
         <EmptyState
           icon={AlertCircle}
-          title="تعذّر تحميل بيانات العميل"
-          description="حدث خطأ أثناء جلب البيانات. حاول مرة أخرى."
+          title={t('loadErrorTitle')}
+          description={t('loadErrorDescription')}
         />
         <div className="text-center mt-4 flex items-center justify-center gap-2">
-          <Button variant="outline" onClick={() => refetch()}>إعادة المحاولة</Button>
+          <Button variant="outline" onClick={() => refetch()}>{t('retry')}</Button>
           <Button asChild variant="ghost">
-            <Link href="/dashboard/crm/pipeline">العودة لخط المبيعات</Link>
+            <Link href="/dashboard/crm/pipeline">{t('backToPipeline')}</Link>
           </Button>
         </div>
       </div>
@@ -113,6 +115,8 @@ function TabContent({
   activeTab: string;
   dossier: CustomerDossier | undefined;
 }) {
+  const t = useTranslations('crm.customers.detail');
+
   // While the dossier loads, all tabs share a single skeleton spell —
   // no per-tab skeleton required since each component returns immediately
   // once its slice arrives. We pass null through and individual components
@@ -120,7 +124,7 @@ function TabContent({
   if (!dossier) {
     return (
       <div className="py-16 text-center text-sm text-muted-foreground">
-        جاري تحميل بيانات العميل...
+        {t('loading')}
       </div>
     );
   }
@@ -131,8 +135,8 @@ function TabContent({
       <div className="py-12">
         <EmptyState
           icon={FolderClosed}
-          title="قريباً"
-          description="إدارة ملفات العميل ستضاف في إصدار لاحق."
+          title={t('filesComingSoonTitle')}
+          description={t('filesComingSoonDescription')}
         />
       </div>
     );

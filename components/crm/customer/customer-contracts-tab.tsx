@@ -25,6 +25,7 @@
  *   - Z = kpis.mrr (active retainers normalised to monthly)
  */
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -54,6 +55,7 @@ function sortKey(c: DossierContract): number {
 }
 
 export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
+  const t = useTranslations('crm.customers.contractsTab');
   const { data: user } = useCurrentUser();
   const canManageLead = !!user && hasPermission(user.rolePermissions, 'leads.manage');
 
@@ -63,11 +65,11 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
       <Card className="p-5">
         <EmptyState
           icon={FileText}
-          title="لا توجد عقود مرتبطة بهذا العميل"
+          title={t('emptyTitle')}
           description={
             customer.is_converted
-              ? 'يمكن للمسؤول إنشاء عقد جديد من قسم الفواتير والعقود.'
-              : 'العقود تظهر هنا بعد تحويل العميل المحتمل لعميل دائم وربط العقد به.'
+              ? t('emptyDescriptionConverted')
+              : t('emptyDescriptionUnconverted')
           }
         />
       </Card>
@@ -103,15 +105,15 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
       <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h2 className="text-sm font-semibold">
           <span className="tabular-nums">{contracts.length}</span>{' '}
-          {contracts.length === 1 ? 'عقد' : 'عقود'}
+          {t('count', { count: contracts.length })}
           <span className="text-muted-foreground font-normal mx-2">·</span>
-          <span className="text-muted-foreground font-normal">إجمالي</span>{' '}
+          <span className="text-muted-foreground font-normal">{t('total')}</span>{' '}
           <span className="tabular-nums">{totalContractStr}</span>
           {hasMrr && (
             <>
               <span className="text-muted-foreground font-normal mx-2">+</span>
               <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">
-                متجدد {mrrStr} شهريًا
+                {t('recurring', { amount: mrrStr })}
               </span>
             </>
           )}
@@ -125,11 +127,11 @@ export function CustomerContractsTab({ contracts, kpis, customer }: Props) {
             // lead_id pre-filled. v1 keeps a placeholder consistent with the
             // convert-to-customer button pattern in customer-header.tsx.
             onClick={() =>
-              toast.info('سيتم تفعيل إنشاء عقد جديد مرتبط بالعميل في إصدار قادم.')
+              toast.info(t('newContractToast'))
             }
           >
             <Plus className="size-4 me-1.5" />
-            عقد جديد
+            {t('newContract')}
           </Button>
         )}
       </header>

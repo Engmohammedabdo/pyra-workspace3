@@ -18,6 +18,7 @@ import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,18 +30,16 @@ import {
 import { cn } from '@/lib/utils/cn';
 import { useFollowUps, useCompleteFollowUp, type FollowUp, type FollowUpsResponse } from '@/hooks/useFollowUps';
 import { formatRelativeDate, formatDate } from '@/lib/utils/format';
-import { FOLLOW_UP_STATUS_LABELS, type FollowUpStatus } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 type FilterKey = 'pending' | 'overdue' | 'completed' | 'all';
 
-const FILTERS: Array<{ key: FilterKey; label: string }> = [
-  { key: 'pending',   label: 'قيد الانتظار' },
-  { key: 'overdue',   label: 'متأخرة' },
-  { key: 'completed', label: 'مكتملة' },
-  { key: 'all',       label: 'الكل' },
-];
+const FILTER_KEYS: FilterKey[] = ['pending', 'overdue', 'completed', 'all'];
 
 export function FollowUpsClient() {
+  const t = useTranslations('crm.followUps');
+  const locale = useLocale() as Locale;
   const [filter, setFilter] = useState<FilterKey>('pending');
 
   const queryParams = useMemo(() => {
@@ -57,22 +56,22 @@ export function FollowUpsClient() {
       <header className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <BellRing className="size-6 text-orange-500" /> المتابعات
+            <BellRing className="size-6 text-orange-500" /> {t('heading')}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            متابعات الـ Leads المسندة إليك. اضغط "تمّت" بعد إتمام المتابعة لتسجيلها في تايم لاين الـ Lead.
+            {t('subtitle')}
           </p>
         </div>
       </header>
 
       {/* Filter chips */}
       <div className="flex flex-wrap gap-1.5">
-        {FILTERS.map((f) => {
-          const isActive = f.key === filter;
+        {FILTER_KEYS.map((key) => {
+          const isActive = key === filter;
           return (
             <button
-              key={f.key}
-              onClick={() => setFilter(f.key)}
+              key={key}
+              onClick={() => setFilter(key)}
               className={cn(
                 'inline-flex items-center rounded-full px-3 py-1 text-xs font-medium border transition-colors',
                 isActive
@@ -80,7 +79,7 @@ export function FollowUpsClient() {
                   : 'bg-muted/40 text-muted-foreground border-border hover:bg-muted',
               )}
             >
-              {f.label}
+              {t(`filters.${key}`)}
               {isActive && data?.total !== undefined && (
                 <span className="ms-1.5 rounded-full bg-background/20 px-1.5 text-[10px] tabular-nums">
                   {data.total}
@@ -102,21 +101,21 @@ export function FollowUpsClient() {
           icon={BellRing}
           title={
             filter === 'pending'
-              ? 'لا توجد متابعات قيد الانتظار'
+              ? t('emptyTitlePending')
               : filter === 'completed'
-                ? 'لا توجد متابعات مكتملة بعد'
-                : 'لا توجد متابعات'
+                ? t('emptyTitleCompleted')
+                : t('emptyTitleOther')
           }
           description={
             filter === 'pending'
-              ? 'تقدر تجدول متابعة من زر "متابعة" في صفحة أي Lead.'
-              : 'استخدم الفلاتر بالأعلى للتنقل بين الحالات.'
+              ? t('emptyDescriptionPending')
+              : t('emptyDescriptionOther')
           }
         />
       ) : (
         <ul className="space-y-2">
           {followUps.map((fu) => (
-            <FollowUpRow key={fu.id} followUp={fu} />
+            <FollowUpRow key={fu.id} followUp={fu} locale={locale} />
           ))}
         </ul>
       )}
@@ -126,7 +125,8 @@ export function FollowUpsClient() {
 
 // ── Single row with optimistic complete ────────────────────────────────
 
-function FollowUpRow({ followUp }: { followUp: FollowUp }) {
+function FollowUpRow({ followUp, locale }: { followUp: FollowUp; locale: Locale }) {
+  const t = useTranslations('crm.followUps');
   const qc = useQueryClient();
   const complete = useCompleteFollowUp();
   // 'overdue' is a live not-done state (the check-due cron flips due-past
@@ -153,11 +153,11 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
 
     try {
       await complete.mutateAsync({ id });
-      toast.success('تمّت المتابعة');
+      toast.success(t('completeSuccess'));
     } catch (err) {
       console.error('Complete follow-up failed:', err);
       for (const [key, data] of snapshots) qc.setQueryData(key, data);
-      toast.error('فشل إكمال المتابعة');
+      toast.error(t('completeError'));
     }
   }
 
@@ -171,7 +171,7 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
         <div className="flex flex-col md:flex-row md:items-start md:gap-4">
           <div className="flex-1 min-w-0 space-y-1.5">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-semibold leading-5">{followUp.title ?? 'متابعة'}</h3>
+              <h3 className="text-sm font-semibold leading-5">{followUp.title ?? t('titleFallback')}</h3>
               <FollowUpStatusBadge status={followUp.status} overdue={isOverdue} />
             </div>
 
@@ -181,19 +181,19 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
                   href={`/dashboard/crm/leads/${followUp.lead_id}`}
                   className="text-orange-600 dark:text-orange-400 hover:underline font-medium"
                 >
-                  {followUp.lead_name ?? 'Lead'}
+                  {followUp.lead_name ?? t('leadFallback')}
                 </Link>
                 {followUp.lead_company && <span> · {followUp.lead_company}</span>}
                 {followUp.assigned_display_name && (
-                  <span className="ms-2 text-muted-foreground/70">للـ {followUp.assigned_display_name}</span>
+                  <span className="ms-2 text-muted-foreground/70">{t('forName', { name: followUp.assigned_display_name })}</span>
                 )}
               </p>
             )}
 
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
               <CalendarClock className="size-3.5" />
-              <span title={formatDate(followUp.due_at, 'eeee dd-MM-yyyy HH:mm')}>
-                {formatRelativeDate(followUp.due_at)}
+              <span title={formatDate(followUp.due_at, 'eeee dd-MM-yyyy HH:mm', locale)}>
+                {formatRelativeDate(followUp.due_at, locale)}
               </span>
             </div>
 
@@ -207,7 +207,7 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
           <div className="mt-3 md:mt-0 flex items-center gap-2 shrink-0">
             {followUp.lead_phone && (
               <>
-                <Button asChild variant="outline" size="sm" className="size-8 p-0" title="اتصال">
+                <Button asChild variant="outline" size="sm" className="size-8 p-0" title={t('callTitle')}>
                   <a href={`tel:${followUp.lead_phone}`}><Phone className="size-3.5" /></a>
                 </Button>
                 <Button
@@ -239,7 +239,7 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
                 ) : (
                   <Check className="size-3.5" />
                 )}
-                تمّت المتابعة
+                {t('complete')}
               </Button>
             )}
           </div>
@@ -250,10 +250,13 @@ function FollowUpRow({ followUp }: { followUp: FollowUp }) {
 }
 
 function FollowUpStatusBadge({ status, overdue }: { status: FollowUp['status']; overdue: boolean }) {
+  const t = useTranslations('crm.followUps');
+  const statusLabelFor = useStatusLabels('followUp');
+
   if (overdue) {
     return (
       <Badge variant="outline" className="bg-red-500/10 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800/40">
-        متأخرة
+        {t('overdueBadge')}
       </Badge>
     );
   }
@@ -262,8 +265,7 @@ function FollowUpStatusBadge({ status, overdue }: { status: FollowUp['status']; 
     : status === 'cancelled' ? 'bg-stone-500/10 text-stone-700 dark:text-stone-300 border-stone-200 dark:border-stone-700/40'
     : 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/40';
 
-  const label =
-    FOLLOW_UP_STATUS_LABELS[status as FollowUpStatus] ?? status;
+  const label = statusLabelFor(status);
 
   return <Badge variant="outline" className={tone}>{label}</Badge>;
 }

@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import { CustomerDetailClient } from './customer-detail-client';
 
-export const metadata: Metadata = {
-  title: 'تفاصيل العميل — Pyra',
-  description: 'الصفحة النشطة لعميل CRM — العقود، المشاريع، الفواتير، صحة العلاقة',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('crm.customers.detail');
+  return { title: t('meta.title'), description: t('meta.description') };
+}
 
 export default async function CrmCustomerDetailPage({
   params,

@@ -28,10 +28,13 @@
  */
 
 import Link from 'next/link';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils/cn';
 import { ContractBillingHistory } from './contract-billing-history';
 import { ContractMilestones } from './contract-milestones';
@@ -53,43 +56,32 @@ function monthsBetween(from: Date, to: string | null): number | null {
   return Math.max(diff, 0);
 }
 
-function durationLabel(start: string | null, end: string | null): string {
-  if (!start || !end) return '—';
+function monthsBetweenDates(start: string | null, end: string | null): number | null {
+  if (!start || !end) return null;
   const startDate = new Date(start);
   const endDate = new Date(end);
-  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return '—';
-  const months =
+  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) return null;
+  return (
     (endDate.getFullYear() - startDate.getFullYear()) * 12 +
-    (endDate.getMonth() - startDate.getMonth());
-  if (months === 0) return 'أقل من شهر';
-  if (months === 1) return 'شهر واحد';
-  if (months === 2) return 'شهران';
-  if (months <= 10) return `${months} أشهر`;
-  return `${months} شهر`;
+    (endDate.getMonth() - startDate.getMonth())
+  );
 }
-
-const STATUS_LABEL_AR: Record<string, string> = {
-  active:        'نشط',
-  in_progress:   'جاري',
-  completed:     'مكتمل',
-  paused:        'متوقف',
-  cancelled:     'ملغى',
-  draft:         'مسودة',
-  expired:       'منتهي',
-};
 
 // ── Type / status badge ─────────────────────────────────────────────────────
 
 function ContractTypeBadge({ contract }: { contract: DossierContract }) {
+  const t = useTranslations('crm.contracts.card');
+  const statusLabelFor = useStatusLabels('crmContract');
+
   const label = (() => {
-    if (contract.type === 'retainer' && contract.status === 'active') return '✓ احتفاظ نشط';
-    if (contract.type === 'project'  && contract.status === 'in_progress') return '🚧 مشروع جاري';
-    if (contract.status === 'completed') return '✓ مكتمل';
-    if (contract.status === 'paused')    return '⏸ متوقف';
-    if (contract.status === 'cancelled') return '✕ ملغى';
-    if (contract.type === 'retainer') return `احتفاظ · ${STATUS_LABEL_AR[contract.status ?? ''] ?? contract.status ?? '—'}`;
-    if (contract.type === 'project')  return `مشروع · ${STATUS_LABEL_AR[contract.status ?? ''] ?? contract.status ?? '—'}`;
-    return STATUS_LABEL_AR[contract.status ?? ''] ?? contract.status ?? '—';
+    if (contract.type === 'retainer' && contract.status === 'active') return t('activeRetainerBadge');
+    if (contract.type === 'project'  && contract.status === 'in_progress') return t('inProgressProjectBadge');
+    if (contract.status === 'completed') return t('completedBadge');
+    if (contract.status === 'paused')    return t('pausedBadge');
+    if (contract.status === 'cancelled') return t('cancelledBadge');
+    if (contract.type === 'retainer') return t('retainerStatus', { status: statusLabelFor(contract.status ?? '') || '—' });
+    if (contract.type === 'project')  return t('projectStatus', { status: statusLabelFor(contract.status ?? '') || '—' });
+    return statusLabelFor(contract.status ?? '') || '—';
   })();
 
   const tone = (() => {
@@ -131,6 +123,9 @@ function Stats4({ cells }: { cells: StatCell[] }) {
 // ── Main card ──────────────────────────────────────────────────────────────
 
 export function ContractCard({ contract }: Props) {
+  const t = useTranslations('crm.contracts.card');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('crmContract');
   const isActiveRetainer    = contract.type === 'retainer' && contract.status === 'active';
   const isInProgressProject = contract.type === 'project'  && contract.status === 'in_progress';
   const isCompleted         = contract.status === 'completed';
@@ -142,26 +137,27 @@ export function ContractCard({ contract }: Props) {
     if (contract.type === 'retainer') {
       const remainingMonths = monthsBetween(today, contract.end_date);
       return [
-        { label: 'القيمة الشهرية',  value: formatCurrency(contract.retainer_amount, currency ?? 'AED') },
-        { label: 'إجمالي مدفوع',    value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
-        { label: 'متبقي للنهاية',   value: remainingMonths != null ? `${remainingMonths} شهر` : '—' },
-        { label: 'تاريخ الانتهاء',  value: contract.end_date ? formatDate(contract.end_date, 'd MMM yyyy') : '—' },
+        { label: t('monthlyValue'),  value: formatCurrency(contract.retainer_amount, currency ?? 'AED') },
+        { label: t('totalPaid'),    value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
+        { label: t('remainingToEnd'),   value: remainingMonths != null ? t('remainingMonths', { months: remainingMonths }) : '—' },
+        { label: t('endDate'),  value: contract.end_date ? formatDate(contract.end_date, 'd MMM yyyy', locale) : '—' },
       ];
     }
     if (contract.type === 'project') {
       return [
-        { label: 'القيمة الإجمالية', value: formatCurrency(contract.total_value, currency ?? 'AED') },
-        { label: 'مدفوع',            value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
-        { label: 'متبقي',            value: formatCurrency(contract.kpis.remaining, currency ?? 'AED') },
-        { label: 'المراحل',          value: `${contract.kpis.milestones_completed}/${contract.kpis.milestones_total}` },
+        { label: t('totalValue'), value: formatCurrency(contract.total_value, currency ?? 'AED') },
+        { label: t('paid'),            value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
+        { label: t('remaining'),            value: formatCurrency(contract.kpis.remaining, currency ?? 'AED') },
+        { label: t('milestones'),          value: `${contract.kpis.milestones_completed}/${contract.kpis.milestones_total}` },
       ];
     }
     // one-off / other
+    const months = monthsBetweenDates(contract.start_date, contract.end_date);
     return [
-      { label: 'القيمة',     value: formatCurrency(contract.total_value, currency ?? 'AED') },
-      { label: 'مدفوع',      value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
-      { label: 'مدة العقد',  value: durationLabel(contract.start_date, contract.end_date) },
-      { label: 'الحالة',     value: STATUS_LABEL_AR[contract.status ?? ''] ?? contract.status ?? '—' },
+      { label: t('value'),     value: formatCurrency(contract.total_value, currency ?? 'AED') },
+      { label: t('paid'),      value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
+      { label: t('durationLabel'),  value: months == null ? '—' : months === 0 ? t('durationLessThanMonth') : t('durationMonths', { months }) },
+      { label: t('status'),     value: statusLabelFor(contract.status ?? '') || '—' },
     ];
   })();
 
@@ -177,13 +173,13 @@ export function ContractCard({ contract }: Props) {
       {/* Header row */}
       <header className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold truncate">{contract.title ?? 'عقد بدون عنوان'}</h3>
+          <h3 className="text-sm font-semibold truncate">{contract.title ?? t('untitledContract')}</h3>
           <ContractTypeBadge contract={contract} />
         </div>
         <Button asChild variant="outline" size="sm" className="shrink-0">
           <Link href={`/dashboard/finance/contracts/${contract.id}`}>
             <ExternalLink className="size-3.5 me-1.5" />
-            عرض العقد
+            {t('viewContract')}
           </Link>
         </Button>
       </header>

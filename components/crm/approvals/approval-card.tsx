@@ -31,6 +31,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,8 @@ import { CheckCircle2, XCircle, FileSignature, Receipt, ExternalLink, Loader2, W
 import { cn } from '@/lib/utils/cn';
 import { hasPermission } from '@/lib/auth/rbac';
 import { formatCurrency, formatRelativeDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import {
   useApproveCloseLeadWin,
   useRejectCloseLeadWin,
@@ -65,12 +68,15 @@ interface PendingMetadata {
   attachment_label?: string | null;
 }
 
-function initials(name: string): string {
+function initials(name: string, fallback: string): string {
   const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
+  return parts.map((p) => p[0]?.toUpperCase() ?? '').join('') || fallback;
 }
 
 export function ApprovalCard({ approval }: ApprovalCardProps) {
+  const t = useTranslations('crm.approvals.card');
+  const locale = useLocale() as Locale;
+  const dealTypeLabelFor = useStatusLabels('leadDealType');
   const qc = useQueryClient();
   const { data: me } = useCurrentUser();
   const approve = useApproveCloseLeadWin();
@@ -127,11 +133,11 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
     const snapshots = await applyOptimistic();
     try {
       await approve.mutateAsync({ lead_id: approval.id });
-      toast.success('تم اعتماد الصفقة');
+      toast.success(t('approveSuccess'));
     } catch (err) {
       console.error('Approve failed:', err);
       rollback(snapshots);
-      toast.error('فشل الاعتماد');
+      toast.error(t('approveError'));
     }
   }
 
@@ -140,11 +146,11 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
     const snapshots = await applyOptimistic();
     try {
       await reject.mutateAsync({ lead_id: approval.id, reason });
-      toast.success('تم رفض الصفقة وإعادتها لمرحلة التفاوض');
+      toast.success(t('rejectSuccess'));
     } catch (err) {
       console.error('Reject failed:', err);
       rollback(snapshots);
-      toast.error('فشل الرفض');
+      toast.error(t('rejectError'));
     }
   }
 
@@ -162,11 +168,11 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
               variant="outline"
               className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800/40"
             >
-              بانتظار اعتمادك
+              {t('pendingBadge')}
             </Badge>
             {approval.deal_type && (
-              <Badge variant="outline" className="bg-muted/50 capitalize">
-                {approval.deal_type}
+              <Badge variant="outline" className="bg-muted/50">
+                {dealTypeLabelFor(approval.deal_type)}
               </Badge>
             )}
           </div>
@@ -191,9 +197,9 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
                 title={approval.assigned_display_name ?? approval.assigned_to ?? ''}
                 aria-hidden
               >
-                {initials(approval.assigned_display_name ?? approval.assigned_to ?? '?')}
+                {initials(approval.assigned_display_name ?? approval.assigned_to ?? '?', t('initialsFallback'))}
               </span>
-              <span>المسؤول: {approval.assigned_display_name ?? approval.assigned_to}</span>
+              <span>{t('assignedTo', { name: approval.assigned_display_name ?? approval.assigned_to ?? '' })}</span>
             </div>
           </div>
 
@@ -201,7 +207,7 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
           {attachment?.id && attachmentLabel && (
             <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
               <AttachmentIcon className="size-4 text-orange-500 shrink-0" />
-              <span className="text-xs text-muted-foreground">المرفق:</span>
+              <span className="text-xs text-muted-foreground">{t('attachmentLabel')}</span>
               {canViewAttachment && attachmentHref ? (
                 <Link
                   href={attachmentHref}
@@ -219,10 +225,10 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
           {/* Requestor + timestamp */}
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <User className="size-3.5" />
-            <span>طلب الاعتماد:</span>
-            <span className="font-medium text-foreground">{requestedBy ?? 'غير معروف'}</span>
+            <span>{t('requestedBy')}</span>
+            <span className="font-medium text-foreground">{requestedBy ?? t('unknown')}</span>
             <span>·</span>
-            <span title={requestedAt}>{formatRelativeDate(requestedAt)}</span>
+            <span title={requestedAt}>{formatRelativeDate(requestedAt, locale)}</span>
           </div>
         </div>
 
@@ -241,7 +247,7 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
             ) : (
               <CheckCircle2 className="size-4" />
             )}
-            اعتماد
+            {t('approve')}
           </Button>
           <Button
             variant="outline"
@@ -250,7 +256,7 @@ export function ApprovalCard({ approval }: ApprovalCardProps) {
             className="flex-1 md:flex-none gap-1.5 text-red-600 dark:text-red-400 hover:bg-red-500/10 hover:text-red-700 dark:hover:text-red-300 border-red-200 dark:border-red-800/40"
           >
             <XCircle className="size-4" />
-            رفض
+            {t('reject')}
           </Button>
         </div>
       </div>

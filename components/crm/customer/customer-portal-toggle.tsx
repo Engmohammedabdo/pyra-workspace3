@@ -20,6 +20,7 @@
  */
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Shield, ShieldOff } from 'lucide-react';
@@ -35,6 +36,7 @@ interface Props {
 }
 
 export function CustomerPortalToggle({ customer }: Props) {
+  const t = useTranslations('crm.customers.portalToggle');
   const { data: user } = useCurrentUser();
   const canManage = !!user && hasPermission(user.rolePermissions, 'leads.manage');
   const mutation = useUpdatePortalAccess(customer.id);
@@ -55,14 +57,14 @@ export function CustomerPortalToggle({ customer }: Props) {
         onSuccess: () => {
           toast.success(
             next
-              ? 'تم تفعيل وصول البورتال'
-              : 'تم إيقاف وصول البورتال',
+              ? t('enableSuccess')
+              : t('disableSuccess'),
           );
           setOptimistic(null); // Server response will land via dossier refetch
         },
         onError: (err) => {
           setOptimistic(null); // revert
-          toast.error(err.message || 'فشل تحديث وصول البورتال');
+          toast.error(err.message || t('updateError'));
         },
       },
     );
@@ -84,11 +86,11 @@ export function CustomerPortalToggle({ customer }: Props) {
           {checked ? <Shield className="size-5" /> : <ShieldOff className="size-5" />}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold">وصول بوابة العميل</h3>
+          <h3 className="text-sm font-semibold">{t('heading')}</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
             {checked
-              ? 'العميل يمكنه الدخول للبوابة ومتابعة مشاريعه وفواتيره.'
-              : 'العميل لا يستطيع الدخول للبوابة حاليًا.'}
+              ? t('enabledHint')
+              : t('disabledHint')}
           </p>
         </div>
       </div>
@@ -96,7 +98,7 @@ export function CustomerPortalToggle({ customer }: Props) {
         checked={checked}
         onCheckedChange={handleChange}
         disabled={mutation.isPending}
-        aria-label="تفعيل وصول البورتال"
+        aria-label={t('switchAria')}
       />
     </Card>
   );

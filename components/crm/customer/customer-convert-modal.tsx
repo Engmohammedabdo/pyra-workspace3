@@ -24,6 +24,7 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -56,6 +57,8 @@ interface Props {
 // requires 8.
 
 export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
+  const t = useTranslations('crm.customers.convertModal');
+  const tCommon = useTranslations('common.actions');
   const mutation = useConvertToCustomer(customer.id);
 
   const [email, setEmail] = useState('');
@@ -93,13 +96,13 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
         onSuccess: (data) => {
           toast.success(
             data.created
-              ? 'تم تحويل العميل بنجاح'
-              : 'العميل محوّل مسبقًا — تم تحديث الصفحة',
+              ? t('convertSuccess')
+              : t('alreadyConverted'),
           );
           onOpenChange(false);
         },
         onError: (err) => {
-          toast.error(err.message || 'فشل تحويل العميل');
+          toast.error(err.message || t('convertError'));
         },
       },
     );
@@ -109,17 +112,16 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>تحويل العميل المحتمل لعميل دائم</DialogTitle>
+          <DialogTitle>{t('title')}</DialogTitle>
           <DialogDescription>
-            ينشئ سجل عميل في نظام البورتال ويربطه بهذا الـ Lead. يتطلب أن
-            يكون الـ Lead في مرحلة <span className="font-medium">stg_closed_won</span> ومُعتمدًا.
+            {t('description', { stage: 'stg_closed_won' })}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email */}
           <div className="space-y-1.5">
-            <Label htmlFor="convert-email">البريد الإلكتروني *</Label>
+            <Label htmlFor="convert-email">{t('emailLabel')}</Label>
             <Input
               id="convert-email"
               type="email"
@@ -131,13 +133,13 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
               placeholder="client@example.com"
             />
             <p className="text-xs text-muted-foreground">
-              يستخدمه العميل للدخول للبوابة (لو فعّلتها).
+              {t('emailHint')}
             </p>
           </div>
 
           {/* Primary contact name */}
           <div className="space-y-1.5">
-            <Label htmlFor="convert-contact-name">اسم جهة الاتصال (اختياري)</Label>
+            <Label htmlFor="convert-contact-name">{t('contactNameLabel')}</Label>
             <Input
               id="convert-contact-name"
               value={contactName}
@@ -155,12 +157,10 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
             />
             <div className="flex-1 -mt-0.5">
               <Label htmlFor="convert-portal" className="cursor-pointer">
-                إنشاء حساب بورتال للعميل
+                {t('createPortalLabel')}
               </Label>
               <p className="text-xs text-muted-foreground mt-1">
-                لو مفعّل، هتحتاج تشارك بيانات الدخول (الإيميل + كلمة المرور)
-                مع العميل خارج النظام (واتساب / إيميل). البريد الترحيبي
-                التلقائي مش متاح في v1.
+                {t('createPortalHint')}
               </p>
             </div>
           </div>
@@ -169,7 +169,7 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
           {createPortalAccess && (
             <div className="space-y-1.5">
               <Label htmlFor="convert-password">
-                كلمة المرور * <span className="text-muted-foreground">{`(${PASSWORD_MIN_LENGTH} أحرف على الأقل)`}</span>
+                {t('passwordLabel')} <span className="text-muted-foreground">{t('passwordHint', { min: PASSWORD_MIN_LENGTH })}</span>
               </Label>
               <Input
                 id="convert-password"
@@ -192,14 +192,14 @@ export function CustomerConvertModal({ customer, open, onOpenChange }: Props) {
               onClick={() => onOpenChange(false)}
               disabled={mutation.isPending}
             >
-              إلغاء
+              {tCommon('cancel')}
             </Button>
             <Button
               type="submit"
               disabled={!canSubmit}
               className="bg-orange-500 hover:bg-orange-600 text-white"
             >
-              {mutation.isPending ? 'جاري التحويل...' : 'تحويل العميل'}
+              {mutation.isPending ? t('submitting') : t('submit')}
             </Button>
           </DialogFooter>
         </form>

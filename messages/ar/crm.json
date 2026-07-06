@@ -657,6 +657,243 @@
         "restoreError": "فشل الاسترجاع",
         "restore": "استرجاع"
       }
+    },
+    "customers": {
+      "list": {
+        "meta": { "title": "العملاء — Pyra", "description": "قائمة العملاء المحوّلين من CRM" },
+        "heading": "العملاء",
+        "subtitle": "العملاء المحوّلين من خط المبيعات. اضغط على عميل لعرض ملف العلاقة الكامل (عقود، مشاريع، صحة العلاقة).",
+        "searchPlaceholder": "ابحث بالاسم أو الشركة أو البريد...",
+        "emptyTitle": "لا يوجد عملاء بعد",
+        "emptyDescription": "حوّل عميل محتمل من خط المبيعات إلى عميل دائم وسيظهر هنا.",
+        "openPipeline": "فتح خط المبيعات",
+        "noResultsTitle": "لا توجد نتائج",
+        "noResultsDescription": "لم يتم العثور على عملاء يطابقون \"{query}\".",
+        "assignedTo": "مسؤول: ",
+        "initialsFallback": "؟"
+      },
+      "detail": {
+        "meta": { "title": "تفاصيل العميل — Pyra", "description": "الصفحة النشطة لعميل CRM — العقود، المشاريع، الفواتير، صحة العلاقة" },
+        "notFoundTitle": "العميل غير موجود",
+        "notFoundDescription": "ربما تم حذفه أو ليس لديك صلاحية للوصول.",
+        "backToPipeline": "العودة لخط المبيعات",
+        "loadErrorTitle": "تعذّر تحميل بيانات العميل",
+        "loadErrorDescription": "حدث خطأ أثناء جلب البيانات. حاول مرة أخرى.",
+        "retry": "إعادة المحاولة",
+        "loading": "جاري تحميل بيانات العميل...",
+        "filesComingSoonTitle": "قريباً",
+        "filesComingSoonDescription": "إدارة ملفات العميل ستضاف في إصدار لاحق."
+      },
+      "header": {
+        "closedWonBadge": "✓ فائز ومُعتمد",
+        "assignedTo": "مسؤول: ",
+        "edit": "تعديل",
+        "convert": "تحويل لعميل",
+        "portalActive": "البورتال نشط",
+        "portalDisabled": "البورتال معطل"
+      },
+      "statStrip": {
+        "totalValue": "القيمة الكلية",
+        "totalValueSub": "مدفوع تراكميًا",
+        "mrr": "MRR",
+        "mrrSub": "شهريًا",
+        "contracts": "العقود",
+        "activeContractsSub": "{count} نشط",
+        "projects": "المشاريع",
+        "health": "صحة العميل"
+      },
+      "health": {
+        "emerald": "ممتاز",
+        "amber": "جيد",
+        "orange": "متوسط",
+        "red": "يحتاج اهتمام",
+        "ringAria": "درجة الصحة {score} من 100"
+      },
+      "tabs": {
+        "overview": "نظرة عامة",
+        "contracts": "العقود",
+        "projects": "المشاريع",
+        "invoices": "الفواتير",
+        "activity": "النشاط",
+        "files": "الملفات",
+        "notes": "ملاحظات",
+        "navAria": "أقسام صفحة العميل"
+      },
+      "contractsTab": {
+        "emptyTitle": "لا توجد عقود مرتبطة بهذا العميل",
+        "emptyDescriptionConverted": "يمكن للمسؤول إنشاء عقد جديد من قسم الفواتير والعقود.",
+        "emptyDescriptionUnconverted": "العقود تظهر هنا بعد تحويل العميل المحتمل لعميل دائم وربط العقد به.",
+        "count": "{count, plural, one {عقد} other {عقود}}",
+        "total": "إجمالي",
+        "recurring": "متجدد {amount} شهريًا",
+        "newContractToast": "سيتم تفعيل إنشاء عقد جديد مرتبط بالعميل في إصدار قادم.",
+        "newContract": "عقد جديد"
+      },
+      "overview": {
+        "notesHeading": "الملاحظات",
+        "viewAll": "عرض الكل",
+        "emptyNotes": "لا توجد ملاحظات بعد. أضفها من صفحة الـ Lead.",
+        "keyInfoHeading": "معلومات أساسية",
+        "dealType": "نوع الصفقة",
+        "source": "المصدر",
+        "winProbability": "احتمال الفوز",
+        "createdAt": "تاريخ الإنشاء",
+        "convertedAt": "تاريخ التحويل لعميل",
+        "lastContact": "آخر تواصل"
+      },
+      "sources": {
+        "manual": "إدخال يدوي",
+        "whatsapp": "واتساب",
+        "website": "الموقع",
+        "referral": "إحالة",
+        "cold_outreach": "تواصل بارد",
+        "social": "سوشيال ميديا",
+        "crm_conversion": "تحويل من CRM"
+      },
+      "contactList": {
+        "initialsFallback": "؟",
+        "heading": "جهة الاتصال الأساسية",
+        "openWhatsApp": "فتح محادثة واتساب",
+        "empty": "لا توجد بيانات اتصال — أضفها من صفحة الـ Lead"
+      },
+      "convertModal": {
+        "convertSuccess": "تم تحويل العميل بنجاح",
+        "alreadyConverted": "العميل محوّل مسبقًا — تم تحديث الصفحة",
+        "convertError": "فشل تحويل العميل",
+        "title": "تحويل العميل المحتمل لعميل دائم",
+        "description": "ينشئ سجل عميل في نظام البورتال ويربطه بهذا الـ Lead. يتطلب أن يكون الـ Lead في مرحلة {stage} ومُعتمدًا.",
+        "emailLabel": "البريد الإلكتروني *",
+        "emailHint": "يستخدمه العميل للدخول للبوابة (لو فعّلتها).",
+        "contactNameLabel": "اسم جهة الاتصال (اختياري)",
+        "createPortalLabel": "إنشاء حساب بورتال للعميل",
+        "createPortalHint": "لو مفعّل، هتحتاج تشارك بيانات الدخول (الإيميل + كلمة المرور) مع العميل خارج النظام (واتساب / إيميل). البريد الترحيبي التلقائي قريباً.",
+        "passwordLabel": "كلمة المرور *",
+        "passwordHint": "({min} أحرف على الأقل)",
+        "submitting": "جاري التحويل...",
+        "submit": "تحويل العميل"
+      },
+      "invoicesTab": {
+        "emptyTitle": "لا توجد فواتير بعد",
+        "emptyDescription": "بعد تحويل العميل المحتمل لعميل دائم وإنشاء عقد، الفواتير ستظهر في صفحة الفواتير وفي تبويب العقود هنا.",
+        "manageTitle": "إدارة الفواتير تتم في صفحة الفواتير",
+        "manageDescription": "افتح صفحة الفواتير المفلترة لهذا العميل. تبويب العقود هنا يعرض الفواتير المرتبطة بكل عقد على حدة.",
+        "openInvoices": "فتح صفحة الفواتير"
+      },
+      "notesTab": {
+        "emptyTitle": "لا توجد ملاحظات",
+        "emptyDescription": "أضف ملاحظات من صفحة الـ Lead — سيتم عرضها هنا.",
+        "openLead": "فتح صفحة الـ Lead",
+        "heading": "ملاحظات",
+        "editInLead": "تعديل في صفحة الـ Lead"
+      },
+      "projectsTab": {
+        "emptyTitle": "لا توجد مشاريع بعد",
+        "emptyDescription": "بعد تحويل العميل المحتمل لعميل دائم، يمكنك ربط المشاريع به وستظهر هنا.",
+        "manageTitle": "إدارة المشاريع تتم في صفحة المشاريع",
+        "manageDescription": "افتح صفحة المشاريع المفلترة لهذا العميل لرؤية كل المشاريع المرتبطة.",
+        "openProjects": "فتح صفحة المشاريع"
+      },
+      "portalToggle": {
+        "enableSuccess": "تم تفعيل وصول البورتال",
+        "disableSuccess": "تم إيقاف وصول البورتال",
+        "updateError": "فشل تحديث وصول البورتال",
+        "heading": "وصول بوابة العميل",
+        "enabledHint": "العميل يمكنه الدخول للبوابة ومتابعة مشاريعه وفواتيره.",
+        "disabledHint": "العميل لا يستطيع الدخول للبوابة حاليًا.",
+        "switchAria": "تفعيل وصول البورتال"
+      }
+    },
+    "followUps": {
+      "meta": { "title": "المتابعات — Pyra" },
+      "filters": {
+        "pending": "قيد الانتظار",
+        "overdue": "متأخرة",
+        "completed": "مكتملة",
+        "all": "الكل"
+      },
+      "heading": "المتابعات",
+      "subtitle": "متابعات الـ Leads المسندة إليك. اضغط \"تمّت\" بعد إتمام المتابعة لتسجيلها في تايم لاين الـ Lead.",
+      "emptyTitlePending": "لا توجد متابعات قيد الانتظار",
+      "emptyTitleCompleted": "لا توجد متابعات مكتملة بعد",
+      "emptyTitleOther": "لا توجد متابعات",
+      "emptyDescriptionPending": "تقدر تجدول متابعة من زر \"متابعة\" في صفحة أي Lead.",
+      "emptyDescriptionOther": "استخدم الفلاتر بالأعلى للتنقل بين الحالات.",
+      "completeSuccess": "تمّت المتابعة",
+      "completeError": "فشل إكمال المتابعة",
+      "titleFallback": "متابعة",
+      "leadFallback": "Lead",
+      "forName": "للـ {name}",
+      "callTitle": "اتصال",
+      "complete": "تمّت المتابعة",
+      "overdueBadge": "متأخرة"
+    },
+    "approvals": {
+      "meta": { "title": "اعتمادات تنتظرك — Pyra" },
+      "heading": "اعتمادات تنتظرك",
+      "subtitle": "صفقات في مرحلة \"تم توقيع العقد\" بانتظار اعتمادك. الاعتماد يحوّلها إلى \"فوز بالصفقة\". الرفض يعيدها إلى \"تفاوض\" مع تسجيل السبب في تايم لاين الـ Lead.",
+      "emptyTitle": "لا توجد طلبات اعتماد قيد الانتظار",
+      "emptyDescription": "ستظهر هنا الصفقات التي تنتقل إلى مرحلة 'تم توقيع العقد' من قِبَل المندوبين.",
+      "card": {
+        "approveSuccess": "تم اعتماد الصفقة",
+        "approveError": "فشل الاعتماد",
+        "rejectSuccess": "تم رفض الصفقة وإعادتها لمرحلة التفاوض",
+        "rejectError": "فشل الرفض",
+        "pendingBadge": "بانتظار اعتمادك",
+        "assignedTo": "المسؤول: {name}",
+        "attachmentLabel": "المرفق:",
+        "requestedBy": "طلب الاعتماد:",
+        "unknown": "غير معروف",
+        "approve": "اعتماد",
+        "reject": "رفض",
+        "initialsFallback": "؟"
+      },
+      "rejectModal": {
+        "title": "رفض إغلاق الصفقة",
+        "description": " — ستعود الصفقة إلى مرحلة \"تفاوض\" وسيتلقى المندوب إشعاراً بسبب الرفض.",
+        "reasonLabel": "سبب الرفض",
+        "reasonPlaceholder": "مثلاً: السعر النهائي مش مطابق لسياسة التسعير، نحتاج خصم أقل / المنافس وافق بشروط أحسن، حاول تفاوض ثاني...",
+        "minChars": "{count} / {min} حرف على الأقل",
+        "confirm": "تأكيد الرفض"
+      }
+    },
+    "contracts": {
+      "card": {
+        "durationLessThanMonth": "أقل من شهر",
+        "durationMonths": "{months, plural, one {شهر واحد} two {شهران} few {# أشهر} many {# شهر} other {# شهر}}",
+        "activeRetainerBadge": "✓ احتفاظ نشط",
+        "inProgressProjectBadge": "🚧 مشروع جاري",
+        "completedBadge": "✓ مكتمل",
+        "pausedBadge": "⏸ متوقف",
+        "cancelledBadge": "✕ ملغى",
+        "retainerStatus": "احتفاظ · {status}",
+        "projectStatus": "مشروع · {status}",
+        "monthlyValue": "القيمة الشهرية",
+        "totalPaid": "إجمالي مدفوع",
+        "remainingToEnd": "متبقي للنهاية",
+        "remainingMonths": "{months, plural, one {شهر واحد} two {شهران} few {# أشهر} many {# شهر} other {# شهر}}",
+        "endDate": "تاريخ الانتهاء",
+        "totalValue": "القيمة الإجمالية",
+        "paid": "مدفوع",
+        "remaining": "متبقي",
+        "milestones": "المراحل",
+        "value": "القيمة",
+        "durationLabel": "مدة العقد",
+        "status": "الحالة",
+        "untitledContract": "عقد بدون عنوان",
+        "viewContract": "عرض العقد"
+      },
+      "milestones": {
+        "heading": "مراحل المشروع",
+        "overdue": "متأخر",
+        "doneAria": "مكتمل",
+        "overdueAria": "متأخر",
+        "pendingAria": "قيد الانتظار",
+        "untitled": "—"
+      },
+      "billingHistory": {
+        "heading": "سجل الفوترة",
+        "paidTooltip": "مدفوع: {amount}"
+      }
     }
   }
 }

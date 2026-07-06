@@ -14,6 +14,7 @@
  * list reads ?client_id= to scope to this customer.
  */
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Receipt, ExternalLink } from 'lucide-react';
@@ -24,13 +25,15 @@ interface Props {
 }
 
 export function CustomerInvoicesTab({ customer }: Props) {
+  const t = useTranslations('crm.customers.invoicesTab');
+
   if (!customer.client_id) {
     return (
       <Card className="p-5">
         <EmptyState
           icon={Receipt}
-          title="لا توجد فواتير بعد"
-          description="بعد تحويل العميل المحتمل لعميل دائم وإنشاء عقد، الفواتير ستظهر في صفحة الفواتير وفي تبويب العقود هنا."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       </Card>
     );
@@ -40,11 +43,11 @@ export function CustomerInvoicesTab({ customer }: Props) {
     <Card className="p-5">
       <EmptyState
         icon={Receipt}
-        title="إدارة الفواتير تتم في صفحة الفواتير"
-        description="افتح صفحة الفواتير المفلترة لهذا العميل. تبويب العقود هنا يعرض الفواتير المرتبطة بكل عقد على حدة."
+        title={t('manageTitle')}
+        description={t('manageDescription')}
         actions={[
           {
-            label: 'فتح صفحة الفواتير',
+            label: t('openInvoices'),
             variant: 'secondary',
             icon: ExternalLink,
             onClick: () => {

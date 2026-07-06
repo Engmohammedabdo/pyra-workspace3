@@ -22,6 +22,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function CustomerHeader({ customer, isLoading = false }: Props) {
+  const t = useTranslations('crm.customers.header');
   const { data: user } = useCurrentUser();
   const canManageLead = !!user && hasPermission(user.rolePermissions, 'leads.manage');
   const [convertOpen, setConvertOpen] = useState(false);
@@ -80,7 +82,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
             <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
             {customer.is_converted && (
               <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-md bg-yellow-500/15 text-yellow-700 dark:text-yellow-300 border border-yellow-500/20 dark:border-yellow-500/30">
-                ✓ فائز ومُعتمد
+                {t('closedWonBadge')}
               </span>
             )}
           </div>
@@ -89,7 +91,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
             {customer.company && customer.assigned_to && <span>·</span>}
             {customer.assigned_to && (
               <span className="text-xs">
-                مسؤول: <span className="text-foreground">@{customer.assigned_to}</span>
+                {t('assignedTo')}<span className="text-foreground">@{customer.assigned_to}</span>
               </span>
             )}
             {showPortalIndicator && (
@@ -106,7 +108,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
           <Button asChild variant="outline" size="sm">
             <Link href={`/dashboard/crm/leads/${customer.id}`}>
               <Edit2 className="size-4 me-1.5" />
-              تعديل
+              {t('edit')}
             </Link>
           </Button>
           {showConvertButton && (
@@ -116,7 +118,7 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
               onClick={() => setConvertOpen(true)}
             >
               <UserPlus className="size-4 me-1.5" />
-              تحويل لعميل
+              {t('convert')}
             </Button>
           )}
         </div>
@@ -138,6 +140,8 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
 }
 
 function PortalIndicator({ portalActive }: { portalActive: boolean | null }) {
+  const t = useTranslations('crm.customers.header');
+
   if (portalActive == null) {
     // Lead has no client_id linked yet — caller hides this anyway via
     // `showPortalIndicator`. Defensive null-render.
@@ -150,7 +154,7 @@ function PortalIndicator({ portalActive }: { portalActive: boolean | null }) {
         'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
       )}>
         <Shield className="size-3" />
-        البورتال نشط
+        {t('portalActive')}
       </span>
     );
   }
@@ -160,7 +164,7 @@ function PortalIndicator({ portalActive }: { portalActive: boolean | null }) {
       'bg-muted text-muted-foreground',
     )}>
       <ShieldOff className="size-3" />
-      البورتال معطل
+      {t('portalDisabled')}
     </span>
   );
 }

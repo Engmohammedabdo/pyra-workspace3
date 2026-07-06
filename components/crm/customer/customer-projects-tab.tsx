@@ -15,6 +15,7 @@
  * module exposes a `?client_id=` filter API alongside its UI.
  */
 
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Briefcase, ExternalLink } from 'lucide-react';
@@ -25,13 +26,15 @@ interface Props {
 }
 
 export function CustomerProjectsTab({ customer }: Props) {
+  const t = useTranslations('crm.customers.projectsTab');
+
   if (!customer.client_id) {
     return (
       <Card className="p-5">
         <EmptyState
           icon={Briefcase}
-          title="لا توجد مشاريع بعد"
-          description="بعد تحويل العميل المحتمل لعميل دائم، يمكنك ربط المشاريع به وستظهر هنا."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       </Card>
     );
@@ -41,11 +44,11 @@ export function CustomerProjectsTab({ customer }: Props) {
     <Card className="p-5">
       <EmptyState
         icon={Briefcase}
-        title="إدارة المشاريع تتم في صفحة المشاريع"
-        description="افتح صفحة المشاريع المفلترة لهذا العميل لرؤية كل المشاريع المرتبطة."
+        title={t('manageTitle')}
+        description={t('manageDescription')}
         actions={[
           {
-            label: 'فتح صفحة المشاريع',
+            label: t('openProjects'),
             variant: 'secondary',
             icon: ExternalLink,
             onClick: () => {

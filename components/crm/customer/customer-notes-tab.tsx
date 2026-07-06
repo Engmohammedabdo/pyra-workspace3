@@ -13,6 +13,7 @@
  */
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -24,6 +25,7 @@ interface Props {
 }
 
 export function CustomerNotesTab({ customer }: Props) {
+  const t = useTranslations('crm.customers.notesTab');
   const editLink = `/dashboard/crm/leads/${customer.id}`;
 
   if (!customer.notes || customer.notes.trim().length === 0) {
@@ -31,11 +33,11 @@ export function CustomerNotesTab({ customer }: Props) {
       <Card className="p-5">
         <EmptyState
           icon={StickyNote}
-          title="لا توجد ملاحظات"
-          description="أضف ملاحظات من صفحة الـ Lead — سيتم عرضها هنا."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
           actions={[
             {
-              label: 'فتح صفحة الـ Lead',
+              label: t('openLead'),
               variant: 'secondary',
               icon: ExternalLink,
               onClick: () => {
@@ -53,12 +55,12 @@ export function CustomerNotesTab({ customer }: Props) {
       <header className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold flex items-center gap-2">
           <StickyNote className="size-4 text-muted-foreground" />
-          ملاحظات
+          {t('heading')}
         </h3>
         <Button asChild variant="outline" size="sm">
           <Link href={editLink}>
             <ExternalLink className="size-3.5 me-1.5" />
-            تعديل في صفحة الـ Lead
+            {t('editInLead')}
           </Link>
         </Button>
       </header>

@@ -657,6 +657,243 @@
         "restoreError": "Failed to restore",
         "restore": "Restore"
       }
+    },
+    "customers": {
+      "list": {
+        "meta": { "title": "Customers — Pyra", "description": "List of customers converted from CRM" },
+        "heading": "Customers",
+        "subtitle": "Customers converted from the sales pipeline. Click a customer to see the full relationship file (contracts, projects, relationship health).",
+        "searchPlaceholder": "Search by name, company, or email...",
+        "emptyTitle": "No customers yet",
+        "emptyDescription": "Convert a prospective lead from the sales pipeline into a customer and it'll show up here.",
+        "openPipeline": "Open pipeline",
+        "noResultsTitle": "No results",
+        "noResultsDescription": "No customers found matching \"{query}\".",
+        "assignedTo": "Assigned to: ",
+        "initialsFallback": "?"
+      },
+      "detail": {
+        "meta": { "title": "Customer Details — Pyra", "description": "Active Customer Page — contracts, projects, invoices, relationship health" },
+        "notFoundTitle": "Customer not found",
+        "notFoundDescription": "It may have been deleted, or you don't have access.",
+        "backToPipeline": "Back to pipeline",
+        "loadErrorTitle": "Couldn't load customer data",
+        "loadErrorDescription": "An error occurred while fetching the data. Please try again.",
+        "retry": "Try Again",
+        "loading": "Loading customer data...",
+        "filesComingSoonTitle": "Coming soon",
+        "filesComingSoonDescription": "Customer file management will be added in a future release."
+      },
+      "header": {
+        "closedWonBadge": "✓ Won & approved",
+        "assignedTo": "Assigned to: ",
+        "edit": "Edit",
+        "convert": "Convert to customer",
+        "portalActive": "Portal active",
+        "portalDisabled": "Portal disabled"
+      },
+      "statStrip": {
+        "totalValue": "Total value",
+        "totalValueSub": "Paid to date",
+        "mrr": "MRR",
+        "mrrSub": "Monthly",
+        "contracts": "Contracts",
+        "activeContractsSub": "{count} active",
+        "projects": "Projects",
+        "health": "Customer health"
+      },
+      "health": {
+        "emerald": "Excellent",
+        "amber": "Good",
+        "orange": "Fair",
+        "red": "Needs attention",
+        "ringAria": "Health score {score} out of 100"
+      },
+      "tabs": {
+        "overview": "Overview",
+        "contracts": "Contracts",
+        "projects": "Projects",
+        "invoices": "Invoices",
+        "activity": "Activity",
+        "files": "Files",
+        "notes": "Notes",
+        "navAria": "Customer page sections"
+      },
+      "contractsTab": {
+        "emptyTitle": "No contracts linked to this customer",
+        "emptyDescriptionConverted": "An admin can create a new contract from the Invoices & Contracts section.",
+        "emptyDescriptionUnconverted": "Contracts show up here after the customer is converted and a contract is linked.",
+        "count": "{count, plural, one {contract} other {contracts}}",
+        "total": "Total",
+        "recurring": "Recurring {amount}/month",
+        "newContractToast": "Creating a new contract linked to the customer will be enabled in an upcoming release.",
+        "newContract": "New contract"
+      },
+      "overview": {
+        "notesHeading": "Notes",
+        "viewAll": "View all",
+        "emptyNotes": "No notes yet. Add them from the Lead page.",
+        "keyInfoHeading": "Key info",
+        "dealType": "Deal type",
+        "source": "Source",
+        "winProbability": "Win probability",
+        "createdAt": "Created at",
+        "convertedAt": "Converted to customer at",
+        "lastContact": "Last contact"
+      },
+      "sources": {
+        "manual": "Manual entry",
+        "whatsapp": "WhatsApp",
+        "website": "Website",
+        "referral": "Referral",
+        "cold_outreach": "Cold outreach",
+        "social": "Social media",
+        "crm_conversion": "CRM conversion"
+      },
+      "contactList": {
+        "initialsFallback": "?",
+        "heading": "Primary contact",
+        "openWhatsApp": "Open WhatsApp chat",
+        "empty": "No contact info — add it from the Lead page"
+      },
+      "convertModal": {
+        "convertSuccess": "Customer converted successfully",
+        "alreadyConverted": "Customer already converted — page refreshed",
+        "convertError": "Failed to convert customer",
+        "title": "Convert prospective lead to customer",
+        "description": "Creates a customer record in the portal system and links it to this Lead. Requires the Lead to be in the {stage} stage and approved.",
+        "emailLabel": "Email *",
+        "emailHint": "The customer will use this to log in to the portal (if enabled).",
+        "contactNameLabel": "Contact person name (optional)",
+        "createPortalLabel": "Create a portal account for the customer",
+        "createPortalHint": "If enabled, you'll need to share the login details (email + password) with the customer outside the system (WhatsApp / email). Automatic welcome email is coming soon.",
+        "passwordLabel": "Password *",
+        "passwordHint": "(at least {min} characters)",
+        "submitting": "Converting...",
+        "submit": "Convert customer"
+      },
+      "invoicesTab": {
+        "emptyTitle": "No invoices yet",
+        "emptyDescription": "After the prospective lead is converted and a contract is created, invoices will show up in the invoices page and in the contracts tab here.",
+        "manageTitle": "Invoices are managed on the invoices page",
+        "manageDescription": "Open the invoices page filtered for this customer. The contracts tab here shows invoices linked to each contract individually.",
+        "openInvoices": "Open invoices page"
+      },
+      "notesTab": {
+        "emptyTitle": "No notes",
+        "emptyDescription": "Add notes from the Lead page — they'll show up here.",
+        "openLead": "Open Lead page",
+        "heading": "Notes",
+        "editInLead": "Edit on the Lead page"
+      },
+      "projectsTab": {
+        "emptyTitle": "No projects yet",
+        "emptyDescription": "After the prospective lead is converted to a customer, you can link projects to them and they'll show up here.",
+        "manageTitle": "Projects are managed on the projects page",
+        "manageDescription": "Open the projects page filtered for this customer to see all linked projects.",
+        "openProjects": "Open projects page"
+      },
+      "portalToggle": {
+        "enableSuccess": "Portal access enabled",
+        "disableSuccess": "Portal access disabled",
+        "updateError": "Failed to update portal access",
+        "heading": "Customer portal access",
+        "enabledHint": "The customer can log in to the portal and track their projects and invoices.",
+        "disabledHint": "The customer can't currently log in to the portal.",
+        "switchAria": "Enable portal access"
+      }
+    },
+    "followUps": {
+      "meta": { "title": "Follow-ups — Pyra" },
+      "filters": {
+        "pending": "Pending",
+        "overdue": "Overdue",
+        "completed": "Completed",
+        "all": "All"
+      },
+      "heading": "Follow-ups",
+      "subtitle": "Follow-ups for Leads assigned to you. Click \"Done\" after completing a follow-up to log it on the Lead's timeline.",
+      "emptyTitlePending": "No pending follow-ups",
+      "emptyTitleCompleted": "No completed follow-ups yet",
+      "emptyTitleOther": "No follow-ups",
+      "emptyDescriptionPending": "You can schedule a follow-up from the \"Follow-up\" button on any Lead's page.",
+      "emptyDescriptionOther": "Use the filters above to switch between statuses.",
+      "completeSuccess": "Follow-up completed",
+      "completeError": "Failed to complete follow-up",
+      "titleFallback": "Follow-up",
+      "leadFallback": "Lead",
+      "forName": "for {name}",
+      "callTitle": "Call",
+      "complete": "Mark done",
+      "overdueBadge": "Overdue"
+    },
+    "approvals": {
+      "meta": { "title": "Approvals awaiting you — Pyra" },
+      "heading": "Approvals awaiting you",
+      "subtitle": "Deals in the \"Contract Signed\" stage awaiting your approval. Approving moves them to \"Closed Won\". Rejecting moves them back to \"Negotiation\" and logs the reason on the Lead's timeline.",
+      "emptyTitle": "No pending approval requests",
+      "emptyDescription": "Deals that move into the 'Contract Signed' stage by reps will show up here.",
+      "card": {
+        "approveSuccess": "Deal approved",
+        "approveError": "Failed to approve",
+        "rejectSuccess": "Deal rejected and moved back to negotiation",
+        "rejectError": "Failed to reject",
+        "pendingBadge": "Awaiting your approval",
+        "assignedTo": "Assigned to: {name}",
+        "attachmentLabel": "Attachment:",
+        "requestedBy": "Approval requested by:",
+        "unknown": "Unknown",
+        "approve": "Approve",
+        "reject": "Reject",
+        "initialsFallback": "?"
+      },
+      "rejectModal": {
+        "title": "Reject deal closure",
+        "description": " — The deal will move back to the \"Negotiation\" stage and the rep will be notified of the rejection reason.",
+        "reasonLabel": "Rejection reason",
+        "reasonPlaceholder": "E.g.: final price doesn't match pricing policy, need a smaller discount / competitor offered better terms, try negotiating again...",
+        "minChars": "{count} / {min} characters minimum",
+        "confirm": "Confirm rejection"
+      }
+    },
+    "contracts": {
+      "card": {
+        "durationLessThanMonth": "Less than a month",
+        "durationMonths": "{months, plural, one {# month} other {# months}}",
+        "activeRetainerBadge": "✓ Active retainer",
+        "inProgressProjectBadge": "🚧 Project in progress",
+        "completedBadge": "✓ Completed",
+        "pausedBadge": "⏸ Paused",
+        "cancelledBadge": "✕ Cancelled",
+        "retainerStatus": "Retainer · {status}",
+        "projectStatus": "Project · {status}",
+        "monthlyValue": "Monthly value",
+        "totalPaid": "Total paid",
+        "remainingToEnd": "Remaining to end",
+        "remainingMonths": "{months, plural, one {# month} other {# months}}",
+        "endDate": "End date",
+        "totalValue": "Total value",
+        "paid": "Paid",
+        "remaining": "Remaining",
+        "milestones": "Milestones",
+        "value": "Value",
+        "durationLabel": "Contract duration",
+        "status": "Status",
+        "untitledContract": "Untitled contract",
+        "viewContract": "View contract"
+      },
+      "milestones": {
+        "heading": "Project milestones",
+        "overdue": "Overdue",
+        "doneAria": "Completed",
+        "overdueAria": "Overdue",
+        "pendingAria": "Pending",
+        "untitled": "—"
+      },
+      "billingHistory": {
+        "heading": "Billing history",
+        "paidTooltip": "Paid: {amount}"
+      }
     }
   }
 }

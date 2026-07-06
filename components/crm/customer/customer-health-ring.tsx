@@ -16,6 +16,7 @@
  * `refetchOnWindowFocus`).
  */
 
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import type { HealthColor } from '@/hooks/useCustomerDossier';
 
@@ -37,6 +38,7 @@ const STROKE_BY_COLOR: Record<HealthColor, string> = {
 const FULL_CIRCUMFERENCE = 264;
 
 export function CustomerHealthRing({ score, color, className }: Props) {
+  const t = useTranslations('crm.customers.health');
   const clamped = Math.max(0, Math.min(100, score));
   const dashArray = (clamped / 100) * FULL_CIRCUMFERENCE;
   const strokeClass = STROKE_BY_COLOR[color];
@@ -46,7 +48,7 @@ export function CustomerHealthRing({ score, color, className }: Props) {
       viewBox="0 0 100 100"
       className={cn('size-20', className)}
       role="img"
-      aria-label={`Health score ${clamped} out of 100`}
+      aria-label={t('ringAria', { score: clamped })}
     >
       {/* Background track */}
       <circle

@@ -14,10 +14,13 @@
  */
 
 import { useRouter, usePathname } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { formatDate, formatRelativeDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 import { CustomerContactList } from './customer-contact-list';
 import { CustomerPortalToggle } from './customer-portal-toggle';
 import type { DossierCustomer } from '@/hooks/useCustomerDossier';
@@ -26,19 +29,10 @@ interface Props {
   customer: DossierCustomer;
 }
 
-const SOURCE_LABEL_AR: Record<string, string> = {
-  manual:           'إدخال يدوي',
-  whatsapp:         'واتساب',
-  website:          'الموقع',
-  referral:         'إحالة',
-  cold_outreach:    'تواصل بارد',
-  social:           'سوشيال ميديا',
-  crm_conversion:   'تحويل من CRM',
-};
-
 const NOTES_PREVIEW_CHARS = 200;
 
 export function CustomerOverviewTab({ customer }: Props) {
+  const t = useTranslations('crm.customers.overview');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -59,13 +53,13 @@ export function CustomerOverviewTab({ customer }: Props) {
       {/* Notes preview */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold">الملاحظات</h3>
+          <h3 className="text-sm font-semibold">{t('notesHeading')}</h3>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => router.replace(`${pathname}?tab=notes`, { scroll: false })}
           >
-            عرض الكل
+            {t('viewAll')}
             <ArrowLeft className="size-3.5 ms-1" />
           </Button>
         </div>
@@ -73,7 +67,7 @@ export function CustomerOverviewTab({ customer }: Props) {
           <p className="text-sm text-muted-foreground line-clamp-3 whitespace-pre-wrap">{notesPreview}</p>
         ) : (
           <p className="text-xs text-muted-foreground italic">
-            لا توجد ملاحظات بعد. أضفها من صفحة الـ Lead.
+            {t('emptyNotes')}
           </p>
         )}
       </Card>
@@ -85,18 +79,24 @@ export function CustomerOverviewTab({ customer }: Props) {
 }
 
 function KeyInfoCard({ customer }: { customer: DossierCustomer }) {
+  const t = useTranslations('crm.customers.overview');
+  const tSources = useTranslations('crm.customers.sources');
+  const locale = useLocale() as Locale;
+  const dealTypeLabelFor = useStatusLabels('leadDealType');
   const sourceLabel = customer.source
-    ? SOURCE_LABEL_AR[customer.source] ?? customer.source
+    ? (tSources.has(customer.source as Parameters<typeof tSources>[0])
+        ? tSources(customer.source as Parameters<typeof tSources>[0])
+        : customer.source)
     : '—';
 
   return (
     <Card className="p-4">
-      <h3 className="text-sm font-semibold mb-3">معلومات أساسية</h3>
+      <h3 className="text-sm font-semibold mb-3">{t('keyInfoHeading')}</h3>
       <dl className="space-y-2.5 text-sm">
-        <Row label="نوع الصفقة" value={customer.deal_type ?? '—'} />
-        <Row label="المصدر" value={sourceLabel} />
+        <Row label={t('dealType')} value={customer.deal_type ? dealTypeLabelFor(customer.deal_type) : '—'} />
+        <Row label={t('source')} value={sourceLabel} />
         <Row
-          label="احتمال الفوز"
+          label={t('winProbability')}
           value={
             customer.win_probability != null
               ? `${customer.win_probability}%`
@@ -105,21 +105,21 @@ function KeyInfoCard({ customer }: { customer: DossierCustomer }) {
           tabular
         />
         <Row
-          label="تاريخ الإنشاء"
-          value={formatDate(customer.created_at, 'd MMM yyyy')}
+          label={t('createdAt')}
+          value={formatDate(customer.created_at, 'd MMM yyyy', locale)}
           tabular
         />
         {customer.converted_at && (
           <Row
-            label="تاريخ التحويل لعميل"
-            value={formatDate(customer.converted_at, 'd MMM yyyy')}
+            label={t('convertedAt')}
+            value={formatDate(customer.converted_at, 'd MMM yyyy', locale)}
             tabular
           />
         )}
         {customer.last_contact_at && (
           <Row
-            label="آخر تواصل"
-            value={formatRelativeDate(customer.last_contact_at)}
+            label={t('lastContact')}
+            value={formatRelativeDate(customer.last_contact_at, locale)}
             tabular
           />
         )}

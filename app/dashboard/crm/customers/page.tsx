@@ -1,11 +1,12 @@
 import type { Metadata } from 'next';
+import { getTranslations } from 'next-intl/server';
 import { requirePermission } from '@/lib/auth/guards';
 import { CustomersListClient } from './customers-list-client';
 
-export const metadata: Metadata = {
-  title: 'العملاء — Pyra',
-  description: 'قائمة العملاء المحوّلين من CRM',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations('crm.customers.list');
+  return { title: t('meta.title'), description: t('meta.description') };
+}
 
 export default async function CrmCustomersListPage() {
   // `leads.view` is the same gate as the lead-detail / pipeline pages.

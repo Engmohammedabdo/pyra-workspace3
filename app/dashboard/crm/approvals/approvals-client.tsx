@@ -14,6 +14,7 @@
  * decisions if a manager wants to look back).
  */
 
+import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ShieldCheck } from 'lucide-react';
@@ -21,6 +22,7 @@ import { usePendingApprovals } from '@/hooks/useApprovals';
 import { ApprovalCard } from '@/components/crm/approvals/approval-card';
 
 export function ApprovalsClient() {
+  const t = useTranslations('crm.approvals');
   const { data, isLoading } = usePendingApprovals();
   const approvals = data?.approvals ?? [];
 
@@ -29,11 +31,10 @@ export function ApprovalsClient() {
       <header>
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <ShieldCheck className="size-6 text-orange-500" />
-          اعتمادات تنتظرك
+          {t('heading')}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          صفقات في مرحلة "تم توقيع العقد" بانتظار اعتمادك. الاعتماد يحوّلها إلى "فوز بالصفقة".
-          الرفض يعيدها إلى "تفاوض" مع تسجيل السبب في تايم لاين الـ Lead.
+          {t('subtitle')}
         </p>
       </header>
 
@@ -45,8 +46,8 @@ export function ApprovalsClient() {
       ) : approvals.length === 0 ? (
         <EmptyState
           icon={ShieldCheck}
-          title="لا توجد طلبات اعتماد قيد الانتظار"
-          description="ستظهر هنا الصفقات التي تنتقل إلى مرحلة 'تم توقيع العقد' من قِبَل المندوبين."
+          title={t('emptyTitle')}
+          description={t('emptyDescription')}
         />
       ) : (
         <ul className="space-y-3">
