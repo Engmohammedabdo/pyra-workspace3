@@ -480,7 +480,7 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 ```
 Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
-## i18n — Bilingual AR/EN (Phases 0–3 shipped)
+## i18n — Bilingual AR/EN (Phases 0–4 shipped)
 
 next-intl WITHOUT locale routing — URLs never change. Locale = `pyra_locale`
 cookie (cache) ← `pyra_users.preferred_language` / `pyra_clients.preferred_language`
