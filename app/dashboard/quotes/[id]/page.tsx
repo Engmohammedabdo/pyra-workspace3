@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowRight } from 'lucide-react';
 import QuoteBuilder, { type QuoteData } from '@/components/quotes/QuoteBuilder';
 
 export default function EditQuotePage() {
+  const t = useTranslations('finance.quotes.edit');
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -40,14 +42,14 @@ export default function EditQuotePage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="رجوع">
+        <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label={t('back')}>
           <ArrowRight className="h-5 w-5" />
         </Button>
         <div>
           <h1 className="text-2xl font-bold">
-            تعديل عرض السعر — {quote.quote_number}
+            {t('title', { quoteNumber: quote.quote_number })}
           </h1>
-          <p className="text-muted-foreground">تعديل بيانات عرض السعر</p>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
         </div>
       </div>
 

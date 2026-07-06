@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -21,7 +22,8 @@ import { toast } from 'sonner';
 import { usePermission } from '@/hooks/usePermission';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { DataTable, type ColumnDef, type SortConfig } from '@/components/ui/data-table';
-import { QUOTE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface Quote {
   id: string;
@@ -38,19 +40,23 @@ interface Quote {
   created_at: string;
 }
 
-const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive' }> = {
-  draft: { label: QUOTE_STATUS_LABELS.draft, variant: 'secondary' },
-  pending_approval: { label: QUOTE_STATUS_LABELS.pending_approval, variant: 'outline' },
-  sent: { label: QUOTE_STATUS_LABELS.sent, variant: 'default' },
-  viewed: { label: QUOTE_STATUS_LABELS.viewed, variant: 'outline' },
-  signed: { label: QUOTE_STATUS_LABELS.signed, variant: 'default' },
-  invoiced: { label: QUOTE_STATUS_LABELS.invoiced, variant: 'default' },
-  rejected: { label: QUOTE_STATUS_LABELS.rejected, variant: 'destructive' },
-  expired: { label: QUOTE_STATUS_LABELS.expired, variant: 'destructive' },
-  cancelled: { label: QUOTE_STATUS_LABELS.cancelled, variant: 'destructive' },
+const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'destructive'> = {
+  draft: 'secondary',
+  pending_approval: 'outline',
+  sent: 'default',
+  viewed: 'outline',
+  signed: 'default',
+  invoiced: 'default',
+  rejected: 'destructive',
+  expired: 'destructive',
+  cancelled: 'destructive',
 };
 
 export default function QuotesClient() {
+  const t = useTranslations('finance.quotes.list');
+  const tSend = useTranslations('finance.quotes.sendResult');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('quote');
   const router = useRouter();
   const canCreate = usePermission('quotes.create');
   const canEdit = usePermission('quotes.edit');
@@ -99,9 +105,9 @@ export default function QuotesClient() {
       const res = await fetch(`/api/quotes/${id}/duplicate`, { method: 'POST' });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
-      toast.success('تم نسخ عرض السعر');
+      toast.success(t('toasts.duplicateSuccess'));
       fetchQuotes();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
+    } catch (err) { console.error(err); toast.error(t('toasts.unexpectedError')); }
   };
 
   const handleSend = async (id: string) => {
@@ -113,14 +119,14 @@ export default function QuotesClient() {
       // toast reflects whether the email actually fired (flip-and-warn).
       const email = json.data?.email as { sent?: boolean; reason?: string; to?: string } | undefined;
       if (email?.sent) {
-        toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`);
+        toast.success(tSend('delivered', { to: email.to ?? '' }));
       } else if (email?.reason === 'no_email') {
-        toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل');
+        toast.warning(tSend('noEmail'));
       } else {
-        toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد');
+        toast.warning(tSend('notDelivered'));
       }
       fetchQuotes();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); }
+    } catch (err) { console.error(err); toast.error(t('toasts.unexpectedError')); }
   };
 
   const handleDownloadPDF = async (id: string) => {
@@ -128,13 +134,13 @@ export default function QuotesClient() {
       const res = await fetch(`/api/quotes/${id}`);
       const json = await res.json();
       if (!res.ok || !json.data) {
-        toast.error('فشل في تحميل بيانات العرض');
+        toast.error(t('toasts.loadFailed'));
         return;
       }
       await generateQuotePDF(json.data);
-      toast.success('تم تحميل ملف PDF');
+      toast.success(t('toasts.pdfDownloaded'));
     } catch {
-      toast.error('فشل في إنشاء ملف PDF');
+      toast.error(t('toasts.pdfFailed'));
     }
   };
 
@@ -143,10 +149,10 @@ export default function QuotesClient() {
       const res = await fetch(`/api/invoices/from-quote/${id}`, { method: 'POST' });
       const json = await res.json();
       if (json.error) { toast.error(json.error); return; }
-      toast.success('تم إنشاء الفاتورة من عرض السعر');
+      toast.success(t('toasts.convertSuccess'));
       fetchQuotes();
       if (json.data?.id) router.push(`/dashboard/invoices/${json.data.id}`);
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('toasts.unexpectedError')); }
   };
 
   const handleDelete = async () => {
@@ -163,10 +169,10 @@ export default function QuotesClient() {
       setShowDelete(false);
       setSelected(null);
       setBulkDeleteIds([]);
-      if (failCount > 0) toast.error(`فشل حذف ${failCount} عرض`);
-      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} عروض` : 'تم حذف عرض السعر');
+      if (failCount > 0) toast.error(t('toasts.deleteFailedCount', { count: failCount }));
+      else toast.success(idsToDelete.length > 1 ? t('toasts.deleteSuccessCount', { count: idsToDelete.length }) : t('toasts.deleteSuccessOne'));
       fetchQuotes();
-    } catch (err) { console.error(err); toast.error('حدث خطأ'); } finally { setDeleting(false); }
+    } catch (err) { console.error(err); toast.error(t('toasts.unexpectedError')); } finally { setDeleting(false); }
   };
 
   /* ── sort handler ── */
@@ -196,52 +202,53 @@ export default function QuotesClient() {
         return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
       return sortConfig.direction === 'asc'
-        ? String(aVal).localeCompare(String(bVal), 'ar')
-        : String(bVal).localeCompare(String(aVal), 'ar');
+        ? String(aVal).localeCompare(String(bVal), locale)
+        : String(bVal).localeCompare(String(aVal), locale);
     });
     return sorted;
-  }, [quotes, sortConfig]);
+  }, [quotes, sortConfig, locale]);
 
   /* ── column definitions ── */
   const columns: ColumnDef<Quote>[] = useMemo(() => [
     {
       key: 'quote_number',
-      header: 'رقم العرض',
+      header: t('columns.quoteNumber'),
       sortable: true,
       render: (q) => <span className="font-mono">{q.quote_number}</span>,
     },
     {
       key: 'client',
-      header: 'العميل',
+      header: t('columns.client'),
       sortable: true,
       render: (q) => q.client_name || q.client_company || '—',
     },
     {
       key: 'project',
-      header: 'المشروع',
+      header: t('columns.project'),
       className: 'text-muted-foreground',
       render: (q) => q.project_name || '—',
     },
     {
       key: 'total',
-      header: 'المبلغ',
+      header: t('columns.amount'),
       sortable: true,
       render: (q) => <span className="font-mono">{formatCurrency(q.total, q.currency)}</span>,
     },
     {
       key: 'status',
-      header: 'الحالة',
+      header: t('columns.status'),
       render: (q) => {
-        const s = STATUS_MAP[q.status] || { label: q.status, variant: 'secondary' as const };
-        return <Badge variant={s.variant}>{s.label}</Badge>;
+        const label = statusLabelFor(q.status) || q.status;
+        const variant = STATUS_VARIANT[q.status] || 'secondary';
+        return <Badge variant={variant}>{label}</Badge>;
       },
     },
     {
       key: 'estimate_date',
-      header: 'التاريخ',
+      header: t('columns.date'),
       sortable: true,
       className: 'text-muted-foreground text-xs',
-      render: (q) => formatDate(q.estimate_date),
+      render: (q) => formatDate(q.estimate_date, undefined, locale),
     },
     {
       key: 'actions',
@@ -251,39 +258,39 @@ export default function QuotesClient() {
         <div data-no-row-click>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('rowActions.more')}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {canEdit && (
                 <DropdownMenuItem onClick={() => router.push(`/dashboard/quotes/${q.id}`)}>
-                  <Pencil className="h-3.5 w-3.5 me-2" /> تعديل
+                  <Pencil className="h-3.5 w-3.5 me-2" /> {t('rowActions.edit')}
                 </DropdownMenuItem>
               )}
               {canCreate && (
                 <DropdownMenuItem onClick={() => handleDuplicate(q.id)}>
-                  <Copy className="h-3.5 w-3.5 me-2" /> نسخ العرض
+                  <Copy className="h-3.5 w-3.5 me-2" /> {t('rowActions.duplicate')}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={() => handleDownloadPDF(q.id)}>
-                <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
+                <Download className="h-3.5 w-3.5 me-2" /> {t('rowActions.downloadPdf')}
               </DropdownMenuItem>
               {q.status === 'signed' && (
                 <DropdownMenuItem onClick={() => handleConvertToInvoice(q.id)}>
-                  <Receipt className="h-3.5 w-3.5 me-2" /> تحويل لفاتورة
+                  <Receipt className="h-3.5 w-3.5 me-2" /> {t('rowActions.convertToInvoice')}
                 </DropdownMenuItem>
               )}
               {canSend && q.status === 'draft' && (
                 <DropdownMenuItem onClick={() => handleSend(q.id)}>
-                  <Send className="h-3.5 w-3.5 me-2" /> إرسال
+                  <Send className="h-3.5 w-3.5 me-2" /> {t('rowActions.send')}
                 </DropdownMenuItem>
               )}
               {/* Delete: full-delete shows for every row; delete_own only for
                   quotes the current user created (own-scope). Server re-gates. */}
               {(canDelete || (canDeleteOwn && q.created_by === currentUsername)) && (
                 <DropdownMenuItem className="text-destructive" onClick={() => { setSelected(q); setShowDelete(true); }}>
-                  <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                  <Trash2 className="h-3.5 w-3.5 me-2" /> {t('rowActions.delete')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -291,18 +298,18 @@ export default function QuotesClient() {
         </div>
       ),
     },
-  ], [canEdit, canSend, canCreate, canDelete, canDeleteOwn, currentUsername, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice]);
+  ], [canEdit, canSend, canCreate, canDelete, canDeleteOwn, currentUsername, router, handleDuplicate, handleSend, handleDownloadPDF, handleConvertToInvoice, t, locale, statusLabelFor]);
 
   return (
     <div className="space-y-6 animate-in fade-in-0 duration-300">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" aria-hidden="true" /> عروض الأسعار</h1>
-          <p className="text-muted-foreground">إدارة عروض الأسعار والفواتير</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><FileText className="h-6 w-6" aria-hidden="true" /> {t('header.title')}</h1>
+          <p className="text-muted-foreground">{t('header.subtitle')}</p>
         </div>
         {canCreate && (
           <Button onClick={() => router.push('/dashboard/quotes/new')} className="bg-orange-500 hover:bg-orange-600">
-            <Plus className="h-4 w-4 me-2" /> إنشاء عرض سعر
+            <Plus className="h-4 w-4 me-2" /> {t('header.newQuote')}
           </Button>
         )}
       </div>
@@ -311,22 +318,22 @@ export default function QuotesClient() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="بحث بالرقم أو العميل..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 max-w-sm"
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الحالات</SelectItem>
-            <SelectItem value="draft">مسودة</SelectItem>
-            <SelectItem value="pending_approval">بانتظار الموافقة</SelectItem>
-            <SelectItem value="sent">مُرسل</SelectItem>
-            <SelectItem value="viewed">تمت المشاهدة</SelectItem>
-            <SelectItem value="signed">مُوقع</SelectItem>
-            <SelectItem value="invoiced">تم الفوترة</SelectItem>
-            <SelectItem value="expired">منتهي</SelectItem>
-            <SelectItem value="rejected">مرفوض</SelectItem>
-            <SelectItem value="cancelled">ملغي</SelectItem>
+            <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+            <SelectItem value="draft">{statusLabelFor('draft')}</SelectItem>
+            <SelectItem value="pending_approval">{statusLabelFor('pending_approval')}</SelectItem>
+            <SelectItem value="sent">{statusLabelFor('sent')}</SelectItem>
+            <SelectItem value="viewed">{statusLabelFor('viewed')}</SelectItem>
+            <SelectItem value="signed">{statusLabelFor('signed')}</SelectItem>
+            <SelectItem value="invoiced">{statusLabelFor('invoiced')}</SelectItem>
+            <SelectItem value="expired">{statusLabelFor('expired')}</SelectItem>
+            <SelectItem value="rejected">{statusLabelFor('rejected')}</SelectItem>
+            <SelectItem value="cancelled">{statusLabelFor('cancelled')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -338,8 +345,8 @@ export default function QuotesClient() {
         loading={loading}
         emptyState={{
           icon: FileText,
-          title: 'لا توجد عروض أسعار',
-          description: 'أنشئ عرض سعر جديد للبدء',
+          title: t('emptyState.title'),
+          description: t('emptyState.description'),
         }}
         selectable
         getRowId={(q) => q.id}
@@ -352,7 +359,7 @@ export default function QuotesClient() {
            server would 403 each non-owned id anyway. Keeps bulk UX honest. */
         bulkActions={canDelete ? [
           {
-            label: 'حذف المحدد',
+            label: t('bulkActions.deleteSelected'),
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
@@ -367,17 +374,20 @@ export default function QuotesClient() {
 
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>حذف عرض السعر</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t('deleteDialog.title')}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
             {bulkDeleteIds.length > 1
-              ? `هل أنت متأكد من حذف ${bulkDeleteIds.length} عروض أسعار؟ لا يمكن التراجع عن هذا الإجراء.`
-              : <>هل أنت متأكد من حذف عرض السعر <strong>{selected?.quote_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</>
+              ? t('deleteDialog.confirmCount', { count: bulkDeleteIds.length })
+              : t.rich('deleteDialog.confirmOne', {
+                  quoteNumber: selected?.quote_number ?? '',
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })
             }
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setShowDelete(false)}>{t('deleteDialog.cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'جارٍ الحذف...' : 'حذف'}
+              {deleting ? t('deleteDialog.deleting') : t('deleteDialog.confirmButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

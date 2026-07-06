@@ -207,6 +207,213 @@
           "notesPlaceholder": "ملاحظات إضافية..."
         }
       }
+    },
+    "quotes": {
+      "sendResult": {
+        "delivered": "تم إرسال العرض بالبريد إلى {to}",
+        "noEmail": "تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل",
+        "notDelivered": "تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد"
+      },
+      "list": {
+        "meta": { "title": "عروض الأسعار | Pyra Workspace" },
+        "toasts": {
+          "duplicateSuccess": "تم نسخ عرض السعر",
+          "loadFailed": "فشل في تحميل بيانات العرض",
+          "pdfDownloaded": "تم تحميل ملف PDF",
+          "pdfFailed": "فشل في إنشاء ملف PDF",
+          "convertSuccess": "تم إنشاء الفاتورة من عرض السعر",
+          "deleteFailedCount": "فشل حذف {count} عرض",
+          "deleteSuccessOne": "تم حذف عرض السعر",
+          "deleteSuccessCount": "تم حذف {count} عروض",
+          "unexpectedError": "حدث خطأ"
+        },
+        "columns": {
+          "quoteNumber": "رقم العرض",
+          "client": "العميل",
+          "project": "المشروع",
+          "amount": "المبلغ",
+          "status": "الحالة",
+          "date": "التاريخ"
+        },
+        "rowActions": {
+          "more": "المزيد",
+          "edit": "تعديل",
+          "duplicate": "نسخ العرض",
+          "downloadPdf": "تحميل PDF",
+          "convertToInvoice": "تحويل لفاتورة",
+          "send": "إرسال",
+          "delete": "حذف"
+        },
+        "header": {
+          "title": "عروض الأسعار",
+          "subtitle": "إدارة عروض الأسعار والفواتير",
+          "newQuote": "إنشاء عرض سعر"
+        },
+        "filters": {
+          "searchPlaceholder": "بحث بالرقم أو العميل...",
+          "allStatuses": "جميع الحالات"
+        },
+        "emptyState": {
+          "title": "لا توجد عروض أسعار",
+          "description": "أنشئ عرض سعر جديد للبدء"
+        },
+        "bulkActions": {
+          "deleteSelected": "حذف المحدد"
+        },
+        "deleteDialog": {
+          "title": "حذف عرض السعر",
+          "confirmCount": "هل أنت متأكد من حذف {count} عروض أسعار؟ لا يمكن التراجع عن هذا الإجراء.",
+          "confirmOne": "هل أنت متأكد من حذف عرض السعر <strong>{quoteNumber}</strong>؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف",
+          "deleting": "جارٍ الحذف..."
+        }
+      },
+      "edit": {
+        "back": "رجوع",
+        "title": "تعديل عرض السعر — {quoteNumber}",
+        "subtitle": "تعديل بيانات عرض السعر"
+      },
+      "new": {
+        "meta": { "title": "عروض الأسعار | Pyra Workspace" },
+        "title": "عرض سعر جديد",
+        "subtitle": "إنشاء عرض سعر جديد للعميل",
+        "linkedToLead": "مرتبط بالعميل المحتمل: {leadName}"
+      },
+      "analytics": {
+        "meta": { "title": "تحليلات عروض الأسعار | Pyra Workspace" },
+        "title": "تحليلات عروض الأسعار",
+        "kpis": {
+          "sentRate": "نسبة الإرسال",
+          "signRate": "نسبة التوقيع",
+          "avgDaysToSign": "متوسط أيام التوقيع",
+          "activeValue": "قيمة العروض النشطة"
+        },
+        "charts": {
+          "funnelTitle": "قمع التحويل",
+          "statusDistributionTitle": "توزيع الحالات",
+          "pipelineByStatusTitle": "قيمة العروض النشطة حسب الحالة",
+          "valueSeriesName": "القيمة"
+        },
+        "agentTable": {
+          "title": "أداء وكلاء المبيعات",
+          "columns": {
+            "agent": "الوكيل",
+            "quotes": "العروض",
+            "signed": "الموقعة",
+            "conversionRate": "نسبة التحويل",
+            "signedValue": "القيمة الموقعة"
+          },
+          "emptyState": "لا توجد بيانات كافية"
+        }
+      },
+      "builder": {
+        "toasts": {
+          "fillAllDescriptions": "يرجى تعبئة وصف جميع العناصر",
+          "saveFailed": "حدث خطأ في حفظ عرض السعر",
+          "previewFailed": "فشل في إنشاء المعاينة",
+          "templateLoaded": "تم تحميل القالب: {templateName}",
+          "templateSaveSuccess": "تم حفظ القالب بنجاح",
+          "templateSaveFailed": "فشل حفظ القالب"
+        },
+        "saveTemplatePrompt": "اسم القالب:",
+        "companyFallback": "PYRAMEDIA X",
+        "businessEntity": {
+          "label": "الرخصة التجارية",
+          "placeholder": "اختر الرخصة",
+          "default": "(افتراضي)",
+          "licenseNumber": "رقم الرخصة: {licenseNo}"
+        },
+        "clientInfo": {
+          "title": "معلومات العميل",
+          "clientLabel": "العميل",
+          "clientPlaceholder": "اختر عميل...",
+          "emailLabel": "البريد الإلكتروني",
+          "addressLabel": "العنوان",
+          "contactNameLabel": "جهة الاتصال",
+          "phoneLabel": "الهاتف"
+        },
+        "templateSelector": {
+          "placeholder": "تحميل من قالب..."
+        },
+        "details": {
+          "title": "تفاصيل العرض",
+          "quoteNumberLabel": "رقم العرض",
+          "quoteNumberAuto": "تلقائي",
+          "estimateDateLabel": "تاريخ العرض",
+          "expiryDateLabel": "تاريخ الانتهاء",
+          "projectNameLabel": "اسم المشروع",
+          "currencyLabel": "العملة"
+        },
+        "currencies": {
+          "AED": "AED — درهم إماراتي",
+          "USD": "USD — دولار أمريكي",
+          "EUR": "EUR — يورو",
+          "SAR": "SAR — ريال سعودي",
+          "GBP": "GBP — جنيه إسترليني"
+        },
+        "services": {
+          "title": "الخدمات",
+          "columns": {
+            "description": "الوصف",
+            "quantity": "الكمية",
+            "rate": "السعر",
+            "total": "المجموع"
+          },
+          "descriptionPlaceholder": "وصف الخدمة",
+          "removeRow": "حذف الصف",
+          "addItem": "إضافة عنصر"
+        },
+        "totals": {
+          "discountLabel": "الخصم",
+          "discountPlaceholder": "بدون خصم",
+          "discountNone": "بدون خصم",
+          "discountPercentage": "نسبة %",
+          "discountFixed": "مبلغ ثابت",
+          "subtotal": "المجموع الفرعي",
+          "discountLine": "الخصم {percent}",
+          "vatLabel": "ضريبة القيمة المضافة",
+          "total": "الإجمالي"
+        },
+        "notes": {
+          "label": "ملاحظات",
+          "placeholder": "ملاحظات إضافية أو تعليمات الدفع..."
+        },
+        "signature": {
+          "title": "التوقيع الإلكتروني",
+          "signedBy": "تم التوقيع بواسطة: {signedBy}",
+          "signedAtSuffix": " — {signedAt}"
+        },
+        "bankDetails": {
+          "title": "البيانات البنكية",
+          "bank": "البنك: {bank}",
+          "accountName": "اسم الحساب: {accountName}",
+          "accountNo": "رقم الحساب: {accountNo}",
+          "iban": "IBAN: {iban}"
+        },
+        "terms": {
+          "label": "الشروط والأحكام",
+          "addTerm": "إضافة شرط",
+          "placeholder": "نص الشرط...",
+          "removeTerm": "حذف الشرط"
+        },
+        "toolbar": {
+          "close": "إغلاق",
+          "saveAsTemplate": "حفظ كقالب",
+          "preview": "معاينة",
+          "downloadPdf": "تحميل PDF",
+          "saveDraft": "حفظ كمسودة",
+          "saving": "جارٍ الحفظ...",
+          "saveAndSend": "حفظ وإرسال",
+          "sending": "جارٍ الإرسال..."
+        },
+        "previewDialog": {
+          "title": "معاينة عرض السعر"
+        }
+      },
+      "signaturePad": {
+        "clear": "مسح التوقيع"
+      }
     }
   }
 }

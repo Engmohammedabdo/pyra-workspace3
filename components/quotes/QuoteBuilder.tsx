@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +19,7 @@ import { toast } from 'sonner';
 import { fetchAPI, mutateAPI } from '@/hooks/api-helpers';
 import { generateQuotePDF } from '@/lib/pdf/quote-pdf';
 import { usePermission } from '@/hooks/usePermission';
+import type { Locale } from '@/lib/i18n/config';
 
 interface QuoteTemplate {
   id: string;
@@ -119,13 +121,7 @@ interface QuoteBuilderProps {
   onClose?: () => void;
 }
 
-const CURRENCIES = [
-  { value: 'AED', label: 'AED — درهم إماراتي' },
-  { value: 'USD', label: 'USD — دولار أمريكي' },
-  { value: 'EUR', label: 'EUR — يورو' },
-  { value: 'SAR', label: 'SAR — ريال سعودي' },
-  { value: 'GBP', label: 'GBP — جنيه إسترليني' },
-];
+const CURRENCY_CODES = ['AED', 'USD', 'EUR', 'SAR', 'GBP'] as const;
 
 const DEFAULT_TERMS = [
   { text: 'Quotation valid for 30 days from the date of issue.' },
@@ -134,6 +130,9 @@ const DEFAULT_TERMS = [
 ];
 
 export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose }: QuoteBuilderProps) {
+  const tq = useTranslations('finance.quotes.builder');
+  const tSend = useTranslations('finance.quotes.sendResult');
+  const locale = useLocale() as Locale;
   const [clients, setClients] = useState<Client[]>([]);
   const [clientId, setClientId] = useState(quote?.client_id || '');
   const [clientName, setClientName] = useState(quote?.client_name || '');
@@ -337,7 +336,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
   const handleSave = async (send = false) => {
     if (services.some(s => !s.description.trim())) {
-      toast.error('يرجى تعبئة وصف جميع العناصر');
+      toast.error(tq('toasts.fillAllDescriptions'));
       return;
     }
     setSaving(true);
@@ -359,11 +358,11 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
         );
         const email = sendResult?.email;
         if (email?.sent) {
-          toast.success(`تم إرسال العرض بالبريد إلى ${email.to}`);
+          toast.success(tSend('delivered', { to: email.to ?? '' }));
         } else if (email?.reason === 'no_email') {
-          toast.warning('تم تحديد العرض كمُرسل — لا يوجد بريد إلكتروني للعميل');
+          toast.warning(tSend('noEmail'));
         } else {
-          toast.warning('تم تحديد العرض كمُرسل لكن تعذّر إرسال البريد');
+          toast.warning(tSend('notDelivered'));
         }
       }
 
@@ -375,7 +374,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
       // client-info validation (added in this commit) would show the
       // spinner stop with no feedback. mutateAPI's ApiError instance
       // carries the Arabic message from the server's `error` field.
-      toast.error(err instanceof Error ? err.message : 'حدث خطأ في حفظ عرض السعر');
+      toast.error(err instanceof Error ? err.message : tq('toasts.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -446,7 +445,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
       }
     } catch (err) {
       console.error(err);
-      toast.error('فشل في إنشاء المعاينة');
+      toast.error(tq('toasts.previewFailed'));
     }
   };
 
@@ -460,11 +459,11 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
     setVatRate(tpl.tax_rate ?? 5);
     setDiscountType(tpl.discount_type || '');
     setDiscountValue(tpl.discount_value || 0);
-    toast.success(`تم تحميل القالب: ${tpl.name}`);
+    toast.success(tq('toasts.templateLoaded', { templateName: tpl.name }));
   };
 
   const saveAsTemplate = async () => {
-    const name = prompt('اسم القالب:');
+    const name = prompt(tq('saveTemplatePrompt'));
     if (!name?.trim()) return;
     setSavingTemplate(true);
     try {
@@ -479,9 +478,9 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
         discount_value: discountValue,
       });
       setTemplates(prev => [...prev, data]);
-      toast.success('تم حفظ القالب بنجاح');
+      toast.success(tq('toasts.templateSaveSuccess'));
     } catch {
-      toast.error('فشل حفظ القالب');
+      toast.error(tq('toasts.templateSaveFailed'));
     } finally {
       setSavingTemplate(false);
     }
@@ -494,7 +493,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
           {/* Company Header */}
           <div className="text-center border-b pb-6">
             <h2 className="text-2xl font-bold text-orange-600">
-              {quote?.company_name || 'PYRAMEDIA X'}
+              {quote?.company_name || tq('companyFallback')}
             </h2>
             <p className="text-sm text-muted-foreground">FOR AI SOLUTIONS</p>
           </div>
@@ -503,34 +502,34 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
           {/* Business Entity */}
           {entities.length > 0 && (
             <div className="space-y-2 mb-4">
-              <Label className="text-xs font-semibold">الرخصة التجارية</Label>
+              <Label className="text-xs font-semibold">{tq('businessEntity.label')}</Label>
               <Select value={entityId} onValueChange={setEntityId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="اختر الرخصة" />
+                  <SelectValue placeholder={tq('businessEntity.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {entities.map(e => (
                     <SelectItem key={e.id} value={e.id}>
-                      {e.name_en} {e.is_default ? '(افتراضي)' : ''}
+                      {e.name_en} {e.is_default ? tq('businessEntity.default') : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               {entityId && (
                 <p className="text-[10px] text-muted-foreground">
-                  رقم الرخصة: {entities.find(e => e.id === entityId)?.license_no}
+                  {tq('businessEntity.licenseNumber', { licenseNo: entities.find(e => e.id === entityId)?.license_no ?? '' })}
                 </p>
               )}
             </div>
           )}
 
           <div>
-            <h3 className="text-sm font-semibold mb-3">معلومات العميل</h3>
+            <h3 className="text-sm font-semibold mb-3">{tq('clientInfo.title')}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1">
-                <Label className="text-xs">العميل</Label>
+                <Label className="text-xs">{tq('clientInfo.clientLabel')}</Label>
                 <Select value={clientId} onValueChange={handleClientSelect}>
-                  <SelectTrigger><SelectValue placeholder="اختر عميل..." /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={tq('clientInfo.clientPlaceholder')} /></SelectTrigger>
                   <SelectContent>
                     {clients.map(c => (
                       <SelectItem key={c.id} value={c.id}>{c.name} — {c.company}</SelectItem>
@@ -539,21 +538,21 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                 </Select>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">البريد الإلكتروني</Label>
+                <Label className="text-xs">{tq('clientInfo.emailLabel')}</Label>
                 <Input value={clientEmail} onChange={e => setClientEmail(e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">العنوان</Label>
+                <Label className="text-xs">{tq('clientInfo.addressLabel')}</Label>
                 <Input value={clientAddress} onChange={e => setClientAddress(e.target.value)} />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
               <div className="space-y-1">
-                <Label className="text-xs">جهة الاتصال</Label>
+                <Label className="text-xs">{tq('clientInfo.contactNameLabel')}</Label>
                 <Input value={clientName} onChange={e => setClientName(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">الهاتف</Label>
+                <Label className="text-xs">{tq('clientInfo.phoneLabel')}</Label>
                 <Input value={clientPhone} onChange={e => setClientPhone(e.target.value)} dir="ltr" />
               </div>
               <div />
@@ -568,12 +567,12 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
               <BookTemplate className="h-4 w-4 text-muted-foreground" />
               <Select onValueChange={loadTemplate}>
                 <SelectTrigger className="w-64 h-8">
-                  <SelectValue placeholder="تحميل من قالب..." />
+                  <SelectValue placeholder={tq('templateSelector.placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {templates.map(t => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.name_ar || t.name}
+                      {locale === 'ar' ? (t.name_ar || t.name) : (t.name || t.name_ar)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -583,31 +582,31 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
           {/* Quote Details */}
           <div>
-            <h3 className="text-sm font-semibold mb-3">تفاصيل العرض</h3>
+            <h3 className="text-sm font-semibold mb-3">{tq('details.title')}</h3>
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               <div className="space-y-1">
-                <Label className="text-xs">رقم العرض</Label>
-                <Input value={quote?.quote_number || 'تلقائي'} disabled className="font-mono" />
+                <Label className="text-xs">{tq('details.quoteNumberLabel')}</Label>
+                <Input value={quote?.quote_number || tq('details.quoteNumberAuto')} disabled className="font-mono" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">تاريخ العرض</Label>
+                <Label className="text-xs">{tq('details.estimateDateLabel')}</Label>
                 <Input type="date" value={estimateDate} onChange={e => setEstimateDate(e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">تاريخ الانتهاء</Label>
+                <Label className="text-xs">{tq('details.expiryDateLabel')}</Label>
                 <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} dir="ltr" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">اسم المشروع</Label>
+                <Label className="text-xs">{tq('details.projectNameLabel')}</Label>
                 <Input value={projectName} onChange={e => setProjectName(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">العملة</Label>
+                <Label className="text-xs">{tq('details.currencyLabel')}</Label>
                 <Select value={currency} onValueChange={setCurrency}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CURRENCIES.map(c => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                    {CURRENCY_CODES.map(code => (
+                      <SelectItem key={code} value={code}>{tq(`currencies.${code}`)}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -619,16 +618,16 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
           {/* Services Table */}
           <div>
-            <h3 className="text-sm font-semibold mb-3">الخدمات</h3>
+            <h3 className="text-sm font-semibold mb-3">{tq('services.title')}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-orange-500 text-white">
                     <th className="p-2 text-start w-10">#</th>
-                    <th className="p-2 text-start">الوصف</th>
-                    <th className="p-2 text-start w-20">الكمية</th>
-                    <th className="p-2 text-start w-28">السعر</th>
-                    <th className="p-2 text-start w-28">المجموع</th>
+                    <th className="p-2 text-start">{tq('services.columns.description')}</th>
+                    <th className="p-2 text-start w-20">{tq('services.columns.quantity')}</th>
+                    <th className="p-2 text-start w-28">{tq('services.columns.rate')}</th>
+                    <th className="p-2 text-start w-28">{tq('services.columns.total')}</th>
                     <th className="p-2 w-10" />
                   </tr>
                 </thead>
@@ -640,7 +639,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                         <Input
                           value={row.description}
                           onChange={e => updateRow(idx, 'description', e.target.value)}
-                          placeholder="وصف الخدمة"
+                          placeholder={tq('services.descriptionPlaceholder')}
                           className="h-8"
                         />
                       </td>
@@ -672,7 +671,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                         <Button
                           variant="ghost"
                           size="icon"
-                          aria-label="حذف الصف"
+                          aria-label={tq('services.removeRow')}
                           className="h-7 w-7 text-destructive"
                           onClick={() => removeRow(idx)}
                           disabled={services.length <= 1}
@@ -687,7 +686,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
             </div>
 
             <Button variant="outline" size="sm" className="mt-3" onClick={addRow}>
-              <Plus className="h-3.5 w-3.5 me-1" /> إضافة عنصر
+              <Plus className="h-3.5 w-3.5 me-1" /> {tq('services.addItem')}
             </Button>
 
             {/* Discount + VAT + Totals */}
@@ -695,16 +694,16 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
               <div className="w-80 space-y-3 border rounded-lg p-4">
                 {/* Discount selector */}
                 <div className="space-y-2">
-                  <Label className="text-xs text-muted-foreground">الخصم</Label>
+                  <Label className="text-xs text-muted-foreground">{tq('totals.discountLabel')}</Label>
                   <div className="flex gap-2">
                     <Select value={discountType || 'none'} onValueChange={v => setDiscountType(v === 'none' ? '' : v)}>
                       <SelectTrigger className="w-32 h-8">
-                        <SelectValue placeholder="بدون خصم" />
+                        <SelectValue placeholder={tq('totals.discountPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">بدون خصم</SelectItem>
-                        <SelectItem value="percentage">نسبة %</SelectItem>
-                        <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                        <SelectItem value="none">{tq('totals.discountNone')}</SelectItem>
+                        <SelectItem value="percentage">{tq('totals.discountPercentage')}</SelectItem>
+                        <SelectItem value="fixed">{tq('totals.discountFixed')}</SelectItem>
                       </SelectContent>
                     </Select>
                     {discountType && (
@@ -727,7 +726,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
                 {/* Subtotal */}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">المجموع الفرعي</span>
+                  <span className="text-muted-foreground">{tq('totals.subtotal')}</span>
                   <span className="font-mono" dir="ltr">{fmtNum(subtotal)} {currency}</span>
                 </div>
 
@@ -735,7 +734,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''}
+                      {tq('totals.discountLine', { percent: discountType === 'percentage' ? `(${discountValue}%)` : '' })}
                     </span>
                     <span className="font-mono text-red-500" dir="ltr">-{fmtNum(discountAmount)} {currency}</span>
                   </div>
@@ -744,7 +743,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                 {/* Editable VAT rate */}
                 <div className="flex justify-between text-sm items-center">
                   <div className="flex items-center gap-1">
-                    <span className="text-muted-foreground">ضريبة القيمة المضافة</span>
+                    <span className="text-muted-foreground">{tq('totals.vatLabel')}</span>
                     <Input
                       type="number"
                       min={0}
@@ -764,7 +763,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
                 {/* Total */}
                 <div className="flex justify-between font-bold">
-                  <span>الإجمالي</span>
+                  <span>{tq('totals.total')}</span>
                   <span className="font-mono text-orange-600" dir="ltr">{fmtNum(total)} {currency}</span>
                 </div>
               </div>
@@ -775,26 +774,26 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
 
           {/* Notes */}
           <div className="space-y-1">
-            <Label className="text-xs">ملاحظات</Label>
+            <Label className="text-xs">{tq('notes.label')}</Label>
             <textarea
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
               rows={3}
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="ملاحظات إضافية أو تعليمات الدفع..."
+              placeholder={tq('notes.placeholder')}
             />
           </div>
 
           {/* Signature (read-only if signed) */}
           {quote?.signature_data && (
             <div className="border rounded-lg p-4 bg-muted/30">
-              <h3 className="text-sm font-semibold mb-2">التوقيع الإلكتروني</h3>
+              <h3 className="text-sm font-semibold mb-2">{tq('signature.title')}</h3>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={quote.signature_data} alt="Signature" className="border bg-white dark:bg-gray-900 rounded max-w-[300px] h-auto" />
               {quote.signed_by && (
                 <p className="text-xs text-muted-foreground mt-2">
-                  تم التوقيع بواسطة: {quote.signed_by}
-                  {quote.signed_at && ` — ${formatDate(quote.signed_at, 'dd-MM-yyyy')}`}
+                  {tq('signature.signedBy', { signedBy: quote.signed_by })}
+                  {quote.signed_at && tq('signature.signedAtSuffix', { signedAt: formatDate(quote.signed_at, 'dd-MM-yyyy', locale) })}
                 </p>
               )}
             </div>
@@ -803,12 +802,12 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
           {/* Bank Details */}
           {quote?.bank_details?.bank && (
             <div className="bg-muted/50 rounded-lg p-4">
-              <h3 className="text-xs font-semibold text-muted-foreground mb-2">البيانات البنكية</h3>
+              <h3 className="text-xs font-semibold text-muted-foreground mb-2">{tq('bankDetails.title')}</h3>
               <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <span>البنك: {quote.bank_details.bank}</span>
-                <span>اسم الحساب: {quote.bank_details.account_name}</span>
-                <span>رقم الحساب: {quote.bank_details.account_no}</span>
-                <span>IBAN: {quote.bank_details.iban}</span>
+                <span>{tq('bankDetails.bank', { bank: quote.bank_details.bank })}</span>
+                <span>{tq('bankDetails.accountName', { accountName: quote.bank_details.account_name })}</span>
+                <span>{tq('bankDetails.accountNo', { accountNo: quote.bank_details.account_no })}</span>
+                <span>{tq('bankDetails.iban', { iban: quote.bank_details.iban })}</span>
               </div>
             </div>
           )}
@@ -816,9 +815,9 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
           {/* Editable Terms & Conditions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label className="text-xs font-semibold">الشروط والأحكام</Label>
+              <Label className="text-xs font-semibold">{tq('terms.label')}</Label>
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={addTerm}>
-                <Plus className="h-3 w-3 me-1" /> إضافة شرط
+                <Plus className="h-3 w-3 me-1" /> {tq('terms.addTerm')}
               </Button>
             </div>
             <div className="space-y-2">
@@ -829,12 +828,12 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
                     value={term.text}
                     onChange={e => updateTerm(idx, e.target.value)}
                     className="h-8 text-xs"
-                    placeholder="نص الشرط..."
+                    placeholder={tq('terms.placeholder')}
                   />
                   <Button
                     variant="ghost"
                     size="icon"
-                    aria-label="حذف الشرط"
+                    aria-label={tq('terms.removeTerm')}
                     className="h-8 w-8 text-destructive shrink-0"
                     onClick={() => removeTerm(idx)}
                     disabled={terms.length <= 1}
@@ -852,27 +851,27 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
       <div className="max-w-[900px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-background border rounded-lg p-3 sticky bottom-4 shadow-lg dark:shadow-black/20">
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => onClose?.()}>
-            <X className="h-4 w-4 me-1" /> إغلاق
+            <X className="h-4 w-4 me-1" /> {tq('toolbar.close')}
           </Button>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={saveAsTemplate} disabled={savingTemplate}>
-            <BookTemplate className="h-4 w-4 me-1" /> حفظ كقالب
+            <BookTemplate className="h-4 w-4 me-1" /> {tq('toolbar.saveAsTemplate')}
           </Button>
           <Button variant="outline" onClick={handlePreview}>
-            <Eye className="h-4 w-4 me-1" /> معاينة
+            <Eye className="h-4 w-4 me-1" /> {tq('toolbar.preview')}
           </Button>
           <Button variant="outline" onClick={handlePdf}>
-            <FileDown className="h-4 w-4 me-1" /> تحميل PDF
+            <FileDown className="h-4 w-4 me-1" /> {tq('toolbar.downloadPdf')}
           </Button>
           <Button variant="outline" onClick={() => handleSave(false)} disabled={saving}>
             <Save className="h-4 w-4 me-1" />
-            {saving ? 'جارٍ الحفظ...' : 'حفظ كمسودة'}
+            {saving ? tq('toolbar.saving') : tq('toolbar.saveDraft')}
           </Button>
           {canSend && (
             <Button onClick={() => handleSave(true)} disabled={saving} className="bg-orange-500 hover:bg-orange-600">
               <Send className="h-4 w-4 me-1" />
-              {saving ? 'جارٍ الإرسال...' : 'حفظ وإرسال'}
+              {saving ? tq('toolbar.sending') : tq('toolbar.saveAndSend')}
             </Button>
           )}
         </div>
@@ -882,7 +881,7 @@ export default function QuoteBuilder({ quote, leadId, leadData, onSaved, onClose
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
         <DialogContent className="max-w-4xl h-[90vh] p-0">
           <DialogHeader className="p-4 pb-0">
-            <DialogTitle>معاينة عرض السعر</DialogTitle>
+            <DialogTitle>{tq('previewDialog.title')}</DialogTitle>
           </DialogHeader>
           {previewUrl && (
             <iframe

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import { Badge } from '@/components/ui/badge';
 import { User } from 'lucide-react';
 import QuoteBuilder, { type LeadSnapshotForQuote } from '@/components/quotes/QuoteBuilder';
@@ -20,6 +21,7 @@ import QuoteBuilder, { type LeadSnapshotForQuote } from '@/components/quotes/Quo
  * and only fires once per mount (ref-guarded against parent re-renders).
  */
 export default function NewQuotePage() {
+  const t = useTranslations('finance.quotes.new');
   const router = useRouter();
   const searchParams = useSearchParams();
   const leadId = searchParams.get('lead_id') || undefined;
@@ -52,12 +54,12 @@ export default function NewQuotePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">عرض سعر جديد</h1>
-        <p className="text-muted-foreground">إنشاء عرض سعر جديد للعميل</p>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
+        <p className="text-muted-foreground">{t('subtitle')}</p>
         {leadName && (
           <Badge variant="outline" className="mt-2 gap-1">
             <User className="h-3 w-3" />
-            مرتبط بالعميل المحتمل: {leadName}
+            {t('linkedToLead', { leadName })}
           </Badge>
         )}
       </div>

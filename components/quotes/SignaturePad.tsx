@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import SignatureCanvas from 'react-signature-canvas';
 import { Button } from '@/components/ui/button';
 import { Eraser } from 'lucide-react';
@@ -11,6 +12,7 @@ interface SignaturePadProps {
 }
 
 export default function SignaturePad({ onSignatureChange, readOnly }: SignaturePadProps) {
+  const t = useTranslations('finance.quotes.signaturePad');
   const sigRef = useRef<SignatureCanvas | null>(null);
 
   const handleEnd = useCallback(() => {
@@ -47,7 +49,7 @@ export default function SignaturePad({ onSignatureChange, readOnly }: SignatureP
         />
       </div>
       <Button variant="outline" size="sm" onClick={handleClear}>
-        <Eraser className="h-3.5 w-3.5 me-1" /> مسح التوقيع
+        <Eraser className="h-3.5 w-3.5 me-1" /> {t('clear')}
       </Button>
     </div>
   );

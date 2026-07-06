@@ -207,6 +207,213 @@
           "notesPlaceholder": "Additional notes..."
         }
       }
+    },
+    "quotes": {
+      "sendResult": {
+        "delivered": "Quote emailed to {to}",
+        "noEmail": "Quote marked as sent — client has no email address",
+        "notDelivered": "Quote marked as sent but the email could not be delivered"
+      },
+      "list": {
+        "meta": { "title": "Quotes | Pyra Workspace" },
+        "toasts": {
+          "duplicateSuccess": "Quote duplicated",
+          "loadFailed": "Failed to load quote data",
+          "pdfDownloaded": "PDF file downloaded",
+          "pdfFailed": "Failed to generate PDF file",
+          "convertSuccess": "Invoice created from quote",
+          "deleteFailedCount": "Failed to delete {count} quote(s)",
+          "deleteSuccessOne": "Quote deleted",
+          "deleteSuccessCount": "{count} quotes deleted",
+          "unexpectedError": "An error occurred"
+        },
+        "columns": {
+          "quoteNumber": "Quote Number",
+          "client": "Client",
+          "project": "Project",
+          "amount": "Amount",
+          "status": "Status",
+          "date": "Date"
+        },
+        "rowActions": {
+          "more": "More",
+          "edit": "Edit",
+          "duplicate": "Duplicate Quote",
+          "downloadPdf": "Download PDF",
+          "convertToInvoice": "Convert to Invoice",
+          "send": "Send",
+          "delete": "Delete"
+        },
+        "header": {
+          "title": "Quotes",
+          "subtitle": "Manage quotes and invoices",
+          "newQuote": "Create Quote"
+        },
+        "filters": {
+          "searchPlaceholder": "Search by number or client...",
+          "allStatuses": "All Statuses"
+        },
+        "emptyState": {
+          "title": "No quotes",
+          "description": "Create a new quote to get started"
+        },
+        "bulkActions": {
+          "deleteSelected": "Delete Selected"
+        },
+        "deleteDialog": {
+          "title": "Delete Quote",
+          "confirmCount": "Are you sure you want to delete {count} quotes? This action cannot be undone.",
+          "confirmOne": "Are you sure you want to delete quote <strong>{quoteNumber}</strong>? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete",
+          "deleting": "Deleting..."
+        }
+      },
+      "edit": {
+        "back": "Back",
+        "title": "Edit Quote — {quoteNumber}",
+        "subtitle": "Edit quote details"
+      },
+      "new": {
+        "meta": { "title": "Quotes | Pyra Workspace" },
+        "title": "New Quote",
+        "subtitle": "Create a new quote for the client",
+        "linkedToLead": "Linked to lead: {leadName}"
+      },
+      "analytics": {
+        "meta": { "title": "Quote Analytics | Pyra Workspace" },
+        "title": "Quote Analytics",
+        "kpis": {
+          "sentRate": "Sent Rate",
+          "signRate": "Sign Rate",
+          "avgDaysToSign": "Average Days to Sign",
+          "activeValue": "Active Quotes Value"
+        },
+        "charts": {
+          "funnelTitle": "Conversion Funnel",
+          "statusDistributionTitle": "Status Distribution",
+          "pipelineByStatusTitle": "Active Quotes Value by Status",
+          "valueSeriesName": "Value"
+        },
+        "agentTable": {
+          "title": "Sales Agent Performance",
+          "columns": {
+            "agent": "Agent",
+            "quotes": "Quotes",
+            "signed": "Signed",
+            "conversionRate": "Conversion Rate",
+            "signedValue": "Signed Value"
+          },
+          "emptyState": "Not enough data"
+        }
+      },
+      "builder": {
+        "toasts": {
+          "fillAllDescriptions": "Please fill in the description for all items",
+          "saveFailed": "An error occurred while saving the quote",
+          "previewFailed": "Failed to generate preview",
+          "templateLoaded": "Template loaded: {templateName}",
+          "templateSaveSuccess": "Template saved successfully",
+          "templateSaveFailed": "Failed to save template"
+        },
+        "saveTemplatePrompt": "Template name:",
+        "companyFallback": "PYRAMEDIA X",
+        "businessEntity": {
+          "label": "Trade License",
+          "placeholder": "Choose license",
+          "default": "(Default)",
+          "licenseNumber": "License Number: {licenseNo}"
+        },
+        "clientInfo": {
+          "title": "Client Information",
+          "clientLabel": "Client",
+          "clientPlaceholder": "Choose a client...",
+          "emailLabel": "Email",
+          "addressLabel": "Address",
+          "contactNameLabel": "Contact Name",
+          "phoneLabel": "Phone"
+        },
+        "templateSelector": {
+          "placeholder": "Load from template..."
+        },
+        "details": {
+          "title": "Quote Details",
+          "quoteNumberLabel": "Quote Number",
+          "quoteNumberAuto": "Auto",
+          "estimateDateLabel": "Quote Date",
+          "expiryDateLabel": "Expiry Date",
+          "projectNameLabel": "Project Name",
+          "currencyLabel": "Currency"
+        },
+        "currencies": {
+          "AED": "AED — UAE Dirham",
+          "USD": "USD — US Dollar",
+          "EUR": "EUR — Euro",
+          "SAR": "SAR — Saudi Riyal",
+          "GBP": "GBP — British Pound"
+        },
+        "services": {
+          "title": "Services",
+          "columns": {
+            "description": "Description",
+            "quantity": "Quantity",
+            "rate": "Rate",
+            "total": "Total"
+          },
+          "descriptionPlaceholder": "Service description",
+          "removeRow": "Remove row",
+          "addItem": "Add Item"
+        },
+        "totals": {
+          "discountLabel": "Discount",
+          "discountPlaceholder": "No discount",
+          "discountNone": "No discount",
+          "discountPercentage": "Percentage %",
+          "discountFixed": "Fixed Amount",
+          "subtotal": "Subtotal",
+          "discountLine": "Discount {percent}",
+          "vatLabel": "VAT",
+          "total": "Total"
+        },
+        "notes": {
+          "label": "Notes",
+          "placeholder": "Additional notes or payment instructions..."
+        },
+        "signature": {
+          "title": "Electronic Signature",
+          "signedBy": "Signed by: {signedBy}",
+          "signedAtSuffix": " — {signedAt}"
+        },
+        "bankDetails": {
+          "title": "Bank Details",
+          "bank": "Bank: {bank}",
+          "accountName": "Account Name: {accountName}",
+          "accountNo": "Account Number: {accountNo}",
+          "iban": "IBAN: {iban}"
+        },
+        "terms": {
+          "label": "Terms & Conditions",
+          "addTerm": "Add Term",
+          "placeholder": "Term text...",
+          "removeTerm": "Remove term"
+        },
+        "toolbar": {
+          "close": "Close",
+          "saveAsTemplate": "Save as Template",
+          "preview": "Preview",
+          "downloadPdf": "Download PDF",
+          "saveDraft": "Save as Draft",
+          "saving": "Saving...",
+          "saveAndSend": "Save and Send",
+          "sending": "Sending..."
+        },
+        "previewDialog": {
+          "title": "Quote Preview"
+        }
+      },
+      "signaturePad": {
+        "clear": "Clear Signature"
+      }
     }
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +11,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Clock, Users, Target } from 'lucide-react';
 import { CHART_STATUS_COLORS, CHART_COLORS, CHART_TOOLTIP_STYLE } from '@/lib/constants/chart-colors';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 
 interface ConversionData {
   funnel: { stage: string; count: number }[];
@@ -49,22 +51,12 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: CHART_STATUS_COLORS.draft,
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'مسودة',
-  pending_approval: 'بانتظار الموافقة',
-  sent: 'مُرسل',
-  viewed: 'تم العرض',
-  signed: 'موقع',
-  invoiced: 'تم الفوترة',
-  expired: 'منتهي',
-  rejected: 'مرفوض',
-  cancelled: 'ملغي',
-};
-
 const fmtNum = (n: number) =>
   new Intl.NumberFormat('en-AE', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
 
 export default function QuotesAnalyticsClient() {
+  const t = useTranslations('finance.quotes.analytics');
+  const statusLabelFor = useStatusLabels('quote');
   const { data: conversion, isLoading: loadingConversion } = useQuery<ConversionData>({
     queryKey: ['quote-reports', 'conversion'],
     queryFn: () => fetchAPI('/api/dashboard/quotes/reports?type=conversion'),
@@ -86,7 +78,7 @@ export default function QuotesAnalyticsClient() {
   if (loading) {
     return (
       <div className="space-y-6 p-6">
-        <h1 className="text-2xl font-bold">تحليلات عروض الأسعار</h1>
+        <h1 className="text-2xl font-bold">{t('title')}</h1>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
@@ -99,14 +91,14 @@ export default function QuotesAnalyticsClient() {
 
   // Status distribution for pie chart
   const statusData = Object.entries(conversion?.by_status || {}).map(([status, count]) => ({
-    name: STATUS_LABELS[status] || status,
+    name: statusLabelFor(status) || status,
     value: count,
     color: STATUS_COLORS[status] || CHART_STATUS_COLORS.draft,
   }));
 
   // Pipeline by status for bar chart
   const pipelineData = Object.entries(pipeline?.by_status || {}).map(([status, data]) => ({
-    name: STATUS_LABELS[status] || status,
+    name: statusLabelFor(status) || status,
     value: data.value,
     count: data.count,
     fill: STATUS_COLORS[status] || CHART_STATUS_COLORS.draft,
@@ -114,7 +106,7 @@ export default function QuotesAnalyticsClient() {
 
   return (
     <div className="space-y-6 p-6">
-      <h1 className="text-2xl font-bold">تحليلات عروض الأسعار</h1>
+      <h1 className="text-2xl font-bold">{t('title')}</h1>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -124,7 +116,7 @@ export default function QuotesAnalyticsClient() {
               <Target className="h-5 w-5 text-orange-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">نسبة الإرسال</p>
+              <p className="text-xs text-muted-foreground">{t('kpis.sentRate')}</p>
               <p className="text-2xl font-bold">{conversion?.rates.sent_rate || 0}%</p>
             </div>
           </CardContent>
@@ -135,7 +127,7 @@ export default function QuotesAnalyticsClient() {
               <TrendingUp className="h-5 w-5 text-green-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">نسبة التوقيع</p>
+              <p className="text-xs text-muted-foreground">{t('kpis.signRate')}</p>
               <p className="text-2xl font-bold">{conversion?.rates.sign_rate || 0}%</p>
             </div>
           </CardContent>
@@ -146,7 +138,7 @@ export default function QuotesAnalyticsClient() {
               <Clock className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">متوسط أيام التوقيع</p>
+              <p className="text-xs text-muted-foreground">{t('kpis.avgDaysToSign')}</p>
               <p className="text-2xl font-bold">{velocity?.average_days_to_sign ?? '—'}</p>
             </div>
           </CardContent>
@@ -157,7 +149,7 @@ export default function QuotesAnalyticsClient() {
               <Users className="h-5 w-5 text-purple-500" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">قيمة العروض النشطة</p>
+              <p className="text-xs text-muted-foreground">{t('kpis.activeValue')}</p>
               <p className="text-2xl font-bold" dir="ltr">{fmtNum(pipeline?.total_value || 0)}</p>
             </div>
           </CardContent>
@@ -169,7 +161,7 @@ export default function QuotesAnalyticsClient() {
         {/* Conversion Funnel */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">قمع التحويل</CardTitle>
+            <CardTitle className="text-base">{t('charts.funnelTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
@@ -187,7 +179,7 @@ export default function QuotesAnalyticsClient() {
         {/* Status Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">توزيع الحالات</CardTitle>
+            <CardTitle className="text-base">{t('charts.statusDistributionTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
@@ -217,7 +209,7 @@ export default function QuotesAnalyticsClient() {
         {/* Pipeline */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">قيمة العروض النشطة حسب الحالة</CardTitle>
+            <CardTitle className="text-base">{t('charts.pipelineByStatusTitle')}</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={280}>
@@ -227,7 +219,7 @@ export default function QuotesAnalyticsClient() {
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip formatter={(v: number) => fmtNum(v)} />
                 <Legend />
-                <Bar dataKey="value" name="القيمة" radius={[4, 4, 0, 0]}>
+                <Bar dataKey="value" name={t('charts.valueSeriesName')} radius={[4, 4, 0, 0]}>
                   {pipelineData.map((entry, i) => (
                     <Cell key={i} fill={entry.fill} />
                   ))}
@@ -240,7 +232,7 @@ export default function QuotesAnalyticsClient() {
         {/* Agent Performance Table */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">أداء وكلاء المبيعات</CardTitle>
+            <CardTitle className="text-base">{t('agentTable.title')}</CardTitle>
           </CardHeader>
           <CardContent>
             {agents && agents.length > 0 ? (
@@ -248,11 +240,11 @@ export default function QuotesAnalyticsClient() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b text-muted-foreground">
-                      <th className="p-2 text-start">الوكيل</th>
-                      <th className="p-2 text-start">العروض</th>
-                      <th className="p-2 text-start">الموقعة</th>
-                      <th className="p-2 text-start">نسبة التحويل</th>
-                      <th className="p-2 text-start">القيمة الموقعة</th>
+                      <th className="p-2 text-start">{t('agentTable.columns.agent')}</th>
+                      <th className="p-2 text-start">{t('agentTable.columns.quotes')}</th>
+                      <th className="p-2 text-start">{t('agentTable.columns.signed')}</th>
+                      <th className="p-2 text-start">{t('agentTable.columns.conversionRate')}</th>
+                      <th className="p-2 text-start">{t('agentTable.columns.signedValue')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -273,7 +265,7 @@ export default function QuotesAnalyticsClient() {
                 </table>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">لا توجد بيانات كافية</p>
+              <p className="text-sm text-muted-foreground text-center py-8">{t('agentTable.emptyState')}</p>
             )}
           </CardContent>
         </Card>
