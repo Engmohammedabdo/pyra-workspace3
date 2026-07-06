@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -18,13 +21,14 @@ interface Props {
 }
 
 export function ClientSelector({ clients, clientId, onClientChange, loading, displayClientName, onDisplayClientNameChange }: Props) {
+  const t = useTranslations('finance.invoices.new.clientSelector');
   return (
     <>
       <div className="space-y-2">
-        <Label>العميل</Label>
+        <Label>{t('label')}</Label>
         <Select value={clientId} onValueChange={onClientChange}>
           <SelectTrigger>
-            <SelectValue placeholder={loading ? 'جارٍ التحميل...' : 'اختر العميل'} />
+            <SelectValue placeholder={loading ? t('loading') : t('placeholder')} />
           </SelectTrigger>
           <SelectContent>
             {clients.map(client => (
@@ -38,14 +42,14 @@ export function ClientSelector({ clients, clientId, onClientChange, loading, dis
 
       {clientId && (
         <div className="space-y-2">
-          <Label>اسم العميل في الفاتورة (اختياري)</Label>
+          <Label>{t('displayNameLabel')}</Label>
           <Input
             value={displayClientName}
             onChange={e => onDisplayClientNameChange(e.target.value)}
-            placeholder={clients.find(c => c.id === clientId)?.name || 'اسم مختلف حسب الرخصة التجارية'}
+            placeholder={clients.find(c => c.id === clientId)?.name || t('displayNamePlaceholder')}
           />
           <p className="text-xs text-muted-foreground">
-            اتركه فارغاً لاستخدام اسم العميل الأصلي، أو اكتب اسم مختلف حسب طلب العميل (مثل اسم الرخصة)
+            {t('helpText')}
           </p>
         </div>
       )}

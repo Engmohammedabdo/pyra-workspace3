@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { useClients } from '@/hooks/useClients';
 import { useSettings } from '@/hooks/useSettings';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 
 export default function NewInvoicePage() {
+  const t = useTranslations('finance.invoices.new');
   const router = useRouter();
   const [entities, setEntities] = useState<any[]>([]);
   const [entityId, setEntityId] = useState('');
@@ -97,8 +99,8 @@ export default function NewInvoicePage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link href="/dashboard/invoices" aria-label="العودة إلى الفواتير"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
-        <div><h1 className="text-2xl font-bold">فاتورة جديدة</h1></div>
+        <Link href="/dashboard/invoices" aria-label={t('backToInvoices')}><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+        <div><h1 className="text-2xl font-bold">{t('title')}</h1></div>
       </div>
       <Card><CardContent className="space-y-4 pt-6">
         <BusinessEntitySelector entities={entities} entityId={entityId} onEntityChange={setEntityId} />
@@ -106,25 +108,25 @@ export default function NewInvoicePage() {
         <InvoiceMeta projectName={projectName} setProjectName={setProjectName} issueDate={issueDate} setIssueDate={setIssueDate} dueDate={dueDate} setDueDate={setDueDate} milestoneType={milestoneType} setMilestoneType={setMilestoneType} notes={notes} setNotes={setNotes} />
       </CardContent></Card>
       <Card><CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>بنود الفاتورة</CardTitle>
-        <Button variant="outline" size="sm" onClick={() => setItems([...items, { description: '', quantity: 1, rate: 0 }])}><Plus className="h-4 w-4 me-1" /> إضافة بند</Button>
+        <CardTitle>{t('items.title')}</CardTitle>
+        <Button variant="outline" size="sm" onClick={() => setItems([...items, { description: '', quantity: 1, rate: 0 }])}><Plus className="h-4 w-4 me-1" /> {t('items.addItem')}</Button>
       </CardHeader><CardContent className="space-y-3">
         <InvoiceItemsTable items={items} updateItem={(idx, field, val) => setItems(prev => prev.map((item, i) => i === idx ? {...item, [field]: val} : item))} removeItem={idx => setItems(prev => prev.filter((_, i) => i !== idx))} />
         <div className="border-t pt-4 mt-4 space-y-2">
-            <div className="flex justify-between text-sm"><span>المجموع الفرعي</span><span className="font-mono">{formatCurrency(subtotal)}</span></div>
+            <div className="flex justify-between text-sm"><span>{t('items.subtotal')}</span><span className="font-mono">{formatCurrency(subtotal)}</span></div>
             <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2"><span>خصم</span>
-                    <Select value={discountType} onValueChange={v => setDiscountType(v === 'none' ? '' : v)}><SelectTrigger className="w-28 h-7 text-xs"><SelectValue placeholder="بدون" /></SelectTrigger><SelectContent><SelectItem value="none">بدون</SelectItem><SelectItem value="percentage">نسبة %</SelectItem><SelectItem value="fixed">مبلغ ثابت</SelectItem></SelectContent></Select>
+                <div className="flex items-center gap-2"><span>{t('items.discount')}</span>
+                    <Select value={discountType} onValueChange={v => setDiscountType(v === 'none' ? '' : v)}><SelectTrigger className="w-28 h-7 text-xs"><SelectValue placeholder={t('items.discountNone')} /></SelectTrigger><SelectContent><SelectItem value="none">{t('items.discountNone')}</SelectItem><SelectItem value="percentage">{t('items.discountPercentage')}</SelectItem><SelectItem value="fixed">{t('items.discountFixed')}</SelectItem></SelectContent></Select>
                     {discountType && <Input type="number" value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" dir="ltr" />}
                 </div>
                 <span className="font-mono text-red-500">{discountAmount > 0 ? `- ${formatCurrency(discountAmount)}` : '—'}</span>
             </div>
-            <div className="flex justify-between text-base font-bold border-t pt-2"><span>الإجمالي</span><span className="font-mono">{formatCurrency(total)}</span></div>
+            <div className="flex justify-between text-base font-bold border-t pt-2"><span>{t('items.total')}</span><span className="font-mono">{formatCurrency(total)}</span></div>
         </div>
       </CardContent></Card>
       <div className="flex items-center gap-3 justify-end">
-        <Button variant="outline" onClick={() => handleSubmit(false)} disabled={saving}>{saving && !sendAfterSave ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />} حفظ</Button>
-        <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => handleSubmit(true)} disabled={saving}>{saving && sendAfterSave ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Send className="h-4 w-4 me-2" />} حفظ وإرسال</Button>
+        <Button variant="outline" onClick={() => handleSubmit(false)} disabled={saving}>{saving && !sendAfterSave ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Save className="h-4 w-4 me-2" />} {t('save')}</Button>
+        <Button className="bg-orange-500 hover:bg-orange-600" onClick={() => handleSubmit(true)} disabled={saving}>{saving && sendAfterSave ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <Send className="h-4 w-4 me-2" />} {t('saveAndSend')}</Button>
       </div>
     </div>
   );

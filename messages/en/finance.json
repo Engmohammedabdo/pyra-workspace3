@@ -1,3 +1,212 @@
 {
-  "finance": {}
+  "finance": {
+    "invoices": {
+      "meta": { "title": "Invoices | Pyra Workspace" },
+      "milestoneTypes": {
+        "booking": "Booking Deposit",
+        "initial_delivery": "Initial Delivery",
+        "final_delivery": "Final Delivery"
+      },
+      "list": {
+        "toasts": {
+          "loadFailed": "Failed to load invoice data",
+          "pdfDownloaded": "PDF file downloaded",
+          "pdfFailed": "Failed to generate PDF file",
+          "deleteFailedCount": "Failed to delete {count} invoice(s)",
+          "deleteSuccessOne": "Invoice deleted",
+          "deleteSuccessCount": "{count} invoices deleted",
+          "unexpectedError": "An error occurred",
+          "draftsOnly": "Only drafts can be deleted"
+        },
+        "columns": {
+          "invoiceNumber": "Invoice Number",
+          "client": "Client",
+          "project": "Project",
+          "total": "Total",
+          "amountPaid": "Paid",
+          "amountDue": "Remaining",
+          "status": "Status",
+          "issueDate": "Date"
+        },
+        "rowActions": {
+          "more": "More",
+          "view": "View",
+          "downloadPdf": "Download PDF",
+          "delete": "Delete"
+        },
+        "header": {
+          "title": "Invoices",
+          "subtitle": "Manage invoices and payments",
+          "refresh": "Refresh",
+          "newInvoice": "New Invoice"
+        },
+        "summary": {
+          "totalRevenue": "Total Revenue",
+          "totalOutstanding": "Outstanding Amounts",
+          "totalOverdue": "Overdue Amounts"
+        },
+        "filters": {
+          "searchPlaceholder": "Search by number, client, or project...",
+          "allStatuses": "All Statuses"
+        },
+        "emptyState": {
+          "title": "No invoices",
+          "description": "Create a new invoice to get started"
+        },
+        "bulkActions": {
+          "deleteSelected": "Delete Selected"
+        },
+        "deleteDialog": {
+          "title": "Delete Invoice",
+          "confirmCount": "Are you sure you want to delete {count} invoices? This action cannot be undone.",
+          "confirmOne": "Are you sure you want to delete invoice <strong>{invoiceNumber}</strong>? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete",
+          "deleting": "Deleting..."
+        }
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "Failed to load invoice",
+          "connectionError": "A connection error occurred",
+          "saveFailed": "Failed to save changes",
+          "saveSuccess": "Changes saved",
+          "unexpectedError": "An error occurred",
+          "sendFailed": "Failed to send invoice",
+          "sendSuccess": "Invoice sent successfully",
+          "deleteFailed": "Failed to delete invoice",
+          "deleteSuccess": "Invoice deleted",
+          "paymentLinkFailed": "Failed to create payment link",
+          "paymentLinkCopied": "Payment link copied",
+          "amountMustBePositive": "Amount must be greater than zero",
+          "amountExceedsDue": "Amount exceeds the due amount ({amount} {currency})",
+          "paymentFailed": "Failed to record payment",
+          "paymentSuccess": "Payment recorded successfully",
+          "paymentError": "An error occurred while recording the payment"
+        },
+        "paymentDialog": {
+          "title": "Record New Payment",
+          "amountLabel": "Amount",
+          "amountPlaceholder": "Due: {amount}",
+          "payFullAmount": "Pay full amount ({amount} {currency})",
+          "dateLabel": "Payment Date",
+          "methodLabel": "Payment Method",
+          "referenceLabel": "Reference Number",
+          "referencePlaceholder": "Transfer or cheque number",
+          "notesLabel": "Notes",
+          "notesPlaceholder": "Additional notes...",
+          "cancel": "Cancel",
+          "submit": "Record Payment"
+        },
+        "deleteDialog": {
+          "title": "Confirm Delete",
+          "description": "Are you sure you want to delete this invoice? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        },
+        "header": {
+          "back": "Back",
+          "issueDueDates": "Issue date: {issueDate} — Due: {dueDate}",
+          "edit": "Edit",
+          "send": "Send",
+          "recordPayment": "Record Payment",
+          "stripePaymentLink": "Stripe Payment Link",
+          "downloadPdf": "PDF",
+          "delete": "Delete"
+        },
+        "clientInfo": {
+          "title": "Client Details",
+          "name": "Name",
+          "company": "Company",
+          "email": "Email",
+          "phone": "Phone",
+          "project": "Project: "
+        },
+        "editItems": {
+          "title": "Invoice Items",
+          "addItem": "Add Item",
+          "projectName": "Project Name",
+          "projectNamePlaceholder": "Project name",
+          "displayName": "Client Name on PDF (optional)",
+          "displayNamePlaceholder": "Different name",
+          "dueDate": "Due Date",
+          "itemDescriptionPlaceholder": "Item description",
+          "removeItem": "Delete",
+          "notes": "Notes",
+          "discount": "Discount",
+          "discountNone": "None",
+          "discountPercentage": "Percentage %",
+          "discountFixed": "Fixed Amount",
+          "discountPercentLabel": "Percentage %",
+          "discountAmountLabel": "Amount",
+          "vatRate": "VAT Rate %",
+          "subtotal": "Subtotal",
+          "discountLine": "Discount {percent}",
+          "afterDiscount": "After Discount",
+          "vatLine": "VAT ({rate}%)",
+          "total": "Total",
+          "cancel": "Cancel",
+          "save": "Save"
+        },
+        "paymentHistory": {
+          "title": "Payment History",
+          "emptyTitle": "No payments recorded",
+          "columns": {
+            "date": "Date",
+            "amount": "Amount",
+            "method": "Payment Method",
+            "reference": "Reference"
+          }
+        }
+      },
+      "new": {
+        "backToInvoices": "Back to Invoices",
+        "title": "New Invoice",
+        "items": {
+          "title": "Invoice Items",
+          "addItem": "Add Item",
+          "subtotal": "Subtotal",
+          "discount": "Discount",
+          "discountNone": "None",
+          "discountPercentage": "Percentage %",
+          "discountFixed": "Fixed Amount",
+          "total": "Total"
+        },
+        "save": "Save",
+        "saveAndSend": "Save and Send",
+        "businessEntity": {
+          "label": "Trade License",
+          "placeholder": "Choose license",
+          "default": "(Default)",
+          "licenseNumber": "License Number: {licenseNo}"
+        },
+        "clientSelector": {
+          "label": "Client",
+          "loading": "Loading...",
+          "placeholder": "Choose client",
+          "displayNameLabel": "Client Name on Invoice (optional)",
+          "displayNamePlaceholder": "Different name per trade license",
+          "helpText": "Leave empty to use the client's original name, or enter a different name per the client's request (e.g. license name)"
+        },
+        "itemsTable": {
+          "description": "Description",
+          "descriptionPlaceholder": "Item description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount",
+          "removeItem": "Delete"
+        },
+        "meta": {
+          "projectName": "Project Name",
+          "projectNamePlaceholder": "Project name",
+          "issueDate": "Issue Date",
+          "dueDate": "Due Date",
+          "milestoneType": "Payment Type (optional)",
+          "milestoneTypePlaceholder": "Choose payment type",
+          "notes": "Notes",
+          "notesPlaceholder": "Additional notes..."
+        }
+      }
+    }
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { generateInvoicePDF } from '@/lib/pdf/invoice-pdf';
 import { InvoiceHeader } from '@/components/dashboard/invoice-detail/InvoiceHeader';
@@ -18,12 +19,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { FileText, Loader2 } from 'lucide-react';
-import { PAYMENT_METHOD_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import { PAYMENT_METHOD } from '@/lib/constants/statuses';
 import Link from 'next/link';
 
 // ... (Invoice interface + constants remain in original or separate file)
 
 export default function InvoiceDetailPage() {
+  const t = useTranslations('finance.invoices.detail');
+  const paymentMethodLabelFor = useStatusLabels('paymentMethod');
+  const statusLabelFor = useStatusLabels('invoice');
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
@@ -57,16 +62,16 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${id}`);
       const json = await res.json();
       if (!res.ok || json.error) {
-        setError(json.error || 'فشل في تحميل الفاتورة');
+        setError(json.error || t('toasts.loadFailed'));
         return;
       }
       setInvoice(json.data);
     } catch {
-      setError('حدث خطأ في الاتصال');
+      setError(t('toasts.connectionError'));
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, t]);
 
   useEffect(() => { fetchInvoice(); }, [fetchInvoice]);
 
@@ -123,14 +128,14 @@ export default function InvoiceDetailPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.error) {
-        toast.error(json.error || 'فشل حفظ التعديلات');
+        toast.error(json.error || t('toasts.saveFailed'));
         return;
       }
-      toast.success('تم حفظ التعديلات');
+      toast.success(t('toasts.saveSuccess'));
       setEditing(false);
       fetchInvoice();
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     } finally {
       setSavingEdit(false);
     }
@@ -143,13 +148,13 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${id}/send`, { method: 'POST' });
       const json = await res.json();
       if (!res.ok || json.error) {
-        toast.error(json.error || 'فشل في إرسال الفاتورة');
+        toast.error(json.error || t('toasts.sendFailed'));
         return;
       }
-      toast.success('تم إرسال الفاتورة بنجاح');
+      toast.success(t('toasts.sendSuccess'));
       fetchInvoice();
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     } finally {
       setSending(false);
     }
@@ -161,13 +166,13 @@ export default function InvoiceDetailPage() {
       const res = await fetch(`/api/invoices/${id}`, { method: 'DELETE' });
       const json = await res.json();
       if (!res.ok || json.error) {
-        toast.error(json.error || 'فشل في حذف الفاتورة');
+        toast.error(json.error || t('toasts.deleteFailed'));
         return;
       }
-      toast.success('تم حذف الفاتورة');
+      toast.success(t('toasts.deleteSuccess'));
       router.push('/dashboard/invoices');
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     }
   };
 
@@ -182,15 +187,15 @@ export default function InvoiceDetailPage() {
       });
       const json = await res.json();
       if (!res.ok || json.error) {
-        toast.error(json.error || 'فشل في إنشاء رابط الدفع');
+        toast.error(json.error || t('toasts.paymentLinkFailed'));
         return;
       }
       if (json.data?.url) {
         navigator.clipboard.writeText(json.data.url);
-        toast.success('تم نسخ رابط الدفع');
+        toast.success(t('toasts.paymentLinkCopied'));
       }
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     } finally {
       setGeneratingLink(false);
     }
@@ -208,11 +213,11 @@ export default function InvoiceDetailPage() {
     if (!invoice) return;
     const amount = parseFloat(payAmount);
     if (!amount || amount <= 0) {
-      toast.error('المبلغ يجب أن يكون أكبر من صفر');
+      toast.error(t('toasts.amountMustBePositive'));
       return;
     }
     if (amount > invoice.amount_due) {
-      toast.error(`المبلغ يتجاوز المستحق (${invoice.amount_due} ${invoice.currency})`);
+      toast.error(t('toasts.amountExceedsDue', { amount: invoice.amount_due, currency: invoice.currency }));
       return;
     }
 
@@ -231,15 +236,15 @@ export default function InvoiceDetailPage() {
       });
       const json = await res.json();
       if (!res.ok || json.error) {
-        toast.error(json.error || 'فشل في تسجيل الدفعة');
+        toast.error(json.error || t('toasts.paymentFailed'));
         return;
       }
-      toast.success('تم تسجيل الدفعة بنجاح');
+      toast.success(t('toasts.paymentSuccess'));
       setShowPayment(false);
       resetPaymentForm();
       fetchInvoice();
     } catch {
-      toast.error('حدث خطأ أثناء تسجيل الدفعة');
+      toast.error(t('toasts.paymentError'));
     } finally {
       setRecordingPayment(false);
     }
@@ -252,7 +257,7 @@ export default function InvoiceDetailPage() {
     <div className="space-y-6 max-w-5xl">
       <InvoiceHeader
         invoiceNumber={invoice.invoice_number}
-        status={{ label: invoice.status, color: '' }}
+        status={{ label: statusLabelFor(invoice.status) || invoice.status, color: '' }}
         issueDate={invoice.issue_date}
         dueDate={invoice.due_date}
         isDraft={invoice.status === 'draft'}
@@ -297,12 +302,12 @@ export default function InvoiceDetailPage() {
       <Dialog open={showPayment} onOpenChange={open => { if (!open) { setShowPayment(false); resetPaymentForm(); } }}>
         <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>تسجيل دفعة جديدة</DialogTitle>
+            <DialogTitle>{t('paymentDialog.title')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-2">
             {/* Amount */}
             <div className="space-y-2">
-              <Label htmlFor="pay-amount">المبلغ <span className="text-red-500">*</span></Label>
+              <Label htmlFor="pay-amount">{t('paymentDialog.amountLabel')} <span className="text-red-500">*</span></Label>
               <div className="relative">
                 <Input
                   id="pay-amount"
@@ -310,7 +315,7 @@ export default function InvoiceDetailPage() {
                   dir="ltr"
                   value={payAmount}
                   onChange={e => setPayAmount(e.target.value)}
-                  placeholder={`المستحق: ${invoice?.amount_due || 0}`}
+                  placeholder={t('paymentDialog.amountPlaceholder', { amount: invoice?.amount_due || 0 })}
                   min={0}
                   max={invoice?.amount_due}
                   step={0.01}
@@ -325,14 +330,14 @@ export default function InvoiceDetailPage() {
                   onClick={() => setPayAmount(String(invoice.amount_due))}
                   className="text-xs text-orange-600 hover:underline"
                 >
-                  دفع كامل المبلغ ({invoice.amount_due} {invoice.currency})
+                  {t('paymentDialog.payFullAmount', { amount: invoice.amount_due, currency: invoice.currency })}
                 </button>
               )}
             </div>
 
             {/* Payment Date */}
             <div className="space-y-2">
-              <Label htmlFor="pay-date">تاريخ الدفع <span className="text-red-500">*</span></Label>
+              <Label htmlFor="pay-date">{t('paymentDialog.dateLabel')} <span className="text-red-500">*</span></Label>
               <Input
                 id="pay-date"
                 type="date"
@@ -344,12 +349,12 @@ export default function InvoiceDetailPage() {
 
             {/* Payment Method */}
             <div className="space-y-2">
-              <Label>طريقة الدفع</Label>
+              <Label>{t('paymentDialog.methodLabel')}</Label>
               <Select value={payMethod} onValueChange={setPayMethod}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(PAYMENT_METHOD_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {Object.values(PAYMENT_METHOD).map((value) => (
+                    <SelectItem key={value} value={value}>{paymentMethodLabelFor(value)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -357,24 +362,24 @@ export default function InvoiceDetailPage() {
 
             {/* Reference */}
             <div className="space-y-2">
-              <Label htmlFor="pay-ref">رقم المرجع</Label>
+              <Label htmlFor="pay-ref">{t('paymentDialog.referenceLabel')}</Label>
               <Input
                 id="pay-ref"
                 dir="ltr"
                 value={payReference}
                 onChange={e => setPayReference(e.target.value)}
-                placeholder="رقم التحويل أو الشيك"
+                placeholder={t('paymentDialog.referencePlaceholder')}
               />
             </div>
 
             {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="pay-notes">ملاحظات</Label>
+              <Label htmlFor="pay-notes">{t('paymentDialog.notesLabel')}</Label>
               <Textarea
                 id="pay-notes"
                 value={payNotes}
                 onChange={e => setPayNotes(e.target.value)}
-                placeholder="ملاحظات إضافية..."
+                placeholder={t('paymentDialog.notesPlaceholder')}
                 rows={2}
               />
             </div>
@@ -382,7 +387,7 @@ export default function InvoiceDetailPage() {
             {/* Submit */}
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => { setShowPayment(false); resetPaymentForm(); }}>
-                إلغاء
+                {t('paymentDialog.cancel')}
               </Button>
               <Button
                 onClick={handleRecordPayment}
@@ -390,7 +395,7 @@ export default function InvoiceDetailPage() {
                 className="bg-orange-500 hover:bg-orange-600 text-white gap-2"
               >
                 {recordingPayment && <Loader2 className="h-4 w-4 animate-spin" />}
-                تسجيل الدفعة
+                {t('paymentDialog.submit')}
               </Button>
             </div>
           </div>
@@ -400,15 +405,15 @@ export default function InvoiceDetailPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('deleteDialog.confirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

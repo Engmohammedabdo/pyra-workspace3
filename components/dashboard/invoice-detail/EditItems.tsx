@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +52,7 @@ export function EditItems({
   currency, defaultClientName,
   updateItem, addItem, removeItem, onSave, onCancel, saving
 }: EditItemsProps) {
+  const t = useTranslations('finance.invoices.detail.editItems');
   const subtotal = items.reduce((sum, i) => sum + (i.quantity * i.rate), 0);
 
   let discountAmount = 0;
@@ -66,28 +68,28 @@ export function EditItems({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">بنود الفاتورة</CardTitle>
+        <CardTitle className="text-base">{t('title')}</CardTitle>
         <Button variant="outline" size="sm" onClick={addItem}>
-          <Plus className="h-4 w-4 me-1" /> إضافة بند
+          <Plus className="h-4 w-4 me-1" /> {t('addItem')}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>اسم المشروع</Label>
-          <Input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="اسم المشروع" />
+          <Label>{t('projectName')}</Label>
+          <Input value={projectName} onChange={e => setProjectName(e.target.value)} placeholder={t('projectNamePlaceholder')} />
         </div>
         <div className="space-y-2">
-          <Label>اسم العميل في الـ PDF (اختياري)</Label>
-          <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder={defaultClientName || 'اسم مختلف'} />
+          <Label>{t('displayName')}</Label>
+          <Input value={displayName} onChange={e => setDisplayName(e.target.value)} placeholder={defaultClientName || t('displayNamePlaceholder')} />
         </div>
         <div className="space-y-2">
-          <Label>تاريخ الاستحقاق</Label>
+          <Label>{t('dueDate')}</Label>
           <Input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
         </div>
         {items.map((item, index) => (
           <div key={item.id} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
             <div className="sm:col-span-5">
-              <Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder="وصف البند" />
+              <Input value={item.description} onChange={e => updateItem(index, 'description', e.target.value)} placeholder={t('itemDescriptionPlaceholder')} />
             </div>
             <div className="sm:col-span-2">
               <Input type="number" value={item.quantity} onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)} dir="ltr" />
@@ -97,57 +99,57 @@ export function EditItems({
             </div>
             <div className="sm:col-span-2 text-sm font-mono px-2">{formatCurrency(item.amount, currency)}</div>
             <div className="sm:col-span-1 flex justify-end">
-              <Button variant="ghost" size="icon" onClick={() => removeItem(index)} disabled={items.length <= 1} aria-label="حذف"><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="ghost" size="icon" onClick={() => removeItem(index)} disabled={items.length <= 1} aria-label={t('removeItem')}><Trash2 className="h-4 w-4" /></Button>
             </div>
           </div>
         ))}
         <div className="space-y-2">
-          <Label>ملاحظات</Label>
+          <Label>{t('notes')}</Label>
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
         </div>
         {/* Discount */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>الخصم</Label>
+            <Label>{t('discount')}</Label>
             <Select value={discountType || 'none'} onValueChange={v => setDiscountType(v === 'none' ? null : v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">بدون خصم</SelectItem>
-                <SelectItem value="percentage">نسبة %</SelectItem>
-                <SelectItem value="fixed">مبلغ ثابت</SelectItem>
+                <SelectItem value="none">{t('discountNone')}</SelectItem>
+                <SelectItem value="percentage">{t('discountPercentage')}</SelectItem>
+                <SelectItem value="fixed">{t('discountFixed')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
           {discountType && discountType !== 'none' && (
             <div className="space-y-2">
-              <Label>{discountType === 'percentage' ? 'النسبة %' : 'المبلغ'}</Label>
+              <Label>{discountType === 'percentage' ? t('discountPercentLabel') : t('discountAmountLabel')}</Label>
               <Input type="number" dir="ltr" min={0} step={0.01} value={discountValue} onChange={e => setDiscountValue(parseFloat(e.target.value) || 0)} />
             </div>
           )}
         </div>
         {/* VAT Rate */}
         <div className="space-y-2">
-          <Label>نسبة الضريبة (VAT) %</Label>
+          <Label>{t('vatRate')}</Label>
           <Input type="number" dir="ltr" min={0} step={0.01} value={vatRate} onChange={e => setVatRate(parseFloat(e.target.value) || 0)} />
         </div>
         {/* Totals */}
         <div className="border-t pt-4 space-y-2 text-sm">
-          <div className="flex justify-between"><span>المجموع الفرعي</span><span>{formatCurrency(subtotal, currency)}</span></div>
+          <div className="flex justify-between"><span>{t('subtotal')}</span><span>{formatCurrency(subtotal, currency)}</span></div>
           {discountAmount > 0 && (
             <div className="flex justify-between text-red-600 dark:text-red-400">
-              <span>الخصم {discountType === 'percentage' ? `(${discountValue}%)` : ''}</span>
+              <span>{t('discountLine', { percent: discountType === 'percentage' ? `(${discountValue}%)` : '' })}</span>
               <span>- {formatCurrency(discountAmount, currency)}</span>
             </div>
           )}
           {discountAmount > 0 && (
-            <div className="flex justify-between"><span>بعد الخصم</span><span>{formatCurrency(taxableAmount, currency)}</span></div>
+            <div className="flex justify-between"><span>{t('afterDiscount')}</span><span>{formatCurrency(taxableAmount, currency)}</span></div>
           )}
-          <div className="flex justify-between"><span>الضريبة ({vatRate}%)</span><span>{formatCurrency(vatAmount, currency)}</span></div>
-          <div className="flex justify-between font-bold text-base"><span>الإجمالي</span><span>{formatCurrency(total, currency)}</span></div>
+          <div className="flex justify-between"><span>{t('vatLine', { rate: vatRate })}</span><span>{formatCurrency(vatAmount, currency)}</span></div>
+          <div className="flex justify-between font-bold text-base"><span>{t('total')}</span><span>{formatCurrency(total, currency)}</span></div>
         </div>
         <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 me-1" /> إلغاء</Button>
-          <Button onClick={onSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 me-1" />} حفظ</Button>
+          <Button variant="outline" onClick={onCancel}><X className="h-4 w-4 me-1" /> {t('cancel')}</Button>
+          <Button onClick={onSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 me-1" />} {t('save')}</Button>
         </div>
       </CardContent>
     </Card>

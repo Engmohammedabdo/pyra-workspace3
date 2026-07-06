@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { useTranslations, useLocale } from 'next-intl';
 import { useInvoicesPaged, useRevenueSummary } from '@/hooks/useInvoices';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
@@ -32,8 +33,9 @@ import { ExportButton } from '@/components/reports/ExportButton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { StaggerContainer, StaggerItem } from '@/components/ui/stagger-list';
 import { usePermission } from '@/hooks/usePermission';
-import { INVOICE_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { getStatusBadgeClass } from '@/lib/constants/badge-colors';
+import type { Locale } from '@/lib/i18n/config';
 
 /* ───────────────────────── Types ───────────────────────── */
 
@@ -61,20 +63,15 @@ interface RevenueSummary {
 
 /* ───────────────────────── Constants ───────────────────── */
 
-const STATUS_MAP: Record<string, { label: string }> = {
-  draft:          { label: INVOICE_STATUS_LABELS.draft },
-  sent:           { label: INVOICE_STATUS_LABELS.sent },
-  paid:           { label: INVOICE_STATUS_LABELS.paid },
-  partially_paid: { label: INVOICE_STATUS_LABELS.partially_paid },
-  overdue:        { label: INVOICE_STATUS_LABELS.overdue },
-  cancelled:      { label: INVOICE_STATUS_LABELS.cancelled },
-};
-
 const PAGE_SIZE = 20;
 
 /* ───────────────────────── Component ──────────────────── */
 
 export default function InvoicesClient() {
+  const t = useTranslations('finance.invoices.list');
+  const tCommon = useTranslations('common');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('invoice');
   const router = useRouter();
   const searchParams = useSearchParams();
   const canCreate = usePermission('invoices.create');
@@ -142,13 +139,13 @@ export default function InvoicesClient() {
       const res = await fetch(`/api/invoices/${id}`);
       const json = await res.json();
       if (!res.ok || !json.data) {
-        toast.error('فشل في تحميل بيانات الفاتورة');
+        toast.error(t('toasts.loadFailed'));
         return;
       }
       await generateInvoicePDF(json.data);
-      toast.success('تم تحميل ملف PDF');
+      toast.success(t('toasts.pdfDownloaded'));
     } catch {
-      toast.error('فشل في إنشاء ملف PDF');
+      toast.error(t('toasts.pdfFailed'));
     }
   };
 
@@ -167,12 +164,12 @@ export default function InvoicesClient() {
       setShowDelete(false);
       setSelected(null);
       setBulkDeleteIds([]);
-      if (failCount > 0) toast.error(`فشل حذف ${failCount} فاتورة`);
-      else toast.success(idsToDelete.length > 1 ? `تم حذف ${idsToDelete.length} فواتير` : 'تم حذف الفاتورة');
+      if (failCount > 0) toast.error(t('toasts.deleteFailedCount', { count: failCount }));
+      else toast.success(idsToDelete.length > 1 ? t('toasts.deleteSuccessCount', { count: idsToDelete.length }) : t('toasts.deleteSuccessOne'));
       queryClient.invalidateQueries({ queryKey: ['invoices'] });
       queryClient.invalidateQueries({ queryKey: ['invoices', 'revenue-summary'] });
     } catch {
-      toast.error('حدث خطأ');
+      toast.error(t('toasts.unexpectedError'));
     } finally {
       setDeleting(false);
     }
@@ -209,64 +206,64 @@ export default function InvoicesClient() {
         return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
       }
       return sortConfig.direction === 'asc'
-        ? String(aVal).localeCompare(String(bVal), 'ar')
-        : String(bVal).localeCompare(String(aVal), 'ar');
+        ? String(aVal).localeCompare(String(bVal), locale)
+        : String(bVal).localeCompare(String(aVal), locale);
     });
     return sorted;
-  }, [invoices, sortConfig]);
+  }, [invoices, sortConfig, locale]);
 
   /* ── column definitions ── */
   const columns: ColumnDef<Invoice>[] = useMemo(() => [
     {
       key: 'invoice_number',
-      header: 'رقم الفاتورة',
+      header: t('columns.invoiceNumber'),
       sortable: true,
       render: (inv) => <span className="font-mono">{inv.invoice_number}</span>,
     },
     {
       key: 'client',
-      header: 'العميل',
+      header: t('columns.client'),
       sortable: true,
       render: (inv) => inv.client_name || inv.client_company || '—',
     },
     {
       key: 'project',
-      header: 'المشروع',
+      header: t('columns.project'),
       className: 'text-muted-foreground',
       render: (inv) => inv.project_name || '—',
     },
     {
       key: 'total',
-      header: 'الإجمالي',
+      header: t('columns.total'),
       sortable: true,
       render: (inv) => <span className="font-mono">{formatCurrency(inv.total, inv.currency)}</span>,
     },
     {
       key: 'amount_paid',
-      header: 'المدفوع',
+      header: t('columns.amountPaid'),
       sortable: true,
       render: (inv) => <span className="font-mono text-green-600 dark:text-green-400">{formatCurrency(inv.amount_paid, inv.currency)}</span>,
     },
     {
       key: 'amount_due',
-      header: 'المتبقي',
+      header: t('columns.amountDue'),
       sortable: true,
       render: (inv) => <span className="font-mono text-orange-600 dark:text-orange-400">{formatCurrency(inv.amount_due, inv.currency)}</span>,
     },
     {
       key: 'status',
-      header: 'الحالة',
+      header: t('columns.status'),
       render: (inv) => {
-        const s = STATUS_MAP[inv.status] || { label: inv.status };
-        return <Badge variant="outline" className={getStatusBadgeClass(inv.status)}>{s.label}</Badge>;
+        const label = statusLabelFor(inv.status) || inv.status;
+        return <Badge variant="outline" className={getStatusBadgeClass(inv.status)}>{label}</Badge>;
       },
     },
     {
       key: 'issue_date',
-      header: 'التاريخ',
+      header: t('columns.issueDate'),
       sortable: true,
       className: 'text-muted-foreground text-xs',
-      render: (inv) => formatDate(inv.issue_date),
+      render: (inv) => formatDate(inv.issue_date, undefined, locale),
     },
     {
       key: 'actions',
@@ -276,23 +273,23 @@ export default function InvoicesClient() {
         <div data-no-row-click>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="المزيد">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={t('rowActions.more')}>
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}>
-                <Eye className="h-3.5 w-3.5 me-2" /> عرض
+                <Eye className="h-3.5 w-3.5 me-2" /> {t('rowActions.view')}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleDownloadPDF(inv.id)}>
-                <Download className="h-3.5 w-3.5 me-2" /> تحميل PDF
+                <Download className="h-3.5 w-3.5 me-2" /> {t('rowActions.downloadPdf')}
               </DropdownMenuItem>
               {canDelete && inv.status === 'draft' && (
                 <DropdownMenuItem
                   className="text-destructive"
                   onClick={() => { setSelected(inv); setShowDelete(true); }}
                 >
-                  <Trash2 className="h-3.5 w-3.5 me-2" /> حذف
+                  <Trash2 className="h-3.5 w-3.5 me-2" /> {t('rowActions.delete')}
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -300,7 +297,7 @@ export default function InvoicesClient() {
         </div>
       ),
     },
-  ], [canDelete, router, handleDownloadPDF]);
+  ], [canDelete, router, handleDownloadPDF, t, locale, statusLabelFor]);
 
   /* ──────────────────────── Render ─────────────────────── */
   return (
@@ -310,16 +307,16 @@ export default function InvoicesClient() {
         <div className="flex items-center gap-2">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <FileText className="h-6 w-6" aria-hidden="true" /> الفواتير
+              <FileText className="h-6 w-6" aria-hidden="true" /> {t('header.title')}
             </h1>
-            <p className="text-muted-foreground">إدارة الفواتير والمدفوعات</p>
+            <p className="text-muted-foreground">{t('header.subtitle')}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
             onClick={() => queryClient.invalidateQueries({ queryKey: ['invoices'] })}
-            aria-label="تحديث"
+            aria-label={t('header.refresh')}
           >
             <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
           </Button>
@@ -333,7 +330,7 @@ export default function InvoicesClient() {
           {canCreate && (
             <Link href="/dashboard/invoices/new">
               <Button className="bg-orange-500 hover:bg-orange-600">
-                <Plus className="h-4 w-4 me-2" /> فاتورة جديدة
+                <Plus className="h-4 w-4 me-2" /> {t('header.newInvoice')}
               </Button>
             </Link>
           )}
@@ -349,7 +346,7 @@ export default function InvoicesClient() {
                 <TrendingUp className="h-5 w-5 text-green-600 dark:text-green-400" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">إجمالي الإيرادات</p>
+                <p className="text-xs text-muted-foreground">{t('summary.totalRevenue')}</p>
                 {revenue ? (
                   <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_revenue)}</p>
                 ) : (
@@ -367,7 +364,7 @@ export default function InvoicesClient() {
                 <DollarSign className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">المبالغ المستحقة</p>
+                <p className="text-xs text-muted-foreground">{t('summary.totalOutstanding')}</p>
                 {revenue ? (
                   <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_outstanding)}</p>
                 ) : (
@@ -385,7 +382,7 @@ export default function InvoicesClient() {
                 <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">المبالغ المتأخرة</p>
+                <p className="text-xs text-muted-foreground">{t('summary.totalOverdue')}</p>
                 {revenue ? (
                   <p className="text-lg font-bold font-mono">{formatCurrency(revenue.total_overdue)}</p>
                 ) : (
@@ -402,7 +399,7 @@ export default function InvoicesClient() {
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="بحث بالرقم أو العميل أو المشروع..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 max-w-sm"
         />
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -410,13 +407,13 @@ export default function InvoicesClient() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">جميع الحالات</SelectItem>
-            <SelectItem value="draft">مسودة</SelectItem>
-            <SelectItem value="sent">مرسلة</SelectItem>
-            <SelectItem value="paid">مدفوعة</SelectItem>
-            <SelectItem value="partially_paid">مدفوعة جزئياً</SelectItem>
-            <SelectItem value="overdue">متأخرة</SelectItem>
-            <SelectItem value="cancelled">ملغية</SelectItem>
+            <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+            <SelectItem value="draft">{statusLabelFor('draft')}</SelectItem>
+            <SelectItem value="sent">{statusLabelFor('sent')}</SelectItem>
+            <SelectItem value="paid">{statusLabelFor('paid')}</SelectItem>
+            <SelectItem value="partially_paid">{statusLabelFor('partially_paid')}</SelectItem>
+            <SelectItem value="overdue">{statusLabelFor('overdue')}</SelectItem>
+            <SelectItem value="cancelled">{statusLabelFor('cancelled')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -428,8 +425,8 @@ export default function InvoicesClient() {
         loading={loading}
         emptyState={{
           icon: FileText,
-          title: 'لا توجد فواتير',
-          description: 'أنشئ فاتورة جديدة للبدء',
+          title: t('emptyState.title'),
+          description: t('emptyState.description'),
         }}
         selectable
         getRowId={(inv) => inv.id}
@@ -438,12 +435,12 @@ export default function InvoicesClient() {
         onRowClick={(inv) => router.push(`/dashboard/invoices/${inv.id}`)}
         bulkActions={canDelete ? [
           {
-            label: 'حذف المحدد',
+            label: t('bulkActions.deleteSelected'),
             icon: Trash2,
             variant: 'destructive',
             onClick: (ids) => {
               const draftIds = invoices.filter((i) => ids.includes(i.id) && i.status === 'draft').map(i => i.id);
-              if (draftIds.length === 0) { toast.error('يمكن حذف المسودات فقط'); return; }
+              if (draftIds.length === 0) { toast.error(t('toasts.draftsOnly')); return; }
               setBulkDeleteIds(draftIds);
               setSelected(null);
               setShowDelete(true);
@@ -460,19 +457,19 @@ export default function InvoicesClient() {
             size="icon"
             disabled={page <= 1}
             onClick={() => setPage(p => p - 1)}
-            aria-label="الصفحة السابقة"
+            aria-label={tCommon('pagination.prev')}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground px-3">
-            صفحة {page} من {totalPages}
+            {tCommon('pagination.pageOf', { page, totalPages })}
           </span>
           <Button
             variant="outline"
             size="icon"
             disabled={page >= totalPages}
             onClick={() => setPage(p => p + 1)}
-            aria-label="الصفحة التالية"
+            aria-label={tCommon('pagination.next')}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -483,18 +480,21 @@ export default function InvoicesClient() {
       <Dialog open={showDelete} onOpenChange={setShowDelete}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>حذف الفاتورة</DialogTitle>
+            <DialogTitle>{t('deleteDialog.title')}</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground py-4">
             {bulkDeleteIds.length > 1
-              ? `هل أنت متأكد من حذف ${bulkDeleteIds.length} فواتير؟ لا يمكن التراجع عن هذا الإجراء.`
-              : <>هل أنت متأكد من حذف الفاتورة <strong>{selected?.invoice_number}</strong>؟ لا يمكن التراجع عن هذا الإجراء.</>
+              ? t('deleteDialog.confirmCount', { count: bulkDeleteIds.length })
+              : t.rich('deleteDialog.confirmOne', {
+                  invoiceNumber: selected?.invoice_number ?? '',
+                  strong: (chunks) => <strong>{chunks}</strong>,
+                })
             }
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDelete(false)}>إلغاء</Button>
+            <Button variant="outline" onClick={() => setShowDelete(false)}>{t('deleteDialog.cancel')}</Button>
             <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
-              {deleting ? 'جارٍ الحذف...' : 'حذف'}
+              {deleting ? t('deleteDialog.deleting') : t('deleteDialog.confirmButton')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,212 @@
 {
-  "finance": {}
+  "finance": {
+    "invoices": {
+      "meta": { "title": "الفواتير | Pyra Workspace" },
+      "milestoneTypes": {
+        "booking": "دفعة حجز",
+        "initial_delivery": "تسليم أولي",
+        "final_delivery": "تسليم نهائي"
+      },
+      "list": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل بيانات الفاتورة",
+          "pdfDownloaded": "تم تحميل ملف PDF",
+          "pdfFailed": "فشل في إنشاء ملف PDF",
+          "deleteFailedCount": "فشل حذف {count} فاتورة",
+          "deleteSuccessOne": "تم حذف الفاتورة",
+          "deleteSuccessCount": "تم حذف {count} فواتير",
+          "unexpectedError": "حدث خطأ",
+          "draftsOnly": "يمكن حذف المسودات فقط"
+        },
+        "columns": {
+          "invoiceNumber": "رقم الفاتورة",
+          "client": "العميل",
+          "project": "المشروع",
+          "total": "الإجمالي",
+          "amountPaid": "المدفوع",
+          "amountDue": "المتبقي",
+          "status": "الحالة",
+          "issueDate": "التاريخ"
+        },
+        "rowActions": {
+          "more": "المزيد",
+          "view": "عرض",
+          "downloadPdf": "تحميل PDF",
+          "delete": "حذف"
+        },
+        "header": {
+          "title": "الفواتير",
+          "subtitle": "إدارة الفواتير والمدفوعات",
+          "refresh": "تحديث",
+          "newInvoice": "فاتورة جديدة"
+        },
+        "summary": {
+          "totalRevenue": "إجمالي الإيرادات",
+          "totalOutstanding": "المبالغ المستحقة",
+          "totalOverdue": "المبالغ المتأخرة"
+        },
+        "filters": {
+          "searchPlaceholder": "بحث بالرقم أو العميل أو المشروع...",
+          "allStatuses": "جميع الحالات"
+        },
+        "emptyState": {
+          "title": "لا توجد فواتير",
+          "description": "أنشئ فاتورة جديدة للبدء"
+        },
+        "bulkActions": {
+          "deleteSelected": "حذف المحدد"
+        },
+        "deleteDialog": {
+          "title": "حذف الفاتورة",
+          "confirmCount": "هل أنت متأكد من حذف {count} فواتير؟ لا يمكن التراجع عن هذا الإجراء.",
+          "confirmOne": "هل أنت متأكد من حذف الفاتورة <strong>{invoiceNumber}</strong>؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف",
+          "deleting": "جارٍ الحذف..."
+        }
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل الفاتورة",
+          "connectionError": "حدث خطأ في الاتصال",
+          "saveFailed": "فشل حفظ التعديلات",
+          "saveSuccess": "تم حفظ التعديلات",
+          "unexpectedError": "حدث خطأ",
+          "sendFailed": "فشل في إرسال الفاتورة",
+          "sendSuccess": "تم إرسال الفاتورة بنجاح",
+          "deleteFailed": "فشل في حذف الفاتورة",
+          "deleteSuccess": "تم حذف الفاتورة",
+          "paymentLinkFailed": "فشل في إنشاء رابط الدفع",
+          "paymentLinkCopied": "تم نسخ رابط الدفع",
+          "amountMustBePositive": "المبلغ يجب أن يكون أكبر من صفر",
+          "amountExceedsDue": "المبلغ يتجاوز المستحق ({amount} {currency})",
+          "paymentFailed": "فشل في تسجيل الدفعة",
+          "paymentSuccess": "تم تسجيل الدفعة بنجاح",
+          "paymentError": "حدث خطأ أثناء تسجيل الدفعة"
+        },
+        "paymentDialog": {
+          "title": "تسجيل دفعة جديدة",
+          "amountLabel": "المبلغ",
+          "amountPlaceholder": "المستحق: {amount}",
+          "payFullAmount": "دفع كامل المبلغ ({amount} {currency})",
+          "dateLabel": "تاريخ الدفع",
+          "methodLabel": "طريقة الدفع",
+          "referenceLabel": "رقم المرجع",
+          "referencePlaceholder": "رقم التحويل أو الشيك",
+          "notesLabel": "ملاحظات",
+          "notesPlaceholder": "ملاحظات إضافية...",
+          "cancel": "إلغاء",
+          "submit": "تسجيل الدفعة"
+        },
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "description": "هل أنت متأكد من حذف هذه الفاتورة؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        },
+        "header": {
+          "back": "رجوع",
+          "issueDueDates": "تاريخ الإصدار: {issueDate} — الاستحقاق: {dueDate}",
+          "edit": "تعديل",
+          "send": "إرسال",
+          "recordPayment": "تسجيل دفعة",
+          "stripePaymentLink": "رابط دفع Stripe",
+          "downloadPdf": "PDF",
+          "delete": "حذف"
+        },
+        "clientInfo": {
+          "title": "بيانات العميل",
+          "name": "الاسم",
+          "company": "الشركة",
+          "email": "البريد الإلكتروني",
+          "phone": "الهاتف",
+          "project": "المشروع: "
+        },
+        "editItems": {
+          "title": "بنود الفاتورة",
+          "addItem": "إضافة بند",
+          "projectName": "اسم المشروع",
+          "projectNamePlaceholder": "اسم المشروع",
+          "displayName": "اسم العميل في الـ PDF (اختياري)",
+          "displayNamePlaceholder": "اسم مختلف",
+          "dueDate": "تاريخ الاستحقاق",
+          "itemDescriptionPlaceholder": "وصف البند",
+          "removeItem": "حذف",
+          "notes": "ملاحظات",
+          "discount": "الخصم",
+          "discountNone": "بدون خصم",
+          "discountPercentage": "نسبة %",
+          "discountFixed": "مبلغ ثابت",
+          "discountPercentLabel": "النسبة %",
+          "discountAmountLabel": "المبلغ",
+          "vatRate": "نسبة الضريبة (VAT) %",
+          "subtotal": "المجموع الفرعي",
+          "discountLine": "الخصم {percent}",
+          "afterDiscount": "بعد الخصم",
+          "vatLine": "الضريبة ({rate}%)",
+          "total": "الإجمالي",
+          "cancel": "إلغاء",
+          "save": "حفظ"
+        },
+        "paymentHistory": {
+          "title": "سجل المدفوعات",
+          "emptyTitle": "لا توجد مدفوعات مسجلة",
+          "columns": {
+            "date": "التاريخ",
+            "amount": "المبلغ",
+            "method": "طريقة الدفع",
+            "reference": "المرجع"
+          }
+        }
+      },
+      "new": {
+        "backToInvoices": "العودة إلى الفواتير",
+        "title": "فاتورة جديدة",
+        "items": {
+          "title": "بنود الفاتورة",
+          "addItem": "إضافة بند",
+          "subtotal": "المجموع الفرعي",
+          "discount": "خصم",
+          "discountNone": "بدون",
+          "discountPercentage": "نسبة %",
+          "discountFixed": "مبلغ ثابت",
+          "total": "الإجمالي"
+        },
+        "save": "حفظ",
+        "saveAndSend": "حفظ وإرسال",
+        "businessEntity": {
+          "label": "الرخصة التجارية",
+          "placeholder": "اختر الرخصة",
+          "default": "(افتراضي)",
+          "licenseNumber": "رقم الرخصة: {licenseNo}"
+        },
+        "clientSelector": {
+          "label": "العميل",
+          "loading": "جارٍ التحميل...",
+          "placeholder": "اختر العميل",
+          "displayNameLabel": "اسم العميل في الفاتورة (اختياري)",
+          "displayNamePlaceholder": "اسم مختلف حسب الرخصة التجارية",
+          "helpText": "اتركه فارغاً لاستخدام اسم العميل الأصلي، أو اكتب اسم مختلف حسب طلب العميل (مثل اسم الرخصة)"
+        },
+        "itemsTable": {
+          "description": "الوصف",
+          "descriptionPlaceholder": "وصف البند",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "amount": "المبلغ",
+          "removeItem": "حذف"
+        },
+        "meta": {
+          "projectName": "اسم المشروع",
+          "projectNamePlaceholder": "اسم المشروع",
+          "issueDate": "تاريخ الإصدار",
+          "dueDate": "تاريخ الاستحقاق",
+          "milestoneType": "نوع الدفعة (اختياري)",
+          "milestoneTypePlaceholder": "اختر نوع الدفعة",
+          "notes": "ملاحظات",
+          "notesPlaceholder": "ملاحظات إضافية..."
+        }
+      }
+    }
+  }
 }
