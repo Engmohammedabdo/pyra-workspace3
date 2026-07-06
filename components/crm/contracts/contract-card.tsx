@@ -131,6 +131,17 @@ export function ContractCard({ contract }: Props) {
   const isCompleted         = contract.status === 'completed';
   const currency = contract.currency;
 
+  // Month-count label mirroring the ORIGINAL flat-threshold ladder exactly.
+  // Deliberately NOT an ICU plural: CLDR's `few` keys on n mod 100, so a
+  // 110-month contract would flip أشهر/شهر vs the pre-i18n rendering
+  // (P3-T6 review finding). Thresholds live here, keys are plain.
+  const monthsLabel = (months: number): string => {
+    if (months === 1) return t('durationOne');
+    if (months === 2) return t('durationTwo');
+    if (months <= 10) return t('durationFew', { months });
+    return t('durationMany', { months });
+  };
+
   // Build the 4-stat block per contract type.
   const today = new Date();
   const cells: StatCell[] = (() => {
@@ -139,7 +150,7 @@ export function ContractCard({ contract }: Props) {
       return [
         { label: t('monthlyValue'),  value: formatCurrency(contract.retainer_amount, currency ?? 'AED') },
         { label: t('totalPaid'),    value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
-        { label: t('remainingToEnd'),   value: remainingMonths != null ? t('remainingMonths', { months: remainingMonths }) : '—' },
+        { label: t('remainingToEnd'),   value: remainingMonths != null ? monthsLabel(remainingMonths) : '—' },
         { label: t('endDate'),  value: contract.end_date ? formatDate(contract.end_date, 'd MMM yyyy', locale) : '—' },
       ];
     }
@@ -156,7 +167,7 @@ export function ContractCard({ contract }: Props) {
     return [
       { label: t('value'),     value: formatCurrency(contract.total_value, currency ?? 'AED') },
       { label: t('paid'),      value: formatCurrency(contract.kpis.total_paid, currency ?? 'AED') },
-      { label: t('durationLabel'),  value: months == null ? '—' : months === 0 ? t('durationLessThanMonth') : t('durationMonths', { months }) },
+      { label: t('durationLabel'),  value: months == null ? '—' : months === 0 ? t('durationLessThanMonth') : monthsLabel(months) },
       { label: t('status'),     value: statusLabelFor(contract.status ?? '') || '—' },
     ];
   })();

@@ -1,7 +1,9 @@
 {
   "crm": {
     "dashboard": {
-      "meta": { "title": "Sales Dashboard — Pyra" },
+      "meta": {
+        "title": "Sales Dashboard — Pyra"
+      },
       "periodOptions": {
         "thisMonth": "This month",
         "last30d": "Last 30 days",
@@ -23,20 +25,38 @@
         "subtitleEvening": "Today's wins, tomorrow's plans"
       },
       "kpiCards": {
-        "pipelineValue": { "label": "Pipeline value", "sub": "{count, plural, one {# active deal} other {# active deals}}" },
-        "closedWon": { "label": "Won this period", "sub": "{count, plural, one {# deal} other {# deals}}" },
-        "conversionRate": { "label": "Conversion rate", "sub": "vs previous period" },
-        "avgDealSize": { "label": "Average deal size", "sub": "per active deal" }
+        "pipelineValue": {
+          "label": "Pipeline value",
+          "sub": "{count, plural, one {# active deal} other {# active deals}}"
+        },
+        "closedWon": {
+          "label": "Won this period",
+          "sub": "{count, plural, one {# deal} other {# deals}}"
+        },
+        "conversionRate": {
+          "label": "Conversion rate",
+          "sub": "vs previous period"
+        },
+        "avgDealSize": {
+          "label": "Average deal size",
+          "sub": "per active deal"
+        }
       },
       "funnel": {
         "heading": "Deals by pipeline stage",
-        "empty": { "title": "No deals yet", "description": "Add a new Lead to see the stage distribution." },
+        "empty": {
+          "title": "No deals yet",
+          "description": "Add a new Lead to see the stage distribution."
+        },
         "count": "{count, plural, one {# deal} other {# deals}}",
         "barAria": "{count, plural, one {# deal in {stage} stage} other {# deals in {stage} stage}}"
       },
       "dealsAtRisk": {
         "heading": "Deals needing follow-up",
-        "empty": { "title": "All customers are followed up 👌", "description": "No deals without activity for 7+ days." },
+        "empty": {
+          "title": "All customers are followed up 👌",
+          "description": "No deals without activity for 7+ days."
+        },
         "viewAllExtra": "View all stale deals ({hiddenCount} more)",
         "sinceLabel": "{duration} ago",
         "reminderAria": "Remind {name} via WhatsApp",
@@ -52,18 +72,33 @@
       },
       "activityFeed": {
         "heading": "Recent activity",
-        "empty": { "title": "No recent activity", "description": "The latest moves on your Leads (stage changes, notes, calls...) will show up here." },
+        "empty": {
+          "title": "No recent activity",
+          "description": "The latest moves on your Leads (stage changes, notes, calls...) will show up here."
+        },
         "actorFallback": "System",
         "leadFallback": "Lead"
       },
       "actionCards": {
-        "approvals": { "label": "Approvals waiting on you", "countLabel": "{count, plural, one {# deal} other {# deals}}" },
-        "followUps": { "label": "Pending follow-ups", "countLabel": "{count, plural, one {# follow-up} other {# follow-ups}}" },
-        "waUnread": { "label": "Unread conversations", "countLabel": "{count, plural, one {# conversation} other {# conversations}}" }
+        "approvals": {
+          "label": "Approvals waiting on you",
+          "countLabel": "{count, plural, one {# deal} other {# deals}}"
+        },
+        "followUps": {
+          "label": "Pending follow-ups",
+          "countLabel": "{count, plural, one {# follow-up} other {# follow-ups}}"
+        },
+        "waUnread": {
+          "label": "Unread conversations",
+          "countLabel": "{count, plural, one {# conversation} other {# conversations}}"
+        }
       },
       "teamPerformance": {
         "heading": "Team performance",
-        "empty": { "title": "No team data yet", "description": "Each sales agent's numbers will show up here once the team starts working Leads." },
+        "empty": {
+          "title": "No team data yet",
+          "description": "Each sales agent's numbers will show up here once the team starts working Leads."
+        },
         "staffCount": "{count, plural, one {# agent} other {# agents}}",
         "th": {
           "employee": "Agent",
@@ -86,7 +121,9 @@
       }
     },
     "pipeline": {
-      "meta": { "title": "Sales Pipeline — Pyra" },
+      "meta": {
+        "title": "Sales Pipeline — Pyra"
+      },
       "header": {
         "title": "Sales Pipeline",
         "subtitle": "Click any deal to open its details, or drag it between columns to change stage (on desktop).",
@@ -207,7 +244,9 @@
       }
     },
     "lead": {
-      "meta": { "title": "Lead Details — Pyra" },
+      "meta": {
+        "title": "Lead Details — Pyra"
+      },
       "tabs": {
         "overview": "Overview",
         "activity": "Activity",
@@ -364,10 +403,22 @@
       },
       "composer": {
         "kinds": {
-          "note": { "label": "Note", "placeholder": "Write a quick note..." },
-          "call_logged": { "label": "Call", "placeholder": "Summarize what was discussed on the call..." },
-          "meeting_scheduled": { "label": "Meeting", "placeholder": "Meeting details..." },
-          "email_sent": { "label": "Email", "placeholder": "The email content that was sent..." }
+          "note": {
+            "label": "Note",
+            "placeholder": "Write a quick note..."
+          },
+          "call_logged": {
+            "label": "Call",
+            "placeholder": "Summarize what was discussed on the call..."
+          },
+          "meeting_scheduled": {
+            "label": "Meeting",
+            "placeholder": "Meeting details..."
+          },
+          "email_sent": {
+            "label": "Email",
+            "placeholder": "The email content that was sent..."
+          }
         },
         "contentRequired": "Content is required",
         "createSuccess": "Activity logged",
@@ -641,7 +692,10 @@
     },
     "leadsList": {
       "archived": {
-        "meta": { "title": "Archived Leads — Pyra", "description": "Archived Leads" },
+        "meta": {
+          "title": "Archived Leads — Pyra",
+          "description": "Archived Leads"
+        },
         "backToPipeline": "Pipeline",
         "heading": "Archived Leads",
         "subtitle": "Archived Leads are hidden from the pipeline and lists. You can review them here and restore any of them.",
@@ -660,7 +714,10 @@
     },
     "customers": {
       "list": {
-        "meta": { "title": "Customers — Pyra", "description": "List of customers converted from CRM" },
+        "meta": {
+          "title": "Customers — Pyra",
+          "description": "List of customers converted from CRM"
+        },
         "heading": "Customers",
         "subtitle": "Customers converted from the sales pipeline. Click a customer to see the full relationship file (contracts, projects, relationship health).",
         "searchPlaceholder": "Search by name, company, or email...",
@@ -673,7 +730,10 @@
         "initialsFallback": "?"
       },
       "detail": {
-        "meta": { "title": "Customer Details — Pyra", "description": "Active Customer Page — contracts, projects, invoices, relationship health" },
+        "meta": {
+          "title": "Customer Details — Pyra",
+          "description": "Active Customer Page — contracts, projects, invoices, relationship health"
+        },
         "notFoundTitle": "Customer not found",
         "notFoundDescription": "It may have been deleted, or you don't have access.",
         "backToPipeline": "Back to pipeline",
@@ -804,7 +864,9 @@
       }
     },
     "followUps": {
-      "meta": { "title": "Follow-ups — Pyra" },
+      "meta": {
+        "title": "Follow-ups — Pyra"
+      },
       "filters": {
         "pending": "Pending",
         "overdue": "Overdue",
@@ -828,7 +890,9 @@
       "overdueBadge": "Overdue"
     },
     "approvals": {
-      "meta": { "title": "Approvals awaiting you — Pyra" },
+      "meta": {
+        "title": "Approvals awaiting you — Pyra"
+      },
       "heading": "Approvals awaiting you",
       "subtitle": "Deals in the \"Contract Signed\" stage awaiting your approval. Approving moves them to \"Closed Won\". Rejecting moves them back to \"Negotiation\" and logs the reason on the Lead's timeline.",
       "emptyTitle": "No pending approval requests",
@@ -859,7 +923,6 @@
     "contracts": {
       "card": {
         "durationLessThanMonth": "Less than a month",
-        "durationMonths": "{months, plural, one {# month} other {# months}}",
         "activeRetainerBadge": "✓ Active retainer",
         "inProgressProjectBadge": "🚧 Project in progress",
         "completedBadge": "✓ Completed",
@@ -870,7 +933,6 @@
         "monthlyValue": "Monthly value",
         "totalPaid": "Total paid",
         "remainingToEnd": "Remaining to end",
-        "remainingMonths": "{months, plural, one {# month} other {# months}}",
         "endDate": "End date",
         "totalValue": "Total value",
         "paid": "Paid",
@@ -880,7 +942,11 @@
         "durationLabel": "Contract duration",
         "status": "Status",
         "untitledContract": "Untitled contract",
-        "viewContract": "View contract"
+        "viewContract": "View contract",
+        "durationOne": "1 month",
+        "durationTwo": "2 months",
+        "durationFew": "{months} months",
+        "durationMany": "{months} months"
       },
       "milestones": {
         "heading": "Project milestones",

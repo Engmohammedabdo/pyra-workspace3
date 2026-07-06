@@ -1,7 +1,9 @@
 {
   "crm": {
     "dashboard": {
-      "meta": { "title": "لوحة المبيعات — Pyra" },
+      "meta": {
+        "title": "لوحة المبيعات — Pyra"
+      },
       "periodOptions": {
         "thisMonth": "هذا الشهر",
         "last30d": "آخر ٣٠ يوم",
@@ -23,20 +25,38 @@
         "subtitleEvening": "إنجاز اليوم، تخطيط لبكرة"
       },
       "kpiCards": {
-        "pipelineValue": { "label": "قيمة خط المبيعات", "sub": "{count, plural, other {# صفقة نشطة}}" },
-        "closedWon": { "label": "فوز هذه الفترة", "sub": "{count, plural, one {# صفقة} other {# صفقات}}" },
-        "conversionRate": { "label": "معدل التحويل", "sub": "vs الفترة السابقة" },
-        "avgDealSize": { "label": "متوسط حجم الصفقة", "sub": "لكل صفقة نشطة" }
+        "pipelineValue": {
+          "label": "قيمة خط المبيعات",
+          "sub": "{count, plural, other {# صفقة نشطة}}"
+        },
+        "closedWon": {
+          "label": "فوز هذه الفترة",
+          "sub": "{count, plural, one {# صفقة} other {# صفقات}}"
+        },
+        "conversionRate": {
+          "label": "معدل التحويل",
+          "sub": "vs الفترة السابقة"
+        },
+        "avgDealSize": {
+          "label": "متوسط حجم الصفقة",
+          "sub": "لكل صفقة نشطة"
+        }
       },
       "funnel": {
         "heading": "توزيع الصفقات على المراحل",
-        "empty": { "title": "لا توجد صفقات بعد", "description": "ابدأ بإضافة Lead جديد لرؤية التوزيع على المراحل." },
+        "empty": {
+          "title": "لا توجد صفقات بعد",
+          "description": "ابدأ بإضافة Lead جديد لرؤية التوزيع على المراحل."
+        },
         "count": "{count, plural, one {# صفقة} other {# صفقات}}",
         "barAria": "{count, plural, one {# صفقة في مرحلة {stage}} other {# صفقات في مرحلة {stage}}}"
       },
       "dealsAtRisk": {
         "heading": "صفقات تحتاج متابعة",
-        "empty": { "title": "كل العملاء متابعين 👌", "description": "لا توجد صفقات بدون نشاط منذ ٧ أيام أو أكثر." },
+        "empty": {
+          "title": "كل العملاء متابعين 👌",
+          "description": "لا توجد صفقات بدون نشاط منذ ٧ أيام أو أكثر."
+        },
         "viewAllExtra": "عرض كل الصفقات الراكدة ({hiddenCount} إضافية)",
         "sinceLabel": "منذ {duration}",
         "reminderAria": "تذكير {name} عبر واتساب",
@@ -52,18 +72,33 @@
       },
       "activityFeed": {
         "heading": "النشاط الحديث",
-        "empty": { "title": "لا توجد أنشطة حديثة", "description": "ستظهر هنا آخر التحركات على الـ Leads (تغيير مرحلة، ملاحظات، مكالمات...) بمجرد ما تبدأ." },
+        "empty": {
+          "title": "لا توجد أنشطة حديثة",
+          "description": "ستظهر هنا آخر التحركات على الـ Leads (تغيير مرحلة، ملاحظات، مكالمات...) بمجرد ما تبدأ."
+        },
         "actorFallback": "النظام",
         "leadFallback": "Lead"
       },
       "actionCards": {
-        "approvals": { "label": "اعتمادات بانتظارك", "countLabel": "{count, plural, one {# صفقة} other {# صفقات}}" },
-        "followUps": { "label": "متابعات معلقة", "countLabel": "{count, plural, one {# متابعة} other {# متابعات}}" },
-        "waUnread": { "label": "محادثات غير مقروءة", "countLabel": "{count, plural, one {# محادثة} other {# محادثات}}" }
+        "approvals": {
+          "label": "اعتمادات بانتظارك",
+          "countLabel": "{count, plural, one {# صفقة} other {# صفقات}}"
+        },
+        "followUps": {
+          "label": "متابعات معلقة",
+          "countLabel": "{count, plural, one {# متابعة} other {# متابعات}}"
+        },
+        "waUnread": {
+          "label": "محادثات غير مقروءة",
+          "countLabel": "{count, plural, one {# محادثة} other {# محادثات}}"
+        }
       },
       "teamPerformance": {
         "heading": "أداء الفريق",
-        "empty": { "title": "لا توجد بيانات للفريق بعد", "description": "ستظهر هنا أرقام كل موظف مبيعات بمجرد ما يبدأ الفريق العمل على Leads." },
+        "empty": {
+          "title": "لا توجد بيانات للفريق بعد",
+          "description": "ستظهر هنا أرقام كل موظف مبيعات بمجرد ما يبدأ الفريق العمل على Leads."
+        },
         "staffCount": "{count, plural, one {# موظف} other {# موظفين}}",
         "th": {
           "employee": "الموظف",
@@ -86,7 +121,9 @@
       }
     },
     "pipeline": {
-      "meta": { "title": "خط المبيعات — Pyra" },
+      "meta": {
+        "title": "خط المبيعات — Pyra"
+      },
       "header": {
         "title": "خط المبيعات",
         "subtitle": "اضغط على أي صفقة لفتح تفاصيلها، أو اسحبها بين الأعمدة لتغيير المرحلة (على سطح المكتب).",
@@ -207,7 +244,9 @@
       }
     },
     "lead": {
-      "meta": { "title": "تفاصيل العميل المحتمل — Pyra" },
+      "meta": {
+        "title": "تفاصيل العميل المحتمل — Pyra"
+      },
       "tabs": {
         "overview": "نظرة عامة",
         "activity": "النشاط",
@@ -364,10 +403,22 @@
       },
       "composer": {
         "kinds": {
-          "note": { "label": "ملاحظة", "placeholder": "اكتب ملاحظة سريعة..." },
-          "call_logged": { "label": "مكالمة", "placeholder": "تلخيص لما اتقال في المكالمة..." },
-          "meeting_scheduled": { "label": "اجتماع", "placeholder": "تفاصيل الاجتماع..." },
-          "email_sent": { "label": "إيميل", "placeholder": "مضمون الإيميل اللي اتبعت..." }
+          "note": {
+            "label": "ملاحظة",
+            "placeholder": "اكتب ملاحظة سريعة..."
+          },
+          "call_logged": {
+            "label": "مكالمة",
+            "placeholder": "تلخيص لما اتقال في المكالمة..."
+          },
+          "meeting_scheduled": {
+            "label": "اجتماع",
+            "placeholder": "تفاصيل الاجتماع..."
+          },
+          "email_sent": {
+            "label": "إيميل",
+            "placeholder": "مضمون الإيميل اللي اتبعت..."
+          }
         },
         "contentRequired": "المحتوى مطلوب",
         "createSuccess": "تم تسجيل النشاط",
@@ -641,7 +692,10 @@
     },
     "leadsList": {
       "archived": {
-        "meta": { "title": "أرشيف الـ Leads — Pyra", "description": "الـ Leads المؤرشفة" },
+        "meta": {
+          "title": "أرشيف الـ Leads — Pyra",
+          "description": "الـ Leads المؤرشفة"
+        },
         "backToPipeline": "خط المبيعات",
         "heading": "أرشيف الـ Leads",
         "subtitle": "الـ Leads المؤرشفة مخفية من خط المبيعات والقوائم. تقدر تراجعها هنا وتسترجع أي واحد.",
@@ -660,7 +714,10 @@
     },
     "customers": {
       "list": {
-        "meta": { "title": "العملاء — Pyra", "description": "قائمة العملاء المحوّلين من CRM" },
+        "meta": {
+          "title": "العملاء — Pyra",
+          "description": "قائمة العملاء المحوّلين من CRM"
+        },
         "heading": "العملاء",
         "subtitle": "العملاء المحوّلين من خط المبيعات. اضغط على عميل لعرض ملف العلاقة الكامل (عقود، مشاريع، صحة العلاقة).",
         "searchPlaceholder": "ابحث بالاسم أو الشركة أو البريد...",
@@ -673,7 +730,10 @@
         "initialsFallback": "؟"
       },
       "detail": {
-        "meta": { "title": "تفاصيل العميل — Pyra", "description": "الصفحة النشطة لعميل CRM — العقود، المشاريع، الفواتير، صحة العلاقة" },
+        "meta": {
+          "title": "تفاصيل العميل — Pyra",
+          "description": "الصفحة النشطة لعميل CRM — العقود، المشاريع، الفواتير، صحة العلاقة"
+        },
         "notFoundTitle": "العميل غير موجود",
         "notFoundDescription": "ربما تم حذفه أو ليس لديك صلاحية للوصول.",
         "backToPipeline": "العودة لخط المبيعات",
@@ -804,7 +864,9 @@
       }
     },
     "followUps": {
-      "meta": { "title": "المتابعات — Pyra" },
+      "meta": {
+        "title": "المتابعات — Pyra"
+      },
       "filters": {
         "pending": "قيد الانتظار",
         "overdue": "متأخرة",
@@ -828,7 +890,9 @@
       "overdueBadge": "متأخرة"
     },
     "approvals": {
-      "meta": { "title": "اعتمادات تنتظرك — Pyra" },
+      "meta": {
+        "title": "اعتمادات تنتظرك — Pyra"
+      },
       "heading": "اعتمادات تنتظرك",
       "subtitle": "صفقات في مرحلة \"تم توقيع العقد\" بانتظار اعتمادك. الاعتماد يحوّلها إلى \"فوز بالصفقة\". الرفض يعيدها إلى \"تفاوض\" مع تسجيل السبب في تايم لاين الـ Lead.",
       "emptyTitle": "لا توجد طلبات اعتماد قيد الانتظار",
@@ -859,7 +923,6 @@
     "contracts": {
       "card": {
         "durationLessThanMonth": "أقل من شهر",
-        "durationMonths": "{months, plural, one {شهر واحد} two {شهران} few {# أشهر} many {# شهر} other {# شهر}}",
         "activeRetainerBadge": "✓ احتفاظ نشط",
         "inProgressProjectBadge": "🚧 مشروع جاري",
         "completedBadge": "✓ مكتمل",
@@ -870,7 +933,6 @@
         "monthlyValue": "القيمة الشهرية",
         "totalPaid": "إجمالي مدفوع",
         "remainingToEnd": "متبقي للنهاية",
-        "remainingMonths": "{months, plural, one {شهر واحد} two {شهران} few {# أشهر} many {# شهر} other {# شهر}}",
         "endDate": "تاريخ الانتهاء",
         "totalValue": "القيمة الإجمالية",
         "paid": "مدفوع",
@@ -880,7 +942,11 @@
         "durationLabel": "مدة العقد",
         "status": "الحالة",
         "untitledContract": "عقد بدون عنوان",
-        "viewContract": "عرض العقد"
+        "viewContract": "عرض العقد",
+        "durationOne": "شهر واحد",
+        "durationTwo": "شهران",
+        "durationFew": "{months} أشهر",
+        "durationMany": "{months} شهر"
       },
       "milestones": {
         "heading": "مراحل المشروع",
