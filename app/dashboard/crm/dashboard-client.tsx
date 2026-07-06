@@ -133,7 +133,7 @@ function PeriodSelector({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t(`periodOptions.${PERIOD_KEY[opt]}` as 'periodOptions.thisMonth')}
+            {t(`periodOptions.${PERIOD_KEY[opt]}` as Parameters<typeof t>[0])}
           </button>
         );
       })}
