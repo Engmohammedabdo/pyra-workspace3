@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowRight } from 'lucide-react';
@@ -19,6 +20,7 @@ interface ClientInfo {
 export default function ClientStatementPage() {
   const params = useParams();
   const clientId = params.clientId as string;
+  const t = useTranslations('finance.statement');
 
   const [loading, setLoading] = useState(true);
   const [client, setClient] = useState<ClientInfo | null>(null);
@@ -46,10 +48,10 @@ export default function ClientStatementPage() {
           setContracts(json.data.contracts || []);
           setSummary(json.data.summary);
         } else {
-          toast.error(json.error || 'فشل في تحميل كشف الحساب');
+          toast.error(json.error || t('toasts.loadFailed'));
         }
       } catch {
-        toast.error('فشل في تحميل كشف الحساب');
+        toast.error(t('toasts.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -64,13 +66,13 @@ export default function ClientStatementPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link href="/dashboard/finance">
-          <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+          <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
         </Link>
         <h1 className="text-2xl font-bold">
           {loading ? (
             <Skeleton className="h-8 w-64 inline-block" />
           ) : (
-            <>كشف حساب العميل: {client?.company || client?.name || '—'}</>
+            <>{t('title', { clientName: client?.company || client?.name || '—' })}</>
           )}
         </h1>
       </div>

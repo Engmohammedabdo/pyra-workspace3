@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,6 +16,8 @@ import {
 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils/format';
 import { toast } from 'sonner';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface POItem { id: string; description: string; quantity: number; rate: number; amount: number; }
 
@@ -39,47 +42,42 @@ interface PurchaseOrder {
   items: POItem[];
 }
 
-const STATUS_MAP: Record<string, { label: string }> = {
-  draft:        { label: 'مسودة' },
-  sent:         { label: 'مُرسل' },
-  acknowledged: { label: 'مؤكد' },
-  received:     { label: 'مستلم' },
-  invoiced:     { label: 'مفوتر' },
-  cancelled:    { label: 'ملغي' },
-};
-
-const STATUS_ACTIONS: Record<string, { nextStatus: string; label: string; icon: React.ElementType; className?: string }[]> = {
-  draft: [
-    { nextStatus: 'sent', label: 'إرسال للمورد', icon: Send },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
-  ],
-  sent: [
-    { nextStatus: 'acknowledged', label: 'تأكيد الاستلام', icon: PackageCheck },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
-  ],
-  acknowledged: [
-    { nextStatus: 'received', label: 'تم الاستلام', icon: TruckIcon, className: 'bg-green-600 hover:bg-green-700 text-white' },
-    { nextStatus: 'cancelled', label: 'إلغاء', icon: XCircle, className: 'text-red-600 dark:text-red-400' },
-  ],
-  received: [
-    { nextStatus: 'invoiced', label: 'تم الفوترة', icon: FileText, className: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
-  ],
-};
-
 export default function PurchaseOrderDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  const t = useTranslations('finance.purchaseOrders.detail');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('po');
   const [po, setPo] = useState<PurchaseOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
+  const STATUS_ACTIONS: Record<string, { nextStatus: string; label: string; icon: React.ElementType; className?: string }[]> = {
+    draft: [
+      { nextStatus: 'sent', label: t('actions.sendToSupplier'), icon: Send },
+      { nextStatus: 'cancelled', label: t('actions.cancel'), icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+    ],
+    sent: [
+      { nextStatus: 'acknowledged', label: t('actions.confirmReceipt'), icon: PackageCheck },
+      { nextStatus: 'cancelled', label: t('actions.cancel'), icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+    ],
+    acknowledged: [
+      { nextStatus: 'received', label: t('actions.received'), icon: TruckIcon, className: 'bg-green-600 hover:bg-green-700 text-white' },
+      { nextStatus: 'cancelled', label: t('actions.cancel'), icon: XCircle, className: 'text-red-600 dark:text-red-400' },
+    ],
+    received: [
+      { nextStatus: 'invoiced', label: t('actions.invoiced'), icon: FileText, className: 'bg-emerald-600 hover:bg-emerald-700 text-white' },
+    ],
+  };
+
   useEffect(() => {
     fetch(`/api/dashboard/purchase-orders/${id}`)
       .then(r => r.json())
       .then(json => { if (json.data) setPo(json.data); })
-      .catch(() => toast.error('فشل في تحميل أمر الشراء'))
+      .catch(() => toast.error(t('toasts.loadFailed')))
       .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleStatusChange = async (status: string) => {
@@ -91,20 +89,20 @@ export default function PurchaseOrderDetailPage() {
         body: JSON.stringify({ status }),
       });
       const json = await res.json();
-      if (!res.ok) { toast.error(json.error || 'حدث خطأ'); return; }
+      if (!res.ok) { toast.error(json.error || t('toasts.unexpectedError')); return; }
       setPo(prev => prev ? { ...prev, status } : prev);
-      toast.success('تم تحديث الحالة');
-    } catch { toast.error('حدث خطأ'); }
+      toast.success(t('toasts.statusUpdateSuccess'));
+    } catch { toast.error(t('toasts.unexpectedError')); }
     finally { setActionLoading(''); }
   };
 
   const handleDelete = async () => {
     try {
       const res = await fetch(`/api/dashboard/purchase-orders/${id}`, { method: 'DELETE' });
-      if (!res.ok) { toast.error('فشل في الحذف'); return; }
-      toast.success('تم حذف أمر الشراء');
+      if (!res.ok) { toast.error(t('toasts.deleteFailed')); return; }
+      toast.success(t('toasts.deleteSuccess'));
       router.push('/dashboard/finance/purchase-orders');
-    } catch { toast.error('حدث خطأ'); }
+    } catch { toast.error(t('toasts.unexpectedError')); }
   };
 
   if (loading) return (
@@ -114,9 +112,8 @@ export default function PurchaseOrderDetailPage() {
     </div>
   );
 
-  if (!po) return <p className="text-center text-muted-foreground mt-20">أمر الشراء غير موجود</p>;
+  if (!po) return <p className="text-center text-muted-foreground mt-20">{t('notFound')}</p>;
 
-  const st = STATUS_MAP[po.status] || STATUS_MAP.draft;
   const actions = STATUS_ACTIONS[po.status] || [];
 
   return (
@@ -125,14 +122,14 @@ export default function PurchaseOrderDetailPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance/purchase-orders">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold" dir="ltr">{po.po_number}</h1>
-              <Badge className={getStatusBadgeClass(po.status)}>{st.label}</Badge>
+              <Badge className={getStatusBadgeClass(po.status)}>{statusLabelFor(po.status) || po.status}</Badge>
             </div>
-            {po.supplier_name && <p className="text-sm text-muted-foreground">{po.supplier_name}{po.supplier_company ? ` — ${po.supplier_company}` : ''}</p>}
+            {po.supplier_name && <p className="text-sm text-muted-foreground">{po.supplier_name}{po.supplier_company ? t('supplierSuffix', { company: po.supplier_company }) : ''}</p>}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -155,7 +152,7 @@ export default function PurchaseOrderDetailPage() {
             );
           })}
           {po.status === 'draft' && (
-            <Button variant="destructive" size="icon" aria-label="حذف أمر الشراء" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
+            <Button variant="destructive" size="icon" aria-label={t('deleteAria')} onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
           )}
         </div>
       </div>
@@ -163,36 +160,36 @@ export default function PurchaseOrderDetailPage() {
       {/* Info Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">المورد</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.supplier')}</p>
           {po.supplier_id ? (
             <Link href={`/dashboard/finance/suppliers/${po.supplier_id}`} className="font-bold mt-1 text-orange-600 hover:underline block">
-              {po.supplier_name || 'عرض المورد'}
+              {po.supplier_name || t('infoCards.viewSupplier')}
             </Link>
           ) : <p className="font-bold mt-1 text-muted-foreground">—</p>}
         </CardContent></Card>
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">تاريخ الإصدار</p>
-          <p className="font-bold mt-1">{formatDate(po.issue_date)}</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.issueDate')}</p>
+          <p className="font-bold mt-1">{formatDate(po.issue_date, undefined, locale)}</p>
         </CardContent></Card>
         <Card><CardContent className="p-4">
-          <p className="text-sm text-muted-foreground">تاريخ التسليم المتوقع</p>
-          <p className="font-bold mt-1">{po.expected_delivery_date ? formatDate(po.expected_delivery_date) : '—'}</p>
+          <p className="text-sm text-muted-foreground">{t('infoCards.expectedDeliveryDate')}</p>
+          <p className="font-bold mt-1">{po.expected_delivery_date ? formatDate(po.expected_delivery_date, undefined, locale) : '—'}</p>
         </CardContent></Card>
       </div>
 
       {/* Items */}
       <Card>
-        <CardHeader><CardTitle>بنود أمر الشراء</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{t('itemsCardTitle')}</CardTitle></CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-muted-foreground">
-                  <th className="text-start py-2 pe-4">#</th>
-                  <th className="text-start py-2 pe-4">الوصف</th>
-                  <th className="text-start py-2 pe-4">الكمية</th>
-                  <th className="text-start py-2 pe-4">السعر</th>
-                  <th className="text-end py-2">المبلغ</th>
+                  <th className="text-start py-2 pe-4">{t('columns.index')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.description')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.quantity')}</th>
+                  <th className="text-start py-2 pe-4">{t('columns.rate')}</th>
+                  <th className="text-end py-2">{t('columns.amount')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,15 +209,15 @@ export default function PurchaseOrderDetailPage() {
           {/* Totals */}
           <div className="border-t mt-2 pt-4 space-y-2 max-w-xs ms-auto">
             <div className="flex justify-between text-sm">
-              <span>المجموع الفرعي</span>
+              <span>{t('subtotal')}</span>
               <span className="font-mono">{formatCurrency(po.subtotal, po.currency)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span>ضريبة ({po.tax_rate}%)</span>
+              <span>{t('taxLine', { rate: po.tax_rate })}</span>
               <span className="font-mono">{formatCurrency(po.tax_amount, po.currency)}</span>
             </div>
             <div className="flex justify-between font-bold text-base border-t pt-2">
-              <span>الإجمالي</span>
+              <span>{t('total')}</span>
               <span className="font-mono">{formatCurrency(po.total, po.currency)}</span>
             </div>
           </div>
@@ -230,7 +227,7 @@ export default function PurchaseOrderDetailPage() {
       {/* Notes */}
       {po.notes && (
         <Card>
-          <CardHeader><CardTitle>ملاحظات</CardTitle></CardHeader>
+          <CardHeader><CardTitle>{t('notesTitle')}</CardTitle></CardHeader>
           <CardContent><p className="text-sm text-muted-foreground whitespace-pre-wrap">{po.notes}</p></CardContent>
         </Card>
       )}
@@ -238,15 +235,15 @@ export default function PurchaseOrderDetailPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف أمر الشراء هذا؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('deleteDialog.confirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

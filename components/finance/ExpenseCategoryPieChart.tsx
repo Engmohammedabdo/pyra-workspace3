@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Receipt } from 'lucide-react';
 import {
@@ -24,8 +25,11 @@ interface ExpenseCategoryPieChartProps {
 
 
 export function ExpenseCategoryPieChart({ data }: ExpenseCategoryPieChartProps) {
+  const t = useTranslations('finance.charts');
+  const amountLabel = t('amountLabel');
+
   if (!data || data.length === 0) {
-    return <EmptyState icon={Receipt} title="لا توجد مصاريف هذا الشهر" className="py-8" />;
+    return <EmptyState icon={Receipt} title={t('noExpensesThisMonth')} className="py-8" />;
   }
 
   return (
@@ -52,7 +56,7 @@ export function ExpenseCategoryPieChart({ data }: ExpenseCategoryPieChartProps) 
           contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number) => [
             `${value.toLocaleString('en-AE')} AED`,
-            'المبلغ',
+            amountLabel,
           ]}
         />
         <Legend

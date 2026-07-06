@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { fetchAPI } from '@/hooks/api-helpers';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +15,7 @@ import { RevenueTargetCard } from '@/components/dashboard/finance-targets/Revenu
 import { RevenueTargetForm } from '@/components/dashboard/finance-targets/RevenueTargetForm';
 
 export default function RevenueTargetsPage() {
+  const t = useTranslations('finance.targets');
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export default function RevenueTargetsPage() {
 
   const handleSave = async () => {
     if (!form.period_type || !form.period_start || !form.period_end || !form.target_amount) {
-      toast.error('يرجى ملء الحقول المطلوبة');
+      toast.error(t('toasts.fieldsRequired'));
       return;
     }
     setSaving(true);
@@ -67,11 +69,11 @@ export default function RevenueTargetsPage() {
         body: JSON.stringify({ ...form, target_amount: Number(form.target_amount) }),
       });
       if (res.ok) {
-        toast.success(editingId ? 'تم تحديث الهدف' : 'تم إضافة الهدف');
+        toast.success(editingId ? t('toasts.updateSuccess') : t('toasts.createSuccess'));
         setDialogOpen(false);
         queryClient.invalidateQueries({ queryKey: ['revenue-targets'] });
       } else {
-        toast.error('فشل في الحفظ');
+        toast.error(t('toasts.saveFailed'));
       }
     } finally {
       setSaving(false);
@@ -84,11 +86,11 @@ export default function RevenueTargetsPage() {
     try {
       const res = await fetch(`/api/finance/revenue-targets/${deleteId}`, { method: 'DELETE' });
       if (res.ok) {
-        toast.success('تم حذف الهدف');
+        toast.success(t('toasts.deleteSuccess'));
         setDeleteId(null);
         queryClient.invalidateQueries({ queryKey: ['revenue-targets'] });
       } else {
-        toast.error('فشل في الحذف');
+        toast.error(t('toasts.deleteFailed'));
       }
     } finally {
       setDeleting(false);
@@ -99,12 +101,12 @@ export default function RevenueTargetsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance" aria-label="العودة إلى المالية">
+          <Link href="/dashboard/finance" aria-label={t('backAria')}>
             <Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button>
           </Link>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6" aria-hidden="true" /> أهداف الإيرادات</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><Target className="h-6 w-6" aria-hidden="true" /> {t('title')}</h1>
         </div>
-        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> إضافة هدف</Button>
+        <Button onClick={openNew}><Plus className="h-4 w-4 ms-2" /> {t('addTarget')}</Button>
       </div>
 
       {loading ? (
@@ -112,16 +114,16 @@ export default function RevenueTargetsPage() {
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
         </div>
       ) : targets.length === 0 ? (
-        <EmptyState icon={Target} title="لا توجد أهداف إيرادات" description="أضف هدفاً لتتبع الإيرادات" actionLabel="إضافة هدف" onAction={openNew} />
+        <EmptyState icon={Target} title={t('emptyState.title')} description={t('emptyState.description')} actionLabel={t('emptyState.actionLabel')} onAction={openNew} />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {targets.map(t => <RevenueTargetCard key={t.id} target={t} onEdit={() => openEdit(t)} onDelete={() => setDeleteId(t.id)} />)}
+          {targets.map(tg => <RevenueTargetCard key={tg.id} target={tg} onEdit={() => openEdit(tg)} onDelete={() => setDeleteId(tg.id)} />)}
         </div>
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>{editingId ? 'تعديل الهدف' : 'إضافة هدف جديد'}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingId ? t('dialog.editTitle') : t('dialog.newTitle')}</DialogTitle></DialogHeader>
           <RevenueTargetForm form={form} setForm={setForm} onSave={handleSave} onCancel={() => setDialogOpen(false)} saving={saving} editing={!!editingId} />
         </DialogContent>
       </Dialog>

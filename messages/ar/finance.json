@@ -828,6 +828,435 @@
           "confirmButton": "حذف"
         }
       }
+    },
+    "overview": {
+      "noData": "لا توجد بيانات",
+      "title": "الإدارة المالية",
+      "monthSummary": "ملخص {month}",
+      "outstandingLabel": "فلوس مستنياك",
+      "viewInvoices": "عرض الفواتير",
+      "revenueVsExpensesTitle": "الإيرادات مقابل المصاريف",
+      "whereDidMoneyGoTitle": "وين راحت الفلوس؟",
+      "cards": {
+        "moneyIn": "فلوس دخلت",
+        "moneyOut": "فلوس طلعت",
+        "net": "الصافي",
+        "ytdLabel": "من بداية السنة: {amount}",
+        "marginBadge": "هامش {percent}"
+      }
+    },
+    "purchaseOrders": {
+      "list": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل أوامر الشراء"
+        },
+        "back": "رجوع",
+        "title": "أوامر الشراء",
+        "newPo": "أمر شراء جديد",
+        "filters": {
+          "searchPlaceholder": "بحث بالرقم أو المورد...",
+          "statusPlaceholder": "الحالة",
+          "allStatuses": "كل الحالات"
+        },
+        "emptyState": {
+          "title": "لا توجد أوامر شراء",
+          "description": "أنشئ أمر شراء جديد لإدارة مشترياتك من الموردين"
+        },
+        "noSupplier": "بدون مورد",
+        "supplierSuffix": " — {company}",
+        "pagination": {
+          "prev": "السابق",
+          "next": "التالي"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "تم إنشاء أمر الشراء",
+          "createFailed": "حدث خطأ",
+          "itemRequired": "يجب إضافة بند واحد على الأقل"
+        },
+        "back": "رجوع",
+        "title": "أمر شراء جديد",
+        "subtitle": "إنشاء أمر شراء للمورد",
+        "cardTitle": "بيانات أمر الشراء",
+        "fields": {
+          "supplier": "المورد",
+          "supplierPlaceholder": "اختر المورد",
+          "project": "المشروع (اختياري)",
+          "projectPlaceholder": "اختر المشروع",
+          "noProject": "بدون مشروع",
+          "issueDate": "تاريخ الإصدار",
+          "deliveryDate": "تاريخ التسليم المتوقع",
+          "notes": "ملاحظات",
+          "notesPlaceholder": "ملاحظات إضافية..."
+        },
+        "itemsCardTitle": "بنود أمر الشراء",
+        "addItem": "إضافة بند",
+        "columns": {
+          "description": "الوصف",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "amount": "المبلغ"
+        },
+        "descriptionPlaceholder": "وصف البند",
+        "removeItem": "حذف البند",
+        "subtotal": "المجموع الفرعي",
+        "vat": "ضريبة القيمة المضافة",
+        "total": "الإجمالي",
+        "cancel": "إلغاء",
+        "save": "حفظ"
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل أمر الشراء",
+          "unexpectedError": "حدث خطأ",
+          "statusUpdateSuccess": "تم تحديث الحالة",
+          "deleteFailed": "فشل في الحذف",
+          "deleteSuccess": "تم حذف أمر الشراء"
+        },
+        "actions": {
+          "sendToSupplier": "إرسال للمورد",
+          "cancel": "إلغاء",
+          "confirmReceipt": "تأكيد الاستلام",
+          "received": "تم الاستلام",
+          "invoiced": "تم الفوترة"
+        },
+        "notFound": "أمر الشراء غير موجود",
+        "back": "رجوع",
+        "deleteAria": "حذف أمر الشراء",
+        "supplierSuffix": " — {company}",
+        "infoCards": {
+          "supplier": "المورد",
+          "viewSupplier": "عرض المورد",
+          "issueDate": "تاريخ الإصدار",
+          "expectedDeliveryDate": "تاريخ التسليم المتوقع"
+        },
+        "itemsCardTitle": "بنود أمر الشراء",
+        "columns": {
+          "index": "#",
+          "description": "الوصف",
+          "quantity": "الكمية",
+          "rate": "السعر",
+          "amount": "المبلغ"
+        },
+        "subtotal": "المجموع الفرعي",
+        "taxLine": "ضريبة ({rate}%)",
+        "total": "الإجمالي",
+        "notesTitle": "ملاحظات",
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "description": "هل أنت متأكد من حذف أمر الشراء هذا؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        }
+      }
+    },
+    "suppliers": {
+      "list": {
+        "toasts": {
+          "loadFailed": "فشل في تحميل الموردين"
+        },
+        "back": "رجوع",
+        "title": "الموردين",
+        "newSupplier": "مورد جديد",
+        "filters": {
+          "searchPlaceholder": "بحث بالاسم أو الشركة...",
+          "statusPlaceholder": "الحالة",
+          "all": "الكل",
+          "active": "نشط",
+          "inactive": "غير نشط"
+        },
+        "emptyState": {
+          "title": "لا يوجد موردين",
+          "description": "أضف مورداً جديداً لربطه بالمصروفات وأوامر الشراء"
+        },
+        "paymentTerms": "شروط الدفع: {days} يوم",
+        "pagination": {
+          "prev": "السابق",
+          "next": "التالي"
+        }
+      },
+      "form": {
+        "nameLabel": "الاسم *",
+        "namePlaceholder": "اسم المورد",
+        "companyLabel": "الشركة",
+        "companyPlaceholder": "اسم الشركة",
+        "emailLabel": "البريد الإلكتروني",
+        "phoneLabel": "الهاتف",
+        "addressLabel": "العنوان",
+        "addressPlaceholder": "العنوان الكامل",
+        "taxNumberLabel": "الرقم الضريبي",
+        "paymentTermsLabel": "شروط الدفع (أيام)",
+        "currencyLabel": "العملة",
+        "bankDetailsTitle": "البيانات البنكية",
+        "bankNameLabel": "اسم البنك",
+        "bankNamePlaceholder": "اسم البنك",
+        "bankAccountLabel": "رقم الحساب",
+        "ibanLabel": "IBAN",
+        "notesTitle": "ملاحظات",
+        "notesLabel": "ملاحظات",
+        "notesPlaceholder": "ملاحظات إضافية...",
+        "cancel": "إلغاء",
+        "save": "حفظ"
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "تم إنشاء المورد",
+          "createFailed": "حدث خطأ",
+          "nameRequired": "اسم المورد مطلوب"
+        },
+        "back": "رجوع",
+        "title": "مورد جديد",
+        "subtitle": "إضافة مورد جديد لربطه بالمصروفات وأوامر الشراء",
+        "cardTitle": "بيانات المورد"
+      },
+      "detail": {
+        "toasts": {
+          "nameRequired": "اسم المورد مطلوب",
+          "updateSuccess": "تم تحديث البيانات",
+          "updateFailed": "خطأ في الحفظ",
+          "deleteSuccess": "تم الحذف",
+          "deleteFailed": "خطأ في الحذف"
+        },
+        "notFound": "المورد غير موجود",
+        "backAria": "العودة إلى الموردين",
+        "edit": "تعديل",
+        "deleteAria": "حذف المورد",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "deleteDialog": {
+          "title": "تأكيد الحذف",
+          "description": "هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف"
+        },
+        "status": {
+          "active": "نشط",
+          "inactive": "غير نشط"
+        },
+        "info": {
+          "contactTitle": "معلومات التواصل",
+          "financialTitle": "معلومات مالية",
+          "taxNumber": "الرقم الضريبي: {value}",
+          "paymentTerms": "شروط الدفع: {days} يوم",
+          "currency": "العملة: {value}",
+          "bank": "البنك",
+          "bankAccount": "رقم الحساب",
+          "iban": "IBAN"
+        },
+        "linkedExpenses": {
+          "title": "المصروفات المرتبطة",
+          "emptyState": {
+            "title": "لا توجد مصروفات",
+            "description": "لم يتم ربط أي مصروفات بهذا المورد بعد"
+          }
+        }
+      }
+    },
+    "recurring": {
+      "list": {
+        "toasts": {
+          "deleteSuccess": "تم الحذف",
+          "deleteFailed": "فشل في الحذف",
+          "generateSuccess": "تم توليد الفواتير بنجاح",
+          "generateFailed": "فشل في توليد الفواتير"
+        },
+        "backAria": "العودة إلى المالية",
+        "title": "الفواتير المتكررة",
+        "generateButton": "توليد",
+        "generating": "جاري...",
+        "addButton": "إضافة",
+        "searchPlaceholder": "بحث...",
+        "filters": {
+          "statusPlaceholder": "الحالة",
+          "all": "الكل",
+          "active": "نشط",
+          "paused": "متوقف",
+          "cancelled": "ملغي"
+        },
+        "deleteDialog": {
+          "title": "حذف الفاتورة",
+          "confirm": "هل أنت متأكد؟",
+          "cancel": "إلغاء",
+          "confirmButton": "حذف",
+          "deleting": "جاري..."
+        },
+        "summary": {
+          "totalTemplates": "إجمالي القوالب",
+          "active": "نشطة",
+          "dueForGeneration": "مستحقة التوليد",
+          "dueCountLabel": "{count} فاتورة متكررة مستحقة التوليد",
+          "dueHelpText": "اضغط على \"توليد الفواتير المستحقة\" لإنشاء الفواتير تلقائيا"
+        },
+        "table": {
+          "columns": {
+            "title": "العنوان",
+            "client": "العميل",
+            "cycle": "الدورة",
+            "cost": "التكلفة",
+            "nextGeneration": "التوليد القادم",
+            "lastGeneration": "آخر توليد",
+            "status": "الحالة",
+            "actions": "الإجراءات"
+          },
+          "autoSend": "إرسال تلقائي",
+          "due": "مستحق",
+          "editAria": "تعديل",
+          "deleteAria": "حذف"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "تم إنشاء الفاتورة المتكررة بنجاح",
+          "createFailed": "حدث خطأ أثناء إنشاء الفاتورة",
+          "titleRequired": "يرجى إدخال عنوان الفاتورة المتكررة"
+        },
+        "backAria": "العودة",
+        "title": "إنشاء فاتورة متكررة جديدة",
+        "cancel": "إلغاء",
+        "submit": "حفظ الفاتورة المتكررة",
+        "basicInfo": {
+          "cardTitle": "المعلومات الأساسية",
+          "titleLabel": "عنوان الفاتورة المتكررة *",
+          "titlePlaceholder": "أدخل عنوان الفاتورة المتكررة",
+          "clientLabel": "العميل",
+          "clientPlaceholder": "اختر العميل",
+          "contractLabel": "العقد",
+          "contractPlaceholder": "اختر العقد",
+          "billingCycleLabel": "دورة الفوترة",
+          "billingCyclePlaceholder": "اختر دورة الفوترة",
+          "nextGenerationDateLabel": "تاريخ التوليد القادم",
+          "currencyLabel": "العملة",
+          "currencyPlaceholder": "اختر العملة",
+          "currencies": {
+            "AED": "درهم",
+            "USD": "دولار",
+            "EUR": "يورو",
+            "SAR": "ريال"
+          },
+          "autoSendLabel": "إرسال تلقائي",
+          "autoSendHelpText": "إرسال الفاتورة تلقائياً عند التوليد"
+        },
+        "lineItems": {
+          "cardTitle": "بنود الفاتورة",
+          "addItem": "إضافة بند",
+          "descriptionLabel": "الوصف",
+          "descriptionPlaceholder": "وصف البند",
+          "quantityLabel": "الكمية",
+          "rateLabel": "السعر",
+          "amountLabel": "المبلغ",
+          "removeItem": "حذف",
+          "subtotal": "المجموع الفرعي"
+        }
+      }
+    },
+    "targets": {
+      "toasts": {
+        "fieldsRequired": "يرجى ملء الحقول المطلوبة",
+        "updateSuccess": "تم تحديث الهدف",
+        "createSuccess": "تم إضافة الهدف",
+        "saveFailed": "فشل في الحفظ",
+        "deleteSuccess": "تم حذف الهدف",
+        "deleteFailed": "فشل في الحذف"
+      },
+      "backAria": "العودة إلى المالية",
+      "title": "أهداف الإيرادات",
+      "addTarget": "إضافة هدف",
+      "emptyState": {
+        "title": "لا توجد أهداف إيرادات",
+        "description": "أضف هدفاً لتتبع الإيرادات",
+        "actionLabel": "إضافة هدف"
+      },
+      "dialog": {
+        "editTitle": "تعديل الهدف",
+        "newTitle": "إضافة هدف جديد"
+      },
+      "card": {
+        "editAria": "تعديل الهدف",
+        "deleteAria": "حذف الهدف",
+        "targetLabel": "المستهدف",
+        "actualRevenueLabel": "الإيرادات الفعلية",
+        "progressLabel": "التقدم"
+      },
+      "form": {
+        "periodTypeLabel": "نوع الفترة *",
+        "periodTypePlaceholder": "اختر نوع الفترة",
+        "periodStartLabel": "تاريخ البداية *",
+        "periodEndLabel": "تاريخ النهاية *",
+        "targetAmountLabel": "المبلغ المستهدف *",
+        "currencyLabel": "العملة",
+        "currencies": {
+          "AED": "درهم (AED)",
+          "USD": "دولار (USD)",
+          "EUR": "يورو (EUR)",
+          "SAR": "ريال (SAR)"
+        },
+        "notesLabel": "ملاحظات",
+        "notesPlaceholder": "ملاحظات إضافية...",
+        "cancel": "إلغاء",
+        "save": "حفظ",
+        "saving": "جاري الحفظ..."
+      }
+    },
+    "statement": {
+      "toasts": {
+        "loadFailed": "فشل في تحميل كشف الحساب"
+      },
+      "back": "رجوع",
+      "title": "كشف حساب العميل: {clientName}",
+      "summary": {
+        "totalInvoiced": "إجمالي الفواتير",
+        "totalPaid": "إجمالي المدفوع",
+        "totalOutstanding": "المستحق",
+        "totalOverdue": "المتأخر"
+      },
+      "invoicesTable": {
+        "title": "الفواتير",
+        "columns": {
+          "index": "#",
+          "invoiceNumber": "رقم الفاتورة",
+          "date": "التاريخ",
+          "total": "الإجمالي",
+          "paid": "المدفوع",
+          "due": "المستحق",
+          "status": "الحالة"
+        },
+        "emptyState": {
+          "title": "لا توجد فواتير"
+        }
+      },
+      "paymentsTable": {
+        "title": "المدفوعات",
+        "columns": {
+          "date": "التاريخ",
+          "amount": "المبلغ",
+          "method": "طريقة الدفع",
+          "invoiceReference": "مرجع الفاتورة"
+        },
+        "emptyState": {
+          "title": "لا توجد مدفوعات"
+        }
+      },
+      "contractsTable": {
+        "title": "العقود",
+        "columns": {
+          "title": "العنوان",
+          "value": "القيمة",
+          "status": "الحالة",
+          "billed": "المفوتر",
+          "collected": "المحصّل"
+        },
+        "emptyState": {
+          "title": "لا توجد عقود"
+        }
+      }
+    },
+    "charts": {
+      "noData": "لا توجد بيانات",
+      "noExpensesThisMonth": "لا توجد مصاريف هذا الشهر",
+      "revenueLabel": "الإيرادات",
+      "expensesLabel": "المصاريف",
+      "amountLabel": "المبلغ"
     }
   }
 }

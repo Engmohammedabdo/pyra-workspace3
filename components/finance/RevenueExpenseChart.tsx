@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { EmptyState } from '@/components/ui/empty-state';
 import { TrendingUp } from 'lucide-react';
 import {
@@ -25,8 +26,12 @@ interface RevenueExpenseChartProps {
 }
 
 export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
+  const t = useTranslations('finance.charts');
+  const revenueLabel = t('revenueLabel');
+  const expensesLabel = t('expensesLabel');
+
   if (!data || data.length === 0) {
-    return <EmptyState icon={TrendingUp} title="لا توجد بيانات" className="py-8" />;
+    return <EmptyState icon={TrendingUp} title={t('noData')} className="py-8" />;
   }
 
   return (
@@ -61,12 +66,12 @@ export function RevenueExpenseChart({ data }: RevenueExpenseChartProps) {
           contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number, name: string) => [
             `${value.toLocaleString('en-AE')} AED`,
-            name === 'revenue' ? 'الإيرادات' : 'المصاريف',
+            name === 'revenue' ? revenueLabel : expensesLabel,
           ]}
         />
         <Legend
           formatter={(value: string) =>
-            value === 'revenue' ? 'الإيرادات' : 'المصاريف'
+            value === 'revenue' ? revenueLabel : expensesLabel
           }
         />
         <Area

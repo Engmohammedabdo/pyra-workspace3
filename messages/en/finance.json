@@ -828,6 +828,435 @@
           "confirmButton": "Delete"
         }
       }
+    },
+    "overview": {
+      "noData": "No data available",
+      "title": "Finance",
+      "monthSummary": "{month} Summary",
+      "outstandingLabel": "Money owed to you",
+      "viewInvoices": "View Invoices",
+      "revenueVsExpensesTitle": "Revenue vs Expenses",
+      "whereDidMoneyGoTitle": "Where did the money go?",
+      "cards": {
+        "moneyIn": "Money In",
+        "moneyOut": "Money Out",
+        "net": "Net",
+        "ytdLabel": "Year to date: {amount}",
+        "marginBadge": "Margin {percent}"
+      }
+    },
+    "purchaseOrders": {
+      "list": {
+        "toasts": {
+          "loadFailed": "Failed to load purchase orders"
+        },
+        "back": "Back",
+        "title": "Purchase Orders",
+        "newPo": "New Purchase Order",
+        "filters": {
+          "searchPlaceholder": "Search by number or supplier...",
+          "statusPlaceholder": "Status",
+          "allStatuses": "All Statuses"
+        },
+        "emptyState": {
+          "title": "No purchase orders",
+          "description": "Create a new purchase order to manage your supplier purchases"
+        },
+        "noSupplier": "No supplier",
+        "supplierSuffix": " — {company}",
+        "pagination": {
+          "prev": "Previous",
+          "next": "Next"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "Purchase order created",
+          "createFailed": "An error occurred",
+          "itemRequired": "You must add at least one item"
+        },
+        "back": "Back",
+        "title": "New Purchase Order",
+        "subtitle": "Create a purchase order for the supplier",
+        "cardTitle": "Purchase Order Details",
+        "fields": {
+          "supplier": "Supplier",
+          "supplierPlaceholder": "Select supplier",
+          "project": "Project (optional)",
+          "projectPlaceholder": "Select project",
+          "noProject": "No project",
+          "issueDate": "Issue Date",
+          "deliveryDate": "Expected Delivery Date",
+          "notes": "Notes",
+          "notesPlaceholder": "Additional notes..."
+        },
+        "itemsCardTitle": "Purchase Order Items",
+        "addItem": "Add Item",
+        "columns": {
+          "description": "Description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount"
+        },
+        "descriptionPlaceholder": "Item description",
+        "removeItem": "Remove item",
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "total": "Total",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "detail": {
+        "toasts": {
+          "loadFailed": "Failed to load purchase order",
+          "unexpectedError": "An error occurred",
+          "statusUpdateSuccess": "Status updated",
+          "deleteFailed": "Failed to delete",
+          "deleteSuccess": "Purchase order deleted"
+        },
+        "actions": {
+          "sendToSupplier": "Send to Supplier",
+          "cancel": "Cancel",
+          "confirmReceipt": "Confirm Receipt",
+          "received": "Received",
+          "invoiced": "Invoiced"
+        },
+        "notFound": "Purchase order not found",
+        "back": "Back",
+        "deleteAria": "Delete purchase order",
+        "supplierSuffix": " — {company}",
+        "infoCards": {
+          "supplier": "Supplier",
+          "viewSupplier": "View supplier",
+          "issueDate": "Issue Date",
+          "expectedDeliveryDate": "Expected Delivery Date"
+        },
+        "itemsCardTitle": "Purchase Order Items",
+        "columns": {
+          "index": "#",
+          "description": "Description",
+          "quantity": "Quantity",
+          "rate": "Rate",
+          "amount": "Amount"
+        },
+        "subtotal": "Subtotal",
+        "taxLine": "Tax ({rate}%)",
+        "total": "Total",
+        "notesTitle": "Notes",
+        "deleteDialog": {
+          "title": "Confirm Delete",
+          "description": "Are you sure you want to delete this purchase order? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        }
+      }
+    },
+    "suppliers": {
+      "list": {
+        "toasts": {
+          "loadFailed": "Failed to load suppliers"
+        },
+        "back": "Back",
+        "title": "Suppliers",
+        "newSupplier": "New Supplier",
+        "filters": {
+          "searchPlaceholder": "Search by name or company...",
+          "statusPlaceholder": "Status",
+          "all": "All",
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "emptyState": {
+          "title": "No suppliers",
+          "description": "Add a new supplier to link to expenses and purchase orders"
+        },
+        "paymentTerms": "Payment terms: {days} days",
+        "pagination": {
+          "prev": "Previous",
+          "next": "Next"
+        }
+      },
+      "form": {
+        "nameLabel": "Name *",
+        "namePlaceholder": "Supplier name",
+        "companyLabel": "Company",
+        "companyPlaceholder": "Company name",
+        "emailLabel": "Email",
+        "phoneLabel": "Phone",
+        "addressLabel": "Address",
+        "addressPlaceholder": "Full address",
+        "taxNumberLabel": "Tax Number",
+        "paymentTermsLabel": "Payment Terms (days)",
+        "currencyLabel": "Currency",
+        "bankDetailsTitle": "Bank Details",
+        "bankNameLabel": "Bank Name",
+        "bankNamePlaceholder": "Bank name",
+        "bankAccountLabel": "Account Number",
+        "ibanLabel": "IBAN",
+        "notesTitle": "Notes",
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Additional notes...",
+        "cancel": "Cancel",
+        "save": "Save"
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "Supplier created",
+          "createFailed": "An error occurred",
+          "nameRequired": "Supplier name is required"
+        },
+        "back": "Back",
+        "title": "New Supplier",
+        "subtitle": "Add a new supplier to link to expenses and purchase orders",
+        "cardTitle": "Supplier Details"
+      },
+      "detail": {
+        "toasts": {
+          "nameRequired": "Supplier name is required",
+          "updateSuccess": "Data updated",
+          "updateFailed": "Failed to save",
+          "deleteSuccess": "Deleted",
+          "deleteFailed": "Failed to delete"
+        },
+        "notFound": "Supplier not found",
+        "backAria": "Back to suppliers",
+        "edit": "Edit",
+        "deleteAria": "Delete supplier",
+        "cancel": "Cancel",
+        "save": "Save",
+        "deleteDialog": {
+          "title": "Confirm Delete",
+          "description": "Are you sure you want to delete this supplier? This action cannot be undone.",
+          "cancel": "Cancel",
+          "confirmButton": "Delete"
+        },
+        "status": {
+          "active": "Active",
+          "inactive": "Inactive"
+        },
+        "info": {
+          "contactTitle": "Contact Information",
+          "financialTitle": "Financial Information",
+          "taxNumber": "Tax Number: {value}",
+          "paymentTerms": "Payment terms: {days} days",
+          "currency": "Currency: {value}",
+          "bank": "Bank",
+          "bankAccount": "Account Number",
+          "iban": "IBAN"
+        },
+        "linkedExpenses": {
+          "title": "Linked Expenses",
+          "emptyState": {
+            "title": "No expenses",
+            "description": "No expenses have been linked to this supplier yet"
+          }
+        }
+      }
+    },
+    "recurring": {
+      "list": {
+        "toasts": {
+          "deleteSuccess": "Deleted",
+          "deleteFailed": "Failed to delete",
+          "generateSuccess": "Invoices generated successfully",
+          "generateFailed": "Failed to generate invoices"
+        },
+        "backAria": "Back to Finance",
+        "title": "Recurring Invoices",
+        "generateButton": "Generate",
+        "generating": "Working...",
+        "addButton": "Add",
+        "searchPlaceholder": "Search...",
+        "filters": {
+          "statusPlaceholder": "Status",
+          "all": "All",
+          "active": "Active",
+          "paused": "Paused",
+          "cancelled": "Cancelled"
+        },
+        "deleteDialog": {
+          "title": "Delete Invoice",
+          "confirm": "Are you sure?",
+          "cancel": "Cancel",
+          "confirmButton": "Delete",
+          "deleting": "Working..."
+        },
+        "summary": {
+          "totalTemplates": "Total Templates",
+          "active": "Active",
+          "dueForGeneration": "Due for Generation",
+          "dueCountLabel": "{count} recurring invoices due for generation",
+          "dueHelpText": "Click \"Generate due invoices\" to create invoices automatically"
+        },
+        "table": {
+          "columns": {
+            "title": "Title",
+            "client": "Client",
+            "cycle": "Cycle",
+            "cost": "Cost",
+            "nextGeneration": "Next Generation",
+            "lastGeneration": "Last Generation",
+            "status": "Status",
+            "actions": "Actions"
+          },
+          "autoSend": "Auto-send",
+          "due": "Due",
+          "editAria": "Edit",
+          "deleteAria": "Delete"
+        }
+      },
+      "new": {
+        "toasts": {
+          "createSuccess": "Recurring invoice created successfully",
+          "createFailed": "An error occurred while creating the invoice",
+          "titleRequired": "Please enter a title for the recurring invoice"
+        },
+        "backAria": "Back",
+        "title": "Create New Recurring Invoice",
+        "cancel": "Cancel",
+        "submit": "Save Recurring Invoice",
+        "basicInfo": {
+          "cardTitle": "Basic Information",
+          "titleLabel": "Recurring Invoice Title *",
+          "titlePlaceholder": "Enter recurring invoice title",
+          "clientLabel": "Client",
+          "clientPlaceholder": "Select client",
+          "contractLabel": "Contract",
+          "contractPlaceholder": "Select contract",
+          "billingCycleLabel": "Billing Cycle",
+          "billingCyclePlaceholder": "Select billing cycle",
+          "nextGenerationDateLabel": "Next Generation Date",
+          "currencyLabel": "Currency",
+          "currencyPlaceholder": "Select currency",
+          "currencies": {
+            "AED": "AED",
+            "USD": "USD",
+            "EUR": "EUR",
+            "SAR": "SAR"
+          },
+          "autoSendLabel": "Auto-send",
+          "autoSendHelpText": "Automatically send the invoice upon generation"
+        },
+        "lineItems": {
+          "cardTitle": "Invoice Items",
+          "addItem": "Add Item",
+          "descriptionLabel": "Description",
+          "descriptionPlaceholder": "Item description",
+          "quantityLabel": "Quantity",
+          "rateLabel": "Rate",
+          "amountLabel": "Amount",
+          "removeItem": "Remove",
+          "subtotal": "Subtotal"
+        }
+      }
+    },
+    "targets": {
+      "toasts": {
+        "fieldsRequired": "Please fill in the required fields",
+        "updateSuccess": "Target updated",
+        "createSuccess": "Target added",
+        "saveFailed": "Failed to save",
+        "deleteSuccess": "Target deleted",
+        "deleteFailed": "Failed to delete"
+      },
+      "backAria": "Back to Finance",
+      "title": "Revenue Targets",
+      "addTarget": "Add Target",
+      "emptyState": {
+        "title": "No revenue targets",
+        "description": "Add a target to track revenue",
+        "actionLabel": "Add Target"
+      },
+      "dialog": {
+        "editTitle": "Edit Target",
+        "newTitle": "Add New Target"
+      },
+      "card": {
+        "editAria": "Edit target",
+        "deleteAria": "Delete target",
+        "targetLabel": "Target",
+        "actualRevenueLabel": "Actual Revenue",
+        "progressLabel": "Progress"
+      },
+      "form": {
+        "periodTypeLabel": "Period Type *",
+        "periodTypePlaceholder": "Select period type",
+        "periodStartLabel": "Start Date *",
+        "periodEndLabel": "End Date *",
+        "targetAmountLabel": "Target Amount *",
+        "currencyLabel": "Currency",
+        "currencies": {
+          "AED": "AED",
+          "USD": "USD",
+          "EUR": "EUR",
+          "SAR": "SAR"
+        },
+        "notesLabel": "Notes",
+        "notesPlaceholder": "Additional notes...",
+        "cancel": "Cancel",
+        "save": "Save",
+        "saving": "Saving..."
+      }
+    },
+    "statement": {
+      "toasts": {
+        "loadFailed": "Failed to load account statement"
+      },
+      "back": "Back",
+      "title": "Client Statement: {clientName}",
+      "summary": {
+        "totalInvoiced": "Total Invoiced",
+        "totalPaid": "Total Paid",
+        "totalOutstanding": "Outstanding",
+        "totalOverdue": "Overdue"
+      },
+      "invoicesTable": {
+        "title": "Invoices",
+        "columns": {
+          "index": "#",
+          "invoiceNumber": "Invoice Number",
+          "date": "Date",
+          "total": "Total",
+          "paid": "Paid",
+          "due": "Due",
+          "status": "Status"
+        },
+        "emptyState": {
+          "title": "No invoices"
+        }
+      },
+      "paymentsTable": {
+        "title": "Payments",
+        "columns": {
+          "date": "Date",
+          "amount": "Amount",
+          "method": "Payment Method",
+          "invoiceReference": "Invoice Reference"
+        },
+        "emptyState": {
+          "title": "No payments"
+        }
+      },
+      "contractsTable": {
+        "title": "Contracts",
+        "columns": {
+          "title": "Title",
+          "value": "Value",
+          "status": "Status",
+          "billed": "Billed",
+          "collected": "Collected"
+        },
+        "emptyState": {
+          "title": "No contracts"
+        }
+      }
+    },
+    "charts": {
+      "noData": "No data available",
+      "noExpensesThisMonth": "No expenses this month",
+      "revenueLabel": "Revenue",
+      "expensesLabel": "Expenses",
+      "amountLabel": "Amount"
     }
   }
 }

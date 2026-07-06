@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +17,7 @@ import { SupplierEditForm } from '@/components/dashboard/supplier-detail/Supplie
 export default function SupplierDetailPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
+  const t = useTranslations('finance.suppliers.detail');
   const [supplier, setSupplier] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -37,7 +39,7 @@ export default function SupplierDetailPage() {
   }, [id]);
 
   const handleSave = async () => {
-    if (!form.name?.trim()) { toast.error('اسم المورد مطلوب'); return; }
+    if (!form.name?.trim()) { toast.error(t('toasts.nameRequired')); return; }
     setSaving(true);
     const res = await fetch(`/api/dashboard/suppliers/${id}`, {
       method: 'PATCH',
@@ -49,30 +51,30 @@ export default function SupplierDetailPage() {
       setSupplier(json.data);
       setForm(json.data);
       setEditing(false);
-      toast.success('تم تحديث البيانات');
-    } else { toast.error('خطأ في الحفظ'); }
+      toast.success(t('toasts.updateSuccess'));
+    } else { toast.error(t('toasts.updateFailed')); }
     setSaving(false);
   };
 
   const handleDelete = async () => {
     const res = await fetch(`/api/dashboard/suppliers/${id}`, { method: 'DELETE' });
-    if (res.ok) { router.push('/dashboard/finance/suppliers'); toast.success('تم الحذف'); }
-    else { toast.error('خطأ في الحذف'); }
+    if (res.ok) { router.push('/dashboard/finance/suppliers'); toast.success(t('toasts.deleteSuccess')); }
+    else { toast.error(t('toasts.deleteFailed')); }
   };
 
   if (loading) return <div className="space-y-6"><Skeleton className="h-10 w-64" /><Skeleton className="h-64 rounded-xl" /></div>;
-  if (!supplier) return <p className="text-center text-muted-foreground mt-20">المورد غير موجود</p>;
+  if (!supplier) return <p className="text-center text-muted-foreground mt-20">{t('notFound')}</p>;
 
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/finance/suppliers" aria-label="العودة إلى الموردين"><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
+          <Link href="/dashboard/finance/suppliers" aria-label={t('backAria')}><Button variant="ghost" size="icon"><ArrowRight className="h-5 w-5" /></Button></Link>
           <div>
             <div className="flex items-center gap-2">
               <Truck className="h-5 w-5" />
               <h1 className="text-2xl font-bold">{supplier.name}</h1>
-              <Badge className={supplier.is_active ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800'}>{supplier.is_active ? 'نشط' : 'غير نشط'}</Badge>
+              <Badge className={supplier.is_active ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : 'bg-gray-100 dark:bg-gray-800'}>{supplier.is_active ? t('status.active') : t('status.inactive')}</Badge>
             </div>
             {supplier.company && <p className="text-sm text-muted-foreground">{supplier.company}</p>}
           </div>
@@ -80,13 +82,13 @@ export default function SupplierDetailPage() {
         <div className="flex items-center gap-2">
           {!editing ? (
             <>
-              <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4 me-2" /> تعديل</Button>
-              <Button variant="destructive" size="icon" aria-label="حذف المورد" onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
+              <Button variant="outline" onClick={() => setEditing(true)}><Edit2 className="h-4 w-4 me-2" /> {t('edit')}</Button>
+              <Button variant="destructive" size="icon" aria-label={t('deleteAria')} onClick={() => setShowDeleteDialog(true)}><Trash2 className="h-4 w-4" /></Button>
             </>
           ) : (
             <>
-              <Button variant="outline" onClick={() => { setEditing(false); setForm(supplier); }}>إلغاء</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 me-2" />} حفظ</Button>
+              <Button variant="outline" onClick={() => { setEditing(false); setForm(supplier); }}>{t('cancel')}</Button>
+              <Button onClick={handleSave} disabled={saving}>{saving ? <Loader2 className="animate-spin" /> : <Save className="h-4 w-4 me-2" />} {t('save')}</Button>
             </>
           )}
         </div>
@@ -102,15 +104,15 @@ export default function SupplierDetailPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
+            <AlertDialogTitle>{t('deleteDialog.title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              هل أنت متأكد من حذف هذا المورد؟ لا يمكن التراجع عن هذا الإجراء.
+              {t('deleteDialog.description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogCancel>{t('deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              حذف
+              {t('deleteDialog.confirmButton')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

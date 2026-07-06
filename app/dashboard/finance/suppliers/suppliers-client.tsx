@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -28,6 +29,7 @@ interface Supplier {
 
 export default function SuppliersClient() {
   const router = useRouter();
+  const t = useTranslations('finance.suppliers.list');
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -47,11 +49,11 @@ export default function SuppliersClient() {
       if (json.data) setSuppliers(json.data);
       if (json.meta) setTotal(json.meta.total || 0);
     } catch {
-      toast.error('فشل في تحميل الموردين');
+      toast.error(t('toasts.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [page, search, activeFilter]);
+  }, [page, search, activeFilter, t]);
 
   useEffect(() => { fetchSuppliers(); }, [fetchSuppliers]);
 
@@ -63,14 +65,14 @@ export default function SuppliersClient() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Truck className="h-6 w-6" aria-hidden="true" /> الموردين
+            <Truck className="h-6 w-6" aria-hidden="true" /> {t('title')}
           </h1>
         </div>
         <Link href="/dashboard/finance/suppliers/new">
-          <Button><Plus className="h-4 w-4 me-2" /> مورد جديد</Button>
+          <Button><Plus className="h-4 w-4 me-2" /> {t('newSupplier')}</Button>
         </Link>
       </div>
 
@@ -79,15 +81,15 @@ export default function SuppliersClient() {
         <SearchInput
           value={search}
           onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="بحث بالاسم أو الشركة..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 min-w-[200px]"
         />
         <Select value={activeFilter} onValueChange={v => { setActiveFilter(v === 'all' ? '' : v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('filters.statusPlaceholder')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">الكل</SelectItem>
-            <SelectItem value="true">نشط</SelectItem>
-            <SelectItem value="false">غير نشط</SelectItem>
+            <SelectItem value="all">{t('filters.all')}</SelectItem>
+            <SelectItem value="true">{t('filters.active')}</SelectItem>
+            <SelectItem value="false">{t('filters.inactive')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -100,9 +102,9 @@ export default function SuppliersClient() {
       ) : suppliers.length === 0 ? (
         <EmptyState
           icon={Truck}
-          title="لا يوجد موردين"
-          description="أضف مورداً جديداً لربطه بالمصروفات وأوامر الشراء"
-          actionLabel="مورد جديد"
+          title={t('emptyState.title')}
+          description={t('emptyState.description')}
+          actionLabel={t('newSupplier')}
           onAction={() => router.push('/dashboard/finance/suppliers/new')}
         />
       ) : (
@@ -122,7 +124,7 @@ export default function SuppliersClient() {
                           ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                           : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                         }>
-                          {sup.is_active ? 'نشط' : 'غير نشط'}
+                          {sup.is_active ? t('filters.active') : t('filters.inactive')}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
@@ -133,7 +135,7 @@ export default function SuppliersClient() {
                     </div>
                   </div>
                   <div className="text-end text-xs text-muted-foreground">
-                    <p>شروط الدفع: {sup.payment_terms_days} يوم</p>
+                    <p>{t('paymentTerms', { days: sup.payment_terms_days })}</p>
                     <p>{sup.currency}</p>
                   </div>
                 </CardContent>
@@ -146,9 +148,9 @@ export default function SuppliersClient() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>السابق</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('pagination.prev')}</Button>
           <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>التالي</Button>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('pagination.next')}</Button>
         </div>
       )}
     </div>

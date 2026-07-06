@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useTranslations, useLocale } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +17,8 @@ import { ArrowRight, ShoppingCart, Plus } from 'lucide-react';
 import { SearchInput } from '@/components/ui/search-input';
 import { toast } from 'sonner';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 interface PurchaseOrder {
   id: string;
@@ -28,17 +31,11 @@ interface PurchaseOrder {
   currency: string;
 }
 
-const STATUS_MAP: Record<string, { label: string }> = {
-  draft:        { label: 'مسودة' },
-  sent:         { label: 'مُرسل' },
-  acknowledged: { label: 'مؤكد' },
-  received:     { label: 'مستلم' },
-  invoiced:     { label: 'مفوتر' },
-  cancelled:    { label: 'ملغي' },
-};
-
 export default function PurchaseOrdersClient() {
   const router = useRouter();
+  const t = useTranslations('finance.purchaseOrders.list');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('po');
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -58,11 +55,11 @@ export default function PurchaseOrdersClient() {
       if (json.data) setOrders(json.data);
       if (json.meta) setTotal(json.meta.total || 0);
     } catch {
-      toast.error('فشل في تحميل أوامر الشراء');
+      toast.error(t('toasts.loadFailed'));
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter]);
+  }, [page, search, statusFilter, t]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -74,14 +71,14 @@ export default function PurchaseOrdersClient() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard/finance">
-            <Button variant="ghost" size="icon" aria-label="رجوع"><ArrowRight className="h-5 w-5" /></Button>
+            <Button variant="ghost" size="icon" aria-label={t('back')}><ArrowRight className="h-5 w-5" /></Button>
           </Link>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <ShoppingCart className="h-6 w-6" aria-hidden="true" /> أوامر الشراء
+            <ShoppingCart className="h-6 w-6" aria-hidden="true" /> {t('title')}
           </h1>
         </div>
         <Link href="/dashboard/finance/purchase-orders/new">
-          <Button><Plus className="h-4 w-4 me-2" /> أمر شراء جديد</Button>
+          <Button><Plus className="h-4 w-4 me-2" /> {t('newPo')}</Button>
         </Link>
       </div>
 
@@ -90,19 +87,19 @@ export default function PurchaseOrdersClient() {
         <SearchInput
           value={search}
           onChange={(v) => { setSearch(v); setPage(1); }}
-          placeholder="بحث بالرقم أو المورد..."
+          placeholder={t('filters.searchPlaceholder')}
           className="flex-1 min-w-[200px]"
         />
         <Select value={statusFilter} onValueChange={v => { setStatusFilter(v === 'all' ? '' : v); setPage(1); }}>
-          <SelectTrigger className="w-[160px]"><SelectValue placeholder="الحالة" /></SelectTrigger>
+          <SelectTrigger className="w-[160px]"><SelectValue placeholder={t('filters.statusPlaceholder')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            <SelectItem value="draft">مسودة</SelectItem>
-            <SelectItem value="sent">مُرسل</SelectItem>
-            <SelectItem value="acknowledged">مؤكد</SelectItem>
-            <SelectItem value="received">مستلم</SelectItem>
-            <SelectItem value="invoiced">مفوتر</SelectItem>
-            <SelectItem value="cancelled">ملغي</SelectItem>
+            <SelectItem value="all">{t('filters.allStatuses')}</SelectItem>
+            <SelectItem value="draft">{statusLabelFor('draft')}</SelectItem>
+            <SelectItem value="sent">{statusLabelFor('sent')}</SelectItem>
+            <SelectItem value="acknowledged">{statusLabelFor('acknowledged')}</SelectItem>
+            <SelectItem value="received">{statusLabelFor('received')}</SelectItem>
+            <SelectItem value="invoiced">{statusLabelFor('invoiced')}</SelectItem>
+            <SelectItem value="cancelled">{statusLabelFor('cancelled')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -115,15 +112,14 @@ export default function PurchaseOrdersClient() {
       ) : orders.length === 0 ? (
         <EmptyState
           icon={ShoppingCart}
-          title="لا توجد أوامر شراء"
-          description="أنشئ أمر شراء جديد لإدارة مشترياتك من الموردين"
-          actionLabel="أمر شراء جديد"
+          title={t('emptyState.title')}
+          description={t('emptyState.description')}
+          actionLabel={t('newPo')}
           onAction={() => router.push('/dashboard/finance/purchase-orders/new')}
         />
       ) : (
         <div className="space-y-3">
           {orders.map(po => {
-            const st = STATUS_MAP[po.status] || STATUS_MAP.draft;
             return (
               <Link key={po.id} href={`/dashboard/finance/purchase-orders/${po.id}`}>
                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
@@ -135,17 +131,17 @@ export default function PurchaseOrdersClient() {
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm" dir="ltr">{po.po_number}</span>
-                          <Badge className={getStatusBadgeClass(po.status)}>{st.label}</Badge>
+                          <Badge className={getStatusBadgeClass(po.status)}>{statusLabelFor(po.status) || po.status}</Badge>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          {po.supplier_name || 'بدون مورد'}
-                          {po.supplier_company ? ` — ${po.supplier_company}` : ''}
+                          {po.supplier_name || t('noSupplier')}
+                          {po.supplier_company ? t('supplierSuffix', { company: po.supplier_company }) : ''}
                         </p>
                       </div>
                     </div>
                     <div className="text-end">
                       <p className="font-bold font-mono">{formatCurrency(po.total, po.currency)}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(po.issue_date)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(po.issue_date, undefined, locale)}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -158,9 +154,9 @@ export default function PurchaseOrdersClient() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>السابق</Button>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('pagination.prev')}</Button>
           <span className="text-sm text-muted-foreground">{page} / {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>التالي</Button>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('pagination.next')}</Button>
         </div>
       )}
     </div>

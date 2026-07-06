@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Receipt } from 'lucide-react';
 import {
@@ -25,8 +26,11 @@ interface ExpenseBarChartProps {
 
 
 export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
+  const t = useTranslations('finance.charts');
+  const amountLabel = t('amountLabel');
+
   if (!data || data.length === 0) {
-    return <EmptyState icon={Receipt} title="لا توجد مصاريف هذا الشهر" className="py-8" />;
+    return <EmptyState icon={Receipt} title={t('noExpensesThisMonth')} className="py-8" />;
   }
 
   // Sort descending by value
@@ -53,7 +57,7 @@ export function ExpenseBarChart({ data }: ExpenseBarChartProps) {
           contentStyle={CHART_TOOLTIP_STYLE}
           formatter={(value: number) => [
             `${value.toLocaleString('en-AE')} AED`,
-            'المبلغ',
+            amountLabel,
           ]}
         />
         <Bar
