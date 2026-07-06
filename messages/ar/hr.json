@@ -397,6 +397,152 @@
         "metaTitle": "الموافقات | Pyra Workspace",
         "metaDescription": "موافقات الإجازات والمصاريف وساعات العمل لفريقك"
       }
+    },
+    "payroll": {
+      "list": {
+        "title": "مسير الرواتب",
+        "subtitle": "إدارة وصرف رواتب الموظفين",
+        "createButton": "إنشاء مسير رواتب",
+        "tabs": {
+          "runs": "مسيرات الرواتب",
+          "payments": "المدفوعات"
+        }
+      },
+      "runsTable": {
+        "yearLabel": "السنة:",
+        "empty": {
+          "title": "لا توجد مسيرات رواتب",
+          "description": "أنشئ مسير رواتب جديد لبدء حساب وصرف الرواتب",
+          "actionLabel": "إنشاء مسير رواتب"
+        }
+      },
+      "runRow": {
+        "toasts": {
+          "calculateSuccess": "تم حساب الرواتب بنجاح",
+          "calculateError": "فشل في حساب الرواتب",
+          "approveSuccess": "تم اعتماد مسير الرواتب",
+          "approveError": "فشل في اعتماد المسير",
+          "paySuccess": "تم تأكيد صرف الرواتب",
+          "payError": "فشل في تأكيد الدفع",
+          "deleteSuccess": "تم حذف المسير بنجاح",
+          "deleteError": "فشل في حذف المسير",
+          "payslipDownloadSuccess": "تم تحميل كشف الراتب",
+          "payslipDownloadError": "حدث خطأ أثناء إنشاء كشف الراتب"
+        },
+        "deleteConfirm": "هل تريد حذف هذا المسير؟ لا يمكن التراجع عن هذا الإجراء.",
+        "detailAria": "تفاصيل مسير {month}/{year}",
+        "employeeCount": "{count} موظف",
+        "total": "الإجمالي",
+        "recalculate": "إعادة الحساب",
+        "calculate": "حساب الرواتب",
+        "approveRun": "اعتماد المسير",
+        "confirmPayout": "تأكيد الصرف",
+        "deleteRun": "حذف المسير",
+        "columns": {
+          "employee": "الموظف",
+          "department": "القسم",
+          "salary": "الراتب",
+          "tasks": "المهام",
+          "overtime": "إضافي",
+          "bonus": "مكافأة",
+          "commission": "عمولة",
+          "deductions": "خصومات",
+          "net": "الصافي",
+          "payslip": "كشف"
+        },
+        "deductionAmount": "- {amount}",
+        "downloadAria": "تحميل",
+        "itemsEmptyDraft": "اضغط على \"{calculateLabel}\" لحساب بنود المسير",
+        "itemsEmptyOther": "لا توجد بنود في هذا المسير",
+        "createdBy": "أنشئ بواسطة: {username}",
+        "approvedBy": "اعتمد بواسطة: {username}",
+        "paidAt": "تاريخ الصرف: {date}"
+      },
+      "paymentsTab": {
+        "subtitle": "سجل جميع المدفوعات والعمولات للموظفين",
+        "addButton": "إضافة دفعة",
+        "empty": {
+          "title": "لا توجد مدفوعات",
+          "description": "لم يتم تسجيل أي مدفوعات للموظفين بعد"
+        },
+        "columns": {
+          "employee": "الموظف",
+          "type": "النوع",
+          "description": "الوصف",
+          "amount": "المبلغ",
+          "status": "الحالة",
+          "date": "التاريخ"
+        },
+        "actionsAria": "إجراءات",
+        "approveAction": "اعتماد",
+        "payAction": "دفع",
+        "toasts": {
+          "approveSuccess": "تمت الموافقة على الدفعة",
+          "approveError": "فشل في الموافقة على الدفعة",
+          "paySuccess": "تم تأكيد دفع الدفعة",
+          "payError": "فشل في تأكيد الدفع"
+        }
+      },
+      "createDialog": {
+        "title": "إنشاء مسير رواتب جديد",
+        "monthLabel": "الشهر",
+        "yearLabel": "السنة",
+        "currencyLabel": "العملة",
+        "currencyHint": "سيشمل المسير فقط الموظفين الذين عملتهم {currency}",
+        "cancel": "إلغاء",
+        "create": "إنشاء",
+        "toasts": {
+          "createSuccess": "تم إنشاء مسير الرواتب بنجاح",
+          "createError": "فشل في إنشاء مسير الرواتب"
+        }
+      },
+      "addPaymentDialog": {
+        "title": "إضافة دفعة جديدة",
+        "description": "تسجيل عمولة أو مكافأة أو خصم لموظف",
+        "employeeLabel": "الموظف *",
+        "employeePlaceholder": "اختر الموظف",
+        "typeLabel": "النوع *",
+        "descriptionLabel": "الوصف",
+        "descriptionPlaceholder": "مثال: عمولة مشروع Etmam Brand Identity",
+        "amountLabel": "المبلغ *",
+        "currencyLabel": "العملة",
+        "cancel": "إلغاء",
+        "submit": "تسجيل",
+        "toasts": {
+          "validationError": "اختر الموظف والنوع والمبلغ",
+          "createSuccess": "تم تسجيل الدفعة",
+          "createError": "فشل في تسجيل الدفعة"
+        }
+      }
+    },
+    "payslips": {
+      "title": "كشف حسابي",
+      "subtitle": "كشوف الرواتب والمدفوعات والعمولات",
+      "stats": {
+        "totalReceived": "إجمالي المستلم",
+        "commissionsAndTasks": "عمولات ومهام",
+        "pending": "قيد المعالجة",
+        "paymentsCount": "عدد الدفعات"
+      },
+      "empty": {
+        "title": "لا توجد كشوف رواتب",
+        "description": "لم يتم إصدار أي كشوف رواتب لحسابك بعد"
+      },
+      "emptyAll": {
+        "title": "لا توجد مدفوعات",
+        "description": "لم يتم تسجيل أي رواتب أو مدفوعات بعد"
+      },
+      "breakdown": {
+        "base": "أساسي: {amount}",
+        "bonus": "+مكافأة: {amount}",
+        "deduction": "-خصم: {amount}"
+      },
+      "downloadButton": "تحميل",
+      "paymentsSectionTitle": "سجل المدفوعات والعمولات",
+      "toasts": {
+        "downloadSuccess": "تم تحميل كشف الراتب",
+        "downloadError": "حدث خطأ أثناء إنشاء كشف الراتب"
+      }
     }
   }
 }

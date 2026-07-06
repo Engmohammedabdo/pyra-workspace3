@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
-import { PAYROLL_STATUS_LABELS } from '@/lib/constants/statuses';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
   usePayrollRun,
   useCalculatePayroll,
@@ -29,7 +30,8 @@ import {
 } from '@/hooks/usePayroll';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor } from '@/lib/constants/dates';
+import type { Locale } from '@/lib/i18n/config';
 
 // PayrollItem from the hook predates multi-currency; extend locally
 // so we can safely access the currency column the API already returns.
@@ -42,8 +44,6 @@ const STATUS_STYLES: Record<string, string> = {
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
 };
 
-const STATUS_LABELS: Record<string, string> = PAYROLL_STATUS_LABELS;
-
 interface Props {
   run: PayrollRun;
   isExpanded: boolean;
@@ -51,6 +51,9 @@ interface Props {
 }
 
 export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
+  const t = useTranslations('hr.payroll.runRow');
+  const locale = useLocale() as Locale;
+  const statusLabelFor = useStatusLabels('payroll');
   const detailId = `payroll-detail-${run.id}`;
 
   // Per-row action tracking for spinners
@@ -75,13 +78,15 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
     setCalculatingId(run.id);
     calculatePayroll.mutate(run.id, {
       onSuccess: (result) => {
-        toast.success('تم حساب الرواتب بنجاح');
+        toast.success(t('toasts.calculateSuccess'));
         const warnings = (result as { warnings?: string[] })?.warnings;
         if (warnings && warnings.length > 0) {
+          // Server-supplied Arabic warning strings (calculate-payroll route) —
+          // rendered verbatim until the API route's own i18n migration (Phase 8).
           warnings.forEach((w: string) => toast.warning(w));
         }
       },
-      onError: () => toast.error('فشل في حساب الرواتب'),
+      onError: () => toast.error(t('toasts.calculateError')),
       onSettled: () => setCalculatingId(null),
     });
   };
@@ -92,8 +97,8 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
     updatePayroll.mutate(
       { runId: run.id, action: 'approve' },
       {
-        onSuccess: () => toast.success('تم اعتماد مسير الرواتب'),
-        onError: () => toast.error('فشل في اعتماد المسير'),
+        onSuccess: () => toast.success(t('toasts.approveSuccess')),
+        onError: () => toast.error(t('toasts.approveError')),
         onSettled: () => setApprovingId(null),
       },
     );
@@ -105,8 +110,8 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
     updatePayroll.mutate(
       { runId: run.id, action: 'pay' },
       {
-        onSuccess: () => toast.success('تم تأكيد صرف الرواتب'),
-        onError: () => toast.error('فشل في تأكيد الدفع'),
+        onSuccess: () => toast.success(t('toasts.paySuccess')),
+        onError: () => toast.error(t('toasts.payError')),
         onSettled: () => setPayingId(null),
       },
     );
@@ -114,11 +119,11 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('هل تريد حذف هذا المسير؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    if (!window.confirm(t('deleteConfirm'))) return;
     setDeletingId(run.id);
     deletePayroll.mutate(run.id, {
-      onSuccess: () => toast.success('تم حذف المسير بنجاح'),
-      onError: () => toast.error('فشل في حذف المسير'),
+      onSuccess: () => toast.success(t('toasts.deleteSuccess')),
+      onError: () => toast.error(t('toasts.deleteError')),
       onSettled: () => setDeletingId(null),
     });
   };
@@ -156,9 +161,9 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
         net_pay: Number(d.item.net_pay),
       });
 
-      toast.success('تم تحميل كشف الراتب');
+      toast.success(t('toasts.payslipDownloadSuccess'));
     } catch {
-      toast.error('حدث خطأ أثناء إنشاء كشف الراتب');
+      toast.error(t('toasts.payslipDownloadError'));
     } finally {
       setDownloadingPayslip(null);
     }
@@ -174,7 +179,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
           onClick={() => onToggle(run.id)}
           aria-expanded={isExpanded}
           aria-controls={detailId}
-          aria-label={`تفاصيل مسير ${run.month}/${run.year}`}
+          aria-label={t('detailAria', { month: run.month, year: run.year })}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -185,10 +190,10 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">
-                    {MONTH_NAMES_AR[run.month - 1]} {run.year}
+                    {monthNamesFor(locale)[run.month - 1]} {run.year}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {run.employee_count} موظف
+                    {t('employeeCount', { count: run.employee_count })}
                   </p>
                 </div>
               </div>
@@ -198,7 +203,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                 variant="outline"
                 className={`text-xs border ${STATUS_STYLES[run.status] || ''}`}
               >
-                {STATUS_LABELS[run.status] || run.status}
+                {statusLabelFor(run.status)}
               </Badge>
             </div>
 
@@ -208,7 +213,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                 <p className="font-bold text-foreground">
                   {formatCurrency(run.total_amount, run.currency)}
                 </p>
-                <p className="text-xs text-muted-foreground">الإجمالي</p>
+                <p className="text-xs text-muted-foreground">{t('total')}</p>
               </div>
 
               {/* Expand icon */}
@@ -241,7 +246,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                   ) : (
                     <Calculator className="h-4 w-4" />
                   )}
-                  {run.status === 'calculated' ? 'إعادة الحساب' : 'حساب الرواتب'}
+                  {run.status === 'calculated' ? t('recalculate') : t('calculate')}
                 </Button>
               )}
 
@@ -257,7 +262,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                   ) : (
                     <CheckCircle className="h-4 w-4" />
                   )}
-                  اعتماد المسير
+                  {t('approveRun')}
                 </Button>
               )}
 
@@ -273,7 +278,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                   ) : (
                     <Banknote className="h-4 w-4" />
                   )}
-                  تأكيد الصرف
+                  {t('confirmPayout')}
                 </Button>
               )}
 
@@ -290,7 +295,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                   ) : (
                     <Trash2 className="h-4 w-4" />
                   )}
-                  حذف المسير
+                  {t('deleteRun')}
                 </Button>
               )}
             </div>
@@ -307,16 +312,16 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border text-muted-foreground">
-                      <th scope="col" className="text-start pb-3 pe-3 font-medium">الموظف</th>
-                      <th scope="col" className="text-start pb-3 pe-3 font-medium">القسم</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">الراتب</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">المهام</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">إضافي</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">مكافأة</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">عمولة</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">خصومات</th>
-                      <th scope="col" className="text-end pb-3 pe-3 font-medium">الصافي</th>
-                      <th scope="col" className="text-center pb-3 font-medium">كشف</th>
+                      <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.employee')}</th>
+                      <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.department')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.salary')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.tasks')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.overtime')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.bonus')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.commission')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.deductions')}</th>
+                      <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.net')}</th>
+                      <th scope="col" className="text-center pb-3 font-medium">{t('columns.payslip')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -349,7 +354,9 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                           {item.commission > 0 ? formatCurrency(item.commission, item.currency) : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono text-red-600 dark:text-red-400">
-                          {item.deductions > 0 ? `- ${formatCurrency(item.deductions, item.currency)}` : '—'}
+                          {item.deductions > 0
+                            ? t('deductionAmount', { amount: formatCurrency(item.deductions, item.currency) })
+                            : '—'}
                         </td>
                         <td className="py-3 pe-3 text-end font-mono font-bold text-foreground">
                           {formatCurrency(item.net_pay, item.currency)}
@@ -361,7 +368,7 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
                             className="h-8 w-8"
                             onClick={(e) => handleDownloadPayslip(e, item.username)}
                             disabled={downloadingPayslip === `${run.id}-${item.username}`}
-                            aria-label="تحميل"
+                            aria-label={t('downloadAria')}
                           >
                             {downloadingPayslip === `${run.id}-${item.username}` ? (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -378,22 +385,24 @@ export function PayrollRunRow({ run, isExpanded, onToggle }: Props) {
             ) : (
               <div className="text-center py-8 text-muted-foreground text-sm">
                 {run.status === 'draft'
-                  ? 'اضغط على "حساب الرواتب" لحساب بنود المسير'
-                  : 'لا توجد بنود في هذا المسير'}
+                  ? t('itemsEmptyDraft', { calculateLabel: t('calculate') })
+                  : t('itemsEmptyOther')}
               </div>
             )}
 
             {/* Run metadata */}
             <div className="flex flex-wrap gap-4 mt-4 pt-3 border-t border-border text-xs text-muted-foreground">
               {run.created_by && (
-                <span>أنشئ بواسطة: {run.created_by}</span>
+                <span>{t('createdBy', { username: run.created_by })}</span>
               )}
               {run.approved_by && (
-                <span>اعتمد بواسطة: {run.approved_by}</span>
+                <span>{t('approvedBy', { username: run.approved_by })}</span>
               )}
               {run.paid_at && (
                 <span>
-                  تاريخ الصرف: {new Date(run.paid_at).toLocaleDateString('ar-AE')}
+                  {t('paidAt', {
+                    date: new Date(run.paid_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB'),
+                  })}
                 </span>
               )}
             </div>

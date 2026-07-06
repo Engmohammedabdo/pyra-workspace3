@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function PayrollRunsTable({ onCreateRun }: Props) {
+  const t = useTranslations('hr.payroll.runsTable');
   const currentYear = new Date().getFullYear();
   const [filterYear, setFilterYear] = useState<string>(String(currentYear));
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function PayrollRunsTable({ onCreateRun }: Props) {
     <div className="space-y-4">
       {/* Year filter */}
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">السنة:</span>
+        <span className="text-sm text-muted-foreground">{t('yearLabel')}</span>
         <Select value={filterYear} onValueChange={setFilterYear}>
           <SelectTrigger className="w-28">
             <SelectValue />
@@ -67,9 +69,9 @@ export function PayrollRunsTable({ onCreateRun }: Props) {
       ) : runs.length === 0 ? (
         <EmptyState
           icon={Wallet}
-          title="لا توجد مسيرات رواتب"
-          description="أنشئ مسير رواتب جديد لبدء حساب وصرف الرواتب"
-          actionLabel="إنشاء مسير رواتب"
+          title={t('empty.title')}
+          description={t('empty.description')}
+          actionLabel={t('empty.actionLabel')}
           onAction={onCreateRun}
         />
       ) : (

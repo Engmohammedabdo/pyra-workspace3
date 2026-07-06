@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,34 +16,19 @@ import {
 import { DollarSign, Plus, MoreVertical, CheckCircle, Banknote, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils/format';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import {
   useApproveEmployeePayment,
   usePayEmployeePayment,
   type EmployeePayment,
 } from '@/hooks/useEmployeePayments';
-
-const SOURCE_TYPE_LABELS: Record<string, string> = {
-  task: 'مهمة',
-  bonus: 'مكافأة',
-  deduction: 'خصم',
-  salary: 'راتب',
-  advance: 'سلفة',
-  commission: 'عمولة',
-  overtime: 'إضافي',
-};
+import type { Locale } from '@/lib/i18n/config';
 
 const PAYMENT_STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
   approved: 'bg-green-500/10 text-green-600 dark:text-green-400',
   rejected: 'bg-red-500/10 text-red-600 dark:text-red-400',
   paid: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-};
-
-const PAYMENT_STATUS_LABELS: Record<string, string> = {
-  pending: 'معلق',
-  approved: 'معتمد',
-  rejected: 'مرفوض',
-  paid: 'مدفوع',
 };
 
 interface Props {
@@ -52,6 +38,10 @@ interface Props {
 }
 
 export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
+  const t = useTranslations('hr.payroll.paymentsTab');
+  const locale = useLocale() as Locale;
+  const sourceTypeLabelFor = useStatusLabels('paymentSourceType');
+  const statusLabelFor = useStatusLabels('employeePayment');
   const [actioningId, setActioningId] = useState<string | null>(null);
   const approveMutation = useApproveEmployeePayment();
   const payMutation = usePayEmployeePayment();
@@ -59,8 +49,8 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
   const handleApprove = (id: string) => {
     setActioningId(id);
     approveMutation.mutate(id, {
-      onSuccess: () => toast.success('تمت الموافقة على الدفعة'),
-      onError: () => toast.error('فشل في الموافقة على الدفعة'),
+      onSuccess: () => toast.success(t('toasts.approveSuccess')),
+      onError: () => toast.error(t('toasts.approveError')),
       onSettled: () => setActioningId(null),
     });
   };
@@ -68,8 +58,8 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
   const handlePay = (id: string) => {
     setActioningId(id);
     payMutation.mutate(id, {
-      onSuccess: () => toast.success('تم تأكيد دفع الدفعة'),
-      onError: () => toast.error('فشل في تأكيد الدفع'),
+      onSuccess: () => toast.success(t('toasts.paySuccess')),
+      onError: () => toast.error(t('toasts.payError')),
       onSettled: () => setActioningId(null),
     });
   };
@@ -77,10 +67,10 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">سجل جميع المدفوعات والعمولات للموظفين</p>
+        <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         <Button size="sm" className="bg-orange-500 hover:bg-orange-600 text-white" onClick={onAdd}>
           <Plus className="h-4 w-4 me-1" />
-          إضافة دفعة
+          {t('addButton')}
         </Button>
       </div>
 
@@ -100,8 +90,8 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
       ) : payments.length === 0 ? (
         <EmptyState
           icon={DollarSign}
-          title="لا توجد مدفوعات"
-          description="لم يتم تسجيل أي مدفوعات للموظفين بعد"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       ) : (
         <div className="overflow-x-auto">
@@ -110,12 +100,12 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
-                    <th scope="col" className="text-start pb-3 pe-3 font-medium">الموظف</th>
-                    <th scope="col" className="text-start pb-3 pe-3 font-medium">النوع</th>
-                    <th scope="col" className="text-start pb-3 pe-3 font-medium">الوصف</th>
-                    <th scope="col" className="text-end pb-3 pe-3 font-medium">المبلغ</th>
-                    <th scope="col" className="text-start pb-3 pe-3 font-medium">الحالة</th>
-                    <th scope="col" className="text-start pb-3 pe-3 font-medium">التاريخ</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.employee')}</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.type')}</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.description')}</th>
+                    <th scope="col" className="text-end pb-3 pe-3 font-medium">{t('columns.amount')}</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.status')}</th>
+                    <th scope="col" className="text-start pb-3 pe-3 font-medium">{t('columns.date')}</th>
                     <th scope="col" className="pb-3 w-10"></th>
                   </tr>
                 </thead>
@@ -129,7 +119,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                         {p.display_name || p.username}
                       </td>
                       <td className="py-3 pe-3 text-muted-foreground">
-                        {SOURCE_TYPE_LABELS[p.source_type] || p.source_type}
+                        {sourceTypeLabelFor(p.source_type)}
                       </td>
                       <td className="py-3 pe-3 text-muted-foreground text-xs max-w-[200px] truncate">
                         {p.description || '—'}
@@ -142,11 +132,11 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                           variant="outline"
                           className={`text-[11px] border-0 ${PAYMENT_STATUS_STYLES[p.status] || ''}`}
                         >
-                          {PAYMENT_STATUS_LABELS[p.status] || p.status}
+                          {statusLabelFor(p.status)}
                         </Badge>
                       </td>
                       <td className="py-3 pe-3 text-muted-foreground text-xs">
-                        {new Date(p.created_at).toLocaleDateString('ar-AE')}
+                        {new Date(p.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB')}
                       </td>
                       <td className="py-3">
                         {(p.status === 'pending' || p.status === 'approved') && (
@@ -157,7 +147,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                                 variant="ghost"
                                 className="h-8 w-8"
                                 disabled={actioningId === p.id}
-                                aria-label="إجراءات"
+                                aria-label={t('actionsAria')}
                               >
                                 {actioningId === p.id ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -173,7 +163,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                                   className="gap-2 text-green-600 dark:text-green-400"
                                 >
                                   <CheckCircle className="h-4 w-4" />
-                                  اعتماد
+                                  {t('approveAction')}
                                 </DropdownMenuItem>
                               )}
                               {p.status === 'approved' && (
@@ -182,7 +172,7 @@ export function EmployeePaymentsTab({ payments, loading, onAdd }: Props) {
                                   className="gap-2 text-emerald-600 dark:text-emerald-400"
                                 >
                                   <Banknote className="h-4 w-4" />
-                                  دفع
+                                  {t('payAction')}
                                 </DropdownMenuItem>
                               )}
                             </DropdownMenuContent>

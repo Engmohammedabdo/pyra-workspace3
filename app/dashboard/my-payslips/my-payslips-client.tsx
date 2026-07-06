@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { fetchAPI } from '@/hooks/api-helpers';
 import { useMyPayslips } from '@/hooks/usePayroll';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +21,9 @@ import {
   Loader2,
 } from 'lucide-react';
 import { generatePayslipPDF } from '@/lib/pdf/payslip-pdf';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor } from '@/lib/constants/dates';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
+import type { Locale } from '@/lib/i18n/config';
 
 // ============================================================
 // Types
@@ -58,13 +61,10 @@ const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400',
 };
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'مسودة',
-  calculated: 'محسوب',
-  approved: 'معتمد',
-  paid: 'مدفوع',
-  pending: 'معلق',
-};
+// Status labels for BOTH entities used in this file (payroll run_status +
+// employeePayment status) are resolved via useStatusLabels() inside the
+// component — see H3: this single map previously served two different
+// status vocabularies at two call sites (payslip.run_status vs p.status).
 
 function formatCurrency(amount: number, currency: string = 'AED'): string {
   return `\u200E${Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
@@ -84,11 +84,12 @@ interface Payment {
   created_at: string;
 }
 
-const SOURCE_LABELS: Record<string, string> = {
-  commission: 'عمولة', task: 'مهمة', bonus: 'مكافأة', deduction: 'خصم', overtime: 'إضافي', salary: 'راتب',
-};
-
 export default function MyPayslipsClient() {
+  const t = useTranslations('hr.payslips');
+  const locale = useLocale() as Locale;
+  const payrollStatusLabelFor = useStatusLabels('payroll');
+  const paymentStatusLabelFor = useStatusLabels('employeePayment');
+  const sourceTypeLabelFor = useStatusLabels('paymentSourceType');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: payslipsData, isLoading: loading } = useMyPayslips();
@@ -129,9 +130,9 @@ export default function MyPayslipsClient() {
         net_pay: Number(data.item.net_pay),
       });
 
-      toast.success('تم تحميل كشف الراتب');
+      toast.success(t('toasts.downloadSuccess'));
     } catch {
-      toast.error('حدث خطأ أثناء إنشاء كشف الراتب');
+      toast.error(t('toasts.downloadError'));
     } finally {
       setDownloadingId(null);
     }
@@ -173,8 +174,8 @@ export default function MyPayslipsClient() {
     >
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">كشف حسابي</h1>
-        <p className="text-sm text-muted-foreground mt-1">كشوف الرواتب والمدفوعات والعمولات</p>
+        <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
       </div>
 
       {/* Stats cards */}
@@ -194,7 +195,7 @@ export default function MyPayslipsClient() {
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <Wallet className="h-5 w-5 mx-auto mb-1 text-emerald-500" />
-              <p className="text-[10px] text-muted-foreground">إجمالي المستلم</p>
+              <p className="text-[10px] text-muted-foreground">{t('stats.totalReceived')}</p>
               {Object.entries(grandTotalByCurrency).length === 0 ? (
                 <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 font-mono">{formatCurrency(0)}</p>
               ) : (
@@ -207,7 +208,7 @@ export default function MyPayslipsClient() {
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <TrendingUp className="h-5 w-5 mx-auto mb-1 text-orange-500" />
-              <p className="text-[10px] text-muted-foreground">عمولات ومهام</p>
+              <p className="text-[10px] text-muted-foreground">{t('stats.commissionsAndTasks')}</p>
               {Object.entries(totalPaymentsByCurrency).length === 0 ? (
                 <p className="text-xl font-bold text-orange-600 dark:text-orange-400 font-mono">{formatCurrency(0)}</p>
               ) : (
@@ -220,7 +221,7 @@ export default function MyPayslipsClient() {
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <CalendarDays className="h-5 w-5 mx-auto mb-1 text-yellow-500" />
-              <p className="text-[10px] text-muted-foreground">قيد المعالجة</p>
+              <p className="text-[10px] text-muted-foreground">{t('stats.pending')}</p>
               {Object.entries(pendingPaymentsByCurrency).length === 0 ? (
                 <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400 font-mono">{formatCurrency(0)}</p>
               ) : (
@@ -233,7 +234,7 @@ export default function MyPayslipsClient() {
           <Card className="border-0 shadow-sm">
             <CardContent className="pt-4 pb-4 text-center">
               <FileText className="h-5 w-5 mx-auto mb-1 text-blue-500" />
-              <p className="text-[10px] text-muted-foreground">عدد الدفعات</p>
+              <p className="text-[10px] text-muted-foreground">{t('stats.paymentsCount')}</p>
               <p className="text-xl font-bold">{payslips.length + payments.length}</p>
             </CardContent>
           </Card>
@@ -260,8 +261,8 @@ export default function MyPayslipsClient() {
       ) : payslips.length === 0 ? (
         <EmptyState
           icon={Wallet}
-          title="لا توجد كشوف رواتب"
-          description="لم يتم إصدار أي كشوف رواتب لحسابك بعد"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       ) : (
         <div className="space-y-3">
@@ -275,18 +276,18 @@ export default function MyPayslipsClient() {
                     </div>
                     <div>
                       <p className="font-semibold text-foreground">
-                        {MONTH_NAMES_AR[(payslip.month || 1) - 1]} {payslip.year}
+                        {monthNamesFor(locale)[(payslip.month || 1) - 1]} {payslip.year}
                       </p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge
                           variant="outline"
                           className={`text-[11px] border-0 ${STATUS_STYLES[payslip.run_status] || ''}`}
                         >
-                          {STATUS_LABELS[payslip.run_status] || payslip.run_status}
+                          {payrollStatusLabelFor(payslip.run_status)}
                         </Badge>
                         {payslip.paid_at && (
                           <span className="text-xs text-muted-foreground">
-                            {new Date(payslip.paid_at).toLocaleDateString('ar-AE')}
+                            {new Date(payslip.paid_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB')}
                           </span>
                         )}
                       </div>
@@ -300,15 +301,15 @@ export default function MyPayslipsClient() {
                         {formatCurrency(payslip.net_pay, payslip.currency)}
                       </p>
                       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                        <span>أساسي: {formatCurrency(payslip.base_salary, payslip.currency)}</span>
+                        <span>{t('breakdown.base', { amount: formatCurrency(payslip.base_salary, payslip.currency) })}</span>
                         {payslip.bonus > 0 && (
                           <span className="text-green-600 dark:text-green-400">
-                            +مكافأة: {formatCurrency(payslip.bonus, payslip.currency)}
+                            {t('breakdown.bonus', { amount: formatCurrency(payslip.bonus, payslip.currency) })}
                           </span>
                         )}
                         {payslip.deductions > 0 && (
                           <span className="text-red-600 dark:text-red-400">
-                            -خصم: {formatCurrency(payslip.deductions, payslip.currency)}
+                            {t('breakdown.deduction', { amount: formatCurrency(payslip.deductions, payslip.currency) })}
                           </span>
                         )}
                       </div>
@@ -334,7 +335,7 @@ export default function MyPayslipsClient() {
                       ) : (
                         <Download className="h-4 w-4" />
                       )}
-                      <span className="hidden sm:inline">تحميل</span>
+                      <span className="hidden sm:inline">{t('downloadButton')}</span>
                     </Button>
                   </div>
                 </div>
@@ -349,7 +350,7 @@ export default function MyPayslipsClient() {
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
             <Wallet className="h-5 w-5 text-orange-500" aria-hidden="true" />
-            سجل المدفوعات والعمولات
+            {t('paymentsSectionTitle')}
           </h2>
           {payments.map(p => (
             <Card key={p.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
@@ -368,21 +369,21 @@ export default function MyPayslipsClient() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className="text-[10px]">
-                          {SOURCE_LABELS[p.source_type] || p.source_type}
+                          {sourceTypeLabelFor(p.source_type)}
                         </Badge>
                         <Badge className={`text-[10px] border-0 ${
                           p.status === 'paid' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' :
                           p.status === 'approved' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400' :
                           'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
                         }`}>
-                          {STATUS_LABELS[p.status] || p.status}
+                          {paymentStatusLabelFor(p.status)}
                         </Badge>
                       </div>
                       {p.description && (
                         <p className="text-xs text-muted-foreground mt-1 truncate">{p.description}</p>
                       )}
                       <p className="text-[10px] text-muted-foreground/50 mt-0.5">
-                        {new Date(p.created_at).toLocaleDateString('ar-AE', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        {new Date(p.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-GB', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </p>
                     </div>
                   </div>
@@ -402,8 +403,8 @@ export default function MyPayslipsClient() {
       {!loading && payslips.length === 0 && payments.length === 0 && (
         <EmptyState
           icon={Wallet}
-          title="لا توجد مدفوعات"
-          description="لم يتم تسجيل أي رواتب أو مدفوعات بعد"
+          title={t('emptyAll.title')}
+          description={t('emptyAll.description')}
         />
       )}
     </motion.div>

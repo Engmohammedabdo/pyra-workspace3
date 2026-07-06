@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, Receipt, Wallet } from 'lucide-react';
@@ -13,6 +14,7 @@ import { CreatePayrollDialog } from '@/components/payroll/CreatePayrollDialog';
 import { AddPaymentDialog } from '@/components/payroll/AddPaymentDialog';
 
 export default function PayrollClient() {
+  const t = useTranslations('hr.payroll.list');
   const [createOpen, setCreateOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
 
@@ -34,15 +36,15 @@ export default function PayrollClient() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">مسير الرواتب</h1>
-          <p className="text-sm text-muted-foreground mt-1">إدارة وصرف رواتب الموظفين</p>
+          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t('subtitle')}</p>
         </div>
         <Button
           onClick={() => setCreateOpen(true)}
           className="gap-2 bg-orange-500 hover:bg-orange-600 text-white"
         >
           <Plus className="h-4 w-4" />
-          إنشاء مسير رواتب
+          {t('createButton')}
         </Button>
       </div>
 
@@ -51,11 +53,11 @@ export default function PayrollClient() {
         <TabsList>
           <TabsTrigger value="runs" className="gap-1.5">
             <Wallet className="h-4 w-4" />
-            مسيرات الرواتب
+            {t('tabs.runs')}
           </TabsTrigger>
           <TabsTrigger value="payments" className="gap-1.5">
             <Receipt className="h-4 w-4" />
-            المدفوعات
+            {t('tabs.payments')}
           </TabsTrigger>
         </TabsList>
 

@@ -397,6 +397,152 @@
         "metaTitle": "Approvals | Pyra Workspace",
         "metaDescription": "Leave, expense, and timesheet approvals for your team"
       }
+    },
+    "payroll": {
+      "list": {
+        "title": "Payroll",
+        "subtitle": "Manage and pay employee salaries",
+        "createButton": "Create Payroll Run",
+        "tabs": {
+          "runs": "Payroll Runs",
+          "payments": "Payments"
+        }
+      },
+      "runsTable": {
+        "yearLabel": "Year:",
+        "empty": {
+          "title": "No payroll runs",
+          "description": "Create a new payroll run to start calculating and paying salaries",
+          "actionLabel": "Create Payroll Run"
+        }
+      },
+      "runRow": {
+        "toasts": {
+          "calculateSuccess": "Payroll calculated successfully",
+          "calculateError": "Failed to calculate payroll",
+          "approveSuccess": "Payroll run approved",
+          "approveError": "Failed to approve run",
+          "paySuccess": "Payout confirmed",
+          "payError": "Failed to confirm payment",
+          "deleteSuccess": "Run deleted successfully",
+          "deleteError": "Failed to delete run",
+          "payslipDownloadSuccess": "Payslip downloaded",
+          "payslipDownloadError": "An error occurred while generating the payslip"
+        },
+        "deleteConfirm": "Delete this payroll run? This action cannot be undone.",
+        "detailAria": "Details for {month}/{year} run",
+        "employeeCount": "{count} employees",
+        "total": "Total",
+        "recalculate": "Recalculate",
+        "calculate": "Calculate Payroll",
+        "approveRun": "Approve Run",
+        "confirmPayout": "Confirm Payout",
+        "deleteRun": "Delete Run",
+        "columns": {
+          "employee": "Employee",
+          "department": "Department",
+          "salary": "Salary",
+          "tasks": "Tasks",
+          "overtime": "Overtime",
+          "bonus": "Bonus",
+          "commission": "Commission",
+          "deductions": "Deductions",
+          "net": "Net",
+          "payslip": "Payslip"
+        },
+        "deductionAmount": "- {amount}",
+        "downloadAria": "Download",
+        "itemsEmptyDraft": "Click \"{calculateLabel}\" to calculate the run's items",
+        "itemsEmptyOther": "No items in this run",
+        "createdBy": "Created by: {username}",
+        "approvedBy": "Approved by: {username}",
+        "paidAt": "Paid on: {date}"
+      },
+      "paymentsTab": {
+        "subtitle": "Record of all employee payments and commissions",
+        "addButton": "Add Payment",
+        "empty": {
+          "title": "No payments",
+          "description": "No employee payments have been recorded yet"
+        },
+        "columns": {
+          "employee": "Employee",
+          "type": "Type",
+          "description": "Description",
+          "amount": "Amount",
+          "status": "Status",
+          "date": "Date"
+        },
+        "actionsAria": "Actions",
+        "approveAction": "Approve",
+        "payAction": "Pay",
+        "toasts": {
+          "approveSuccess": "Payment approved",
+          "approveError": "Failed to approve payment",
+          "paySuccess": "Payment confirmed",
+          "payError": "Failed to confirm payment"
+        }
+      },
+      "createDialog": {
+        "title": "Create New Payroll Run",
+        "monthLabel": "Month",
+        "yearLabel": "Year",
+        "currencyLabel": "Currency",
+        "currencyHint": "The run will only include employees whose salary currency is {currency}",
+        "cancel": "Cancel",
+        "create": "Create",
+        "toasts": {
+          "createSuccess": "Payroll run created successfully",
+          "createError": "Failed to create payroll run"
+        }
+      },
+      "addPaymentDialog": {
+        "title": "Add New Payment",
+        "description": "Record a commission, bonus, or deduction for an employee",
+        "employeeLabel": "Employee *",
+        "employeePlaceholder": "Select employee",
+        "typeLabel": "Type *",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "Example: Commission for Etmam Brand Identity project",
+        "amountLabel": "Amount *",
+        "currencyLabel": "Currency",
+        "cancel": "Cancel",
+        "submit": "Record",
+        "toasts": {
+          "validationError": "Select the employee, type, and amount",
+          "createSuccess": "Payment recorded",
+          "createError": "Failed to record payment"
+        }
+      }
+    },
+    "payslips": {
+      "title": "My Payslips",
+      "subtitle": "Payslips, payments, and commissions",
+      "stats": {
+        "totalReceived": "Total Received",
+        "commissionsAndTasks": "Commissions & Tasks",
+        "pending": "Pending",
+        "paymentsCount": "Payment Count"
+      },
+      "empty": {
+        "title": "No payslips",
+        "description": "No payslips have been issued for your account yet"
+      },
+      "emptyAll": {
+        "title": "No payments",
+        "description": "No salaries or payments have been recorded yet"
+      },
+      "breakdown": {
+        "base": "Base: {amount}",
+        "bonus": "+Bonus: {amount}",
+        "deduction": "-Deduction: {amount}"
+      },
+      "downloadButton": "Download",
+      "paymentsSectionTitle": "Payments & Commissions Record",
+      "toasts": {
+        "downloadSuccess": "Payslip downloaded",
+        "downloadError": "An error occurred while generating the payslip"
+      }
     }
   }
 }

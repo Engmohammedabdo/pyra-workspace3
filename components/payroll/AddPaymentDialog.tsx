@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { useStatusLabels } from '@/lib/i18n/status-labels';
 import { useCreateEmployeePayment } from '@/hooks/useEmployeePayments';
 
 interface UserOption {
@@ -42,14 +44,21 @@ const EMPTY_FORM = {
   currency: 'AED',
 };
 
+// Deliberately narrower than the full `paymentSourceType` entity (7 keys) —
+// `salary` and `advance` are not user-creatable via this form (they come from
+// payroll runs / other server-side paths). See CLAUDE.md HAZARD H2 note.
+const CREATABLE_SOURCE_TYPES = ['commission', 'task', 'bonus', 'deduction', 'overtime'] as const;
+
 export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
+  const t = useTranslations('hr.payroll.addPaymentDialog');
+  const sourceTypeLabelFor = useStatusLabels('paymentSourceType');
   const [payForm, setPayForm] = useState(EMPTY_FORM);
 
   const createEmployeePayment = useCreateEmployeePayment();
 
   const handleSave = () => {
     if (!payForm.username || !payForm.amount || !payForm.source_type) {
-      toast.error('اختر الموظف والنوع والمبلغ');
+      toast.error(t('toasts.validationError'));
       return;
     }
     createEmployeePayment.mutate(
@@ -62,11 +71,11 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
       },
       {
         onSuccess: () => {
-          toast.success('تم تسجيل الدفعة');
+          toast.success(t('toasts.createSuccess'));
           onOpenChange(false);
           setPayForm(EMPTY_FORM);
         },
-        onError: () => toast.error('فشل في تسجيل الدفعة'),
+        onError: () => toast.error(t('toasts.createError')),
       },
     );
   };
@@ -75,17 +84,17 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>إضافة دفعة جديدة</DialogTitle>
-          <DialogDescription>تسجيل عمولة أو مكافأة أو خصم لموظف</DialogDescription>
+          <DialogTitle>{t('title')}</DialogTitle>
+          <DialogDescription>{t('description')}</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>الموظف *</Label>
+            <Label>{t('employeeLabel')}</Label>
             <Select
               value={payForm.username}
               onValueChange={v => setPayForm(p => ({ ...p, username: v }))}
             >
-              <SelectTrigger><SelectValue placeholder="اختر الموظف" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t('employeePlaceholder')} /></SelectTrigger>
               <SelectContent>
                 {users.map(u => (
                   <SelectItem key={u.username} value={u.username}>
@@ -96,32 +105,30 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>النوع *</Label>
+            <Label>{t('typeLabel')}</Label>
             <Select
               value={payForm.source_type}
               onValueChange={v => setPayForm(p => ({ ...p, source_type: v }))}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="commission">عمولة</SelectItem>
-                <SelectItem value="task">مهمة</SelectItem>
-                <SelectItem value="bonus">مكافأة</SelectItem>
-                <SelectItem value="deduction">خصم</SelectItem>
-                <SelectItem value="overtime">إضافي</SelectItem>
+                {CREATABLE_SOURCE_TYPES.map(st => (
+                  <SelectItem key={st} value={st}>{sourceTypeLabelFor(st)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>الوصف</Label>
+            <Label>{t('descriptionLabel')}</Label>
             <Input
               value={payForm.description}
               onChange={e => setPayForm(p => ({ ...p, description: e.target.value }))}
-              placeholder="مثال: عمولة مشروع Etmam Brand Identity"
+              placeholder={t('descriptionPlaceholder')}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>المبلغ *</Label>
+              <Label>{t('amountLabel')}</Label>
               <Input
                 type="number" step="0.01" min="0"
                 value={payForm.amount}
@@ -131,7 +138,7 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <Label>العملة</Label>
+              <Label>{t('currencyLabel')}</Label>
               <Select
                 value={payForm.currency}
                 onValueChange={v => setPayForm(p => ({ ...p, currency: v }))}
@@ -148,7 +155,7 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
           </div>
         </div>
         <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>إلغاء</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('cancel')}</Button>
           <Button
             onClick={handleSave}
             disabled={createEmployeePayment.isPending}
@@ -159,7 +166,7 @@ export function AddPaymentDialog({ open, onOpenChange, users }: Props) {
             ) : (
               <Plus className="h-4 w-4 me-1" />
             )}
-            تسجيل
+            {t('submit')}
           </Button>
         </DialogFooter>
       </DialogContent>
