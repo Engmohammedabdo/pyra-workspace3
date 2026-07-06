@@ -35,6 +35,15 @@
     "crmContract": { "active": "Active", "in_progress": "In Progress", "completed": "Completed", "paused": "Paused", "cancelled": "Cancelled", "draft": "Draft", "expired": "Expired" },
     "milestone": { "completed": "Completed", "invoiced": "Invoiced", "pending": "Pending", "cancelled": "Cancelled" },
     "contractType": { "retainer": "Retainer", "milestone": "Milestone", "upfront_delivery": "Upfront Payment + Delivery", "fixed": "Fixed Price", "hourly": "Hourly" },
-    "periodCycle": { "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly" }
+    "periodCycle": { "monthly": "Monthly", "quarterly": "Quarterly", "yearly": "Yearly" },
+    "timesheet": { "draft": "Draft", "submitted": "Submitted", "approved": "Approved", "rejected": "Rejected" },
+    "timesheetPeriod": { "open": "Open", "submitted": "Submitted", "approved": "Approved", "rejected": "Rejected" },
+    "onboarding": { "in_progress": "Onboarding in Progress", "completed": "Completed", "cancelled": "Cancelled" },
+    "documentExpiry": { "expired": "Expired", "expiring_7": "Expiring in Days", "expiring_30": "Expiring Soon", "ok": "Valid", "none": "No Expiry" },
+    "employmentType": { "full_time": "Full-time", "part_time": "Part-time", "contract": "Contract", "freelance": "Freelance", "intern": "Intern" },
+    "workLocation": { "onsite": "On-site", "remote": "Remote", "hybrid": "Hybrid" },
+    "paymentSourceType": { "task": "Task", "bonus": "Bonus", "deduction": "Deduction", "salary": "Salary", "advance": "Advance", "commission": "Commission", "overtime": "Overtime" },
+    "evaluationForm": { "draft": "Draft", "submitted": "Submitted", "acknowledged": "Acknowledged" },
+    "evaluationPeriod": { "draft": "Draft", "active": "Active", "closed": "Closed" }
   }
 }

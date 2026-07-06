@@ -35,6 +35,15 @@
     "crmContract": { "active": "نشط", "in_progress": "جاري", "completed": "مكتمل", "paused": "متوقف", "cancelled": "ملغى", "draft": "مسودة", "expired": "منتهي" },
     "milestone": { "completed": "مكتمل", "invoiced": "تم تفويتُره", "pending": "قيد الانتظار", "cancelled": "ملغى" },
     "contractType": { "retainer": "ثابت شهري", "milestone": "مراحل", "upfront_delivery": "دفعة مقدمة + تسليم", "fixed": "سعر ثابت", "hourly": "بالساعة" },
-    "periodCycle": { "monthly": "شهري", "quarterly": "ربع سنوي", "yearly": "سنوي" }
+    "periodCycle": { "monthly": "شهري", "quarterly": "ربع سنوي", "yearly": "سنوي" },
+    "timesheet": { "draft": "مسودة", "submitted": "مرسل", "approved": "معتمد", "rejected": "مرفوض" },
+    "timesheetPeriod": { "open": "مفتوحة", "submitted": "مرسلة", "approved": "معتمدة", "rejected": "مرفوضة" },
+    "onboarding": { "in_progress": "جاري التعيين", "completed": "مكتمل", "cancelled": "ملغي" },
+    "documentExpiry": { "expired": "منتهية", "expiring_7": "تنتهي خلال أيام", "expiring_30": "تنتهي قريباً", "ok": "سارية", "none": "دائمة" },
+    "employmentType": { "full_time": "دوام كامل", "part_time": "دوام جزئي", "contract": "عقد مؤقت", "freelance": "فريلانس", "intern": "تدريب" },
+    "workLocation": { "onsite": "مكتبي", "remote": "عن بُعد", "hybrid": "هجين" },
+    "paymentSourceType": { "task": "مهمة", "bonus": "مكافأة", "deduction": "خصم", "salary": "راتب", "advance": "سلفة", "commission": "عمولة", "overtime": "إضافي" },
+    "evaluationForm": { "draft": "مسودة", "submitted": "مقدم", "acknowledged": "معترف به" },
+    "evaluationPeriod": { "draft": "مسودة", "active": "نشط", "closed": "مغلق" }
   }
 }

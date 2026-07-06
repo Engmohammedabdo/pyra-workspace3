@@ -11,7 +11,11 @@ export type StatusEntity =
   | 'leadTask' | 'leadTaskPriority' | 'calendarEventSource' | 'attendance'
   | 'taskPriority' | 'leaveType'
   | 'leadPriority' | 'insightSeverity' | 'crmContract' | 'milestone'
-  | 'contractType' | 'periodCycle';
+  | 'contractType' | 'periodCycle'
+  // Phase 5 — HR
+  | 'timesheet' | 'timesheetPeriod' | 'onboarding' | 'documentExpiry'
+  | 'employmentType' | 'workLocation' | 'paymentSourceType'
+  | 'evaluationForm' | 'evaluationPeriod';
 
 /**
  * Locale-aware status label lookup. Falls back to the raw status value when

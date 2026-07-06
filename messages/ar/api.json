@@ -250,6 +250,115 @@
       "reviseWrongStatus": "لا يمكن إنشاء مراجعة من عرض بحالة \"{status}\"",
       "templateNotFound": "القالب غير موجود",
       "templateNameRequired": "اسم القالب مطلوب"
+    },
+    "hr": {
+      "documentNotFound": "الوثيقة غير موجودة",
+      "onboardingNotFound": "سجل التعيين غير موجود",
+      "documentTypeNotFound": "نوع المستند غير موجود",
+      "invalidJsonBody": "طلب غير صالح — يجب أن يكون JSON",
+      "namesRequired": "الاسم والاسم العربي مطلوبان"
+    },
+    "attendance": {
+      "alreadyClockedIn": "لقد سجلت الدخول مسبقاً اليوم",
+      "notClockedInYet": "لم تسجل الدخول اليوم بعد",
+      "alreadyClockedOut": "لقد سجلت الانصراف مسبقاً",
+      "adminFieldsRequired": "الموظف والتاريخ والحالة مطلوبة",
+      "adminUpdateFailed": "فشل تحديث سجل الحضور",
+      "adminInsertFailed": "فشل إنشاء سجل الحضور",
+      "adminGenericError": "خطأ في تعديل الحضور"
+    },
+    "workSchedules": {
+      "namesRequired": "الاسم والاسم العربي مطلوبان",
+      "workDaysInvalid": "أيام العمل غير صالحة",
+      "startTimeFormatInvalid": "صيغة وقت البداية غير صالحة",
+      "endTimeFormatInvalid": "صيغة وقت النهاية غير صالحة",
+      "notFound": "الجدول غير موجود",
+      "cannotUnsetLastDefault": "لا يمكن إلغاء الجدول الافتراضي — عيّن جدولاً افتراضياً آخر أولاً",
+      "cannotDeleteDefault": "لا يمكن حذف الجدول الافتراضي",
+      "inUseByEmployees": "الجدول مستخدم لـ {count} موظف، أعد تعيينهم أولاً"
+    },
+    "payroll": {
+      "runNotFound": "مسير الرواتب غير موجود",
+      "monthOutOfRange": "الشهر يجب أن يكون بين 1 و 12",
+      "yearInvalid": "السنة غير صالحة",
+      "currencyInvalid": "العملة غير صالحة. القيم المسموحة: {allowed}",
+      "runAlreadyExistsForCurrency": "يوجد مسير رواتب بعملة {currency} لهذا الشهر بالفعل",
+      "actionMustBeApproveOrPay": "الإجراء يجب أن يكون approve أو pay",
+      "cannotApproveUncalculated": "لا يمكن اعتماد مسير رواتب غير محسوب",
+      "cannotPayUnapproved": "لا يمكن صرف مسير رواتب غير معتمد",
+      "unknownAction": "إجراء غير معروف",
+      "cannotDeleteNonDraft": "لا يمكن حذف مسير بحالة \"{status}\"، يمكن حذف المسيرات المسودة فقط",
+      "cannotCalculateInStatus": "لا يمكن حساب مسير رواتب بحالة: {status}",
+      "noActiveEmployees": "لا يوجد موظفون نشطون",
+      "noEmployeesInRunCurrency": "لا يوجد موظفون بعملة هذا المسير",
+      "mismatchedCurrencyWarning": "{count} دفعة بعملة مختلفة تم تجاهلها",
+      "payslipForbiddenOtherEmployee": "لا يمكنك عرض بيانات موظف آخر",
+      "payslipUsernameRequired": "اسم المستخدم مطلوب",
+      "payslipNotFoundForEmployee": "كشف الراتب غير موجود لهذا الموظف"
+    },
+    "leave": {
+      "notFound": "الطلب غير موجود",
+      "typeAndDatesRequired": "النوع وتواريخ البداية والنهاية مطلوبة",
+      "endDateAfterStart": "تاريخ النهاية يجب أن يكون بعد البداية",
+      "noWorkingDaysInRange": "لا توجد أيام عمل ضمن الفترة المحددة",
+      "contractorsBlocked": "المتعاقدون المستقلون لا يقدّمون طلبات إجازة عبر النظام",
+      "insufficientBalance": "رصيد الإجازات غير كافٍ. المتبقي: {available} يوم",
+      "notAuthorizedToApprove": "غير مصرح بالاعتماد",
+      "approvalScopeDenied": "يمكنك فقط اعتماد {noun} الموظفين تحت إدارتك المباشرة",
+      "cancellationReasonRequired": "سبب الإلغاء مطلوب",
+      "cannotCancelThisStatus": "لا يمكن إلغاء طلب بهذه الحالة",
+      "notAuthorizedToCancel": "غير مصرح بإلغاء هذا الطلب",
+      "unsupportedOperation": "عملية غير مدعومة",
+      "carryOverYearsRequired": "سنة المصدر وسنة الهدف مطلوبتان",
+      "carryOverYearsMustBeNumbers": "السنوات يجب أن تكون أرقام",
+      "carryOverToYearMustBeAfterFromYear": "سنة الهدف يجب أن تكون بعد سنة المصدر"
+    },
+    "timesheet": {
+      "dateAndHoursRequired": "التاريخ والساعات مطلوبة",
+      "hoursRange": "الساعات يجب أن تكون بين 0 و 24",
+      "recordNotFound": "السجل غير موجود",
+      "notAuthorized": "غير مصرح",
+      "notAuthorizedToApprove": "غير مصرح بالاعتماد",
+      "approvalScopeDenied": "يمكنك فقط اعتماد {noun} الموظفين تحت إدارتك المباشرة",
+      "cannotModifySubmitted": "لا يمكن تعديل سجل تم إرساله",
+      "cannotDeleteSubmitted": "لا يمكن حذف سجل تم إرساله",
+      "noSelfApproval": "لا يمكنك اعتماد إدخالاتك الخاصة"
+    },
+    "myDocuments": {
+      "idMissing": "معرّف الوثيقة مفقود",
+      "notFound": "الوثيقة غير موجودة",
+      "forbiddenOtherEmployee": "لا يمكنك الوصول إلى وثائق موظف آخر",
+      "signUrlFailed": "فشل إنشاء رابط الوصول"
+    },
+    "evaluations": {
+      "notFound": "التقييم غير موجود",
+      "periodNotFound": "فترة التقييم غير موجودة",
+      "requiredFields": "الحقول المطلوبة: فترة التقييم، الموظف، المقيّم",
+      "viewForbidden": "ليس لديك صلاحية لعرض هذا التقييم",
+      "submitForbidden": "فقط المقيّم يمكنه تقديم التقييم",
+      "alreadySubmitted": "لا يمكن تقديم تقييم تم تقديمه مسبقاً",
+      "bonusForbidden": "فقط المسؤول يمكنه التوصية بمكافأة",
+      "notEligibleForBonus": "التقييم لا يستحق مكافأة",
+      "bonusAlreadyRecommended": "تمت التوصية بمكافأة لهذا التقييم مسبقاً",
+      "employeeNotFound": "لم يتم العثور على بيانات الموظف",
+      "noSalaryConfigured": "لا يوجد راتب محدد للموظف — لا يمكن حساب المكافأة",
+      "bonusInsertFailed": "فشل في إنشاء سجل المكافأة",
+      "bonusRecommendedSuccess": "تمت التوصية بمكافأة بمبلغ {amount} {currency}",
+      "acknowledgeForbidden": "فقط الموظف يمكنه الاعتراف بالتقييم",
+      "editForbidden": "فقط المقيّم أو المسؤول يمكنهم تعديل التقييم",
+      "noFieldsToUpdate": "لا توجد بيانات للتحديث",
+      "scoresRequired": "يجب توفير قائمة الدرجات",
+      "scoreEditForbidden": "ليس لديك صلاحية لتقييم هذا الموظف",
+      "scoresLockedAfterSubmit": "لا يمكن تعديل درجات تقييم تم تقديمه",
+      "scoreFieldsRequired": "كل درجة يجب أن تحتوي على معرف المعيار والدرجة",
+      "scoreOutOfRange": "الدرجة يجب أن تكون بين 1 و 5",
+      "criteriaNameRequired": "الاسم والاسم بالعربية مطلوبان",
+      "periodFieldsRequired": "جميع الحقول مطلوبة: الاسم، الاسم بالعربية، تاريخ البداية، تاريخ النهاية",
+      "periodInvalidStatus": "الحالة غير صالحة — يجب أن تكون: draft, active, closed"
+    },
+    "overtime": {
+      "monthRequired": "الشهر مطلوب بصيغة YYYY-MM",
+      "monthFormatInvalid": "صيغة الشهر غير صالحة"
     }
   }
 }

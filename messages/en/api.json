@@ -250,6 +250,115 @@
       "reviseWrongStatus": "Cannot create a revision from a quote in \"{status}\" status",
       "templateNotFound": "Template not found",
       "templateNameRequired": "Template name is required"
+    },
+    "hr": {
+      "documentNotFound": "Document not found",
+      "onboardingNotFound": "Onboarding record not found",
+      "documentTypeNotFound": "Document type not found",
+      "invalidJsonBody": "Invalid request — must be JSON",
+      "namesRequired": "Name and Arabic name are required"
+    },
+    "attendance": {
+      "alreadyClockedIn": "You have already clocked in today",
+      "notClockedInYet": "You have not clocked in today yet",
+      "alreadyClockedOut": "You have already clocked out",
+      "adminFieldsRequired": "Employee, date, and status are required",
+      "adminUpdateFailed": "Failed to update the attendance record",
+      "adminInsertFailed": "Failed to create the attendance record",
+      "adminGenericError": "Error editing attendance"
+    },
+    "workSchedules": {
+      "namesRequired": "Name and Arabic name are required",
+      "workDaysInvalid": "Invalid work days",
+      "startTimeFormatInvalid": "Invalid start time format",
+      "endTimeFormatInvalid": "Invalid end time format",
+      "notFound": "Schedule not found",
+      "cannotUnsetLastDefault": "Cannot unset the default schedule — set another default schedule first",
+      "cannotDeleteDefault": "Cannot delete the default schedule",
+      "inUseByEmployees": "This schedule is used by {count} employee(s) — reassign them first"
+    },
+    "payroll": {
+      "runNotFound": "Payroll run not found",
+      "monthOutOfRange": "Month must be between 1 and 12",
+      "yearInvalid": "Invalid year",
+      "currencyInvalid": "Invalid currency. Allowed values: {allowed}",
+      "runAlreadyExistsForCurrency": "A payroll run in {currency} already exists for this month",
+      "actionMustBeApproveOrPay": "Action must be approve or pay",
+      "cannotApproveUncalculated": "Cannot approve an uncalculated payroll run",
+      "cannotPayUnapproved": "Cannot pay an unapproved payroll run",
+      "unknownAction": "Unknown action",
+      "cannotDeleteNonDraft": "Cannot delete a run in \"{status}\" status — only draft runs can be deleted",
+      "cannotCalculateInStatus": "Cannot calculate a payroll run in status: {status}",
+      "noActiveEmployees": "No active employees",
+      "noEmployeesInRunCurrency": "No employees in this run's currency",
+      "mismatchedCurrencyWarning": "{count} payment(s) in a different currency were ignored",
+      "payslipForbiddenOtherEmployee": "You cannot view another employee's data",
+      "payslipUsernameRequired": "Username is required",
+      "payslipNotFoundForEmployee": "No payslip found for this employee"
+    },
+    "leave": {
+      "notFound": "Request not found",
+      "typeAndDatesRequired": "Type, start date, and end date are required",
+      "endDateAfterStart": "End date must be after the start date",
+      "noWorkingDaysInRange": "There are no working days within the selected range",
+      "contractorsBlocked": "Independent contractors do not submit leave requests through the system",
+      "insufficientBalance": "Insufficient leave balance. Remaining: {available} day(s)",
+      "notAuthorizedToApprove": "Not authorized to approve",
+      "approvalScopeDenied": "You can only approve {noun} for employees under your direct management",
+      "cancellationReasonRequired": "A cancellation reason is required",
+      "cannotCancelThisStatus": "Cannot cancel a request in this status",
+      "notAuthorizedToCancel": "Not authorized to cancel this request",
+      "unsupportedOperation": "Unsupported operation",
+      "carryOverYearsRequired": "Source year and target year are required",
+      "carryOverYearsMustBeNumbers": "Years must be numbers",
+      "carryOverToYearMustBeAfterFromYear": "The target year must be after the source year"
+    },
+    "timesheet": {
+      "dateAndHoursRequired": "Date and hours are required",
+      "hoursRange": "Hours must be between 0 and 24",
+      "recordNotFound": "Record not found",
+      "notAuthorized": "Not authorized",
+      "notAuthorizedToApprove": "Not authorized to approve",
+      "approvalScopeDenied": "You can only approve {noun} for employees under your direct management",
+      "cannotModifySubmitted": "Cannot modify a submitted record",
+      "cannotDeleteSubmitted": "Cannot delete a submitted record",
+      "noSelfApproval": "You cannot approve your own entries"
+    },
+    "myDocuments": {
+      "idMissing": "Document ID is missing",
+      "notFound": "Document not found",
+      "forbiddenOtherEmployee": "You cannot access another employee's documents",
+      "signUrlFailed": "Failed to create the access link"
+    },
+    "evaluations": {
+      "notFound": "Evaluation not found",
+      "periodNotFound": "Evaluation period not found",
+      "requiredFields": "Required fields: evaluation period, employee, evaluator",
+      "viewForbidden": "You do not have permission to view this evaluation",
+      "submitForbidden": "Only the evaluator can submit the evaluation",
+      "alreadySubmitted": "An already-submitted evaluation cannot be submitted again",
+      "bonusForbidden": "Only an admin can recommend a bonus",
+      "notEligibleForBonus": "This evaluation is not eligible for a bonus",
+      "bonusAlreadyRecommended": "A bonus has already been recommended for this evaluation",
+      "employeeNotFound": "Employee data not found",
+      "noSalaryConfigured": "No salary is set for this employee — the bonus cannot be calculated",
+      "bonusInsertFailed": "Failed to create the bonus record",
+      "bonusRecommendedSuccess": "A bonus of {amount} {currency} was recommended",
+      "acknowledgeForbidden": "Only the employee can acknowledge the evaluation",
+      "editForbidden": "Only the evaluator or an admin can edit the evaluation",
+      "noFieldsToUpdate": "No data to update",
+      "scoresRequired": "A list of scores must be provided",
+      "scoreEditForbidden": "You do not have permission to score this employee",
+      "scoresLockedAfterSubmit": "Cannot modify scores for a submitted evaluation",
+      "scoreFieldsRequired": "Each score must include the criterion ID and the score",
+      "scoreOutOfRange": "The score must be between 1 and 5",
+      "criteriaNameRequired": "Name and Arabic name are required",
+      "periodFieldsRequired": "All fields are required: name, Arabic name, start date, end date",
+      "periodInvalidStatus": "Invalid status — must be one of: draft, active, closed"
+    },
+    "overtime": {
+      "monthRequired": "Month is required in YYYY-MM format",
+      "monthFormatInvalid": "Invalid month format"
     }
   }
 }
