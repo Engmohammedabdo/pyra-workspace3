@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -24,6 +25,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Body: { amount, payment_date?, method?, reference?, notes? }
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.edit');
     if (isApiError(auth)) return auth;
@@ -35,7 +37,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     const { amount, payment_date, method, reference, notes } = body;
 
     if (!amount || amount <= 0) {
-      return apiValidationError('مبلغ الدفع يجب أن يكون أكبر من صفر');
+      return apiValidationError(t('invoices.paymentAmountInvalid'));
     }
 
     // Fetch invoice
@@ -45,7 +47,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+    if (!invoice) return apiNotFound(t('invoices.notFound'));
 
     // Scope check: non-admins can only record payments for their accessible clients
     if (!scope.isAdmin) {
@@ -55,18 +57,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if ([INVOICE_STATUS.DRAFT, INVOICE_STATUS.CANCELLED].includes(invoice.status)) {
-      return apiValidationError('لا يمكن تسجيل دفعة لهذه الفاتورة');
+      return apiValidationError(t('invoices.notPayable'));
     }
 
     if (invoice.status === INVOICE_STATUS.PAID) {
-      return apiValidationError('الفاتورة مدفوعة بالكامل بالفعل');
+      return apiValidationError(t('invoices.alreadyPaid'));
     }
 
     // Prevent overpayment: amount must not exceed amount_due
     const currentDue = Number(invoice.amount_due) || (Number(invoice.total) - Number(invoice.amount_paid));
     if (amount > currentDue) {
       return apiValidationError(
-        `مبلغ الدفع (${amount}) يتجاوز المبلغ المستحق (${currentDue.toFixed(2)})`
+        t('invoices.paymentExceedsDue', { amount, due: currentDue.toFixed(2) })
       );
     }
 
@@ -143,9 +145,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
       });
       if (rollbackErr) {
         console.error('Payment rollback error:', rollbackErr);
-        return apiServerError('سُجلت الدفعة لكن فشل تحديث الفاتورة — راجع الفاتورة يدويًا قبل إعادة المحاولة');
+        return apiServerError(t('invoices.paymentRecordedButUpdateFailed'));
       }
-      return apiServerError('فشل تحديث الفاتورة — لم يتم تسجيل الدفعة، أعد المحاولة');
+      return apiServerError(t('invoices.updateFailedPaymentNotRecorded'));
     }
 
     // Log activity
@@ -279,7 +281,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
                 amount: commissionAmount,
                 currency: 'AED',
                 status: 'pending',
-                notes: `عمولة تلقائية — فاتورة ${invoice.invoice_number} — ${rate}%`,
+                notes: `عمولة تلقائية — فاتورة ${invoice.invoice_number} — ${rate}%`, // i18n-exempt: stored data (employee_payments.notes)
                 created_by: 'system',
               });
             }

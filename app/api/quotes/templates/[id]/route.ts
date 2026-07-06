@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -18,6 +19,7 @@ const TEMPLATE_FIELDS =
  * GET /api/quotes/templates/[id]
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.view');
     if (isApiError(auth)) return auth;
@@ -35,7 +37,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       console.error('Quote template fetch error:', error);
       return apiServerError();
     }
-    if (!data) return apiNotFound('القالب غير موجود');
+    if (!data) return apiNotFound(t('quotes.templateNotFound'));
 
     logActivity(auth.pyraUser.username, auth.pyraUser.display_name, 'quote_template_updated', '/dashboard/quotes', { id });
 
@@ -50,6 +52,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
  * PATCH /api/quotes/templates/[id]
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.edit');
     if (isApiError(auth)) return auth;
@@ -64,12 +67,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('القالب غير موجود');
+    if (!existing) return apiNotFound(t('quotes.templateNotFound'));
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
     if (body.name !== undefined) {
-      if (!body.name?.trim()) return apiValidationError('اسم القالب مطلوب');
+      if (!body.name?.trim()) return apiValidationError(t('quotes.templateNameRequired'));
       updates.name = body.name.trim();
     }
     if (body.name_ar !== undefined) updates.name_ar = body.name_ar?.trim() || null;

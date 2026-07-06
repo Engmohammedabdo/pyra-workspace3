@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ export async function GET(
   _req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
@@ -26,7 +28,7 @@ export async function GET(
       .eq('id', clientId)
       .single();
 
-    if (clientError || !client) return apiNotFound('العميل غير موجود');
+    if (clientError || !client) return apiNotFound(t('finance.clientNotFound'));
 
     // 2. Fetch all invoices for this client
     const { data: invoices, error: invError } = await supabase

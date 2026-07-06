@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ export async function PATCH(
   req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -37,7 +39,7 @@ export async function PATCH(
       .eq('contract_id', id)
       .maybeSingle();
 
-    if (fetchErr || !existing) return apiNotFound('المرحلة غير موجودة');
+    if (fetchErr || !existing) return apiNotFound(t('finance.milestoneNotFound'));
 
     const body = await req.json();
     const update: Record<string, unknown> = {};
@@ -98,6 +100,7 @@ export async function DELETE(
   _req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -113,10 +116,10 @@ export async function DELETE(
       .eq('contract_id', id)
       .maybeSingle();
 
-    if (fetchErr || !existing) return apiNotFound('المرحلة غير موجودة');
+    if (fetchErr || !existing) return apiNotFound(t('finance.milestoneNotFound'));
 
     if (existing.status === 'invoiced') {
-      return apiError('لا يمكن حذف مرحلة تم فوترتها', 400);
+      return apiError(t('finance.milestoneAlreadyInvoicedDelete'), 400);
     }
 
     const { error } = await supabase

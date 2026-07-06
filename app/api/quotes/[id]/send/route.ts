@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -23,6 +24,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Mark quote as sent, create client notification.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.edit');
     if (isApiError(auth)) return auth;
@@ -39,17 +41,17 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!quote) return apiNotFound('عرض السعر غير موجود');
+    if (!quote) return apiNotFound(t('quotes.notFound'));
 
     // Q3: Scope check — non-admins can only send quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(quote.client_id)) {
-      return apiForbidden('لا يمكنك إرسال عرض سعر لعميل غير مسند إليك');
+      return apiForbidden(t('quotes.sendWrongOwner'));
     }
 
     // Only draft quotes can be sent
     if (quote.status !== QUOTE_STATUS.DRAFT) {
       return apiValidationError(
-        `لا يمكن إرسال عرض سعر في حالة "${quote.status}". يجب أن يكون في حالة مسودة`
+        t('quotes.sendWrongStatus', { status: quote.status })
       );
     }
 
@@ -73,8 +75,8 @@ export async function POST(_request: NextRequest, context: RouteContext) {
         id: generateId('cn'),
         client_id: quote.client_id,
         type: 'quote_sent',
-        title: 'عرض سعر جديد',
-        message: `تم إرسال عرض سعر جديد: ${quote.quote_number}`,
+        title: 'عرض سعر جديد', // i18n-exempt: client-notification content (Phase 8)
+        message: `تم إرسال عرض سعر جديد: ${quote.quote_number}`, // i18n-exempt: client-notification content (Phase 8)
         is_read: false,
       });
     }
@@ -82,7 +84,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
     // Send email to client + capture the honest result (Group 3 — flip-and-warn).
     // The quote is ALREADY marked 'sent' above regardless of email outcome; we
     // report whether the email actually fired so the UI tells the truth instead
-    // of always claiming "تم الإرسال".
+    // of always claiming "تم الإرسال". // i18n-exempt: doc comment, illustrative quoted phrase, not a string literal
     //   - no_email      → client row/quote has no email address
     //   - not_delivered → SMTP send failed OR SMTP not configured
     let email: { sent: boolean; reason?: 'no_email' | 'not_delivered'; to?: string };
@@ -160,7 +162,7 @@ export async function POST(_request: NextRequest, context: RouteContext) {
           id: generateId('la'),
           lead_id: quote.lead_id,
           activity_type: 'note',
-          description: `تم إرسال عرض السعر ${quote.quote_number} للعميل`,
+          description: `تم إرسال عرض السعر ${quote.quote_number} للعميل`, // i18n-exempt: stored data (lead_activities.description)
           metadata: { quote_id: id, quote_number: quote.quote_number, sent: true },
           created_by: auth.pyraUser.username,
         })

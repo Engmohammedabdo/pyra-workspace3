@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -77,6 +78,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -89,11 +91,11 @@ export async function POST(req: NextRequest) {
       billing_cycle, next_generation_date, auto_send,
     } = body;
 
-    if (!title) return apiError('عنوان الفاتورة المتكررة مطلوب', 422);
+    if (!title) return apiError(t('finance.recurringTitleRequired'), 422);
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return apiError('يجب إضافة بند واحد على الأقل', 422);
+      return apiError(t('finance.recurringItemsRequired'), 422);
     }
-    if (!next_generation_date) return apiError('تاريخ التوليد القادم مطلوب', 422);
+    if (!next_generation_date) return apiError(t('finance.recurringNextGenDateRequired'), 422);
 
     const { data, error } = await supabase
       .from('pyra_recurring_invoices')

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -27,6 +28,7 @@ import { INVOICE_STATUS } from '@/lib/constants/statuses';
  *   locked decision: nothing goes to clients until explicitly enabled.
  */
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
         reminders_sent: 0,
         gentle_reminders: 0,
         dunning_enabled: false,
-        message: 'إرسال التذكيرات للعملاء معطّل (dunning_enabled ليست true)',
+        message: t('finance.dunningDisabledMessage'),
       });
     }
 
@@ -110,7 +112,7 @@ export async function POST(req: NextRequest) {
         id: generateId('al'),
         action_type: 'invoice_reminder_sent',
         username: 'system',
-        display_name: 'النظام',
+        display_name: 'النظام', // i18n-exempt: stored data (activity_log.display_name actor label)
         target_path: `/dashboard/invoices/${inv.id}`,
         details: {
           invoice_id: inv.id,
@@ -135,8 +137,8 @@ export async function POST(req: NextRequest) {
           id: generateId('cn'),
           client_id: inv.client_id,
           type: 'payment_reminder',
-          title: 'تذكير بدفع فاتورة',
-          message: `الفاتورة ${inv.invoice_number} متأخرة ${daysOverdue} يوم — المبلغ المستحق: ${inv.amount_due} ${inv.currency}`,
+          title: 'تذكير بدفع فاتورة', // i18n-exempt: client-notification content (Phase 8)
+          message: `الفاتورة ${inv.invoice_number} متأخرة ${daysOverdue} يوم — المبلغ المستحق: ${inv.amount_due} ${inv.currency}`, // i18n-exempt: client-notification content (Phase 8)
           is_read: false,
         });
         if (cnErr) console.error('[send-reminders] client notification error:', cnErr.message);
@@ -147,9 +149,9 @@ export async function POST(req: NextRequest) {
         const portalUrl = process.env.NEXT_PUBLIC_APP_URL || '';
         void sendEmail({
           to: inv.client_email,
-          subject: `تذكير بدفع الفاتورة ${inv.invoice_number} — ${companyName}`,
+          subject: `تذكير بدفع الفاتورة ${inv.invoice_number} — ${companyName}`, // i18n-exempt: email content (Phase 9)
           html: emailTemplates.invoiceReminder(
-            inv.client_name || 'العميل',
+            inv.client_name || 'العميل', // i18n-exempt: email content (Phase 9)
             inv.invoice_number,
             `${inv.amount_due} ${inv.currency}`,
             inv.due_date,
@@ -195,7 +197,7 @@ export async function POST(req: NextRequest) {
         id: generateId('al'),
         action_type: 'invoice_due_reminder',
         username: 'system',
-        display_name: 'النظام',
+        display_name: 'النظام', // i18n-exempt: stored data (activity_log.display_name actor label)
         target_path: `/dashboard/invoices/${inv.id}`,
         details: { invoice_id: inv.id, invoice_number: inv.invoice_number, days_left: daysLeft },
         ip_address: 'system',
@@ -213,8 +215,8 @@ export async function POST(req: NextRequest) {
         id: generateId('cn'),
         client_id: inv.client_id,
         type: 'invoice_due_soon',
-        title: 'فاتورة قريبة الاستحقاق',
-        message: `الفاتورة ${inv.invoice_number} ستستحق خلال ${daysLeft} يوم — ${inv.amount_due} ${inv.currency}`,
+        title: 'فاتورة قريبة الاستحقاق', // i18n-exempt: client-notification content (Phase 8)
+        message: `الفاتورة ${inv.invoice_number} ستستحق خلال ${daysLeft} يوم — ${inv.amount_due} ${inv.currency}`, // i18n-exempt: client-notification content (Phase 8)
         is_read: false,
       });
       if (cnErr) console.error('[send-reminders] client notification error:', cnErr.message);

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -20,6 +21,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Duplicate a quote with new number, reset to draft.
  */
 export async function POST(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
@@ -35,11 +37,11 @@ export async function POST(_request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!original) return apiNotFound('عرض السعر غير موجود');
+    if (!original) return apiNotFound(t('quotes.notFound'));
 
     // Q4: Scope check — non-admins can only duplicate quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(original.client_id)) {
-      return apiForbidden('لا يمكنك نسخ عرض سعر لعميل غير مسند إليك');
+      return apiForbidden(t('quotes.duplicateWrongOwner'));
     }
 
     // Get original items

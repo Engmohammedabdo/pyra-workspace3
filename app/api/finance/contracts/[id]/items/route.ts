@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ export async function GET(
   _req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
@@ -37,7 +39,7 @@ export async function GET(
       .eq('id', id)
       .maybeSingle();
 
-    if (!contract) return apiNotFound('العقد غير موجود');
+    if (!contract) return apiNotFound(t('finance.contractNotFound'));
 
     if (!scope.isAdmin && contract.client_id && !scope.clientIds.includes(Number(contract.client_id))) {
       return apiForbidden();
@@ -81,6 +83,7 @@ export async function PUT(
   request: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -95,7 +98,7 @@ export async function PUT(
       .eq('id', id)
       .maybeSingle();
 
-    if (!contract) return apiNotFound('العقد غير موجود');
+    if (!contract) return apiNotFound(t('finance.contractNotFound'));
 
     const body = await request.json();
     const { items } = body;

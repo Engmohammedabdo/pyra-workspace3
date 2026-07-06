@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -94,6 +95,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('finance.manage');
     if (isApiError(auth)) return auth;
@@ -108,11 +110,11 @@ export async function POST(req: NextRequest) {
       retainer_amount, retainer_cycle, billing_day,
     } = body;
 
-    if (!title) return apiError('عنوان العقد مطلوب', 422);
+    if (!title) return apiError(t('finance.contractTitleRequired'), 422);
 
     // Scope check: non-admins can only create contracts for their clients
     if (!scope.isAdmin && client_id && !scope.clientIds.includes(Number(client_id))) {
-      return apiForbidden('لا تملك صلاحية إنشاء عقد لهذا العميل');
+      return apiForbidden(t('finance.contractCreatePermissionDenied'));
     }
 
     const { data, error } = await supabase

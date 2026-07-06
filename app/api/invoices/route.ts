@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -96,6 +97,7 @@ export async function GET(request: NextRequest) {
  * }
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.create');
     if (isApiError(auth)) return auth;
@@ -128,15 +130,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return apiValidationError('يجب إضافة بند واحد على الأقل');
+      return apiValidationError(t('invoices.itemsRequired'));
     }
     // Validate item values
     for (const item of items) {
       if (!item.quantity || item.quantity <= 0) {
-        return apiValidationError('الكمية يجب أن تكون أكبر من صفر');
+        return apiValidationError(t('common.qtyGtZero'));
       }
       if (item.rate == null || item.rate < 0) {
-        return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
+        return apiValidationError(t('common.priceGteZero'));
       }
     }
     const supabase = createServiceRoleClient();
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
       due_date = issueDate.toISOString().split('T')[0];
     }
     if (!due_date) {
-      return apiValidationError('تاريخ الاستحقاق مطلوب — حدد التاريخ أو اضبط مدة الدفع في الإعدادات');
+      return apiValidationError(t('invoices.dueDateRequired'));
     }
 
     // Use vat_rate from request body if explicitly provided (even 0), otherwise fall back to settings
@@ -328,7 +330,7 @@ export async function POST(request: NextRequest) {
       console.error('Invoice items insert error:', itemsError);
       // Rollback: delete the invoice since items failed
       await supabase.from('pyra_invoices').delete().eq('id', invoiceId);
-      return apiServerError('فشل في إضافة بنود الفاتورة');
+      return apiServerError(t('invoices.itemsInsertFailed'));
     }
 
     // Refresh contract amount_billed from actual invoices (derive, don't

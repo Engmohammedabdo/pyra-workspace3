@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -41,6 +42,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { card_name, bank_name, last_four, card_type, expiry_month, expiry_year, is_default, notes } = body;
 
-    if (!card_name) return apiError('اسم البطاقة مطلوب', 422);
+    if (!card_name) return apiError(t('finance.cardNameRequired'), 422);
 
     // If setting as default, unset other defaults
     if (is_default) {

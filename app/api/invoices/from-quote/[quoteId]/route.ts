@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ type RouteContext = { params: Promise<{ quoteId: string }> };
  * Admin only.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.create');
     if (isApiError(auth)) return auth;
@@ -37,15 +39,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', quoteId)
       .maybeSingle();
 
-    if (!quote) return apiNotFound('عرض السعر غير موجود');
+    if (!quote) return apiNotFound(t('invoices.fromQuoteNotFound'));
 
     // Q6: Scope check — non-admins can only create invoices from their own clients' quotes
     if (!scope.isAdmin && !scope.clientIds.includes(quote.client_id)) {
-      return apiForbidden('لا يمكنك إنشاء فاتورة من عرض سعر لعميل غير مسند إليك');
+      return apiForbidden(t('invoices.fromQuoteWrongOwner'));
     }
 
     if (quote.status !== 'signed') {
-      return apiValidationError('يمكن إنشاء فاتورة فقط من عرض سعر موقع');
+      return apiValidationError(t('invoices.fromQuoteNotSigned'));
     }
 
     // Prevent duplicate conversion — check if an invoice already exists for this quote
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('quote_id', quoteId)
       .maybeSingle();
     if (existingInvoice) {
-      return apiValidationError(`تم إنشاء فاتورة من هذا العرض مسبقاً (${existingInvoice.invoice_number})`);
+      return apiValidationError(t('invoices.fromQuoteAlreadyExists', { invoiceNumber: existingInvoice.invoice_number }));
     }
 
     // Fetch quote items

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, getApiAuth, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -25,6 +26,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Get a single quote with items.
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.view');
     if (isApiError(auth)) return auth;
@@ -43,7 +45,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       console.error('Quote fetch error:', error);
       return apiServerError();
     }
-    if (!quote) return apiNotFound('عرض السعر غير موجود');
+    if (!quote) return apiNotFound(t('quotes.notFound'));
 
     // Gap #5a — three-way scope: own quote OR lead-owned OR client-scope.
     // Mirrors the list endpoint so an agent can open a quote they created or a
@@ -128,6 +130,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
  * Update a quote and its items.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.edit');
     if (isApiError(auth)) return auth;
@@ -144,7 +147,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('عرض السعر غير موجود');
+    if (!existing) return apiNotFound(t('quotes.notFound'));
 
     // Scope check: non-admins can only edit quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(existing.client_id)) {
@@ -153,12 +156,12 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
     // Q2: Ownership check — non-admins can only edit quotes they created
     if (!scope.isAdmin && existing.created_by !== auth.pyraUser.username) {
-      return apiForbidden('لا يمكنك تعديل عرض سعر لم تنشئه');
+      return apiForbidden(t('quotes.notOwnerEdit'));
     }
 
     // Q7: Lock quotes during pending approval — only admins can edit
     if (existing.status === 'pending_approval' && !scope.isAdmin) {
-      return apiForbidden('عرض السعر قيد الموافقة ولا يمكن تعديله');
+      return apiForbidden(t('quotes.pendingApprovalNotEditable'));
     }
 
     const {
@@ -207,19 +210,19 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
       if (!allowedNextStates.includes(status)) {
         return apiValidationError(
-          `لا يمكن تغيير حالة عرض السعر من "${currentStatus}" إلى "${status}"`
+          t('quotes.statusTransitionInvalid', { from: currentStatus, to: status })
         );
       }
 
       // Q1: Only admins can change status away from pending_approval
       if (currentStatus === 'pending_approval' && !scope.isAdmin) {
-        return apiForbidden('عرض السعر قيد الموافقة ولا يمكن تعديل حالته');
+        return apiForbidden(t('quotes.pendingApprovalStatusLocked'));
       }
 
       // Q8: Status revert transitions (back to draft) are admin-only
       const REVERT_STATUSES = ['sent', 'viewed', 'rejected', 'expired', 'cancelled'];
       if (REVERT_STATUSES.includes(currentStatus) && status === 'draft' && !scope.isAdmin) {
-        return apiForbidden('فقط الأدمن يمكنه إعادة عرض السعر إلى مسودة');
+        return apiForbidden(t('quotes.adminOnlyRevertToDraft'));
       }
 
       updates.status = status;
@@ -259,7 +262,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Recalculate totals if items provided
     if (items && Array.isArray(items)) {
       if (items.length === 0) {
-        return apiValidationError('يجب إضافة عنصر واحد على الأقل');
+        return apiValidationError(t('quotes.itemsRequired'));
       }
 
       const subtotal = items.reduce(
@@ -388,6 +391,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * Delete a quote (cascade deletes items).
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     // Group 2: deletion accepts EITHER `quotes.delete` (full — admin / manager)
     // OR `quotes.delete_own` (sales agent — own quotes only). We can't gate with
@@ -414,7 +418,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('عرض السعر غير موجود');
+    if (!existing) return apiNotFound(t('quotes.notFound'));
 
     // Authorization (admins bypass via scope.isAdmin).
     if (!scope.isAdmin) {
@@ -439,7 +443,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
         // (client_id = NULL) ARE deletable here — ownership is by created_by,
         // not by client scope (this is the issue #4 fix for own-scoped users).
         if (existing.created_by !== me) {
-          return apiForbidden('لا يمكنك حذف عرض سعر لم تنشئه');
+          return apiForbidden(t('quotes.notOwnerDelete'));
         }
       }
     }

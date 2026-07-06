@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -17,6 +18,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Body: { period_label?, amount?, description?, display_client_name?, items? }
  */
 export async function POST(req: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -32,8 +34,8 @@ export async function POST(req: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (cErr || !contract) return apiNotFound('العقد غير موجود');
-    if (contract.status !== CONTRACT_STATUS.ACTIVE) return apiError('العقد غير نشط', 400);
+    if (cErr || !contract) return apiNotFound(t('finance.contractNotFound'));
+    if (contract.status !== CONTRACT_STATUS.ACTIVE) return apiError(t('finance.contractNotActive'), 400);
 
     // Duplicate-period guard (finance audit 2026-07-02, F-BILLED/RETAINER-DUP):
     // a double-click or repeated call must not bill the same period twice.
@@ -52,7 +54,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         .maybeSingle();
       if (existingThisMonth) {
         return apiError(
-          `تم توليد فاتورة لهذا العقد خلال هذا الشهر بالفعل (${existingThisMonth.invoice_number}). لو التكرار مقصود أعد الطلب مع force.`,
+          t('finance.invoiceAlreadyGeneratedThisMonth', { invoiceNumber: existingThisMonth.invoice_number }),
           409
         );
       }
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         ? (contract.retainer_amount || contract.billing_structure?.amount_per_period || 0)
         : (contract.billing_structure?.amount_per_period || contract.retainer_amount || 0);
 
-    if (!amount || amount <= 0) return apiError('المبلغ غير صالح', 400);
+    if (!amount || amount <= 0) return apiError(t('finance.invoiceAmountInvalid'), 400);
 
     // 3. Fetch client
     let clientData: Record<string, string | null> = {
@@ -165,7 +167,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
         total,
         amount_paid: 0,
         amount_due: total,
-        notes: body.notes || `فاتورة من العقد: ${contract.title}`,
+        notes: body.notes || `فاتورة من العقد: ${contract.title}`, // i18n-exempt: stored data (invoices.notes)
         bank_details: bankDetails,
         company_name: sm.company_name || null,
         company_logo: sm.company_logo || null,
@@ -202,7 +204,7 @@ export async function POST(req: NextRequest, context: RouteContext) {
     if (itemsInserted === 0) {
       // Rollback: delete the invoice that has no items
       await supabase.from('pyra_invoices').delete().eq('id', invoiceId);
-      return apiServerError('فشل في إدراج بنود الفاتورة — تم التراجع عن إنشاء الفاتورة');
+      return apiServerError(t('finance.invoiceItemsInsertFailed'));
     }
 
     // 12. Refresh contract amount_billed from actual invoices (derive, don't

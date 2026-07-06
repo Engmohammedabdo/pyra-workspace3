@@ -1,4 +1,4 @@
-import { getLocale } from 'next-intl/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -12,6 +12,7 @@ export async function GET() {
   if (isApiError(auth)) return auth;
 
   const locale = await getLocale();
+  const t = await getTranslations('api');
   const scope = await resolveUserScope(auth);
 
   const supabase = createServiceRoleClient();
@@ -238,7 +239,7 @@ export async function GET() {
     }
 
     const expensePieData = Object.entries(categoryTotals).map(([id, amount]) => ({
-      name: id === 'uncategorized' ? 'غير مصنف' : (categoryNames[id]?.name_ar || id),
+      name: id === 'uncategorized' ? t('finance.uncategorized') : (categoryNames[id]?.name_ar || id), // i18n-exempt: name_ar fallback is DB-stored data; only the 'uncategorized' literal is a live per-request string, now t()-ed
       value: Math.round(amount * 100) / 100,
       color: id === 'uncategorized' ? '#9ca3af' : (categoryNames[id]?.color || '#6b7280'),
     }));

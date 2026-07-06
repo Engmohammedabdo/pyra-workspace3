@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiNotFound, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -11,6 +12,7 @@ export async function PATCH(
   req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -22,7 +24,7 @@ export async function PATCH(
 
     // Validate period dates if both provided
     if (body.period_start && body.period_end && body.period_start >= body.period_end) {
-      return apiValidationError('تاريخ البداية يجب أن يكون قبل تاريخ النهاية');
+      return apiValidationError(t('finance.dateRangeInvalid'));
     }
 
     // Whitelist allowed fields
@@ -32,7 +34,7 @@ export async function PATCH(
       if (key in body) updates[key] = body[key];
     }
     if (Object.keys(updates).length === 0) {
-      return apiValidationError('لا توجد حقول للتحديث');
+      return apiValidationError(t('finance.noFieldsToUpdate'));
     }
     updates.updated_at = new Date().toISOString();
 

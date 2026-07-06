@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -21,6 +22,7 @@ export async function GET(
   _req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.view');
   if (isApiError(auth)) return auth;
 
@@ -35,7 +37,7 @@ export async function GET(
       .eq('id', id)
       .maybeSingle();
 
-    if (cErr || !contract) return apiNotFound('العقد غير موجود');
+    if (cErr || !contract) return apiNotFound(t('finance.contractNotFound'));
 
     const { data, error } = await supabase
       .from('pyra_contract_milestones')
@@ -64,6 +66,7 @@ export async function POST(
   req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -78,13 +81,13 @@ export async function POST(
       .eq('id', id)
       .maybeSingle();
 
-    if (cErr || !contract) return apiNotFound('العقد غير موجود');
+    if (cErr || !contract) return apiNotFound(t('finance.contractNotFound'));
 
     const body = await req.json();
     const { title, description, percentage, amount, due_date, sort_order } = body;
 
-    if (!title) return apiError('عنوان المرحلة مطلوب', 422);
-    if (percentage == null || percentage <= 0) return apiError('نسبة المرحلة مطلوبة', 422);
+    if (!title) return apiError(t('finance.milestoneTitleRequired'), 422);
+    if (percentage == null || percentage <= 0) return apiError(t('finance.milestonePercentageRequired'), 422);
 
     // Calculate amount from contract total_value * percentage / 100 if not provided
     const calculatedAmount =
@@ -117,7 +120,7 @@ export async function POST(
 
     if (currentTotal + Number(percentage) > 100) {
       return apiValidationError(
-        `إجمالي نسب المراحل سيتجاوز 100% (الحالي: ${currentTotal}% + الجديد: ${percentage}%)`
+        t('finance.milestonePercentageExceeds100', { current: currentTotal, new: percentage })
       );
     }
 

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -23,6 +24,7 @@ export async function POST(
   req: NextRequest,
   context: RouteContext
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -38,7 +40,7 @@ export async function POST(
       .eq('contract_id', id)
       .maybeSingle();
 
-    if (mErr || !milestone) return apiNotFound('المرحلة غير موجودة');
+    if (mErr || !milestone) return apiNotFound(t('finance.milestoneNotFound'));
 
     // Guard: check if invoice already generated (race-condition safe)
     if (milestone.invoice_id) {
@@ -50,7 +52,7 @@ export async function POST(
         .maybeSingle();
 
       if (existingInvoice) {
-        return apiError('تم إنشاء فاتورة لهذه المرحلة مسبقاً', 400);
+        return apiError(t('finance.milestoneAlreadyInvoiced'), 400);
       }
 
       // Invoice was deleted — clear the stale reference so we can regenerate
@@ -63,8 +65,8 @@ export async function POST(
     if (milestone.status !== 'completed') {
       return apiError(
         milestone.status === 'invoiced'
-          ? 'تم إنشاء فاتورة لهذه المرحلة مسبقاً'
-          : 'يجب اكتمال المرحلة قبل إنشاء الفاتورة',
+          ? t('finance.milestoneAlreadyInvoiced')
+          : t('finance.milestoneNotCompletedForInvoice'),
         400
       );
     }
@@ -76,7 +78,7 @@ export async function POST(
       .eq('id', id)
       .maybeSingle();
 
-    if (cErr || !contract) return apiNotFound('العقد غير موجود');
+    if (cErr || !contract) return apiNotFound(t('finance.contractNotFound'));
 
     // 3. Fetch client data if client_id exists
     let clientData: Record<string, string | null> = {
@@ -164,7 +166,7 @@ export async function POST(
         total,
         amount_paid: 0,
         amount_due: total,
-        notes: `فاتورة تلقائية من العقد: ${contract.title} - المرحلة: ${milestone.title}`,
+        notes: `فاتورة تلقائية من العقد: ${contract.title} - المرحلة: ${milestone.title}`, // i18n-exempt: stored data (invoices.notes)
         bank_details: bankDetails,
         company_name: settingsMap.company_name || null,
         company_logo: settingsMap.company_logo || null,

@@ -150,7 +150,7 @@ export async function generateDueRecurringInvoices(
       // 1b. Contract context — vat_rate priority (explicit 0 honored) +
       // scope-of-work notes from contract items
       let taxRate = globalTaxRate;
-      let scopeNotes = `فاتورة متكررة — ${template.title}`;
+      let scopeNotes = `فاتورة متكررة — ${template.title}`; // i18n-exempt: stored data (invoices.notes)
       if (template.contract_id) {
         const { data: contract } = await supabase
           .from('pyra_contracts')
@@ -169,13 +169,13 @@ export async function generateDueRecurringInvoices(
 
         if (contractItems && contractItems.length > 0) {
           const parents = contractItems.filter((i: { parent_id: string | null }) => !i.parent_id);
-          const lines: string[] = ['نطاق العمل:'];
+          const lines: string[] = ['نطاق العمل:']; // i18n-exempt: stored data (invoices.notes section header)
           parents.forEach((parent: { id: string; title: string }, idx: number) => {
             lines.push(`${idx + 1}. ${parent.title}`);
             const children = contractItems
               .filter((i: { parent_id: string | null }) => i.parent_id === parent.id)
               .sort((a: { sort_order: number }, b: { sort_order: number }) => a.sort_order - b.sort_order);
-            const letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي'];
+            const letters = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح', 'ط', 'ي']; // i18n-exempt: stored data — Arabic-alphabet ordered-list markers baked into generated invoice notes (locale-specific numbering convention, not a translatable string)
             children.forEach((child: { title: string }, cIdx: number) => {
               lines.push(`   ${letters[cIdx] || String(cIdx + 1)}. ${child.title}`);
             });
@@ -303,8 +303,8 @@ export async function generateDueRecurringInvoices(
           id: generateId('cn'),
           client_id: template.client_id,
           type: 'invoice_sent',
-          title: 'فاتورة جديدة',
-          message: `تم إصدار فاتورة جديدة رقم ${invoiceNumber} بقيمة ${total.toFixed(2)} ${template.currency || 'AED'}`,
+          title: 'فاتورة جديدة', // i18n-exempt: client-notification content (Phase 8)
+          message: `تم إصدار فاتورة جديدة رقم ${invoiceNumber} بقيمة ${total.toFixed(2)} ${template.currency || 'AED'}`, // i18n-exempt: client-notification content (Phase 8)
           target_project_id: null,
           target_file_id: null,
         });

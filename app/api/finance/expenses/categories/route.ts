@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -26,6 +27,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -35,7 +37,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, name_ar, icon, color } = body;
 
-    if (!name) return apiError('اسم التصنيف مطلوب', 422);
+    if (!name) return apiError(t('finance.categoryNameRequired'), 422);
 
     // Get max sort_order
     const { data: maxSort } = await supabase

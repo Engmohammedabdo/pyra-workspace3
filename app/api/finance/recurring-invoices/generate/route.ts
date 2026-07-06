@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ import { logError } from '@/lib/observability/log-error';
  * lib/finance/recurring-generation.ts (single source of truth).
  */
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -28,8 +30,8 @@ export async function POST(req: NextRequest) {
       { generated: result.generated, invoice_ids: result.invoice_ids, failures: result.failures },
       {
         message: result.generated > 0
-          ? `تم توليد ${result.generated} فاتورة بنجاح`
-          : 'لا توجد فواتير مستحقة للتوليد',
+          ? t('finance.recurringGenerateSuccess', { count: result.generated })
+          : t('finance.recurringGenerateEmpty'),
       }
     );
   } catch (err) {

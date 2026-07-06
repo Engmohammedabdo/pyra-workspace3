@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiNotFound, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -12,6 +13,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -27,7 +29,7 @@ export async function PATCH(
       if (ALLOWED_FIELDS.has(key)) safeUpdate[key] = body[key];
     }
     if (Object.keys(safeUpdate).length === 0) {
-      return apiError('لا توجد حقول صالحة للتحديث', 400);
+      return apiError(t('finance.noValidFieldsToUpdate'), 400);
     }
 
     const { data, error } = await supabase
@@ -50,6 +52,7 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -65,7 +68,7 @@ export async function DELETE(
       .single();
 
     if (cat?.is_default) {
-      return apiError('لا يمكن حذف تصنيف افتراضي', 422);
+      return apiError(t('finance.categoryDefaultNotDeletable'), 422);
     }
 
     // Check if any expenses use this category
@@ -75,7 +78,7 @@ export async function DELETE(
       .eq('category_id', id);
 
     if (count && count > 0) {
-      return apiError(`لا يمكن حذف التصنيف — يوجد ${count} مصروف مرتبط به`, 422);
+      return apiError(t('finance.categoryInUse', { count }), 422);
     }
 
     const { error } = await supabase

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -122,6 +123,7 @@ export async function GET(request: NextRequest) {
  * }
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
@@ -151,15 +153,15 @@ export async function POST(request: NextRequest) {
     }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return apiValidationError('يجب إضافة عنصر واحد على الأقل');
+      return apiValidationError(t('quotes.itemsRequired'));
     }
     // Validate item values
     for (const item of items) {
       if (!item.quantity || item.quantity <= 0) {
-        return apiValidationError('الكمية يجب أن تكون أكبر من صفر');
+        return apiValidationError(t('common.qtyGtZero'));
       }
       if (item.rate == null || item.rate < 0) {
-        return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
+        return apiValidationError(t('common.priceGteZero'));
       }
     }
 
@@ -174,9 +176,7 @@ export async function POST(request: NextRequest) {
     // v1.1 backlog per locked decision).
     const rawClientName = typeof body.client_name === 'string' ? body.client_name.trim() : '';
     if (!client_id && !rawClientName) {
-      return apiValidationError(
-        'اسم العميل مطلوب — اختر عميل من القائمة أو أدخل الاسم يدوياً',
-      );
+      return apiValidationError(t('quotes.clientNameRequired'));
     }
 
     const supabase = createServiceRoleClient();
@@ -372,7 +372,7 @@ export async function POST(request: NextRequest) {
       console.error('Quote items insert error:', itemsError);
       // Rollback: delete the quote if items failed
       await supabase.from('pyra_quotes').delete().eq('id', quoteId);
-      return apiServerError('فشل في إضافة بنود عرض السعر');
+      return apiServerError(t('quotes.itemsInsertFailed'));
     }
 
     logActivity(
@@ -392,7 +392,7 @@ export async function POST(request: NextRequest) {
         id: generateId('la'),
         lead_id,
         activity_type: 'note',
-        description: `تم إنشاء عرض سعر ${quoteNumber} بمبلغ ${total} AED`,
+        description: `تم إنشاء عرض سعر ${quoteNumber} بمبلغ ${total} AED`, // i18n-exempt: stored data (lead_activities.description)
         metadata: { quote_id: quoteId, quote_number: quoteNumber, total },
         created_by: auth.pyraUser.username,
       }).then(({ error: e }) => {

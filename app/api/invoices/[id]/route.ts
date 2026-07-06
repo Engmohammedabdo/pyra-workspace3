@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -54,6 +55,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Get a single invoice with items and payments.
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.view');
     if (isApiError(auth)) return auth;
@@ -72,7 +74,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       console.error('Invoice fetch error:', error);
       return apiServerError();
     }
-    if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+    if (!invoice) return apiNotFound(t('invoices.notFound'));
 
     // Scope check: non-admins can only view invoices for their accessible clients
     if (!scope.isAdmin) {
@@ -192,6 +194,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
  * Update an invoice and its items.
  */
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.edit');
     if (isApiError(auth)) return auth;
@@ -208,7 +211,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('الفاتورة غير موجودة');
+    if (!existing) return apiNotFound(t('invoices.notFound'));
 
     // Scope check: non-admins can only edit invoices for their accessible clients
     if (!scope.isAdmin) {
@@ -220,7 +223,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Only draft/sent/overdue invoices can be edited
     const editableStatuses = ['draft', 'sent', 'overdue'];
     if (!editableStatuses.includes(existing.status)) {
-      return apiValidationError('لا يمكن تعديل هذه الفاتورة (مدفوعة أو ملغاة)');
+      return apiValidationError(t('invoices.notEditable'));
     }
 
     const { items, status, discount_type: bodyDiscountType, discount_value: bodyDiscountValue } = body;
@@ -244,7 +247,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       const allowedNextStates = VALID_TRANSITIONS[existing.status] || [];
       if (!allowedNextStates.includes(status)) {
         return apiValidationError(
-          `لا يمكن تغيير الحالة من "${existing.status}" إلى "${status}"`
+          t('invoices.statusTransitionInvalid', { from: existing.status, to: status })
         );
       }
       updates.status = status;
@@ -253,15 +256,15 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     // Recalculate totals if items provided
     if (items && Array.isArray(items)) {
       if (items.length === 0) {
-        return apiValidationError('يجب إضافة بند واحد على الأقل');
+        return apiValidationError(t('invoices.itemsRequired'));
       }
       // Validate item values
       for (const item of items) {
         if (!item.quantity || item.quantity <= 0) {
-          return apiValidationError('الكمية يجب أن تكون أكبر من صفر');
+          return apiValidationError(t('common.qtyGtZero'));
         }
         if (item.rate == null || item.rate < 0) {
-          return apiValidationError('السعر يجب أن يكون صفر أو أكثر');
+          return apiValidationError(t('common.priceGteZero'));
         }
       }
 
@@ -311,7 +314,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
           request,
           metadata: { source: 'invoices', action: 'patch_items_insert', invoice_id: id },
         });
-        return apiServerError('فشل تحديث بنود الفاتورة — لم يتم تغيير أي بيانات');
+        return apiServerError(t('invoices.itemsUpdateFailed'));
       }
 
       const subtotal = processedItems.reduce(
@@ -401,6 +404,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
  * Delete a draft invoice (cascade deletes items).
  */
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.delete');
     if (isApiError(auth)) return auth;
@@ -415,7 +419,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!existing) return apiNotFound('الفاتورة غير موجودة');
+    if (!existing) return apiNotFound(t('invoices.notFound'));
 
     // Scope check: non-admins can only delete invoices for their accessible clients
     if (!scope.isAdmin) {
@@ -425,7 +429,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     }
 
     if (existing.status !== INVOICE_STATUS.DRAFT) {
-      return apiValidationError('لا يمكن حذف فاتورة غير مسودة');
+      return apiValidationError(t('invoices.notDraftDeletable'));
     }
 
     // Resolve the contract for the billed-recompute BEFORE deleting —

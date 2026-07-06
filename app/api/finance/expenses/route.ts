@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiError, apiForbidden, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -147,6 +148,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const t = await getTranslations('api');
   const auth = await requireApiPermission('finance.manage');
   if (isApiError(auth)) return auth;
 
@@ -157,11 +159,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { description, amount, currency, vat_rate, expense_date, vendor, payment_method, category_id, project_id, supplier_id, receipt_url, notes, is_recurring, recurring_period } = body;
 
-    if (!amount || amount <= 0) return apiError('المبلغ مطلوب', 422);
+    if (!amount || amount <= 0) return apiError(t('finance.expenseAmountRequired'), 422);
 
     // Scope check: non-admins can only create expenses for their projects
     if (!scope.isAdmin && project_id && !scope.projectIds.includes(project_id)) {
-      return apiForbidden('لا تملك صلاحية إنشاء مصروف لهذا المشروع');
+      return apiForbidden(t('finance.expenseProjectPermissionDenied'));
     }
 
     const vat_amount = vat_rate ? (amount * vat_rate / 100) : 0;
@@ -219,8 +221,8 @@ export async function POST(req: NextRequest) {
     if (approvalRequired) {
       await notifyApprovers(supabase, auth.pyraUser.username, {
         type: 'expense_pending',
-        title: `مصروف بانتظار موافقتك — ${(currency || 'AED')} ${amount}`,
-        message: `${description || vendor || 'مصروف جديد'} من ${auth.pyraUser.display_name}`,
+        title: `مصروف بانتظار موافقتك — ${(currency || 'AED')} ${amount}`, // i18n-exempt: notification content (Phase 8)
+        message: `${description || vendor || 'مصروف جديد'} من ${auth.pyraUser.display_name}`, // i18n-exempt: notification content (Phase 8)
         link: '/dashboard/approvals',
         entity: { type: 'expense', id: data.id },
         from: { username: auth.pyraUser.username, displayName: auth.pyraUser.display_name },

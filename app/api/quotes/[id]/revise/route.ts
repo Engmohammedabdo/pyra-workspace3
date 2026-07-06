@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Copies all data, bumps version, links to parent.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
@@ -37,18 +39,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!original) return apiNotFound('عرض السعر غير موجود');
+    if (!original) return apiNotFound(t('quotes.notFound'));
 
     // Q5: Scope check — non-admins can only revise quotes for their own clients
     if (!scope.isAdmin && !scope.clientIds.includes(original.client_id)) {
-      return apiForbidden('لا يمكنك مراجعة عرض سعر لعميل غير مسند إليك');
+      return apiForbidden(t('quotes.reviseWrongOwner'));
     }
 
     // Only allow revisions of sent/viewed/expired/rejected quotes
     const revisableStatuses = [QUOTE_STATUS.SENT, QUOTE_STATUS.VIEWED, QUOTE_STATUS.EXPIRED, QUOTE_STATUS.REJECTED, QUOTE_STATUS.CANCELLED];
     if (!revisableStatuses.includes(original.status)) {
       return apiValidationError(
-        `لا يمكن إنشاء مراجعة من عرض بحالة "${original.status}"`
+        t('quotes.reviseWrongStatus', { status: original.status })
       );
     }
 

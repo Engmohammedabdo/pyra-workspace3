@@ -167,10 +167,10 @@ export async function PATCH(
 
           if (retainerAmount > 0) {
             // Build recurring invoice title with scope
-            let riTitle = `اشتراك شهري — ${data.title}`;
-            const cycleLabels: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي' };
-            const cycleLabel = cycleLabels[retainerCycle] || 'شهري';
-            riTitle = `اشتراك ${cycleLabel} — ${data.title}`;
+            let riTitle = `اشتراك شهري — ${data.title}`; // i18n-exempt: stored data (recurring_invoices.title) — dead-code initial value, always overwritten below
+            const cycleLabels: Record<string, string> = { monthly: 'شهري', quarterly: 'ربع سنوي', yearly: 'سنوي' }; // i18n-exempt: stored data (recurring_invoices.title composition)
+            const cycleLabel = cycleLabels[retainerCycle] || 'شهري'; // i18n-exempt: stored data (recurring_invoices.title composition)
+            riTitle = `اشتراك ${cycleLabel} — ${data.title}`; // i18n-exempt: stored data (recurring_invoices.title)
 
             const riId = generateId('ri');
             await supabase.from('pyra_recurring_invoices').insert({

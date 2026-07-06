@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -22,6 +23,7 @@ type RouteContext = { params: Promise<{ id: string }> };
  * Admin only.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('invoices.edit');
     if (isApiError(auth)) return auth;
@@ -36,7 +38,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       .eq('id', id)
       .maybeSingle();
 
-    if (!invoice) return apiNotFound('الفاتورة غير موجودة');
+    if (!invoice) return apiNotFound(t('invoices.notFound'));
 
     // Scope check: non-admins can only send invoices for their accessible clients
     if (!scope.isAdmin) {
@@ -46,7 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (invoice.status !== INVOICE_STATUS.DRAFT) {
-      return apiValidationError('يمكن إرسال المسودات فقط');
+      return apiValidationError(t('invoices.sendDraftOnly'));
     }
 
     const { data: updated, error } = await supabase
@@ -69,8 +71,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
           id: generateId('cn'),
           client_id: invoice.client_id,
           type: 'invoice_sent',
-          title: 'فاتورة جديدة',
-          message: `تم إرسال فاتورة ${invoice.invoice_number} إليك`,
+          title: 'فاتورة جديدة', // i18n-exempt: client-notification content (Phase 8)
+          message: `تم إرسال فاتورة ${invoice.invoice_number} إليك`, // i18n-exempt: client-notification content (Phase 8)
           is_read: false,
         });
       if (nErr) console.error('Invoice notification error:', nErr);

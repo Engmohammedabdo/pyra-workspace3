@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import {
   apiSuccess,
@@ -46,6 +47,7 @@ export async function GET() {
  * Create a new quote template.
  */
 export async function POST(request: NextRequest) {
+  const t = await getTranslations('api');
   try {
     const auth = await requireApiPermission('quotes.create');
     if (isApiError(auth)) return auth;
@@ -54,7 +56,7 @@ export async function POST(request: NextRequest) {
     const { name, name_ar, description, items, notes, terms_conditions, currency, tax_rate, discount_type, discount_value, is_default } = body;
 
     if (!name?.trim()) {
-      return apiValidationError('اسم القالب مطلوب');
+      return apiValidationError(t('quotes.templateNameRequired'));
     }
 
     const supabase = createServiceRoleClient();
