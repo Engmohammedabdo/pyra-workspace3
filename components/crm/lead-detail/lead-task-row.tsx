@@ -6,7 +6,7 @@
  * Inline-edit scope (locked per Q3-2 = (a)):
  *   - status: checkbox click toggles pending ↔ completed
  *   - title: click-to-edit (Enter saves, Escape cancels)
- *   - everything else → kebab menu → "تعديل التفاصيل" Sheet
+ *   - everything else → kebab menu → "تعديل التفاصيل" Sheet // i18n-exempt: doc comment
  *
  * Completed task styling:
  *   - title:     line-through + text-muted-foreground
@@ -78,9 +78,9 @@ const PRIORITY_SPECS: Record<LeadTaskPriority, PrioritySpec> = {
 
 export interface LeadTaskRowProps {
   task: PyraLeadTask;
-  /** Click handler for the kebab "تعديل التفاصيل" item — opens parent Sheet. */
+  /** Click handler for the kebab "تعديل التفاصيل" item — opens parent Sheet. */ // i18n-exempt: doc comment
   onEdit: () => void;
-  /** Click handler for the kebab "حذف" item — opens parent AlertDialog. */
+  /** Click handler for the kebab "حذف" item — opens parent AlertDialog. */ // i18n-exempt: doc comment
   onDelete: () => void;
 }
 
@@ -254,7 +254,7 @@ export function LeadTaskRow({ task, onEdit, onDelete }: LeadTaskRowProps) {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-// Kebab — DropdownMenu with two items: تعديل التفاصيل + حذف.
+// Kebab — DropdownMenu with two items: تعديل التفاصيل + حذف. // i18n-exempt: doc comment
 // ──────────────────────────────────────────────────────────────────────────
 
 function TaskKebab({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {

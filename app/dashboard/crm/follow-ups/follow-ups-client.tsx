@@ -6,7 +6,7 @@
  * Driven by useFollowUps. Default filter = pending. Filter chips switch
  * between pending / completed / all. Each row shows the lead it belongs
  * to (linked), title, due_at relative time, optional notes, and a
- * "تمّت المتابعة" button on pending rows that calls useCompleteFollowUp.
+ * "تمّت المتابعة" button on pending rows that calls useCompleteFollowUp. // i18n-exempt: doc comment, actual UI uses t()
  *
  * Optimistic update on complete uses the same cancelQueries / snapshot /
  * setQueriesData / rollback pattern as the sidebar mark-complete button

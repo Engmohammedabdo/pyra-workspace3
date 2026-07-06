@@ -10,10 +10,10 @@
  *   [Company · @assigned_to · Closed Won badge]
  *
  * Action buttons:
- *   - "تعديل" — links to /dashboard/crm/leads/[id] (the existing lead
+ *   - "تعديل" — links to /dashboard/crm/leads/[id] (the existing lead // i18n-exempt: doc comment
  *     detail route remains the source of truth for inline lead editing
  *     in v1; the customer page is the read-mostly relationship view)
- *   - "تحويل لعميل" — admin only, hidden once lead.is_converted = true.
+ *   - "تحويل لعميل" — admin only, hidden once lead.is_converted = true. // i18n-exempt: doc comment
  *     Step C: button is a placeholder that opens a "TODO Step E" modal.
  *     Step E will wire to /api/crm/leads/[id]/convert-to-customer.
  *   - Portal indicator — admin only, shows current portal_active status
@@ -125,7 +125,8 @@ export function CustomerHeader({ customer, isLoading = false }: Props) {
       </div>
 
       {/* Convert-to-customer modal — opens when admin clicks the
-          "تحويل لعميل" button. The modal itself enforces the form-level
+          "تحويل لعميل" button. i18n-exempt: doc comment
+          The modal itself enforces the form-level
           requirements; the server enforces stage_id + is_converted state
           gates and will return 422 with an Arabic message if violated. */}
       {showConvertButton && (

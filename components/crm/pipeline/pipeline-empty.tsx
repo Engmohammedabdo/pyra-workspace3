@@ -7,8 +7,8 @@ import { Inbox } from 'lucide-react';
  * Compact empty state shown inside an empty pipeline column.
  * (We don't reuse the full <EmptyState> here — it's too heavy for a column.)
  *
- * Phase 3.3: the original split-node sentence ("لا توجد صفقات في" +
- * <span>{stageLabel}</span> + "حالياً.") became a single ICU message with a
+ * Phase 3.3: the original split-node sentence ("لا توجد صفقات في" + // i18n-exempt: doc comment
+ * <span>{stageLabel}</span> + "حالياً.") became a single ICU message with a // i18n-exempt: doc comment
  * {stage} placeholder — stageLabel itself stays DB data (name_ar), just
  * relocated into the interpolation param.
  */

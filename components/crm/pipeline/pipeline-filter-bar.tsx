@@ -7,7 +7,7 @@
  * are shareable. Submitting just calls router.replace() — useLeads picks up
  * the new params via its query key and refetches automatically.
  *
- * Mobile: collapses into a single search row + a "فلاتر" toggle that opens
+ * Mobile: collapses into a single search row + a "فلاتر" toggle that opens // i18n-exempt: doc comment
  * the rest below it (handled by the wrapping page, not here).
  */
 
@@ -189,7 +189,7 @@ export function PipelineFilterBar({ isAdmin, ownerOptions = [], total }: Pipelin
           Matches the workspace's cleanest filter feedback pattern (originally
           from the legacy follow-ups client, since migrated to
           app/dashboard/crm/follow-ups/). Read-only; users adjust filters
-          via the Selects above or clear all via "مسح". Per-chip × removal
+          via the Selects above or clear all via "مسح". Per-chip × removal // i18n-exempt: doc comment
           deferred to v1.1. */}
       {activeCount > 0 && (
         <div className="md:hidden mt-2 flex flex-wrap gap-1.5">

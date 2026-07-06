@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Modal that wires the "تحويل لعميل" admin action to the
+ * Modal that wires the "تحويل لعميل" admin action to the // i18n-exempt: doc comment
  * /api/crm/leads/[id]/convert-to-customer endpoint (Step A).
  *
  * Triggered from <CustomerHeader>'s convert button (Step C placeholder
@@ -20,7 +20,7 @@
  * lead.is_converted = true (returns 422 otherwise). Idempotent: if
  * lead.client_id already exists, returns the existing client with
  * `created: false`. Both behaviours are surfaced as success toasts here
- * (no extra UI per case — admin sees "تم التحويل" + the page refetches).
+ * (no extra UI per case — admin sees "تم التحويل" + the page refetches). // i18n-exempt: doc comment
  */
 
 import { useState, useEffect } from 'react';

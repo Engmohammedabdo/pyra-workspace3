@@ -10,7 +10,7 @@
  * Two modes, switched by the `targetStageId` prop:
  *
  *   stg_contract_signed:
- *     Tabs (عقد / فاتورة) + picker list. Backed by /api/finance/contracts
+ *     Tabs (عقد / فاتورة) + picker list. Backed by /api/finance/contracts // i18n-exempt: doc comment
  *     and /api/invoices respectively. ⚠ Both gated by finance.view /
  *     invoices.view, which sales_agent doesn't have — that limitation
  *     is documented in CLAUDE.md as a Phase 7 known gap (admin-only

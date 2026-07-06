@@ -52,7 +52,7 @@ export async function GET(
     if (!lead) return apiNotFound(t('crm.leadNotFound'));
 
     // Phase 11.5: when the lead is linked to a client, fetch the client's
-    // name so the UI can render the "مرتبط بـ {client_name}" badge without
+    // name so the UI can render the "مرتبط بـ {client_name}" badge without // i18n-exempt: doc comment
     // a second round trip. Skipped entirely when client_id is null.
     let clientName: string | null = null;
     if (lead.client_id) {

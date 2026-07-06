@@ -60,7 +60,7 @@ interface PipelineCardProps {
   /**
    * Pipeline stages — passed down so the MobileStageSheet can list them.
    * Optional: when omitted (e.g. desktop column rendering), the mobile
-   * "نقل المرحلة" button is hidden. Phase 10 Commit 1 (Q-UI-001).
+   * "نقل المرحلة" button is hidden. Phase 10 Commit 1 (Q-UI-001). // i18n-exempt: doc comment
    */
   stages?: PipelineStage[];
   /**
@@ -84,7 +84,7 @@ interface PipelineCardProps {
 
 /**
  * daysAgoLabel — hand-rolled relative-date label preserving the exact
- * اليوم / منذ يوم / N أيام / N أسابيع / N شهور forms (Phase 3.3 migration:
+ * اليوم / منذ يوم / N أيام / N أسابيع / N شهور forms (Phase 3.3 migration: // i18n-exempt: doc comment
  * ported to crm.pipeline.timeAgo ICU keys; a hook since it now needs
  * useTranslations — module-level function became a hook, same call sites).
  */
@@ -335,7 +335,7 @@ export function PipelineCard({
         <PipelineCardView lead={lead} compact={compact} />
       </Link>
 
-      {/* Mobile-only "نقل المرحلة" button. Per Phase 7 Chunk 3 architecture:
+      {/* Mobile-only "نقل المرحلة" button. Per Phase 7 Chunk 3 architecture: // i18n-exempt: doc comment
           MUST live in <PipelineCard> source wrapper, NOT inside
           PipelineCardView (which is also rendered as the drag-overlay ghost
           via PipelineCardOverlay — placing the button there would duplicate

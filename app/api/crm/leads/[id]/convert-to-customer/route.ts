@@ -314,9 +314,9 @@ export async function POST(
         type: 'lead_converted_to_customer',
         title: 'تم تحويل العميل إلى عميل دائم', // i18n-exempt: notification content (Phase 8)
         // i18n hazard fix (census): the original was an Arabic word-stem
-        // splice (`مع${... ? ' حساب بورتال' : 'ون حساب بورتال'}`) that
-        // concatenated onto «مع» to build a mangled «معون…» (pre-existing
-        // typo, likely intended «بدون»). Replaced with two complete,
+        // splice (`مع${... ? ' حساب بورتال' : 'ون حساب بورتال'}`) that // i18n-exempt: doc comment
+        // concatenated onto «مع» to build a mangled «معون…» (pre-existing // i18n-exempt: doc comment
+        // typo, likely intended «بدون»). Replaced with two complete, // i18n-exempt: doc comment
         // grammatically-correct Arabic strings via a proper ternary —
         // untranslatable string-splicing no longer needed once each
         // branch is whole. Still exempt as notification content (Phase 8).

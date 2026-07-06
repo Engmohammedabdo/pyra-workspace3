@@ -20,7 +20,7 @@ import type { PyraLeadAttachment } from '@/types/database';
 // /api/crm/leads/[id]/attachments
 //
 // Phase 15.2 Commit 1 — per-lead image attachments. Camera + gallery uploads
-// from the "مرفقات" tab in lead detail.
+// from the "مرفقات" tab in lead detail. // i18n-exempt: doc comment
 //
 // Permission contract:
 //   GET   leads.view   + canAccessLead   (sales agent sees their own; admin all)

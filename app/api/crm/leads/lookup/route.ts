@@ -15,7 +15,7 @@ import { phoneMatchKey, stripPhone } from '@/lib/utils/phone';
  * Used by the Add Lead modal (Q-API-001) to warn — but NOT block — the user
  * when a similar phone number already exists. Returns the matched lead's
  * id, name, assigned_to (and assigned display name) so the modal can render
- * an inline "هذا الرقم موجود قبل كده" link.
+ * an inline "هذا الرقم موجود قبل كده" link. // i18n-exempt: doc comment
  *
  * Match strategy: case-insensitive ilike on the LAST 9 digits of the stripped
  * input. Catches +971 50 ..., 00971..., 050... variations of the same number.

@@ -55,6 +55,11 @@ const MIGRATED_PATHS: string[] = [
   'app/api/boards',
   'app/api/tasks',
   'app/api/my-tasks',
+  // Phase 3 — CRM
+  'app/dashboard/crm',
+  'components/crm',
+  'app/api/crm',
+  'hooks/useLeads.ts',
 ];
 
 const ARABIC = /[؀-ۿ]/; // i18n-exempt: Unicode range literal, not translatable text

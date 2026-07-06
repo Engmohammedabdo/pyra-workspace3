@@ -20,7 +20,7 @@
  *
  * Actions (Q-D2 deviation): the workspace has no standalone /api/finance/
  * contracts/[id]/pdf route — viewing/PDF download both happen on the
- * existing contract detail page. We collapse to a SINGLE "عرض العقد" link
+ * existing contract detail page. We collapse to a SINGLE "عرض العقد" link // i18n-exempt: doc comment
  * button (not the originally-approved 2 buttons). The detail page handles
  * View, Download PDF, Generate Invoice, and the rest of the lifecycle.
  * Documented in commit message; v1.1 can split actions if a separate
@@ -133,7 +133,7 @@ export function ContractCard({ contract }: Props) {
 
   // Month-count label mirroring the ORIGINAL flat-threshold ladder exactly.
   // Deliberately NOT an ICU plural: CLDR's `few` keys on n mod 100, so a
-  // 110-month contract would flip أشهر/شهر vs the pre-i18n rendering
+  // 110-month contract would flip أشهر/شهر vs the pre-i18n rendering // i18n-exempt: doc comment
   // (P3-T6 review finding). Thresholds live here, keys are plain.
   const monthsLabel = (months: number): string => {
     if (months === 1) return t('durationOne');

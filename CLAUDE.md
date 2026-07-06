@@ -480,7 +480,7 @@ import { INVOICE_STATUS, INVOICE_STATUS_LABELS, INVOICE_PAID_STATUSES } from '@/
 ```
 Entities with centralized statuses: Invoice, Quote, Contract, Expense, Leave, Payroll, PO, CreditNote, Subscription, Timesheet, FileApproval, PaymentMethod, BillingCycle, EmployeePayment, Evaluation, ContentPipeline, FollowUp, Client, Lead, Conversation.
 
-## i18n — Bilingual AR/EN (Phases 0–2 shipped)
+## i18n — Bilingual AR/EN (Phases 0–3 shipped)
 
 next-intl WITHOUT locale routing — URLs never change. Locale = `pyra_locale`
 cookie (cache) ← `pyra_users.preferred_language` / `pyra_clients.preferred_language`
@@ -514,6 +514,16 @@ layouts.
   WhatsApp / DB-data strings inside routes STAY Arabic with a documented
   `// i18n-exempt:` comment until Phase 8 (they're persisted content, not
   per-request response messages).
+- Server-computed display strings (e.g. CRM AI-insight messages) render per-
+  request locale via `getTranslations` and ship as `message` alongside a
+  legacy `message_ar` — the client reads `message ?? message_ar`, never
+  re-derives the text itself.
+- CLDR plural categories key on `n mod 100`, not raw thresholds — when
+  reproducing a legacy flat-threshold Arabic ladder (e.g. a duration label
+  with hand-picked cutoffs), keep the thresholds in CODE with plain
+  interpolation keys instead of forcing ICU plural categories (see the
+  contract-card `monthsLabel` helper) — ICU `few`/`many` would silently
+  diverge from the original behavior past the ladder's tested range.
 - Board-template SEEDED column/label names (`lib/config/board-templates.ts` →
   columns written into real `pyra_columns` rows on board creation) remain
   Arabic DB data — creator-locale seeding (localizing template content at

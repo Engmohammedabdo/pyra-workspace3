@@ -8,8 +8,8 @@
  * and a Sheet detail panel matching the Phase 10 / Phase 14.1 pattern.
  *
  * Pipeline:
- *   1. User taps "📷 كاميرا" → native camera (iOS/Android via capture=environment)
- *      OR taps "🖼️ معرض الصور" → multi-select gallery
+ *   1. User taps "📷 كاميرا" → native camera (iOS/Android via capture=environment) // i18n-exempt: doc comment
+ *      OR taps "🖼️ معرض الصور" → multi-select gallery // i18n-exempt: doc comment
  *   2. For EACH selected file:
  *      a. Client Canvas resize (lib/utils/image-resize) — 1920×1920 max,
  *         JPEG 0.82, EXIF stripped as side effect

@@ -17,7 +17,7 @@
  *
  * Error: 404 means lead doesn't exist OR caller can't access it
  * (canAccessLead enforces sales-agent scope server-side). Show a
- * minimal "غير موجود" message rather than a generic error.
+ * minimal "غير موجود" message rather than a generic error. // i18n-exempt: doc comment, actual UI uses t('notFoundTitle')
  */
 
 import Link from 'next/link';
@@ -68,7 +68,7 @@ export function CustomerDetailClient({ leadId }: Props) {
   }
 
   // Non-404 error (500 / exhausted retries) — show a real error + retry instead
-  // of falling through to a permanent skeleton ("جاري تحميل..." forever).
+  // of falling through to a permanent skeleton ("جاري تحميل..." forever). // i18n-exempt: doc comment
   if (error && !isLoading) {
     return (
       <div className="py-16">
@@ -129,7 +129,7 @@ function TabContent({
     );
   }
 
-  // Files tab — Q-C3 (γ): "قريباً" empty state, preserves nav structure.
+  // Files tab — Q-C3 (γ): "قريباً" empty state, preserves nav structure. // i18n-exempt: doc comment
   if (activeTab === 'files') {
     return (
       <div className="py-12">

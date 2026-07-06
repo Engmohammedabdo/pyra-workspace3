@@ -4,13 +4,13 @@
  * Phase 15.1 Commit 3 — Lead Tasks tab.
  *
  * Structure (top-to-bottom):
- *   1. "+ إضافة مهمة" expand button (collapsed by default)
+ *   1. "+ إضافة مهمة" expand button (collapsed by default) // i18n-exempt: doc comment
  *   2. Expanded inline create form (title required, due_date optional,
  *      priority dropdown default 'medium', assignee combobox)
  *   3. Task list (rendered as <LeadTaskRow> components — see file for
  *      inline-edit + kebab semantics)
- *   4. Edit Sheet (slides from inline-end; opens via kebab "تعديل التفاصيل")
- *   5. Delete AlertDialog (opens via kebab "حذف")
+ *   4. Edit Sheet (slides from inline-end; opens via kebab "تعديل التفاصيل") // i18n-exempt: doc comment
+ *   5. Delete AlertDialog (opens via kebab "حذف") // i18n-exempt: doc comment
  *
  * Empty state: <EmptyState> with ClipboardList icon. NO CTA (form is at
  * the top of the tab, always accessible).

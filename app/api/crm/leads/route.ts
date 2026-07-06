@@ -190,7 +190,7 @@ export async function GET(request: NextRequest) {
 //
 // Per Q-API-001 we DO NOT block on phone duplicates — but we surface a
 // `duplicate_warning: { existing_lead_id, existing_lead_name }` when found
-// so the modal can render a "هذا الرقم موجود قبل كده" hint after insert.
+// so the modal can render a "هذا الرقم موجود قبل كده" hint after insert. // i18n-exempt: doc comment
 // (Same modal also calls /api/crm/leads/lookup on phone-blur for pre-submit
 // awareness — see Q-API-001 resolution.)
 //

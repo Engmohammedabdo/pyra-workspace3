@@ -35,7 +35,7 @@ interface ApprovalRejectModalProps {
   /** Pre-fill / context — shows the lead's name in the modal title. */
   leadName: string;
   submitting: boolean;
-  /** Called when the user clicks "تأكيد الرفض" with a valid reason. */
+  /** Called when the user clicks "تأكيد الرفض" with a valid reason. */ // i18n-exempt: doc comment
   onConfirm: (reason: string) => void;
 }
 

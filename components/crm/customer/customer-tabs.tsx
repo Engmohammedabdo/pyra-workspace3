@@ -3,14 +3,14 @@
 /**
  * 7-tab navigation for the Active Customer Page.
  *
- * Tab list (PRD §04 line 214):
- *   نظرة عامة (Overview) — default
- *   العقود (Contracts)   — Cluster 2 builds the killer tab
- *   المشاريع (Projects)  — v1 empty state, deferred
- *   الفواتير (Invoices)  — v1 empty state, deferred
- *   النشاط (Activity)    — Cluster 3
- *   الملفات (Files)      — Q-C3 (γ): empty "قريباً" placeholder
- *   ملاحظات (Notes)      — Cluster 3
+ * Tab list (PRD §04 line 214): // i18n-exempt: doc comment header, list below
+ *   نظرة عامة (Overview) — default // i18n-exempt: doc comment
+ *   العقود (Contracts)   — Cluster 2 builds the killer tab // i18n-exempt: doc comment
+ *   المشاريع (Projects)  — v1 empty state, deferred // i18n-exempt: doc comment
+ *   الفواتير (Invoices)  — v1 empty state, deferred // i18n-exempt: doc comment
+ *   النشاط (Activity)    — Cluster 3 // i18n-exempt: doc comment
+ *   الملفات (Files)      — Q-C3 (γ): empty "قريباً" placeholder // i18n-exempt: doc comment
+ *   ملاحظات (Notes)      — Cluster 3 // i18n-exempt: doc comment
  *
  * Active tab persisted in URL via `?tab=<id>` per PRD §04 line 199
  * ("store active tab in URL query param for shareable links"). Sticky

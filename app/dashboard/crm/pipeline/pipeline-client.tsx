@@ -141,7 +141,7 @@ export function PipelineClient() {
     const source = sp.get('source');
     const priority = sp.get('priority');
     if (search) params.search = search;
-    // '__inactive__' sentinel → the "كل المغادرين" view (all departed agents'
+    // '__inactive__' sentinel → the "كل المغادرين" view (all departed agents' // i18n-exempt: doc comment
     // leads) via the admin assigned_status filter; otherwise a normal owner.
     if (owner === '__inactive__') params.assigned_status = 'inactive';
     else if (owner) params.assigned_to = owner;
@@ -160,8 +160,8 @@ export function PipelineClient() {
   // Owner options for the admin filter — sourced from ALL sales-capable users
   // (active AND departed), NOT the currently-filtered `leads` (which collapsed
   // the dropdown to just the selected owner). Departed agents are KEPT + marked
-  // "مغادر" so an admin can filter to a departed agent's leads and re-home them;
-  // a trailing "كل المغادرين" option shows every departed agent's leads at once.
+  // "مغادر" so an admin can filter to a departed agent's leads and re-home them; // i18n-exempt: doc comment
+  // a trailing "كل المغادرين" option shows every departed agent's leads at once. // i18n-exempt: doc comment
   // (Reassignment TARGETS stay active-only via useLeadCapableUsers().leadCapable
   // in the bulk bar / reassign modal — you never hand leads to someone who left.)
   const { all: allUsers } = useLeadCapableUsers();

@@ -187,7 +187,7 @@ export async function POST(
         }
         // NOTE: this is class (c) — attachmentLabel is computed per-request
         // then STORED into pyra_lead_activities.description + metadata (never
-        // returned in the response body). The literal "فاتورة" (invoice) noun
+        // returned in the response body). The literal "فاتورة" (invoice) noun // i18n-exempt: doc comment
         // is DB-write content, not an API response string — exempt per census.
         attachmentLabel = invoice.invoice_number
           ? `فاتورة #${invoice.invoice_number}` // i18n-exempt: DB data

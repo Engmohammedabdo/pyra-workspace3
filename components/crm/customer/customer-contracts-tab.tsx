@@ -19,7 +19,7 @@
  *   2 — everything else (paused / cancelled / draft / etc.)
  *   3 — completed (greyed via opacity in <ContractCard>)
  *
- * Header summary: "X عقود · إجمالي Y AED + متجدد Z شهريًا"
+ * Header summary: "X عقود · إجمالي Y AED + متجدد Z شهريًا" // i18n-exempt: doc comment
  *   - X = contracts.length
  *   - Y = sum of contract.total_value (NOT just paid — total commercial value)
  *   - Z = kpis.mrr (active retainers normalised to monthly)
