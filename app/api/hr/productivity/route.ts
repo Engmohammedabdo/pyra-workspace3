@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError, apiValidationError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
@@ -16,10 +17,11 @@ export async function GET(request: NextRequest) {
     const auth = await requireApiPermission('hr.view');
     if (isApiError(auth)) return auth;
 
+    const t = await getTranslations('api');
     const { searchParams } = new URL(request.url);
     const month = searchParams.get('month') || dubaiDayKey().slice(0, 7);
     if (!/^\d{4}-\d{2}$/.test(month)) {
-      return apiValidationError('صيغة الشهر غير صحيحة — المطلوب YYYY-MM');
+      return apiValidationError(t('hr.productivityMonthFormatInvalid'));
     }
 
     const supabase = createServiceRoleClient();

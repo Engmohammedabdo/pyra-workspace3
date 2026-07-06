@@ -740,6 +740,154 @@
         "lowPerformance": "أداء منخفض",
         "lineChartName": "التقييم"
       }
+    },
+    "overview": {
+      "meta": {
+        "title": "الموارد البشرية — نظرة عامة"
+      },
+      "loadError": {
+        "title": "تعذّر تحميل بيانات الموارد البشرية",
+        "description": "يرجى تحديث الصفحة أو التواصل مع الدعم الفني"
+      },
+      "daysLabel": {
+        "one": "يوم",
+        "other": "أيام"
+      },
+      "yearsLabel": {
+        "one": "سنة",
+        "other": "سنوات"
+      },
+      "alerts": {
+        "leaveBacklog": "{count} طلبات إجازة تنتظر الموافقة",
+        "leavePending": "{count} طلب إجازة بانتظار الموافقة",
+        "payrollNotCalculated": "رواتب الشهر الحالي لم تُحتسب بعد",
+        "absentNoLeave": "{count} موظفين غائبون بلا إجازة اليوم",
+        "docsExpired": "{count} وثيقة منتهية الصلاحية",
+        "docsExpiringSoon": "{count} وثيقة تنتهي خلال 30 يوماً"
+      },
+      "kpiRow": {
+        "headcount": {
+          "title": "إجمالي الموظفين",
+          "subtitle": "{count} موظف جديد في آخر 30 يوم"
+        },
+        "attendanceToday": {
+          "title": "الحضور اليوم",
+          "subtitle": "حاضر: {present} · غائب: {absent}"
+        },
+        "onLeaveToday": {
+          "title": "في إجازة اليوم"
+        },
+        "pendingApprovals": {
+          "title": "موافقات معلقة",
+          "leaveBreakdown": "إجازات: {count}",
+          "expenseBreakdown": "مصاريف: {count}",
+          "timesheetBreakdown": "جداول: {count}"
+        },
+        "lastPayrollCost": {
+          "title": "تكلفة الرواتب الأخيرة"
+        },
+        "turnover": {
+          "title": "المغادرون (90 يوم)",
+          "subtitle": "إجمالي غير نشط: {count}"
+        }
+      },
+      "headcountChart": {
+        "title": "توزيع الموظفين بالأقسام",
+        "totalBadge": "{count} موظف",
+        "aria": "توزيع {total} موظف على {count} قسم: {list}",
+        "tooltipLabel": "موظف",
+        "empty": "لا توجد بيانات أقسام"
+      },
+      "payrollTrendChart": {
+        "title": "اتجاه تكلفة الرواتب",
+        "currenciesBadge": "{count} عملات",
+        "latestLabel": "آخر: {amount}",
+        "aria": "اتجاه تكلفة الرواتب بعملة {currency}. آخر قيمة {amount}",
+        "tooltipLabel": "إجمالي الرواتب",
+        "empty": "لا توجد بيانات رواتب"
+      },
+      "upcomingLeave": {
+        "title": "الإجازات القادمة (7 أيام)",
+        "openAria": "افتح صفحة الإجازات القادمة",
+        "empty": "لا توجد إجازات قادمة في الأيام السبعة القادمة"
+      },
+      "evaluationsStatus": {
+        "title": "التقييمات",
+        "openAria": "افتح صفحة التقييمات",
+        "pending": "معلقة",
+        "submitted": "مقدمة",
+        "acknowledged": "مؤكدة",
+        "noActivePeriod": "لا توجد دورة تقييم نشطة حالياً"
+      },
+      "celebrations": {
+        "title": "مناسبات قريبة",
+        "empty": "لا توجد مناسبات قريبة"
+      },
+      "leaveLiability": {
+        "title": "التزام الإجازات",
+        "openAria": "افتح صفحة أرصدة الإجازات",
+        "empty": "لا يوجد التزام إجازات مدفوعة حالياً"
+      }
+    },
+    "productivity": {
+      "meta": {
+        "title": "تقرير الإنتاجية | Pyra Workspace"
+      },
+      "page": {
+        "title": "تقرير الإنتاجية",
+        "subtitle": "التسليمات والالتزام بالمواعيد وجولات التعديل والدوام — لكل موظف إنتاج",
+        "monthPickerAria": "اختر الشهر"
+      },
+      "empty": {
+        "title": "لا توجد بيانات إنتاج",
+        "description": "لا توجد مهام على لوحة الإنتاج لهذا الشهر بعد"
+      },
+      "attendanceLine": "دوام: {present} حضور · {late} تأخير · {absent} غياب · {hours} ساعة",
+      "kpis": {
+        "deliveries": "تسليمات مكتملة",
+        "onTimePct": {
+          "label": "الالتزام بالمواعيد",
+          "hint": "على أول رفع للمراجعة"
+        },
+        "avgDelay": {
+          "label": "متوسط التأخير",
+          "value": "{days} يوم",
+          "hint": "{count} مهمة متأخرة"
+        },
+        "avgRounds": {
+          "label": "جولات التعديل",
+          "hint": "متوسط لكل تسليم"
+        },
+        "avgFirstSubmission": {
+          "label": "سرعة أول نسخة",
+          "value": "{days} يوم",
+          "hint": "من إنشاء المهمة"
+        },
+        "avgReviewWait": {
+          "label": "انتظار مراجعتك",
+          "value": "{hours} س",
+          "hint": "متوسط لكل جولة"
+        },
+        "openOverdue": {
+          "label": "متأخرة ولم تُرفع"
+        }
+      },
+      "taskDetailsToggle": "تفاصيل المهام ({count})",
+      "table": {
+        "task": "المهمة",
+        "deadline": "الديدلاين",
+        "firstSubmission": "أول رفع",
+        "commitment": "الالتزام",
+        "rounds": "جولات",
+        "finalDelivery": "التسليم النهائي",
+        "onTime": "في الموعد",
+        "late": "متأخر {days} يوم",
+        "notDelivered": "لم يُسلم"
+      },
+      "footer": {
+        "onTimeDisclaimer": "الالتزام يُقاس على أول رفع للمراجعة (قرار مقفول 2026-07-03) — وقت انتظار المراجعة والجولات أرقام منفصلة.",
+        "derivedDisclaimer": "الأرقام مشتقة من سجل حركة المهام — لا عدادات مخزنة."
+      }
     }
   }
 }

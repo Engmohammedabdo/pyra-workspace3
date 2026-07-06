@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Star, ArrowUpRight } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import type { HROverview } from '@/hooks/useHROverview';
@@ -25,6 +26,7 @@ function StatPill({ label, value, colorClass }: StatPillProps) {
 }
 
 export function EvaluationsStatusCard({ evaluations }: EvaluationsStatusCardProps) {
+  const t = useTranslations('hr.overview.evaluationsStatus');
   const hasActivePeriod = Boolean(evaluations.active_period);
 
   return (
@@ -32,7 +34,7 @@ export function EvaluationsStatusCard({ evaluations }: EvaluationsStatusCardProp
       {/* Section header — section-header-as-link pattern */}
       <Link
         href="/dashboard/evaluations"
-        aria-label="افتح صفحة التقييمات"
+        aria-label={t('openAria')}
         className={cn(
           'group flex items-center justify-between px-5 py-4 border-b border-border/40',
           'hover:bg-muted/50 transition-colors cursor-pointer',
@@ -43,8 +45,11 @@ export function EvaluationsStatusCard({ evaluations }: EvaluationsStatusCardProp
             <Star className="h-4 w-4 text-white" />
           </div>
           <div>
-            <h3 className="font-bold text-sm">التقييمات</h3>
+            <h3 className="font-bold text-sm">{t('title')}</h3>
             {hasActivePeriod && (
+              // active_period is a server-computed display string (per-request
+              // locale, resolved in /api/hr/overview from the DB row's
+              // name/name_ar) — rendered verbatim, not translated client-side.
               <p className="text-xs text-muted-foreground mt-0.5">{evaluations.active_period}</p>
             )}
           </div>
@@ -60,17 +65,17 @@ export function EvaluationsStatusCard({ evaluations }: EvaluationsStatusCardProp
         {hasActivePeriod ? (
           <div className="grid grid-cols-3 gap-3">
             <StatPill
-              label="معلقة"
+              label={t('pending')}
               value={evaluations.pending}
               colorClass="bg-yellow-50/80 dark:bg-yellow-950/30 border-yellow-200/60 dark:border-yellow-800/40 text-yellow-700 dark:text-yellow-400"
             />
             <StatPill
-              label="مقدمة"
+              label={t('submitted')}
               value={evaluations.submitted}
               colorClass="bg-blue-50/80 dark:bg-blue-950/30 border-blue-200/60 dark:border-blue-800/40 text-blue-700 dark:text-blue-400"
             />
             <StatPill
-              label="مؤكدة"
+              label={t('acknowledged')}
               value={evaluations.acknowledged}
               colorClass="bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200/60 dark:border-emerald-800/40 text-emerald-700 dark:text-emerald-400"
             />
@@ -78,7 +83,7 @@ export function EvaluationsStatusCard({ evaluations }: EvaluationsStatusCardProp
         ) : (
           /* Phase 13 compact inline stub — no active evaluation period */
           <div className="py-4">
-            <p className="text-sm text-muted-foreground">لا توجد دورة تقييم نشطة حالياً</p>
+            <p className="text-sm text-muted-foreground">{t('noActivePeriod')}</p>
           </div>
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import { useTranslations } from 'next-intl';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Users } from 'lucide-react';
@@ -25,6 +26,7 @@ const itemMotion = {
 };
 
 export default function HrOverviewClient() {
+  const t = useTranslations('hr.overview.loadError');
   const { data, isLoading } = useHROverview();
 
   if (isLoading) {
@@ -54,8 +56,8 @@ export default function HrOverviewClient() {
     return (
       <EmptyState
         icon={Users}
-        title="تعذّر تحميل بيانات الموارد البشرية"
-        description="يرجى تحديث الصفحة أو التواصل مع الدعم الفني"
+        title={t('title')}
+        description={t('description')}
       />
     );
   }

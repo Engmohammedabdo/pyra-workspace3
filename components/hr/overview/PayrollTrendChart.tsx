@@ -1,6 +1,7 @@
 'use client';
 
 import { useId } from 'react';
+import { useTranslations } from 'next-intl';
 import { Banknote, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils/format';
 import {
@@ -25,9 +26,14 @@ const PAYROLL_COLOR = CHART_COLORS[4]; // purple-500
 
 /** One independent area chart for a single currency's payroll trend. */
 function CurrencySeries({ group }: { group: CurrencyTrend }) {
+  const t = useTranslations('hr.overview.payrollTrendChart');
   const gradientId = useId();
   const points = group.points;
   const latestTotal = points.length ? points[points.length - 1].total : 0;
+  const latestFormatted = formatCurrency(latestTotal, group.currency);
+  // Recharts tooltip closures are re-created on every render — resolve the
+  // label once at component top rather than inside the formatter callback.
+  const tooltipLabel = t('tooltipLabel');
 
   return (
     <div className="space-y-2">
@@ -36,11 +42,11 @@ function CurrencySeries({ group }: { group: CurrencyTrend }) {
           {group.currency}
         </span>
         <span className="ms-auto text-xs text-muted-foreground">
-          آخر: {formatCurrency(latestTotal, group.currency)}
+          {t('latestLabel', { amount: latestFormatted })}
         </span>
       </div>
       <div
-        aria-label={`اتجاه تكلفة الرواتب بعملة ${group.currency}. آخر قيمة ${formatCurrency(latestTotal, group.currency)}`}
+        aria-label={t('aria', { currency: group.currency, amount: latestFormatted })}
       >
         <ResponsiveContainer width="100%" height={200}>
           <AreaChart data={points}>
@@ -69,7 +75,7 @@ function CurrencySeries({ group }: { group: CurrencyTrend }) {
             />
             <Tooltip
               contentStyle={CHART_TOOLTIP_STYLE}
-              formatter={(value: number) => [formatCurrency(value, group.currency), 'إجمالي الرواتب']}
+              formatter={(value: number) => [formatCurrency(value, group.currency), tooltipLabel]}
               labelFormatter={(label: string) => label}
             />
             <Area
@@ -87,6 +93,7 @@ function CurrencySeries({ group }: { group: CurrencyTrend }) {
 }
 
 export function PayrollTrendChart({ trendByCurrency }: PayrollTrendChartProps) {
+  const t = useTranslations('hr.overview.payrollTrendChart');
   const hasTrend = trendByCurrency && trendByCurrency.length > 0;
 
   return (
@@ -96,10 +103,10 @@ export function PayrollTrendChart({ trendByCurrency }: PayrollTrendChartProps) {
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-violet-600 flex items-center justify-center shadow-md shadow-purple-500/15">
           <Banknote className="h-4 w-4 text-white" />
         </div>
-        <h3 className="font-bold text-sm">اتجاه تكلفة الرواتب</h3>
+        <h3 className="font-bold text-sm">{t('title')}</h3>
         {hasTrend && trendByCurrency.length > 1 && (
           <span className="ms-auto text-xs text-muted-foreground">
-            {trendByCurrency.length} عملات
+            {t('currenciesBadge', { count: trendByCurrency.length })}
           </span>
         )}
       </div>
@@ -115,7 +122,7 @@ export function PayrollTrendChart({ trendByCurrency }: PayrollTrendChartProps) {
           /* compact inline stub */
           <div className="flex flex-col items-center justify-center py-10 text-center">
             <TrendingUp className="h-8 w-8 text-muted-foreground/40 mb-2" />
-            <p className="text-sm text-muted-foreground">لا توجد بيانات رواتب</p>
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>
         )}
       </div>

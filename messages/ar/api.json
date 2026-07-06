@@ -256,7 +256,8 @@
       "onboardingNotFound": "سجل التعيين غير موجود",
       "documentTypeNotFound": "نوع المستند غير موجود",
       "invalidJsonBody": "طلب غير صالح — يجب أن يكون JSON",
-      "namesRequired": "الاسم والاسم العربي مطلوبان"
+      "namesRequired": "الاسم والاسم العربي مطلوبان",
+      "productivityMonthFormatInvalid": "صيغة الشهر غير صحيحة — المطلوب YYYY-MM"
     },
     "attendance": {
       "alreadyClockedIn": "لقد سجلت الدخول مسبقاً اليوم",

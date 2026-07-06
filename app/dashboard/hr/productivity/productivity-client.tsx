@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useProductivityReport } from '@/hooks/useProductivity';
 import type { EmployeeReport } from '@/lib/production/report';
 import { Card } from '@/components/ui/card';
@@ -10,6 +11,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { formatDate, dubaiDayKey } from '@/lib/utils/format';
 import { BarChart3, ChevronDown, Clock, PackageCheck, RefreshCcw, Timer } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
+import type { Locale } from '@/lib/i18n/config';
 
 function Kpi({ label, value, hint, tone = 'default' }: {
   label: string; value: string; hint?: string;
@@ -37,6 +39,8 @@ function onTimeTone(pct: number | null): 'default' | 'good' | 'warn' | 'bad' {
 }
 
 function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
+  const t = useTranslations('hr.productivity');
+  const locale = useLocale() as Locale;
   const [open, setOpen] = useState(false);
   const m = emp.metrics;
 
@@ -47,10 +51,10 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
   // engine buckets (dubaiDayKey → YYYY-MM) so past months reconcile exactly.
   const isCurrentMonth = month === dubaiDayKey().slice(0, 7);
   const monthOf = (iso: string) => dubaiDayKey(new Date(iso)).slice(0, 7);
-  const visibleTasks = emp.tasks.filter((t) => {
-    if (t.delivered_at && monthOf(t.delivered_at) === month) return true;
-    if (t.first_submitted_at && monthOf(t.first_submitted_at) === month) return true;
-    if (isCurrentMonth && !t.first_submitted_at && !t.delivered_at) return true;
+  const visibleTasks = emp.tasks.filter((task) => {
+    if (task.delivered_at && monthOf(task.delivered_at) === month) return true;
+    if (task.first_submitted_at && monthOf(task.first_submitted_at) === month) return true;
+    if (isCurrentMonth && !task.first_submitted_at && !task.delivered_at) return true;
     return false;
   });
 
@@ -60,18 +64,41 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
         <h3 className="font-semibold">{emp.display_name}</h3>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Clock className="size-3.5" aria-hidden />
-          دوام: {emp.attendance.present_days} حضور · {emp.attendance.late_days} تأخير · {emp.attendance.absent_days} غياب · {emp.attendance.total_hours} ساعة
+          {t('attendanceLine', {
+            present: emp.attendance.present_days,
+            late: emp.attendance.late_days,
+            absent: emp.attendance.absent_days,
+            hours: emp.attendance.total_hours,
+          })}
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
-        <Kpi label="تسليمات مكتملة" value={String(m.deliveries)} />
-        <Kpi label="الالتزام بالمواعيد" value={m.on_time_pct === null ? '—' : `${m.on_time_pct}%`} tone={onTimeTone(m.on_time_pct)} hint="على أول رفع للمراجعة" />
-        <Kpi label="متوسط التأخير" value={m.avg_delay_days === null ? '—' : `${m.avg_delay_days} يوم`} tone={m.avg_delay_days ? 'warn' : 'default'} hint={`${m.late_count} مهمة متأخرة`} />
-        <Kpi label="جولات التعديل" value={m.avg_rounds === null ? '—' : String(m.avg_rounds)} hint="متوسط لكل تسليم" />
-        <Kpi label="سرعة أول نسخة" value={m.avg_days_to_first_submission === null ? '—' : `${m.avg_days_to_first_submission} يوم`} hint="من إنشاء المهمة" />
-        <Kpi label="انتظار مراجعتك" value={m.avg_review_wait_hours === null ? '—' : `${m.avg_review_wait_hours} س`} hint="متوسط لكل جولة" />
-        <Kpi label="متأخرة ولم تُرفع" value={String(m.open_overdue)} tone={m.open_overdue > 0 ? 'bad' : 'default'} />
+        <Kpi label={t('kpis.deliveries')} value={String(m.deliveries)} />
+        <Kpi
+          label={t('kpis.onTimePct.label')}
+          value={m.on_time_pct === null ? '—' : `${m.on_time_pct}%`}
+          tone={onTimeTone(m.on_time_pct)}
+          hint={t('kpis.onTimePct.hint')}
+        />
+        <Kpi
+          label={t('kpis.avgDelay.label')}
+          value={m.avg_delay_days === null ? '—' : t('kpis.avgDelay.value', { days: m.avg_delay_days })}
+          tone={m.avg_delay_days ? 'warn' : 'default'}
+          hint={t('kpis.avgDelay.hint', { count: m.late_count })}
+        />
+        <Kpi label={t('kpis.avgRounds.label')} value={m.avg_rounds === null ? '—' : String(m.avg_rounds)} hint={t('kpis.avgRounds.hint')} />
+        <Kpi
+          label={t('kpis.avgFirstSubmission.label')}
+          value={m.avg_days_to_first_submission === null ? '—' : t('kpis.avgFirstSubmission.value', { days: m.avg_days_to_first_submission })}
+          hint={t('kpis.avgFirstSubmission.hint')}
+        />
+        <Kpi
+          label={t('kpis.avgReviewWait.label')}
+          value={m.avg_review_wait_hours === null ? '—' : t('kpis.avgReviewWait.value', { hours: m.avg_review_wait_hours })}
+          hint={t('kpis.avgReviewWait.hint')}
+        />
+        <Kpi label={t('kpis.openOverdue.label')} value={String(m.open_overdue)} tone={m.open_overdue > 0 ? 'bad' : 'default'} />
       </div>
 
       <button
@@ -80,7 +107,7 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
         aria-expanded={open}
       >
         <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} aria-hidden />
-        تفاصيل المهام ({visibleTasks.length})
+        {t('taskDetailsToggle', { count: visibleTasks.length })}
       </button>
 
       {open && (
@@ -88,27 +115,27 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b text-muted-foreground">
-                <th scope="col" className="p-2 text-start">المهمة</th>
-                <th scope="col" className="p-2 text-start">الديدلاين</th>
-                <th scope="col" className="p-2 text-start">أول رفع</th>
-                <th scope="col" className="p-2 text-start">الالتزام</th>
-                <th scope="col" className="p-2 text-start">جولات</th>
-                <th scope="col" className="p-2 text-start">التسليم النهائي</th>
+                <th scope="col" className="p-2 text-start">{t('table.task')}</th>
+                <th scope="col" className="p-2 text-start">{t('table.deadline')}</th>
+                <th scope="col" className="p-2 text-start">{t('table.firstSubmission')}</th>
+                <th scope="col" className="p-2 text-start">{t('table.commitment')}</th>
+                <th scope="col" className="p-2 text-start">{t('table.rounds')}</th>
+                <th scope="col" className="p-2 text-start">{t('table.finalDelivery')}</th>
               </tr>
             </thead>
             <tbody>
-              {visibleTasks.map((t) => (
-                <tr key={t.task_id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
-                  <td className="p-2 font-medium">{t.title}</td>
-                  <td className="p-2">{t.due_date ? formatDate(t.due_date) : '—'}</td>
-                  <td className="p-2">{t.first_submitted_at ? formatDate(t.first_submitted_at) : '—'}</td>
+              {visibleTasks.map((task) => (
+                <tr key={task.task_id} className="border-b last:border-b-0 hover:bg-muted/30 transition-colors">
+                  <td className="p-2 font-medium">{task.title}</td>
+                  <td className="p-2">{task.due_date ? formatDate(task.due_date, undefined, locale) : '—'}</td>
+                  <td className="p-2">{task.first_submitted_at ? formatDate(task.first_submitted_at, undefined, locale) : '—'}</td>
                   <td className="p-2">
-                    {t.on_time === null ? <span className="text-muted-foreground">—</span>
-                      : t.on_time ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">في الموعد</Badge>
-                      : <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">متأخر {t.delay_days} يوم</Badge>}
+                    {task.on_time === null ? <span className="text-muted-foreground">—</span>
+                      : task.on_time ? <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-0">{t('table.onTime')}</Badge>
+                      : <Badge className="bg-red-500/10 text-red-600 dark:text-red-400 border-0">{t('table.late', { days: task.delay_days ?? 0 })}</Badge>}
                   </td>
-                  <td className="p-2">{t.review_rounds}</td>
-                  <td className="p-2">{t.delivered_at ? formatDate(t.delivered_at) : <span className="text-muted-foreground">لم يُسلم</span>}</td>
+                  <td className="p-2">{task.review_rounds}</td>
+                  <td className="p-2">{task.delivered_at ? formatDate(task.delivered_at, undefined, locale) : <span className="text-muted-foreground">{t('table.notDelivered')}</span>}</td>
                 </tr>
               ))}
             </tbody>
@@ -120,6 +147,7 @@ function EmployeeCard({ emp, month }: { emp: EmployeeReport; month: string }) {
 }
 
 export function ProductivityClient() {
+  const t = useTranslations('hr.productivity');
   const [month, setMonth] = useState(dubaiDayKey().slice(0, 7));
   const { data, isLoading } = useProductivityReport(month);
 
@@ -129,10 +157,10 @@ export function ProductivityClient() {
         <div>
           <h1 className="text-xl font-bold flex items-center gap-2">
             <BarChart3 className="size-5 text-orange-500" aria-hidden />
-            تقرير الإنتاجية
+            {t('page.title')}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            التسليمات والالتزام بالمواعيد وجولات التعديل والدوام — لكل موظف إنتاج
+            {t('page.subtitle')}
           </p>
         </div>
         <input
@@ -140,7 +168,7 @@ export function ProductivityClient() {
           value={month}
           onChange={(e) => setMonth(e.target.value)}
           className="h-10 rounded-md border bg-background px-3 text-sm"
-          aria-label="اختر الشهر"
+          aria-label={t('page.monthPickerAria')}
         />
       </div>
 
@@ -152,8 +180,8 @@ export function ProductivityClient() {
       ) : !data?.employees.length ? (
         <EmptyState
           icon={PackageCheck}
-          title="لا توجد بيانات إنتاج"
-          description="لا توجد مهام على لوحة الإنتاج لهذا الشهر بعد"
+          title={t('empty.title')}
+          description={t('empty.description')}
         />
       ) : (
         data.employees.map((emp) => <EmployeeCard key={emp.username} emp={emp} month={month} />)
@@ -161,9 +189,9 @@ export function ProductivityClient() {
 
       <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
         <Timer className="size-3" aria-hidden />
-        الالتزام يُقاس على أول رفع للمراجعة (قرار مقفول 2026-07-03) — وقت انتظار المراجعة والجولات أرقام منفصلة.
+        {t('footer.onTimeDisclaimer')}
         <RefreshCcw className="size-3 ms-2" aria-hidden />
-        الأرقام مشتقة من سجل حركة المهام — لا عدادات مخزنة.
+        {t('footer.derivedDisclaimer')}
       </p>
     </div>
   );

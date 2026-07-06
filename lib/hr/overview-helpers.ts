@@ -100,28 +100,41 @@ const SEVERITY_RANK: Record<'critical' | 'high' | 'medium' | 'low', number> = {
 };
 
 /**
+ * Minimal translation-function shape `deriveAlerts` needs — matches the
+ * subset of next-intl's `getTranslations()` return value that's actually
+ * called (a key + ICU params in, a string out). Keeping the shape narrow
+ * lets tests pass a trivial stub without pulling in next-intl.
+ */
+export type AlertTranslator = (key: string, values?: Record<string, string | number>) => string;
+
+/**
  * Derive HR alerts from aggregated metrics.
  *
  * Severity rules (matching CRM AI Insights scheme from CLAUDE.md):
  *   critical → leave backlog > 5
  *   high     → payroll not calculated this month OR absent employees with no leave
  *   medium   → 1-5 leave requests pending
+ *
+ * i18n Phase 5.6 (Approach A, locked): messages are resolved via an injected
+ * translator `t` (the route calls `getTranslations('hr.overview.alerts')` and
+ * passes it in) instead of being baked as Arabic sentences here. The two
+ * leave-count tiers stay TWO keys (flat-threshold doctrine — no ICU plural).
  */
-export function deriveAlerts(input: AlertInput): HrAlert[] {
+export function deriveAlerts(input: AlertInput, t: AlertTranslator): HrAlert[] {
   const alerts: HrAlert[] = [];
 
   if (input.leavePending > 5) {
     alerts.push({
       id: 'leave-backlog',
       severity: 'critical',
-      message: `${input.leavePending} طلبات إجازة تنتظر الموافقة`,
+      message: t('leaveBacklog', { count: input.leavePending }),
       href: '/dashboard/approvals',
     });
   } else if (input.leavePending > 0) {
     alerts.push({
       id: 'leave-pending',
       severity: 'medium',
-      message: `${input.leavePending} طلب إجازة بانتظار الموافقة`,
+      message: t('leavePending', { count: input.leavePending }),
       href: '/dashboard/approvals',
     });
   }
@@ -130,7 +143,7 @@ export function deriveAlerts(input: AlertInput): HrAlert[] {
     alerts.push({
       id: 'payroll-not-calculated',
       severity: 'high',
-      message: 'رواتب الشهر الحالي لم تُحتسب بعد',
+      message: t('payrollNotCalculated'),
       href: '/dashboard/payroll',
     });
   }
@@ -139,7 +152,7 @@ export function deriveAlerts(input: AlertInput): HrAlert[] {
     alerts.push({
       id: 'absent-no-leave',
       severity: 'high',
-      message: `${input.absentNoLeave} موظفين غائبون بلا إجازة اليوم`,
+      message: t('absentNoLeave', { count: input.absentNoLeave }),
       href: '/dashboard/attendance',
     });
   }
@@ -148,7 +161,7 @@ export function deriveAlerts(input: AlertInput): HrAlert[] {
     alerts.push({
       id: 'docs-expired',
       severity: 'critical',
-      message: `${input.docsExpired} وثيقة منتهية الصلاحية`,
+      message: t('docsExpired', { count: input.docsExpired }),
       href: '/dashboard/hr/documents',
     });
   }
@@ -157,7 +170,7 @@ export function deriveAlerts(input: AlertInput): HrAlert[] {
     alerts.push({
       id: 'docs-expiring-soon',
       severity: 'high',
-      message: `${input.docsExpiringSoon} وثيقة تنتهي خلال 30 يوماً`,
+      message: t('docsExpiringSoon', { count: input.docsExpiringSoon }),
       href: '/dashboard/hr/documents',
     });
   }

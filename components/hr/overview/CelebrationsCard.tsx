@@ -1,14 +1,20 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles } from 'lucide-react';
 import { formatDate } from '@/lib/utils/format';
 import type { HROverview } from '@/hooks/useHROverview';
+import type { Locale } from '@/lib/i18n/config';
 
 interface CelebrationsCardProps {
   items: HROverview['celebrations'];
 }
 
 export function CelebrationsCard({ items }: CelebrationsCardProps) {
+  const t = useTranslations('hr.overview.celebrations');
+  const tYears = useTranslations('hr.overview.yearsLabel');
+  const locale = useLocale() as Locale;
+
   return (
     <div className="rounded-2xl border border-border/60 bg-card/80 backdrop-blur-sm shadow-sm overflow-hidden">
       {/* Header */}
@@ -16,7 +22,7 @@ export function CelebrationsCard({ items }: CelebrationsCardProps) {
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-md shadow-pink-500/15">
           <Sparkles className="h-4 w-4 text-white" />
         </div>
-        <h3 className="font-bold text-sm">مناسبات قريبة</h3>
+        <h3 className="font-bold text-sm">{t('title')}</h3>
       </div>
 
       {/* Body */}
@@ -24,7 +30,7 @@ export function CelebrationsCard({ items }: CelebrationsCardProps) {
         {items && items.length > 0 ? (
           items.map((item) => {
             const emoji = item.kind === 'birthday' ? '🎂' : '🎉';
-            const dayLabel = formatDate(item.date, 'd MMMM');
+            const dayLabel = formatDate(item.date, 'd MMMM', locale);
 
             return (
               <div
@@ -36,7 +42,7 @@ export function CelebrationsCard({ items }: CelebrationsCardProps) {
                   <p className="text-sm font-medium truncate">{item.display_name}</p>
                   {item.kind === 'anniversary' && item.years != null && (
                     <p className="text-xs text-muted-foreground">
-                      {item.years} {item.years === 1 ? 'سنة' : 'سنوات'}
+                      {item.years} {item.years === 1 ? tYears('one') : tYears('other')}
                     </p>
                   )}
                 </div>
@@ -47,7 +53,7 @@ export function CelebrationsCard({ items }: CelebrationsCardProps) {
         ) : (
           /* Phase 13 compact inline stub */
           <div className="px-5 py-5">
-            <p className="text-sm text-muted-foreground">لا توجد مناسبات قريبة</p>
+            <p className="text-sm text-muted-foreground">{t('empty')}</p>
           </div>
         )}
       </div>

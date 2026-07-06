@@ -1,11 +1,13 @@
 import { NextRequest } from 'next/server';
+import { getLocale, getTranslations } from 'next-intl/server';
 import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { logError } from '@/lib/observability/log-error';
-import { computeCelebrations, deriveAlerts } from '@/lib/hr/overview-helpers';
+import { computeCelebrations, deriveAlerts, type AlertTranslator } from '@/lib/hr/overview-helpers';
 import { dubaiDayKey } from '@/lib/utils/format';
-import { MONTH_NAMES_AR } from '@/lib/constants/dates';
+import { monthNamesFor } from '@/lib/constants/dates';
+import type { Locale } from '@/lib/i18n/config';
 import { PAYROLL_WORKING_DAYS_PER_MONTH } from '@/lib/constants/payroll';
 
 // ============================================================
@@ -32,6 +34,14 @@ export async function GET(request: NextRequest) {
   // 1. Auth gate — hr.view is admin-only; returns 401/403 NextResponse if not allowed
   const auth = await requireApiPermission('hr.view');
   if (isApiError(auth)) return auth;
+
+  // Per-request locale — drives the alert messages (t-injection, Approach A)
+  // and the active_period / payroll-trend labels below.
+  const locale = (await getLocale()) as Locale;
+  // next-intl's Translator type is namespace-keyed narrower than the plain
+  // (key, values?) => string shape deriveAlerts expects (kept next-intl-free
+  // for unit testability) — the runtime call shape is identical.
+  const tAlerts = (await getTranslations('hr.overview.alerts')) as unknown as AlertTranslator;
 
   try {
     // 2. Service-role client — bypasses RLS so we can aggregate across all employees
@@ -265,13 +275,14 @@ export async function GET(request: NextRequest) {
       if (!runsByCurrency.has(cur)) runsByCurrency.set(cur, []);
       runsByCurrency.get(cur)!.push(r);
     }
+    const monthNames = monthNamesFor(locale);
     const trend_by_currency = Array.from(runsByCurrency.entries()).map(([currency, cRuns]) => ({
       currency,
       points: cRuns
         .slice(0, 6)
         .reverse()
         .map((r) => ({
-          label: MONTH_NAMES_AR[r.month - 1] ?? String(r.month),
+          label: monthNames[r.month - 1] ?? String(r.month),
           total: Number(r.total_amount) || 0,
         })),
     }));
@@ -287,7 +298,7 @@ export async function GET(request: NextRequest) {
     // ── Evaluations ────────────────────────────────────────────────────────────
     const { data: activePeriods, error: periodsError } = await supabase
       .from('pyra_evaluation_periods')
-      .select('id, name_ar, status')
+      .select('id, name, name_ar, status')
       .eq('status', 'active')
       .limit(1);
 
@@ -341,7 +352,7 @@ export async function GET(request: NextRequest) {
       absentNoLeave: absentNoLeaveCount,
       docsExpired: (expiredDocs ?? []).length,
       docsExpiringSoon: (expiringDocs ?? []).length,
-    });
+    }, tAlerts);
 
     // ── Celebrations (pure helper) ─────────────────────────────────────────────
     const celebrations = computeCelebrations(activeUsers, todayKey);
@@ -389,7 +400,9 @@ export async function GET(request: NextRequest) {
         pending_payments_count: (pendingPaymentsData ?? []).length,
       },
       evaluations: {
-        active_period: activePeriod?.name_ar ?? null,
+        active_period: activePeriod
+          ? (locale === 'ar' ? activePeriod.name_ar : (activePeriod.name || activePeriod.name_ar))
+          : null,
         ...evalCounts,
       },
       alerts,

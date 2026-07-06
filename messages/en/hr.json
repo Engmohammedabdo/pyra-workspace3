@@ -740,6 +740,154 @@
         "lowPerformance": "Low Performance",
         "lineChartName": "Rating"
       }
+    },
+    "overview": {
+      "meta": {
+        "title": "HR — Overview"
+      },
+      "loadError": {
+        "title": "Failed to load HR data",
+        "description": "Please refresh the page or contact technical support"
+      },
+      "daysLabel": {
+        "one": "day",
+        "other": "days"
+      },
+      "yearsLabel": {
+        "one": "year",
+        "other": "years"
+      },
+      "alerts": {
+        "leaveBacklog": "{count} leave requests awaiting approval",
+        "leavePending": "{count} leave request awaiting approval",
+        "payrollNotCalculated": "This month's payroll has not been calculated yet",
+        "absentNoLeave": "{count} employees absent with no leave today",
+        "docsExpired": "{count} expired document(s)",
+        "docsExpiringSoon": "{count} document(s) expiring within 30 days"
+      },
+      "kpiRow": {
+        "headcount": {
+          "title": "Total Employees",
+          "subtitle": "{count} new employee(s) in the last 30 days"
+        },
+        "attendanceToday": {
+          "title": "Attendance Today",
+          "subtitle": "Present: {present} · Absent: {absent}"
+        },
+        "onLeaveToday": {
+          "title": "On Leave Today"
+        },
+        "pendingApprovals": {
+          "title": "Pending Approvals",
+          "leaveBreakdown": "Leave: {count}",
+          "expenseBreakdown": "Expenses: {count}",
+          "timesheetBreakdown": "Timesheets: {count}"
+        },
+        "lastPayrollCost": {
+          "title": "Latest Payroll Cost"
+        },
+        "turnover": {
+          "title": "Departed (90 days)",
+          "subtitle": "Total inactive: {count}"
+        }
+      },
+      "headcountChart": {
+        "title": "Headcount by Department",
+        "totalBadge": "{count} employees",
+        "aria": "Distribution of {total} employees across {count} departments: {list}",
+        "tooltipLabel": "Employees",
+        "empty": "No department data"
+      },
+      "payrollTrendChart": {
+        "title": "Payroll Cost Trend",
+        "currenciesBadge": "{count} currencies",
+        "latestLabel": "Latest: {amount}",
+        "aria": "Payroll cost trend in {currency}. Latest value {amount}",
+        "tooltipLabel": "Total Payroll",
+        "empty": "No payroll data"
+      },
+      "upcomingLeave": {
+        "title": "Upcoming Leave (7 days)",
+        "openAria": "Open the upcoming leave page",
+        "empty": "No upcoming leave in the next seven days"
+      },
+      "evaluationsStatus": {
+        "title": "Evaluations",
+        "openAria": "Open the evaluations page",
+        "pending": "Pending",
+        "submitted": "Submitted",
+        "acknowledged": "Acknowledged",
+        "noActivePeriod": "No active evaluation period right now"
+      },
+      "celebrations": {
+        "title": "Upcoming Occasions",
+        "empty": "No upcoming occasions"
+      },
+      "leaveLiability": {
+        "title": "Leave Liability",
+        "openAria": "Open the leave balances page",
+        "empty": "No paid-leave liability right now"
+      }
+    },
+    "productivity": {
+      "meta": {
+        "title": "Productivity Report | Pyra Workspace"
+      },
+      "page": {
+        "title": "Productivity Report",
+        "subtitle": "Deliveries, on-time rate, review rounds, and attendance — per production employee",
+        "monthPickerAria": "Select month"
+      },
+      "empty": {
+        "title": "No Production Data",
+        "description": "No tasks on the production board for this month yet"
+      },
+      "attendanceLine": "Attendance: {present} present · {late} late · {absent} absent · {hours} hours",
+      "kpis": {
+        "deliveries": "Completed Deliveries",
+        "onTimePct": {
+          "label": "On-Time Rate",
+          "hint": "Based on first review submission"
+        },
+        "avgDelay": {
+          "label": "Average Delay",
+          "value": "{days} days",
+          "hint": "{count} late task(s)"
+        },
+        "avgRounds": {
+          "label": "Review Rounds",
+          "hint": "Average per delivery"
+        },
+        "avgFirstSubmission": {
+          "label": "First Draft Speed",
+          "value": "{days} days",
+          "hint": "From task creation"
+        },
+        "avgReviewWait": {
+          "label": "Your Review Wait",
+          "value": "{hours} hrs",
+          "hint": "Average per round"
+        },
+        "openOverdue": {
+          "label": "Overdue & Not Submitted"
+        }
+      },
+      "taskDetailsToggle": "Task details ({count})",
+      "table": {
+        "task": "Task",
+        "deadline": "Deadline",
+        "firstSubmission": "First Submission",
+        "commitment": "Commitment",
+        "rounds": "Rounds",
+        "finalDelivery": "Final Delivery",
+        "onTime": "On time",
+        "late": "Late {days} days",
+        "notDelivered": "Not delivered"
+      },
+      "footer": {
+        "onTimeDisclaimer": "On-time is measured on the first review submission (decision locked 2026-07-03) — review wait time and rounds are separate figures.",
+        "derivedDisclaimer": "Figures are derived from the task stage-history log — no stored counters."
+      }
     }
   }
 }

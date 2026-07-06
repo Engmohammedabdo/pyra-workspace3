@@ -256,7 +256,8 @@
       "onboardingNotFound": "Onboarding record not found",
       "documentTypeNotFound": "Document type not found",
       "invalidJsonBody": "Invalid request — must be JSON",
-      "namesRequired": "Name and Arabic name are required"
+      "namesRequired": "Name and Arabic name are required",
+      "productivityMonthFormatInvalid": "Invalid month format — YYYY-MM required"
     },
     "attendance": {
       "alreadyClockedIn": "You have already clocked in today",
