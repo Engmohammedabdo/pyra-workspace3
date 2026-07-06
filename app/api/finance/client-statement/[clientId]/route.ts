@@ -62,7 +62,7 @@ export async function GET(
     // 4. Fetch contracts for this client
     const { data: contracts, error: ctrError } = await supabase
       .from('pyra_contracts')
-      .select('id, title, total_value, status, amount_billed, amount_collected')
+      .select('id, title, total_value, status, amount_billed, amount_collected, currency')
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
 
@@ -119,15 +119,23 @@ export async function GET(
         0
       );
 
+    // Same doctrine as the four aggregates above — never sum across currencies.
     const contract_value = contractList.reduce(
-      (sum: number, c: { total_value: number }) => sum + Number(c.total_value),
+      (sum: number, c: { total_value: number; currency: string | null }) =>
+        sum + toAED(Number(c.total_value), c.currency || 'AED'),
       0
     );
 
     return apiSuccess({
       client,
       invoices: invoiceList,
-      payments: paymentList,
+      // Payments have no currency column by design — a payment's currency is
+      // its invoice's currency (Finance Remediation lock). Thread it onto each
+      // row so the UI never assumes AED.
+      payments: paymentList.map((p) => ({
+        ...p,
+        currency: currencyOf.get(p.invoice_id) || 'AED',
+      })),
       contracts: contractList,
       summary: {
         total_invoiced: Math.round(total_invoiced * 100) / 100,

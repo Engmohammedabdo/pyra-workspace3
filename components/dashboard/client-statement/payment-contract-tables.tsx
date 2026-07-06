@@ -52,7 +52,8 @@ export function PaymentsTable({ payments, loading, invoiceNumberMap }: { payment
             ) : payments.map(p => (
               <tr key={p.id} className="border-b hover:bg-muted/30 transition-colors">
                 <td className="p-3 text-muted-foreground">{formatDate(p.payment_date)}</td>
-                <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(p.amount)}</td>
+                {/* p.currency = the payment's INVOICE currency, threaded by the statement API */}
+                <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(p.amount, p.currency ?? 'AED')}</td>
                 <td className="p-3">{METHOD_MAP[p.method] || p.method}</td>
                 <td className="p-3 text-muted-foreground">{invoiceNumberMap[p.invoice_id] || p.invoice_id}</td>
               </tr>
@@ -95,10 +96,10 @@ export function ContractsTable({ contracts, loading }: { contracts: any[]; loadi
               return (
                 <tr key={c.id} className="border-b hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-medium">{c.title || '—'}</td>
-                  <td className="p-3 font-mono">{formatCurrency(c.total_value)}</td>
+                  <td className="p-3 font-mono">{formatCurrency(c.total_value, c.currency ?? 'AED')}</td>
                   <td className="p-3"><Badge variant={st.variant}>{st.label}</Badge></td>
-                  <td className="p-3 font-mono">{formatCurrency(c.amount_billed)}</td>
-                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(c.amount_collected)}</td>
+                  <td className="p-3 font-mono">{formatCurrency(c.amount_billed, c.currency ?? 'AED')}</td>
+                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(c.amount_collected, c.currency ?? 'AED')}</td>
                 </tr>
               );
             })}

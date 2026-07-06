@@ -16,6 +16,7 @@ interface Invoice {
   amount_paid: number;
   amount_due: number;
   status: string;
+  currency: string | null;
 }
 
 const STATUS_MAP: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
@@ -66,9 +67,9 @@ export function InvoicesTable({ invoices, loading }: { invoices: Invoice[]; load
                     </Link>
                   </td>
                   <td className="p-3 text-muted-foreground">{formatDate(inv.issue_date)}</td>
-                  <td className="p-3 font-mono">{formatCurrency(inv.total)}</td>
-                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(inv.amount_paid)}</td>
-                  <td className="p-3 font-mono text-orange-600 dark:text-orange-400">{formatCurrency(inv.amount_due)}</td>
+                  <td className="p-3 font-mono">{formatCurrency(inv.total, inv.currency ?? 'AED')}</td>
+                  <td className="p-3 font-mono text-green-600 dark:text-green-400">{formatCurrency(inv.amount_paid, inv.currency ?? 'AED')}</td>
+                  <td className="p-3 font-mono text-orange-600 dark:text-orange-400">{formatCurrency(inv.amount_due, inv.currency ?? 'AED')}</td>
                   <td className="p-3"><Badge variant={st.variant}>{st.label}</Badge></td>
                 </tr>
               );
