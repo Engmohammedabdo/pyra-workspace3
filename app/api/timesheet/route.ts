@@ -6,6 +6,7 @@ import { generateId } from '@/lib/utils/id';
 import { hasPermission } from '@/lib/auth/rbac';
 import { TIMESHEET_STATUS } from '@/lib/constants/statuses';
 import { logActivity, ENTITY_TYPES, ACTIVITY_ACTIONS } from '@/lib/api/activity';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 
 export async function GET(req: NextRequest) {
   // Gate first, then service-role client (Gap #3 Phase 5 pattern).
@@ -55,9 +56,10 @@ export async function GET(req: NextRequest) {
   return apiSuccess(data);
 }
 
-// UAE default work schedule: Sunday-Thursday, 09:00-18:00, 8 hours/day
-const UAE_DEFAULT_SCHEDULE = {
-  work_days: [0, 1, 2, 3, 4], // Sun=0, Mon=1, ..., Thu=4
+// Default work schedule fallback (user has no work_schedule_id):
+// Pyramedia's Monday–Saturday work week (weekend = Sunday), 09:00-18:00, 8 hours/day
+const DEFAULT_SCHEDULE = {
+  work_days: [...DEFAULT_WORK_DAYS] as number[], // 0=Sun .. 6=Sat
   start_time: '09:00',
   end_time: '18:00',
   daily_hours: 8,
@@ -77,7 +79,7 @@ async function detectOvertime(
   workScheduleId?: string | null,
 ): Promise<{ is_overtime: boolean; overtime_multiplier: number } | null> {
   // Determine the schedule
-  let schedule = UAE_DEFAULT_SCHEDULE;
+  let schedule = DEFAULT_SCHEDULE;
 
   if (workScheduleId) {
     const { data: ws } = await supabase
@@ -87,10 +89,10 @@ async function detectOvertime(
       .single();
     if (ws) {
       schedule = {
-        work_days: ws.work_days || UAE_DEFAULT_SCHEDULE.work_days,
-        start_time: ws.start_time || UAE_DEFAULT_SCHEDULE.start_time,
-        end_time: ws.end_time || UAE_DEFAULT_SCHEDULE.end_time,
-        daily_hours: ws.daily_hours || UAE_DEFAULT_SCHEDULE.daily_hours,
+        work_days: ws.work_days || DEFAULT_SCHEDULE.work_days,
+        start_time: ws.start_time || DEFAULT_SCHEDULE.start_time,
+        end_time: ws.end_time || DEFAULT_SCHEDULE.end_time,
+        daily_hours: ws.daily_hours || DEFAULT_SCHEDULE.daily_hours,
         overtime_multiplier: ws.overtime_multiplier || 1.5,
         weekend_multiplier: ws.weekend_multiplier || 2.0,
       };

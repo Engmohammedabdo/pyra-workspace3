@@ -3,6 +3,7 @@ import { requireApiPermission, isApiError } from '@/lib/api/auth';
 import { createServiceRoleClient } from '@/lib/supabase/server';
 import { apiSuccess, apiServerError } from '@/lib/api/response';
 import { hasPermission } from '@/lib/auth/rbac';
+import { DEFAULT_WORK_DAYS } from '@/lib/constants/auth';
 
 // =============================================================
 // GET /api/dashboard/attendance/summary
@@ -62,7 +63,7 @@ export async function GET(req: NextRequest) {
       .eq('username', username)
       .single();
 
-    let workDays: number[] = [0, 1, 2, 3, 4]; // Default: Sun-Thu
+    let workDays: readonly number[] = DEFAULT_WORK_DAYS;
 
     if (userRecord?.work_schedule_id) {
       const { data: schedule } = await supabase
