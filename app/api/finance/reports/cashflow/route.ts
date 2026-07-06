@@ -183,7 +183,7 @@ export async function GET(req: NextRequest) {
       // i18n-exempt: category names are DB data (pyra_expense_categories.name_ar);
       // this fallback covers unmapped/null categories and stays AR-only until
       // the categories table gains a name_en column (out of scope, Phase 4).
-      const cat = (catId && categoryNames[catId]) || 'أخرى';
+      const cat = (catId && categoryNames[catId]) || 'أخرى'; // i18n-exempt: DB-data category fallback (name_ar column), AR-only until name_en exists
       categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) +
         toAED(Number(exp.amount) + Number(exp.vat_amount || 0), exp.currency);
     }
