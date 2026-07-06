@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import {
@@ -35,6 +35,10 @@ export default function MobileStageSheet({
   onSelectStage,
 }: MobileStageSheetProps) {
   const t = useTranslations('crm.pipeline.mobileStageSheet');
+  const locale = useLocale();
+  // Stage rows are bilingual DB data (name + name_ar) — pick by locale.
+  const stageName = (s: { name: string; name_ar: string }) =>
+    locale === 'ar' ? s.name_ar : (s.name || s.name_ar);
   const otherStages = stages.filter((s) => s.id !== lead.stage_id);
 
   return (
@@ -66,7 +70,7 @@ export default function MobileStageSheet({
                   onSelectStage(stage.id);
                   onOpenChange(false);
                 }}
-                aria-label={t('moveToAria', { stage: stage.name_ar })}
+                aria-label={t('moveToAria', { stage: stageName(stage) })}
                 className="w-full px-4 py-3 rounded-lg hover:bg-muted/60 transition-colors flex items-center gap-3"
               >
                 <span
@@ -77,7 +81,7 @@ export default function MobileStageSheet({
                   aria-hidden
                 />
                 <span className="flex-1 text-start font-medium text-sm">
-                  {stage.name_ar}
+                  {stageName(stage)}
                 </span>
                 {/* ChevronLeft = visual "forward" arrow in RTL (points toward
                     the row's end, since text flows right-to-left). Phase 15.1

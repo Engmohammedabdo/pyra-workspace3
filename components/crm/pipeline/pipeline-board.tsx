@@ -79,6 +79,9 @@ export function PipelineBoard({
   const t = useTranslations('crm.pipeline');
   const locale = useLocale() as Locale;
   const dir = dirFor(locale);
+  // Stage rows are bilingual DB data (name + name_ar) — pick by locale.
+  const stageName = (s: { name: string; name_ar: string } | undefined) =>
+    s ? (locale === 'ar' ? s.name_ar : (s.name || s.name_ar)) : undefined;
   const isDesktop = useIsDesktop();
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
 
@@ -206,7 +209,7 @@ export function PipelineBoard({
                   )}
                 >
                   <span className={cn('size-1.5 rounded-full', ACCENT_DOT[s.color] ?? 'bg-current')} aria-hidden />
-                  <span>{s.name_ar}</span>
+                  <span>{stageName(s)}</span>
                   <span className={cn('tabular-nums', isActive ? 'text-background/80' : 'text-muted-foreground/70')}>
                     {count}
                   </span>
@@ -220,7 +223,7 @@ export function PipelineBoard({
           {effectiveActiveId && (grouped.get(effectiveActiveId)?.length ?? 0) === 0 ? (
             <PipelineEmpty
               stageLabel={
-                stages.find((s) => s.id === effectiveActiveId)?.name_ar ?? t('board.emptyStageFallback')
+                stageName(stages.find((s) => s.id === effectiveActiveId)) ?? t('board.emptyStageFallback')
               }
             />
           ) : (

@@ -10,6 +10,7 @@
  */
 
 import { useDroppable } from '@dnd-kit/core';
+import { useLocale } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { PipelineCard } from './pipeline-card';
 import { PipelineEmpty } from './pipeline-empty';
@@ -70,6 +71,9 @@ export function PipelineColumn({
   selectedIds,
   onToggleSelect,
 }: PipelineColumnProps) {
+  const locale = useLocale();
+  // Stage rows are bilingual DB data (name + name_ar) — pick by locale.
+  const stageName = locale === 'ar' ? stage.name_ar : (stage.name || stage.name_ar);
   const total = leads.reduce((acc, l) => acc + (Number(l.expected_value) || 0), 0);
   const headerTone = HEADER_TONE[stage.color] ?? 'border-t-muted-foreground/40';
   const countTone = COUNT_TONE[stage.color] ?? 'bg-muted text-muted-foreground';
@@ -94,7 +98,7 @@ export function PipelineColumn({
     >
       <header className="px-3.5 py-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold truncate">{stage.name_ar}</h3>
+          <h3 className="text-sm font-semibold truncate">{stageName}</h3>
           {total > 0 && (
             <p className="text-xs text-muted-foreground tabular-nums mt-0.5">
               {formatCurrency(total, 'AED')}
@@ -113,7 +117,7 @@ export function PipelineColumn({
 
       <div className="flex-1 px-2 pb-3 space-y-2 overflow-y-auto">
         {leads.length === 0 ? (
-          <PipelineEmpty stageLabel={stage.name_ar} />
+          <PipelineEmpty stageLabel={stageName} />
         ) : (
           leads.map((lead) => (
             <PipelineCard

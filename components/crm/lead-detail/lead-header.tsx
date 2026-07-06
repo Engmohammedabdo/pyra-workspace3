@@ -13,7 +13,7 @@
  */
 
 import Link from 'next/link';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { cn } from '@/lib/utils/cn';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -97,8 +97,10 @@ export function LeadHeader({
   const stageLabelFor = useStatusLabels('pipelineStage');
   const leadTypeLabelFor = useStatusLabels('leadType');
   const isArchived = !!lead.archived_at;
+  const locale = useLocale();
   const stage = stages?.find((s) => s.id === lead.stage_id);
-  const stageLabel = stage?.name_ar
+  // Bilingual DB stage row — pick by locale; catalog label as fallback.
+  const stageLabel = (locale === 'ar' ? stage?.name_ar : (stage?.name || stage?.name_ar))
     ?? (lead.stage_id ? stageLabelFor(lead.stage_id as PipelineStageId) : null);
   const wa = whatsAppHref(
     lead.phone,
@@ -159,7 +161,7 @@ export function LeadHeader({
                 {stageLabel && <LeadStagePill label={stageLabel} color={stage?.color} />}
                 {lead.lead_type && (
                   <Badge variant="outline" className="bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/40 max-md:bg-orange-500/20 max-md:text-orange-200 max-md:border-orange-400/30">
-                    {leadTypeLabelFor(lead.lead_type as LeadType) ?? lead.lead_type.toUpperCase()}
+                    {leadTypeLabelFor(lead.lead_type as LeadType)}
                   </Badge>
                 )}
                 <LeadPriorityBadge priority={lead.priority} />

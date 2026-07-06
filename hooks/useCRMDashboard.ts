@@ -22,7 +22,8 @@ export interface CRMKPIs {
 
 export interface CRMFunnelStage {
   stage_id: PipelineStageId;
-  label_ar: string;
+  /** @deprecated legacy server field — no client reads; stage labels resolve client-side via useStatusLabels('pipelineStage') */
+  label_ar?: string;
   count: number;
   total_value: number;
 }
